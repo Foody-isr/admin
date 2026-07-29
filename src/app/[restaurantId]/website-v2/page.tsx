@@ -15,10 +15,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   getWebsiteDraft,
+  saveWebsiteDraft,
   publishWebsiteDraft,
   discardWebsiteDraft,
   type DraftResponse,
   type DraftPagePayload,
+  type DraftStatePayload,
   type DraftSectionPayload,
 } from '@/lib/api';
 
@@ -125,6 +127,28 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
     }
   }
 
+  // Persist a modified draft state (autosave-style) and refresh from the server.
+  async function saveState(next: DraftStatePayload) {
+    setDraft((d) => (d ? { ...d, state: next, draft_dirty: true } : d)); // optimistic
+    setBusy(true);
+    try {
+      const d = await saveWebsiteDraft(rid, next);
+      setDraft(d);
+    } catch (e: any) {
+      setError(e?.message || 'Enregistrement impossible');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleSection(sectionId: number | string) {
+    if (!draft) return;
+    const sections = draft.state.sections.map((s) =>
+      (s.id ?? s.tmp_id) === sectionId ? { ...s, is_visible: !s.is_visible } : s,
+    );
+    void saveState({ ...draft.state, sections });
+  }
+
   function selectPage(slug: string) {
     setActivePage(slug);
     setActiveSite(null);
@@ -211,6 +235,8 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
               tab={tab}
               setTab={setTab}
               sections={pageSections}
+              onToggle={toggleSection}
+              busy={busy}
             />
           ) : activeSite ? (
             <SitePanel siteKey={activeSite} />
@@ -263,11 +289,15 @@ function PageEditor({
   tab,
   setTab,
   sections,
+  onToggle,
+  busy,
 }: {
   page: DraftPagePayload;
   tab: Tab;
   setTab: (t: Tab) => void;
   sections: DraftSectionPayload[];
+  onToggle: (id: number | string) => void;
+  busy: boolean;
 }) {
   const overrides = page.appearance_overrides ?? {};
   return (
@@ -301,11 +331,23 @@ function PageEditor({
           {sections.map((s) => (
             <div
               key={s.id ?? s.tmp_id}
-              className="flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-2.5 py-2 text-xs"
+              className={
+                'flex items-center gap-2 rounded-md border px-2.5 py-2 text-xs ' +
+                (s.is_visible ? 'border-neutral-200 bg-white' : 'border-neutral-200 bg-neutral-100')
+              }
             >
               <span className="h-2 w-2 rounded-full bg-neutral-300" />
-              <span className="text-neutral-700">{sectionLabel(s.section_type)}</span>
-              {!s.is_visible && <span className="ml-auto text-[10px] text-neutral-400">masqué</span>}
+              <span className={s.is_visible ? 'text-neutral-700' : 'text-neutral-400 line-through'}>
+                {sectionLabel(s.section_type)}
+              </span>
+              <button
+                onClick={() => onToggle(s.id ?? s.tmp_id!)}
+                disabled={busy}
+                title={s.is_visible ? 'Masquer' : 'Afficher'}
+                className="ml-auto rounded px-1.5 py-0.5 text-sm hover:bg-neutral-100 disabled:opacity-40"
+              >
+                {s.is_visible ? '👁' : '🚫'}
+              </button>
             </div>
           ))}
           <button className="mt-1 w-full rounded-md border border-dashed border-neutral-300 py-2 text-xs text-neutral-500 hover:bg-white">
