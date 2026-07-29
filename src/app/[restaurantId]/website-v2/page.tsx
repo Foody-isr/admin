@@ -37,6 +37,8 @@ import { SectionSettingsPanel, SECTION_TYPE_META, getDefaultContent } from '@/co
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
+import CheckoutEditor, { type CheckoutSubTab } from '@/components/website/CheckoutEditor';
+import type { CheckoutConfig } from '@/lib/api';
 
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://dev-app.foody-pos.co.il';
 
@@ -494,6 +496,8 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
               onSaveSettings={(s) => updatePageSettings(page.slug, s)}
               onUpdatePage={(patch) => updatePage(page.slug, patch)}
               onRenameSlug={(raw) => renamePageSlug(page, raw)}
+              checkoutConfig={(((draft?.state.config ?? {}) as Record<string, unknown>).checkout_config ?? null) as CheckoutConfig | null}
+              onCheckoutChange={(c) => updateConfig({ checkout_config: c } as Partial<WebsiteConfig>)}
             />
           ) : activeSite === 'nav' && draft ? (
             <NavbarEditor draft={draft} onSave={saveState} busy={busy} />
@@ -640,6 +644,8 @@ function PageEditor({
   onSaveSettings,
   onUpdatePage,
   onRenameSlug,
+  checkoutConfig,
+  onCheckoutChange,
 }: {
   page: DraftPagePayload;
   tab: Tab;
@@ -654,6 +660,8 @@ function PageEditor({
   onSaveSettings: (settings: Record<string, unknown>) => void;
   onUpdatePage: (patch: Partial<DraftPagePayload>) => void;
   onRenameSlug: (raw: string) => void;
+  checkoutConfig: CheckoutConfig | null;
+  onCheckoutChange: (c: CheckoutConfig) => void;
 }) {
   // Which section (if any) is open in the content editor, addressed by its real
   // id or provisional tmp_id. Cleared when the page changes so a stale selection
@@ -847,9 +855,38 @@ function PageEditor({
           </label>
 
           <PageCommerce page={page} rid={rid} onSave={onSaveSettings} busy={busy} />
+
+          {page.type === 'order' && (
+            <div className="mt-3 border-t border-neutral-200 pt-3">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                Caisse (paiement)
+              </div>
+              <CheckoutSection value={checkoutConfig} onChange={onCheckoutChange} />
+            </div>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+// Checkout editor for the order page. checkout_config is a site-wide config
+// field (there is one checkout flow), edited here from the order page's Réglages.
+// Holds the delivery/pickup/confirmation sub-tab locally; edits persist through
+// updateConfig on the draft.
+function CheckoutSection({ value, onChange }: {
+  value: CheckoutConfig | null;
+  onChange: (c: CheckoutConfig) => void;
+}) {
+  const [subTab, setSubTab] = useState<CheckoutSubTab>('delivery');
+  return (
+    <CheckoutEditor
+      value={value}
+      onChange={onChange}
+      placesAvailable
+      subTab={subTab}
+      onSubTabChange={setSubTab}
+    />
   );
 }
 
