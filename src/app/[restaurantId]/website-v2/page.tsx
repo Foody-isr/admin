@@ -12,7 +12,7 @@
 // merge. Verified by tsc + next build; full runtime verification runs against
 // the v2 server on dev.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getWebsiteDraft,
@@ -296,25 +296,70 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
             </div>
           </div>
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
-            {previewSrc ? (
-              <iframe
-                key={previewSrc + device}
-                src={previewSrc}
-                title="Aperçu"
-                className="border-0 bg-white shadow-xl"
-                style={
-                  device === 'mobile'
-                    ? { width: 390, height: '100%', borderRadius: 16 }
-                    : { width: '100%', height: '100%' }
-                }
-              />
-            ) : (
-              <p className="text-sm text-neutral-400">Aucun aperçu.</p>
-            )}
+            <LivePreview src={previewSrc} device={device} state={draft?.state ?? null} />
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Live preview ─────────────────────────────────────────────────────────────
+// Renders the guest site in an iframe and streams the draft into it over
+// postMessage, reusing foodyweb's existing preview protocol (lib/preview-mode.ts).
+// In ?preview=1 mode foodyweb announces itself with 'foody-editor-ready' and then
+// renders its sections + navbar from the 'foody-draft-state' we post — so every
+// edit shows live, before publishing. The iframe only reloads when the previewed
+// page or device changes (key), never on an edit, so form state is never lost.
+function LivePreview({ src, device, state }: {
+  src: string;
+  device: Device;
+  state: DraftStatePayload | null;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const readyRef = useRef(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // Handshake: reply to 'foody-editor-ready' with the current draft. foodyweb
+  // emits it once its listeners mount (and again after each reload).
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.source !== iframeRef.current?.contentWindow) return;
+      if (e.data?.type === 'foody-editor-ready') {
+        readyRef.current = true;
+        if (stateRef.current) {
+          iframeRef.current?.contentWindow?.postMessage(
+            { type: 'foody-draft-state', state: stateRef.current }, '*',
+          );
+        }
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
+  // Re-post whenever the draft changes (after the handshake has completed).
+  useEffect(() => {
+    if (!readyRef.current || !state) return;
+    iframeRef.current?.contentWindow?.postMessage({ type: 'foody-draft-state', state }, '*');
+  }, [state]);
+
+  if (!src) return <p className="text-sm text-neutral-400">Aucun aperçu.</p>;
+  return (
+    <iframe
+      ref={iframeRef}
+      key={src + device}
+      src={src}
+      title="Aperçu"
+      onLoad={() => { readyRef.current = false; }}
+      className="border-0 bg-white shadow-xl"
+      style={
+        device === 'mobile'
+          ? { width: 390, height: '100%', borderRadius: 16 }
+          : { width: '100%', height: '100%' }
+      }
+    />
   );
 }
 
