@@ -18,11 +18,13 @@ import {
   saveWebsiteDraft,
   publishWebsiteDraft,
   discardWebsiteDraft,
+  getRestaurant,
   type DraftResponse,
   type DraftPagePayload,
   type DraftStatePayload,
   type DraftSectionPayload,
 } from '@/lib/api';
+import { NavbarEditor } from './NavbarEditor';
 
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://dev-app.foody-pos.co.il';
 
@@ -64,13 +66,15 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
   const [tab, setTab] = useState<Tab>('contenu');
   const [device, setDevice] = useState<Device>('mobile');
   const [busy, setBusy] = useState(false);
+  const [slug, setSlug] = useState('');
 
   useEffect(() => {
     let alive = true;
-    getWebsiteDraft(rid)
-      .then((d) => {
+    Promise.all([getWebsiteDraft(rid), getRestaurant(rid).catch(() => null)])
+      .then(([d, r]) => {
         if (!alive) return;
         setDraft(d);
+        if (r?.slug) setSlug(r.slug);
         const first = d.state.pages?.[0]?.slug ?? null;
         setActivePage(first);
         setLoading(false);
@@ -101,7 +105,7 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
           ? '/catering'
           : `/${page.slug}`
     : '';
-  const previewSrc = draft ? `${WEB_URL}/r/${resolveSlug(draft)}${previewPath}?preview=1` : '';
+  const previewSrc = slug ? `${WEB_URL}/r/${slug}${previewPath}?preview=1` : '';
 
   async function onPublish() {
     setBusy(true);
@@ -238,6 +242,8 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
               onToggle={toggleSection}
               busy={busy}
             />
+          ) : activeSite === 'nav' && draft ? (
+            <NavbarEditor draft={draft} onSave={saveState} busy={busy} />
           ) : activeSite ? (
             <SitePanel siteKey={activeSite} />
           ) : (
@@ -489,11 +495,6 @@ function matchesPage(s: DraftSectionPayload & { page_id?: number }, page: DraftP
   if (!page) return false;
   if (typeof s.page_id === 'number' && typeof page.id === 'number') return s.page_id === page.id;
   return s.page === page.slug;
-}
-
-function resolveSlug(draft: DraftResponse): string {
-  const cfg = draft.state.config as Record<string, any>;
-  return cfg?.slug || cfg?.restaurant_slug || '';
 }
 
 function sectionLabel(type: string): string {
