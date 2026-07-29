@@ -20,15 +20,22 @@ import {
   publishWebsiteDraft,
   discardWebsiteDraft,
   getRestaurant,
+  getThemeCatalog,
   type DraftResponse,
   type DraftPagePayload,
   type DraftStatePayload,
   type DraftSectionPayload,
   type WebsiteSection,
+  type WebsiteConfig,
+  type ThemeCatalog,
+  type Restaurant,
 } from '@/lib/api';
 import { NavbarEditor } from './NavbarEditor';
 import { PageCommerce } from '@/components/website/PageCommerce';
 import { SectionSettingsPanel } from '@/components/website/SectionEditors';
+import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
+import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
+import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
 
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://dev-app.foody-pos.co.il';
 
@@ -72,6 +79,12 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
   const [device, setDevice] = useState<Device>('mobile');
   const [busy, setBusy] = useState(false);
   const [slug, setSlug] = useState('');
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [themeCatalog, setThemeCatalog] = useState<ThemeCatalog | null>(null);
+
+  useEffect(() => {
+    getThemeCatalog().then(setThemeCatalog).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -79,7 +92,10 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
       .then(([d, r]) => {
         if (!alive) return;
         setDraft(d);
-        if (r?.slug) setSlug(r.slug);
+        if (r) {
+          setRestaurant(r);
+          if (r.slug) setSlug(r.slug);
+        }
         const first = (d.state.pages ?? []).filter((p) => p.slug !== '_site')[0]?.slug ?? null;
         setActivePage(first);
         setLoading(false);
@@ -206,6 +222,16 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
     void saveState({ ...draft.state, pages });
   }
 
+  // Merge a site-wide config patch (theme colours, typography, logo, favicon…)
+  // into the draft config and persist. WebsiteConfig and DraftConfigPayload share
+  // snake_case field names, so the editable subset merges directly; fields the
+  // draft doesn't carry (id, restaurant_id…) are dropped server-side on save.
+  function updateConfig(patch: Partial<WebsiteConfig>) {
+    if (!draft) return;
+    const config = { ...draft.state.config, ...patch } as DraftStatePayload['config'];
+    void saveState({ ...draft.state, config });
+  }
+
   function selectPage(slug: string) {
     setActivePage(slug);
     setActiveSite(null);
@@ -311,6 +337,17 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
             />
           ) : activeSite === 'nav' && draft ? (
             <NavbarEditor draft={draft} onSave={saveState} busy={busy} />
+          ) : activeSite === 'base' && draft && themeCatalog ? (
+            <BaseThemePanel
+              config={draft.state.config as unknown as WebsiteConfig}
+              catalog={themeCatalog}
+              onUpdate={updateConfig}
+              rid={rid}
+              restaurant={restaurant}
+              onRestaurantUpdate={setRestaurant}
+            />
+          ) : activeSite === 'base' ? (
+            <p className="text-sm text-neutral-400">Chargement du thème…</p>
           ) : activeSite ? (
             <SitePanel siteKey={activeSite} />
           ) : (
@@ -358,6 +395,17 @@ function LivePreview({ src, device, state }: {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // Post the draft to the iframe on both channels foodyweb listens on:
+  //  • foody-draft-state → sections + navbar (RestaurantLanding, usePageSections,
+  //    OrderExperience, SiteNavbar)
+  //  • foody-theme-preview → theme colours + typography (useResolvedTheme applies
+  //    the config fields as a Partial<WebsiteConfig> override)
+  function postDraft(win: Window | null | undefined, s: DraftStatePayload | null) {
+    if (!win || !s) return;
+    win.postMessage({ type: 'foody-draft-state', state: s }, '*');
+    win.postMessage({ type: 'foody-theme-preview', ...(s.config as Record<string, unknown>) }, '*');
+  }
+
   // Handshake: reply to 'foody-editor-ready' with the current draft. foodyweb
   // emits it once its listeners mount (and again after each reload).
   useEffect(() => {
@@ -365,11 +413,7 @@ function LivePreview({ src, device, state }: {
       if (e.source !== iframeRef.current?.contentWindow) return;
       if (e.data?.type === 'foody-editor-ready') {
         readyRef.current = true;
-        if (stateRef.current) {
-          iframeRef.current?.contentWindow?.postMessage(
-            { type: 'foody-draft-state', state: stateRef.current }, '*',
-          );
-        }
+        postDraft(iframeRef.current?.contentWindow, stateRef.current);
       }
     }
     window.addEventListener('message', onMessage);
@@ -378,8 +422,9 @@ function LivePreview({ src, device, state }: {
 
   // Re-post whenever the draft changes (after the handshake has completed).
   useEffect(() => {
-    if (!readyRef.current || !state) return;
-    iframeRef.current?.contentWindow?.postMessage({ type: 'foody-draft-state', state }, '*');
+    if (!readyRef.current) return;
+    postDraft(iframeRef.current?.contentWindow, state);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   if (!src) return <p className="text-sm text-neutral-400">Aucun aperçu.</p>;
@@ -553,6 +598,74 @@ function PageEditor({
           <Field label="Visible dans la nav">{page.nav_visible === false ? 'Non' : 'Oui'}</Field>
           <PageCommerce page={page} rid={rid} onSave={onSaveSettings} busy={busy} />
         </div>
+      )}
+    </div>
+  );
+}
+
+// "Base : thème & typo" — the site-wide appearance editor. Reuses the same
+// panels as the menu/theme editor (ThemesPanel/TypographyPanel/BrandingPanel);
+// they read/write WebsiteConfig fields, which map 1:1 onto the draft config via
+// updateConfig, so edits persist and preview live through foody-draft-state.
+function BaseThemePanel({
+  config,
+  catalog,
+  onUpdate,
+  rid,
+  restaurant,
+  onRestaurantUpdate,
+}: {
+  config: WebsiteConfig;
+  catalog: ThemeCatalog;
+  onUpdate: (patch: Partial<WebsiteConfig>) => void;
+  rid: number;
+  restaurant: Restaurant | null;
+  onRestaurantUpdate: (r: Restaurant) => void;
+}) {
+  const [sub, setSub] = useState<'colors' | 'typo' | 'logo'>('colors');
+  const subs: [typeof sub, string][] = [
+    ['colors', 'Couleurs'],
+    ['typo', 'Typographie'],
+    ['logo', 'Logo & favicon'],
+  ];
+  return (
+    <div>
+      <div className="mb-2 text-sm font-bold text-neutral-900">Base : thème & typo</div>
+      <p className="mb-3 text-[11px] text-neutral-400">S&apos;applique à tout le site.</p>
+      <div className="mb-3 flex gap-1">
+        {subs.map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setSub(k)}
+            className={
+              'rounded-md px-2.5 py-1 text-xs font-medium ' +
+              (sub === k ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-600')
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {sub === 'colors' && <ThemesPanel config={config} catalog={catalog} onUpdate={onUpdate} />}
+      {sub === 'typo' && (
+        <TypographyPanel
+          config={config}
+          catalog={catalog}
+          onUpdate={onUpdate}
+          restaurantId={rid}
+          heroNameFont={config.hero_name_font ?? ''}
+          onHeroNameFontChange={(f) => onUpdate({ hero_name_font: f })}
+          heroSample={restaurant?.name}
+        />
+      )}
+      {sub === 'logo' && (
+        <BrandingPanel
+          config={config}
+          onUpdate={onUpdate}
+          restaurantId={rid}
+          restaurant={restaurant}
+          onRestaurantUpdate={onRestaurantUpdate}
+        />
       )}
     </div>
   );
