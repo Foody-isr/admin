@@ -41,6 +41,17 @@ type HeroCoverLayout = 'card' | 'logo' | 'bare';
 const asHeroCoverLayout = (v: string | undefined | null): HeroCoverLayout =>
   v === 'logo' || v === 'bare' ? v : 'card';
 
+/** Human label for the page currently being edited (for the top-bar context). */
+function activePageLabelFor(activePage: string, pages: WebsitePageMeta[]): string {
+  switch (activePage) {
+    case 'home': return 'Accueil';
+    case 'menu': return 'Page de commande';
+    case 'catering': return 'Traiteur';
+    case '_site': return 'Pied de page';
+    default: return pages.find((p) => p.slug === activePage)?.label ?? activePage;
+  }
+}
+
 type PreviewMessage = {
   type: 'foody-theme-preview';
   themeId: string;
@@ -1080,34 +1091,50 @@ export default function WebsitePage() {
             </svg>
           </button>
           <div className="flex flex-col leading-tight">
-            <span className="text-[9px] uppercase tracking-[0.12em] text-fg-secondary">Site web</span>
+            <span className="text-[9px] uppercase tracking-[0.12em] text-fg-secondary">
+              {editorMode === 'pages' ? 'Page en cours' : 'Site web'}
+            </span>
             <span className="text-[13px] font-semibold text-fg-primary truncate max-w-[180px]">
-              {restaurant?.name ?? 'Sans titre'}
+              {editorMode === 'pages'
+                ? activePageLabelFor(activePage, pages)
+                : (restaurant?.name ?? 'Sans titre')}
             </span>
           </div>
         </div>
 
-        {/* Center: mode tabs (Pages / Thème / Paramètres) */}
-        <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--surface-subtle)' }}>
-          {(['pages', 'theme', 'checkout', 'settings'] as EditorMode[]).map((m) => {
-            const label = m === 'pages' ? 'Pages'
-              : m === 'theme' ? 'Thème'
-              : m === 'checkout' ? 'Commande'
-              : 'Paramètres';
-            const active = editorMode === m;
-            return (
-              <button
-                key={m}
-                onClick={() => { setEditorMode(m); if (m !== 'pages') setSelectedSectionId(null); }}
-                className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition ${
-                  active ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
-                }`}
-                style={active ? { background: 'var(--surface)' } : undefined}
-              >
-                {label}
-              </button>
-            );
-          })}
+        {/* Center: page-centric editing (Pages) separated from site-wide settings.
+            Communicates the redesign's core distinction — you edit a PAGE, and the
+            rest applies to the whole SITE. */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setEditorMode('pages')}
+            className={`px-4 py-1.5 rounded-lg text-[13px] font-semibold transition ${
+              editorMode === 'pages' ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
+            }`}
+            style={{ background: editorMode === 'pages' ? 'var(--surface)' : 'var(--surface-subtle)' }}
+          >
+            Pages
+          </button>
+          <span className="text-fg-secondary opacity-30 select-none">|</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-secondary opacity-60">Site</span>
+          <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--surface-subtle)' }}>
+            {(['theme', 'checkout', 'settings'] as EditorMode[]).map((m) => {
+              const label = m === 'theme' ? 'Thème' : m === 'checkout' ? 'Commande' : 'Paramètres';
+              const active = editorMode === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => { setEditorMode(m); setSelectedSectionId(null); }}
+                  className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition ${
+                    active ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
+                  }`}
+                  style={active ? { background: 'var(--surface)' } : undefined}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Right: device, status, preview link, annuler, publier */}
