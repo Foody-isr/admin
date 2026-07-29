@@ -43,7 +43,10 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const { direction, t } = useI18n();
   const restaurantId = Number(params.restaurantId);
-  const isFullscreen = pathname.endsWith('/website') || pathname.endsWith('/table-qr/print');
+  const isFullscreen =
+    pathname.endsWith('/website') ||
+    pathname.endsWith('/website-v2') ||
+    pathname.endsWith('/table-qr/print');
   const isWideLayout = pathname.includes('/orders');
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);

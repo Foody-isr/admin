@@ -75,7 +75,7 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
         if (!alive) return;
         setDraft(d);
         if (r?.slug) setSlug(r.slug);
-        const first = d.state.pages?.[0]?.slug ?? null;
+        const first = (d.state.pages ?? []).filter((p) => p.slug !== '_site')[0]?.slug ?? null;
         setActivePage(first);
         setLoading(false);
       })
@@ -89,21 +89,28 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
     };
   }, [rid]);
 
-  const pages = useMemo(() => draft?.state.pages ?? [], [draft]);
+  // `_site` is the footer-holder the backfill materializes, not a real page — hide it.
+  const pages = useMemo(
+    () => (draft?.state.pages ?? []).filter((p) => p.slug !== '_site'),
+    [draft],
+  );
   const page = useMemo(() => pages.find((p) => p.slug === activePage) ?? null, [pages, activePage]);
   const pageSections = useMemo(
     () => (draft?.state.sections ?? []).filter((s) => matchesPage(s, page)),
     [draft, page],
   );
 
-  const previewPath = page
-    ? page.type === 'landing'
+  // Preview the active page, or fall back to the first real page so a site-level
+  // selection (Navigation, Footer…) still shows something rather than a 404.
+  const previewPage = page ?? pages[0] ?? null;
+  const previewPath = previewPage
+    ? previewPage.type === 'landing'
       ? ''
-      : page.type === 'order'
+      : previewPage.type === 'order'
         ? '/order'
-        : page.type === 'catering'
+        : previewPage.type === 'catering'
           ? '/catering'
-          : `/${page.slug}`
+          : `/${previewPage.slug}`
     : '';
   const previewSrc = slug ? `${WEB_URL}/r/${slug}${previewPath}?preview=1` : '';
 
