@@ -770,6 +770,9 @@ export interface WebsiteConfig {
     /** Text color for category banners/dividers. Optional — inherits `ink`
      *  on the customer-facing app when unset. */
     categoryInk?: string;
+    /** Background fill of the search field. Optional — inherits the muted
+     *  surface on the customer-facing app when unset. */
+    searchBg?: string;
   } | null;
   /** Optional per-section color overrides; omitted section/field inherits the theme. */
   section_colors?: SectionColors | null;
