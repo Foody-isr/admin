@@ -78,7 +78,10 @@ const APP_ROWS: { key: AppKey; label: string; kind: 'color' | 'font' }[] = [
   { key: 'bodyFont', label: 'Police du texte', kind: 'font' },
 ];
 
-function PageAppearance({
+// Exported for reuse by the v2 builder (website-v2), which feeds it a page whose
+// settings.appearance mirrors the draft's appearance_overrides and maps its
+// onSave back onto appearance_overrides — see PageEditor's Apparence tab.
+export function PageAppearance({
   page,
   onSave,
   busy,

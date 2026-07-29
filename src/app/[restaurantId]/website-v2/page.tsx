@@ -32,6 +32,7 @@ import {
 } from '@/lib/api';
 import { NavbarEditor } from './NavbarEditor';
 import { PageCommerce } from '@/components/website/PageCommerce';
+import { PageAppearance } from '@/components/website/PageCommercePanel';
 import { SectionSettingsPanel, SECTION_TYPE_META, getDefaultContent } from '@/components/website/SectionEditors';
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
@@ -63,6 +64,10 @@ const SITE_ITEMS = [
 // matching the legacy builder's AddSectionModal.
 const ADDABLE_SECTION_TYPES = Object.keys(SECTION_TYPE_META).filter((t) => t !== 'footer');
 
+// Page types the "+ Ajouter une page" picker offers. 'landing' is the unique
+// site root, so it's intentionally excluded — you can't create a second one.
+const ADDABLE_PAGE_TYPES = ['content', 'order', 'catering'];
+
 // Social platforms exposed by the Contact panel. Each maps to a key in the
 // site-wide WebsiteConfig.social_links record (a URL, or absent when cleared).
 const SOCIAL_PLATFORMS: { key: string; label: string; placeholder: string }[] = [
@@ -71,15 +76,6 @@ const SOCIAL_PLATFORMS: { key: string; label: string; placeholder: string }[] = 
   { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@…' },
   { key: 'whatsapp', label: 'WhatsApp', placeholder: 'https://wa.me/…' },
   { key: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/…' },
-];
-
-// Appearance token rows shown with an inherit/override chip. Presence of the key
-// in the page's appearance_overrides drives "remplacé"; absence = inherits.
-const APPEARANCE_ROWS = [
-  { key: 'palette', label: 'Couleurs' },
-  { key: 'headingFont', label: 'Titres' },
-  { key: 'bodyFont', label: 'Texte courant' },
-  { key: 'buttons', label: 'Boutons & coins' },
 ];
 
 export default function WebsiteV2Builder({ params }: { params: { restaurantId: string } }) {
@@ -127,7 +123,10 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
 
   // `_site` is the footer-holder the backfill materializes, not a real page — hide it.
   const pages = useMemo(
-    () => (draft?.state.pages ?? []).filter((p) => p.slug !== '_site'),
+    () =>
+      (draft?.state.pages ?? [])
+        .filter((p) => p.slug !== '_site')
+        .sort((a, b) => a.sort_order - b.sort_order),
     [draft],
   );
   const page = useMemo(() => pages.find((p) => p.slug === activePage) ?? null, [pages, activePage]);
@@ -276,6 +275,115 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
     void saveState({ ...draft.state, config });
   }
 
+  // Patch one page in the draft (title, slug, nav_visible, appearance_overrides…)
+  // and persist. A slug rename also follows the page's draft-only sections (they
+  // bind by slug; persisted sections bind by page_id and are unaffected) and keeps
+  // the active selection pointed at the renamed page.
+  function updatePage(slug: string, patch: Partial<DraftPagePayload>) {
+    if (!draft) return;
+    const renamedTo = patch.slug && patch.slug !== slug ? patch.slug : null;
+    const nextPages = (draft.state.pages ?? []).map((p) =>
+      p.slug === slug ? { ...p, ...patch } : p,
+    );
+    const nextSections = renamedTo
+      ? draft.state.sections.map((s) =>
+          (s as DraftSectionPayload & { page_id?: number }).page_id == null && s.page === slug
+            ? { ...s, page: renamedTo }
+            : s,
+        )
+      : draft.state.sections;
+    void saveState({ ...draft.state, pages: nextPages, sections: nextSections });
+    if (renamedTo && activePage === slug) setActivePage(renamedTo);
+  }
+
+  // Create a new draft-only page (content / order / catering — landing is unique
+  // and never added here). The slug is derived from the title and made unique
+  // against existing page slugs; the page is appended, persisted, and selected.
+  function addPage(type: string, title: string) {
+    if (!draft) return;
+    const existing = draft.state.pages ?? [];
+    const taken = new Set(existing.map((p) => p.slug));
+    const cleanTitle = title.trim();
+    const slug = uniqueSlug(slugify(cleanTitle) || type, taken);
+    const newPage: DraftPagePayload = {
+      tmp_id: `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      type,
+      slug,
+      title: cleanTitle || TYPE_META[type]?.label || type,
+      sort_order: pages.length,
+      nav_visible: true,
+    };
+    void saveState({ ...draft.state, pages: [...existing, newPage] });
+    setActivePage(slug);
+    setActiveSite(null);
+    setTab('contenu');
+  }
+
+  // Delete a page. The landing page and the '_site' footer holder are never
+  // deletable. A persisted page queues its id in deleted_page_ids so publish
+  // drops it; a tmp-only page just leaves the array. Either way the page's
+  // sections are dropped too, with their real ids queued in deleted_section_ids.
+  function deletePage(slug: string) {
+    if (!draft) return;
+    const target = (draft.state.pages ?? []).find((p) => p.slug === slug);
+    if (!target || target.type === 'landing' || slug === '_site') return;
+    const nextPages = (draft.state.pages ?? []).filter((p) => p.slug !== slug);
+    const droppedSections = draft.state.sections.filter((s) => matchesPage(s, target));
+    const keptSections = draft.state.sections.filter((s) => !matchesPage(s, target));
+    const deletedSectionIds = [
+      ...(draft.state.deleted_section_ids ?? []),
+      ...droppedSections
+        .filter((s) => typeof s.id === 'number' && s.id > 0)
+        .map((s) => s.id as number),
+    ];
+    const deletedPageIds =
+      typeof target.id === 'number' && target.id > 0
+        ? [...(draft.state.deleted_page_ids ?? []), target.id]
+        : draft.state.deleted_page_ids ?? [];
+    void saveState({
+      ...draft.state,
+      pages: nextPages,
+      sections: keptSections,
+      deleted_section_ids: deletedSectionIds,
+      deleted_page_ids: deletedPageIds,
+    });
+    if (activePage === slug) {
+      setActivePage(nextPages.filter((p) => p.slug !== '_site')[0]?.slug ?? null);
+    }
+  }
+
+  // Reorder a page up (dir -1) or down (dir +1) by swapping its sort_order with
+  // the neighbour in display order, then resorting so the rail reflects it.
+  function movePage(slug: string, dir: -1 | 1) {
+    if (!draft) return;
+    const idx = pages.findIndex((p) => p.slug === slug);
+    const swapIdx = idx + dir;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= pages.length) return;
+    const a = pages[idx];
+    const b = pages[swapIdx];
+    const nextPages = (draft.state.pages ?? [])
+      .map((p) => {
+        if (p.slug === a.slug) return { ...p, sort_order: b.sort_order };
+        if (p.slug === b.slug) return { ...p, sort_order: a.sort_order };
+        return p;
+      })
+      .sort((x, y) => x.sort_order - y.sort_order);
+    void saveState({ ...draft.state, pages: nextPages });
+  }
+
+  // Commit a slug rename from the Réglages input: sanitize, keep it unique
+  // against the other pages, and skip no-ops. The landing (root) page's slug is
+  // not editable — its slug is the site root, guarded in the UI too.
+  function renamePageSlug(page: DraftPagePayload, raw: string) {
+    if (page.type === 'landing') return;
+    const taken = new Set(
+      (draft?.state.pages ?? []).filter((p) => p.slug !== page.slug).map((p) => p.slug),
+    );
+    const next = uniqueSlug(slugify(raw) || page.type, taken);
+    if (next === page.slug) return;
+    updatePage(page.slug, { slug: next });
+  }
+
   function selectPage(slug: string) {
     setActivePage(slug);
     setActiveSite(null);
@@ -329,24 +437,29 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
         {/* Page rail */}
         <nav className="w-56 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white p-2.5">
           <RailLabel>Pages</RailLabel>
-          {pages.map((p) => (
-            <RailItem
+          {pages.map((p, i) => (
+            <PageRow
               key={p.slug}
+              page={p}
               active={p.slug === activePage && !activeSite}
-              onClick={() => selectPage(p.slug)}
-            >
-              <span>{TYPE_META[p.type]?.icon ?? '📄'}</span>
-              <span className="truncate">{p.title || p.slug}</span>
-              <span className="ml-auto text-[10px] text-neutral-400">
-                {TYPE_META[p.type]?.label ?? p.type}
-              </span>
-            </RailItem>
+              busy={busy}
+              isFirst={i === 0}
+              isLast={i === pages.length - 1}
+              canDelete={p.type !== 'landing'}
+              onSelect={() => selectPage(p.slug)}
+              onMoveUp={() => movePage(p.slug, -1)}
+              onMoveDown={() => movePage(p.slug, 1)}
+              onDelete={() => {
+                if (confirm(`Supprimer la page « ${p.title || p.slug} » ?`)) deletePage(p.slug);
+              }}
+            />
           ))}
           {pages.length === 0 && (
             <p className="px-2 py-3 text-xs text-neutral-400">
               Aucune page. Publiez le site pour générer les pages.
             </p>
           )}
+          <AddPagePanel onCreate={addPage} busy={busy} />
 
           <RailLabel className="mt-4">Tout le site</RailLabel>
           {SITE_ITEMS.map((s) => (
@@ -379,6 +492,8 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
               busy={busy}
               rid={rid}
               onSaveSettings={(s) => updatePageSettings(page.slug, s)}
+              onUpdatePage={(patch) => updatePage(page.slug, patch)}
+              onRenameSlug={(raw) => renamePageSlug(page, raw)}
             />
           ) : activeSite === 'nav' && draft ? (
             <NavbarEditor draft={draft} onSave={saveState} busy={busy} />
@@ -523,6 +638,8 @@ function PageEditor({
   busy,
   rid,
   onSaveSettings,
+  onUpdatePage,
+  onRenameSlug,
 }: {
   page: DraftPagePayload;
   tab: Tab;
@@ -535,8 +652,9 @@ function PageEditor({
   busy: boolean;
   rid: number;
   onSaveSettings: (settings: Record<string, unknown>) => void;
+  onUpdatePage: (patch: Partial<DraftPagePayload>) => void;
+  onRenameSlug: (raw: string) => void;
 }) {
-  const overrides = page.appearance_overrides ?? {};
   // Which section (if any) is open in the content editor, addressed by its real
   // id or provisional tmp_id. Cleared when the page changes so a stale selection
   // from another page never leaks in.
@@ -668,39 +786,66 @@ function PageEditor({
       )}
 
       {tab === 'apparence' && (
-        <div className="space-y-2">
-          {APPEARANCE_ROWS.map((row) => {
-            const overridden = Object.prototype.hasOwnProperty.call(overrides, row.key);
-            return (
-              <div
-                key={row.key}
-                className="flex items-center justify-between rounded-md border border-neutral-200 bg-white px-2.5 py-2"
-              >
-                <span className="text-xs font-medium text-neutral-700">{row.label}</span>
-                {overridden ? (
-                  <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-neutral-900">
-                    remplacé ✎
-                  </span>
-                ) : (
-                  <span className="rounded-full border border-neutral-300 px-2 py-0.5 text-[10px] text-neutral-500">
-                    hérite du site
-                  </span>
-                )}
-              </div>
-            );
-          })}
-          <p className="pt-1 text-[11px] leading-relaxed text-neutral-400">
-            Chaque réglage hérite du thème de base. Modifiez-le ici pour ne changer que cette page.
-          </p>
-        </div>
+        // Per-page appearance overrides. PageAppearance reads/writes
+        // settings.appearance — the exact slot foodyweb's PageAppearanceScope
+        // renders — so we hand it the page's real settings and persist what it
+        // emits straight back into settings (draft-based: previews + publishes
+        // with the rest, and coexists with the commerce settings PageCommerce
+        // writes, since both spread the existing settings object).
+        <PageAppearance page={page} busy={busy} onSave={(settings) => onSaveSettings(settings)} />
       )}
 
       {tab === 'reglages' && (
         <div className="space-y-2 text-xs">
-          <Field label="Titre">{page.title}</Field>
+          <div>
+            <FieldLabel>Titre</FieldLabel>
+            <input
+              key={`title-${page.slug}`}
+              type="text"
+              defaultValue={page.title}
+              onBlur={(e) => {
+                const v = e.target.value.trim();
+                if (v && v !== page.title) onUpdatePage({ title: v });
+              }}
+              placeholder="Titre de la page"
+              className="w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 placeholder:text-neutral-300"
+            />
+          </div>
+
           <Field label="Type">{page.type}</Field>
-          <Field label="Slug">/{page.slug}</Field>
-          <Field label="Visible dans la nav">{page.nav_visible === false ? 'Non' : 'Oui'}</Field>
+
+          <div>
+            <FieldLabel>Slug</FieldLabel>
+            {page.type === 'landing' ? (
+              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-neutral-400">
+                / (page racine, non modifiable)
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5">
+                <span className="text-neutral-400">/</span>
+                <input
+                  key={`slug-${page.slug}`}
+                  type="text"
+                  defaultValue={page.slug}
+                  onBlur={(e) => onRenameSlug(e.target.value)}
+                  placeholder="slug-de-la-page"
+                  className="w-full bg-transparent text-neutral-800 outline-none placeholder:text-neutral-300"
+                />
+              </div>
+            )}
+          </div>
+
+          <label className="flex cursor-pointer items-center justify-between rounded-md border border-neutral-200 bg-white px-2.5 py-2 text-neutral-700">
+            <span>Visible dans la nav</span>
+            <input
+              type="checkbox"
+              checked={page.nav_visible !== false}
+              disabled={busy}
+              onChange={(e) => onUpdatePage({ nav_visible: e.target.checked })}
+              className="h-4 w-4 accent-[#e06c5a]"
+            />
+          </label>
+
           <PageCommerce page={page} rid={rid} onSave={onSaveSettings} busy={busy} />
         </div>
       )}
@@ -948,6 +1093,183 @@ function DomainPanel({
   );
 }
 
+// ── Page rail row ────────────────────────────────────────────────────────────
+// A page entry in the rail: a select button plus reorder/delete actions revealed
+// on hover. Mirrors RailItem's look but can't be a single <button> (it nests
+// action buttons), so it's a styled row wrapping its own controls.
+function PageRow({
+  page,
+  active,
+  busy,
+  isFirst,
+  isLast,
+  canDelete,
+  onSelect,
+  onMoveUp,
+  onMoveDown,
+  onDelete,
+}: {
+  page: DraftPagePayload;
+  active: boolean;
+  busy: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  canDelete: boolean;
+  onSelect: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div
+      className={
+        'group mb-0.5 flex items-center gap-1 rounded-md px-2 py-1.5 text-[13px] ' +
+        (active ? 'bg-[#e06c5a] font-semibold text-white' : 'text-neutral-700 hover:bg-neutral-100')
+      }
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+      >
+        <span>{TYPE_META[page.type]?.icon ?? '📄'}</span>
+        <span className="truncate">{page.title || page.slug}</span>
+      </button>
+      <span
+        className={
+          'shrink-0 text-[10px] group-hover:hidden ' + (active ? 'text-white/70' : 'text-neutral-400')
+        }
+      >
+        {TYPE_META[page.type]?.label ?? page.type}
+      </span>
+      <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+        <IconAction active={active} disabled={busy || isFirst} onClick={onMoveUp} title="Monter">
+          ↑
+        </IconAction>
+        <IconAction active={active} disabled={busy || isLast} onClick={onMoveDown} title="Descendre">
+          ↓
+        </IconAction>
+        {canDelete && (
+          <IconAction active={active} disabled={busy} onClick={onDelete} title="Supprimer">
+            🗑
+          </IconAction>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IconAction({
+  active,
+  disabled,
+  onClick,
+  title,
+  children,
+}: {
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      disabled={disabled}
+      onClick={onClick}
+      className={
+        'rounded px-1 py-0.5 text-[11px] leading-none disabled:opacity-30 ' +
+        (active ? 'hover:bg-white/20' : 'hover:bg-neutral-200')
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+// The "+ Ajouter une page" inline picker: choose a type (content / order /
+// catering) and a title, then create the page. Manages its own open/draft state
+// so the rail stays a plain list until the owner starts adding.
+function AddPagePanel({
+  onCreate,
+  busy,
+}: {
+  onCreate: (type: string, title: string) => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState<string>('content');
+  const [title, setTitle] = useState('');
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-1 w-full rounded-md border border-dashed border-neutral-300 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100"
+      >
+        + Ajouter une page
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1 rounded-md border border-neutral-200 bg-white p-2">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-neutral-500">Nouvelle page</span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-[11px] text-neutral-400 hover:text-neutral-700"
+        >
+          Annuler
+        </button>
+      </div>
+      <div className="mb-2 flex gap-1">
+        {ADDABLE_PAGE_TYPES.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setType(t)}
+            className={
+              'flex flex-1 flex-col items-center gap-0.5 rounded-md border px-1 py-1.5 text-[10px] ' +
+              (type === t
+                ? 'border-[#e06c5a] bg-[#fdeeeb] text-[#c85842]'
+                : 'border-neutral-200 text-neutral-500 hover:bg-neutral-50')
+            }
+          >
+            <span className="text-sm">{TYPE_META[t]?.icon ?? '📄'}</span>
+            <span>{TYPE_META[t]?.label ?? t}</span>
+          </button>
+        ))}
+      </div>
+      <input
+        type="text"
+        autoFocus
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Titre de la page"
+        className="mb-2 w-full rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-800 placeholder:text-neutral-300"
+      />
+      <button
+        type="button"
+        disabled={busy || !title.trim()}
+        onClick={() => {
+          onCreate(type, title);
+          setOpen(false);
+          setTitle('');
+          setType('content');
+        }}
+        className="w-full rounded-md bg-[#e06c5a] py-1.5 text-xs font-semibold text-white hover:bg-[#d15b49] disabled:opacity-40"
+      >
+        Créer la page
+      </button>
+    </div>
+  );
+}
+
 // ── Small UI atoms ───────────────────────────────────────────────────────────
 
 function RailLabel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -1008,6 +1330,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-1 text-[10px] uppercase tracking-wide text-neutral-400">{children}</div>
+  );
+}
+
 function CenterMsg({ children, tone }: { children: React.ReactNode; tone?: 'error' }) {
   return (
     <div className="flex h-full items-center justify-center">
@@ -1044,6 +1372,27 @@ function asWebsiteSection(s: DraftSectionPayload, rid: number): WebsiteSection {
     created_at: '',
     updated_at: '',
   };
+}
+
+// Derive a URL slug from a title: lowercase, spaces → '-', drop anything that
+// isn't a url-safe char. May yield '' for non-latin titles (callers fall back to
+// the page type).
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// Make `base` unique against `taken` by suffixing -2, -3… as needed.
+function uniqueSlug(base: string, taken: Set<string>): string {
+  const root = base || 'page';
+  if (!taken.has(root)) return root;
+  let n = 2;
+  while (taken.has(`${root}-${n}`)) n++;
+  return `${root}-${n}`;
 }
 
 function sectionLabel(type: string): string {
