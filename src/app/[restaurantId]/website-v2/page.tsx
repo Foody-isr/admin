@@ -30,7 +30,7 @@ import {
   type ThemeCatalog,
   type Restaurant,
 } from '@/lib/api';
-import { NavbarEditor } from './NavbarEditor';
+import { NavbarPanel } from '@/components/website/NavbarPanel';
 import { PageCommerce } from '@/components/website/PageCommerce';
 import { PageAppearance } from '@/components/website/PageCommercePanel';
 import { SectionSettingsPanel, SECTION_TYPE_META, getDefaultContent } from '@/components/website/SectionEditors';
@@ -500,7 +500,7 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
               onCheckoutChange={(c) => updateConfig({ checkout_config: c } as Partial<WebsiteConfig>)}
             />
           ) : activeSite === 'nav' && draft ? (
-            <NavbarEditor draft={draft} onSave={saveState} busy={busy} />
+            <NavbarPanel config={draft.state.config as unknown as WebsiteConfig} onUpdate={updateConfig} restaurantId={rid} />
           ) : activeSite === 'base' && draft && themeCatalog ? (
             <BaseThemePanel
               config={draft.state.config as unknown as WebsiteConfig}
