@@ -808,6 +808,9 @@ export interface WebsiteConfig {
     /** Background fill of the search field. Optional — inherits the muted
      *  surface on the customer-facing app when unset. */
     searchBg?: string;
+    /** Text color for item/combo detail modals ("fiches"). Optional — inherits
+     *  `ink` on the customer-facing app when unset. */
+    menuText?: string;
   } | null;
   /** Optional per-section color overrides; omitted section/field inherits the theme. */
   section_colors?: SectionColors | null;

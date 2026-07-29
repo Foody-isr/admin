@@ -423,13 +423,14 @@ type EditorProps = {
 
 function CustomPaletteEditor({ palette, catalog, onChange, onReset }: EditorProps) {
   const { t } = useI18n();
-  const rows: { key: 'bg' | 'surface' | 'accent' | 'ink' | 'categoryInk' | 'searchBg'; label: string }[] = [
+  const rows: { key: 'bg' | 'surface' | 'accent' | 'ink' | 'categoryInk' | 'searchBg' | 'menuText'; label: string }[] = [
     { key: 'bg', label: t('customPaletteBg') },
     { key: 'surface', label: t('customPaletteSurface') },
     { key: 'accent', label: t('customPaletteAccent') },
     { key: 'ink', label: t('customPaletteInk') },
     { key: 'categoryInk', label: t('customPaletteCategoryInk') },
     { key: 'searchBg', label: t('customPaletteSearchBg') },
+    { key: 'menuText', label: t('customPaletteMenuText') },
   ];
 
   return (
