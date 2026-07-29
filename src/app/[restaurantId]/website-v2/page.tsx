@@ -1121,6 +1121,39 @@ function DomainPanel({
             className="w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-800 placeholder:text-neutral-300"
           />
         </div>
+
+        {/* Landing on/off — when off, /r/<slug> skips the marketing landing and
+            sends customers straight to the order page. */}
+        <label className="flex cursor-pointer items-center justify-between rounded-md border border-neutral-200 bg-white px-2.5 py-2 text-xs text-neutral-700">
+          <span>Page d&apos;accueil (landing)</span>
+          <input
+            type="checkbox"
+            checked={config.landing_enabled !== false}
+            onChange={(e) => onUpdate({ landing_enabled: e.target.checked })}
+            className="h-4 w-4 accent-[#e06c5a]"
+          />
+        </label>
+
+        {/* Menu grid layout (order page). */}
+        <div>
+          <label className="mb-1 block text-[11px] text-neutral-500">Mise en page du menu</label>
+          <div className="flex gap-1.5">
+            {([['magazine', 'Magazine'], ['compact', 'Compacte']] as const).map(([v, label]) => (
+              <button
+                key={v}
+                onClick={() => onUpdate({ layout_default: v })}
+                className={
+                  'flex-1 rounded-md border px-2 py-1.5 text-xs ' +
+                  ((config.layout_default || 'magazine') === v
+                    ? 'border-[#e06c5a] bg-[#e06c5a]/10 text-[#c85842]'
+                    : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100')
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-neutral-400">
