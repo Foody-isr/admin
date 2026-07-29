@@ -5063,6 +5063,21 @@ export async function saveWebsiteDraft(
   );
 }
 
+/** Set a builder page's settings_json (per-page commerce connection:
+ *  {commerce, menu_ids, service_ids}). Isolated from the draft — saves
+ *  immediately, does not touch the builder's autosave/publish snapshot. */
+export async function setWebsitePageSettings(
+  restaurantId: number,
+  pageId: number,
+  settings: Record<string, unknown>,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/website-pages/${pageId}/settings`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify({ settings }) },
+  );
+}
+
 export async function publishWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
   return apiFetch<DraftResponse>(
     `/api/v1/restaurants/${restaurantId}/website-publish`, restaurantId,

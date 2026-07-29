@@ -11,7 +11,7 @@ import {
   uploadRestaurantLogo, uploadRestaurantBackground, uploadSectionImage,
   getAllCategories, getThemeCatalog,
   getWebsiteDraft, saveWebsiteDraft, publishWebsiteDraft, discardWebsiteDraft,
-  DraftStatePayload, DraftSectionPayload,
+  DraftStatePayload, DraftSectionPayload, DraftPagePayload,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
   ThemeCatalog, WebsitePageMeta, updateGroup, uploadGroupImage, uploadWebsiteFont,
 } from '@/lib/api';
@@ -29,6 +29,7 @@ import CheckoutEditor from '@/components/website/CheckoutEditor';
 import { WEBSITE_TEMPLATES, type WebsiteTemplate } from './templates';
 import CheckoutPreviewIframe from '@/components/website/CheckoutPreviewIframe';
 import { OrderPageInfoEditor } from '@/components/website/OrderPageInfoEditor';
+import { PageCommercePanel } from '@/components/website/PageCommercePanel';
 import type { CheckoutConfig, OrderPageInfo } from '@/lib/api';
 import { WEBSITE_FONT_FAMILIES } from '@/lib/website-fonts';
 
@@ -270,6 +271,10 @@ export default function WebsitePage() {
   // Custom pages (beyond the built-in home + menu). Each renders at
   // /r/<slug>/<page.slug> on foodyweb and appears in the hamburger nav.
   const [pages, setPages] = useState<WebsitePageMeta[]>([]);
+  // v2 WebsitePage rows (typed pages) from the draft's top-level `pages`. Kept
+  // as READ-ONLY display state for the commerce-connection panel — deliberately
+  // NOT part of buildDraftPayload/the autosave seed, so it can't disturb saves.
+  const [websitePages, setWebsitePages] = useState<DraftPagePayload[]>([]);
 
   // Config form state — landing-page concerns only.
   // Menu/order page styling lives under /website/menu/{themes,typography,branding}.
@@ -513,6 +518,8 @@ export default function WebsitePage() {
     setCategoryBannerFit(stateConfig.category_banner_fit === 'contain' || stateConfig.category_banner_fit === 'natural' ? stateConfig.category_banner_fit : 'cover');
     setCategoryBannerFitMobile(stateConfig.category_banner_fit_mobile === 'cover' || stateConfig.category_banner_fit_mobile === 'contain' || stateConfig.category_banner_fit_mobile === 'natural' ? stateConfig.category_banner_fit_mobile : '');
     setPages(Array.isArray(stateConfig.pages) ? stateConfig.pages : []);
+    // Read-only: the typed WebsitePage rows for the commerce-connection panel.
+    setWebsitePages(Array.isArray(draft.state.pages) ? draft.state.pages : []);
     const landingOn = stateConfig.landing_enabled ?? true;
     setLandingEnabled(landingOn);
     // If landing is disabled, the page switcher hides "Landing"; make sure the
@@ -1179,6 +1186,7 @@ export default function WebsitePage() {
         {/* Left Rail (content depends on mode) */}
         <div className="border-r border-divider flex flex-col flex-shrink-0 overflow-y-auto" style={{ width: 320, background: 'var(--surface)' }}>
           {editorMode === 'pages' && (
+            <>
             <PagesLeftRail
               activePage={activePage}
               onActivePageChange={setActivePage}
@@ -1220,6 +1228,13 @@ export default function WebsitePage() {
               restaurant={restaurant}
               onRestaurantUpdate={setRestaurant}
             />
+            <PageCommercePanel
+              restaurantId={restaurantId}
+              activePage={activePage}
+              websitePages={websitePages}
+              onUpdated={setWebsitePages}
+            />
+            </>
           )}
           {editorMode === 'theme' && (
             <ThemeLeftRail

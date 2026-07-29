@@ -26,7 +26,7 @@ import {
   type DraftSectionPayload,
 } from '@/lib/api';
 import { NavbarEditor } from './NavbarEditor';
-import { PageCommerce } from './PageCommerce';
+import { PageCommerce } from '@/components/website/PageCommerce';
 
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://dev-app.foody-pos.co.il';
 
