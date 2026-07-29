@@ -24,9 +24,11 @@ import {
   type DraftPagePayload,
   type DraftStatePayload,
   type DraftSectionPayload,
+  type WebsiteSection,
 } from '@/lib/api';
 import { NavbarEditor } from './NavbarEditor';
 import { PageCommerce } from '@/components/website/PageCommerce';
+import { SectionSettingsPanel } from '@/components/website/SectionEditors';
 
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://dev-app.foody-pos.co.il';
 
@@ -163,6 +165,39 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
     void saveState({ ...draft.state, sections });
   }
 
+  // Apply a SectionSettingsPanel edit to the matching draft section. The panel
+  // hands back a Partial<WebsiteSection>; we merge only the fields it touches
+  // (layout / content / settings), mirroring the legacy builder's semantics, so
+  // the section keeps its draft-only fields (tmp_id, page_id…) untouched.
+  function updateSection(sectionId: number | string, updates: Partial<WebsiteSection>) {
+    if (!draft) return;
+    const sections = draft.state.sections.map((s) => {
+      if ((s.id ?? s.tmp_id) !== sectionId) return s;
+      return {
+        ...s,
+        ...(updates.layout !== undefined ? { layout: updates.layout } : {}),
+        ...(updates.is_visible !== undefined ? { is_visible: updates.is_visible } : {}),
+        content: updates.content ? { ...(s.content ?? {}), ...updates.content } : s.content,
+        settings: updates.settings ? { ...(s.settings ?? {}), ...updates.settings } : s.settings,
+      };
+    });
+    void saveState({ ...draft.state, sections });
+  }
+
+  // Remove a section from the draft. Previously-persisted sections (real id) are
+  // queued in deleted_section_ids so publish drops them; draft-only sections
+  // (tmp_id) just disappear.
+  function deleteSection(sectionId: number | string) {
+    if (!draft) return;
+    const target = draft.state.sections.find((s) => (s.id ?? s.tmp_id) === sectionId);
+    const sections = draft.state.sections.filter((s) => (s.id ?? s.tmp_id) !== sectionId);
+    const deleted =
+      target && typeof target.id === 'number' && target.id > 0
+        ? [...(draft.state.deleted_section_ids ?? []), target.id]
+        : draft.state.deleted_section_ids ?? [];
+    void saveState({ ...draft.state, sections, deleted_section_ids: deleted });
+  }
+
   function updatePageSettings(slug: string, settings: Record<string, unknown>) {
     if (!draft) return;
     const pages = (draft.state.pages ?? []).map((p) =>
@@ -268,6 +303,8 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
               setTab={setTab}
               sections={pageSections}
               onToggle={toggleSection}
+              onUpdateSection={updateSection}
+              onDeleteSection={deleteSection}
               busy={busy}
               rid={rid}
               onSaveSettings={(s) => updatePageSettings(page.slug, s)}
@@ -371,6 +408,8 @@ function PageEditor({
   setTab,
   sections,
   onToggle,
+  onUpdateSection,
+  onDeleteSection,
   busy,
   rid,
   onSaveSettings,
@@ -380,11 +419,20 @@ function PageEditor({
   setTab: (t: Tab) => void;
   sections: DraftSectionPayload[];
   onToggle: (id: number | string) => void;
+  onUpdateSection: (id: number | string, updates: Partial<WebsiteSection>) => void;
+  onDeleteSection: (id: number | string) => void;
   busy: boolean;
   rid: number;
   onSaveSettings: (settings: Record<string, unknown>) => void;
 }) {
   const overrides = page.appearance_overrides ?? {};
+  // Which section (if any) is open in the content editor, addressed by its real
+  // id or provisional tmp_id. Cleared when the page changes so a stale selection
+  // from another page never leaks in.
+  const [selectedKey, setSelectedKey] = useState<number | string | null>(null);
+  useEffect(() => { setSelectedKey(null); }, [page.slug]);
+  const selectedSection =
+    selectedKey == null ? null : sections.find((s) => (s.id ?? s.tmp_id) === selectedKey) ?? null;
   return (
     <div>
       <div className="mb-2 flex items-center gap-2">
@@ -408,7 +456,28 @@ function PageEditor({
         ))}
       </div>
 
-      {tab === 'contenu' && (
+      {tab === 'contenu' && selectedSection && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setSelectedKey(null)}
+            className="mb-3 flex items-center gap-1 text-xs font-medium text-neutral-500 hover:text-neutral-800"
+          >
+            <span aria-hidden>←</span> Toutes les sections
+          </button>
+          <SectionSettingsPanel
+            section={asWebsiteSection(selectedSection, rid)}
+            restaurantId={rid}
+            onUpdate={(updates) => onUpdateSection(selectedSection.id ?? selectedSection.tmp_id!, updates)}
+            onDelete={() => {
+              onDeleteSection(selectedSection.id ?? selectedSection.tmp_id!);
+              setSelectedKey(null);
+            }}
+          />
+        </div>
+      )}
+
+      {tab === 'contenu' && !selectedSection && (
         <div className="space-y-1.5">
           {sections.length === 0 && (
             <p className="text-xs text-neutral-400">Aucune section sur cette page.</p>
@@ -421,10 +490,17 @@ function PageEditor({
                 (s.is_visible ? 'border-neutral-200 bg-white' : 'border-neutral-200 bg-neutral-100')
               }
             >
-              <span className="h-2 w-2 rounded-full bg-neutral-300" />
-              <span className={s.is_visible ? 'text-neutral-700' : 'text-neutral-400 line-through'}>
-                {sectionLabel(s.section_type)}
-              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedKey(s.id ?? s.tmp_id!)}
+                title="Modifier le contenu"
+                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+              >
+                <span className="h-2 w-2 shrink-0 rounded-full bg-neutral-300" />
+                <span className={'truncate ' + (s.is_visible ? 'text-neutral-700' : 'text-neutral-400 line-through')}>
+                  {sectionLabel(s.section_type)}
+                </span>
+              </button>
               <button
                 onClick={() => onToggle(s.id ?? s.tmp_id!)}
                 disabled={busy}
@@ -570,6 +646,26 @@ function matchesPage(s: DraftSectionPayload & { page_id?: number }, page: DraftP
   if (!page) return false;
   if (typeof s.page_id === 'number' && typeof page.id === 'number') return s.page_id === page.id;
   return s.page === page.slug;
+}
+
+// Adapt a draft section into the WebsiteSection shape SectionSettingsPanel reads
+// (it only touches section_type, content, settings and layout). Draft-only rows
+// have no real id yet, so we surface 0 — the panel never reads it, and edits are
+// routed back through the section's id-or-tmp_id key.
+function asWebsiteSection(s: DraftSectionPayload, rid: number): WebsiteSection {
+  return {
+    id: typeof s.id === 'number' ? s.id : 0,
+    restaurant_id: rid,
+    section_type: s.section_type,
+    page: s.page,
+    sort_order: s.sort_order ?? 0,
+    is_visible: s.is_visible ?? true,
+    layout: s.layout || 'default',
+    content: s.content ?? {},
+    settings: s.settings ?? {},
+    created_at: '',
+    updated_at: '',
+  };
 }
 
 function sectionLabel(type: string): string {
