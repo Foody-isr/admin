@@ -23,7 +23,7 @@ import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
 import { CoverBackgroundEditor } from '@/components/website-menu/CoverBackgroundEditor';
-import { SECTION_TYPE_META, SectionImageUploader, SectionSettingsPanel } from '@/components/website/SectionEditors';
+import { SECTION_TYPE_META, SectionImageUploader, SectionSettingsPanel, getDefaultContent } from '@/components/website/SectionEditors';
 import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 import CheckoutEditor from '@/components/website/CheckoutEditor';
 import { WEBSITE_TEMPLATES, type WebsiteTemplate } from './templates';
@@ -2911,25 +2911,4 @@ function TemplatePickerModal({ hasCatering, onApply, onClose }: {
       </div>
     </div>
   );
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────
-
-function getDefaultContent(sectionType: string): Record<string, any> {
-  switch (sectionType) {
-    case 'hero_banner': return { headline: 'Welcome', subheadline: 'Fresh food, made with love', cta_text: 'Order Now', cta_link: '#menu' };
-    case 'scrolling_text': return { text: 'Fresh ingredients daily | Family recipes | Handmade with love' };
-    case 'text_and_image': return { title: 'Our Story', body: 'Tell your customers about your restaurant...', image_position: 'right' };
-    case 'gallery': return { images: [] };
-    case 'testimonials': return { reviews: [] };
-    case 'about': return { blocks: [{ title: 'About Us', body: 'Tell your customers about your restaurant, your story, and what makes your food special.' }] };
-    case 'menu_highlights': return { title: "Chef's Picks", subtitle: 'Our most popular dishes', item_ids: [] };
-    case 'promo_banner': return { title: 'Special Offer', body: 'Check out our latest deals!' };
-    case 'social_feed': return { links: [] };
-    case 'action_buttons': return { buttons: [{ label: 'Order Now', action: 'view_menu', style: 'primary' }] };
-    case 'feature_cards': return { cards: [{ image_url: '', title: '', subtitle: '', link: '' }] };
-    case 'picnic_basket': return { title: 'Preparing Your Basket', subtitle: 'Scroll to fill your Shabbat basket with love', items: [], basket_image: '', completion_text: 'Ready for Shabbat! \u{1F56F}\u{FE0F}' };
-    case 'footer': return { show_logo: true, show_description: true, show_address: true, show_phone: true, show_hours: true, custom_text: '', social_links: [] };
-    default: return {};
-  }
 }

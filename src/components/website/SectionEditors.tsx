@@ -38,6 +38,28 @@ export const SECTION_TYPE_META: Record<string, { labelKey: string; icon: string;
   footer:          { labelKey: 'footer',            icon: '\u{1F3E0}', descKey: 'footerDesc' },
 };
 
+// Default content for a freshly-added section, keyed by section_type. Pure — no
+// page dependencies — so the same seed powers both the legacy builder and the v2
+// builder's add-section flow (kept here to avoid duplicating the defaults).
+export function getDefaultContent(sectionType: string): Record<string, any> {
+  switch (sectionType) {
+    case 'hero_banner': return { headline: 'Welcome', subheadline: 'Fresh food, made with love', cta_text: 'Order Now', cta_link: '#menu' };
+    case 'scrolling_text': return { text: 'Fresh ingredients daily | Family recipes | Handmade with love' };
+    case 'text_and_image': return { title: 'Our Story', body: 'Tell your customers about your restaurant...', image_position: 'right' };
+    case 'gallery': return { images: [] };
+    case 'testimonials': return { reviews: [] };
+    case 'about': return { blocks: [{ title: 'About Us', body: 'Tell your customers about your restaurant, your story, and what makes your food special.' }] };
+    case 'menu_highlights': return { title: "Chef's Picks", subtitle: 'Our most popular dishes', item_ids: [] };
+    case 'promo_banner': return { title: 'Special Offer', body: 'Check out our latest deals!' };
+    case 'social_feed': return { links: [] };
+    case 'action_buttons': return { buttons: [{ label: 'Order Now', action: 'view_menu', style: 'primary' }] };
+    case 'feature_cards': return { cards: [{ image_url: '', title: '', subtitle: '', link: '' }] };
+    case 'picnic_basket': return { title: 'Preparing Your Basket', subtitle: 'Scroll to fill your Shabbat basket with love', items: [], basket_image: '', completion_text: 'Ready for Shabbat! \u{1F56F}\u{FE0F}' };
+    case 'footer': return { show_logo: true, show_description: true, show_address: true, show_phone: true, show_hours: true, custom_text: '', social_links: [] };
+    default: return {};
+  }
+}
+
 export const LAYOUT_OPTIONS: Record<string, { value: string; labelKey: string }[]> = {
   hero_banner:    [{ value: 'centered', labelKey: 'centered' }, { value: 'left_aligned', labelKey: 'leftAligned' }, { value: 'split', labelKey: 'split' }],
   text_and_image: [{ value: 'default', labelKey: 'imageRight' }, { value: 'image_left', labelKey: 'imageLeft' }],

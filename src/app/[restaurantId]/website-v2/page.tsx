@@ -32,7 +32,7 @@ import {
 } from '@/lib/api';
 import { NavbarEditor } from './NavbarEditor';
 import { PageCommerce } from '@/components/website/PageCommerce';
-import { SectionSettingsPanel } from '@/components/website/SectionEditors';
+import { SectionSettingsPanel, SECTION_TYPE_META, getDefaultContent } from '@/components/website/SectionEditors';
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
@@ -56,6 +56,21 @@ const SITE_ITEMS = [
   { key: 'footer', label: 'Pied de page' },
   { key: 'domain', label: 'Domaine & SEO' },
   { key: 'contact', label: 'Coordonnées & réseaux' },
+];
+
+// Section types offered by the page add-section picker. The footer is a
+// site-level element (edited under "Pied de page"), so it's excluded here —
+// matching the legacy builder's AddSectionModal.
+const ADDABLE_SECTION_TYPES = Object.keys(SECTION_TYPE_META).filter((t) => t !== 'footer');
+
+// Social platforms exposed by the Contact panel. Each maps to a key in the
+// site-wide WebsiteConfig.social_links record (a URL, or absent when cleared).
+const SOCIAL_PLATFORMS: { key: string; label: string; placeholder: string }[] = [
+  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/…' },
+  { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/…' },
+  { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@…' },
+  { key: 'whatsapp', label: 'WhatsApp', placeholder: 'https://wa.me/…' },
+  { key: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/…' },
 ];
 
 // Appearance token rows shown with an inherit/override chip. Presence of the key
@@ -119,6 +134,12 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
   const pageSections = useMemo(
     () => (draft?.state.sections ?? []).filter((s) => matchesPage(s, page)),
     [draft, page],
+  );
+  // The site-wide footer section (if the restaurant has one) — edited under the
+  // "Pied de page" site item, independently of any page.
+  const footerSection = useMemo(
+    () => (draft?.state.sections ?? []).find((s) => s.section_type === 'footer') ?? null,
+    [draft],
   );
 
   // Preview the active page, or fall back to the first real page so a site-level
@@ -212,6 +233,29 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
         ? [...(draft.state.deleted_section_ids ?? []), target.id]
         : draft.state.deleted_section_ids ?? [];
     void saveState({ ...draft.state, sections, deleted_section_ids: deleted });
+  }
+
+  // Add a section to the current page: seed a draft-only row (tmp_id, no real id
+  // yet), persist it, and return its tmp_id so the caller can open it for editing.
+  // Mirrors the legacy handleAddSection; page/page_id are set so matchesPage binds
+  // it to the current page (page_id wins for persisted pages; the page slug is the
+  // fallback for tmp pages, and matches how order-page sections store page="order").
+  function addSection(sectionType: string): string | null {
+    if (!draft || !page) return null;
+    const tmpId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const newSection: DraftSectionPayload & { page_id?: number } = {
+      tmp_id: tmpId,
+      section_type: sectionType,
+      page: page.type === 'order' ? 'order' : page.slug,
+      ...(typeof page.id === 'number' ? { page_id: page.id } : {}),
+      sort_order: pageSections.length,
+      is_visible: true,
+      layout: 'default',
+      content: getDefaultContent(sectionType),
+      settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' },
+    };
+    void saveState({ ...draft.state, sections: [...draft.state.sections, newSection] });
+    return tmpId;
   }
 
   function updatePageSettings(slug: string, settings: Record<string, unknown>) {
@@ -331,6 +375,7 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
               onToggle={toggleSection}
               onUpdateSection={updateSection}
               onDeleteSection={deleteSection}
+              onAddSection={addSection}
               busy={busy}
               rid={rid}
               onSaveSettings={(s) => updatePageSettings(page.slug, s)}
@@ -348,6 +393,25 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
             />
           ) : activeSite === 'base' ? (
             <p className="text-sm text-neutral-400">Chargement du thème…</p>
+          ) : activeSite === 'contact' && draft ? (
+            <ContactPanel
+              config={draft.state.config as unknown as WebsiteConfig}
+              onUpdate={updateConfig}
+            />
+          ) : activeSite === 'footer' && draft ? (
+            <FooterPanel
+              config={draft.state.config as unknown as WebsiteConfig}
+              onUpdate={updateConfig}
+              footerSection={footerSection}
+              rid={rid}
+              onUpdateSection={updateSection}
+              onDeleteSection={deleteSection}
+            />
+          ) : activeSite === 'domain' && draft ? (
+            <DomainPanel
+              config={draft.state.config as unknown as WebsiteConfig}
+              onUpdate={updateConfig}
+            />
           ) : activeSite ? (
             <SitePanel siteKey={activeSite} />
           ) : (
@@ -455,6 +519,7 @@ function PageEditor({
   onToggle,
   onUpdateSection,
   onDeleteSection,
+  onAddSection,
   busy,
   rid,
   onSaveSettings,
@@ -466,6 +531,7 @@ function PageEditor({
   onToggle: (id: number | string) => void;
   onUpdateSection: (id: number | string, updates: Partial<WebsiteSection>) => void;
   onDeleteSection: (id: number | string) => void;
+  onAddSection: (sectionType: string) => string | null;
   busy: boolean;
   rid: number;
   onSaveSettings: (settings: Record<string, unknown>) => void;
@@ -475,7 +541,9 @@ function PageEditor({
   // id or provisional tmp_id. Cleared when the page changes so a stale selection
   // from another page never leaks in.
   const [selectedKey, setSelectedKey] = useState<number | string | null>(null);
-  useEffect(() => { setSelectedKey(null); }, [page.slug]);
+  // Whether the "add a section" type picker is open.
+  const [adding, setAdding] = useState(false);
+  useEffect(() => { setSelectedKey(null); setAdding(false); }, [page.slug]);
   const selectedSection =
     selectedKey == null ? null : sections.find((s) => (s.id ?? s.tmp_id) === selectedKey) ?? null;
   return (
@@ -556,9 +624,46 @@ function PageEditor({
               </button>
             </div>
           ))}
-          <button className="mt-1 w-full rounded-md border border-dashed border-neutral-300 py-2 text-xs text-neutral-500 hover:bg-white">
-            + Ajouter une section
-          </button>
+          {adding ? (
+            <div className="mt-1 rounded-md border border-neutral-200 bg-white p-1.5">
+              <div className="mb-1 flex items-center justify-between px-1">
+                <span className="text-[11px] font-semibold text-neutral-500">Choisir un type</span>
+                <button
+                  type="button"
+                  onClick={() => setAdding(false)}
+                  className="text-[11px] text-neutral-400 hover:text-neutral-700"
+                >
+                  Annuler
+                </button>
+              </div>
+              <div className="max-h-64 space-y-0.5 overflow-y-auto">
+                {ADDABLE_SECTION_TYPES.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      const key = onAddSection(type);
+                      if (key != null) setSelectedKey(key);
+                      setAdding(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-100 disabled:opacity-40"
+                  >
+                    <span aria-hidden>{SECTION_TYPE_META[type]?.icon ?? '📄'}</span>
+                    <span className="truncate">{sectionLabel(type)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="mt-1 w-full rounded-md border border-dashed border-neutral-300 py-2 text-xs text-neutral-500 hover:bg-white"
+            >
+              + Ajouter une section
+            </button>
+          )}
         </div>
       )}
 
@@ -678,6 +783,166 @@ function SitePanel({ siteKey }: { siteKey: string }) {
       <div className="mb-2 text-sm font-bold text-neutral-900">{label}</div>
       <p className="text-xs text-neutral-400">
         Éditeur « {label} » à venir. S&apos;applique à tout le site.
+      </p>
+    </div>
+  );
+}
+
+// "Coordonnées & réseaux" — site-wide contact display toggles + social links.
+// Reads/writes the draft config (show_address/phone/hours + social_links) via
+// updateConfig, so every edit persists and previews live.
+function ContactPanel({
+  config,
+  onUpdate,
+}: {
+  config: WebsiteConfig;
+  onUpdate: (patch: Partial<WebsiteConfig>) => void;
+}) {
+  const social = config.social_links ?? {};
+  const toggles: [keyof WebsiteConfig, string][] = [
+    ['show_address', "Afficher l'adresse"],
+    ['show_phone', 'Afficher le téléphone'],
+    ['show_hours', 'Afficher les horaires'],
+  ];
+
+  // Set (or clear, when blank) one social link, then persist the whole record.
+  function setSocial(key: string, url: string) {
+    const next = { ...social };
+    if (url.trim()) next[key] = url;
+    else delete next[key];
+    onUpdate({ social_links: next });
+  }
+
+  return (
+    <div>
+      <div className="mb-2 text-sm font-bold text-neutral-900">Coordonnées &amp; réseaux</div>
+      <p className="mb-3 text-[11px] text-neutral-400">S&apos;applique à tout le site.</p>
+
+      <div className="space-y-1.5">
+        {toggles.map(([key, label]) => (
+          <label
+            key={key}
+            className="flex cursor-pointer items-center justify-between rounded-md border border-neutral-200 bg-white px-2.5 py-2 text-xs text-neutral-700"
+          >
+            <span>{label}</span>
+            <input
+              type="checkbox"
+              checked={!!config[key]}
+              onChange={(e) => onUpdate({ [key]: e.target.checked } as Partial<WebsiteConfig>)}
+              className="h-4 w-4 accent-[#e06c5a]"
+            />
+          </label>
+        ))}
+      </div>
+
+      <div className="mb-1 mt-4 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+        Réseaux sociaux
+      </div>
+      <div className="space-y-2">
+        {SOCIAL_PLATFORMS.map(({ key, label, placeholder }) => (
+          <div key={key}>
+            <label className="mb-1 block text-[11px] text-neutral-500">{label}</label>
+            <input
+              type="url"
+              value={social[key] ?? ''}
+              onChange={(e) => setSocial(key, e.target.value)}
+              placeholder={placeholder}
+              className="w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-800 placeholder:text-neutral-300"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// "Pied de page" — the site-wide footer copy (footer_text) plus, when a footer
+// section exists, its full content editor (reusing SectionSettingsPanel through
+// the same asWebsiteSection adapter the page editor uses).
+function FooterPanel({
+  config,
+  onUpdate,
+  footerSection,
+  rid,
+  onUpdateSection,
+  onDeleteSection,
+}: {
+  config: WebsiteConfig;
+  onUpdate: (patch: Partial<WebsiteConfig>) => void;
+  footerSection: DraftSectionPayload | null;
+  rid: number;
+  onUpdateSection: (id: number | string, updates: Partial<WebsiteSection>) => void;
+  onDeleteSection: (id: number | string) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-sm font-bold text-neutral-900">Pied de page</div>
+      <p className="mb-3 text-[11px] text-neutral-400">S&apos;applique à tout le site.</p>
+
+      <label className="mb-1 block text-[11px] text-neutral-500">Texte du pied de page</label>
+      <textarea
+        value={config.footer_text ?? ''}
+        onChange={(e) => onUpdate({ footer_text: e.target.value })}
+        rows={3}
+        placeholder="© 2026 Restaurant. Propulsé par Foody."
+        className="w-full rounded-md border border-neutral-200 bg-white px-2.5 py-2 text-xs text-neutral-800 placeholder:text-neutral-300"
+      />
+
+      {footerSection && (
+        <div className="mt-4 border-t border-neutral-200 pt-3">
+          <SectionSettingsPanel
+            section={asWebsiteSection(footerSection, rid)}
+            restaurantId={rid}
+            onUpdate={(updates) => onUpdateSection(footerSection.id ?? footerSection.tmp_id!, updates)}
+            onDelete={() => onDeleteSection(footerSection.id ?? footerSection.tmp_id!)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// "Domaine & SEO" — the site's identity texts (welcome + tagline). The custom
+// domain itself is configured elsewhere; only a one-line hint is shown here.
+function DomainPanel({
+  config,
+  onUpdate,
+}: {
+  config: WebsiteConfig;
+  onUpdate: (patch: Partial<WebsiteConfig>) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-sm font-bold text-neutral-900">Domaine &amp; SEO</div>
+      <p className="mb-3 text-[11px] text-neutral-400">
+        Textes d&apos;identité du site, utilisés dans l&apos;en-tête et le partage.
+      </p>
+
+      <div className="space-y-3">
+        <div>
+          <label className="mb-1 block text-[11px] text-neutral-500">Texte de bienvenue</label>
+          <input
+            type="text"
+            value={config.welcome_text ?? ''}
+            onChange={(e) => onUpdate({ welcome_text: e.target.value })}
+            placeholder="Bienvenue"
+            className="w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-800 placeholder:text-neutral-300"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] text-neutral-500">Slogan</label>
+          <input
+            type="text"
+            value={config.tagline ?? ''}
+            onChange={(e) => onUpdate({ tagline: e.target.value })}
+            placeholder="Votre slogan"
+            className="w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-800 placeholder:text-neutral-300"
+          />
+        </div>
+      </div>
+
+      <p className="mt-3 text-[11px] leading-relaxed text-neutral-400">
+        Le domaine personnalisé se configure dans les réglages du restaurant.
       </p>
     </div>
   );
