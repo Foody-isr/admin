@@ -763,11 +763,30 @@ export interface WebsiteConfig {
   navbar_scrolled_logo_url?: string;
   navbar_text_color?: string;
   navbar_overlay_text_color?: string;
-  navbar_cta?: { enabled?: boolean; text?: string; link?: string; bg?: string; text_color?: string } | null;
+  navbar_cta?: {
+    enabled?: boolean;
+    text?: string;
+    link?: string;
+    bg?: string;
+    text_color?: string;
+    /** Button style. shape = corner radius; size = padding scale; variant = fill treatment. */
+    shape?: 'pill' | 'rounded' | 'square';
+    size?: 'sm' | 'md' | 'lg';
+    variant?: 'filled' | 'outline' | 'ghost';
+  } | null;
   /** Navbar composition: inline page links on/off, and the hamburger drawer
    *  button ('mobile' = phones only, 'always', or 'off'). */
   navbar_show_links?: boolean;
   navbar_hamburger?: 'mobile' | 'always' | 'off';
+  /** Navbar typography: a navbar-specific font family (links + restaurant name)
+   *  plus weight/size/letter-spacing/uppercase. */
+  navbar_font?: string;
+  navbar_type?: { weight?: number; size?: number; letter_spacing?: number; uppercase?: boolean } | null;
+  /** Inline nav-link visual treatment. */
+  navbar_link_style?: 'text' | 'underline' | 'pill' | 'bordered';
+  /** Per-(page-type × device) navigation composition (Phase B). NULL ⇒ derived
+   *  from the legacy navbar_* fields. */
+  nav_layout?: NavLayout | null;
   hide_hero_logo: boolean;
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
   hero_logo_bg: 'white' | 'black';
@@ -882,7 +901,19 @@ export interface WebsitePageMeta {
   sort_order: number;
   /** Show this page in the horizontal top nav. Defaults to true when omitted. */
   show_in_nav?: boolean;
+  /** Treat this custom page as a "shopping" page (drops the full top nav, uses
+   *  the shopping navigation). Defaults to false (content page). */
+  is_shopping?: boolean;
 }
+
+/** A single navbar composition mode for one device.
+ *  full = logo + inline links + CTA; compact = logo + hamburger + CTA;
+ *  hidden = no top bar. */
+export type NavMode = 'full' | 'compact' | 'hidden';
+export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
+/** Per-page-type navigation composition. content = landing + content pages;
+ *  shopping = order, catering, and custom pages flagged shopping. */
+export type NavLayout = { content: NavLayoutSide; shopping: NavLayoutSide };
 
 // ─── Checkout-form builder ──────────────────────────────────────────────
 // Mirrors foodyserver/internal/restaurants/checkout_config.go. Null/undefined

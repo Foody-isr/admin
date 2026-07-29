@@ -231,6 +231,9 @@ export function TypographyPanel({
       if (f) referenced.add(f);
     }
     if (hero) referenced.add(hero);
+    // The navbar font (edited in the Navigation panel) also lives in extraFonts —
+    // keep it referenced so it isn't pruned when a role/hero font changes here.
+    if (config.navbar_font) referenced.add(config.navbar_font);
     const pruned = (next.extraFonts ?? []).filter((f) => isCustomFont(f) || referenced.has(f.family));
     onUpdate({ typography: normalizeTypography({ ...next, extraFonts: pruned }) });
   }

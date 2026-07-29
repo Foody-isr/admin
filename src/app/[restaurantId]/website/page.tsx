@@ -13,9 +13,11 @@ import {
   getWebsiteDraft, saveWebsiteDraft, publishWebsiteDraft, discardWebsiteDraft,
   DraftStatePayload, DraftSectionPayload,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
-  ThemeCatalog, WebsitePageMeta, updateGroup, uploadGroupImage,
+  ThemeCatalog, WebsitePageMeta, updateGroup, uploadGroupImage, uploadWebsiteFont,
 } from '@/lib/api';
-import type { BannerDesign } from '@/lib/api';
+import type { BannerDesign, ExtraFont } from '@/lib/api';
+import { FontSelect } from '@/components/website-menu/FontSelect';
+import { curatedFontWeights, WEIGHT_LABELS, loadWebsiteFont } from '@/lib/website-fonts';
 import { BannerDesignerPanel } from '@/components/website-menu/BannerDesignerPanel';
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
@@ -27,7 +29,6 @@ import CheckoutEditor from '@/components/website/CheckoutEditor';
 import { WEBSITE_TEMPLATES, type WebsiteTemplate } from './templates';
 import CheckoutPreviewIframe from '@/components/website/CheckoutPreviewIframe';
 import { OrderPageInfoEditor } from '@/components/website/OrderPageInfoEditor';
-import { NavOrderCard } from '@/components/website/NavOrderCard';
 import type { CheckoutConfig, OrderPageInfo } from '@/lib/api';
 import { WEBSITE_FONT_FAMILIES } from '@/lib/website-fonts';
 
@@ -276,8 +277,10 @@ export default function WebsitePage() {
   const [showAddress, setShowAddress] = useState(true);
   const [showPhone, setShowPhone] = useState(true);
   const [showHours, setShowHours] = useState(true);
-  const [navbarStyle, setNavbarStyle] = useState<string>('solid');
-  const [navbarColor, setNavbarColor] = useState<string>('');
+  // navbar_style / navbar_color now live on `config` (edited in the Thème →
+  // Navigation panel and persisted via buildDraftPayload). The old dedicated
+  // local-state pipeline + the duplicate Paramètres → Général dropdown were
+  // removed — they silently overwrote the panel's picks on save.
   const [logoSize, setLogoSize] = useState<number>(40);
   const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
   const [heroNameFont, setHeroNameFont] = useState<string>('');
@@ -336,12 +339,12 @@ export default function WebsitePage() {
       heroLogoBg: next.hero_logo_bg === 'black' ? 'black' : 'white',
       heroCoverLayout: asHeroCoverLayout(next.hero_cover_layout),
       heroLogoSize: next.hero_logo_size > 0 ? next.hero_logo_size : 100,
-      // These four are edited in dedicated state (not `config`), so read them
+      // These two are edited in dedicated state (not `config`), so read them
       // from the live state vars rather than `next`.
       heroNameFont,
       tagline,
-      navbarStyle,
-      navbarColor,
+      navbarStyle: next.navbar_style || 'solid',
+      navbarColor: next.navbar_color || '',
       socialLinks: next.social_links ?? {},
       restaurantPreview: restaurant
         ? {
@@ -369,7 +372,7 @@ export default function WebsitePage() {
       typography: next.typography ?? null,
     };
     win.postMessage(message, '*');
-  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, orderPageInfo, heroNameFont, tagline, navbarStyle, navbarColor, restaurant]);
+  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, orderPageInfo, heroNameFont, tagline, restaurant]);
 
   // Re-post the menu preview whenever the banner controls change so the iframe
   // reflects them live (these fields are not part of `config`, so the config
@@ -385,7 +388,7 @@ export default function WebsitePage() {
   useEffect(() => {
     if (config) postMenuPreview(config);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heroNameFont, tagline, navbarStyle, navbarColor,
+  }, [heroNameFont, tagline,
       restaurant?.logo_url, restaurant?.cover_url, restaurant?.background_color,
       restaurant?.cover_display_mode, restaurant?.cover_focal_x, restaurant?.cover_focal_y]);
 
@@ -502,8 +505,6 @@ export default function WebsitePage() {
     setShowAddress(stateConfig.show_address ?? true);
     setShowPhone(stateConfig.show_phone ?? true);
     setShowHours(stateConfig.show_hours ?? true);
-    setNavbarStyle(stateConfig.navbar_style || 'solid');
-    setNavbarColor(stateConfig.navbar_color || '');
     setLogoSize(stateConfig.logo_size > 0 ? stateConfig.logo_size : 40);
     setHideNavbarName(stateConfig.hide_navbar_name || false);
     setHeroNameFont(stateConfig.hero_name_font || '');
@@ -585,6 +586,11 @@ export default function WebsitePage() {
           navbar_cta: stateConfig.navbar_cta ?? null,
           navbar_show_links: stateConfig.navbar_show_links ?? true,
           navbar_hamburger: stateConfig.navbar_hamburger || 'mobile',
+          navbar_font: stateConfig.navbar_font || '',
+          navbar_type: stateConfig.navbar_type ?? null,
+          navbar_link_style: stateConfig.navbar_link_style || 'text',
+          nav_layout: stateConfig.nav_layout ?? null,
+          nav_order: stateConfig.nav_order || '',
           hide_hero_logo: stateConfig.hide_hero_logo || false,
           hero_logo_bg: stateConfig.hero_logo_bg === 'black' ? 'black' : 'white',
           hero_cover_layout: asHeroCoverLayout(stateConfig.hero_cover_layout),
@@ -688,8 +694,8 @@ export default function WebsitePage() {
         mid_cta_body: config?.mid_cta_body || '',
         mid_cta_btn_text: config?.mid_cta_btn_text || '',
         footer_text: config?.footer_text || '',
-        navbar_style: navbarStyle,
-        navbar_color: navbarColor,
+        navbar_style: config?.navbar_style || 'solid',
+        navbar_color: config?.navbar_color || '',
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
         navbar_logo_position: config?.navbar_logo_position || 'left',
@@ -699,6 +705,11 @@ export default function WebsitePage() {
         navbar_cta: config?.navbar_cta ?? null,
         navbar_show_links: config?.navbar_show_links ?? true,
         navbar_hamburger: config?.navbar_hamburger || 'mobile',
+        navbar_font: config?.navbar_font || '',
+        navbar_type: config?.navbar_type ?? null,
+        navbar_link_style: config?.navbar_link_style || 'text',
+        nav_layout: config?.nav_layout ?? null,
+        nav_order: config?.nav_order || '',
         hide_hero_logo: config?.hide_hero_logo ?? false,
         hero_logo_bg: config?.hero_logo_bg === 'black' ? 'black' : 'white',
         hero_cover_layout: asHeroCoverLayout(config?.hero_cover_layout),
@@ -731,7 +742,7 @@ export default function WebsitePage() {
       }),
       deleted_section_ids: deletedIds,
     };
-  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, pages, landingEnabled, checkoutConfig, orderPageInfo, sections, deletedIds]);
+  }, [config, tagline, showAddress, showPhone, showHours, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, pages, landingEnabled, checkoutConfig, orderPageInfo, sections, deletedIds]);
 
   // ─── Autosave: persist the entire draft on any local change ──────
 
@@ -852,6 +863,10 @@ export default function WebsitePage() {
 
   function handleTogglePageNav(slug: string, show: boolean) {
     setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, show_in_nav: show } : p)));
+  }
+
+  function handleTogglePageShopping(slug: string, shopping: boolean) {
+    setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, is_shopping: shopping } : p)));
   }
 
   // Apply a ready-made template: replace the current page content with the
@@ -1174,6 +1189,7 @@ export default function WebsitePage() {
               onOpenTemplates={() => setShowTemplates(true)}
               onRenamePage={handleRenamePage}
               onTogglePageNav={handleTogglePageNav}
+              onTogglePageShopping={handleTogglePageShopping}
               onDeletePage={handleDeletePage}
               onReorderPage={handleReorderPage}
               footerExists={footerSection !== null}
@@ -1230,21 +1246,16 @@ export default function WebsitePage() {
           )}
           {editorMode === 'settings' && (
             <SettingsLeftRail
-              rid={restaurantId}
               subMode={settingsSubMode}
               onSubModeChange={setSettingsSubMode}
               restaurant={restaurant}
               tagline={tagline}
-              navbarStyle={navbarStyle}
-              navbarColor={navbarColor}
               showAddress={showAddress}
               showPhone={showPhone}
               showHours={showHours}
               landingEnabled={landingEnabled}
               socialLinks={(config?.social_links as Record<string, string>) ?? {}}
               onTaglineChange={setTagline}
-              onNavbarStyleChange={setNavbarStyle}
-              onNavbarColorChange={setNavbarColor}
               onShowAddressChange={setShowAddress}
               onShowPhoneChange={setShowPhone}
               onShowHoursChange={setShowHours}
@@ -1457,7 +1468,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, cateringEnabled, pages, onAddPage, onOpenTemplates, onRenamePage, onTogglePageNav, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, cateringEnabled, pages, onAddPage, onOpenTemplates, onRenamePage, onTogglePageNav, onTogglePageShopping, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
@@ -1467,6 +1478,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, caterin
   onOpenTemplates: () => void;
   onRenamePage: (slug: string, label: string) => void;
   onTogglePageNav: (slug: string, show: boolean) => void;
+  onTogglePageShopping: (slug: string, shopping: boolean) => void;
   onDeletePage: (slug: string) => void;
   onReorderPage: (slug: string, dir: 'up' | 'down') => void;
   footerExists: boolean;
@@ -1597,6 +1609,15 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, caterin
               className="accent-brand-500"
             />
             <span className="text-[11px] text-fg-secondary">Afficher dans la navigation</span>
+          </label>
+          <label className="mt-2 flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={activeCustom.is_shopping === true}
+              onChange={(e) => onTogglePageShopping(activeCustom.slug, e.target.checked)}
+              className="accent-brand-500"
+            />
+            <span className="text-[11px] text-fg-secondary">Page boutique (masque la barre complète, utilise la nav boutique)</span>
           </label>
         </div>
       )}
@@ -1898,22 +1919,17 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   );
 }
 
-function SettingsLeftRail({ rid, subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange, lockOrderType }: {
-  rid: number;
+function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange, lockOrderType }: {
   subMode: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo';
   onSubModeChange: (m: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo') => void;
   restaurant: Restaurant | null;
   tagline: string;
-  navbarStyle: string;
-  navbarColor: string;
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
   landingEnabled: boolean;
   socialLinks: Record<string, string>;
   onTaglineChange: (v: string) => void;
-  onNavbarStyleChange: (v: string) => void;
-  onNavbarColorChange: (v: string) => void;
   onShowAddressChange: (v: boolean) => void;
   onShowPhoneChange: (v: boolean) => void;
   onShowHoursChange: (v: boolean) => void;
@@ -1973,13 +1989,8 @@ function SettingsLeftRail({ rid, subMode, onSubModeChange, restaurant, tagline, 
               </label>
             </div>
 
-            {/* Bottom-bar tab order for the customer mobile app. The first tab is
-                the default landing tab when the landing page above is disabled,
-                so it belongs right here beside that toggle. Self-contained: it
-                reads/writes the live website-config, independent of the builder
-                draft. Hidden unless Stories are enabled (nothing to order with a
-                single tab). */}
-            <NavOrderCard rid={rid} />
+            {/* Bottom-bar tab order moved to Thème → Navigation (it rides the
+                builder draft now, alongside the composition matrix). */}
 
             <div>
               <label className="block text-xs font-medium text-fg-primary mb-1.5">Slogan</label>
@@ -1991,30 +2002,8 @@ function SettingsLeftRail({ rid, subMode, onSubModeChange, restaurant, tagline, 
                 className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-fg-primary mb-1.5">Style de la barre de navigation</label>
-              <select
-                value={navbarStyle}
-                onChange={(e) => onNavbarStyleChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-              >
-                <option value="solid">Plein</option>
-                <option value="transparent">Transparent</option>
-                <option value="hidden">Masqué</option>
-                <option value="custom">Sur mesure</option>
-              </select>
-            </div>
-            {navbarStyle === 'custom' && (
-              <div>
-                <label className="block text-xs font-medium text-fg-primary mb-1.5">Couleur de la navbar</label>
-                <input
-                  type="color"
-                  value={navbarColor || '#000000'}
-                  onChange={(e) => onNavbarColorChange(e.target.value)}
-                  className="w-full h-9 rounded-lg border border-divider cursor-pointer"
-                />
-              </div>
-            )}
+            {/* Navbar style/color moved to Thème → Navigation (single source of
+                truth). The old dropdown here silently overwrote those picks. */}
             <div className="text-[11px] text-fg-secondary pt-2 border-t border-divider">
               Slug: <code className="text-fg-primary">{restaurant?.slug || '—'}</code>
               <span className="block mt-1 opacity-70">(modifiable via les paramètres du restaurant)</span>
@@ -2334,6 +2323,85 @@ function NavbarPanel({ config, onUpdate, restaurantId }: {
   const setCta = (patch: Partial<NonNullable<WebsiteConfig['navbar_cta']>>) =>
     onUpdate({ navbar_cta: { ...cta, ...patch } });
 
+  // ── Navbar typography (reuses the FontSelect + extraFonts library) ──────────
+  const typo = config.typography ?? {};
+  const navExtraFonts = typo.extraFonts ?? [];
+  const navFont = config.navbar_font || '';
+  const navType = config.navbar_type ?? {};
+  const navWeights =
+    navFont
+      ? curatedFontWeights(navFont) ?? navExtraFonts.find((f) => f.family === navFont)?.weights ?? [400, 700]
+      : [400, 700];
+  const setNavType = (patch: Partial<NonNullable<WebsiteConfig['navbar_type']>>) =>
+    onUpdate({ navbar_type: { ...navType, ...patch } });
+  const setNavFont = (family: string, picked?: ExtraFont) => {
+    if (family) {
+      const src = picked?.faces?.length ? { faces: picked.faces } : picked?.url ? { url: picked.url, format: picked.format } : undefined;
+      loadWebsiteFont(family, picked?.weights, src);
+    }
+    const extraFonts = picked && !navExtraFonts.some((f) => f.family === picked.family) ? [...navExtraFonts, picked] : navExtraFonts;
+    onUpdate({ navbar_font: family, typography: { ...typo, extraFonts } });
+  };
+
+  const linkStyle = config.navbar_link_style || 'text';
+
+  // ── Composition matrix (content vs shopping × desktop/mobile) ───────────────
+  // Effective values default from the legacy navbar_* fields (mirrors foodyweb's
+  // resolveNavLayout back-compat) so the UI reflects what actually renders; any
+  // edit persists the full explicit nav_layout.
+  const navLayout = config.nav_layout ?? null;
+  const legacyContentDesktop: 'full' | 'compact' | 'hidden' =
+    config.navbar_style === 'hidden' || config.navbar_hamburger === 'always'
+      ? 'compact'
+      : config.navbar_show_links !== false
+        ? 'full'
+        : 'compact';
+  const eff = {
+    content: {
+      desktop: navLayout?.content?.desktop ?? legacyContentDesktop,
+      mobile: navLayout?.content?.mobile ?? 'compact',
+      bottom_bar: navLayout?.content?.bottom_bar ?? false,
+    },
+    shopping: {
+      desktop: navLayout?.shopping?.desktop ?? 'compact',
+      mobile: navLayout?.shopping?.mobile ?? 'hidden',
+      bottom_bar: navLayout?.shopping?.bottom_bar ?? true,
+    },
+  } as const;
+  const setLayout = (grp: 'content' | 'shopping', patch: Partial<{ desktop: string; mobile: string; bottom_bar: boolean }>) =>
+    onUpdate({ nav_layout: { ...eff, [grp]: { ...eff[grp], ...patch } } } as Partial<WebsiteConfig>);
+  const MODE_OPTS = [['full', 'Complète'], ['compact', 'Compacte'], ['hidden', 'Masquée']] as const;
+  const modeRow = (label: string, value: string, onSet: (v: string) => void) => (
+    <div>
+      <label className="block text-[11px] text-fg-secondary mb-1">{label}</label>
+      <div className="flex gap-1.5">
+        {MODE_OPTS.map(([v, l]) => (
+          <button key={v} onClick={() => onSet(v)}
+            className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${value === v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+  const groupBlock = (grp: 'content' | 'shopping', title: string, hint: string) => (
+    <div className="rounded-lg border border-divider p-2.5 space-y-2.5">
+      <div>
+        <div className="text-[11px] font-medium text-fg-primary">{title}</div>
+        <div className="text-[10px] text-fg-secondary leading-tight">{hint}</div>
+      </div>
+      {modeRow('Ordinateur', eff[grp].desktop, (v) => setLayout(grp, { desktop: v }))}
+      {modeRow('Mobile', eff[grp].mobile, (v) => setLayout(grp, { mobile: v }))}
+      <label className="flex items-center gap-2 text-xs text-fg-primary">
+        <input type="checkbox" checked={eff[grp].bottom_bar} onChange={(e) => setLayout(grp, { bottom_bar: e.target.checked })} className="accent-brand-500" />
+        Barre du bas sur mobile
+      </label>
+      {eff[grp].desktop === 'hidden' && (
+        <p className="text-[10px] text-amber-600">Aucune barre en haut sur ordinateur pour ce type de page.</p>
+      )}
+    </div>
+  );
+
   const sec = (title: string, node: React.ReactNode) => (
     <div className="space-y-2">
       <div className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">{title}</div>
@@ -2354,7 +2422,6 @@ function NavbarPanel({ config, onUpdate, restaurantId }: {
     { v: 'solid', label: 'Pleine', hint: 'Fond opaque en permanence' },
     { v: 'overlay', label: 'Superposée', hint: 'Transparente sur la bannière, opaque au survol' },
     { v: 'custom', label: 'Couleur', hint: 'Fond de couleur personnalisée' },
-    { v: 'hidden', label: 'Masquée', hint: 'Logo flottant seul' },
   ];
 
   return (
@@ -2362,6 +2429,43 @@ function NavbarPanel({ config, onUpdate, restaurantId }: {
       <p className="text-[11px] leading-relaxed text-fg-secondary">
         La barre de navigation est <strong>partagée par toutes les pages</strong> du site : accueil, commande, traiteur et pages personnalisées.
       </p>
+
+      {sec('Composition par type de page',
+        <div className="space-y-2">
+          <p className="text-[10px] text-fg-secondary leading-tight">
+            Choisissez l&apos;affichage de la navigation, séparément sur <strong>ordinateur</strong> et <strong>mobile</strong>. Complète = logo + liens + bouton ; Compacte = logo + menu hamburger + bouton ; Masquée = aucune barre en haut.
+          </p>
+          {groupBlock('content', 'Pages de contenu', 'Accueil et pages de contenu')}
+          {groupBlock('shopping', 'Pages boutique', 'Commande, traiteur, pages boutique')}
+        </div>,
+      )}
+
+      {sec('Barre du bas (mobile)',
+        <div className="space-y-2">
+          <p className="text-[10px] text-fg-secondary leading-tight">
+            La barre du bas s&apos;affiche sur mobile pour les types de page activés ci-dessus. Onglets&nbsp;: Menu, Traiteur, Stories, Compte.
+          </p>
+          {config.stories_enabled ? (
+            <div>
+              <label className="block text-xs text-fg-primary mb-1">Onglet par défaut</label>
+              <div className="flex gap-1.5">
+                {([['menu', 'Menu'], ['stories', 'Stories']] as const).map(([v, l]) => {
+                  const first = (config.nav_order || 'menu').split(',')[0] === v;
+                  return (
+                    <button key={v} onClick={() => onUpdate({ nav_order: v === 'menu' ? 'menu,stories' : 'stories,menu' })}
+                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${first ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
+                      {l}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <p className="text-[10px] text-fg-tertiary">Activez les Stories (page Reels) pour réordonner les onglets.</p>
+          )}
+        </div>,
+      )}
+
       {sec('Style de la barre',
         <div className="grid grid-cols-2 gap-1.5">
           {styleOpts.map((o) => (
@@ -2374,28 +2478,7 @@ function NavbarPanel({ config, onUpdate, restaurantId }: {
         </div>,
       )}
 
-      {style !== 'hidden' && (
-        <>
-          {sec('Éléments',
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-fg-primary mb-1">Menu (hamburger)</label>
-                <div className="flex gap-1.5">
-                  {([['mobile', 'Sur mobile'], ['always', 'Toujours'], ['off', 'Jamais']] as const).map(([v, label]) => (
-                    <button key={v} onClick={() => onUpdate({ navbar_hamburger: v })}
-                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${(config.navbar_hamburger || 'mobile') === v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-1 text-[10px] text-fg-tertiary">Le bouton menu ouvre le tiroir avec toutes les pages.</p>
-              </div>
-              <label className="flex items-center gap-2 text-xs text-fg-primary">
-                <input type="checkbox" checked={config.navbar_show_links !== false} onChange={(e) => onUpdate({ navbar_show_links: e.target.checked })} className="accent-brand-500" />
-                Afficher les liens vers les pages (ordinateur)
-              </label>
-            </div>,
-          )}
+      <>
           {sec('Logo',
             <div className="space-y-3">
               <div>
@@ -2437,6 +2520,60 @@ function NavbarPanel({ config, onUpdate, restaurantId }: {
             </div>,
           )}
 
+          {sec('Typographie',
+            <div className="space-y-3">
+              <div className="flex gap-1.5">
+                <div className="flex-1 min-w-0">
+                  <FontSelect
+                    value={navFont}
+                    onChange={setNavFont}
+                    extraFonts={navExtraFonts}
+                    defaultLabel="Police par défaut"
+                    onUploadFont={(file) => uploadWebsiteFont(restaurantId, file)}
+                  />
+                </div>
+                <select
+                  value={navType.weight ?? ''}
+                  onChange={(e) => setNavType({ weight: e.target.value ? Number(e.target.value) : undefined })}
+                  className="w-[104px] shrink-0 px-2 py-1.5 rounded-lg border border-divider bg-[var(--surface)] text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                  style={navType.weight ? { fontWeight: navType.weight } : undefined}
+                >
+                  <option value="">Auto</option>
+                  {navWeights.map((w) => (
+                    <option key={w} value={w} style={{ fontWeight: w }}>{WEIGHT_LABELS[w] ?? w}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="flex items-center justify-between text-xs text-fg-primary mb-1">
+                  <span>Taille des liens</span><span className="text-fg-secondary">{navType.size || 14}px</span>
+                </label>
+                <input type="range" min={11} max={22} step={1} value={navType.size || 14} onChange={(e) => setNavType({ size: Number(e.target.value) })} className="w-full accent-brand-500" />
+              </div>
+              <div>
+                <label className="flex items-center justify-between text-xs text-fg-primary mb-1">
+                  <span>Interlettrage</span><span className="text-fg-secondary">{navType.letter_spacing || 0}px</span>
+                </label>
+                <input type="range" min={0} max={6} step={0.5} value={navType.letter_spacing || 0} onChange={(e) => setNavType({ letter_spacing: Number(e.target.value) })} className="w-full accent-brand-500" />
+              </div>
+              <label className="flex items-center gap-2 text-xs text-fg-primary">
+                <input type="checkbox" checked={!!navType.uppercase} onChange={(e) => setNavType({ uppercase: e.target.checked })} className="accent-brand-500" />
+                Majuscules
+              </label>
+            </div>,
+          )}
+
+          {sec('Style des liens',
+            <div className="grid grid-cols-2 gap-1.5">
+              {([['text', 'Texte'], ['underline', 'Souligné'], ['pill', 'Pilule'], ['bordered', 'Encadré']] as const).map(([v, label]) => (
+                <button key={v} onClick={() => onUpdate({ navbar_link_style: v })}
+                  className={`px-2.5 py-2 rounded-lg border text-xs transition ${linkStyle === v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>,
+          )}
+
           {sec("Bouton d'action",
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-xs text-fg-primary">
@@ -2462,12 +2599,44 @@ function NavbarPanel({ config, onUpdate, restaurantId }: {
                   </div>
                   {colorRow('Fond du bouton', cta.bg, (v) => setCta({ bg: v }), '#ea580c')}
                   {colorRow('Texte du bouton', cta.text_color, (v) => setCta({ text_color: v }), '#ffffff')}
+                  <div>
+                    <label className="block text-xs text-fg-primary mb-1">Forme</label>
+                    <div className="flex gap-1.5">
+                      {([['pill', 'Pilule'], ['rounded', 'Arrondi'], ['square', 'Carré']] as const).map(([v, label]) => (
+                        <button key={v} onClick={() => setCta({ shape: v })}
+                          className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${(cta.shape || 'pill') === v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-fg-primary mb-1">Taille</label>
+                    <div className="flex gap-1.5">
+                      {([['sm', 'S'], ['md', 'M'], ['lg', 'L']] as const).map(([v, label]) => (
+                        <button key={v} onClick={() => setCta({ size: v })}
+                          className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${(cta.size || 'md') === v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-fg-primary mb-1">Style</label>
+                    <div className="flex gap-1.5">
+                      {([['filled', 'Plein'], ['outline', 'Contour'], ['ghost', 'Fantôme']] as const).map(([v, label]) => (
+                        <button key={v} onClick={() => setCta({ variant: v })}
+                          className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${(cta.variant || 'filled') === v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>,
           )}
-        </>
-      )}
+      </>
     </div>
   );
 }
