@@ -13,6 +13,7 @@
 // the v2 server on dev.
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   getWebsiteDraft,
   saveWebsiteDraft,
@@ -25,6 +26,7 @@ import {
   type DraftSectionPayload,
 } from '@/lib/api';
 import { NavbarEditor } from './NavbarEditor';
+import { PageCommerce } from './PageCommerce';
 
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://dev-app.foody-pos.co.il';
 
@@ -58,6 +60,7 @@ const APPEARANCE_ROWS = [
 
 export default function WebsiteV2Builder({ params }: { params: { restaurantId: string } }) {
   const rid = Number(params.restaurantId);
+  const router = useRouter();
   const [draft, setDraft] = useState<DraftResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +163,14 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
     void saveState({ ...draft.state, sections });
   }
 
+  function updatePageSettings(slug: string, settings: Record<string, unknown>) {
+    if (!draft) return;
+    const pages = (draft.state.pages ?? []).map((p) =>
+      p.slug === slug ? { ...p, settings } : p,
+    );
+    void saveState({ ...draft.state, pages });
+  }
+
   function selectPage(slug: string) {
     setActivePage(slug);
     setActiveSite(null);
@@ -173,6 +184,16 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
     <div className="flex h-full flex-col">
       {/* Top bar */}
       <header className="flex items-center gap-3 border-b border-neutral-200 bg-white px-4 py-2.5">
+        <button
+          onClick={() => router.push(`/${rid}/dashboard`)}
+          title="Retour au tableau de bord"
+          aria-label="Retour au tableau de bord"
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-100"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
         <span className="text-sm font-semibold text-neutral-900">Site web</span>
         <span className="text-xs text-neutral-400">·</span>
         <span className="text-sm text-neutral-500">{page ? page.title : 'Tout le site'}</span>
@@ -248,6 +269,8 @@ export default function WebsiteV2Builder({ params }: { params: { restaurantId: s
               sections={pageSections}
               onToggle={toggleSection}
               busy={busy}
+              rid={rid}
+              onSaveSettings={(s) => updatePageSettings(page.slug, s)}
             />
           ) : activeSite === 'nav' && draft ? (
             <NavbarEditor draft={draft} onSave={saveState} busy={busy} />
@@ -304,6 +327,8 @@ function PageEditor({
   sections,
   onToggle,
   busy,
+  rid,
+  onSaveSettings,
 }: {
   page: DraftPagePayload;
   tab: Tab;
@@ -311,6 +336,8 @@ function PageEditor({
   sections: DraftSectionPayload[];
   onToggle: (id: number | string) => void;
   busy: boolean;
+  rid: number;
+  onSaveSettings: (settings: Record<string, unknown>) => void;
 }) {
   const overrides = page.appearance_overrides ?? {};
   return (
@@ -403,11 +430,7 @@ function PageEditor({
           <Field label="Type">{page.type}</Field>
           <Field label="Slug">/{page.slug}</Field>
           <Field label="Visible dans la nav">{page.nav_visible === false ? 'Non' : 'Oui'}</Field>
-          {page.type === 'order' && (
-            <p className="pt-1 text-[11px] text-neutral-400">
-              Formulaire de commande, OTP, livraison/retrait et menus affichés se règlent ici.
-            </p>
-          )}
+          <PageCommerce page={page} rid={rid} onSave={onSaveSettings} busy={busy} />
         </div>
       )}
     </div>
