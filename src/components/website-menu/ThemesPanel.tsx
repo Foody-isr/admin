@@ -422,12 +422,14 @@ type EditorProps = {
 
 function CustomPaletteEditor({ palette, catalog, onChange, onReset }: EditorProps) {
   const { t } = useI18n();
-  const rows: { key: 'bg' | 'surface' | 'accent' | 'ink' | 'categoryInk'; label: string }[] = [
+  const rows: { key: 'bg' | 'surface' | 'accent' | 'ink' | 'categoryInk' | 'searchBg' | 'menuText'; label: string }[] = [
     { key: 'bg', label: t('customPaletteBg') },
     { key: 'surface', label: t('customPaletteSurface') },
     { key: 'accent', label: t('customPaletteAccent') },
     { key: 'ink', label: t('customPaletteInk') },
     { key: 'categoryInk', label: t('customPaletteCategoryInk') },
+    { key: 'searchBg', label: t('customPaletteSearchBg') },
+    { key: 'menuText', label: t('customPaletteMenuText') },
   ];
 
   return (
@@ -441,11 +443,15 @@ function CustomPaletteEditor({ palette, catalog, onChange, onReset }: EditorProp
           pick a polarity that fought their own colors. */}
 
       {/* The 4 swatch rows. Color picker + hex input, both wired to the same field. */}
-      {rows.map(({ key, label }) => (
-        // categoryInk is optional; while unset it inherits ink, so show ink as
-        // the row's starting value rather than an empty/invalid swatch.
-        <PaletteColorRow key={key} label={label} value={palette[key] ?? palette.ink} onChange={(v) => onChange({ [key]: v } as Partial<CustomPalette>)} />
-      ))}
+      {rows.map(({ key, label }) => {
+        // Optional swatches inherit until set: categoryInk starts from the text
+        // color, searchBg from the surface color — so each row opens on a
+        // sensible value rather than an empty/invalid swatch.
+        const inherited = key === 'searchBg' ? palette.surface : palette.ink;
+        return (
+          <PaletteColorRow key={key} label={label} value={palette[key] ?? inherited} onChange={(v) => onChange({ [key]: v } as Partial<CustomPalette>)} />
+        );
+      })}
 
       {/* Start-from-preset seeder. Confirms before overwriting current edits. */}
       <div>
