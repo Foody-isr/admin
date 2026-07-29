@@ -5063,6 +5063,17 @@ export async function saveWebsiteDraft(
   );
 }
 
+/** The live WebsitePage rows (typed pages + their commerce settings) for a
+ *  restaurant, independent of the draft snapshot. Backed by the public
+ *  page-centric read. Used by the commerce-connection panel. */
+export async function getWebsitePages(restaurantId: number): Promise<DraftPagePayload[]> {
+  const res = await apiFetch<{ pages: DraftPagePayload[] }>(
+    `/api/v1/public/restaurants/${restaurantId}/website-pages`,
+    restaurantId,
+  );
+  return res.pages ?? [];
+}
+
 /** Set a builder page's settings_json (per-page commerce connection:
  *  {commerce, menu_ids, service_ids}). Isolated from the draft — saves
  *  immediately, does not touch the builder's autosave/publish snapshot. */

@@ -3,14 +3,16 @@
 // Website Builder — per-page commerce connection panel for the LEGACY builder.
 //
 // Wraps the shared PageCommerce picker: maps the legacy builder's activePage to
-// its WebsitePage (from the draft's top-level pages), and saves via the isolated
-// PUT .../website-pages/:pageId/settings endpoint (NOT the draft snapshot), so it
-// cannot disturb the legacy builder's autosave/publish. Renders nothing for
-// pages that have no WebsitePage row (e.g. the site-footer holder).
+// its WebsitePage and saves via the isolated PUT .../website-pages/:pageId/settings
+// endpoint (NOT the draft snapshot), so it cannot disturb the legacy builder's
+// autosave/publish. Fetches the live WebsitePage rows itself rather than relying
+// on the draft — the legacy builder's drafts don't carry the typed pages, so a
+// dirty draft would otherwise hide the panel. Renders nothing for pages with no
+// WebsitePage row (e.g. the site-footer holder).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PageCommerce } from './PageCommerce';
-import { setWebsitePageSettings, type DraftPagePayload } from '@/lib/api';
+import { getWebsitePages, setWebsitePageSettings, type DraftPagePayload } from '@/lib/api';
 
 // The legacy builder's activePage keys ('home' | 'menu' | 'catering' | '_site'
 // | <custom slug>) map to a WebsitePage slug — 'menu' hosts sections under the
@@ -22,23 +24,31 @@ function pageSlugFor(activePage: string): string {
 export function PageCommercePanel({
   restaurantId,
   activePage,
-  websitePages,
-  onUpdated,
 }: {
   restaurantId: number;
   activePage: string;
-  websitePages: DraftPagePayload[];
-  onUpdated: (pages: DraftPagePayload[]) => void;
 }) {
+  const [pages, setPages] = useState<DraftPagePayload[]>([]);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    getWebsitePages(restaurantId)
+      .then((p) => alive && setPages(p))
+      .catch(() => alive && setPages([]));
+    return () => {
+      alive = false;
+    };
+  }, [restaurantId]);
+
   const slug = pageSlugFor(activePage);
-  const page = websitePages.find((p) => p.slug === slug);
+  const page = pages.find((p) => p.slug === slug);
   const pageId = page?.id;
   if (!page || pageId == null || slug === '_site') return null;
 
   async function save(settings: Record<string, unknown>) {
     setBusy(true);
-    onUpdated(websitePages.map((p) => (p.id === pageId ? { ...p, settings } : p))); // optimistic
+    setPages((ps) => ps.map((p) => (p.id === pageId ? { ...p, settings } : p))); // optimistic
     try {
       await setWebsitePageSettings(restaurantId, pageId!, settings);
     } finally {
