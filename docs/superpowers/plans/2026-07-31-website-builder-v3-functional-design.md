@@ -144,6 +144,128 @@ Catering pages expose:
 - Service gallery background.
 - Service cards, buttons, labels, and accents.
 
+## Order Page V2 Parity Contract
+
+Website V3 must preserve at least the complete flexibility already available for
+order pages in V2. These controls become local to each order page instead of
+being presented as a misleading site-wide theme.
+
+### Catalog layout
+
+Each order page supports:
+
+- Desktop default layout: magazine or compact.
+- Mobile default layout: inherit desktop, magazine, or compact.
+- Product-gallery/page background.
+- Product-card background, primary text, secondary text, price, and accent.
+- Search-field background.
+- Product-detail text and surface colors.
+
+Customers may keep an existing public layout switch where currently supported,
+but the page setting defines the initial presentation.
+
+### Restaurant cover
+
+Each order page supports:
+
+- Cover image upload, current preview, replacement, and removal.
+- Solid-color cover fallback.
+- Cover focal point.
+- Cover composition:
+  - Logo and restaurant name.
+  - Centered logo only.
+  - Bare logo without frame, name, or tagline.
+- Logo frame background: white or black when the selected composition uses it.
+- Cover logo size.
+- Restaurant-name font and weight.
+- Hero background and text colors.
+
+The shared restaurant cover remains the backward-compatible source until an
+order page receives its own override.
+
+### Category separators
+
+Each order page exposes the complete V2 category-banner presentation:
+
+- Image with overlaid title.
+- Image only.
+- Text block only.
+- Minimal striped rule.
+- Custom color and title.
+- No category separator.
+
+Image modes expose:
+
+- Overlay darkness from 0 to 100 for the overlaid-title variant.
+- Desktop image fit: crop to fill, full image with blurred fill, or natural
+  aspect ratio.
+- Mobile image fit: inherit desktop or choose an independent fit.
+- Per-category image and focal point.
+
+The custom color-and-title mode keeps the V2 per-category designer:
+
+- Background color.
+- Custom title text.
+- Title font, scale, color, and alignment.
+- Optional uploaded image stickers.
+- Sticker position, size, rotation, removal, and direct preview manipulation.
+
+Category images and per-category designs remain attached to menu groups because
+the same group data is shared by every channel. The selected order page controls
+how those assets are presented.
+
+### Commerce typography
+
+Each order page keeps the V2 typography controls for:
+
+- Restaurant name in the cover.
+- Category navigation.
+- Category separator titles.
+- Product names.
+- Product prices.
+- Product descriptions.
+
+Each supported role exposes font, available weight, size scale, and letter case
+where relevant. Existing uploaded custom-font management remains available and
+must not be replaced by raw font-name inputs.
+
+### Theme and palette
+
+Each order page keeps:
+
+- Visual theme preset cards and preview swatches.
+- Typography pairing cards.
+- Brand-color override.
+- Custom palette seeded from a preset.
+- Page background, surface, accent, primary text, category text, search
+  background, and product-detail text.
+- Zone overrides for hero, metadata, category bar, product gallery, and product
+  cards.
+- Contrast warnings and one-click correction for unreadable combinations.
+
+### Order information and checkout
+
+The V3 order-page settings must not lose the V2 information controls:
+
+- Metadata-bar contents per pickup, delivery, and dine-in mode.
+- Minimum order, fulfilment time, preorder week, opening hours, Wi-Fi, social
+  links, and the “More” action where applicable.
+- “More” modal sections: about, full opening hours, address/directions, contact,
+  social links, and custom text.
+- Existing checkout configuration remains reachable from the order page without
+  becoming page appearance.
+
+### Backward-compatible resolution
+
+For every V2 order-style field, public rendering resolves values in this order:
+
+1. The selected order page override.
+2. The existing legacy WebsiteConfig value.
+3. The renderer default.
+
+This preserves existing restaurants exactly while allowing two order pages in
+the same restaurant to have independent catalog designs.
+
 ## Content Page Component Library
 
 Landing and content pages can contain any number of components.
@@ -283,6 +405,12 @@ Legacy pages currently stored with reserved slugs are reconciled to an available
 - Gallery images can be uploaded, reordered, removed, and published.
 - Multiple components can be inserted into one content page.
 - Visual theme cards update each page independently.
+- Two order pages can use different catalog layouts, palettes, typography, cover
+  compositions, and category-separator styles.
+- Every V2 order-page appearance control produces the same visible result in V3.
+- Category separator image/text/color variants survive reload and publish.
+- Per-category focal points and color-title designs remain connected.
+- Order metadata-bar and “More” modal configuration survive reload and publish.
 - Navigation/footer modes affect only the selected page.
 - Duplicate and reserved addresses show actionable guidance.
 - `/order` and `/catering` resolve to the selected default page.
@@ -306,4 +434,3 @@ Legacy pages currently stored with reserved slugs are reconciled to an available
 6. Replace reserved-slug errors with the alias workflow.
 7. Add the collapsible page rail.
 8. Run focused tests, complete Website V3 E2E, and cross-service validation.
-
