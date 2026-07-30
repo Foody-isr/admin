@@ -100,7 +100,7 @@ websiteV3Test('invalid commerce associations block publish and recover after cor
       await checkbox.uncheck();
     }
     await expect(builderPage.getByText('Sélectionnez au moins', { exact: false })).toBeVisible();
-    await expect(builderPage.getByText('Échec de l’enregistrement', { exact: false })).toBeVisible();
+    await waitForDraftSaved(builderPage);
     let publishRequests = 0;
     const countPublish = (request: import('@playwright/test').Request) => {
       if (request.method() === 'POST' && request.url().endsWith('/website-publish')) publishRequests += 1;
