@@ -2,6 +2,7 @@ import {
   expect,
   openInspectorTab,
   previewFrame,
+  selectBuilderPage,
   waitForDraftSaved,
   waitForPreviewReady,
   websiteV3Test,
@@ -152,6 +153,75 @@ websiteV3Test(
 
     await navbar.hover();
 
+    await expect(navbar).toHaveAttribute("data-navbar-state", "solid");
+    await expect(navbar).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(homeLink).toHaveCSS("color", "rgb(17, 17, 17)");
+
+    await preview.getByRole("heading", { name: "Website V3 E2E" }).hover();
+
+    await expect(navbar).toHaveAttribute("data-navbar-state", "transparent");
+    await expect(navbar).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(homeLink).toHaveCSS("color", "rgb(255, 255, 255)");
+
+    await homeLink.focus();
+
+    await expect(navbar).toHaveAttribute("data-navbar-state", "solid");
+    await expect(navbar).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(homeLink).toHaveCSS("color", "rgb(17, 17, 17)");
+
+    await preview
+      .getByRole("link", { name: "Order brunch", exact: true })
+      .focus();
+
+    await expect(navbar).toHaveAttribute("data-navbar-state", "transparent");
+    await expect(navbar).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(homeLink).toHaveCSS("color", "rgb(255, 255, 255)");
+  },
+);
+
+websiteV3Test(
+  "overlay navigation stays solid when a reordered non-hero section renders first",
+  async ({ builderPage }) => {
+    await builderPage.getByRole("button", { name: "Identité du site" }).click();
+    await openInspectorTab(builderPage, "Réglages");
+
+    await builderPage
+      .locator('select[data-field-id="site.navbar_style"]')
+      .selectOption("overlay");
+    await builderPage
+      .locator('input[type="text"][data-field-id="site.navbar_color"]')
+      .fill("#ffffff");
+    await builderPage
+      .locator(
+        'input[type="text"][data-field-id="site.navbar_overlay_text_color"]',
+      )
+      .fill("#ffffff");
+    await builderPage
+      .locator('input[type="text"][data-field-id="site.navbar_text_color"]')
+      .fill("#111111");
+    await waitForDraftSaved(builderPage);
+    await waitForPreviewReady(builderPage);
+
+    await selectBuilderPage(builderPage, "Home");
+    await builderPage
+      .getByRole("button", { name: "Hero banner", exact: true })
+      .click();
+    await builderPage
+      .locator(
+        'button[data-field-id="section.sort_order"][aria-label="Descendre"]',
+      )
+      .click();
+    await waitForDraftSaved(builderPage);
+    await waitForPreviewReady(builderPage);
+
+    const preview = previewFrame(builderPage);
+    const navbar = preview.locator("nav").first();
+    const homeLink = preview.getByRole("link", { name: "Home", exact: true });
+
+    await expect(preview.locator("[data-section-type]").first()).toHaveAttribute(
+      "data-section-type",
+      "feature_cards",
+    );
     await expect(navbar).toHaveAttribute("data-navbar-state", "solid");
     await expect(navbar).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(homeLink).toHaveCSS("color", "rgb(17, 17, 17)");

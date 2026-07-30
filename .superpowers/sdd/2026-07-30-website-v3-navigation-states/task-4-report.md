@@ -90,3 +90,45 @@
 - The unrelated external Foodyadmin changes in `src/lib/api.ts`, `src/lib/i18n.tsx`, `src/components/Sidebar.tsx`, `src/app/[restaurantId]/settings/stock/`, `src/app/[restaurantId]/menu/items/[itemId]/page.tsx`, and `src/components/menu-item/ItemAvailabilityPanel.tsx` were not modified, staged, or committed.
 - Existing E2E server warnings remain for the missing `payplus_recurring_uid` column and redundant Next.js fetch-cache options.
 - No push, deployment, API change, or database change was performed.
+
+## Round 1 Review Fixes
+
+### Findings Resolved
+
+- H1: Added the pure `visibleSectionsInRenderOrder` helper and used it for both section rendering and first-visible-hero detection. Reordered, hidden, and footer sections now follow one canonical sequence.
+- M1: Overlay navigation enters its colored state when keyboard focus is anywhere within the navbar and returns to transparent when focus leaves.
+- M2: Extended the navigation E2E with mouse-leave restoration, focus-enter/focus-leave transitions, and a reordered non-hero-first negative path.
+- L1: Restricted resolved `NavbarSettings.style` to `solid | transparent | overlay`; legacy `custom` and `hidden` inputs remain accepted and normalize to `solid`, while the raw legacy style still feeds navigation-layout compatibility.
+
+### Round 1 TDD Evidence
+
+1. Added the helper/style unit tests and navigation E2E assertions before implementation.
+2. Confirmed RED:
+   - Focused Foodyweb tests failed because `custom` resolved as `custom` and `visibleSectionsInRenderOrder` did not exist.
+   - Navigation E2E failed on keyboard focus remaining transparent and reordered non-hero content incorrectly retaining the transparent overlay.
+3. Implemented the shared ordering helper, renderer-boundary normalization, and hover/focus interaction state.
+4. Confirmed GREEN:
+   - Focused Foodyweb unit tests: 11 passed.
+   - Foodyweb full tests: 133 passed.
+   - Foodyadmin navigation E2E: 5 passed, including the unchanged 1280-pixel viewport and page-control coverage.
+
+### Round 1 Validation
+
+- Foodyweb `npm test` — passed, 133 tests.
+- Foodyweb `npm run lint` — passed with existing unrelated warnings.
+- Foodyweb `npx tsc --noEmit` — passed.
+- Foodyadmin `npx playwright test tests/website-v3/navigation.spec.ts --reporter=line` — passed, 5 tests.
+- Foodyadmin `npm run lint` — passed with existing unrelated warnings.
+- Foodyadmin `npm run typecheck` — passed.
+- Both repositories `git diff --check` — passed.
+
+### Round 1 Commit
+
+- Foodyweb: `c881b09` — `fix(website-v3): correct navbar overlay states`
+- Foodyadmin: this report and the navigation E2E changes are included in the focused Round 1 admin commit.
+
+### Round 1 Notes
+
+- No API, database, migration, deployment, or push changes were made.
+- All unrelated Foodyadmin working-tree changes remain unstaged and excluded.
+- Existing lint and E2E server warnings remain unchanged.
