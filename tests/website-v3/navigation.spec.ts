@@ -1,0 +1,96 @@
+import {
+  expect,
+  openInspectorTab,
+  previewFrame,
+  waitForDraftSaved,
+  waitForPreviewReady,
+  websiteV3Test,
+} from "./helpers";
+
+const fixturePages = [
+  { title: "Home", slug: "home", type: "landing", navVisible: true },
+  { title: "About", slug: "about", type: "content", navVisible: true },
+  {
+    title: "Brunch Order",
+    slug: "brunch-order",
+    type: "order",
+    navVisible: true,
+  },
+  {
+    title: "Dinner Order",
+    slug: "dinner-order",
+    type: "order",
+    navVisible: true,
+  },
+  {
+    title: "Office Catering",
+    slug: "office-catering",
+    type: "catering",
+    navVisible: true,
+  },
+  {
+    title: "Celebration Catering",
+    slug: "celebration-catering",
+    type: "catering",
+    navVisible: true,
+  },
+] as const;
+
+websiteV3Test(
+  "navigation settings list every fixture page with its visibility state",
+  async ({ builderPage }) => {
+    await builderPage.getByRole("button", { name: "Identité du site" }).click();
+    await openInspectorTab(builderPage, "Réglages");
+
+    const switches = builderPage.locator(
+      'input[data-field-id^="site.navigation-page."]',
+    );
+    await expect(switches).toHaveCount(fixturePages.length);
+
+    for (const page of fixturePages) {
+      const pageRow = builderPage
+        .locator('label:has(input[data-field-id^="site.navigation-page."])')
+        .filter({ hasText: page.title });
+      await expect(pageRow).toContainText(`/${page.slug}`);
+      await expect(pageRow).toContainText(page.type);
+
+      const pageSwitch = pageRow.locator(
+        'input[data-field-id^="site.navigation-page."]',
+      );
+      if (page.navVisible) {
+        await expect(pageSwitch).toBeChecked();
+      } else {
+        await expect(pageSwitch).not.toBeChecked();
+      }
+    }
+  },
+);
+
+websiteV3Test(
+  "navigation visibility switches update the preview navbar immediately",
+  async ({ builderPage }) => {
+    await builderPage.getByRole("button", { name: "Identité du site" }).click();
+    await openInspectorTab(builderPage, "Réglages");
+
+    const aboutRow = builderPage
+      .locator('label:has(input[data-field-id^="site.navigation-page."])')
+      .filter({ hasText: "About" });
+    const aboutSwitch = aboutRow.locator(
+      'input[data-field-id^="site.navigation-page."]',
+    );
+    const preview = previewFrame(builderPage);
+    await preview.getByRole("button", { name: "Primary navigation" }).click();
+    const aboutLink = preview.getByRole("link", { name: "About", exact: true });
+
+    await expect(aboutLink).toBeVisible();
+    await aboutSwitch.uncheck();
+    await waitForDraftSaved(builderPage);
+    await waitForPreviewReady(builderPage);
+    await expect(aboutLink).toBeHidden();
+
+    await aboutSwitch.check();
+    await waitForDraftSaved(builderPage);
+    await waitForPreviewReady(builderPage);
+    await expect(aboutLink).toBeVisible();
+  },
+);

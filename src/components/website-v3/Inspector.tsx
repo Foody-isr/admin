@@ -9,6 +9,7 @@ import type {
   FieldError,
   StatePath,
 } from "@/lib/website-v3/types";
+import { isTechnicalSitePage } from "@/lib/website-v3/state";
 import { PageInspector } from "./PageInspector";
 import type { RailSelection } from "./PageRail";
 import { SectionInspector } from "./SectionInspector";
@@ -126,8 +127,14 @@ export function Inspector({
           catalogWarning={catalogWarning}
           restaurantId={restaurantId}
           restaurantLogoUrl={restaurantLogoUrl}
+          pages={state.pages.filter(
+            (candidate) => !isTechnicalSitePage(candidate),
+          )}
           footer={footer}
           onChange={onConfigChange}
+          onPageVisibilityChange={(key, visible) =>
+            onPageChange(key, ["nav_visible"], visible)
+          }
           onFooterChange={(path, value) =>
             footer
               ? onSectionChange(stableSectionKey(footer), path, value)

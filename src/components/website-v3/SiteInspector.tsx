@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ThemeCatalog } from "@/lib/api";
 import { SectionImageUploader } from "@/components/website/SectionEditors";
-import type {
-  DraftConfigPayload,
-  DraftSectionPayload,
+import {
+  pageKey,
+  type DraftConfigPayload,
+  type DraftPagePayload,
+  type DraftSectionPayload,
 } from "@/lib/website-v3/types";
 import {
   ColorField,
@@ -22,8 +24,10 @@ export function SiteInspector({
   catalogWarning,
   restaurantId,
   restaurantLogoUrl,
+  pages,
   footer,
   onChange,
+  onPageVisibilityChange,
   onFooterChange,
   onRestaurantLogoUpload,
   onRestaurantLogoRemove,
@@ -34,8 +38,10 @@ export function SiteInspector({
   catalogWarning?: string | null;
   restaurantId: number;
   restaurantLogoUrl?: string;
+  pages: DraftPagePayload[];
   footer: DraftSectionPayload | null;
   onChange: (path: readonly (string | number)[], value: unknown) => void;
+  onPageVisibilityChange: (key: string, visible: boolean) => void;
   onFooterChange: (
     path: readonly (string | number)[],
     value: unknown,
@@ -351,6 +357,23 @@ export function SiteInspector({
           checked={boolean(config.navbar_show_links, true)}
           onChange={(value) => onChange(["navbar_show_links"], value)}
         />
+        <div className="space-y-2">
+          {pages
+            .slice()
+            .sort((left, right) => left.sort_order - right.sort_order)
+            .map((page) => (
+              <ToggleField
+                key={pageKey(page)}
+                fieldId={`site.navigation-page.${pageKey(page)}`}
+                label={page.title}
+                description={`/${page.slug} · ${page.type}`}
+                checked={page.nav_visible}
+                onChange={(visible) =>
+                  onPageVisibilityChange(pageKey(page), visible)
+                }
+              />
+            ))}
+        </div>
         <InspectorField label="Menu compact">
           <select
             data-field-id="site.navbar_hamburger"
