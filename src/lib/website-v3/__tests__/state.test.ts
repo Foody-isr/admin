@@ -262,6 +262,16 @@ test("legacy builder reconciliation removes title-based technical pages and pres
         content: {},
         settings: {},
       },
+      {
+        id: 94,
+        section_type: "footer",
+        page: "site",
+        sort_order: 2,
+        is_visible: true,
+        layout: "columns",
+        content: {},
+        settings: {},
+      },
     ],
     deleted_page_ids: [],
     deleted_section_ids: [],
@@ -283,6 +293,45 @@ test("legacy builder reconciliation removes title-based technical pages and pres
     assert.equal(section.page_tmp_id, undefined);
   }
   assert.deepEqual(validateDraftForPublish(result.state), []);
+});
+
+test("legacy builder reconciliation prefers real published pages to a synthetic home", () => {
+  const source = normalizeDraftState({
+    config: {},
+    pages: [
+      {
+        id: 18,
+        type: "content",
+        slug: "site",
+        title: "_site",
+        sort_order: 0,
+      },
+    ],
+    sections: [],
+  });
+  const publishedPages = normalizeDraftState({
+    pages: [
+      {
+        id: 25,
+        type: "landing",
+        slug: "home",
+        title: "Accueil publié",
+        sort_order: 0,
+      },
+    ],
+  }).pages;
+
+  const result = stateModule.reconcileLegacyWebsiteDraft(
+    source,
+    { menuIds: [], serviceIds: [] },
+    publishedPages,
+  );
+
+  assert.deepEqual(
+    result.state.pages.map((page) => [page.id, page.tmp_id, page.slug]),
+    [[25, undefined, "home"]],
+  );
+  assert.deepEqual(result.state.deleted_page_ids, [18]);
 });
 
 test("legacy navbar styles normalize to a supported editor value", () => {
