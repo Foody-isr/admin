@@ -22,6 +22,11 @@ interface Props {
   doneIds: Set<number>;
   /** Flip an order's done state. */
   onToggleDone: (orderId: number) => void;
+  /** Portion sizes per article + the page-wide box size, for the Items cook-list
+   *  — the Affichage popover is reachable on a phone too, so its choice has to
+   *  reach the chips here exactly as it reaches the desktop matrix header. */
+  availablePortions?: Record<number, number[]>;
+  boxSize?: number | null;
 }
 
 /** Delivery / pickup time chip, mirroring the desktop matrix badge. */
@@ -51,7 +56,14 @@ function fmtQty(item: ProductionSheetItem, qty: number): string {
  * lens the staffer switches between: Clients (assemble per order), Items (batch
  * cook-list), Status (what's left vs ready). Desktop keeps the matrix.
  */
-export function ProductionMobile({ sheet, onRowClick, doneIds, onToggleDone }: Props) {
+export function ProductionMobile({
+  sheet,
+  onRowClick,
+  doneIds,
+  onToggleDone,
+  availablePortions,
+  boxSize,
+}: Props) {
   const { t } = useI18n();
   const [view, setView] = useState<MobileView>('clients');
 
@@ -88,7 +100,13 @@ export function ProductionMobile({ sheet, onRowClick, doneIds, onToggleDone }: P
           onToggleDone={onToggleDone}
         />
       )}
-      {view === 'items' && <ProductionToPrepare sheet={sheet} />}
+      {view === 'items' && (
+        <ProductionToPrepare
+          sheet={sheet}
+          availablePortions={availablePortions}
+          boxSize={boxSize}
+        />
+      )}
       {view === 'status' && (
         <StatusView
           sheet={sheet}

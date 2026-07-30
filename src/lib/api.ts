@@ -4346,6 +4346,10 @@ export interface ProductionSheetOrder {
   window_end?: string;
   cells: Record<string, number>; // menu_item_id (string key) -> grams or count
   units?: Record<string, number>; // menu_item_id -> ordered container count (2 pots, not 1000 g)
+  /** menu_item_id -> packaging behind that cell (weighed items only): a 500 g
+   *  cell made of two 250 g pots reads [{250, 2}]. Summing the rows rebuilds the
+   *  day's packaging for whatever subset of clients is on screen. */
+  portions?: Record<string, ProductionSheetPortion[]>;
   provenance?: Record<string, ProductionCellProvenance>; // menu_item_id -> combo/individual split
   prepared?: boolean; // shared "done" flag (Order.prepared_at set); synced live across tablets
 }
