@@ -341,15 +341,40 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="solid">Pleine</option>
-            <option value="overlay">Superposée au visuel</option>
+            <option value="transparent">Toujours transparente</option>
+            <option value="overlay">
+              Transparente puis colorée au survol
+            </option>
           </select>
         </InspectorField>
         <ColorField
           fieldId="site.navbar_color"
-          label="Couleur de fond"
+          label={
+            config.navbar_style === "overlay"
+              ? "Fond au survol"
+              : "Couleur de fond"
+          }
           value={string(config.navbar_color)}
           fallback="#ffffff"
           onChange={(value) => onChange(["navbar_color"], value)}
+        />
+        <ColorField
+          fieldId="site.navbar_overlay_text_color"
+          label="Texte au repos"
+          value={string(config.navbar_overlay_text_color)}
+          fallback="#ffffff"
+          onChange={(value) =>
+            onChange(["navbar_overlay_text_color"], value)
+          }
+        />
+        <ColorField
+          fieldId="site.navbar_text_color"
+          label={
+            config.navbar_style === "overlay" ? "Texte au survol" : "Texte"
+          }
+          value={string(config.navbar_text_color)}
+          fallback="#111111"
+          onChange={(value) => onChange(["navbar_text_color"], value)}
         />
         <ToggleField
           fieldId="site.navbar_show_links"

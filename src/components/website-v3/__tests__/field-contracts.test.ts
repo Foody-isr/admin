@@ -75,6 +75,21 @@ test("every custom contract selector is backed by a foodyweb renderer hook", () 
   });
 });
 
+test("navigation text colors have editor-to-renderer contracts", () => {
+  const contracts = new Map(
+    FIELD_CONTRACTS.map((contract) => [contract.id, contract]),
+  );
+
+  assert.deepEqual(
+    contracts.get("site.navbar_overlay_text_color")?.statePath,
+    ["config", "navbar_overlay_text_color"],
+  );
+  assert.deepEqual(contracts.get("site.navbar_text_color")?.statePath, [
+    "config",
+    "navbar_text_color",
+  ]);
+});
+
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
     const path = resolve(directory, entry);

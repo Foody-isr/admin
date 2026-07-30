@@ -118,3 +118,42 @@ websiteV3Test(
     await expect(aboutLink).toBeVisible();
   },
 );
+
+websiteV3Test(
+  "hero overlay navigation changes from transparent resting colors to hover colors",
+  async ({ builderPage }) => {
+    await builderPage.getByRole("button", { name: "Identité du site" }).click();
+    await openInspectorTab(builderPage, "Réglages");
+
+    await builderPage
+      .locator('select[data-field-id="site.navbar_style"]')
+      .selectOption("overlay");
+    await builderPage
+      .locator('input[type="text"][data-field-id="site.navbar_color"]')
+      .fill("#ffffff");
+    await builderPage
+      .locator(
+        'input[type="text"][data-field-id="site.navbar_overlay_text_color"]',
+      )
+      .fill("#ffffff");
+    await builderPage
+      .locator('input[type="text"][data-field-id="site.navbar_text_color"]')
+      .fill("#111111");
+    await waitForDraftSaved(builderPage);
+    await waitForPreviewReady(builderPage);
+
+    const preview = previewFrame(builderPage);
+    const navbar = preview.locator("nav").first();
+    const homeLink = preview.getByRole("link", { name: "Home", exact: true });
+
+    await expect(navbar).toHaveAttribute("data-navbar-state", "transparent");
+    await expect(navbar).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(homeLink).toHaveCSS("color", "rgb(255, 255, 255)");
+
+    await navbar.hover();
+
+    await expect(navbar).toHaveAttribute("data-navbar-state", "solid");
+    await expect(navbar).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(homeLink).toHaveCSS("color", "rgb(17, 17, 17)");
+  },
+);
