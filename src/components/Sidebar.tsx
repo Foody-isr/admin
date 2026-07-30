@@ -42,6 +42,7 @@ import {
   QrCode,
   Sparkles,
   Boxes,
+  Package,
   MessageCircle,
   MapPin,
   Truck,
@@ -314,6 +315,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       groupKey: 'settingsGroupCommerce',
       items: [
         { id: 'orders', href: `${base}/settings/orders`, labelKey: 'ordersAndAvailability', icon: CalendarClock },
+        { id: 'stock', href: `${base}/settings/stock`, labelKey: 'stockSettings', icon: Package },
         { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
         { id: 'cibus', href: `${base}/settings/cibus`, labelKey: 'cibusSettings', icon: CreditCard, desktopOnly: true },
         { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
