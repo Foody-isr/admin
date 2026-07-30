@@ -226,6 +226,46 @@ test("legacy builder reconciliation removes technical pages and repairs commerce
   assert.deepEqual(validateDraftForPublish(result.state), []);
 });
 
+test("legacy builder reconciliation removes title-based technical pages and preserves the site footer", () => {
+  const source = normalizeDraftState({
+    config: {},
+    pages: [
+      {
+        id: 18,
+        type: "content",
+        slug: "site",
+        title: "_site",
+        sort_order: 0,
+      },
+    ],
+    sections: [
+      {
+        id: 92,
+        section_type: "footer",
+        page: "site",
+        page_id: 18,
+        sort_order: 0,
+        is_visible: true,
+        layout: "columns",
+        content: {},
+        settings: {},
+      },
+    ],
+    deleted_page_ids: [],
+    deleted_section_ids: [],
+  });
+
+  const result = stateModule.reconcileLegacyWebsiteDraft(source, {
+    menuIds: [],
+    serviceIds: [],
+  });
+
+  assert.deepEqual(result.state.pages, []);
+  assert.deepEqual(result.state.deleted_page_ids, [18]);
+  assert.equal(result.state.sections[0].page, "_site");
+  assert.equal(result.state.sections[0].page_id, undefined);
+});
+
 test("legacy builder reconciliation restores published pages missing from the draft snapshot", () => {
   const publishedPages = validState().pages;
   const source = normalizeDraftState({

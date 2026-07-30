@@ -19,6 +19,10 @@ const RESERVED_SLUGS = new Set([
   "api",
 ]);
 
+export function isTechnicalSitePage(page: DraftPagePayload): boolean {
+  return page.slug === "_site" || page.title.trim().toLowerCase() === "_site";
+}
+
 /** Normalizes an API response into the strict V3 editor contract. */
 export function normalizeDraftResponse(response: {
   state: unknown;
@@ -64,11 +68,11 @@ export function reconcileLegacyWebsiteDraft(
       : normalizedPublishedPages.length > 0
         ? normalizedPublishedPages
         : legacyPagesFromSections(state.sections);
-  const technicalPages = sourcePages.filter((page) => page.slug === "_site");
+  const technicalPages = sourcePages.filter(isTechnicalSitePage);
   const technicalPageIDs = new Set(
     technicalPages.flatMap((page) => page.id === undefined ? [] : [page.id]),
   );
-  const keptPages = sourcePages.filter((page) => page.slug !== "_site");
+  const keptPages = sourcePages.filter((page) => !isTechnicalSitePage(page));
   const reservedReplacements = new Map<number | string, string>();
   const usedSlugs = new Set(
     keptPages
