@@ -1,7 +1,9 @@
 import {
   expect,
+  openPublicPage,
   openInspectorTab,
   previewFrame,
+  publishCurrentDraft,
   selectBuilderPage,
   waitForDraftSaved,
   waitForPreviewReady,
@@ -89,7 +91,7 @@ websiteV3Test(
 
 websiteV3Test(
   "navigation visibility switches update the preview navbar immediately",
-  async ({ builderPage }) => {
+  async ({ builderPage, restaurantSlug }) => {
     await builderPage.getByRole("button", { name: "Identité du site" }).click();
     await openInspectorTab(builderPage, "Réglages");
     await builderPage
@@ -117,6 +119,51 @@ websiteV3Test(
     await waitForDraftSaved(builderPage);
     await waitForPreviewReady(builderPage);
     await expect(aboutLink).toBeVisible();
+
+    await aboutSwitch.uncheck();
+    await waitForDraftSaved(builderPage);
+    await publishCurrentDraft(builderPage);
+
+    const publicPage = await builderPage.context().newPage();
+    await openPublicPage(publicPage, restaurantSlug);
+    await expect(
+      publicPage.getByRole("link", { name: "About", exact: true }),
+    ).toHaveCount(0);
+    await publicPage.close();
+  },
+);
+
+websiteV3Test(
+  "always-transparent navigation stays transparent on hover and keyboard focus",
+  async ({ builderPage }) => {
+    await builderPage.getByRole("button", { name: "Identité du site" }).click();
+    await openInspectorTab(builderPage, "Réglages");
+
+    await builderPage
+      .locator('select[data-field-id="site.navbar_style"]')
+      .selectOption("transparent");
+    await builderPage
+      .locator(
+        'input[type="text"][data-field-id="site.navbar_overlay_text_color"]',
+      )
+      .fill("#ffffff");
+    await waitForDraftSaved(builderPage);
+    await waitForPreviewReady(builderPage);
+
+    const preview = previewFrame(builderPage);
+    const navbar = preview.locator("nav").first();
+    const homeLink = preview.getByRole("link", { name: "Home", exact: true });
+
+    await expect(navbar).toHaveAttribute("data-navbar-state", "transparent");
+    await expect(navbar).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+
+    await navbar.hover();
+    await expect(navbar).toHaveAttribute("data-navbar-state", "transparent");
+    await expect(navbar).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+
+    await homeLink.focus();
+    await expect(navbar).toHaveAttribute("data-navbar-state", "transparent");
+    await expect(navbar).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   },
 );
 
