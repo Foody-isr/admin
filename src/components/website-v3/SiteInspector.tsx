@@ -9,6 +9,7 @@ import {
   type DraftPagePayload,
   type DraftSectionPayload,
 } from "@/lib/website-v3/types";
+import { normalizeNavbarStyle } from "@/lib/website-v3/state";
 import {
   ColorField,
   InspectorField,
@@ -56,6 +57,7 @@ export function SiteInspector({
   )
     ? string(config.restaurant_logo_url)
     : restaurantLogoUrl;
+  const navbarStyle = normalizeNavbarStyle(config.navbar_style);
 
   if (tab === "content") {
     return (
@@ -336,7 +338,7 @@ export function SiteInspector({
         <InspectorField label="Style">
           <select
             data-field-id="site.navbar_style"
-            value={string(config.navbar_style)}
+            value={navbarStyle}
             onChange={(event) => onChange(["navbar_style"], event.target.value)}
             className={controlClass}
           >
@@ -350,7 +352,7 @@ export function SiteInspector({
         <ColorField
           fieldId="site.navbar_color"
           label={
-            config.navbar_style === "overlay"
+            navbarStyle === "overlay"
               ? "Fond au survol"
               : "Couleur de fond"
           }
@@ -370,7 +372,7 @@ export function SiteInspector({
         <ColorField
           fieldId="site.navbar_text_color"
           label={
-            config.navbar_style === "overlay" ? "Texte au survol" : "Texte"
+            navbarStyle === "overlay" ? "Texte au survol" : "Texte"
           }
           value={string(config.navbar_text_color)}
           fallback="#111111"

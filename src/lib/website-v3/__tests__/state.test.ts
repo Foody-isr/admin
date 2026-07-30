@@ -232,6 +232,7 @@ test("legacy builder reconciliation removes title-based technical pages and pres
     pages: [
       {
         id: 18,
+        tmp_id: "technical-site",
         type: "content",
         slug: "site",
         title: "_site",
@@ -250,6 +251,17 @@ test("legacy builder reconciliation removes title-based technical pages and pres
         content: {},
         settings: {},
       },
+      {
+        id: 93,
+        section_type: "footer",
+        page: "legacy-site",
+        page_tmp_id: "technical-site",
+        sort_order: 1,
+        is_visible: true,
+        layout: "columns",
+        content: {},
+        settings: {},
+      },
     ],
     deleted_page_ids: [],
     deleted_section_ids: [],
@@ -260,10 +272,26 @@ test("legacy builder reconciliation removes title-based technical pages and pres
     serviceIds: [],
   });
 
-  assert.deepEqual(result.state.pages, []);
+  assert.deepEqual(
+    result.state.pages.map((page) => [page.type, page.slug]),
+    [["landing", "home"]],
+  );
   assert.deepEqual(result.state.deleted_page_ids, [18]);
-  assert.equal(result.state.sections[0].page, "_site");
-  assert.equal(result.state.sections[0].page_id, undefined);
+  for (const section of result.state.sections) {
+    assert.equal(section.page, "_site");
+    assert.equal(section.page_id, undefined);
+    assert.equal(section.page_tmp_id, undefined);
+  }
+  assert.deepEqual(validateDraftForPublish(result.state), []);
+});
+
+test("legacy navbar styles normalize to a supported editor value", () => {
+  assert.equal(stateModule.normalizeNavbarStyle("solid"), "solid");
+  assert.equal(stateModule.normalizeNavbarStyle("transparent"), "transparent");
+  assert.equal(stateModule.normalizeNavbarStyle("overlay"), "overlay");
+  assert.equal(stateModule.normalizeNavbarStyle("custom"), "solid");
+  assert.equal(stateModule.normalizeNavbarStyle("hidden"), "solid");
+  assert.equal(stateModule.normalizeNavbarStyle(undefined), "solid");
 });
 
 test("legacy builder reconciliation restores published pages missing from the draft snapshot", () => {

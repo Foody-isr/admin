@@ -19,8 +19,15 @@ const RESERVED_SLUGS = new Set([
   "api",
 ]);
 
+export type NavbarStyle = "solid" | "transparent" | "overlay";
+
 export function isTechnicalSitePage(page: DraftPagePayload): boolean {
   return page.slug === "_site" || page.title.trim().toLowerCase() === "_site";
+}
+
+/** Maps legacy navbar values to the styles supported by the V3 editor. */
+export function normalizeNavbarStyle(value: unknown): NavbarStyle {
+  return value === "transparent" || value === "overlay" ? value : "solid";
 }
 
 /** Normalizes an API response into the strict V3 editor contract. */
@@ -62,15 +69,34 @@ export function reconcileLegacyWebsiteDraft(
   const normalizedPublishedPages = normalizeDraftState({
     pages: publishedPages,
   }).pages;
-  const sourcePages =
+  let sourcePages =
     state.pages.length > 0
       ? state.pages
       : normalizedPublishedPages.length > 0
         ? normalizedPublishedPages
         : legacyPagesFromSections(state.sections);
+  if (!sourcePages.some((page) => !isTechnicalSitePage(page))) {
+    const publishedFallback = normalizedPublishedPages.filter(
+      (page) => !isTechnicalSitePage(page),
+    );
+    sourcePages = [
+      ...sourcePages.filter(isTechnicalSitePage),
+      ...(publishedFallback.length > 0
+        ? publishedFallback
+        : legacyPagesFromSections(state.sections)),
+    ];
+  }
   const technicalPages = sourcePages.filter(isTechnicalSitePage);
   const technicalPageIDs = new Set(
     technicalPages.flatMap((page) => page.id === undefined ? [] : [page.id]),
+  );
+  const technicalPageTmpIDs = new Set(
+    technicalPages.flatMap((page) => page.tmp_id ? [page.tmp_id] : []),
+  );
+  const technicalPageSlugs = new Set(
+    technicalPages
+      .map((page) => normalizeSlug(page.slug))
+      .filter(Boolean),
   );
   const keptPages = sourcePages.filter((page) => !isTechnicalSitePage(page));
   const reservedReplacements = new Map<number | string, string>();
@@ -148,7 +174,10 @@ export function reconcileLegacyWebsiteDraft(
   const sections = state.sections.map((section) => {
     if (
       section.page === "_site" ||
-      (section.page_id !== undefined && technicalPageIDs.has(section.page_id))
+      (section.page_id !== undefined && technicalPageIDs.has(section.page_id)) ||
+      (section.page_tmp_id !== undefined &&
+        technicalPageTmpIDs.has(section.page_tmp_id)) ||
+      technicalPageSlugs.has(normalizeSlug(section.page))
     ) {
       return {
         ...section,
@@ -702,6 +731,7 @@ function legacyPagesFromSections(
   const sectionSlugs = Array.from(
     new Set(
       sections
+        .filter((section) => section.section_type !== "footer")
         .map((section) => normalizeSlug(section.page))
         .filter((slug) => slug && slug !== "_site"),
     ),
