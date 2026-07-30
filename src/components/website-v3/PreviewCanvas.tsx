@@ -28,13 +28,13 @@ export function PreviewCanvas({
   webOrigin,
   restaurantSlug,
   restaurantId,
+  restaurantLogoUrl,
   state,
   activePage,
   activeSectionKey,
   device,
   revision,
   contentRevision,
-  canonicalSlug,
   onAcknowledged,
   onSelectSection,
   onAddSection,
@@ -45,13 +45,13 @@ export function PreviewCanvas({
   webOrigin: string;
   restaurantSlug: string;
   restaurantId: number;
+  restaurantLogoUrl?: string;
   state: DraftStatePayload;
   activePage: DraftPagePayload;
   activeSectionKey?: string;
   device: PreviewDevice;
   revision: number;
   contentRevision: number;
-  canonicalSlug?: string;
   onAcknowledged: (acknowledgement: {
     revision: number;
     contentRevision: number;
@@ -72,6 +72,7 @@ export function PreviewCanvas({
     device,
     revision,
     contentRevision,
+    restaurantLogoUrl,
   });
   latestRef.current = {
     state,
@@ -79,20 +80,13 @@ export function PreviewCanvas({
     device,
     revision,
     contentRevision,
+    restaurantLogoUrl,
   };
   const targetOrigin = useMemo(() => new URL(webOrigin).origin, [webOrigin]);
   const restaurantPath = `/r/${encodeURIComponent(
     restaurantSlug || String(restaurantId),
   )}`;
-  const canonicalPagePath =
-    activePage.type !== "landing" && activePage.id !== undefined && canonicalSlug
-      ? `/${encodeURIComponent(canonicalSlug)}`
-      : "";
-  const query = new URLSearchParams({
-    preview: "1",
-    draftPage: pageKey(activePage),
-  });
-  const source = `${targetOrigin}${restaurantPath}${canonicalPagePath}?${query.toString()}`;
+  const source = `${targetOrigin}${restaurantPath}?preview=1`;
   const sections = state.sections
     .filter((section) => belongsToPage(section, activePage))
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -131,6 +125,7 @@ export function PreviewCanvas({
     device,
     restaurantId,
     revision,
+    restaurantLogoUrl,
     state,
     targetOrigin,
   ]);
@@ -238,12 +233,8 @@ export function PreviewCanvas({
         >
           <iframe
             ref={frameRef}
-            key={source}
             src={source}
             title={`Aperçu de ${activePage.title}`}
-            onLoad={() => {
-              readyRef.current = false;
-            }}
             className="h-full w-full bg-white"
           />
         </div>
@@ -262,6 +253,7 @@ function postLatest(
     device: PreviewDevice;
     revision: number;
     contentRevision: number;
+    restaurantLogoUrl?: string;
   },
 ) {
   if (!target) return;
@@ -272,7 +264,13 @@ function postLatest(
     restaurantId,
     activePageKey: pageKey(latest.activePage),
     device: latest.device,
-    state: latest.state,
+    state: {
+      ...latest.state,
+      config: {
+        ...latest.state.config,
+        preview_restaurant_logo_url: latest.restaurantLogoUrl ?? "",
+      },
+    },
   };
   target.postMessage(message, targetOrigin);
 }

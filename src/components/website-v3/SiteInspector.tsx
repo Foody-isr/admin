@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ThemeCatalog } from "@/lib/api";
+import { SectionImageUploader } from "@/components/website/SectionEditors";
 import type {
   DraftConfigPayload,
   DraftSectionPayload,
@@ -19,120 +20,47 @@ export function SiteInspector({
   config,
   catalog,
   catalogWarning,
+  restaurantId,
+  restaurantLogoUrl,
   footer,
   onChange,
   onFooterChange,
+  onRestaurantLogoUpload,
+  onRestaurantLogoRemove,
 }: {
   tab: "content" | "appearance" | "settings";
   config: DraftConfigPayload;
   catalog: ThemeCatalog;
   catalogWarning?: string | null;
+  restaurantId: number;
+  restaurantLogoUrl?: string;
   footer: DraftSectionPayload | null;
   onChange: (path: readonly (string | number)[], value: unknown) => void;
   onFooterChange: (
     path: readonly (string | number)[],
     value: unknown,
   ) => void;
+  onRestaurantLogoUpload: (file: File) => Promise<void>;
+  onRestaurantLogoRemove: () => Promise<void>;
 }) {
-  if (tab === "content") {
-    const social = socialRecord(footer?.content.social_links);
-    return (
-      <>
-        <InspectorGroup
-          title="Introduction"
-          description="La signature est affichée par les expériences publiques compatibles."
-        >
-          <InspectorField label="Signature">
-            <textarea
-              data-field-id="site.tagline"
-              value={string(config.tagline)}
-              onChange={(event) => onChange(["tagline"], event.target.value)}
-              className={`${controlClass} min-h-20 py-2.5`}
-              placeholder="Une phrase courte qui raconte votre cuisine."
-            />
-          </InspectorField>
-        </InspectorGroup>
+  const social = socialRecord(footer?.content.social_links);
 
-        {footer ? (
-          <>
-            <InspectorGroup
-              title="Pied de page"
-              description="Ces valeurs utilisent la section footer canonique du site."
-            >
-              <input
-                data-field-id="section.content.custom_text"
-                value={string(footer.content.custom_text)}
-                onChange={(event) =>
-                  onFooterChange(["content", "custom_text"], event.target.value)
-                }
-                className={controlClass}
-                placeholder="© Votre restaurant"
-              />
-              <ToggleField
-                fieldId="section.content.show_address"
-                label="Afficher l’adresse"
-                checked={boolean(footer.content.show_address, true)}
-                onChange={(value) =>
-                  onFooterChange(["content", "show_address"], value)
-                }
-              />
-              <ToggleField
-                fieldId="section.content.show_phone"
-                label="Afficher le téléphone"
-                checked={boolean(footer.content.show_phone, true)}
-                onChange={(value) =>
-                  onFooterChange(["content", "show_phone"], value)
-                }
-              />
-              <ToggleField
-                fieldId="section.content.show_hours"
-                label="Afficher les horaires"
-                checked={boolean(footer.content.show_hours, true)}
-                onChange={(value) =>
-                  onFooterChange(["content", "show_hours"], value)
-                }
-              />
-            </InspectorGroup>
-            <InspectorGroup
-              title="Réseaux sociaux"
-              description="Seuls les liens renseignés sont affichés."
-            >
-              {(["instagram", "facebook", "tiktok"] as const).map((network) => (
-                <InspectorField
-                  key={network}
-                  label={network.charAt(0).toUpperCase() + network.slice(1)}
-                >
-                  <input
-                    type="url"
-                    data-field-id="section.content.social_links"
-                    value={social[network] ?? ""}
-                    onChange={(event) =>
-                      onFooterChange(
-                        ["content", "social_links"],
-                        updateSocialLinks(
-                          footer.content.social_links,
-                          network,
-                          event.target.value,
-                        ),
-                      )
-                    }
-                    className={controlClass}
-                    placeholder={`https://${network}.com/...`}
-                  />
-                </InspectorField>
-              ))}
-            </InspectorGroup>
-          </>
-        ) : (
-          <InspectorGroup title="Pied de page">
-            <p className="rounded-xl bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
-              Aucune section footer canonique n’est disponible. Les réglages
-              associés ne sont pas exposés pour éviter une configuration sans
-              effet.
-            </p>
-          </InspectorGroup>
-        )}
-      </>
+  if (tab === "content") {
+    return (
+      <InspectorGroup
+        title="Introduction"
+        description="La signature est affichée par les expériences publiques compatibles."
+      >
+        <InspectorField label="Signature">
+          <textarea
+            data-field-id="site.tagline"
+            value={string(config.tagline)}
+            onChange={(event) => onChange(["tagline"], event.target.value)}
+            className={`${controlClass} min-h-20 py-2.5`}
+            placeholder="Une phrase courte qui raconte votre cuisine."
+          />
+        </InspectorField>
+      </InspectorGroup>
     );
   }
 
@@ -303,6 +231,93 @@ export function SiteInspector({
   return (
     <>
       <InspectorGroup
+        title="Logos et identité"
+        description="Le logo principal est partagé par le site. Les variantes permettent de garder un bon contraste."
+      >
+        <RestaurantLogoUploader
+          currentUrl={restaurantLogoUrl}
+          onUpload={onRestaurantLogoUpload}
+          onRemove={onRestaurantLogoRemove}
+        />
+        <InspectorField label="Position dans la barre">
+          <select
+            data-field-id="site.navbar_logo_position"
+            value={string(config.navbar_logo_position) || "left"}
+            onChange={(event) =>
+              onChange(["navbar_logo_position"], event.target.value)
+            }
+            className={controlClass}
+          >
+            <option value="left">Gauche</option>
+            <option value="center">Centre</option>
+            <option value="right">Droite</option>
+          </select>
+        </InspectorField>
+        <RangeField
+          fieldId="site.logo_size"
+          label="Taille dans la barre"
+          value={number(config.logo_size, 40)}
+          min={24}
+          max={96}
+          suffix="px"
+          onChange={(value) => onChange(["logo_size"], value)}
+        />
+        <ToggleField
+          fieldId="site.hide_navbar_name"
+          label="Masquer le nom du restaurant"
+          checked={boolean(config.hide_navbar_name, false)}
+          onChange={(value) => onChange(["hide_navbar_name"], value)}
+        />
+        <SectionImageUploader
+          restaurantId={restaurantId}
+          currentUrl={string(config.navbar_scrolled_logo_url)}
+          onUploaded={(url) => onChange(["navbar_scrolled_logo_url"], url)}
+          onRemove={() => onChange(["navbar_scrolled_logo_url"], "")}
+          label="Logo alternatif sur fond clair"
+        />
+        <input
+          type="url"
+          data-field-id="site.navbar_scrolled_logo_url"
+          value={string(config.navbar_scrolled_logo_url)}
+          onChange={(event) =>
+            onChange(["navbar_scrolled_logo_url"], event.target.value)
+          }
+          className={controlClass}
+          placeholder="Ou collez l’URL du logo alternatif"
+        />
+        <RangeField
+          fieldId="site.hero_logo_size"
+          label="Taille sur la couverture"
+          value={number(config.hero_logo_size, 100)}
+          min={50}
+          max={200}
+          suffix="%"
+          onChange={(value) => onChange(["hero_logo_size"], value)}
+        />
+        <ToggleField
+          fieldId="site.hide_hero_logo"
+          label="Masquer le logo sur la couverture"
+          checked={boolean(config.hide_hero_logo, false)}
+          onChange={(value) => onChange(["hide_hero_logo"], value)}
+        />
+        <SectionImageUploader
+          restaurantId={restaurantId}
+          currentUrl={string(config.favicon_url)}
+          onUploaded={(url) => onChange(["favicon_url"], url)}
+          onRemove={() => onChange(["favicon_url"], "")}
+          label="Favicon"
+        />
+        <input
+          type="url"
+          data-field-id="site.favicon_url"
+          value={string(config.favicon_url)}
+          onChange={(event) => onChange(["favicon_url"], event.target.value)}
+          className={controlClass}
+          placeholder="Ou collez l’URL du favicon"
+        />
+      </InspectorGroup>
+
+      <InspectorGroup
         title="Navigation"
         description="Composez une navigation lisible pour les pages contenu et commerce."
       >
@@ -344,18 +359,6 @@ export function SiteInspector({
             <option value="off">Désactivé</option>
           </select>
         </InspectorField>
-        <InspectorField label="Logo alternatif au défilement">
-          <input
-            type="url"
-            data-field-id="site.navbar_scrolled_logo_url"
-            value={string(config.navbar_scrolled_logo_url)}
-            onChange={(event) =>
-              onChange(["navbar_scrolled_logo_url"], event.target.value)
-            }
-            className={controlClass}
-            placeholder="https://..."
-          />
-        </InspectorField>
         <InspectorField label="Libellé du bouton">
           <input
             data-field-id="site.navbar_cta"
@@ -379,17 +382,87 @@ export function SiteInspector({
         />
       </InspectorGroup>
 
-      <InspectorGroup title="Icône et formulaires">
-        <InspectorField label="URL du favicon">
-          <input
-            type="url"
-            data-field-id="site.favicon_url"
-            value={string(config.favicon_url)}
-            onChange={(event) => onChange(["favicon_url"], event.target.value)}
-            className={controlClass}
-            placeholder="https://..."
-          />
-        </InspectorField>
+      {footer ? (
+        <>
+          <InspectorGroup
+            title="Pied de page"
+            description="Navigation et pied de page sont regroupés dans les réglages globaux du site."
+          >
+            <input
+              data-field-id="section.content.custom_text"
+              value={string(footer.content.custom_text)}
+              onChange={(event) =>
+                onFooterChange(["content", "custom_text"], event.target.value)
+              }
+              className={controlClass}
+              placeholder="© Votre restaurant"
+            />
+            <ToggleField
+              fieldId="section.content.show_address"
+              label="Afficher l’adresse"
+              checked={boolean(footer.content.show_address, true)}
+              onChange={(value) =>
+                onFooterChange(["content", "show_address"], value)
+              }
+            />
+            <ToggleField
+              fieldId="section.content.show_phone"
+              label="Afficher le téléphone"
+              checked={boolean(footer.content.show_phone, true)}
+              onChange={(value) =>
+                onFooterChange(["content", "show_phone"], value)
+              }
+            />
+            <ToggleField
+              fieldId="section.content.show_hours"
+              label="Afficher les horaires"
+              checked={boolean(footer.content.show_hours, true)}
+              onChange={(value) =>
+                onFooterChange(["content", "show_hours"], value)
+              }
+            />
+          </InspectorGroup>
+          <InspectorGroup
+            title="Réseaux sociaux"
+            description="Seuls les liens renseignés sont affichés."
+          >
+            {(["instagram", "facebook", "tiktok"] as const).map((network) => (
+              <InspectorField
+                key={network}
+                label={network.charAt(0).toUpperCase() + network.slice(1)}
+              >
+                <input
+                  type="url"
+                  data-field-id="section.content.social_links"
+                  value={social[network] ?? ""}
+                  onChange={(event) =>
+                    onFooterChange(
+                      ["content", "social_links"],
+                      updateSocialLinks(
+                        footer.content.social_links,
+                        network,
+                        event.target.value,
+                      ),
+                    )
+                  }
+                  className={controlClass}
+                  placeholder={`https://${network}.com/...`}
+                />
+              </InspectorField>
+            ))}
+          </InspectorGroup>
+        </>
+      ) : (
+        <InspectorGroup title="Pied de page">
+          <p className="rounded-xl bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
+            Aucune section footer canonique n’est disponible. Les réglages
+            associés ne sont pas exposés pour éviter une configuration sans
+            effet.
+          </p>
+        </InspectorGroup>
+      )}
+
+      <InspectorGroup title="Formulaires avancés">
         <JsonField
           fieldId="site.checkout_config"
           label="Configuration du checkout"
@@ -404,6 +477,119 @@ export function SiteInspector({
         />
       </InspectorGroup>
     </>
+  );
+}
+
+function RestaurantLogoUploader({
+  currentUrl,
+  onUpload,
+  onRemove,
+}: {
+  currentUrl?: string;
+  onUpload: (file: File) => Promise<void>;
+  onRemove: () => Promise<void>;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Impossible de modifier le logo.",
+      );
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <InspectorField label="Logo principal" error={error ?? undefined}>
+      <div className="flex items-center gap-3">
+        {currentUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={currentUrl}
+            alt=""
+            className="h-14 w-14 rounded-xl border border-slate-200 object-contain"
+          />
+        ) : (
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-dashed border-slate-300 text-[10px] text-slate-400">
+            Logo
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {busy ? "Envoi…" : currentUrl ? "Remplacer" : "Téléverser"}
+          </button>
+          {currentUrl ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void run(onRemove)}
+              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              Supprimer
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void run(() => onUpload(file));
+        }}
+      />
+    </InspectorField>
+  );
+}
+
+function RangeField({
+  fieldId,
+  label,
+  value,
+  min,
+  max,
+  suffix,
+  onChange,
+}: {
+  fieldId: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  suffix: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <InspectorField label={`${label} · ${value}${suffix}`}>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={2}
+        data-field-id={fieldId}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="w-full accent-[#315fce]"
+      />
+    </InspectorField>
   );
 }
 

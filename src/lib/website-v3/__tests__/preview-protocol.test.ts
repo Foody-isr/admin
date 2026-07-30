@@ -118,6 +118,28 @@ test("publish coverage requires desktop and mobile acknowledgements of the same 
   );
 });
 
+test("publish coverage accepts the current preview when mobile was not requested", () => {
+  const acknowledgements: PreviewAcknowledgements = {
+    desktop: {
+      revision: 8,
+      contentRevision: 3,
+      activePageKey: "page-1",
+      device: "desktop",
+    },
+    mobile: null,
+  };
+
+  assert.equal(
+    hasCompletePreviewCoverage(
+      acknowledgements,
+      { desktop: 8, mobile: null },
+      3,
+      "page-1",
+    ),
+    true,
+  );
+});
+
 test("publish coverage rejects a stale acknowledgement for either device", () => {
   const acknowledgements: PreviewAcknowledgements = {
     desktop: {

@@ -14,18 +14,20 @@ export type PreviewAcknowledgements = Record<
 
 export type PreviewExpectedRevisions = Record<PreviewDevice, number | null>;
 
-/** Returns true only when both preview devices rendered the current page state. */
+/** Returns true when every preview device requested by the editor is current. */
 export function hasCompletePreviewCoverage(
   acknowledgements: PreviewAcknowledgements,
   expectedRevisions: PreviewExpectedRevisions,
   contentRevision: number,
   activePageKey: string,
 ): boolean {
-  return (["desktop", "mobile"] as const).every((device) => {
+  const requestedDevices = (["desktop", "mobile"] as const).filter(
+    (device) => expectedRevisions[device] !== null,
+  );
+  return requestedDevices.length > 0 && requestedDevices.every((device) => {
     const acknowledgement = acknowledgements[device];
     const expectedRevision = expectedRevisions[device];
     return (
-      expectedRevision !== null &&
       acknowledgement?.revision === expectedRevision &&
       acknowledgement?.contentRevision === contentRevision &&
       acknowledgement.activePageKey === activePageKey

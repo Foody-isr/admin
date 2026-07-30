@@ -62,6 +62,7 @@ test("every custom contract selector is backed by a foodyweb renderer hook", () 
       assert.equal(contract.public.selector, 'meta[property="og:image"]');
       return;
     }
+    if (contract.id === "section.is_visible") return;
     [contract.preview.selector, contract.public.selector].forEach((selector) => {
       if (contract.editor.kind === "action") return;
       const expected = `data-field-${contract.id

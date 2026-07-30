@@ -17,6 +17,8 @@ import { SiteInspector } from "./SiteInspector";
 export type InspectorTab = "content" | "appearance" | "settings";
 
 export function Inspector({
+  restaurantId,
+  restaurantLogoUrl,
   state,
   selection,
   tab,
@@ -31,7 +33,11 @@ export function Inspector({
   onPageReplace,
   onSectionChange,
   onMakeDefault,
+  onRestaurantLogoUpload,
+  onRestaurantLogoRemove,
 }: {
+  restaurantId: number;
+  restaurantLogoUrl?: string;
   state: DraftStatePayload;
   selection: RailSelection;
   tab: InspectorTab;
@@ -46,6 +52,8 @@ export function Inspector({
   onPageReplace: (key: string, page: DraftPagePayload) => void;
   onSectionChange: (key: string, path: StatePath, value: unknown) => void;
   onMakeDefault: (key: string) => void;
+  onRestaurantLogoUpload: (file: File) => Promise<void>;
+  onRestaurantLogoRemove: () => Promise<void>;
 }) {
   const page = useMemo(
     () =>
@@ -116,6 +124,8 @@ export function Inspector({
           config={state.config}
           catalog={catalog}
           catalogWarning={catalogWarning}
+          restaurantId={restaurantId}
+          restaurantLogoUrl={restaurantLogoUrl}
           footer={footer}
           onChange={onConfigChange}
           onFooterChange={(path, value) =>
@@ -123,6 +133,8 @@ export function Inspector({
               ? onSectionChange(stableSectionKey(footer), path, value)
               : undefined
           }
+          onRestaurantLogoUpload={onRestaurantLogoUpload}
+          onRestaurantLogoRemove={onRestaurantLogoRemove}
         />
       ) : section ? (
         <SectionInspector

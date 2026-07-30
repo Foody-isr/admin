@@ -17,6 +17,8 @@ import {
   listMenus,
   publishWebsiteDraft,
   saveWebsiteDraft,
+  updateRestaurant,
+  uploadRestaurantLogo,
   type CateringService,
   type Menu,
   type Restaurant,
@@ -43,6 +45,7 @@ import {
   movePage,
   normalizeDraftResponse,
   normalizeSlug,
+  reconcileLegacyWebsiteDraft,
   removePage,
   updateDraftAtPath,
   validateDraftForPublish,
@@ -135,7 +138,6 @@ function DesktopWebsiteV3Builder({
   const lifecycleRef = useRef(0);
   const busyRef = useRef(false);
   const deviceRef = useRef<PreviewDevice>("desktop");
-  const canonicalSlugsRef = useRef(new Map<number, string>());
   const slugManualRef = useRef(new Set<string>());
 
   const autosave = useMemo(
@@ -167,25 +169,57 @@ function DesktopWebsiteV3Builder({
       .then(([draft, publishedPages, restaurant, menus, services, themeResult]) => {
         if (!active) return;
         const normalized = normalizeDraftResponse(draft);
-        if (normalized.state.pages.length === 0) {
+        const reconciled = reconcileLegacyWebsiteDraft(normalized.state, {
+          menuIds: menus
+            .filter((menu) => menu.web_enabled)
+            .map((menu) => menu.id),
+          serviceIds: services
+            .filter((service) => service.is_active)
+            .map((service) => service.id),
+        }, publishedPages);
+        const editorDraft = {
+          ...normalized,
+          state: reconciled.state,
+          draft_dirty: normalized.draft_dirty || reconciled.changed,
+        };
+        if (editorDraft.state.pages.length === 0) {
           throw new Error(
             "Aucune page n’est disponible. Publiez d’abord une configuration initiale.",
           );
         }
         setLoaded({
-          draft: normalized,
+          draft: editorDraft,
           restaurant,
           menus,
           services,
           catalog: themeResult.catalog,
           catalogWarning: themeResult.warning,
         });
-        canonicalSlugsRef.current = canonicalSlugsFromPages(publishedPages);
-        const firstPage = [...normalized.state.pages].sort(
+        const firstPage = [...editorDraft.state.pages].sort(
           (a, b) => a.sort_order - b.sort_order,
         )[0];
         setSelection({ kind: "page", key: pageKey(firstPage) });
-        setSaveStatus(normalized.draft_dirty ? "saved" : "idle");
+        setSaveStatus(editorDraft.draft_dirty ? "saved" : "idle");
+        if (reconciled.changed) {
+          setSaveStatus("saving");
+          void autosave
+            .enqueue(reconciled.state)
+            .then((response) => {
+              if (!active || editRevisionRef.current !== 0) return;
+              const saved = normalizeDraftResponse(response);
+              setLoaded((current) =>
+                current ? { ...current, draft: saved } : current,
+              );
+              setSaveStatus("saved");
+            })
+            .catch((error: unknown) => {
+              if (!active) return;
+              setSaveStatus("error");
+              setGlobalError(
+                `${readError(error)} Vos modifications restent dans cet écran.`,
+              );
+            });
+        }
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -197,7 +231,7 @@ function DesktopWebsiteV3Builder({
     return () => {
       active = false;
     };
-  }, [restaurantId, retryToken]);
+  }, [autosave, restaurantId, retryToken]);
 
   const state = loaded?.draft.state ?? null;
   const availableReferences = useMemo(
@@ -377,6 +411,31 @@ function DesktopWebsiteV3Builder({
   const updateConfig = (path: StatePath, value: unknown) => {
     if (!state) return;
     setLocalState(updateDraftAtPath(state, ["config", ...path], value));
+  };
+
+  const uploadMainLogo = async (file: File) => {
+    if (!loaded) return;
+    const logoUrl = await uploadRestaurantLogo(restaurantId, file);
+    const restaurant = await updateRestaurant(restaurantId, {
+      name: loaded.restaurant.name,
+      logo_url: logoUrl,
+    });
+    setLoaded((current) =>
+      current ? { ...current, restaurant } : current,
+    );
+    bumpPreview();
+  };
+
+  const removeMainLogo = async () => {
+    if (!loaded) return;
+    const restaurant = await updateRestaurant(restaurantId, {
+      name: loaded.restaurant.name,
+      logo_url: "",
+    });
+    setLoaded((current) =>
+      current ? { ...current, restaurant } : current,
+    );
+    bumpPreview();
   };
 
   const updatePage = (key: string, path: StatePath, value: unknown) => {
@@ -673,7 +732,6 @@ function DesktopWebsiteV3Builder({
         await publishWebsiteDraft(restaurantId),
       );
       autosave.reset();
-      canonicalSlugsRef.current = canonicalSlugs(response.state);
       setLoaded((current) =>
         current ? { ...current, draft: response } : current,
       );
@@ -718,7 +776,6 @@ function DesktopWebsiteV3Builder({
         await discardWebsiteDraft(restaurantId),
       );
       autosave.reset();
-      canonicalSlugsRef.current = canonicalSlugs(response.state);
       setLoaded((current) =>
         current ? { ...current, draft: response } : current,
       );
@@ -841,6 +898,8 @@ function DesktopWebsiteV3Builder({
               </div>
             ) : null}
             <Inspector
+              restaurantId={restaurantId}
+              restaurantLogoUrl={loaded.restaurant.logo_url}
               state={state}
               selection={selection}
               tab={tab}
@@ -857,6 +916,8 @@ function DesktopWebsiteV3Builder({
               onMakeDefault={(key) =>
                 setLocalState(makeDefaultPage(state, key))
               }
+              onRestaurantLogoUpload={uploadMainLogo}
+              onRestaurantLogoRemove={removeMainLogo}
             />
           </div>
         }
@@ -865,17 +926,13 @@ function DesktopWebsiteV3Builder({
             webOrigin={WEB_ORIGIN}
             restaurantSlug={loaded.restaurant.slug}
             restaurantId={restaurantId}
+            restaurantLogoUrl={loaded.restaurant.logo_url}
             state={state}
             activePage={activePage}
             activeSectionKey={activeSectionKey}
             device={device}
             revision={previewRevision}
             contentRevision={contentRevision}
-            canonicalSlug={
-              activePage.id === undefined
-                ? undefined
-                : canonicalSlugsRef.current.get(activePage.id)
-            }
             onAcknowledged={acknowledgePreview}
             onSelectSection={(key) => {
               if (busyRef.current) return;
@@ -945,20 +1002,6 @@ function selectionAfterReload(
     state.pages.find((candidate) => candidate.type === "landing") ??
     state.pages[0];
   return page ? { kind: "page", key: pageKey(page) } : { kind: "site" };
-}
-
-function canonicalSlugs(state: DraftStatePayload): Map<number, string> {
-  return canonicalSlugsFromPages(state.pages);
-}
-
-function canonicalSlugsFromPages(
-  pages: Array<Pick<DraftPagePayload, "id" | "slug">>,
-): Map<number, string> {
-  return new Map(
-    pages.flatMap((page) =>
-      page.id === undefined ? [] : [[page.id, page.slug] as const],
-    ),
-  );
 }
 
 function sectionsForPage(

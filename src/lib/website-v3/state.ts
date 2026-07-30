@@ -49,6 +49,160 @@ export function normalizeDraftState(state: unknown): DraftStatePayload {
   };
 }
 
+/** Repairs legacy V2 page artifacts before the V3 editor autosaves them. */
+export function reconcileLegacyWebsiteDraft(
+  state: DraftStatePayload,
+  references: { menuIds: number[]; serviceIds: number[] },
+  publishedPages: unknown[] = [],
+): { state: DraftStatePayload; changed: boolean } {
+  const normalizedPublishedPages = normalizeDraftState({
+    pages: publishedPages,
+  }).pages;
+  const sourcePages =
+    state.pages.length > 0
+      ? state.pages
+      : normalizedPublishedPages.length > 0
+        ? normalizedPublishedPages
+        : legacyPagesFromSections(state.sections);
+  const technicalPages = sourcePages.filter((page) => page.slug === "_site");
+  const technicalPageIDs = new Set(
+    technicalPages.flatMap((page) => page.id === undefined ? [] : [page.id]),
+  );
+  const keptPages = sourcePages.filter((page) => page.slug !== "_site");
+  const reservedReplacements = new Map<number | string, string>();
+  const usedSlugs = new Set(
+    keptPages
+      .map((page) => normalizeSlug(page.slug))
+      .filter((slug) => slug !== "order" && slug !== "catering"),
+  );
+
+  const pages = keptPages.map((page) => {
+    let slug = normalizeSlug(page.slug);
+    const originalSlug = slug;
+    if (
+      (slug === "order" && page.type === "order") ||
+      (slug === "catering" && page.type === "catering")
+    ) {
+      slug = nextAvailableSlug(
+        page.type === "order" ? "commander" : "traiteur",
+        usedSlugs,
+      );
+      reservedReplacements.set(page.id ?? page.tmp_id ?? page.slug, slug);
+      reservedReplacements.set(originalSlug, slug);
+    }
+    usedSlugs.add(slug);
+
+    if (page.type === "order") {
+      return {
+        ...page,
+        slug,
+        settings: {
+          menu_ids:
+            page.settings.menu_ids.length > 0
+              ? page.settings.menu_ids
+              : uniquePositiveIds(references.menuIds),
+        },
+      };
+    }
+    if (page.type === "catering") {
+      return {
+        ...page,
+        slug,
+        settings: {
+          service_ids:
+            page.settings.service_ids.length > 0
+              ? page.settings.service_ids
+              : uniquePositiveIds(references.serviceIds),
+        },
+      };
+    }
+    return { ...page, slug };
+  }) as DraftPagePayload[];
+
+  for (const type of ["order", "catering"] as const) {
+    const candidates = pages
+      .filter((page) => page.type === type)
+      .sort((left, right) => left.sort_order - right.sort_order);
+    if (candidates.length > 0 && !candidates.some((page) => page.is_default)) {
+      const defaultKey = pageKey(candidates[0]);
+      for (const page of pages) {
+        if (pageKey(page) === defaultKey) page.is_default = true;
+      }
+    }
+  }
+
+  const pageSlugByID = new Map(
+    pages.flatMap((page) =>
+      page.id === undefined ? [] : [[page.id, page.slug] as const],
+    ),
+  );
+  const pageSlugByTmpID = new Map(
+    pages.flatMap((page) =>
+      page.tmp_id ? [[page.tmp_id, page.slug] as const] : [],
+    ),
+  );
+  const sections = state.sections.map((section) => {
+    if (
+      section.page === "_site" ||
+      (section.page_id !== undefined && technicalPageIDs.has(section.page_id))
+    ) {
+      return {
+        ...section,
+        page: "_site",
+        page_id: undefined,
+        page_tmp_id: undefined,
+      };
+    }
+    const replacementSlug = reservedReplacements.get(section.page);
+    const page =
+      (section.page_id !== undefined
+        ? pages.find((candidate) => candidate.id === section.page_id)
+        : undefined) ??
+      (section.page_tmp_id
+        ? pages.find((candidate) => candidate.tmp_id === section.page_tmp_id)
+        : undefined) ??
+      pages.find(
+        (candidate) =>
+          candidate.slug === section.page ||
+          (replacementSlug !== undefined &&
+            candidate.slug === replacementSlug),
+      );
+    const replacement =
+      page?.slug ??
+      (section.page_id !== undefined
+        ? pageSlugByID.get(section.page_id)
+        : undefined) ??
+      (section.page_tmp_id
+        ? pageSlugByTmpID.get(section.page_tmp_id)
+        : undefined) ??
+      reservedReplacements.get(section.page);
+    if (!replacement) return section;
+    return {
+      ...section,
+      page: replacement,
+      page_id: page?.id,
+      page_tmp_id: page?.id === undefined ? page?.tmp_id : undefined,
+    };
+  });
+  const nextState: DraftStatePayload = {
+    ...state,
+    pages: pages
+      .sort((left, right) => left.sort_order - right.sort_order)
+      .map((page, index) => ({ ...page, sort_order: index })),
+    sections,
+    deleted_page_ids: uniquePositiveIds([
+      ...state.deleted_page_ids,
+      ...technicalPages.flatMap((page) =>
+        page.id === undefined ? [] : [page.id],
+      ),
+    ]),
+  };
+  return {
+    state: nextState,
+    changed: JSON.stringify(nextState) !== JSON.stringify(state),
+  };
+}
+
 /** Clones only the arrays and objects along a state path. */
 export function updateDraftAtPath(
   state: DraftStatePayload,
@@ -422,12 +576,20 @@ export function canDeletePage(
 
 function normalizePage(value: unknown): DraftPagePayload {
   const page = isRecord(value) ? value : {};
+  const legacySettings = isRecord(page.settings) ? page.settings : {};
+  const legacyCommerce =
+    legacySettings.commerce === "classic" ||
+    legacySettings.commerce === "order"
+      ? "order"
+      : legacySettings.commerce === "catering"
+        ? "catering"
+        : null;
   const type: WebsitePageType =
     page.type === "landing" ||
     page.type === "order" ||
     page.type === "catering"
       ? page.type
-      : "content";
+      : legacyCommerce ?? "content";
   const base = {
     id: positiveInteger(page.id),
     tmp_id: typeof page.tmp_id === "string" ? page.tmp_id : undefined,
@@ -521,6 +683,65 @@ function uniqueSlug(base: string, pages: DraftPagePayload[]): string {
   let suffix = 2;
   while (taken.has(`${normalized}-${suffix}`)) suffix += 1;
   return `${normalized}-${suffix}`;
+}
+
+function nextAvailableSlug(base: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(base)) return base;
+  let suffix = 2;
+  while (taken.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
+
+function legacyPagesFromSections(
+  sections: DraftSectionPayload[],
+): DraftPagePayload[] {
+  const sectionSlugs = Array.from(
+    new Set(
+      sections
+        .map((section) => normalizeSlug(section.page))
+        .filter((slug) => slug && slug !== "_site"),
+    ),
+  );
+  const slugs = sectionSlugs.includes("home")
+    ? sectionSlugs
+    : ["home", ...sectionSlugs];
+  const pages: DraftPagePayload[] = [];
+  slugs.forEach((slug, index) => {
+    const base = {
+      tmp_id: `legacy-page-${slug}`,
+      slug,
+      title:
+        slug === "home"
+          ? "Accueil"
+          : slug
+              .split("-")
+              .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+              .join(" "),
+      sort_order: index,
+      nav_visible: true,
+      is_default: false,
+      seo: {},
+      appearance_overrides: {},
+    };
+    if (slug === "home") {
+      pages.push({ ...base, type: "landing", settings: {} });
+      return;
+    }
+    if (slug === "order") {
+      pages.push({ ...base, type: "order", settings: { menu_ids: [] } });
+      return;
+    }
+    if (slug === "catering") {
+      pages.push({
+        ...base,
+        type: "catering",
+        settings: { service_ids: [] },
+      });
+      return;
+    }
+    pages.push({ ...base, type: "content", settings: {} });
+  });
+  return pages;
 }
 
 function uniquePositiveIds(value: unknown): number[] {
