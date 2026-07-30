@@ -12,6 +12,7 @@ import {
 import { SECTION_TYPE_META } from "@/components/website/SectionEditors";
 import {
   isWebsiteV3AppliedMessage,
+  isWebsiteV3NavigateMessage,
   isWebsiteV3ReadyMessage,
   WEBSITE_V3_STATE,
   type WebsiteV3StateMessage,
@@ -28,7 +29,6 @@ export function PreviewCanvas({
   webOrigin,
   restaurantSlug,
   restaurantId,
-  restaurantLogoUrl,
   state,
   activePage,
   activeSectionKey,
@@ -37,6 +37,7 @@ export function PreviewCanvas({
   contentRevision,
   onAcknowledged,
   onSelectSection,
+  onNavigatePage,
   onAddSection,
   onMoveSection,
   onToggleSection,
@@ -45,7 +46,6 @@ export function PreviewCanvas({
   webOrigin: string;
   restaurantSlug: string;
   restaurantId: number;
-  restaurantLogoUrl?: string;
   state: DraftStatePayload;
   activePage: DraftPagePayload;
   activeSectionKey?: string;
@@ -59,6 +59,7 @@ export function PreviewCanvas({
     device: PreviewDevice;
   }) => void;
   onSelectSection: (sectionKey: string) => void;
+  onNavigatePage: (pageKey: string) => void;
   onAddSection: (type: string) => void;
   onMoveSection: (sectionKey: string, direction: -1 | 1) => void;
   onToggleSection: (sectionKey: string) => void;
@@ -72,7 +73,6 @@ export function PreviewCanvas({
     device,
     revision,
     contentRevision,
-    restaurantLogoUrl,
   });
   latestRef.current = {
     state,
@@ -80,7 +80,6 @@ export function PreviewCanvas({
     device,
     revision,
     contentRevision,
-    restaurantLogoUrl,
   };
   const targetOrigin = useMemo(() => new URL(webOrigin).origin, [webOrigin]);
   const restaurantPath = `/r/${encodeURIComponent(
@@ -100,6 +99,10 @@ export function PreviewCanvas({
         postLatest(frameRef.current?.contentWindow, targetOrigin, restaurantId, latestRef.current);
         return;
       }
+      if (isWebsiteV3NavigateMessage(event.data)) {
+        onNavigatePage(event.data.pageKey);
+        return;
+      }
       if (
         isWebsiteV3AppliedMessage(event.data) &&
         event.data.activePageKey === pageKey(latestRef.current.activePage)
@@ -114,7 +117,7 @@ export function PreviewCanvas({
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [onAcknowledged, restaurantId, targetOrigin]);
+  }, [onAcknowledged, onNavigatePage, restaurantId, targetOrigin]);
 
   useEffect(() => {
     if (!readyRef.current) return;
@@ -125,7 +128,6 @@ export function PreviewCanvas({
     device,
     restaurantId,
     revision,
-    restaurantLogoUrl,
     state,
     targetOrigin,
   ]);
@@ -253,7 +255,6 @@ function postLatest(
     device: PreviewDevice;
     revision: number;
     contentRevision: number;
-    restaurantLogoUrl?: string;
   },
 ) {
   if (!target) return;
@@ -264,13 +265,7 @@ function postLatest(
     restaurantId,
     activePageKey: pageKey(latest.activePage),
     device: latest.device,
-    state: {
-      ...latest.state,
-      config: {
-        ...latest.state.config,
-        preview_restaurant_logo_url: latest.restaurantLogoUrl ?? "",
-      },
-    },
+    state: latest.state,
   };
   target.postMessage(message, targetOrigin);
 }

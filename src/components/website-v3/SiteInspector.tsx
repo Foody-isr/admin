@@ -44,6 +44,12 @@ export function SiteInspector({
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
   const social = socialRecord(footer?.content.social_links);
+  const effectiveRestaurantLogoUrl = Object.prototype.hasOwnProperty.call(
+    config,
+    "restaurant_logo_url",
+  )
+    ? string(config.restaurant_logo_url)
+    : restaurantLogoUrl;
 
   if (tab === "content") {
     return (
@@ -235,7 +241,7 @@ export function SiteInspector({
         description="Le logo principal est partagé par le site. Les variantes permettent de garder un bon contraste."
       >
         <RestaurantLogoUploader
-          currentUrl={restaurantLogoUrl}
+          currentUrl={effectiveRestaurantLogoUrl}
           onUpload={onRestaurantLogoUpload}
           onRemove={onRestaurantLogoRemove}
         />

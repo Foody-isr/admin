@@ -3,6 +3,7 @@ import type { DraftStatePayload } from "@/lib/website-v3/types";
 export const WEBSITE_V3_STATE = "foody.website-v3.state" as const;
 export const WEBSITE_V3_APPLIED = "foody.website-v3.applied" as const;
 export const WEBSITE_V3_READY = "foody.website-v3.ready" as const;
+export const WEBSITE_V3_NAVIGATE = "foody.website-v3.navigate" as const;
 
 export type WebsiteV3StateMessage = {
   type: typeof WEBSITE_V3_STATE;
@@ -24,6 +25,11 @@ export type WebsiteV3AppliedMessage = {
 
 export type WebsiteV3ReadyMessage = {
   type: typeof WEBSITE_V3_READY;
+};
+
+export type WebsiteV3NavigateMessage = {
+  type: typeof WEBSITE_V3_NAVIGATE;
+  pageKey: string;
 };
 
 /** Narrows untrusted data to the Website V3 state wire envelope. */
@@ -78,6 +84,17 @@ export function isWebsiteV3ReadyMessage(
   data: unknown,
 ): data is WebsiteV3ReadyMessage {
   return hasExactKeys(data, ["type"]) && data.type === WEBSITE_V3_READY;
+}
+
+/** Narrows a preview navigation request to its exact wire shape. */
+export function isWebsiteV3NavigateMessage(
+  data: unknown,
+): data is WebsiteV3NavigateMessage {
+  return (
+    hasExactKeys(data, ["type", "pageKey"]) &&
+    data.type === WEBSITE_V3_NAVIGATE &&
+    isNonEmptyString(data.pageKey)
+  );
 }
 
 function isDraftStatePayload(value: unknown): value is DraftStatePayload {

@@ -37,6 +37,7 @@ test("preview iframe uses one stable landing bootstrap route for every draft pag
       revision: 1,
       contentRevision: 1,
       onAcknowledged: () => undefined,
+      onNavigatePage: () => undefined,
       onSelectSection: () => undefined,
       onAddSection: () => undefined,
       onMoveSection: () => undefined,

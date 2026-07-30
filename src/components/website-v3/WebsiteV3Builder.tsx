@@ -17,7 +17,6 @@ import {
   listMenus,
   publishWebsiteDraft,
   saveWebsiteDraft,
-  updateRestaurant,
   uploadRestaurantLogo,
   type CateringService,
   type Menu,
@@ -414,28 +413,26 @@ function DesktopWebsiteV3Builder({
   };
 
   const uploadMainLogo = async (file: File) => {
-    if (!loaded) return;
+    if (!state) return;
     const logoUrl = await uploadRestaurantLogo(restaurantId, file);
-    const restaurant = await updateRestaurant(restaurantId, {
-      name: loaded.restaurant.name,
-      logo_url: logoUrl,
-    });
-    setLoaded((current) =>
-      current ? { ...current, restaurant } : current,
+    setLocalState(
+      updateDraftAtPath(
+        state,
+        ["config", "restaurant_logo_url"],
+        logoUrl,
+      ),
     );
-    bumpPreview();
   };
 
   const removeMainLogo = async () => {
-    if (!loaded) return;
-    const restaurant = await updateRestaurant(restaurantId, {
-      name: loaded.restaurant.name,
-      logo_url: "",
-    });
-    setLoaded((current) =>
-      current ? { ...current, restaurant } : current,
+    if (!state) return;
+    setLocalState(
+      updateDraftAtPath(
+        state,
+        ["config", "restaurant_logo_url"],
+        "",
+      ),
     );
-    bumpPreview();
   };
 
   const updatePage = (key: string, path: StatePath, value: unknown) => {
@@ -731,9 +728,10 @@ function DesktopWebsiteV3Builder({
       const response = normalizeDraftResponse(
         await publishWebsiteDraft(restaurantId),
       );
+      const restaurant = await getRestaurant(restaurantId);
       autosave.reset();
       setLoaded((current) =>
-        current ? { ...current, draft: response } : current,
+        current ? { ...current, draft: response, restaurant } : current,
       );
       setSaveStatus("saved");
       setNotice("Le site est publié.");
@@ -926,7 +924,6 @@ function DesktopWebsiteV3Builder({
             webOrigin={WEB_ORIGIN}
             restaurantSlug={loaded.restaurant.slug}
             restaurantId={restaurantId}
-            restaurantLogoUrl={loaded.restaurant.logo_url}
             state={state}
             activePage={activePage}
             activeSectionKey={activeSectionKey}
@@ -934,6 +931,7 @@ function DesktopWebsiteV3Builder({
             revision={previewRevision}
             contentRevision={contentRevision}
             onAcknowledged={acknowledgePreview}
+            onNavigatePage={selectPage}
             onSelectSection={(key) => {
               if (busyRef.current) return;
               setSelection({

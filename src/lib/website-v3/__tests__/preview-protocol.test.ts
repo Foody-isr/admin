@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   isWebsiteV3AppliedMessage,
+  isWebsiteV3NavigateMessage,
   isWebsiteV3StateMessage,
   WEBSITE_V3_APPLIED,
+  WEBSITE_V3_NAVIGATE,
   WEBSITE_V3_STATE,
 } from "../preview-protocol";
 import {
@@ -43,6 +45,23 @@ test("preview state and acknowledgement carry content revision and device", () =
       device: "mobile",
     }),
     true,
+  );
+});
+
+test("preview navigation accepts only a stable page key", () => {
+  assert.equal(
+    isWebsiteV3NavigateMessage({
+      type: WEBSITE_V3_NAVIGATE,
+      pageKey: "page-1",
+    }),
+    true,
+  );
+  assert.equal(
+    isWebsiteV3NavigateMessage({
+      type: WEBSITE_V3_NAVIGATE,
+      pageKey: "",
+    }),
+    false,
   );
 });
 
