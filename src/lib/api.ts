@@ -133,6 +133,12 @@ export interface RestaurantSettings {
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
+  // Stock management
+  // Auto-deactivate a menu item when its linked ingredients reach 0.
+  auto_disable_soldout?: boolean;
+  // Default predefined-stock unit for new items with weighted sizes:
+  //   '' — portions (default), 'g' — grams, 'kg' — kilograms.
+  default_stock_unit?: '' | 'g' | 'kg';
   // Delivery — minimum cart total to allow a delivery order (0 = no minimum).
   // Drives the "Min ₪X" pill on the foodyweb hero in delivery mode.
   minimum_order_delivery?: number;
