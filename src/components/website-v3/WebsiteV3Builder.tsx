@@ -897,6 +897,7 @@ function DesktopWebsiteV3Builder({
             ) : null}
             <Inspector
               restaurantId={restaurantId}
+              restaurant={loaded.restaurant}
               restaurantLogoUrl={loaded.restaurant.logo_url}
               state={state}
               selection={selection}

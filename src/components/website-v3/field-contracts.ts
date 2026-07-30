@@ -192,7 +192,7 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "site.hero_logo_size": 132,
   "site.hide_hero_logo": true,
   "site.navbar_show_links": false,
-  "site.navbar_hamburger": "always",
+  "site.navbar_hamburger": "compact",
   "site.navbar_cta": "Réserver E2E",
   "site.favicon_url": "http://localhost:3000/logo-icon.svg",
   "site.checkout_config": `{"note":"connected checkout"}`,
@@ -330,6 +330,9 @@ function expectedFor(id: string, value: TestValue): string {
       modalText: "Connected order info",
     });
   }
+  if (id === "site.navbar_hamburger" && value === "compact") {
+    return "mobile";
+  }
   if (id === "section.content.social_links") {
     return JSON.stringify([
       { platform: "instagram", url: value },
@@ -339,13 +342,7 @@ function expectedFor(id: string, value: TestValue): string {
 }
 
 export const FIELD_CONTRACTS: readonly FieldContract[] = [
-  site("site.theme_id", ["theme_id"], "[data-website-v3-page]", "value"),
-  site("site.pairing_id", ["pairing_id"], "body", "style"),
-  site("site.brand_color", ["brand_color"], "body", "style"),
   site("site.tagline", ["tagline"], "[data-website-v3-page]", "text"),
-  site("site.hero_name_font", ["hero_name_font"], "[data-website-v3-page]", "style"),
-  site("site.typography", ["typography"], "body", "style"),
-  site("site.nav_layout", ["nav_layout"], "nav", "visible"),
   site("site.navbar_style", ["navbar_style"], "nav", "style"),
   site("site.navbar_color", ["navbar_color"], "nav", "style"),
   site(
@@ -367,13 +364,6 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   site("site.favicon_url", ["favicon_url"], "link[rel='icon']", "value"),
   site("site.checkout_config", ["checkout_config"], "[data-website-v3-page]", "count"),
   site("site.order_page_info", ["order_page_info"], "[data-website-v3-page]", "count"),
-  site("site.layout_default", ["layout_default"], "[data-website-v3-page]", "value"),
-  site("site.layout_default_mobile", ["layout_default_mobile"], "[data-website-v3-page]", "value"),
-  site("site.category_banner_style", ["category_banner_style"], "[data-website-v3-page]", "style"),
-  site("site.category_banner_overlay", ["category_banner_overlay"], "[data-website-v3-page]", "style"),
-  site("site.category_banner_fit", ["category_banner_fit"], "[data-website-v3-page]", "style"),
-  site("site.category_banner_fit_mobile", ["category_banner_fit_mobile"], "[data-website-v3-page]", "style"),
-
   page("page.title", ["title"], "[data-page-title]", "text"),
   page("page.slug", ["slug"], "[data-website-v3-page]", "value"),
   page("page.type", ["type"], "[data-website-v3-page]", "value"),

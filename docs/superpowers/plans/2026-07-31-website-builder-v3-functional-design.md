@@ -1,6 +1,6 @@
 # Website Builder V3 — Functional and UX Design
 
-**Date:** 2026-07-31  
+**Date:** 2026-07-31
 **Scope:** `foodyadmin`, `foodyweb`, and the existing `foodyserver` Website V3 contract
 
 ## Goal

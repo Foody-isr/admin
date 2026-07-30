@@ -1,10 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   ExternalLink,
   Monitor,
+  PanelLeftClose,
+  PanelLeftOpen,
   RotateCcw,
   Send,
   Smartphone,
@@ -47,6 +49,26 @@ export function BuilderShell({
   inspector: ReactNode;
   preview: ReactNode;
 }) {
+  const [railCollapsed, setRailCollapsed] = useState(false);
+
+  useEffect(() => {
+    setRailCollapsed(
+      window.localStorage.getItem("foody.website-v3.rail-collapsed") ===
+        "true",
+    );
+  }, []);
+
+  const toggleRail = () => {
+    setRailCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem(
+        "foody.website-v3.rail-collapsed",
+        String(next),
+      );
+      return next;
+    });
+  };
+
   return (
     <div className="hidden h-screen min-h-[720px] flex-col overflow-hidden bg-[#171b22] text-slate-950 lg:flex">
       <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-[#11151b] px-4 text-white">
@@ -150,9 +172,39 @@ export function BuilderShell({
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(320px,420px)_minmax(640px,1fr)]">
-        <aside className="min-h-0 overflow-y-auto border-r border-slate-200 bg-[#f8fafc]">
-          {rail}
+      <div
+        className="grid min-h-0 flex-1 transition-[grid-template-columns] duration-200"
+        style={{
+          gridTemplateColumns: `${
+            railCollapsed ? "48px" : "240px"
+          } minmax(320px,420px) minmax(640px,1fr)`,
+        }}
+      >
+        <aside className="relative min-h-0 overflow-y-auto border-r border-slate-200 bg-[#f8fafc]">
+          <button
+            type="button"
+            aria-label={
+              railCollapsed
+                ? "Ouvrir le panneau des pages"
+                : "Réduire le panneau des pages"
+            }
+            title={
+              railCollapsed
+                ? "Ouvrir le panneau des pages"
+                : "Réduire le panneau des pages"
+            }
+            onClick={toggleRail}
+            className={`sticky top-2 z-20 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm hover:text-slate-900 ${
+              railCollapsed ? "mx-auto" : "float-right mr-2"
+            }`}
+          >
+            {railCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </button>
+          <div className={railCollapsed ? "hidden" : "block"}>{rail}</div>
         </aside>
         <section className="min-h-0 overflow-y-auto border-r border-slate-200 bg-white">
           {inspector}

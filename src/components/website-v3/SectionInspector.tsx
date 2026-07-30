@@ -9,53 +9,31 @@ import {
   ToggleField,
   controlClass,
 } from "./controls";
+import { SectionContentEditors } from "./SectionContentEditors";
 
 export function SectionInspector({
+  restaurantId,
   section,
   tab,
   onChange,
 }: {
+  restaurantId: number;
   section: DraftSectionPayload;
   tab: "content" | "appearance" | "settings";
   onChange: (path: StatePath, value: unknown) => void;
 }) {
   const meta = SECTION_TYPE_META[section.section_type];
   if (tab === "content") {
-    const fields = contentFieldsFor(section.section_type);
     return (
       <InspectorGroup
         title={meta?.labelKey ? humanize(section.section_type) : "Section"}
         description="Chaque valeur est envoyée au même renderer que la page publique."
       >
-        {fields.map((field) => (
-          <InspectorField key={field.key} label={field.label}>
-            {field.multiline ? (
-              <textarea
-                data-field-id={`section.content.${field.key}`}
-                value={string(section.content[field.key])}
-                onChange={(event) =>
-                  onChange(["content", field.key], event.target.value)
-                }
-                className={`${controlClass} min-h-24 py-2.5`}
-              />
-            ) : (
-              <input
-                data-field-id={`section.content.${field.key}`}
-                value={string(section.content[field.key])}
-                onChange={(event) =>
-                  onChange(["content", field.key], event.target.value)
-                }
-                className={controlClass}
-              />
-            )}
-          </InspectorField>
-        ))}
-        {fields.length === 0 ? (
-          <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
-            Cette section utilise une structure composée. Elle reste visible et
-            réordonnable, mais ses données avancées sont conservées telles quelles.
-          </p>
-        ) : null}
+        <SectionContentEditors
+          restaurantId={restaurantId}
+          section={section}
+          onChange={onChange}
+        />
       </InspectorGroup>
     );
   }
@@ -158,34 +136,6 @@ export function SectionInspector({
       </p>
     </InspectorGroup>
   );
-}
-
-function contentFieldsFor(
-  type: string,
-): { key: string; label: string; multiline?: boolean }[] {
-  switch (type) {
-    case "hero_banner":
-      return [
-        { key: "headline", label: "Titre" },
-        { key: "subheadline", label: "Sous-titre", multiline: true },
-        { key: "cta_text", label: "Texte du bouton" },
-        { key: "cta_link", label: "Lien du bouton" },
-        { key: "image_url", label: "Image" },
-      ];
-    case "text_and_image":
-    case "promo_banner":
-      return [
-        { key: "title", label: "Titre" },
-        { key: "body", label: "Texte", multiline: true },
-        { key: "image_url", label: "Image" },
-      ];
-    case "scrolling_text":
-      return [{ key: "text", label: "Texte défilant", multiline: true }];
-    case "footer":
-      return [{ key: "custom_text", label: "Texte du pied de page" }];
-    default:
-      return [];
-  }
 }
 
 function string(value: unknown): string {

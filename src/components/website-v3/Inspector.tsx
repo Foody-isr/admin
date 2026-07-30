@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import type { CateringService, Menu, ThemeCatalog } from "@/lib/api";
+import type {
+  CateringService,
+  Menu,
+  Restaurant,
+  ThemeCatalog,
+} from "@/lib/api";
 import type {
   DraftPagePayload,
   DraftSectionPayload,
@@ -19,6 +24,7 @@ export type InspectorTab = "content" | "appearance" | "settings";
 
 export function Inspector({
   restaurantId,
+  restaurant,
   restaurantLogoUrl,
   state,
   selection,
@@ -38,6 +44,7 @@ export function Inspector({
   onRestaurantLogoRemove,
 }: {
   restaurantId: number;
+  restaurant: Restaurant;
   restaurantLogoUrl?: string;
   state: DraftStatePayload;
   selection: RailSelection;
@@ -123,8 +130,6 @@ export function Inspector({
         <SiteInspector
           tab={tab}
           config={state.config}
-          catalog={catalog}
-          catalogWarning={catalogWarning}
           restaurantId={restaurantId}
           restaurantLogoUrl={restaurantLogoUrl}
           pages={state.pages.filter(
@@ -145,6 +150,7 @@ export function Inspector({
         />
       ) : section ? (
         <SectionInspector
+          restaurantId={restaurantId}
           section={section}
           tab={tab}
           onChange={(path, value) =>
@@ -155,6 +161,11 @@ export function Inspector({
         <PageInspector
           page={page}
           tab={tab}
+          restaurantId={restaurantId}
+          restaurant={restaurant}
+          config={state.config}
+          catalog={catalog}
+          catalogWarning={catalogWarning}
           menus={menus}
           services={services}
           errors={errors.filter(

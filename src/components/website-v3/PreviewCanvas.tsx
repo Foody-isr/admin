@@ -9,7 +9,6 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { SECTION_TYPE_META } from "@/components/website/SectionEditors";
 import {
   isWebsiteV3AppliedMessage,
   isWebsiteV3NavigateMessage,
@@ -178,27 +177,59 @@ export function PreviewCanvas({
           {activePage.type}
         </span>
         <div className="ml-auto flex items-center gap-1.5">
-          <select
-            aria-label="Ajouter une section"
-            data-field-id="section.create"
-            defaultValue=""
-            onChange={(event) => {
-              if (!event.target.value) return;
-              onAddSection(event.target.value);
-              event.target.value = "";
-            }}
-            className="h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-[11px] font-semibold text-slate-200 outline-none"
-            disabled={activePage.type === "order" || activePage.type === "catering"}
-          >
-            <option value="">+ Ajouter une section</option>
-            {Object.entries(SECTION_TYPE_META)
-              .filter(([type]) => type !== "footer")
-              .map(([type]) => (
-                <option key={type} value={type}>
-                  {humanize(type)}
-                </option>
-              ))}
-          </select>
+          {activePage.type === "landing" || activePage.type === "content" ? (
+            <details className="group relative">
+              <summary
+                data-field-id="section.create"
+                className="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-[11px] font-semibold text-slate-100 hover:bg-white/10"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Ajouter un composant
+              </summary>
+              <div className="absolute right-0 top-10 z-30 w-[340px] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl">
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <p className="text-sm font-semibold">Bibliothèque de composants</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    Le composant est ajouté en bas de la page et sélectionné.
+                  </p>
+                </div>
+                <div className="max-h-[430px] space-y-4 overflow-y-auto p-3">
+                  {COMPONENT_GROUPS.map((group) => (
+                    <div key={group.label}>
+                      <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                        {group.label}
+                      </p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {group.items.map((item) => (
+                          <button
+                            key={item.type}
+                            type="button"
+                            aria-label={item.label}
+                            onClick={(event) => {
+                              onAddSection(item.type);
+                              event.currentTarget.closest("details")?.removeAttribute("open");
+                            }}
+                            className="rounded-xl border border-slate-200 p-2.5 text-left transition hover:border-[#315fce] hover:bg-[#315fce]/5"
+                          >
+                            <span className="block text-xs font-semibold text-slate-800">
+                              {item.label}
+                            </span>
+                            <span className="mt-1 block text-[10px] leading-4 text-slate-500">
+                              {item.description}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </details>
+          ) : (
+            <span className="text-[10px] text-slate-500">
+              Mise en page gérée dans Apparence
+            </span>
+          )}
         </div>
       </div>
 
@@ -361,3 +392,81 @@ function humanize(value: string): string {
     .replace(/_/g, " ")
     .replace(/^\w/, (letter) => letter.toUpperCase());
 }
+
+const COMPONENT_GROUPS = [
+  {
+    label: "Mise en page",
+    items: [
+      {
+        type: "hero_banner",
+        label: "Hero banner",
+        description: "Grand visuel, titre et bouton principal.",
+      },
+      {
+        type: "text_and_image",
+        label: "Texte + image",
+        description: "Présente une histoire, un lieu ou un service.",
+      },
+      {
+        type: "feature_cards",
+        label: "Cartes visuelles",
+        description: "Liens illustrés vers les pages importantes.",
+      },
+      {
+        type: "about",
+        label: "À propos",
+        description: "Plusieurs blocs éditoriaux avec images.",
+      },
+    ],
+  },
+  {
+    label: "Médias",
+    items: [
+      {
+        type: "gallery",
+        label: "Galerie",
+        description: "Grille de photos réordonnables.",
+      },
+      {
+        type: "menu_highlights",
+        label: "Produits populaires",
+        description: "Met en avant une sélection de produits.",
+      },
+      {
+        type: "picnic_basket",
+        label: "Panier animé",
+        description: "Composition visuelle et produits flottants.",
+      },
+      {
+        type: "social_feed",
+        label: "Réseaux sociaux",
+        description: "Liens vers Instagram, Facebook et TikTok.",
+      },
+    ],
+  },
+  {
+    label: "Conversion",
+    items: [
+      {
+        type: "promo_banner",
+        label: "Bannière promotionnelle",
+        description: "Annonce une offre ou un événement.",
+      },
+      {
+        type: "action_buttons",
+        label: "Boutons d’action",
+        description: "Commande, traiteur, lien externe ou ancre.",
+      },
+      {
+        type: "testimonials",
+        label: "Avis clients",
+        description: "Affiche plusieurs témoignages et notes.",
+      },
+      {
+        type: "scrolling_text",
+        label: "Texte défilant",
+        description: "Message animé pour une information courte.",
+      },
+    ],
+  },
+] as const;

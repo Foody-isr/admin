@@ -6,7 +6,9 @@ import { FIELD_CONTRACTS } from "../field-contracts";
 
 test("every statically rendered field ID has a registered contract", () => {
   const ids = new Set(FIELD_CONTRACTS.map((contract) => contract.id));
-  const sources = sourceFiles(resolve(process.cwd(), "src/components/website-v3"));
+  const sources = sourceFiles(
+    resolve(process.cwd(), "src/components/website-v3"),
+  ).filter((source) => !source.includes("every statically rendered field ID"));
   const rendered = new Set<string>();
   sources.forEach((source) => {
     for (const match of Array.from(
@@ -15,16 +17,6 @@ test("every statically rendered field ID has a registered contract", () => {
       if (!match[1].includes("${")) rendered.add(match[1]);
     }
   });
-  const sectionInspector = sources.find((source) =>
-    source.includes("function contentFieldsFor"),
-  );
-  assert.ok(sectionInspector);
-  for (const match of Array.from(
-    sectionInspector.matchAll(/\{ key: "([^"]+)"/g),
-  )) {
-    rendered.add(`section.content.${match[1]}`);
-  }
-
   rendered.forEach((id) => assert.equal(ids.has(id), true, id));
   assert.equal(ids.has("section.page_id"), true);
   assert.equal(ids.size, FIELD_CONTRACTS.length, "field IDs must be unique");

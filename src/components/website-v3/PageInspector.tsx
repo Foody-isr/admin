@@ -1,10 +1,23 @@
 "use client";
 
-import type { CateringService, Menu } from "@/lib/api";
+import type {
+  CateringService,
+  Menu,
+  Restaurant,
+  ThemeCatalog,
+  WebsiteConfig,
+} from "@/lib/api";
+import { SectionImageUploader } from "@/components/website/SectionEditors";
+import { OrderPageInfoEditor } from "@/components/website/OrderPageInfoEditor";
+import { ThemesPanel } from "@/components/website-menu/ThemesPanel";
+import { TypographyPanel } from "@/components/website-menu/TypographyPanel";
 import {
   convertPageType,
   normalizeSlug,
 } from "@/lib/website-v3/state";
+import {
+  canonicalAliasForType,
+} from "@/lib/website-v3/url-model";
 import type {
   DraftPagePayload,
   FieldError,
@@ -17,6 +30,11 @@ import { CommerceSelector } from "./CommerceSelector";
 export function PageInspector({
   page,
   tab,
+  restaurantId,
+  restaurant,
+  config,
+  catalog,
+  catalogWarning,
   menus,
   services,
   errors,
@@ -26,6 +44,11 @@ export function PageInspector({
 }: {
   page: DraftPagePayload;
   tab: "content" | "appearance" | "settings";
+  restaurantId: number;
+  restaurant: Restaurant;
+  config: Record<string, unknown>;
+  catalog: ThemeCatalog;
+  catalogWarning?: string | null;
   menus: Menu[];
   services: CateringService[];
   errors: FieldError[];
@@ -35,6 +58,22 @@ export function PageInspector({
 }) {
   const errorFor = (fieldId: string) =>
     errors.find((error) => error.fieldId === fieldId)?.message;
+  const appearance = page.appearance_overrides;
+  const canonicalAlias = canonicalAliasForType(page.type);
+  const normalizedPageSlug = normalizeSlug(page.slug);
+  const slugError =
+    canonicalAlias === `/${normalizedPageSlug}`
+      ? `${canonicalAlias} est l’adresse principale automatique. Choisissez une adresse spécifique pour cette page.`
+      : errorFor("page.slug");
+  const pageVisualConfig = {
+    ...config,
+    ...appearance,
+  } as unknown as WebsiteConfig;
+  const updateAppearance = (patch: Partial<WebsiteConfig>) =>
+    onChange(["appearance_overrides"], {
+      ...appearance,
+      ...patch,
+    });
 
   if (tab === "content") {
     return (
@@ -76,8 +115,39 @@ export function PageInspector({
     return (
       <>
         <InspectorGroup
-          title="Palette de la page"
-          description="Ces valeurs remplacent le thème global uniquement sur cette page."
+          title="Direction visuelle de la page"
+          description="Cette page peut avoir son propre thème. Les anciennes valeurs restent utilisées tant qu’aucune surcharge n’est choisie."
+        >
+          {catalogWarning ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+              {catalogWarning}
+            </p>
+          ) : null}
+          <ThemesPanel
+            config={pageVisualConfig}
+            catalog={catalog}
+            onUpdate={updateAppearance}
+          />
+        </InspectorGroup>
+        <InspectorGroup
+          title="Typographie de la page"
+          description="Les styles de titres, catégories, produits, prix et descriptions sont propres à cette page."
+        >
+          <TypographyPanel
+            config={pageVisualConfig}
+            catalog={catalog}
+            restaurantId={restaurantId}
+            heroNameFont={pageVisualConfig.hero_name_font ?? ""}
+            heroSample={restaurant.name}
+            onHeroNameFontChange={(family) =>
+              updateAppearance({ hero_name_font: family })
+            }
+            onUpdate={updateAppearance}
+          />
+        </InspectorGroup>
+        <InspectorGroup
+          title="Ajustements rapides"
+          description="Ces couleurs remplacent les variables principales du thème uniquement sur cette page."
         >
           <ColorField
             fieldId="page.appearance_overrides.bg"
@@ -107,7 +177,7 @@ export function PageInspector({
             }
           />
         </InspectorGroup>
-        <InspectorGroup title="Typographie locale">
+        <InspectorGroup title="Polices des pages de contenu">
           <InspectorField label="Police des titres">
             <input
               data-field-id="page.appearance_overrides.headingFont"
@@ -137,6 +207,15 @@ export function PageInspector({
             />
           </InspectorField>
         </InspectorGroup>
+        {page.type === "order" || page.type === "catering" ? (
+          <CommerceAppearance
+            page={page}
+            restaurantId={restaurantId}
+            restaurant={restaurant}
+            menus={menus}
+            onChange={onChange}
+          />
+        ) : null}
       </>
     );
   }
@@ -160,10 +239,27 @@ export function PageInspector({
   return (
     <>
       <InspectorGroup title="Adresse et type">
+        {canonicalAlias ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700">
+              Adresse publique principale
+            </p>
+            <p className="mt-1 text-sm font-semibold text-emerald-950">
+              {canonicalAlias}
+            </p>
+            <p className="mt-1 text-[11px] leading-4 text-emerald-800">
+              Active lorsque cette page est définie comme page principale.
+            </p>
+          </div>
+        ) : null}
         <InspectorField
-          label="Adresse publique"
-          hint={`Adresse normalisée : /${normalizeSlug(page.slug)}`}
-          error={errorFor("page.slug")}
+          label={canonicalAlias ? "Adresse spécifique" : "Adresse publique"}
+          hint={
+            canonicalAlias
+              ? `Cette page reste aussi accessible via /${normalizedPageSlug}.`
+              : `Adresse normalisée : /${normalizedPageSlug}`
+          }
+          error={slugError}
         >
           <div className="flex items-center rounded-xl border border-slate-200 bg-white px-3 focus-within:border-[#315fce] focus-within:ring-2 focus-within:ring-[#315fce]/10">
             <span className="text-sm text-slate-400">/</span>
@@ -243,6 +339,88 @@ export function PageInspector({
         </InspectorGroup>
       ) : null}
 
+      <InspectorGroup
+        title="Navigation et pied de page"
+        description="Le logo, les couleurs et le contenu restent globaux. Cette page choisit seulement leur niveau d’affichage."
+      >
+        <InspectorField label="Navigation sur ordinateur">
+          <select
+            value={appearance.navigation_mode ?? "inherit"}
+            onChange={(event) =>
+              onChange(
+                ["appearance_overrides", "navigation_mode"],
+                event.target.value,
+              )
+            }
+            className={controlClass}
+          >
+            <option value="inherit">Hériter du site</option>
+            <option value="full">Complète</option>
+            <option value="compact">Compacte</option>
+            <option value="hidden">Masquée</option>
+          </select>
+        </InspectorField>
+        <InspectorField label="Navigation sur mobile">
+          <select
+            value={appearance.navigation_mode_mobile ?? "inherit"}
+            onChange={(event) =>
+              onChange(
+                ["appearance_overrides", "navigation_mode_mobile"],
+                event.target.value,
+              )
+            }
+            className={controlClass}
+          >
+            <option value="inherit">Hériter du site</option>
+            <option value="full">Complète</option>
+            <option value="compact">Compacte</option>
+            <option value="hidden">Masquée</option>
+          </select>
+        </InspectorField>
+        <InspectorField label="Pied de page">
+          <select
+            value={appearance.footer_mode ?? "inherit"}
+            onChange={(event) =>
+              onChange(
+                ["appearance_overrides", "footer_mode"],
+                event.target.value,
+              )
+            }
+            className={controlClass}
+          >
+            <option value="inherit">Hériter du site</option>
+            <option value="full">Complet</option>
+            <option value="compact">Compact</option>
+            <option value="hidden">Masqué</option>
+          </select>
+        </InspectorField>
+      </InspectorGroup>
+
+      {page.type === "order" ? (
+        <InspectorGroup
+          title="Informations de commande"
+          description="Choisissez les informations visibles dans la barre et dans la fenêtre Plus pour cette page."
+        >
+          <OrderPageInfoEditor
+            value={pageVisualConfig.order_page_info ?? null}
+            availableModes={[
+              ...(restaurant.pickup_enabled ? (["pickup"] as const) : []),
+              ...(restaurant.delivery_enabled ? (["delivery"] as const) : []),
+              ...(restaurant.dine_in_enabled ? (["dine_in"] as const) : []),
+            ]}
+            locked={Boolean(
+              pageVisualConfig.checkout_config?.lock_order_type,
+            )}
+            onChange={(value) =>
+              onChange(
+                ["appearance_overrides", "order_page_info"],
+                value,
+              )
+            }
+          />
+        </InspectorGroup>
+      ) : null}
+
       <InspectorGroup title="Référencement et partage">
         <InspectorField label="Titre SEO">
           <input
@@ -279,4 +457,515 @@ export function PageInspector({
       </InspectorGroup>
     </>
   );
+}
+
+function CommerceAppearance({
+  page,
+  restaurantId,
+  restaurant,
+  menus,
+  onChange,
+}: {
+  page: DraftPagePayload;
+  restaurantId: number;
+  restaurant: Restaurant;
+  menus: Menu[];
+  onChange: (path: StatePath, value: unknown) => void;
+}) {
+  const appearance = page.appearance_overrides;
+  const coverUrl = appearance.cover_url || restaurant.cover_url || "";
+
+  return (
+    <>
+      <InspectorGroup
+        title="Couverture"
+        description="L’image, le cadrage et la composition ne s’appliquent qu’à cette page."
+      >
+        <SectionImageUploader
+          restaurantId={restaurantId}
+          currentUrl={coverUrl}
+          onUploaded={(url) =>
+            onChange(["appearance_overrides", "cover_url"], url)
+          }
+          onRemove={() =>
+            onChange(["appearance_overrides", "cover_url"], "")
+          }
+          label="Image de couverture"
+        />
+        <ColorField
+          fieldId={"page.appearance_overrides.background_color"}
+          label="Couleur sans image"
+          value={appearance.background_color ?? restaurant.background_color ?? ""}
+          fallback="#111827"
+          onChange={(value) =>
+            onChange(["appearance_overrides", "background_color"], value)
+          }
+        />
+        {coverUrl ? (
+          <>
+            <InspectorField
+              label={`Point horizontal · ${appearance.cover_focal_x ?? restaurant.cover_focal_x ?? 50}%`}
+            >
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={appearance.cover_focal_x ?? restaurant.cover_focal_x ?? 50}
+                onChange={(event) =>
+                  onChange(
+                    ["appearance_overrides", "cover_focal_x"],
+                    Number(event.target.value),
+                  )
+                }
+                className="w-full accent-[#315fce]"
+              />
+            </InspectorField>
+            <InspectorField
+              label={`Point vertical · ${appearance.cover_focal_y ?? restaurant.cover_focal_y ?? 50}%`}
+            >
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={appearance.cover_focal_y ?? restaurant.cover_focal_y ?? 50}
+                onChange={(event) =>
+                  onChange(
+                    ["appearance_overrides", "cover_focal_y"],
+                    Number(event.target.value),
+                  )
+                }
+                className="w-full accent-[#315fce]"
+              />
+            </InspectorField>
+          </>
+        ) : null}
+        <InspectorField label="Composition">
+          <select
+            value={appearance.hero_cover_layout ?? "card"}
+            onChange={(event) =>
+              onChange(
+                ["appearance_overrides", "hero_cover_layout"],
+                event.target.value,
+              )
+            }
+            className={controlClass}
+          >
+            <option value="card">Carte avec nom et logo</option>
+            <option value="logo">Logo centré</option>
+            <option value="bare">Logo libre</option>
+          </select>
+        </InspectorField>
+        <InspectorField label="Fond du cadre logo">
+          <select
+            value={appearance.hero_logo_bg ?? "white"}
+            onChange={(event) =>
+              onChange(
+                ["appearance_overrides", "hero_logo_bg"],
+                event.target.value,
+              )
+            }
+            className={controlClass}
+          >
+            <option value="white">Blanc</option>
+            <option value="black">Noir</option>
+          </select>
+        </InspectorField>
+        <InspectorField
+          label={`Taille du logo · ${appearance.hero_logo_size ?? 100}%`}
+        >
+          <input
+            type="range"
+            min={50}
+            max={200}
+            value={appearance.hero_logo_size ?? 100}
+            onChange={(event) =>
+              onChange(
+                ["appearance_overrides", "hero_logo_size"],
+                Number(event.target.value),
+              )
+            }
+            className="w-full accent-[#315fce]"
+          />
+        </InspectorField>
+      </InspectorGroup>
+
+      {page.type === "order" ? (
+        <>
+          <InspectorGroup
+            title="Catalogue et séparateurs"
+            description="Retrouvez les dispositions et styles de catégories disponibles dans la V2."
+          >
+          <InspectorField label="Disposition ordinateur">
+            <select
+              value={appearance.layout_default ?? "magazine"}
+              onChange={(event) =>
+                onChange(
+                  ["appearance_overrides", "layout_default"],
+                  event.target.value,
+                )
+              }
+              className={controlClass}
+            >
+              <option value="magazine">Magazine</option>
+              <option value="compact">Compacte</option>
+            </select>
+          </InspectorField>
+          <InspectorField label="Disposition mobile">
+            <select
+              value={appearance.layout_default_mobile ?? ""}
+              onChange={(event) =>
+                onChange(
+                  ["appearance_overrides", "layout_default_mobile"],
+                  event.target.value,
+                )
+              }
+              className={controlClass}
+            >
+              <option value="">Comme sur ordinateur</option>
+              <option value="magazine">Magazine</option>
+              <option value="compact">Compacte</option>
+            </select>
+          </InspectorField>
+          <InspectorField label="Style des séparateurs">
+            <select
+              value={appearance.category_banner_style ?? ""}
+              onChange={(event) =>
+                onChange(
+                  ["appearance_overrides", "category_banner_style"],
+                  event.target.value,
+                )
+              }
+              className={controlClass}
+            >
+              <option value="">Hériter</option>
+              <option value="image-overlay">Image avec titre</option>
+              <option value="image-only">Image seule</option>
+              <option value="text-block">Bloc texte</option>
+              <option value="striped-rule">Ligne éditoriale</option>
+              <option value="color-title">Titre coloré</option>
+              <option value="none">Aucun séparateur</option>
+            </select>
+          </InspectorField>
+          <InspectorField
+            label={`Voile de l’image · ${appearance.category_banner_overlay ?? 40}%`}
+          >
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={appearance.category_banner_overlay ?? 40}
+              onChange={(event) =>
+                onChange(
+                  ["appearance_overrides", "category_banner_overlay"],
+                  Number(event.target.value),
+                )
+              }
+              className="w-full accent-[#315fce]"
+            />
+          </InspectorField>
+          <InspectorField label="Recadrage ordinateur">
+            <select
+              value={appearance.category_banner_fit ?? ""}
+              onChange={(event) =>
+                onChange(
+                  ["appearance_overrides", "category_banner_fit"],
+                  event.target.value,
+                )
+              }
+              className={controlClass}
+            >
+              <option value="">Par défaut</option>
+              <option value="cover">Remplir</option>
+              <option value="contain">Contenir</option>
+              <option value="natural">Taille naturelle</option>
+            </select>
+          </InspectorField>
+          <InspectorField label="Recadrage mobile">
+            <select
+              value={appearance.category_banner_fit_mobile ?? ""}
+              onChange={(event) =>
+                onChange(
+                  ["appearance_overrides", "category_banner_fit_mobile"],
+                  event.target.value,
+                )
+              }
+              className={controlClass}
+            >
+              <option value="">Comme sur ordinateur</option>
+              <option value="cover">Remplir</option>
+              <option value="contain">Contenir</option>
+              <option value="natural">Taille naturelle</option>
+            </select>
+          </InspectorField>
+          </InspectorGroup>
+          <InspectorGroup
+            title="Visuels par catégorie"
+            description="Chaque groupe peut avoir une image, un cadrage et un titre coloré propres à cette page de commande."
+          >
+            <GroupBannerEditor
+              restaurantId={restaurantId}
+              menus={menus}
+              selectedMenuIds={page.settings.menu_ids}
+              style={appearance.category_banner_style ?? ""}
+              overrides={appearance.group_banners ?? {}}
+              onChange={(groupBanners) =>
+                onChange(
+                  ["appearance_overrides", "group_banners"],
+                  groupBanners,
+                )
+              }
+            />
+          </InspectorGroup>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function GroupBannerEditor({
+  restaurantId,
+  menus,
+  selectedMenuIds,
+  style,
+  overrides,
+  onChange,
+}: {
+  restaurantId: number;
+  menus: Menu[];
+  selectedMenuIds: number[];
+  style: string;
+  overrides: NonNullable<
+    DraftPagePayload["appearance_overrides"]["group_banners"]
+  >;
+  onChange: (
+    value: NonNullable<
+      DraftPagePayload["appearance_overrides"]["group_banners"]
+    >,
+  ) => void;
+}) {
+  const groups = menus
+    .filter(
+      (menu) =>
+        selectedMenuIds.length === 0 || selectedMenuIds.includes(menu.id),
+    )
+    .flatMap((menu) =>
+      (menu.groups ?? []).map((group) => ({
+        ...group,
+        menuName: menu.name,
+      })),
+    );
+
+  function updateGroup(
+    groupId: number,
+    patch: Record<string, unknown>,
+  ) {
+    const key = String(groupId);
+    onChange({
+      ...overrides,
+      [key]: {
+        ...overrides[key],
+        ...patch,
+      },
+    });
+  }
+
+  if (groups.length === 0) {
+    return (
+      <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
+        Aucune catégorie n’est disponible dans les cartes sélectionnées.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {groups.map((group) => {
+        const override = overrides[String(group.id)] ?? {};
+        const design = record(override.banner_design ?? group.banner_design);
+        const title = record(design.title);
+        const imageUrl =
+          override.image_url !== undefined
+            ? override.image_url
+            : group.image_url || "";
+        return (
+          <details
+            key={`${group.menu_id}-${group.id}`}
+            className="rounded-xl border border-slate-200 bg-white"
+          >
+            <summary className="cursor-pointer list-none px-3 py-3">
+              <span className="block text-xs font-semibold text-slate-800">
+                {group.name}
+              </span>
+              <span className="mt-0.5 block text-[10px] text-slate-500">
+                {group.menuName}
+              </span>
+            </summary>
+            <div className="space-y-3 border-t border-slate-100 p-3">
+              <SectionImageUploader
+                restaurantId={restaurantId}
+                currentUrl={imageUrl}
+                onUploaded={(url) =>
+                  updateGroup(group.id, { image_url: url })
+                }
+                onRemove={() =>
+                  updateGroup(group.id, { image_url: "" })
+                }
+                label="Image du séparateur"
+              />
+              <InspectorField
+                label={`Cadrage horizontal · ${override.focal_x ?? group.banner_focal_x ?? 50}%`}
+              >
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={override.focal_x ?? group.banner_focal_x ?? 50}
+                  onChange={(event) =>
+                    updateGroup(group.id, {
+                      focal_x: Number(event.target.value),
+                    })
+                  }
+                  className="w-full accent-[#315fce]"
+                />
+              </InspectorField>
+              <InspectorField
+                label={`Cadrage vertical · ${override.focal_y ?? group.banner_focal_y ?? 50}%`}
+              >
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={override.focal_y ?? group.banner_focal_y ?? 50}
+                  onChange={(event) =>
+                    updateGroup(group.id, {
+                      focal_y: Number(event.target.value),
+                    })
+                  }
+                  className="w-full accent-[#315fce]"
+                />
+              </InspectorField>
+              {style === "color-title" ? (
+                <>
+                  <ColorField
+                    fieldId={`page.group-banner.${group.id}.background`}
+                    label="Fond"
+                    value={text(design.bgColor)}
+                    fallback="#fef3c7"
+                    onChange={(value) =>
+                      updateGroup(group.id, {
+                        banner_design: { ...design, bgColor: value },
+                      })
+                    }
+                  />
+                  <InspectorField label="Titre affiché">
+                    <input
+                      value={text(title.text)}
+                      onChange={(event) =>
+                        updateGroup(group.id, {
+                          banner_design: {
+                            ...design,
+                            title: { ...title, text: event.target.value },
+                          },
+                        })
+                      }
+                      className={controlClass}
+                      placeholder={group.name}
+                    />
+                  </InspectorField>
+                  <div className="grid grid-cols-2 gap-2">
+                    <InspectorField label="Police">
+                      <input
+                        value={text(title.font)}
+                        onChange={(event) =>
+                          updateGroup(group.id, {
+                            banner_design: {
+                              ...design,
+                              title: { ...title, font: event.target.value },
+                            },
+                          })
+                        }
+                        className={controlClass}
+                        placeholder="Héritée"
+                      />
+                    </InspectorField>
+                    <InspectorField label="Alignement">
+                      <select
+                        value={text(title.align) || "center"}
+                        onChange={(event) =>
+                          updateGroup(group.id, {
+                            banner_design: {
+                              ...design,
+                              title: { ...title, align: event.target.value },
+                            },
+                          })
+                        }
+                        className={controlClass}
+                      >
+                        <option value="left">Gauche</option>
+                        <option value="center">Centre</option>
+                        <option value="right">Droite</option>
+                      </select>
+                    </InspectorField>
+                  </div>
+                  <ColorField
+                    fieldId={`page.group-banner.${group.id}.text`}
+                    label="Couleur du titre"
+                    value={text(title.color)}
+                    fallback="#111827"
+                    onChange={(value) =>
+                      updateGroup(group.id, {
+                        banner_design: {
+                          ...design,
+                          title: { ...title, color: value },
+                        },
+                      })
+                    }
+                  />
+                  <InspectorField
+                    label={`Taille du titre · ${asNumber(title.size, 1).toFixed(2)}×`}
+                  >
+                    <input
+                      type="range"
+                      min={0.6}
+                      max={2.5}
+                      step={0.05}
+                      value={asNumber(title.size, 1)}
+                      onChange={(event) =>
+                        updateGroup(group.id, {
+                          banner_design: {
+                            ...design,
+                            title: {
+                              ...title,
+                              size: Number(event.target.value),
+                            },
+                          },
+                        })
+                      }
+                      className="w-full accent-[#315fce]"
+                    />
+                  </InspectorField>
+                </>
+              ) : null}
+            </div>
+          </details>
+        );
+      })}
+    </div>
+  );
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : fallback;
 }

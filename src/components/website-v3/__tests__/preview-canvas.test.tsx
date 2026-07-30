@@ -53,3 +53,53 @@ test("preview iframe uses one stable landing bootstrap route for every draft pag
   assert.doesNotMatch(markup, /\/catering\?preview=1/);
   assert.doesNotMatch(markup, /draftPage=/);
 });
+
+test("content pages expose a discoverable component library", () => {
+  Object.assign(globalThis, { React });
+  const state = {
+    config: {},
+    pages: [
+      {
+        id: 10,
+        type: "content" as const,
+        slug: "about",
+        title: "À propos",
+        sort_order: 0,
+        nav_visible: true,
+        is_default: false,
+        seo: {},
+        settings: {},
+        appearance_overrides: {},
+      },
+    ],
+    sections: [],
+    deleted_page_ids: [],
+    deleted_section_ids: [],
+  };
+  const markup = renderToStaticMarkup(
+    React.createElement(PreviewCanvas, {
+      webOrigin: "https://dev-app.foody-pos.co.il",
+      restaurantSlug: "moulin-doree",
+      restaurantId: 24,
+      state,
+      activePage: state.pages[0],
+      device: "desktop",
+      revision: 1,
+      contentRevision: 1,
+      onAcknowledged: () => undefined,
+      onNavigatePage: () => undefined,
+      onSelectSection: () => undefined,
+      onAddSection: () => undefined,
+      onMoveSection: () => undefined,
+      onToggleSection: () => undefined,
+      onDeleteSection: () => undefined,
+    }),
+  );
+
+  assert.match(markup, /Ajouter un composant/);
+  assert.match(markup, /Mise en page/);
+  assert.match(markup, /Hero banner/);
+  assert.match(markup, /Galerie/);
+  assert.match(markup, /aria-label="Texte \+ image"/);
+  assert.doesNotMatch(markup, /<select[^>]+Ajouter une section/);
+});

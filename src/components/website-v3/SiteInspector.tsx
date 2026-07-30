@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ThemeCatalog } from "@/lib/api";
 import { SectionImageUploader } from "@/components/website/SectionEditors";
 import {
   pageKey,
@@ -21,8 +20,6 @@ import {
 export function SiteInspector({
   tab,
   config,
-  catalog,
-  catalogWarning,
   restaurantId,
   restaurantLogoUrl,
   pages,
@@ -35,8 +32,6 @@ export function SiteInspector({
 }: {
   tab: "content" | "appearance" | "settings";
   config: DraftConfigPayload;
-  catalog: ThemeCatalog;
-  catalogWarning?: string | null;
   restaurantId: number;
   restaurantLogoUrl?: string;
   pages: DraftPagePayload[];
@@ -80,168 +75,49 @@ export function SiteInspector({
 
   if (tab === "appearance") {
     return (
-      <>
-        <InspectorGroup
-          title="Direction visuelle"
-          description="Le thème et la paire typographique sont appliqués au site entier."
-        >
-          {catalogWarning ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
-              {catalogWarning}
-            </p>
-          ) : null}
-          <InspectorField label="Thème">
-            <select
-              data-field-id="site.theme_id"
-              value={string(config.theme_id)}
-              onChange={(event) => onChange(["theme_id"], event.target.value)}
-              className={controlClass}
-            >
-              <option value="">Thème par défaut</option>
-              {catalog.themes.map((theme) => (
-                <option key={theme.id} value={theme.id}>
-                  {theme.name}
-                </option>
-              ))}
-            </select>
-          </InspectorField>
-          <InspectorField label="Typographie">
-            <select
-              data-field-id="site.pairing_id"
-              value={string(config.pairing_id)}
-              onChange={(event) => onChange(["pairing_id"], event.target.value)}
-              className={controlClass}
-            >
-              <option value="">Typographie du thème</option>
-              {catalog.typography_pairings.map((pairing) => (
-                <option key={pairing.id} value={pairing.id}>
-                  {pairing.name}
-                </option>
-              ))}
-            </select>
-          </InspectorField>
-          <ColorField
-            fieldId="site.brand_color"
-            label="Couleur de marque"
-            value={string(config.brand_color)}
-            fallback="#315fce"
-            onChange={(value) => onChange(["brand_color"], value)}
-          />
-          <InspectorField label="Police du nom du restaurant">
-            <input
-              data-field-id="site.hero_name_font"
-              value={string(config.hero_name_font)}
-              onChange={(event) =>
-                onChange(["hero_name_font"], event.target.value)
-              }
-              className={controlClass}
-              placeholder="Héritée du thème"
-            />
-          </InspectorField>
-          <JsonField
-            fieldId="site.typography"
-            label="Réglages typographiques avancés"
-            value={config.typography}
-            onChange={(value) => onChange(["typography"], value)}
-          />
-        </InspectorGroup>
-
-        <InspectorGroup title="Carte et catégories">
-          <InspectorField label="Disposition ordinateur">
-            <select
-              data-field-id="site.layout_default"
-              value={string(config.layout_default) || "compact"}
-              onChange={(event) =>
-                onChange(["layout_default"], event.target.value)
-              }
-              className={controlClass}
-            >
-              <option value="compact">Compacte</option>
-              <option value="magazine">Magazine</option>
-            </select>
-          </InspectorField>
-          <InspectorField label="Disposition mobile">
-            <select
-              data-field-id="site.layout_default_mobile"
-              value={string(config.layout_default_mobile)}
-              onChange={(event) =>
-                onChange(["layout_default_mobile"], event.target.value)
-              }
-              className={controlClass}
-            >
-              <option value="">Comme sur ordinateur</option>
-              <option value="compact">Compacte</option>
-              <option value="magazine">Magazine</option>
-            </select>
-          </InspectorField>
-          <InspectorField label="Style des catégories">
-            <select
-              data-field-id="site.category_banner_style"
-              value={string(config.category_banner_style)}
-              onChange={(event) =>
-                onChange(["category_banner_style"], event.target.value)
-              }
-              className={controlClass}
-            >
-              <option value="">Par défaut</option>
-              <option value="image-overlay">Image avec titre</option>
-              <option value="image-only">Image seule</option>
-              <option value="text-block">Bloc texte</option>
-              <option value="striped-rule">Ligne éditoriale</option>
-              <option value="color-title">Titre coloré</option>
-              <option value="none">Sans bannière</option>
-            </select>
-          </InspectorField>
-          <InspectorField label="Opacité de la bannière">
-            <input
-              type="range"
-              min={0}
-              max={100}
-              data-field-id="site.category_banner_overlay"
-              value={number(config.category_banner_overlay, 35)}
-              onChange={(event) =>
-                onChange(["category_banner_overlay"], Number(event.target.value))
-              }
-              className="w-full accent-[#315fce]"
-            />
-          </InspectorField>
-          <InspectorField label="Recadrage ordinateur">
-            <select
-              data-field-id="site.category_banner_fit"
-              value={string(config.category_banner_fit)}
-              onChange={(event) =>
-                onChange(["category_banner_fit"], event.target.value)
-              }
-              className={controlClass}
-            >
-              <option value="">Par défaut</option>
-              <option value="cover">Remplir</option>
-              <option value="contain">Contenir</option>
-              <option value="natural">Taille naturelle</option>
-            </select>
-          </InspectorField>
-          <InspectorField label="Recadrage mobile">
-            <select
-              data-field-id="site.category_banner_fit_mobile"
-              value={string(config.category_banner_fit_mobile)}
-              onChange={(event) =>
-                onChange(["category_banner_fit_mobile"], event.target.value)
-              }
-              className={controlClass}
-            >
-              <option value="">Comme sur ordinateur</option>
-              <option value="cover">Remplir</option>
-              <option value="contain">Contenir</option>
-              <option value="natural">Taille naturelle</option>
-            </select>
-          </InspectorField>
-        </InspectorGroup>
-      </>
+      <InspectorGroup
+        title="Éléments visuels partagés"
+        description="Le logo, la navigation et le pied de page sont globaux. Les thèmes, couleurs et typographies se règlent maintenant dans l’onglet Apparence de chaque page."
+      >
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
+          Sélectionnez une page dans la colonne de gauche pour personnaliser son
+          thème. Ouvrez Réglages ici pour modifier les logos, la barre de
+          navigation et le pied de page partagés.
+        </div>
+      </InspectorGroup>
     );
   }
 
   const cta = record(config.navbar_cta);
   const navLayout = record(config.nav_layout);
+  const contentNav = {
+    desktop: "full",
+    mobile: "compact",
+    bottom_bar: false,
+    ...record(navLayout.content),
+  };
+  const shoppingNav = {
+    desktop: "compact",
+    mobile: "hidden",
+    bottom_bar: true,
+    ...record(navLayout.shopping),
+  };
+  const updateNavSide = (
+    side: "content" | "shopping",
+    patch: Record<string, unknown>,
+    legacyPatch: Record<string, unknown> = {},
+  ) =>
+    onChange([], {
+      ...config,
+      ...legacyPatch,
+      nav_layout: {
+        ...navLayout,
+        [side]: {
+          ...(side === "content" ? contentNav : shoppingNav),
+          ...patch,
+        },
+      },
+    });
   return (
     <>
       <InspectorGroup
@@ -380,9 +256,16 @@ export function SiteInspector({
         />
         <ToggleField
           fieldId="site.navbar_show_links"
-          label="Afficher les liens"
-          checked={boolean(config.navbar_show_links, true)}
-          onChange={(value) => onChange(["navbar_show_links"], value)}
+          label="Afficher les liens sur les pages contenu"
+          description="Active la navigation complète sur ordinateur."
+          checked={contentNav.desktop === "full"}
+          onChange={(value) =>
+            updateNavSide(
+              "content",
+              { desktop: value ? "full" : "compact" },
+              { navbar_show_links: value },
+            )
+          }
         />
         <div className="space-y-2">
           {pages
@@ -401,20 +284,75 @@ export function SiteInspector({
               />
             ))}
         </div>
-        <InspectorField label="Menu compact">
+        <InspectorField label="Pages contenu · ordinateur">
           <select
-            data-field-id="site.navbar_hamburger"
-            value={string(config.navbar_hamburger) || "mobile"}
+            value={string(contentNav.desktop) || "full"}
             onChange={(event) =>
-              onChange(["navbar_hamburger"], event.target.value)
+              updateNavSide("content", { desktop: event.target.value })
             }
             className={controlClass}
           >
-            <option value="mobile">Sur mobile</option>
-            <option value="always">Toujours</option>
-            <option value="off">Désactivé</option>
+            <option value="full">Complète · liens visibles</option>
+            <option value="compact">Compacte · menu hamburger</option>
+            <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
+        <InspectorField label="Pages contenu · mobile">
+          <select
+            data-field-id="site.navbar_hamburger"
+            value={string(contentNav.mobile) || "compact"}
+            onChange={(event) =>
+              updateNavSide(
+                "content",
+                { mobile: event.target.value },
+                {
+                  navbar_hamburger:
+                    event.target.value === "compact" ? "mobile" : "off",
+                },
+              )
+            }
+            className={controlClass}
+          >
+            <option value="full">Complète</option>
+            <option value="compact">Compacte</option>
+            <option value="hidden">Masquée</option>
+          </select>
+        </InspectorField>
+        <InspectorField label="Commande et traiteur · ordinateur">
+          <select
+            value={string(shoppingNav.desktop) || "compact"}
+            onChange={(event) =>
+              updateNavSide("shopping", { desktop: event.target.value })
+            }
+            className={controlClass}
+          >
+            <option value="full">Complète · liens visibles</option>
+            <option value="compact">Compacte · menu hamburger</option>
+            <option value="hidden">Masquée</option>
+          </select>
+        </InspectorField>
+        <InspectorField label="Commande et traiteur · mobile">
+          <select
+            value={string(shoppingNav.mobile) || "hidden"}
+            onChange={(event) =>
+              updateNavSide("shopping", { mobile: event.target.value })
+            }
+            className={controlClass}
+          >
+            <option value="full">Complète</option>
+            <option value="compact">Compacte</option>
+            <option value="hidden">Masquée</option>
+          </select>
+        </InspectorField>
+        <ToggleField
+          fieldId={"site.nav-layout.shopping.bottom-bar"}
+          label="Barre mobile de la boutique"
+          description="Conserve un accès à la navigation lorsque la barre du haut est masquée."
+          checked={boolean(shoppingNav.bottom_bar, true)}
+          onChange={(value) =>
+            updateNavSide("shopping", { bottom_bar: value })
+          }
+        />
         <InspectorField label="Libellé du bouton">
           <input
             data-field-id="site.navbar_cta"
@@ -430,12 +368,6 @@ export function SiteInspector({
             placeholder="Commander"
           />
         </InspectorField>
-        <JsonField
-          fieldId="site.nav_layout"
-          label="Composition avancée"
-          value={navLayout}
-          onChange={(value) => onChange(["nav_layout"], value)}
-        />
       </InspectorGroup>
 
       {footer ? (

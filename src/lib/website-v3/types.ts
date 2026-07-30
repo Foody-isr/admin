@@ -8,6 +8,39 @@ export type DraftAppearanceOverrides = {
   accent?: string;
   headingFont?: string;
   bodyFont?: string;
+  theme_id?: string;
+  pairing_id?: string;
+  brand_color?: string | null;
+  layout_default?: "compact" | "magazine";
+  layout_default_mobile?: "" | "compact" | "magazine";
+  custom_palette?: Record<string, unknown> | null;
+  section_colors?: Record<string, unknown> | null;
+  typography?: Record<string, unknown> | null;
+  hero_name_font?: string;
+  hero_logo_bg?: "white" | "black";
+  hero_cover_layout?: "card" | "logo" | "bare";
+  hero_logo_size?: number;
+  cover_url?: string;
+  background_color?: string;
+  cover_focal_x?: number;
+  cover_focal_y?: number;
+  category_banner_style?: string;
+  category_banner_overlay?: number;
+  category_banner_fit?: string;
+  category_banner_fit_mobile?: string;
+  navigation_mode?: "inherit" | "full" | "compact" | "hidden";
+  navigation_mode_mobile?: "inherit" | "full" | "compact" | "hidden";
+  footer_mode?: "inherit" | "full" | "compact" | "hidden";
+  order_page_info?: Record<string, unknown> | null;
+  group_banners?: Record<
+    string,
+    {
+      image_url?: string;
+      focal_x?: number;
+      focal_y?: number;
+      banner_design?: Record<string, unknown>;
+    }
+  >;
 };
 
 export type DraftSeoPayload = {

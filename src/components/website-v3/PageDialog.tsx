@@ -4,6 +4,11 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { CateringService, Menu } from "@/lib/api";
 import { normalizeSlug } from "@/lib/website-v3/state";
+import {
+  canonicalAliasForType,
+  isReservedPublicSlug,
+  suggestSpecificSlug,
+} from "@/lib/website-v3/url-model";
 import type {
   DraftPagePayload,
   WebsitePageType,
@@ -51,9 +56,8 @@ export function PageDialog({
   const duplicate = pages.some(
     (page) => normalizeSlug(page.slug) === normalizedSlug,
   );
-  const reserved = ["order", "catering", "checkout", "tracking", "account", "table", "api"].includes(
-    normalizedSlug,
-  );
+  const reserved = isReservedPublicSlug(normalizedSlug);
+  const canonicalAlias = canonicalAliasForType(type);
   const associationsValid =
     type === "order"
       ? menuIds.length > 0
@@ -149,6 +153,13 @@ export function PageDialog({
                   data-field-id="page.create.type"
                   onClick={() => {
                     setType(candidate);
+                    if (
+                      candidate === "order" ||
+                      candidate === "catering"
+                    ) {
+                      setSlug(suggestSpecificSlug(candidate, pages));
+                      setSlugEdited(false);
+                    }
                     setMakeDefault(
                       !pages.some(
                         (page) =>
@@ -171,7 +182,21 @@ export function PageDialog({
               ))}
             </div>
           </Field>
-          <Field label="Adresse">
+          <Field label="Adresse spécifique">
+            {canonicalAlias ? (
+              <div className="mb-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700">
+                  Adresse publique principale
+                </span>
+                <span className="mt-0.5 block text-sm font-semibold text-emerald-950">
+                  {canonicalAlias}
+                </span>
+                <span className="mt-1 block text-[11px] leading-4 text-emerald-800">
+                  Elle dirigera automatiquement vers cette page si elle est
+                  définie comme page principale.
+                </span>
+              </div>
+            ) : null}
             <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-[#315fce] focus-within:ring-2 focus-within:ring-[#315fce]/10">
               <span className="text-sm text-slate-400">/</span>
               <input
@@ -188,7 +213,9 @@ export function PageDialog({
               <p className="mt-1.5 text-xs font-medium text-red-600">
                 {duplicate
                   ? "Cette adresse est déjà utilisée."
-                  : "Cette adresse est réservée par Foody."}
+                  : canonicalAlias === `/${normalizedSlug}`
+                    ? `${canonicalAlias} est déjà fournie automatiquement. Utilisez une adresse spécifique comme /${suggestSpecificSlug(type, pages)}.`
+                    : "Cette adresse est utilisée par une fonction Foody."}
               </p>
             ) : null}
           </Field>

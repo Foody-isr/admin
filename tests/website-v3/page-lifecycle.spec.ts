@@ -24,7 +24,10 @@ websiteV3Test('content page lifecycle stays connected from draft to public delet
   await expect(dialog.locator('[data-field-id="page.create.slug"]')).toHaveValue('notre-histoire');
   await dialog.getByRole('button', { name: 'Créer la page', exact: true }).click();
 
-  await builderPage.locator('[data-field-id="section.create"]').selectOption('text_and_image');
+  await builderPage.locator('[data-field-id="section.create"]').click();
+  await builderPage
+    .getByRole('button', { name: 'Texte + image', exact: true })
+    .click();
   await builderPage.locator('[data-field-id="section.content.title"]').fill(uniqueText);
   await builderPage.locator('[data-field-id="section.content.body"]').fill('Un contenu persistant et publié.');
   await waitForDraftSaved(builderPage);
