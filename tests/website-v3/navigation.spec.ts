@@ -46,11 +46,15 @@ websiteV3Test(
       'input[data-field-id^="site.navigation-page."]',
     );
     await expect(switches).toHaveCount(fixturePages.length);
+    const pageRows = builderPage.locator(
+      'label:has(input[data-field-id^="site.navigation-page."])',
+    );
+    await expect(pageRows).toHaveText(
+      fixturePages.map((page) => `${page.title}/${page.slug} · ${page.type}`),
+    );
 
     for (const page of fixturePages) {
-      const pageRow = builderPage
-        .locator('label:has(input[data-field-id^="site.navigation-page."])')
-        .filter({ hasText: page.title });
+      const pageRow = pageRows.filter({ hasText: page.title });
       await expect(pageRow).toContainText(`/${page.slug}`);
       await expect(pageRow).toContainText(page.type);
 
