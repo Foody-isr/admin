@@ -8,6 +8,8 @@
     "start": "next start --port 3003",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:e2e:website-v3": "playwright test tests/website-v3",
+    "test:e2e:website-v3:ui": "playwright test tests/website-v3 --ui",
     "check:i18n": "node scripts/check-i18n.cjs",
     "fonts:catalog": "node scripts/fetch-google-fonts-catalog.mjs"
   },
@@ -54,6 +56,7 @@
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20.12.12",
     "@types/react": "^18.3.3",

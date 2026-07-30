@@ -46,6 +46,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const isFullscreen =
     pathname.endsWith('/website') ||
     pathname.endsWith('/website-v2') ||
+    pathname.endsWith('/website-v3') ||
     pathname.endsWith('/table-qr/print');
   const isWideLayout = pathname.includes('/orders');
 

@@ -5021,13 +5021,22 @@ export async function listSiteStyles(): Promise<SiteStylePreset[]> {
   return data.styles || [];
 }
 
-// ─── Website Editor v2 — Draft / Publish ─────────────────────────────────────
+// ─── Website Editor v2 / v3 — Draft / Publish ────────────────────────────────
+
+export type {
+  DraftPagePayload as WebsiteV3DraftPagePayload,
+  DraftResponse as WebsiteV3DraftResponse,
+  DraftSectionPayload as WebsiteV3DraftSectionPayload,
+  DraftStatePayload as WebsiteV3DraftStatePayload,
+} from './website-v3/types';
 
 export type DraftSectionPayload = {
   id?: number;
   tmp_id?: string;
   section_type: string;
   page: string;
+  page_id?: number;
+  page_tmp_id?: string;
   sort_order: number;
   is_visible: boolean;
   layout: string;
@@ -5035,7 +5044,6 @@ export type DraftSectionPayload = {
   settings: Record<string, any>;
 };
 
-// Website Builder v2 — a first-class page in the draft (server WebsitePage).
 export type DraftPagePayload = {
   id?: number;
   tmp_id?: string;
@@ -5044,6 +5052,7 @@ export type DraftPagePayload = {
   title: string;
   sort_order: number;
   nav_visible?: boolean;
+  is_default?: boolean;
   seo?: Record<string, any>;
   settings?: Record<string, any>;
   appearance_overrides?: Record<string, any>;
@@ -5051,7 +5060,6 @@ export type DraftPagePayload = {
 
 export type DraftStatePayload = {
   config: Record<string, any>;
-  // v2: typed pages carried in the draft (empty on legacy configs).
   pages?: DraftPagePayload[];
   sections: DraftSectionPayload[];
   deleted_section_ids: number[];
