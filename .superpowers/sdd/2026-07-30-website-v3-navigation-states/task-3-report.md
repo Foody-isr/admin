@@ -43,3 +43,23 @@
 
 - The pre-existing external changes in `src/lib/api.ts`, `src/lib/i18n.tsx`, `src/components/Sidebar.tsx`, `src/app/[restaurantId]/settings/stock/`, `src/app/[restaurantId]/menu/items/[itemId]/page.tsx`, and `src/components/menu-item/ItemAvailabilityPanel.tsx` were not modified, staged, or committed.
 - The E2E server emits existing warnings for a missing `payplus_recurring_uid` column and redundant Next.js fetch-cache options; neither affects these passing assertions.
+
+## Fix Round 1
+
+- Added Foodyadmin-local `tsx` `^4.21.0` as the only test-runner development dependency, recorded in `package-lock.json`.
+- Added `npm test` (`tsx --test`) so focused TypeScript tests run in a clean Foodyadmin checkout without depending on `../foodyweb`.
+- Added layout tests for the upper clamp at 1280px and above, plus the positive finite lower bound for zero, negative, `NaN`, and infinite widths.
+
+### Fix Round 1 TDD Evidence
+
+1. Added the boundary assertions before changing the test-runner configuration.
+2. Performed a negative control by temporarily removing the `Number.EPSILON` lower bound: the zero/invalid-width test failed at `assert.ok(scale > 0)`.
+3. Restored the lower bound and verified the focused layout suite passes through the new local command: `npm test -- src/lib/website-v3/__tests__/preview-layout.test.ts` (3 tests).
+
+### Fix Round 1 Validation
+
+- `npm test -- src/lib/website-v3/__tests__/*.test.ts src/components/website-v3/__tests__/*.test.ts src/components/website-v3/__tests__/*.test.tsx` — passed, 24 tests.
+- `npx playwright test tests/website-v3/navigation.spec.ts --project=desktop-chromium --reporter=line` — passed, 3 tests.
+- `npm run lint` — passed with existing unrelated warnings.
+- `npx tsc --noEmit` — passed.
+- `git diff --check` — passed.
