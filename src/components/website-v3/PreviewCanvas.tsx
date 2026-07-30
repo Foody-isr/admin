@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -17,6 +17,10 @@ import {
   WEBSITE_V3_STATE,
   type WebsiteV3StateMessage,
 } from "@/lib/website-v3/preview-protocol";
+import {
+  DESKTOP_PREVIEW_WIDTH,
+  resolveDesktopPreviewLayout,
+} from "@/lib/website-v3/preview-layout";
 import type {
   DraftPagePayload,
   DraftSectionPayload,
@@ -66,7 +70,11 @@ export function PreviewCanvas({
   onDeleteSection: (sectionKey: string) => void;
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const desktopPreviewContainerRef = useRef<HTMLDivElement>(null);
   const readyRef = useRef(false);
+  const [desktopLayout, setDesktopLayout] = useState(() =>
+    resolveDesktopPreviewLayout(DESKTOP_PREVIEW_WIDTH, 820),
+  );
   const latestRef = useRef({
     state,
     activePage,
@@ -131,6 +139,36 @@ export function PreviewCanvas({
     state,
     targetOrigin,
   ]);
+
+  useEffect(() => {
+    if (device === "mobile") return;
+
+    const container = desktopPreviewContainerRef.current;
+    if (!container) return;
+
+    const updateLayout = (width: number, height: number) => {
+      setDesktopLayout(resolveDesktopPreviewLayout(width, height));
+    };
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      updateLayout(entry.contentRect.width, entry.contentRect.height);
+    });
+
+    const { width, height } = container.getBoundingClientRect();
+    updateLayout(width, height);
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, [device]);
+
+  const previewIframe = (
+    <iframe
+      ref={frameRef}
+      src={source}
+      title={`Aperçu de ${activePage.title}`}
+      className="h-full w-full bg-white"
+    />
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -226,20 +264,27 @@ export function PreviewCanvas({
       ) : null}
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-5">
-        <div
-          className={`relative h-full min-h-[560px] overflow-hidden bg-white shadow-[0_26px_80px_rgba(0,0,0,0.32)] transition-[width,border-radius] duration-300 ${
-            device === "mobile"
-              ? "w-[390px] max-h-[820px] rounded-[30px] border-[8px] border-[#0e1116]"
-              : "w-full rounded-xl border border-white/10"
-          }`}
-        >
-          <iframe
-            ref={frameRef}
-            src={source}
-            title={`Aperçu de ${activePage.title}`}
-            className="h-full w-full bg-white"
-          />
-        </div>
+        {device === "mobile" ? (
+          <div className="relative h-full min-h-[560px] w-[390px] max-h-[820px] overflow-hidden rounded-[30px] border-[8px] border-[#0e1116] bg-white shadow-[0_26px_80px_rgba(0,0,0,0.32)] transition-[width,border-radius] duration-300">
+            {previewIframe}
+          </div>
+        ) : (
+          <div
+            ref={desktopPreviewContainerRef}
+            className="relative h-full min-h-[560px] w-full overflow-hidden rounded-xl border border-white/10 bg-white shadow-[0_26px_80px_rgba(0,0,0,0.32)]"
+          >
+            <div
+              style={{
+                width: DESKTOP_PREVIEW_WIDTH,
+                height: desktopLayout.logicalHeight,
+                transform: `scale(${desktopLayout.scale})`,
+                transformOrigin: "top left",
+              }}
+            >
+              {previewIframe}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

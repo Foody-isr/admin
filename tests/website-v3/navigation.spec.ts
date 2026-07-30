@@ -37,6 +37,22 @@ const fixturePages = [
 ] as const;
 
 websiteV3Test(
+  "desktop preview uses a 1280-pixel viewport with inline page links",
+  async ({ builderPage }) => {
+    const preview = previewFrame(builderPage);
+    await expect.poll(() =>
+      preview.locator("html").evaluate(() => window.innerWidth),
+    ).toBe(1280);
+
+    for (const page of fixturePages) {
+      await expect(
+        preview.getByRole("link", { name: page.title, exact: true }),
+      ).toBeVisible();
+    }
+  },
+);
+
+websiteV3Test(
   "navigation settings list every fixture page with its visibility state",
   async ({ builderPage }) => {
     await builderPage.getByRole("button", { name: "Identité du site" }).click();
@@ -75,6 +91,10 @@ websiteV3Test(
   async ({ builderPage }) => {
     await builderPage.getByRole("button", { name: "Identité du site" }).click();
     await openInspectorTab(builderPage, "Réglages");
+    await builderPage
+      .getByRole("button", { name: "Aperçu mobile", exact: true })
+      .click();
+    await waitForPreviewReady(builderPage);
 
     const aboutRow = builderPage
       .locator('label:has(input[data-field-id^="site.navigation-page."])')
