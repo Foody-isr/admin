@@ -65,7 +65,7 @@ export function FooterEditor({
               <InspectorField key={network} label={networkLabel(t, network)}>
                 <input
                   type="url"
-                  data-field-id="site.footer.content.social_links"
+                  data-field-id={`site.footer.content.social_links.${network}`}
                   value={social[network] ?? ""}
                   onChange={(event) =>
                     onChange(

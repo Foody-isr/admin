@@ -145,6 +145,9 @@ export function PageInspector({
           <ThemesPanel
             config={pageVisualConfig}
             catalog={catalog}
+            excludedSectionColors={
+              page.type === "order" ? ["categoryBar"] : undefined
+            }
             onUpdate={updateAppearance}
           />
         </InspectorGroup>

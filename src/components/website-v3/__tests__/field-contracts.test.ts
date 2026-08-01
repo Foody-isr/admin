@@ -118,24 +118,14 @@ test("component appearance fields map to exact normalized draft paths", () => {
   const contracts = new Map(
     FIELD_CONTRACTS.map((contract) => [contract.id, contract]),
   );
-  const expected = new Map<string, readonly (string | number)[]>([
-    ["site.navbar_cta.transparent.variant", ["config", "navbar_cta", "transparent", "variant"]],
-    ["site.navbar_cta.solid.border_color", ["config", "navbar_cta", "solid", "border_color"]],
-    ["page.appearance_overrides.navbar_cta.transparent.variant", ["appearance_overrides", "navbar_cta", "transparent", "variant"]],
-    ["page.appearance_overrides.navbar_cta.solid.border_color", ["appearance_overrides", "navbar_cta", "solid", "border_color"]],
-    ["site.footer.settings.custom_bg", ["settings", "custom_bg"]],
-    ["site.footer.settings.custom_muted", ["settings", "custom_muted"]],
-    ["site.footer.settings.custom_accent", ["settings", "custom_accent"]],
-    ["site.footer.settings.custom_divider", ["settings", "custom_divider"]],
-    ["page.appearance_overrides.section_colors.categoryBar.bg", ["appearance_overrides", "section_colors", "categoryBar", "bg"]],
-    ["page.appearance_overrides.section_colors.categoryBarSticky.bg", ["appearance_overrides", "section_colors", "categoryBarSticky", "bg"]],
-    ["page.appearance_overrides.section_colors.categoryBarSticky.divider", ["appearance_overrides", "section_colors", "categoryBarSticky", "divider"]],
-    ["section.settings.card_bg", ["settings", "card_bg"]],
-    ["section.settings.card_text", ["settings", "card_text"]],
-    ["section.settings.card_muted", ["settings", "card_muted"]],
-    ["section.settings.price_color", ["settings", "price_color"]],
-    ["section.settings.accent_color", ["settings", "accent_color"]],
-  ]);
+  const expected = task4FieldPaths();
+  const task4ContractIds = Array.from(contracts.keys()).filter(isTask4Field);
+
+  assert.deepEqual(
+    task4ContractIds.sort(),
+    Array.from(expected.keys()).sort(),
+    "every Task 4 contract must declare its exact normalized path",
+  );
 
   expected.forEach((path, id) => {
     assert.deepEqual(contracts.get(id)?.statePath, path, id);
@@ -169,7 +159,112 @@ test("component appearance fields map to exact normalized draft paths", () => {
     contracts.get("section.settings.card_bg")?.editor.sectionLabel,
     "Menu highlights",
   );
+  for (const network of ["instagram", "facebook", "tiktok", "whatsapp"]) {
+    const contract = contracts.get(`site.footer.content.social_links.${network}`);
+    assert.equal(
+      contract?.preview.expected,
+      JSON.stringify([{ platform: network, url: contract?.testValue }]),
+      network,
+    );
+    assert.equal(contract?.public.expected, contract?.preview.expected, network);
+  }
 });
+
+function task4FieldPaths(): Map<string, readonly (string | number)[]> {
+  const paths = new Map<string, readonly (string | number)[]>();
+  for (const field of ["enabled", "text", "link", "shape", "size"]) {
+    paths.set(`site.navbar_cta.${field}`, ["config", "navbar_cta", field]);
+  }
+  for (const surface of ["transparent", "solid"]) {
+    for (const field of ["variant", "bg", "text_color", "border_color"]) {
+      paths.set(`site.navbar_cta.${surface}.${field}`, [
+        "config",
+        "navbar_cta",
+        surface,
+        field,
+      ]);
+      paths.set(`page.appearance_overrides.navbar_cta.${surface}.${field}`, [
+        "appearance_overrides",
+        "navbar_cta",
+        surface,
+        field,
+      ]);
+    }
+  }
+  paths.set("page.appearance_overrides.navbar_cta", [
+    "appearance_overrides",
+    "navbar_cta",
+  ]);
+  for (const field of [
+    "custom_text",
+    "show_logo",
+    "show_description",
+    "show_address",
+    "show_phone",
+    "show_hours",
+  ]) {
+    paths.set(`site.footer.content.${field}`, ["content", field]);
+  }
+  for (const network of ["instagram", "facebook", "tiktok", "whatsapp"]) {
+    paths.set(`site.footer.content.social_links.${network}`, [
+      "content",
+      "social_links",
+    ]);
+  }
+  paths.set("site.footer.layout", ["layout"]);
+  for (const field of [
+    "color_style",
+    "custom_bg",
+    "custom_text",
+    "custom_muted",
+    "custom_accent",
+    "custom_divider",
+  ]) {
+    paths.set(`site.footer.settings.${field}`, ["settings", field]);
+  }
+  for (const state of ["categoryBar", "categoryBarSticky"]) {
+    for (const field of ["bg", "text", "accent", "divider"]) {
+      paths.set(
+        `page.appearance_overrides.section_colors.${state}.${field}`,
+        ["appearance_overrides", "section_colors", state, field],
+      );
+    }
+  }
+  paths.set(
+    "page.appearance_overrides.section_colors.categoryBarSticky",
+    ["appearance_overrides", "section_colors", "categoryBarSticky"],
+  );
+  for (const field of [
+    "custom_bg",
+    "custom_text",
+    "card_bg",
+    "card_text",
+    "card_muted",
+    "price_color",
+    "accent_color",
+  ]) {
+    paths.set(`section.settings.${field}`, ["settings", field]);
+  }
+  return paths;
+}
+
+function isTask4Field(id: string): boolean {
+  return (
+    id.startsWith("site.navbar_cta") ||
+    id.startsWith("page.appearance_overrides.navbar_cta") ||
+    id.startsWith("site.footer") ||
+    id.startsWith("page.appearance_overrides.section_colors.categoryBar") ||
+    [
+      "section.settings.custom_bg",
+      "section.settings.custom_text",
+      "section.settings.card_bg",
+      "section.settings.card_text",
+      "section.settings.card_muted",
+      "section.settings.price_color",
+      "section.settings.accent_color",
+    ].includes(id)
+  );
+}
 
 test("builder public addresses present one route for every page kind", () => {
   assert.deepEqual(

@@ -232,7 +232,6 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "site.hide_hero_logo": true,
   "site.navbar_show_links": false,
   "site.navbar_hamburger": "compact",
-  "site.navbar_cta": "Réserver E2E",
   "site.navbar_cta.enabled": true,
   "site.navbar_cta.text": "Réserver E2E",
   "site.navbar_cta.link": "/order",
@@ -252,7 +251,10 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "site.footer.content.show_address": false,
   "site.footer.content.show_phone": false,
   "site.footer.content.show_hours": false,
-  "site.footer.content.social_links": "https://instagram.com/foody-v3-e2e",
+  "site.footer.content.social_links.instagram": "https://instagram.com/foody-v3-e2e",
+  "site.footer.content.social_links.facebook": "https://facebook.com/foody-v3-e2e",
+  "site.footer.content.social_links.tiktok": "https://tiktok.com/@foody-v3-e2e",
+  "site.footer.content.social_links.whatsapp": "https://wa.me/972500000000",
   "site.footer.layout": "centered",
   "site.footer.settings.color_style": "custom",
   "site.footer.settings.custom_bg": "#111827",
@@ -470,9 +472,15 @@ function expectedFor(id: string, value: TestValue): string {
   if (id === "site.navbar_hamburger" && value === "compact") {
     return "mobile";
   }
-  if (id === "section.content.social_links" || id === "site.footer.content.social_links") {
+  const socialPlatform =
+    id === "section.content.social_links"
+      ? "instagram"
+      : id.startsWith("site.footer.content.social_links.")
+        ? id.slice("site.footer.content.social_links.".length)
+        : null;
+  if (socialPlatform) {
     return JSON.stringify([
-      { platform: "instagram", url: value },
+      { platform: socialPlatform, url: value },
     ]);
   }
   return serialize(value);
@@ -497,7 +505,6 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   site("site.hide_hero_logo", ["hide_hero_logo"], "[data-website-v3-page]", "visible"),
   site("site.navbar_show_links", ["navbar_show_links"], "nav a", "visible"),
   site("site.navbar_hamburger", ["navbar_hamburger"], "nav", "visible"),
-  site("site.navbar_cta", ["navbar_cta"], "nav", "text"),
   site("site.navbar_cta.enabled", ["navbar_cta", "enabled"], "nav", "visible"),
   site("site.navbar_cta.text", ["navbar_cta", "text"], "nav", "text"),
   site("site.navbar_cta.link", ["navbar_cta", "link"], "nav", "value"),
@@ -522,7 +529,10 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   footer("site.footer.content.show_address", ["content", "show_address"]),
   footer("site.footer.content.show_phone", ["content", "show_phone"]),
   footer("site.footer.content.show_hours", ["content", "show_hours"]),
-  footer("site.footer.content.social_links", ["content", "social_links"]),
+  footer("site.footer.content.social_links.instagram", ["content", "social_links"]),
+  footer("site.footer.content.social_links.facebook", ["content", "social_links"]),
+  footer("site.footer.content.social_links.tiktok", ["content", "social_links"]),
+  footer("site.footer.content.social_links.whatsapp", ["content", "social_links"]),
   footer("site.footer.layout", ["layout"]),
   footer("site.footer.settings.color_style", ["settings", "color_style"]),
   footer("site.footer.settings.custom_bg", ["settings", "custom_bg"]),

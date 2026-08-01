@@ -49,6 +49,7 @@ const MIN_TEXT_CONTRAST = 3;
 type Props = {
   config: WebsiteConfig;
   catalog: ThemeCatalog;
+  excludedSectionColors?: readonly SectionKey[];
   onUpdate: (patch: Partial<WebsiteConfig>) => void;
 };
 
@@ -69,7 +70,12 @@ function seedFromCatalog(catalog: ThemeCatalog, themeId: string): CustomPalette 
   };
 }
 
-export function ThemesPanel({ config, catalog, onUpdate }: Props) {
+export function ThemesPanel({
+  config,
+  catalog,
+  excludedSectionColors = [],
+  onUpdate,
+}: Props) {
   const { t } = useI18n();
   const [hexDraft, setHexDraft] = useState(config.brand_color ?? '');
 
@@ -232,7 +238,11 @@ export function ThemesPanel({ config, catalog, onUpdate }: Props) {
         </div>
       </div>
 
-      <SectionColorsEditor config={config} onUpdate={onUpdate} />
+      <SectionColorsEditor
+        config={config}
+        excludedSections={excludedSectionColors}
+        onUpdate={onUpdate}
+      />
     </div>
   );
 }
@@ -254,7 +264,15 @@ const SECTION_DEFS: { key: SectionKey; label: string; fields: { field: SectionFi
 
 type SectionMap = Record<string, Record<string, string | undefined> | undefined>;
 
-function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUpdate: (patch: Partial<WebsiteConfig>) => void }) {
+function SectionColorsEditor({
+  config,
+  excludedSections,
+  onUpdate,
+}: {
+  config: WebsiteConfig;
+  excludedSections: readonly SectionKey[];
+  onUpdate: (patch: Partial<WebsiteConfig>) => void;
+}) {
   const sc = (config.section_colors ?? {}) as SectionMap;
 
   const commit = (next: SectionMap) => {
@@ -284,7 +302,9 @@ function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUp
         </p>
       </div>
 
-      {SECTION_DEFS.map((def) => {
+      {SECTION_DEFS.filter(
+        (definition) => !excludedSections.includes(definition.key),
+      ).map((def) => {
         const active = !!sc[def.key];
         const bg = sc[def.key]?.bg;
         // Text and the active-pill both sit on the section's background, so an
@@ -302,7 +322,11 @@ function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUp
               contrastRatio(bg, sc[def.key]![f.field]!) < MIN_TEXT_CONTRAST,
           );
         return (
-          <div key={def.key} className="border-t border-[var(--divider)] pt-3 first:border-t-0 first:pt-0">
+          <div
+            key={def.key}
+            data-section-color-key={def.key}
+            className="border-t border-[var(--divider)] pt-3 first:border-t-0 first:pt-0"
+          >
             <label className="flex items-center justify-between gap-2 cursor-pointer">
               <span className="text-[11px] font-medium text-fg-primary">{def.label}</span>
               <input
