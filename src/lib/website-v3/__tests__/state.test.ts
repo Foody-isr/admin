@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   mapWebsiteDraftError,
   normalizeDraftState,
+  updateWebsitePageAtPath,
   validateDraftForPublish,
 } from "../state";
 import * as stateModule from "../state";
@@ -191,6 +192,55 @@ test("address controls only edit specific non-default page addresses", () => {
   assert.equal(isEditable({ type: "catering", is_default: false }), true);
   assert.equal(isEditable({ type: "content", is_default: false }), true);
   assert.equal(isEditable({ type: "landing", is_default: false }), false);
+});
+
+test("renaming an existing default commerce page preserves its hidden legacy slug", () => {
+  const state = validState();
+  state.pages[1] = { ...state.pages[1], slug: "menu" };
+
+  const next = updateWebsitePageAtPath(
+    state,
+    "2",
+    ["title"],
+    "La carte de Mamie",
+    { slugManuallyEdited: false },
+  );
+
+  assert.equal(next.pages[1].title, "La carte de Mamie");
+  assert.equal(next.pages[1].slug, "menu");
+});
+
+test("renaming an editable page still derives its slug until manually edited", () => {
+  const state = validState();
+  const next = updateWebsitePageAtPath(
+    state,
+    "3",
+    ["title"],
+    "Buffets du soir",
+    { slugManuallyEdited: false },
+  );
+  assert.equal(next.pages[2].slug, "evenements");
+
+  state.pages.push({
+    id: 4,
+    type: "content",
+    slug: "histoire",
+    title: "Histoire",
+    sort_order: 3,
+    nav_visible: true,
+    is_default: false,
+    seo: {},
+    appearance_overrides: {},
+    settings: {},
+  });
+  const content = updateWebsitePageAtPath(
+    state,
+    "4",
+    ["title"],
+    "Notre histoire",
+    { slugManuallyEdited: false },
+  );
+  assert.equal(content.pages[3].slug, "notre-histoire");
 });
 
 test("changing the default preserves each commerce page internal slug", () => {

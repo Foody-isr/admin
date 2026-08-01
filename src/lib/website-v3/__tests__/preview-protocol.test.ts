@@ -4,6 +4,7 @@ import {
   isWebsiteV3AppliedMessage,
   isWebsiteV3NavigateMessage,
   isWebsiteV3StateMessage,
+  withWebsiteV3PreviewNavigationState,
   WEBSITE_V3_APPLIED,
   WEBSITE_V3_NAVIGATE,
   WEBSITE_V3_STATE,
@@ -61,6 +62,18 @@ test("preview navigation accepts only a stable page key", () => {
       type: WEBSITE_V3_NAVIGATE,
       pageKey: "",
     }),
+    false,
+  );
+});
+
+test("preview navigation injects refreshed Stories eligibility without mutating the draft", () => {
+  const previewState = withWebsiteV3PreviewNavigationState(state, true);
+  assert.equal(previewState.config.stories_navigation_available, true);
+  assert.equal(Object.hasOwn(state.config, "stories_navigation_available"), false);
+  assert.notEqual(previewState, state);
+  assert.equal(
+    withWebsiteV3PreviewNavigationState(previewState, false).config
+      .stories_navigation_available,
     false,
   );
 });

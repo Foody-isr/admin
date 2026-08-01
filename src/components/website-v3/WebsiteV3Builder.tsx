@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   discardWebsiteDraft,
+  getPublicRestaurantNavigationState,
   getRestaurant,
   getThemeCatalog,
   getWebsiteDraft,
@@ -36,6 +37,7 @@ import {
   type PreviewAcknowledgements,
   type PreviewExpectedRevisions,
 } from "@/lib/website-v3/preview-state";
+import { withWebsiteV3PreviewNavigationState } from "@/lib/website-v3/preview-protocol";
 import {
   canDeletePage,
   duplicatePage,
@@ -43,12 +45,13 @@ import {
   mapWebsiteDraftError,
   movePage,
   normalizeDraftResponse,
-  normalizeSlug,
   reconcileLegacyWebsiteDraft,
   removePage,
   updateDraftAtPath,
+  updateWebsitePageAtPath,
   validateDraftForPublish,
 } from "@/lib/website-v3/state";
+import { publicURLForPage } from "@/lib/website-v3/url-model";
 import type {
   DraftPagePayload,
   DraftResponse,
@@ -130,6 +133,9 @@ function DesktopWebsiteV3Builder({
   const [discardAwaitRevision, setDiscardAwaitRevision] = useState<number | null>(
     null,
   );
+  const [storiesNavigationAvailable, setStoriesNavigationAvailable] = useState<
+    boolean | undefined
+  >(undefined);
 
   const previewRevisionRef = useRef(0);
   const contentRevisionRef = useRef(0);
@@ -138,6 +144,7 @@ function DesktopWebsiteV3Builder({
   const busyRef = useRef(false);
   const deviceRef = useRef<PreviewDevice>("desktop");
   const slugManualRef = useRef(new Set<string>());
+  const storiesNavigationAvailableRef = useRef<boolean | undefined>(undefined);
 
   const autosave = useMemo(
     () =>
@@ -157,6 +164,7 @@ function DesktopWebsiteV3Builder({
       getRestaurant(restaurantId),
       listMenus(restaurantId),
       listCateringServices(restaurantId),
+      getPublicRestaurantNavigationState(restaurantId),
       getThemeCatalog()
         .then((catalog) => ({ catalog, warning: null as string | null }))
         .catch(() => ({
@@ -165,7 +173,15 @@ function DesktopWebsiteV3Builder({
             "Le catalogue visuel n’est pas disponible. Les réglages existants restent modifiables.",
         })),
     ])
-      .then(([draft, publishedPages, restaurant, menus, services, themeResult]) => {
+      .then(([
+        draft,
+        publishedPages,
+        restaurant,
+        menus,
+        services,
+        navigation,
+        themeResult,
+      ]) => {
         if (!active) return;
         const normalized = normalizeDraftResponse(draft);
         const reconciled = reconcileLegacyWebsiteDraft(normalized.state, {
@@ -186,6 +202,11 @@ function DesktopWebsiteV3Builder({
             "Aucune page n’est disponible. Publiez d’abord une configuration initiale.",
           );
         }
+        storiesNavigationAvailableRef.current =
+          navigation.storiesNavigationAvailable;
+        setStoriesNavigationAvailable(
+          navigation.storiesNavigationAvailable,
+        );
         setLoaded({
           draft: editorDraft,
           restaurant,
@@ -282,6 +303,16 @@ function DesktopWebsiteV3Builder({
     setPreviewStale(false);
     return next;
   }, []);
+
+  const updateStoriesNavigationAvailability = useCallback(
+    (available: boolean) => {
+      if (storiesNavigationAvailableRef.current === available) return;
+      storiesNavigationAvailableRef.current = available;
+      setStoriesNavigationAvailable(available);
+      bumpPreview();
+    },
+    [bumpPreview],
+  );
 
   const activePreviewKey = activePage ? pageKey(activePage) : "";
   const currentAcknowledgement = acknowledgements[device];
@@ -437,39 +468,14 @@ function DesktopWebsiteV3Builder({
 
   const updatePage = (key: string, path: StatePath, value: unknown) => {
     if (!state) return;
-    const index = state.pages.findIndex((page) => pageKey(page) === key);
-    if (index < 0) return;
-    let next = updateDraftAtPath(state, ["pages", index, ...path], value);
     if (path.length === 1 && path[0] === "slug") {
       slugManualRef.current.add(key);
     }
-    if (
-      path.length === 1 &&
-      path[0] === "title" &&
-      !slugManualRef.current.has(key) &&
-      state.pages[index].type !== "landing"
-    ) {
-      next = updateDraftAtPath(
-        next,
-        ["pages", index, "slug"],
-        normalizeSlug(String(value)),
-      );
-    }
-    if (path.length === 1 && path[0] === "slug") {
-      const previousSlug = state.pages[index].slug;
-      const nextSlug = String(value);
-      next = {
-        ...next,
-        sections: next.sections.map((section) =>
-          section.page === previousSlug &&
-          section.page_id === undefined &&
-          section.page_tmp_id === undefined
-            ? { ...section, page: nextSlug }
-            : section,
-        ),
-      };
-    }
-    setLocalState(next);
+    setLocalState(
+      updateWebsitePageAtPath(state, key, path, value, {
+        slugManuallyEdited: slugManualRef.current.has(key),
+      }),
+    );
   };
 
   const replacePage = (key: string, replacement: DraftPagePayload) => {
@@ -817,11 +823,11 @@ function DesktopWebsiteV3Builder({
     );
   }
 
-  const publicPath =
-    activePage.type === "landing" ? "" : `/${encodeURIComponent(activePage.slug)}`;
-  const publicUrl = `${new URL(WEB_ORIGIN).origin}/r/${encodeURIComponent(
-    loaded.restaurant.slug || String(restaurantId),
-  )}${publicPath}`;
+  const publicUrl = publicURLForPage({
+    webOrigin: WEB_ORIGIN,
+    restaurantSlug: loaded.restaurant.slug || String(restaurantId),
+    page: activePage,
+  });
   const previewStatus =
     currentAcknowledgement &&
     currentAcknowledgement.revision >= previewRevision &&
@@ -915,6 +921,9 @@ function DesktopWebsiteV3Builder({
               onMakeDefault={(key) =>
                 setLocalState(makeDefaultPage(state, key))
               }
+              onStoriesNavigationAvailabilityChange={
+                updateStoriesNavigationAvailability
+              }
               onRestaurantLogoUpload={uploadMainLogo}
               onRestaurantLogoRemove={removeMainLogo}
             />
@@ -925,7 +934,10 @@ function DesktopWebsiteV3Builder({
             webOrigin={WEB_ORIGIN}
             restaurantSlug={loaded.restaurant.slug}
             restaurantId={restaurantId}
-            state={state}
+            state={withWebsiteV3PreviewNavigationState(
+              state,
+              storiesNavigationAvailable,
+            )}
             activePage={activePage}
             activeSectionKey={activeSectionKey}
             device={device}

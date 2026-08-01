@@ -149,6 +149,7 @@ test("builder exposes system links without inventing rail pages", () => {
       onChange: () => undefined,
       onPageVisibilityChange: () => undefined,
       onFooterChange: () => undefined,
+      onStoriesNavigationAvailabilityChange: () => undefined,
       onRestaurantLogoUpload: async () => undefined,
       onRestaurantLogoRemove: async () => undefined,
     }),
@@ -181,6 +182,26 @@ test("builder and Reels share the live Instagram Stories owner", () => {
     assert.match(source, /updateInstagramStoriesEnabled/);
   }
   assert.doesNotMatch(inspector, /onChange\(\["stories_enabled"\]/);
+});
+
+test("builder refreshes and injects server-owned Stories preview eligibility", () => {
+  const inspector = readFileSync(
+    resolve(process.cwd(), "src/components/website-v3/SiteInspector.tsx"),
+    "utf8",
+  );
+  const builder = readFileSync(
+    resolve(process.cwd(), "src/components/website-v3/WebsiteV3Builder.tsx"),
+    "utf8",
+  );
+
+  assert.match(
+    inspector,
+    /await updateInstagramStoriesEnabled[\s\S]*await loadInstagramStoriesSettings/,
+  );
+  assert.match(inspector, /onStoriesNavigationAvailabilityChange/);
+  assert.match(builder, /withWebsiteV3PreviewNavigationState/);
+  assert.match(builder, /getPublicRestaurantNavigationState/);
+  assert.match(builder, /onStoriesNavigationAvailabilityChange/);
 });
 
 function sourceFiles(directory: string): string[] {

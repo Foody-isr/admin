@@ -3,7 +3,11 @@
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { CateringService, Menu } from "@/lib/api";
-import { normalizeSlug, pageAddressIsEditable } from "@/lib/website-v3/state";
+import {
+  nextSlugForPageTitle,
+  normalizeSlug,
+  pageAddressIsEditable,
+} from "@/lib/website-v3/state";
 import {
   isReservedPublicSlug,
   publicAddressForPage,
@@ -24,22 +28,7 @@ type CreatePageInput = {
   isDefault: boolean;
 };
 
-/** Returns the slug to keep after a page title changes in the create dialog. */
-export function nextSlugForPageTitle({
-  currentSlug,
-  slugEdited,
-  addressIsEditable,
-  title,
-}: {
-  currentSlug: string;
-  slugEdited: boolean;
-  addressIsEditable: boolean;
-  title: string;
-}): string {
-  return slugEdited || !addressIsEditable
-    ? currentSlug
-    : normalizeSlug(title);
-}
+export { nextSlugForPageTitle } from "@/lib/website-v3/state";
 
 /** Returns a visible-address validation message for the create-page dialog. */
 export function pageDialogAddressError({

@@ -32,6 +32,7 @@ export function SiteInspector({
   onChange,
   onPageVisibilityChange,
   onFooterChange,
+  onStoriesNavigationAvailabilityChange,
   onRestaurantLogoUpload,
   onRestaurantLogoRemove,
 }: {
@@ -47,6 +48,7 @@ export function SiteInspector({
     path: readonly (string | number)[],
     value: unknown,
   ) => void;
+  onStoriesNavigationAvailabilityChange: (available: boolean) => void;
   onRestaurantLogoUpload: (file: File) => Promise<void>;
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
@@ -70,6 +72,9 @@ export function SiteInspector({
         if (active) {
           setInstagramConnected(settings.connected);
           setStoriesEnabled(settings.storiesEnabled);
+          onStoriesNavigationAvailabilityChange(
+            settings.storiesNavigationAvailable,
+          );
         }
       })
       .catch((error) => {
@@ -81,7 +86,7 @@ export function SiteInspector({
     return () => {
       active = false;
     };
-  }, [restaurantId]);
+  }, [onStoriesNavigationAvailabilityChange, restaurantId]);
 
   const updateStories = async (next: boolean) => {
     const previous = storiesEnabled;
@@ -89,7 +94,13 @@ export function SiteInspector({
     setStoriesBusy(true);
     setStoriesError(null);
     try {
-      setStoriesEnabled(await updateInstagramStoriesEnabled(restaurantId, next));
+      await updateInstagramStoriesEnabled(restaurantId, next);
+      const settings = await loadInstagramStoriesSettings(restaurantId);
+      setInstagramConnected(settings.connected);
+      setStoriesEnabled(settings.storiesEnabled);
+      onStoriesNavigationAvailabilityChange(
+        settings.storiesNavigationAvailable,
+      );
     } catch (error) {
       setStoriesEnabled(previous);
       setStoriesError(error instanceof Error ? error.message : String(error));

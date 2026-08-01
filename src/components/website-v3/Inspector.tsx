@@ -40,6 +40,7 @@ export function Inspector({
   onPageReplace,
   onSectionChange,
   onMakeDefault,
+  onStoriesNavigationAvailabilityChange,
   onRestaurantLogoUpload,
   onRestaurantLogoRemove,
 }: {
@@ -60,6 +61,7 @@ export function Inspector({
   onPageReplace: (key: string, page: DraftPagePayload) => void;
   onSectionChange: (key: string, path: StatePath, value: unknown) => void;
   onMakeDefault: (key: string) => void;
+  onStoriesNavigationAvailabilityChange: (available: boolean) => void;
   onRestaurantLogoUpload: (file: File) => Promise<void>;
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
@@ -144,6 +146,9 @@ export function Inspector({
             footer
               ? onSectionChange(stableSectionKey(footer), path, value)
               : undefined
+          }
+          onStoriesNavigationAvailabilityChange={
+            onStoriesNavigationAvailabilityChange
           }
           onRestaurantLogoUpload={onRestaurantLogoUpload}
           onRestaurantLogoRemove={onRestaurantLogoRemove}

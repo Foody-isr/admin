@@ -4,6 +4,7 @@ import {
   canonicalAliasForType,
   isReservedPublicSlug,
   publicAddressForPage,
+  publicURLForPage,
   suggestSpecificSlug,
 } from "../url-model";
 import { PUBLIC_WEBSITE_ROUTE_SEGMENTS } from "../public-route-segments";
@@ -49,6 +50,41 @@ test("default commerce pages expose only their canonical address", () => {
 
 test("non-default commerce pages expose their specific slug", () => {
   assert.equal(publicAddressForPage(orderPage({ slug: "shabbat", is_default: false })), "/shabbat");
+});
+
+test("builder public URLs use the same canonical page addresses", () => {
+  const input = {
+    webOrigin: "https://dev-app.foody-pos.co.il/ignored/path",
+    restaurantSlug: "moulin dorée",
+  };
+  assert.equal(
+    publicURLForPage({
+      ...input,
+      page: { type: "landing", slug: "accueil", is_default: false },
+    }),
+    "https://dev-app.foody-pos.co.il/r/moulin%20dor%C3%A9e",
+  );
+  assert.equal(
+    publicURLForPage({
+      ...input,
+      page: orderPage({ slug: "menu-interne", is_default: true }),
+    }),
+    "https://dev-app.foody-pos.co.il/r/moulin%20dor%C3%A9e/order",
+  );
+  assert.equal(
+    publicURLForPage({
+      ...input,
+      page: cateringPage({ slug: "traiteur-interne", is_default: true }),
+    }),
+    "https://dev-app.foody-pos.co.il/r/moulin%20dor%C3%A9e/catering",
+  );
+  assert.equal(
+    publicURLForPage({
+      ...input,
+      page: orderPage({ slug: "brunch", is_default: false }),
+    }),
+    "https://dev-app.foody-pos.co.il/r/moulin%20dor%C3%A9e/brunch",
+  );
 });
 
 test("specific slug suggestion remains unique", () => {

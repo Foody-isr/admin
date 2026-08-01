@@ -1,5 +1,6 @@
 import {
   getSocialConnection,
+  getPublicRestaurantNavigationState,
   getWebsiteConfig,
   updateWebsiteConfig,
   type SocialConnection,
@@ -9,6 +10,7 @@ export type InstagramStoriesSettings = {
   connection: SocialConnection;
   connected: boolean;
   storiesEnabled: boolean;
+  storiesNavigationAvailable: boolean;
 };
 
 /** Reports whether a social connection is both connected and operationally enabled. */
@@ -22,14 +24,16 @@ export function isActiveSocialConnection(
 export async function loadInstagramStoriesSettings(
   restaurantId: number,
 ): Promise<InstagramStoriesSettings> {
-  const [connection, config] = await Promise.all([
+  const [connection, config, navigation] = await Promise.all([
     getSocialConnection(restaurantId, "instagram"),
     getWebsiteConfig(restaurantId),
+    getPublicRestaurantNavigationState(restaurantId),
   ]);
   return {
     connection,
     connected: isActiveSocialConnection(connection),
     storiesEnabled: config.stories_enabled === true,
+    storiesNavigationAvailable: navigation.storiesNavigationAvailable,
   };
 }
 

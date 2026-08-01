@@ -32,6 +32,21 @@ export type WebsiteV3NavigateMessage = {
   pageKey: string;
 };
 
+/** Injects server-owned navigation eligibility into a preview-only state copy. */
+export function withWebsiteV3PreviewNavigationState(
+  state: DraftStatePayload,
+  storiesNavigationAvailable: boolean | undefined,
+): DraftStatePayload {
+  if (storiesNavigationAvailable === undefined) return state;
+  return {
+    ...state,
+    config: {
+      ...state.config,
+      stories_navigation_available: storiesNavigationAvailable,
+    },
+  };
+}
+
 /** Narrows untrusted data to the Website V3 state wire envelope. */
 export function isWebsiteV3StateMessage(
   data: unknown,

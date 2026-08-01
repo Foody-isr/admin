@@ -426,6 +426,63 @@ export function pageAddressIsEditable(
   );
 }
 
+/** Returns the slug that a title edit may derive without changing hidden addresses. */
+export function nextSlugForPageTitle({
+  currentSlug,
+  slugEdited,
+  addressIsEditable,
+  title,
+}: {
+  currentSlug: string;
+  slugEdited: boolean;
+  addressIsEditable: boolean;
+  title: string;
+}): string {
+  return slugEdited || !addressIsEditable
+    ? currentSlug
+    : normalizeSlug(title);
+}
+
+/** Applies one builder page edit together with its slug and legacy-section rules. */
+export function updateWebsitePageAtPath(
+  state: DraftStatePayload,
+  targetKey: string,
+  path: StatePath,
+  value: unknown,
+  options: { slugManuallyEdited?: boolean } = {},
+): DraftStatePayload {
+  const index = state.pages.findIndex((page) => pageKey(page) === targetKey);
+  if (index < 0) return state;
+
+  const page = state.pages[index];
+  let next = updateDraftAtPath(state, ["pages", index, ...path], value);
+  if (path.length === 1 && path[0] === "title") {
+    const nextSlug = nextSlugForPageTitle({
+      currentSlug: page.slug,
+      slugEdited: options.slugManuallyEdited === true,
+      addressIsEditable: pageAddressIsEditable(page),
+      title: String(value),
+    });
+    if (nextSlug !== page.slug) {
+      next = updateDraftAtPath(next, ["pages", index, "slug"], nextSlug);
+    }
+  }
+  if (path.length === 1 && path[0] === "slug") {
+    const nextSlug = String(value);
+    next = {
+      ...next,
+      sections: next.sections.map((section) =>
+        section.page === page.slug &&
+        section.page_id === undefined &&
+        section.page_tmp_id === undefined
+          ? { ...section, page: nextSlug }
+          : section,
+      ),
+    };
+  }
+  return next;
+}
+
 /** Returns publish-blocking field errors keyed to the field registry. */
 export function validateDraftForPublish(
   state: DraftStatePayload,

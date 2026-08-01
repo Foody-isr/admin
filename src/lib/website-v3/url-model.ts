@@ -20,6 +20,23 @@ export function publicAddressForPage(
   return page.is_default && canonical ? canonical : `/${normalizeSlug(page.slug)}`;
 }
 
+/** Builds the absolute customer URL shown by the Website V3 toolbar. */
+export function publicURLForPage({
+  webOrigin,
+  restaurantSlug,
+  page,
+}: {
+  webOrigin: string;
+  restaurantSlug: string;
+  page: Pick<DraftPagePayload, "type" | "slug" | "is_default">;
+}): string {
+  const address = publicAddressForPage(page);
+  const restaurantPath = `/r/${encodeURIComponent(restaurantSlug)}`;
+  return `${new URL(webOrigin).origin}${restaurantPath}${
+    address === "/" ? "" : address
+  }`;
+}
+
 /** Checks whether a slug belongs to Foody routing rather than a custom page. */
 export function isReservedPublicSlug(slug: string): boolean {
   return isReservedPublicWebsiteSlug(normalizeSlug(slug));
