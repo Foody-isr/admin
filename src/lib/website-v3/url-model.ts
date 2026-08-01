@@ -1,4 +1,5 @@
-import type { WebsitePageType } from "./types";
+import { normalizeSlug } from "./state";
+import type { DraftPagePayload, WebsitePageType } from "./types";
 
 const RESERVED_PUBLIC_SLUGS = new Set([
   "order",
@@ -17,6 +18,14 @@ export function canonicalAliasForType(
   if (type === "order") return "/order";
   if (type === "catering") return "/catering";
   return null;
+}
+
+/** Returns the single public address presented for a website page. */
+export function publicAddressForPage(
+  page: Pick<DraftPagePayload, "type" | "slug" | "is_default">,
+): string {
+  const canonical = canonicalAliasForType(page.type);
+  return page.is_default && canonical ? canonical : `/${normalizeSlug(page.slug)}`;
 }
 
 /** Checks whether a slug belongs to Foody routing rather than a custom page. */
