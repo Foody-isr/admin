@@ -56,6 +56,37 @@ function validState(): DraftStatePayload {
   };
 }
 
+function mamieLegacyDraft(): DraftStatePayload {
+  return normalizeDraftState({
+    config: { landing_enabled: false },
+    pages: [
+      {
+        id: 5,
+        type: "content",
+        slug: "menu",
+        title: "Menu",
+        sort_order: 0,
+        nav_visible: false,
+        is_default: false,
+        appearance_overrides: { brand_color: "#123456" },
+      },
+    ],
+    sections: [
+      {
+        id: 50,
+        section_type: "hero_banner",
+        page: "menu",
+        page_id: 5,
+        sort_order: 0,
+        is_visible: true,
+        layout: "centered",
+        content: {},
+        settings: {},
+      },
+    ],
+  });
+}
+
 test("publication validation blocks unavailable menu and service references", () => {
   const errors = validateDraftForPublish(validState(), {
     menuIds: new Set([12]),
@@ -143,6 +174,30 @@ test("legacy classic commerce settings restore an order page association", () =>
 
   assert.equal(state.pages[0].type, "order");
   assert.deepEqual(state.pages[0].settings, { menu_ids: [13] });
+});
+
+test("order-first legacy pages reconcile to one default order page", () => {
+  const result = stateModule.reconcileLegacyWebsiteDraft(mamieLegacyDraft(), {
+    menuIds: [42],
+    serviceIds: [],
+  });
+  const orders = result.state.pages.filter((page) => page.type === "order");
+
+  assert.equal(orders.length, 1);
+  assert.equal(orders[0].id, 5);
+  assert.equal(orders[0].is_default, true);
+  assert.equal(orders[0].nav_visible, false);
+  assert.deepEqual(orders[0].appearance_overrides, { brand_color: "#123456" });
+  assert.deepEqual(orders[0].settings.menu_ids, [42]);
+  assert.equal(result.state.sections[0].page_id, 5);
+  assert.equal(result.state.sections[0].page, "menu");
+
+  const repeated = stateModule.reconcileLegacyWebsiteDraft(result.state, {
+    menuIds: [42],
+    serviceIds: [],
+  });
+  assert.equal(repeated.changed, false);
+  assert.deepEqual(repeated.state, result.state);
 });
 
 test("legacy builder reconciliation removes technical pages and repairs commerce defaults", () => {

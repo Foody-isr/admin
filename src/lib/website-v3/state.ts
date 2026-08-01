@@ -87,6 +87,16 @@ export function reconcileLegacyWebsiteDraft(
     ];
   }
   const technicalPages = sourcePages.filter(isTechnicalSitePage);
+  const legacyOrderPage =
+    state.config.landing_enabled === false &&
+    !sourcePages.some((page) => page.type === "order")
+      ? sourcePages.find(
+          (page) =>
+            !isTechnicalSitePage(page) &&
+            (normalizeSlug(page.slug) === "menu" ||
+              normalizeSlug(page.slug) === "order"),
+        )
+      : undefined;
   const technicalPageIDs = new Set(
     technicalPages.flatMap((page) => page.id === undefined ? [] : [page.id]),
   );
@@ -98,7 +108,18 @@ export function reconcileLegacyWebsiteDraft(
       .map((page) => normalizeSlug(page.slug))
       .filter(Boolean),
   );
-  const keptPages = sourcePages.filter((page) => !isTechnicalSitePage(page));
+  const keptPages = sourcePages
+    .filter((page) => !isTechnicalSitePage(page))
+    .map((page) =>
+      page === legacyOrderPage
+        ? {
+            ...page,
+            type: "order" as const,
+            is_default: true,
+            settings: { menu_ids: uniquePositiveIds(references.menuIds) },
+          }
+        : page,
+    );
   const reservedReplacements = new Map<number | string, string>();
   const usedSlugs = new Set(
     keptPages
