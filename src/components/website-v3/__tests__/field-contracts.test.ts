@@ -83,6 +83,31 @@ test("navigation text colors have editor-to-renderer contracts", () => {
   ]);
 });
 
+test("page navigation visuals have editor-to-renderer contracts", () => {
+  const contracts = new Map(
+    FIELD_CONTRACTS.map((contract) => [contract.id, contract]),
+  );
+
+  const expected = [
+    ["page.appearance_overrides.navbar_style", "navbar_style", "overlay"],
+    ["page.appearance_overrides.navbar_color", "navbar_color", "#FAF1D2"],
+    ["page.appearance_overrides.navbar_text_color", "navbar_text_color", "#253265"],
+    [
+      "page.appearance_overrides.navbar_overlay_text_color",
+      "navbar_overlay_text_color",
+      "#F8FAFC",
+    ],
+  ] as const;
+
+  expected.forEach(([id, field, testValue]) => {
+    const contract = contracts.get(id);
+    assert.deepEqual(contract?.statePath, ["appearance_overrides", field]);
+    assert.equal(contract?.editor.tab, "Apparence");
+    assert.equal(contract?.editor.commit, "change");
+    assert.equal(contract?.testValue, testValue);
+  });
+});
+
 test("builder public addresses present one route for every page kind", () => {
   assert.deepEqual(
     [

@@ -30,6 +30,10 @@ export type DraftAppearanceOverrides = {
   category_banner_fit_mobile?: string;
   navigation_mode?: "inherit" | "full" | "compact" | "hidden";
   navigation_mode_mobile?: "inherit" | "full" | "compact" | "hidden";
+  navbar_style?: "inherit" | "solid" | "transparent" | "overlay";
+  navbar_color?: string;
+  navbar_text_color?: string;
+  navbar_overlay_text_color?: string;
   footer_mode?: "inherit" | "full" | "compact" | "hidden";
   order_page_info?: Record<string, unknown> | null;
   group_banners?: Record<

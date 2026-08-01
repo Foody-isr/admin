@@ -333,9 +333,9 @@ export function PageInspector({
 
       <InspectorGroup
         title="Navigation et pied de page"
-        description="Le logo, les couleurs et le contenu restent globaux. Cette page choisit seulement leur niveau d’affichage."
+        description="La disposition choisit les éléments affichés. Le fond et le comportement règlent uniquement l’apparence de cette page."
       >
-        <InspectorField label="Navigation sur ordinateur">
+        <InspectorField label="Disposition ordinateur">
           <select
             value={appearance.navigation_mode ?? "inherit"}
             onChange={(event) =>
@@ -352,7 +352,7 @@ export function PageInspector({
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
-        <InspectorField label="Navigation sur mobile">
+        <InspectorField label="Disposition mobile">
           <select
             value={appearance.navigation_mode_mobile ?? "inherit"}
             onChange={(event) =>
@@ -369,6 +369,67 @@ export function PageInspector({
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
+        <InspectorField label="Fond et comportement">
+          <select
+            data-field-id="page.appearance_overrides.navbar_style"
+            value={appearance.navbar_style ?? "inherit"}
+            onChange={(event) =>
+              onChange(
+                ["appearance_overrides", "navbar_style"],
+                event.target.value,
+              )
+            }
+            className={controlClass}
+          >
+            <option value="inherit">Hériter du site</option>
+            <option value="solid">Plein</option>
+            <option value="transparent">Toujours transparent</option>
+            <option value="overlay">Transparent puis coloré</option>
+          </select>
+        </InspectorField>
+        <ColorField
+          fieldId="page.appearance_overrides.navbar_color"
+          label={
+            appearance.navbar_style === "overlay"
+              ? "Couleur de fond au survol"
+              : "Couleur de fond normale"
+          }
+          value={appearance.navbar_color ?? ""}
+          fallback="#ffffff"
+          onChange={(value) =>
+            onChange(["appearance_overrides", "navbar_color"], value)
+          }
+        />
+        {appearance.navbar_style === "overlay" ? (
+          <ColorField
+            fieldId="page.appearance_overrides.navbar_overlay_text_color"
+            label="Couleur du texte normale"
+            value={appearance.navbar_overlay_text_color ?? ""}
+            fallback="#ffffff"
+            onChange={(value) =>
+              onChange(
+                ["appearance_overrides", "navbar_overlay_text_color"],
+                value,
+              )
+            }
+          />
+        ) : null}
+        <ColorField
+          fieldId="page.appearance_overrides.navbar_text_color"
+          label={
+            appearance.navbar_style === "overlay"
+              ? "Couleur du texte au survol"
+              : "Couleur du texte normale"
+          }
+          value={appearance.navbar_text_color ?? ""}
+          fallback="#111111"
+          onChange={(value) =>
+            onChange(
+              ["appearance_overrides", "navbar_text_color"],
+              value,
+            )
+          }
+        />
         <InspectorField label="Pied de page">
           <select
             value={appearance.footer_mode ?? "inherit"}
