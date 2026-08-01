@@ -61,6 +61,10 @@ export function PageInspector({
   const errorFor = (fieldId: string) =>
     errors.find((error) => error.fieldId === fieldId)?.message;
   const appearance = page.appearance_overrides;
+  const navbarStyle = resolvePageNavbarStyle(
+    appearance.navbar_style,
+    config.navbar_style,
+  );
   const addressIsEditable = pageAddressIsEditable(page);
   const publicAddress = publicAddressForPage(page);
   const normalizedPageSlug = normalizeSlug(page.slug);
@@ -75,6 +79,7 @@ export function PageInspector({
   const pageVisualConfig = {
     ...config,
     ...appearance,
+    navbar_style: navbarStyle,
   } as unknown as WebsiteConfig;
   const updateAppearance = (patch: Partial<WebsiteConfig>) =>
     onChange(["appearance_overrides"], {
@@ -390,7 +395,7 @@ export function PageInspector({
         <ColorField
           fieldId="page.appearance_overrides.navbar_color"
           label={
-            appearance.navbar_style === "overlay"
+            navbarStyle === "overlay"
               ? "Couleur de fond au survol"
               : "Couleur de fond normale"
           }
@@ -400,7 +405,7 @@ export function PageInspector({
             onChange(["appearance_overrides", "navbar_color"], value)
           }
         />
-        {appearance.navbar_style === "overlay" ? (
+        {navbarStyle === "overlay" ? (
           <ColorField
             fieldId="page.appearance_overrides.navbar_overlay_text_color"
             label="Couleur du texte normale"
@@ -417,7 +422,7 @@ export function PageInspector({
         <ColorField
           fieldId="page.appearance_overrides.navbar_text_color"
           label={
-            appearance.navbar_style === "overlay"
+            navbarStyle === "overlay"
               ? "Couleur du texte au survol"
               : "Couleur du texte normale"
           }
@@ -1005,6 +1010,21 @@ function GroupBannerEditor({
       })}
     </div>
   );
+}
+
+function resolvePageNavbarStyle(
+  override: unknown,
+  globalStyle: unknown,
+): "solid" | "transparent" | "overlay" {
+  return validNavbarStyle(override) ?? validNavbarStyle(globalStyle) ?? "solid";
+}
+
+function validNavbarStyle(
+  value: unknown,
+): "solid" | "transparent" | "overlay" | null {
+  return value === "solid" || value === "transparent" || value === "overlay"
+    ? value
+    : null;
 }
 
 function record(value: unknown): Record<string, unknown> {

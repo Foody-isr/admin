@@ -190,14 +190,25 @@ test("reserved aliases only explain an explicit visible address entry", () => {
   );
 });
 
-function renderInspector(page: DraftPagePayload): string {
+test("page inspector exposes overlay colors when the page inherits overlay", () => {
+  const inspector = renderInspector(contentPage(), { navbar_style: "overlay" });
+
+  assert.match(inspector, /Couleur de fond au survol/);
+  assert.match(inspector, /Couleur du texte normale/);
+  assert.match(inspector, /Couleur du texte au survol/);
+});
+
+function renderInspector(
+  page: DraftPagePayload,
+  config: Record<string, unknown> = {},
+): string {
   return renderToStaticMarkup(
     React.createElement(PageInspector, {
       page,
       tab: "settings",
       restaurantId: 24,
       restaurant: {} as Restaurant,
-      config: {},
+      config,
       catalog: {} as ThemeCatalog,
       menus: [] as Menu[],
       services: [] as CateringService[],
