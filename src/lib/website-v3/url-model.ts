@@ -1,15 +1,6 @@
 import { normalizeSlug } from "./state";
 import type { DraftPagePayload, WebsitePageType } from "./types";
-
-const RESERVED_PUBLIC_SLUGS = new Set([
-  "order",
-  "catering",
-  "checkout",
-  "tracking",
-  "account",
-  "table",
-  "api",
-]);
+import { isReservedPublicWebsiteSlug } from "./public-route-segments";
 
 /** Returns the stable public alias owned by a commerce page type. */
 export function canonicalAliasForType(
@@ -31,7 +22,7 @@ export function publicAddressForPage(
 
 /** Checks whether a slug belongs to Foody routing rather than a custom page. */
 export function isReservedPublicSlug(slug: string): boolean {
-  return RESERVED_PUBLIC_SLUGS.has(slug);
+  return isReservedPublicWebsiteSlug(normalizeSlug(slug));
 }
 
 /** Suggests a unique editable slug while preserving the canonical commerce alias. */

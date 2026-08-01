@@ -577,3 +577,35 @@ test("legacy builder reconciliation bootstraps pages from sections as a final fa
   assert.equal(result.state.sections[1].page_tmp_id, "legacy-page-order");
   assert.deepEqual(validateDraftForPublish(result.state), []);
 });
+
+test("legacy builder reconciliation repairs all static route collisions uniquely", () => {
+  const source = normalizeDraftState({
+    config: { stories_enabled: true },
+    pages: [
+      { id: 1, type: "landing", slug: "home", title: "Accueil", sort_order: 0 },
+      { id: 2, type: "content", slug: "stories", title: "Stories", sort_order: 1 },
+      { id: 3, type: "content", slug: "orders", title: "Orders", sort_order: 2 },
+      { id: 4, type: "content", slug: "orders-page", title: "Archive", sort_order: 3 },
+    ],
+    sections: [
+      { id: 20, section_type: "about", page: "stories", page_id: 2 },
+      { id: 30, section_type: "about", page: "orders", page_id: 3 },
+    ],
+  });
+
+  assert.equal(Object.hasOwn(source.config, "stories_enabled"), false);
+  const result = stateModule.reconcileLegacyWebsiteDraft(source, {
+    menuIds: [],
+    serviceIds: [],
+  });
+
+  assert.deepEqual(
+    result.state.pages.map((page) => page.slug),
+    ["home", "stories-page", "orders-page-2", "orders-page"],
+  );
+  assert.deepEqual(
+    result.state.sections.map((section) => section.page),
+    ["stories-page", "orders-page-2"],
+  );
+  assert.deepEqual(validateDraftForPublish(result.state), []);
+});

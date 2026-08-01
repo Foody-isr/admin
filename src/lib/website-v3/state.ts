@@ -8,16 +8,7 @@ import type {
   WebsitePageType,
 } from "./types";
 import { pageKey, sectionKey } from "./types";
-
-const RESERVED_SLUGS = new Set([
-  "order",
-  "catering",
-  "checkout",
-  "tracking",
-  "account",
-  "table",
-  "api",
-]);
+import { isReservedPublicWebsiteSlug } from "./public-route-segments";
 
 export type NavbarStyle = "solid" | "transparent" | "overlay";
 
@@ -50,7 +41,7 @@ export function normalizeDraftResponse(response: {
 export function normalizeDraftState(state: unknown): DraftStatePayload {
   const source = isRecord(state) ? state : {};
   return {
-    config: isRecord(source.config) ? source.config : {},
+    config: normalizeDraftConfig(source.config),
     pages: Array.isArray(source.pages) ? source.pages.map(normalizePage) : [],
     sections: Array.isArray(source.sections)
       ? source.sections.map(normalizeSection)
@@ -126,25 +117,23 @@ export function reconcileLegacyWebsiteDraft(
   const usedSlugs = new Set(
     keptPages
       .map((page) => normalizeSlug(page.slug))
-      .filter((slug) => slug !== "order" && slug !== "catering"),
+      .filter((slug) => !isReservedPublicWebsiteSlug(slug)),
   );
 
   const pages = keptPages.map((page) => {
     let slug = normalizeSlug(page.slug);
     const originalSlug = slug;
-    const repairsUnselectedLegacyOrder =
-      legacyOrderPage !== undefined &&
-      page.type !== "order" &&
-      slug === "order";
-    if (
-      (slug === "order" && page.type === "order") ||
-      repairsUnselectedLegacyOrder ||
-      (slug === "catering" && page.type === "catering")
-    ) {
-      slug = nextAvailableSlug(
-        page.type === "order" ? "commander" : "traiteur",
-        usedSlugs,
-      );
+    if (isReservedPublicWebsiteSlug(slug)) {
+      const titleSlug = normalizeSlug(page.title) || "page";
+      const base =
+        page.type === "order"
+          ? "commander"
+          : page.type === "catering"
+            ? "traiteur"
+            : isReservedPublicWebsiteSlug(titleSlug)
+              ? `${titleSlug}-page`
+              : titleSlug;
+      slug = nextAvailableSlug(base, usedSlugs);
       reservedReplacements.set(page.id ?? page.tmp_id ?? page.slug, slug);
       reservedReplacements.set(originalSlug, slug);
     }
@@ -473,7 +462,7 @@ export function validateDraftForPublish(
         pageKey: key,
         tab: "settings",
       });
-    } else if (RESERVED_SLUGS.has(slug)) {
+    } else if (isReservedPublicWebsiteSlug(slug)) {
       errors.push({
         fieldId: "page.slug",
         message: "Cette adresse est réservée par Foody.",
@@ -628,6 +617,13 @@ export function normalizeSlug(value: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function normalizeDraftConfig(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) return {};
+  const config = { ...value };
+  delete config.stories_enabled;
+  return config;
 }
 
 /** Checks whether deleting this page would remove the only default of its type. */

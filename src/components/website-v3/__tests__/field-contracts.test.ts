@@ -135,7 +135,7 @@ test("builder exposes system links without inventing rail pages", () => {
     "show_orders_link",
   ]);
   assert.deepEqual(contracts.get("site.stories_enabled")?.statePath, [
-    "config",
+    "live",
     "stories_enabled",
   ]);
 
@@ -164,6 +164,23 @@ test("builder exposes system links without inventing rail pages", () => {
   assert.match(storiesToggle, /disabled/);
   assert.match(html, /href="\/24\/reels"/);
   assert.doesNotMatch(html, /site\.navigation-page\.(?:home|stories)/);
+});
+
+test("builder and Reels share the live Instagram Stories owner", () => {
+  const inspector = readFileSync(
+    resolve(process.cwd(), "src/components/website-v3/SiteInspector.tsx"),
+    "utf8",
+  );
+  const reels = readFileSync(
+    resolve(process.cwd(), "src/app/[restaurantId]/reels/page.tsx"),
+    "utf8",
+  );
+
+  for (const source of [inspector, reels]) {
+    assert.match(source, /loadInstagramStoriesSettings/);
+    assert.match(source, /updateInstagramStoriesEnabled/);
+  }
+  assert.doesNotMatch(inspector, /onChange\(\["stories_enabled"\]/);
 });
 
 function sourceFiles(directory: string): string[] {

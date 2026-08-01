@@ -156,6 +156,18 @@ function siteAction(
   );
 }
 
+function liveSiteAction(id: string, path: readonly (string | number)[]): FieldContract {
+  return contract(
+    {
+      id,
+      scope: "site",
+      statePath: ["live", ...path],
+      pageTypes: ALL_PAGES,
+    },
+    true,
+  );
+}
+
 function contract(
   base: Pick<FieldContract, "id" | "scope" | "statePath" | "pageTypes">,
   isAction = false,
@@ -386,7 +398,7 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   site("site.checkout_config", ["checkout_config"], "[data-website-v3-page]", "count"),
   site("site.order_page_info", ["order_page_info"], "[data-website-v3-page]", "count"),
   siteAction("site.show_orders_link", ["show_orders_link"]),
-  siteAction("site.stories_enabled", ["stories_enabled"]),
+  liveSiteAction("site.stories_enabled", ["stories_enabled"]),
   page("page.title", ["title"], "[data-page-title]", "text"),
   page("page.slug", ["slug"], "[data-website-v3-page]", "value"),
   page("page.type", ["type"], "[data-website-v3-page]", "value"),

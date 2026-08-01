@@ -6,6 +6,7 @@ import {
   publicAddressForPage,
   suggestSpecificSlug,
 } from "../url-model";
+import { PUBLIC_WEBSITE_ROUTE_SEGMENTS } from "../public-route-segments";
 
 function orderPage({ slug, is_default }: { slug: string; is_default: boolean }) {
   return { type: "order" as const, slug, is_default };
@@ -21,6 +22,24 @@ test("commerce aliases are public entry points, not editable page slugs", () => 
   assert.equal(canonicalAliasForType("content"), null);
   assert.equal(isReservedPublicSlug("order"), true);
   assert.equal(isReservedPublicSlug("notre-carte"), false);
+});
+
+test("reserved slugs mirror every static restaurant route", () => {
+  assert.deepEqual(PUBLIC_WEBSITE_ROUTE_SEGMENTS, [
+    "catering",
+    "delivery",
+    "order",
+    "orders",
+    "payment",
+    "pickup",
+    "stories",
+    "t",
+    "table",
+    "tournee",
+  ]);
+  PUBLIC_WEBSITE_ROUTE_SEGMENTS.forEach((slug) => {
+    assert.equal(isReservedPublicSlug(slug), true, slug);
+  });
 });
 
 test("default commerce pages expose only their canonical address", () => {

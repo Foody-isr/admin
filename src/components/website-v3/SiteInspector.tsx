@@ -3,7 +3,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { SectionImageUploader } from "@/components/website/SectionEditors";
-import { getSocialConnection } from "@/lib/api";
+import {
+  loadInstagramStoriesSettings,
+  updateInstagramStoriesEnabled,
+} from "@/lib/social-navigation";
 import {
   pageKey,
   type DraftConfigPayload,
@@ -49,6 +52,9 @@ export function SiteInspector({
 }) {
   const social = socialRecord(footer?.content.social_links);
   const [instagramConnected, setInstagramConnected] = useState(false);
+  const [storiesEnabled, setStoriesEnabled] = useState(false);
+  const [storiesBusy, setStoriesBusy] = useState(false);
+  const [storiesError, setStoriesError] = useState<string | null>(null);
   const effectiveRestaurantLogoUrl = Object.prototype.hasOwnProperty.call(
     config,
     "restaurant_logo_url",
@@ -59,21 +65,38 @@ export function SiteInspector({
 
   useEffect(() => {
     let active = true;
-    getSocialConnection(restaurantId, "instagram")
-      .then((connection) => {
+    loadInstagramStoriesSettings(restaurantId)
+      .then((settings) => {
         if (active) {
-          setInstagramConnected(
-            connection.connected === true && connection.enabled !== false,
-          );
+          setInstagramConnected(settings.connected);
+          setStoriesEnabled(settings.storiesEnabled);
         }
       })
-      .catch(() => {
-        if (active) setInstagramConnected(false);
+      .catch((error) => {
+        if (active) {
+          setInstagramConnected(false);
+          setStoriesError(error instanceof Error ? error.message : String(error));
+        }
       });
     return () => {
       active = false;
     };
   }, [restaurantId]);
+
+  const updateStories = async (next: boolean) => {
+    const previous = storiesEnabled;
+    setStoriesEnabled(next);
+    setStoriesBusy(true);
+    setStoriesError(null);
+    try {
+      setStoriesEnabled(await updateInstagramStoriesEnabled(restaurantId, next));
+    } catch (error) {
+      setStoriesEnabled(previous);
+      setStoriesError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setStoriesBusy(false);
+    }
+  };
 
   if (tab === "content") {
     return (
@@ -438,14 +461,17 @@ export function SiteInspector({
           <input
             data-field-id="site.stories_enabled"
             type="checkbox"
-            checked={boolean(config.stories_enabled, false)}
-            disabled={!instagramConnected}
-            onChange={(event) =>
-              onChange(["stories_enabled"], event.target.checked)
-            }
+            checked={storiesEnabled}
+            disabled={!instagramConnected || storiesBusy}
+            onChange={(event) => void updateStories(event.target.checked)}
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#315fce]"
           />
         </label>
+        {storiesError ? (
+          <p className="text-xs text-red-600" role="alert">
+            {storiesError}
+          </p>
+        ) : null}
         {!instagramConnected ? (
           <Link
             href={`/${restaurantId}/reels`}

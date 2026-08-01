@@ -10,7 +10,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getSocialConnection,
   connectSocial,
   disconnectSocial,
   syncSocial,
@@ -18,11 +17,14 @@ import {
   updateReel,
   reorderReels,
   deleteReel,
-  getWebsiteConfig,
-  updateWebsiteConfig,
   SocialConnection,
   Reel,
 } from '@/lib/api';
+import {
+  isActiveSocialConnection,
+  loadInstagramStoriesSettings,
+  updateInstagramStoriesEnabled,
+} from '@/lib/social-navigation';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, PageHead, Section } from '@/components/ds';
@@ -90,11 +92,11 @@ export default function ReelsPage() {
   const refresh = useCallback(() => {
     if (!Number.isFinite(rid)) return;
     setLoading(true);
-    Promise.all([getSocialConnection(rid, 'instagram'), listReels(rid), getWebsiteConfig(rid)])
-      .then(([c, r, cfg]) => {
-        setConn(c);
+    Promise.all([loadInstagramStoriesSettings(rid), listReels(rid)])
+      .then(([settings, r]) => {
+        setConn(settings.connection);
         setReels(r);
-        setStoriesEnabled(!!cfg.stories_enabled);
+        setStoriesEnabled(settings.storiesEnabled);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
@@ -103,7 +105,7 @@ export default function ReelsPage() {
   const toggleStories = async (next: boolean) => {
     setStoriesEnabled(next); // optimistic
     try {
-      await updateWebsiteConfig(rid, { stories_enabled: next });
+      setStoriesEnabled(await updateInstagramStoriesEnabled(rid, next));
     } catch (e: unknown) {
       setStoriesEnabled(!next); // rollback
       setError(e instanceof Error ? e.message : String(e));
@@ -205,7 +207,7 @@ export default function ReelsPage() {
       if (storiesEnabled) {
         setStoriesEnabled(false);
         try {
-          await updateWebsiteConfig(rid, { stories_enabled: false });
+          await updateInstagramStoriesEnabled(rid, false);
         } catch {
           /* non-fatal */
         }
@@ -256,7 +258,7 @@ export default function ReelsPage() {
   const serverReady = conn?.server_configured !== false && !!META_APP_ID && !!IG_CONFIG_ID;
   // Stories can only be shown once Instagram is connected — otherwise the
   // customer tab would lead to an empty page. The toggle is locked until then.
-  const connected = conn?.connected === true;
+  const connected = isActiveSocialConnection(conn);
 
   return (
     <div>
@@ -297,7 +299,7 @@ export default function ReelsPage() {
       <Section title={t('reelsConnTitle')}>
         {loading ? (
           <p>{t('reelsLoading')}</p>
-        ) : conn?.connected ? (
+        ) : connected && conn ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="min-w-0">
               <div className="font-medium">@{conn.handle}</div>
