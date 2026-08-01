@@ -177,10 +177,10 @@ test("builder and Reels share the live Instagram Stories owner", () => {
     "utf8",
   );
 
-  for (const source of [inspector, reels]) {
-    assert.match(source, /loadInstagramStoriesSettings/);
-    assert.match(source, /updateInstagramStoriesEnabled/);
-  }
+  assert.match(inspector, /loadInstagramStoriesSettings/);
+  assert.match(inspector, /updateInstagramStoriesWithRefresh/);
+  assert.match(reels, /loadInstagramStoriesSettings/);
+  assert.match(reels, /updateInstagramStoriesEnabled/);
   assert.doesNotMatch(inspector, /onChange\(\["stories_enabled"\]/);
 });
 
@@ -194,10 +194,10 @@ test("builder refreshes and injects server-owned Stories preview eligibility", (
     "utf8",
   );
 
-  assert.match(
-    inspector,
-    /await updateInstagramStoriesEnabled[\s\S]*await loadInstagramStoriesSettings/,
-  );
+  assert.match(inspector, /await updateInstagramStoriesWithRefresh/);
+  assert.match(inspector, /setStoriesEnabled\(result\.storiesEnabled\)/);
+  assert.match(inspector, /onStoriesNavigationAvailabilityChange\(undefined\)/);
+  assert.match(inspector, /Réessayer la vérification/);
   assert.match(inspector, /onStoriesNavigationAvailabilityChange/);
   assert.match(builder, /withWebsiteV3PreviewNavigationState/);
   assert.match(builder, /getPublicRestaurantNavigationState/);

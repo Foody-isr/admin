@@ -2251,20 +2251,24 @@ export async function getRestaurant(id: number): Promise<Restaurant> {
   return data.restaurant;
 }
 
-/** Loads the public, server-authoritative navigation eligibility flags. */
+/** Loads public navigation eligibility without blocking protected admin flows. */
 export async function getPublicRestaurantNavigationState(
   idOrSlug: number | string,
-): Promise<{ storiesNavigationAvailable: boolean }> {
-  const data = await apiFetch<{
-    restaurant?: { stories_navigation_available?: boolean };
-  }>(
-    `/api/v1/public/restaurants/${encodeURIComponent(String(idOrSlug))}`,
-    typeof idOrSlug === "number" ? idOrSlug : undefined,
-  );
-  return {
-    storiesNavigationAvailable:
-      data.restaurant?.stories_navigation_available === true,
-  };
+): Promise<{ storiesNavigationAvailable: boolean | undefined }> {
+  try {
+    const data = await apiFetch<{
+      restaurant?: { stories_navigation_available?: boolean };
+    }>(
+      `/api/v1/public/restaurants/${encodeURIComponent(String(idOrSlug))}`,
+      typeof idOrSlug === "number" ? idOrSlug : undefined,
+    );
+    return {
+      storiesNavigationAvailable:
+        data.restaurant?.stories_navigation_available === true,
+    };
+  } catch {
+    return { storiesNavigationAvailable: undefined };
+  }
 }
 
 export async function updateRestaurant(id: number, input: Partial<Restaurant>): Promise<Restaurant> {

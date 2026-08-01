@@ -5,7 +5,7 @@ import Link from "next/link";
 import { SectionImageUploader } from "@/components/website/SectionEditors";
 import {
   loadInstagramStoriesSettings,
-  updateInstagramStoriesEnabled,
+  updateInstagramStoriesWithRefresh,
 } from "@/lib/social-navigation";
 import {
   pageKey,
@@ -48,7 +48,9 @@ export function SiteInspector({
     path: readonly (string | number)[],
     value: unknown,
   ) => void;
-  onStoriesNavigationAvailabilityChange: (available: boolean) => void;
+  onStoriesNavigationAvailabilityChange: (
+    available: boolean | undefined,
+  ) => void;
   onRestaurantLogoUpload: (file: File) => Promise<void>;
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
@@ -75,12 +77,20 @@ export function SiteInspector({
           onStoriesNavigationAvailabilityChange(
             settings.storiesNavigationAvailable,
           );
+          setStoriesError(
+            settings.storiesNavigationAvailable === undefined
+              ? "La disponibilité publique de Stories est inconnue. Réessayez la vérification."
+              : null,
+          );
         }
       })
       .catch((error) => {
         if (active) {
           setInstagramConnected(false);
-          setStoriesError(error instanceof Error ? error.message : String(error));
+          onStoriesNavigationAvailabilityChange(undefined);
+          setStoriesError(
+            `Impossible de vérifier les réglages Stories. Réessayez. (${errorMessage(error)})`,
+          );
         }
       });
     return () => {
@@ -94,16 +104,55 @@ export function SiteInspector({
     setStoriesBusy(true);
     setStoriesError(null);
     try {
-      await updateInstagramStoriesEnabled(restaurantId, next);
+      const result = await updateInstagramStoriesWithRefresh(
+        restaurantId,
+        next,
+      );
+      setStoriesEnabled(result.storiesEnabled);
+      if (result.refreshError) {
+        if (result.settings) {
+          setInstagramConnected(result.settings.connected);
+        }
+        onStoriesNavigationAvailabilityChange(undefined);
+        setStoriesError(
+          "Stories enregistrées, mais leur disponibilité publique n’a pas pu être vérifiée. Réessayez.",
+        );
+      } else if (result.settings) {
+        setInstagramConnected(result.settings.connected);
+        onStoriesNavigationAvailabilityChange(
+          result.settings.storiesNavigationAvailable,
+        );
+      }
+    } catch (error) {
+      setStoriesEnabled(previous);
+      setStoriesError(
+        `Impossible d’enregistrer Stories. (${errorMessage(error)})`,
+      );
+    } finally {
+      setStoriesBusy(false);
+    }
+  };
+
+  const retryStoriesRefresh = async () => {
+    setStoriesBusy(true);
+    setStoriesError(null);
+    try {
       const settings = await loadInstagramStoriesSettings(restaurantId);
       setInstagramConnected(settings.connected);
       setStoriesEnabled(settings.storiesEnabled);
       onStoriesNavigationAvailabilityChange(
         settings.storiesNavigationAvailable,
       );
+      if (settings.storiesNavigationAvailable === undefined) {
+        setStoriesError(
+          "La disponibilité publique de Stories reste inconnue. Réessayez la vérification.",
+        );
+      }
     } catch (error) {
-      setStoriesEnabled(previous);
-      setStoriesError(error instanceof Error ? error.message : String(error));
+      onStoriesNavigationAvailabilityChange(undefined);
+      setStoriesError(
+        `La disponibilité publique de Stories reste inconnue. Réessayez. (${errorMessage(error)})`,
+      );
     } finally {
       setStoriesBusy(false);
     }
@@ -479,9 +528,17 @@ export function SiteInspector({
           />
         </label>
         {storiesError ? (
-          <p className="text-xs text-red-600" role="alert">
-            {storiesError}
-          </p>
+          <div className="space-y-1.5" role="alert">
+            <p className="text-xs text-red-600">{storiesError}</p>
+            <button
+              type="button"
+              disabled={storiesBusy}
+              onClick={() => void retryStoriesRefresh()}
+              className="text-xs font-semibold text-[#315fce] underline underline-offset-2 disabled:cursor-wait disabled:opacity-50"
+            >
+              Réessayer la vérification
+            </button>
+          </div>
         ) : null}
         {!instagramConnected ? (
           <Link
@@ -819,4 +876,8 @@ function parseJson(value: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

@@ -61,7 +61,9 @@ export function Inspector({
   onPageReplace: (key: string, page: DraftPagePayload) => void;
   onSectionChange: (key: string, path: StatePath, value: unknown) => void;
   onMakeDefault: (key: string) => void;
-  onStoriesNavigationAvailabilityChange: (available: boolean) => void;
+  onStoriesNavigationAvailabilityChange: (
+    available: boolean | undefined,
+  ) => void;
   onRestaurantLogoUpload: (file: File) => Promise<void>;
   onRestaurantLogoRemove: () => Promise<void>;
 }) {

@@ -76,6 +76,11 @@ test("preview navigation injects refreshed Stories eligibility without mutating 
       .stories_navigation_available,
     false,
   );
+  assert.equal(
+    withWebsiteV3PreviewNavigationState(previewState, undefined).config
+      .stories_navigation_available,
+    false,
+  );
 });
 
 test("preview acknowledgement rejects missing or invalid device identity", () => {

@@ -32,17 +32,16 @@ export type WebsiteV3NavigateMessage = {
   pageKey: string;
 };
 
-/** Injects server-owned navigation eligibility into a preview-only state copy. */
+/** Injects eligibility into a preview copy, hiding Stories while it is unknown. */
 export function withWebsiteV3PreviewNavigationState(
   state: DraftStatePayload,
   storiesNavigationAvailable: boolean | undefined,
 ): DraftStatePayload {
-  if (storiesNavigationAvailable === undefined) return state;
   return {
     ...state,
     config: {
       ...state.config,
-      stories_navigation_available: storiesNavigationAvailable,
+      stories_navigation_available: storiesNavigationAvailable === true,
     },
   };
 }

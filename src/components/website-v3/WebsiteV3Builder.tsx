@@ -305,7 +305,7 @@ function DesktopWebsiteV3Builder({
   }, []);
 
   const updateStoriesNavigationAvailability = useCallback(
-    (available: boolean) => {
+    (available: boolean | undefined) => {
       if (storiesNavigationAvailableRef.current === available) return;
       storiesNavigationAvailableRef.current = available;
       setStoriesNavigationAvailable(available);
