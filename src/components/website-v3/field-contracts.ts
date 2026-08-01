@@ -103,6 +103,18 @@ function section(
   });
 }
 
+function footer(
+  id: string,
+  path: readonly (string | number)[],
+): FieldContract {
+  return contract({
+    id,
+    scope: "site",
+    statePath: path,
+    pageTypes: ALL_PAGES,
+  });
+}
+
 function sectionVisibility(): FieldContract {
   const base = contract({
     id: "section.is_visible",
@@ -221,6 +233,33 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "site.navbar_show_links": false,
   "site.navbar_hamburger": "compact",
   "site.navbar_cta": "Réserver E2E",
+  "site.navbar_cta.enabled": true,
+  "site.navbar_cta.text": "Réserver E2E",
+  "site.navbar_cta.link": "/order",
+  "site.navbar_cta.shape": "pill",
+  "site.navbar_cta.size": "lg",
+  "site.navbar_cta.transparent.variant": "outline",
+  "site.navbar_cta.transparent.bg": "#102030",
+  "site.navbar_cta.transparent.text_color": "#f8fafc",
+  "site.navbar_cta.transparent.border_color": "#cbd5e1",
+  "site.navbar_cta.solid.variant": "filled",
+  "site.navbar_cta.solid.bg": "#315fce",
+  "site.navbar_cta.solid.text_color": "#ffffff",
+  "site.navbar_cta.solid.border_color": "#315fce",
+  "site.footer.content.custom_text": "© Website V3 connected",
+  "site.footer.content.show_logo": false,
+  "site.footer.content.show_description": false,
+  "site.footer.content.show_address": false,
+  "site.footer.content.show_phone": false,
+  "site.footer.content.show_hours": false,
+  "site.footer.content.social_links": "https://instagram.com/foody-v3-e2e",
+  "site.footer.layout": "centered",
+  "site.footer.settings.color_style": "custom",
+  "site.footer.settings.custom_bg": "#111827",
+  "site.footer.settings.custom_text": "#f8fafc",
+  "site.footer.settings.custom_muted": "#94a3b8",
+  "site.footer.settings.custom_accent": "#d6ff3f",
+  "site.footer.settings.custom_divider": "#334155",
   "site.favicon_url": "http://localhost:3000/logo-icon.svg",
   "site.checkout_config": `{"note":"connected checkout"}`,
   "site.order_page_info": `{"modal":["about"],"modal_text":"Connected order info"}`,
@@ -251,6 +290,22 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.navbar_color": "#FAF1D2",
   "page.appearance_overrides.navbar_text_color": "#253265",
   "page.appearance_overrides.navbar_overlay_text_color": "#F8FAFC",
+  "page.appearance_overrides.navbar_cta.transparent.variant": "ghost",
+  "page.appearance_overrides.navbar_cta.transparent.bg": "#102030",
+  "page.appearance_overrides.navbar_cta.transparent.text_color": "#ffffff",
+  "page.appearance_overrides.navbar_cta.transparent.border_color": "#ffffff",
+  "page.appearance_overrides.navbar_cta.solid.variant": "outline",
+  "page.appearance_overrides.navbar_cta.solid.bg": "#f8fafc",
+  "page.appearance_overrides.navbar_cta.solid.text_color": "#111827",
+  "page.appearance_overrides.navbar_cta.solid.border_color": "#111827",
+  "page.appearance_overrides.section_colors.categoryBar.bg": "#ffffff",
+  "page.appearance_overrides.section_colors.categoryBar.text": "#111827",
+  "page.appearance_overrides.section_colors.categoryBar.accent": "#315fce",
+  "page.appearance_overrides.section_colors.categoryBar.divider": "#e5e7eb",
+  "page.appearance_overrides.section_colors.categoryBarSticky.bg": "#111827",
+  "page.appearance_overrides.section_colors.categoryBarSticky.text": "#ffffff",
+  "page.appearance_overrides.section_colors.categoryBarSticky.accent": "#d6ff3f",
+  "page.appearance_overrides.section_colors.categoryBarSticky.divider": "#334155",
   "page.settings.menu_ids": [0],
   "page.settings.service_ids": [0],
   "section.is_visible": true,
@@ -273,6 +328,11 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.color_style": "custom",
   "section.settings.custom_bg": "#213547",
   "section.settings.custom_text": "#f7f8fa",
+  "section.settings.card_bg": "#f8fafc",
+  "section.settings.card_text": "#111827",
+  "section.settings.card_muted": "#64748b",
+  "section.settings.price_color": "#b42318",
+  "section.settings.accent_color": "#315fce",
   "section.settings.bg_image": "http://localhost:3000/logo-icon.svg",
   "section.settings.bg_overlay": true,
 };
@@ -283,6 +343,16 @@ function editorFor(
   isAction: boolean,
 ): FieldEditorContract {
   const action = isAction ? "action" : "field";
+  if (id.startsWith("site.footer.")) {
+    return {
+      kind: action,
+      scope: "site",
+      tab: id.startsWith("site.footer.content.") ? "Contenu" : "Apparence",
+      pageTitle: "Home",
+      publicSlug: "",
+      commit: "change",
+    };
+  }
   if (id.startsWith("site.") || id.startsWith("section.content.custom_") ||
       id.startsWith("section.content.show_") || id === "section.content.social_links") {
     const appearance = [
@@ -307,18 +377,37 @@ function editorFor(
     const order = id === "page.settings.menu_ids";
     const catering = id === "page.settings.service_ids";
     const defaultPage = id === "page.is_default";
+    const categoryBar = id.includes(
+      "page.appearance_overrides.section_colors.categoryBar",
+    );
+    const orderPage = order || categoryBar;
+    const pageCtaState = id.startsWith(
+      "page.appearance_overrides.navbar_cta.",
+    );
+    const stickyCategoryState = id.startsWith(
+      "page.appearance_overrides.section_colors.categoryBarSticky.",
+    );
     return {
       kind: action,
       scope,
       tab: id === "page.title" ? "Contenu" :
+        id.startsWith("page.appearance_overrides.navbar_cta") ? "Réglages" :
         id === "page.appearance_overrides.hide_navbar_name" ? "Réglages" :
         id.startsWith("page.appearance_overrides.") ? "Apparence" : "Réglages",
-      pageTitle: order ? "Brunch Order" : catering ? "Office Catering" :
+      pageTitle: orderPage ? "Brunch Order" : catering ? "Office Catering" :
         defaultPage ? "Dinner Order" : "About",
-      publicSlug: order ? "brunch-order" : catering ? "office-catering" :
+      publicSlug: orderPage ? "brunch-order" : catering ? "office-catering" :
         defaultPage ? "dinner-order" :
         id === "page.slug" ? String(FIELD_TEST_VALUES[id]) : "about",
       commit: "change",
+      prerequisite: pageCtaState
+        ? { id: "page.appearance_overrides.navbar_cta", value: true }
+        : stickyCategoryState
+          ? {
+              id: "page.appearance_overrides.section_colors.categoryBarSticky",
+              value: true,
+            }
+          : undefined,
     };
   }
 
@@ -327,14 +416,27 @@ function editorFor(
     "section.content.cta_text", "section.content.cta_link",
   ].includes(id);
   const scrolling = id === "section.content.text";
+  const menuHighlights = [
+    "section.settings.card_bg",
+    "section.settings.card_text",
+    "section.settings.card_muted",
+    "section.settings.price_color",
+    "section.settings.accent_color",
+  ].includes(id);
   const appearance = id === "section.layout" || id.startsWith("section.settings.");
   return {
     kind: action,
     scope,
     tab: appearance ? "Apparence" : id === "section.is_visible" || id === "section.page_id" ? "Réglages" : "Contenu",
-    pageTitle: hero || scrolling ? "Home" : "About",
-    sectionLabel: hero ? "Hero banner" : scrolling ? "Scrolling text" : "Text and image",
-    publicSlug: hero || scrolling ? "" : "about",
+    pageTitle: hero || scrolling || menuHighlights ? "Home" : "About",
+    sectionLabel: hero
+      ? "Hero banner"
+      : scrolling
+        ? "Scrolling text"
+        : menuHighlights
+          ? "Menu highlights"
+          : "Text and image",
+    publicSlug: hero || scrolling || menuHighlights ? "" : "about",
     commit: "change",
     prerequisite: id === "section.settings.custom_bg" || id === "section.settings.custom_text"
       ? { id: "section.settings.color_style", value: "custom" }
@@ -368,7 +470,7 @@ function expectedFor(id: string, value: TestValue): string {
   if (id === "site.navbar_hamburger" && value === "compact") {
     return "mobile";
   }
-  if (id === "section.content.social_links") {
+  if (id === "section.content.social_links" || id === "site.footer.content.social_links") {
     return JSON.stringify([
       { platform: "instagram", url: value },
     ]);
@@ -396,11 +498,38 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   site("site.navbar_show_links", ["navbar_show_links"], "nav a", "visible"),
   site("site.navbar_hamburger", ["navbar_hamburger"], "nav", "visible"),
   site("site.navbar_cta", ["navbar_cta"], "nav", "text"),
+  site("site.navbar_cta.enabled", ["navbar_cta", "enabled"], "nav", "visible"),
+  site("site.navbar_cta.text", ["navbar_cta", "text"], "nav", "text"),
+  site("site.navbar_cta.link", ["navbar_cta", "link"], "nav", "value"),
+  site("site.navbar_cta.shape", ["navbar_cta", "shape"], "nav", "style"),
+  site("site.navbar_cta.size", ["navbar_cta", "size"], "nav", "style"),
+  site("site.navbar_cta.transparent.variant", ["navbar_cta", "transparent", "variant"], "nav", "style"),
+  site("site.navbar_cta.transparent.bg", ["navbar_cta", "transparent", "bg"], "nav", "style"),
+  site("site.navbar_cta.transparent.text_color", ["navbar_cta", "transparent", "text_color"], "nav", "style"),
+  site("site.navbar_cta.transparent.border_color", ["navbar_cta", "transparent", "border_color"], "nav", "style"),
+  site("site.navbar_cta.solid.variant", ["navbar_cta", "solid", "variant"], "nav", "style"),
+  site("site.navbar_cta.solid.bg", ["navbar_cta", "solid", "bg"], "nav", "style"),
+  site("site.navbar_cta.solid.text_color", ["navbar_cta", "solid", "text_color"], "nav", "style"),
+  site("site.navbar_cta.solid.border_color", ["navbar_cta", "solid", "border_color"], "nav", "style"),
   site("site.favicon_url", ["favicon_url"], "link[rel='icon']", "value"),
   site("site.checkout_config", ["checkout_config"], "[data-website-v3-page]", "count"),
   site("site.order_page_info", ["order_page_info"], "[data-website-v3-page]", "count"),
   siteAction("site.show_orders_link", ["show_orders_link"]),
   liveSiteAction("site.stories_enabled", ["stories_enabled"]),
+  footer("site.footer.content.custom_text", ["content", "custom_text"]),
+  footer("site.footer.content.show_logo", ["content", "show_logo"]),
+  footer("site.footer.content.show_description", ["content", "show_description"]),
+  footer("site.footer.content.show_address", ["content", "show_address"]),
+  footer("site.footer.content.show_phone", ["content", "show_phone"]),
+  footer("site.footer.content.show_hours", ["content", "show_hours"]),
+  footer("site.footer.content.social_links", ["content", "social_links"]),
+  footer("site.footer.layout", ["layout"]),
+  footer("site.footer.settings.color_style", ["settings", "color_style"]),
+  footer("site.footer.settings.custom_bg", ["settings", "custom_bg"]),
+  footer("site.footer.settings.custom_text", ["settings", "custom_text"]),
+  footer("site.footer.settings.custom_muted", ["settings", "custom_muted"]),
+  footer("site.footer.settings.custom_accent", ["settings", "custom_accent"]),
+  footer("site.footer.settings.custom_divider", ["settings", "custom_divider"]),
   page("page.title", ["title"], "[data-page-title]", "text"),
   page("page.slug", ["slug"], "[data-website-v3-page]", "value"),
   page("page.type", ["type"], "[data-website-v3-page]", "value"),
@@ -497,6 +626,24 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
     "nav",
     "style",
   ),
+  action("page.appearance_overrides.navbar_cta", "page", ["appearance_overrides", "navbar_cta"]),
+  page("page.appearance_overrides.navbar_cta.transparent.variant", ["appearance_overrides", "navbar_cta", "transparent", "variant"], "nav", "style"),
+  page("page.appearance_overrides.navbar_cta.transparent.bg", ["appearance_overrides", "navbar_cta", "transparent", "bg"], "nav", "style"),
+  page("page.appearance_overrides.navbar_cta.transparent.text_color", ["appearance_overrides", "navbar_cta", "transparent", "text_color"], "nav", "style"),
+  page("page.appearance_overrides.navbar_cta.transparent.border_color", ["appearance_overrides", "navbar_cta", "transparent", "border_color"], "nav", "style"),
+  page("page.appearance_overrides.navbar_cta.solid.variant", ["appearance_overrides", "navbar_cta", "solid", "variant"], "nav", "style"),
+  page("page.appearance_overrides.navbar_cta.solid.bg", ["appearance_overrides", "navbar_cta", "solid", "bg"], "nav", "style"),
+  page("page.appearance_overrides.navbar_cta.solid.text_color", ["appearance_overrides", "navbar_cta", "solid", "text_color"], "nav", "style"),
+  page("page.appearance_overrides.navbar_cta.solid.border_color", ["appearance_overrides", "navbar_cta", "solid", "border_color"], "nav", "style"),
+  page("page.appearance_overrides.section_colors.categoryBar.bg", ["appearance_overrides", "section_colors", "categoryBar", "bg"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.text", ["appearance_overrides", "section_colors", "categoryBar", "text"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.accent", ["appearance_overrides", "section_colors", "categoryBar", "accent"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.divider", ["appearance_overrides", "section_colors", "categoryBar", "divider"], "order", "color", ["order"]),
+  action("page.appearance_overrides.section_colors.categoryBarSticky", "page", ["appearance_overrides", "section_colors", "categoryBarSticky"]),
+  page("page.appearance_overrides.section_colors.categoryBarSticky.bg", ["appearance_overrides", "section_colors", "categoryBarSticky", "bg"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBarSticky.text", ["appearance_overrides", "section_colors", "categoryBarSticky", "text"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBarSticky.accent", ["appearance_overrides", "section_colors", "categoryBarSticky", "accent"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBarSticky.divider", ["appearance_overrides", "section_colors", "categoryBarSticky", "divider"], "order", "color", ["order"]),
   page(
     "page.settings.menu_ids",
     ["settings", "menu_ids"],
@@ -541,6 +688,11 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.color_style", ["settings", "color_style"], "[data-website-section]", "style"),
   section("section.settings.custom_bg", ["settings", "custom_bg"], "[data-website-section]", "style"),
   section("section.settings.custom_text", ["settings", "custom_text"], "[data-website-section]", "style"),
+  section("section.settings.card_bg", ["settings", "card_bg"], "menu_highlights", "color"),
+  section("section.settings.card_text", ["settings", "card_text"], "menu_highlights", "color"),
+  section("section.settings.card_muted", ["settings", "card_muted"], "menu_highlights", "color"),
+  section("section.settings.price_color", ["settings", "price_color"], "menu_highlights", "color"),
+  section("section.settings.accent_color", ["settings", "accent_color"], "menu_highlights", "color"),
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
   action("section.create", "section", ["sections"]),

@@ -10,6 +10,7 @@ import {
   controlClass,
 } from "./controls";
 import { SectionContentEditors } from "./SectionContentEditors";
+import { MenuHighlightsAppearanceEditor } from "./MenuHighlightsAppearanceEditor";
 
 export function SectionInspector({
   restaurantId,
@@ -71,7 +72,8 @@ export function SectionInspector({
               <option value="custom">Personnalisée</option>
             </select>
           </InspectorField>
-          {section.settings.color_style === "custom" ? (
+          {section.settings.color_style === "custom" &&
+          section.section_type !== "menu_highlights" ? (
             <>
               <ColorField
                 fieldId="section.settings.custom_bg"
@@ -114,6 +116,12 @@ export function SectionInspector({
             }
           />
         </InspectorGroup>
+        {section.section_type === "menu_highlights" ? (
+          <MenuHighlightsAppearanceEditor
+            value={section.settings}
+            onChange={onChange}
+          />
+        ) : null}
       </>
     );
   }

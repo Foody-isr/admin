@@ -21,6 +21,8 @@ import {
   ToggleField,
   controlClass,
 } from "./controls";
+import { FooterEditor } from "./FooterEditor";
+import { NavigationCtaEditor } from "./NavigationCtaEditor";
 
 export function SiteInspector({
   tab,
@@ -54,7 +56,6 @@ export function SiteInspector({
   onRestaurantLogoUpload: (file: File) => Promise<void>;
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
-  const social = socialRecord(footer?.content.social_links);
   const [instagramConnected, setInstagramConnected] = useState(false);
   const [storiesEnabled, setStoriesEnabled] = useState(false);
   const [storiesBusy, setStoriesBusy] = useState(false);
@@ -160,39 +161,60 @@ export function SiteInspector({
 
   if (tab === "content") {
     return (
-      <InspectorGroup
-        title="Introduction"
-        description="La signature est affichée par les expériences publiques compatibles."
-      >
-        <InspectorField label="Signature">
-          <textarea
-            data-field-id="site.tagline"
-            value={string(config.tagline)}
-            onChange={(event) => onChange(["tagline"], event.target.value)}
-            className={`${controlClass} min-h-20 py-2.5`}
-            placeholder="Une phrase courte qui raconte votre cuisine."
+      <>
+        <InspectorGroup
+          title="Introduction"
+          description="La signature est affichée par les expériences publiques compatibles."
+        >
+          <InspectorField label="Signature">
+            <textarea
+              data-field-id="site.tagline"
+              value={string(config.tagline)}
+              onChange={(event) => onChange(["tagline"], event.target.value)}
+              className={`${controlClass} min-h-20 py-2.5`}
+              placeholder="Une phrase courte qui raconte votre cuisine."
+            />
+          </InspectorField>
+        </InspectorGroup>
+        {footer ? (
+          <FooterEditor
+            footer={footer}
+            tab="content"
+            onChange={onFooterChange}
           />
-        </InspectorField>
-      </InspectorGroup>
+        ) : (
+          <MissingFooter />
+        )}
+      </>
     );
   }
 
   if (tab === "appearance") {
     return (
-      <InspectorGroup
-        title="Éléments visuels partagés"
-        description="Le logo, la navigation et le pied de page sont globaux. Les thèmes, couleurs et typographies se règlent maintenant dans l’onglet Apparence de chaque page."
-      >
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
-          Sélectionnez une page dans la colonne de gauche pour personnaliser son
-          thème. Ouvrez Réglages ici pour modifier les logos, la barre de
-          navigation et le pied de page partagés.
-        </div>
-      </InspectorGroup>
+      <>
+        <InspectorGroup
+          title="Éléments visuels partagés"
+          description="Le logo, la navigation et le pied de page sont globaux. Les thèmes, couleurs et typographies se règlent maintenant dans l’onglet Apparence de chaque page."
+        >
+          <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
+            Sélectionnez une page dans la colonne de gauche pour personnaliser son
+            thème. Ouvrez Réglages ici pour modifier les logos et la barre de
+            navigation partagés.
+          </div>
+        </InspectorGroup>
+        {footer ? (
+          <FooterEditor
+            footer={footer}
+            tab="appearance"
+            onChange={onFooterChange}
+          />
+        ) : (
+          <MissingFooter />
+        )}
+      </>
     );
   }
 
-  const cta = record(config.navbar_cta);
   const navLayout = record(config.nav_layout);
   const contentNav = {
     desktop: "full",
@@ -457,21 +479,13 @@ export function SiteInspector({
             updateNavSide("shopping", { bottom_bar: value })
           }
         />
-        <InspectorField label="Libellé du bouton">
-          <input
-            data-field-id="site.navbar_cta"
-            value={string(cta.text)}
-            onChange={(event) =>
-              onChange(["navbar_cta"], {
-                ...cta,
-                enabled: true,
-                text: event.target.value,
-              })
-            }
-            className={controlClass}
-            placeholder="Commander"
+        <div className="border-t border-slate-100 pt-4">
+          <NavigationCtaEditor
+            value={record(config.navbar_cta)}
+            allowInherit={false}
+            onChange={(value) => onChange(["navbar_cta"], value ?? {})}
           />
-        </InspectorField>
+        </div>
       </InspectorGroup>
 
       <InspectorGroup
@@ -550,86 +564,6 @@ export function SiteInspector({
         ) : null}
       </InspectorGroup>
 
-      {footer ? (
-        <>
-          <InspectorGroup
-            title="Pied de page"
-            description="Navigation et pied de page sont regroupés dans les réglages globaux du site."
-          >
-            <input
-              data-field-id="section.content.custom_text"
-              value={string(footer.content.custom_text)}
-              onChange={(event) =>
-                onFooterChange(["content", "custom_text"], event.target.value)
-              }
-              className={controlClass}
-              placeholder="© Votre restaurant"
-            />
-            <ToggleField
-              fieldId="section.content.show_address"
-              label="Afficher l’adresse"
-              checked={boolean(footer.content.show_address, true)}
-              onChange={(value) =>
-                onFooterChange(["content", "show_address"], value)
-              }
-            />
-            <ToggleField
-              fieldId="section.content.show_phone"
-              label="Afficher le téléphone"
-              checked={boolean(footer.content.show_phone, true)}
-              onChange={(value) =>
-                onFooterChange(["content", "show_phone"], value)
-              }
-            />
-            <ToggleField
-              fieldId="section.content.show_hours"
-              label="Afficher les horaires"
-              checked={boolean(footer.content.show_hours, true)}
-              onChange={(value) =>
-                onFooterChange(["content", "show_hours"], value)
-              }
-            />
-          </InspectorGroup>
-          <InspectorGroup
-            title="Réseaux sociaux"
-            description="Seuls les liens renseignés sont affichés."
-          >
-            {(["instagram", "facebook", "tiktok"] as const).map((network) => (
-              <InspectorField
-                key={network}
-                label={network.charAt(0).toUpperCase() + network.slice(1)}
-              >
-                <input
-                  type="url"
-                  data-field-id="section.content.social_links"
-                  value={social[network] ?? ""}
-                  onChange={(event) =>
-                    onFooterChange(
-                      ["content", "social_links"],
-                      updateSocialLinks(
-                        footer.content.social_links,
-                        network,
-                        event.target.value,
-                      ),
-                    )
-                  }
-                  className={controlClass}
-                  placeholder={`https://${network}.com/...`}
-                />
-              </InspectorField>
-            ))}
-          </InspectorGroup>
-        </>
-      ) : (
-        <InspectorGroup title="Pied de page">
-          <p className="rounded-xl bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
-            Aucune section footer canonique n’est disponible. Les réglages
-            associés ne sont pas exposés pour éviter une configuration sans
-            effet.
-          </p>
-        </InspectorGroup>
-      )}
-
       <InspectorGroup title="Formulaires avancés">
         <JsonField
           fieldId="site.checkout_config"
@@ -645,6 +579,17 @@ export function SiteInspector({
         />
       </InspectorGroup>
     </>
+  );
+}
+
+function MissingFooter() {
+  return (
+    <InspectorGroup title="Pied de page">
+      <p className="rounded-xl bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
+        Aucune section footer canonique n’est disponible. Les réglages associés
+        ne sont pas exposés pour éviter une configuration sans effet.
+      </p>
+    </InspectorGroup>
   );
 }
 
@@ -812,39 +757,6 @@ function JsonField({
       />
     </InspectorField>
   );
-}
-
-function socialRecord(value: unknown): Record<string, string> {
-  if (!Array.isArray(value)) return {};
-  return Object.fromEntries(
-    value.flatMap((entry) => {
-      if (!entry || typeof entry !== "object") return [];
-      const social = entry as Record<string, unknown>;
-      return typeof social.platform === "string" &&
-        typeof social.url === "string"
-        ? [[social.platform, social.url]]
-        : [];
-    }),
-  );
-}
-
-function updateSocialLinks(
-  value: unknown,
-  platform: string,
-  url: string,
-): { platform: string; url: string }[] {
-  const links = Array.isArray(value)
-    ? value.filter(
-        (entry): entry is { platform: string; url: string } =>
-          !!entry &&
-          typeof entry === "object" &&
-          typeof (entry as Record<string, unknown>).platform === "string" &&
-          typeof (entry as Record<string, unknown>).url === "string",
-      )
-    : [];
-  const next = links.filter((entry) => entry.platform !== platform);
-  if (url.trim()) next.push({ platform, url });
-  return next;
 }
 
 function record(value: unknown): Record<string, unknown> {

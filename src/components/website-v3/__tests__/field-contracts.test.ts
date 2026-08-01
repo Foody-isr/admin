@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { FIELD_CONTRACTS } from "../field-contracts";
 import { SiteInspector } from "../SiteInspector";
 import { publicAddressForPage } from "@/lib/website-v3/url-model";
+import { LocaleProvider } from "@/lib/i18n";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -113,6 +114,63 @@ test("page navigation visuals have editor-to-renderer contracts", () => {
   });
 });
 
+test("component appearance fields map to exact normalized draft paths", () => {
+  const contracts = new Map(
+    FIELD_CONTRACTS.map((contract) => [contract.id, contract]),
+  );
+  const expected = new Map<string, readonly (string | number)[]>([
+    ["site.navbar_cta.transparent.variant", ["config", "navbar_cta", "transparent", "variant"]],
+    ["site.navbar_cta.solid.border_color", ["config", "navbar_cta", "solid", "border_color"]],
+    ["page.appearance_overrides.navbar_cta.transparent.variant", ["appearance_overrides", "navbar_cta", "transparent", "variant"]],
+    ["page.appearance_overrides.navbar_cta.solid.border_color", ["appearance_overrides", "navbar_cta", "solid", "border_color"]],
+    ["site.footer.settings.custom_bg", ["settings", "custom_bg"]],
+    ["site.footer.settings.custom_muted", ["settings", "custom_muted"]],
+    ["site.footer.settings.custom_accent", ["settings", "custom_accent"]],
+    ["site.footer.settings.custom_divider", ["settings", "custom_divider"]],
+    ["page.appearance_overrides.section_colors.categoryBar.bg", ["appearance_overrides", "section_colors", "categoryBar", "bg"]],
+    ["page.appearance_overrides.section_colors.categoryBarSticky.bg", ["appearance_overrides", "section_colors", "categoryBarSticky", "bg"]],
+    ["page.appearance_overrides.section_colors.categoryBarSticky.divider", ["appearance_overrides", "section_colors", "categoryBarSticky", "divider"]],
+    ["section.settings.card_bg", ["settings", "card_bg"]],
+    ["section.settings.card_text", ["settings", "card_text"]],
+    ["section.settings.card_muted", ["settings", "card_muted"]],
+    ["section.settings.price_color", ["settings", "price_color"]],
+    ["section.settings.accent_color", ["settings", "accent_color"]],
+  ]);
+
+  expected.forEach((path, id) => {
+    assert.deepEqual(contracts.get(id)?.statePath, path, id);
+  });
+  assert.equal(
+    contracts.get("site.footer.settings.custom_bg")?.editor.scope,
+    "site",
+  );
+  assert.deepEqual(
+    contracts.get(
+      "page.appearance_overrides.navbar_cta.transparent.variant",
+    )?.editor.prerequisite,
+    { id: "page.appearance_overrides.navbar_cta", value: true },
+  );
+  assert.deepEqual(
+    contracts.get(
+      "page.appearance_overrides.section_colors.categoryBarSticky.bg",
+    )?.editor.prerequisite,
+    {
+      id: "page.appearance_overrides.section_colors.categoryBarSticky",
+      value: true,
+    },
+  );
+  assert.equal(
+    contracts.get(
+      "page.appearance_overrides.section_colors.categoryBar.bg",
+    )?.editor.pageTitle,
+    "Brunch Order",
+  );
+  assert.equal(
+    contracts.get("section.settings.card_bg")?.editor.sectionLabel,
+    "Menu highlights",
+  );
+});
+
 test("builder public addresses present one route for every page kind", () => {
   assert.deepEqual(
     [
@@ -140,19 +198,23 @@ test("builder exposes system links without inventing rail pages", () => {
   ]);
 
   const html = renderToStaticMarkup(
-    React.createElement(SiteInspector, {
-      tab: "settings",
-      config: { show_orders_link: true, stories_enabled: true },
-      restaurantId: 24,
-      pages: [],
-      footer: null,
-      onChange: () => undefined,
-      onPageVisibilityChange: () => undefined,
-      onFooterChange: () => undefined,
-      onStoriesNavigationAvailabilityChange: () => undefined,
-      onRestaurantLogoUpload: async () => undefined,
-      onRestaurantLogoRemove: async () => undefined,
-    }),
+    React.createElement(
+      LocaleProvider,
+      null,
+      React.createElement(SiteInspector, {
+        tab: "settings",
+        config: { show_orders_link: true, stories_enabled: true },
+        restaurantId: 24,
+        pages: [],
+        footer: null,
+        onChange: () => undefined,
+        onPageVisibilityChange: () => undefined,
+        onFooterChange: () => undefined,
+        onStoriesNavigationAvailabilityChange: () => undefined,
+        onRestaurantLogoUpload: async () => undefined,
+        onRestaurantLogoRemove: async () => undefined,
+      }),
+    ),
   );
 
   assert.match(html, /Liens système/);

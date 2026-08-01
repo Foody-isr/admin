@@ -99,7 +99,11 @@ async function selectContractContext(
   await openInspectorTab(page, contract.editor.tab);
   if (contract.editor.prerequisite) {
     const prerequisite = page.locator(`[data-field-id="${contract.editor.prerequisite.id}"]`);
-    await prerequisite.selectOption(String(contract.editor.prerequisite.value));
+    if ((await prerequisite.getAttribute('type')) === 'checkbox') {
+      await prerequisite.setChecked(Boolean(contract.editor.prerequisite.value));
+    } else {
+      await prerequisite.selectOption(String(contract.editor.prerequisite.value));
+    }
     await waitForDraftSaved(page);
   }
 }

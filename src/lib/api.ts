@@ -722,9 +722,17 @@ export interface SectionColors {
   navbar?: { bg?: string; text?: string };
   hero?: { bg?: string; text?: string };
   metadata?: { bg?: string; text?: string };
-  categoryBar?: { bg?: string; text?: string; accent?: string };
+  categoryBar?: { bg?: string; text?: string; accent?: string; divider?: string };
+  categoryBarSticky?: { bg?: string; text?: string; accent?: string; divider?: string };
   /** Catering shop: bg, buttons/accent, and button-label text. */
   catering?: { bg?: string; text?: string; accent?: string };
+}
+
+export interface NavbarCtaSurfaceStyle {
+  variant?: 'filled' | 'outline' | 'ghost';
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
 }
 
 export interface WebsiteConfig {
@@ -769,10 +777,13 @@ export interface WebsiteConfig {
     link?: string;
     bg?: string;
     text_color?: string;
+    border_color?: string;
     /** Button style. shape = corner radius; size = padding scale; variant = fill treatment. */
     shape?: 'pill' | 'rounded' | 'square';
     size?: 'sm' | 'md' | 'lg';
     variant?: 'filled' | 'outline' | 'ghost';
+    transparent?: NavbarCtaSurfaceStyle;
+    solid?: NavbarCtaSurfaceStyle;
   } | null;
   /** Navbar composition: inline page links on/off, and the hamburger drawer
    *  button ('mobile' = phones only, 'always', or 'off'). */

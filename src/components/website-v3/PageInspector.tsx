@@ -23,11 +23,14 @@ import {
 import type {
   DraftPagePayload,
   FieldError,
+  NavbarCtaOverride,
   StatePath,
   WebsitePageType,
 } from "@/lib/website-v3/types";
 import { ColorField, InspectorField, InspectorGroup, ToggleField, controlClass } from "./controls";
+import { CategoryBarStateEditor } from "./CategoryBarStateEditor";
 import { CommerceSelector } from "./CommerceSelector";
+import { NavigationCtaEditor } from "./NavigationCtaEditor";
 import { ReadOnlyAddress } from "./PageAddress";
 
 export function PageInspector({
@@ -223,6 +226,22 @@ export function PageInspector({
             />
           </InspectorField>
         </InspectorGroup>
+        {page.type === "order" ? (
+          <InspectorGroup
+            title={t("websiteV3CategoryBarTitle")}
+            description={t("websiteV3CategoryBarDescription")}
+          >
+            <CategoryBarStateEditor
+              value={record(appearance.section_colors)}
+              onChange={(value) =>
+                onChange(
+                  ["appearance_overrides", "section_colors"],
+                  value,
+                )
+              }
+            />
+          </InspectorGroup>
+        ) : null}
         {page.type === "order" || page.type === "catering" ? (
           <CommerceAppearance
             page={page}
@@ -482,6 +501,24 @@ export function PageInspector({
             )
           }
         />
+        <div className="border-t border-slate-100 pt-4">
+          <NavigationCtaEditor
+            value={appearance.navbar_cta ?? {}}
+            inherited={record(config.navbar_cta) as NavbarCtaOverride}
+            allowInherit
+            onChange={(value) => {
+              if (value) {
+                onChange(
+                  ["appearance_overrides", "navbar_cta"],
+                  value,
+                );
+                return;
+              }
+              const { navbar_cta: _cta, ...nextAppearance } = appearance;
+              onChange(["appearance_overrides"], nextAppearance);
+            }}
+          />
+        </div>
         <InspectorField label="Pied de page">
           <select
             value={appearance.footer_mode ?? "inherit"}
