@@ -141,6 +141,21 @@ function action(
   }, true);
 }
 
+function siteAction(
+  id: string,
+  path: readonly (string | number)[],
+): FieldContract {
+  return contract(
+    {
+      id,
+      scope: "site",
+      statePath: ["config", ...path],
+      pageTypes: ALL_PAGES,
+    },
+    true,
+  );
+}
+
 function contract(
   base: Pick<FieldContract, "id" | "scope" | "statePath" | "pageTypes">,
   isAction = false,
@@ -197,6 +212,8 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "site.favicon_url": "http://localhost:3000/logo-icon.svg",
   "site.checkout_config": `{"note":"connected checkout"}`,
   "site.order_page_info": `{"modal":["about"],"modal_text":"Connected order info"}`,
+  "site.show_orders_link": false,
+  "site.stories_enabled": true,
   "site.layout_default": "compact",
   "site.layout_default_mobile": "magazine",
   "site.category_banner_style": "text-block",
@@ -368,6 +385,8 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   site("site.favicon_url", ["favicon_url"], "link[rel='icon']", "value"),
   site("site.checkout_config", ["checkout_config"], "[data-website-v3-page]", "count"),
   site("site.order_page_info", ["order_page_info"], "[data-website-v3-page]", "count"),
+  siteAction("site.show_orders_link", ["show_orders_link"]),
+  siteAction("site.stories_enabled", ["stories_enabled"]),
   page("page.title", ["title"], "[data-page-title]", "text"),
   page("page.slug", ["slug"], "[data-website-v3-page]", "value"),
   page("page.type", ["type"], "[data-website-v3-page]", "value"),

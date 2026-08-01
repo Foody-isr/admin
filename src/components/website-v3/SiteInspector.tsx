@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { SectionImageUploader } from "@/components/website/SectionEditors";
+import { getSocialConnection } from "@/lib/api";
 import {
   pageKey,
   type DraftConfigPayload,
@@ -46,6 +48,7 @@ export function SiteInspector({
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
   const social = socialRecord(footer?.content.social_links);
+  const [instagramConnected, setInstagramConnected] = useState(false);
   const effectiveRestaurantLogoUrl = Object.prototype.hasOwnProperty.call(
     config,
     "restaurant_logo_url",
@@ -53,6 +56,24 @@ export function SiteInspector({
     ? string(config.restaurant_logo_url)
     : restaurantLogoUrl;
   const navbarStyle = normalizeNavbarStyle(config.navbar_style);
+
+  useEffect(() => {
+    let active = true;
+    getSocialConnection(restaurantId, "instagram")
+      .then((connection) => {
+        if (active) {
+          setInstagramConnected(
+            connection.connected === true && connection.enabled !== false,
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setInstagramConnected(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [restaurantId]);
 
   if (tab === "content") {
     return (
@@ -368,6 +389,71 @@ export function SiteInspector({
             placeholder="Commander"
           />
         </InspectorField>
+      </InspectorGroup>
+
+      <InspectorGroup
+        title="Liens système"
+        description="Ces destinations globales complètent les pages publiées sans créer de fausses pages dans le rail."
+      >
+        <ToggleField
+          fieldId="site.show_orders_link"
+          label="Mes commandes"
+          description="Affiche l’accès à l’historique des commandes dans la navigation publique."
+          checked={boolean(config.show_orders_link, true)}
+          onChange={(value) => onChange(["show_orders_link"], value)}
+        />
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
+          <div>
+            <p className="text-sm font-medium text-slate-800">Instagram</p>
+            <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+              {instagramConnected
+                ? "Instagram connecté"
+                : "Instagram non connecté"}
+            </p>
+          </div>
+          <span
+            className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+              instagramConnected
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {instagramConnected ? "Connecté" : "Non connecté"}
+          </span>
+        </div>
+        <label
+          className={`flex items-start justify-between gap-4 rounded-xl border border-slate-200 p-3 ${
+            instagramConnected ? "cursor-pointer" : "cursor-not-allowed opacity-60"
+          }`}
+        >
+          <span>
+            <span className="block text-sm font-medium text-slate-800">
+              Afficher Stories
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">
+              Stories apparaît seulement lorsque cette option et la connexion
+              Instagram sont actives.
+            </span>
+          </span>
+          <input
+            data-field-id="site.stories_enabled"
+            type="checkbox"
+            checked={boolean(config.stories_enabled, false)}
+            disabled={!instagramConnected}
+            onChange={(event) =>
+              onChange(["stories_enabled"], event.target.checked)
+            }
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#315fce]"
+          />
+        </label>
+        {!instagramConnected ? (
+          <Link
+            href={`/${restaurantId}/reels`}
+            className="inline-flex text-xs font-semibold text-[#315fce] underline underline-offset-2"
+          >
+            Configurer Instagram dans les réglages Reels
+          </Link>
+        ) : null}
       </InspectorGroup>
 
       {footer ? (

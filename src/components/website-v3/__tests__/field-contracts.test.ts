@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { test } from "node:test";
+import * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { FIELD_CONTRACTS } from "../field-contracts";
+import { SiteInspector } from "../SiteInspector";
 import { publicAddressForPage } from "@/lib/website-v3/url-model";
+
+(globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 test("every statically rendered field ID has a registered contract", () => {
   const ids = new Set(FIELD_CONTRACTS.map((contract) => contract.id));
@@ -119,6 +124,46 @@ test("builder public addresses present one route for every page kind", () => {
     ],
     ["/order", "/catering", "/brunch", "/notre-histoire", "/"],
   );
+});
+
+test("builder exposes system links without inventing rail pages", () => {
+  const contracts = new Map(
+    FIELD_CONTRACTS.map((contract) => [contract.id, contract]),
+  );
+  assert.deepEqual(contracts.get("site.show_orders_link")?.statePath, [
+    "config",
+    "show_orders_link",
+  ]);
+  assert.deepEqual(contracts.get("site.stories_enabled")?.statePath, [
+    "config",
+    "stories_enabled",
+  ]);
+
+  const html = renderToStaticMarkup(
+    React.createElement(SiteInspector, {
+      tab: "settings",
+      config: { show_orders_link: true, stories_enabled: true },
+      restaurantId: 24,
+      pages: [],
+      footer: null,
+      onChange: () => undefined,
+      onPageVisibilityChange: () => undefined,
+      onFooterChange: () => undefined,
+      onRestaurantLogoUpload: async () => undefined,
+      onRestaurantLogoRemove: async () => undefined,
+    }),
+  );
+
+  assert.match(html, /Liens système/);
+  assert.match(html, /Instagram non connecté/);
+  assert.match(html, /data-field-id="site.show_orders_link"/);
+  const storiesToggle = html.match(
+    /<input[^>]*data-field-id="site.stories_enabled"[^>]*>/,
+  )?.[0];
+  assert.ok(storiesToggle, "Stories toggle is rendered");
+  assert.match(storiesToggle, /disabled/);
+  assert.match(html, /href="\/24\/reels"/);
+  assert.doesNotMatch(html, /site\.navigation-page\.(?:home|stories)/);
 });
 
 function sourceFiles(directory: string): string[] {
