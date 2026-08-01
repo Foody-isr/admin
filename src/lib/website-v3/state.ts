@@ -90,12 +90,14 @@ export function reconcileLegacyWebsiteDraft(
   const legacyOrderPage =
     state.config.landing_enabled === false &&
     !sourcePages.some((page) => page.type === "order")
-      ? sourcePages.find(
-          (page) =>
-            !isTechnicalSitePage(page) &&
-            (normalizeSlug(page.slug) === "menu" ||
-              normalizeSlug(page.slug) === "order"),
-        )
+      ? sourcePages
+          .filter(
+            (page) =>
+              !isTechnicalSitePage(page) &&
+              (normalizeSlug(page.slug) === "menu" ||
+                normalizeSlug(page.slug) === "order"),
+          )
+          .sort(compareLegacyOrderPages)[0]
       : undefined;
   const technicalPageIDs = new Set(
     technicalPages.flatMap((page) => page.id === undefined ? [] : [page.id]),
@@ -130,8 +132,13 @@ export function reconcileLegacyWebsiteDraft(
   const pages = keptPages.map((page) => {
     let slug = normalizeSlug(page.slug);
     const originalSlug = slug;
+    const repairsUnselectedLegacyOrder =
+      legacyOrderPage !== undefined &&
+      page.type !== "order" &&
+      slug === "order";
     if (
       (slug === "order" && page.type === "order") ||
+      repairsUnselectedLegacyOrder ||
       (slug === "catering" && page.type === "catering")
     ) {
       slug = nextAvailableSlug(
@@ -744,6 +751,20 @@ function nextAvailableSlug(base: string, taken: ReadonlySet<string>): string {
   let suffix = 2;
   while (taken.has(`${base}-${suffix}`)) suffix += 1;
   return `${base}-${suffix}`;
+}
+
+function compareLegacyOrderPages(
+  left: DraftPagePayload,
+  right: DraftPagePayload,
+): number {
+  const leftPriority = normalizeSlug(left.slug) === "menu" ? 0 : 1;
+  const rightPriority = normalizeSlug(right.slug) === "menu" ? 0 : 1;
+  if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+
+  const leftID = left.id ?? Number.MAX_SAFE_INTEGER;
+  const rightID = right.id ?? Number.MAX_SAFE_INTEGER;
+  if (leftID !== rightID) return leftID - rightID;
+  return (left.tmp_id ?? "").localeCompare(right.tmp_id ?? "");
 }
 
 function legacyPagesFromSections(

@@ -87,6 +87,52 @@ function mamieLegacyDraft(): DraftStatePayload {
   });
 }
 
+function dualLegacyOrderDraft(): DraftStatePayload {
+  return normalizeDraftState({
+    config: { landing_enabled: false },
+    pages: [
+      {
+        id: 10,
+        type: "content",
+        slug: "order",
+        title: "Commande legacy",
+        sort_order: 0,
+      },
+      {
+        id: 20,
+        type: "content",
+        slug: "menu",
+        title: "Menu legacy",
+        sort_order: 1,
+      },
+    ],
+    sections: [
+      {
+        id: 100,
+        section_type: "hero_banner",
+        page: "order",
+        page_id: 10,
+        sort_order: 0,
+        is_visible: true,
+        layout: "centered",
+        content: {},
+        settings: {},
+      },
+      {
+        id: 200,
+        section_type: "menu_highlights",
+        page: "menu",
+        page_id: 20,
+        sort_order: 0,
+        is_visible: true,
+        layout: "default",
+        content: {},
+        settings: {},
+      },
+    ],
+  });
+}
+
 test("publication validation blocks unavailable menu and service references", () => {
   const errors = validateDraftForPublish(validState(), {
     menuIds: new Set([12]),
@@ -198,6 +244,25 @@ test("order-first legacy pages reconcile to one default order page", () => {
   });
   assert.equal(repeated.changed, false);
   assert.deepEqual(repeated.state, result.state);
+});
+
+test("legacy order reconciliation prefers menu and repairs unselected order", () => {
+  const result = stateModule.reconcileLegacyWebsiteDraft(
+    dualLegacyOrderDraft(),
+    { menuIds: [42], serviceIds: [] },
+  );
+  const recoveredOrder = result.state.pages.find((page) => page.id === 20);
+  const repairedLegacyOrder = result.state.pages.find((page) => page.id === 10);
+
+  assert.equal(recoveredOrder?.type, "order");
+  assert.equal(recoveredOrder?.is_default, true);
+  assert.equal(recoveredOrder?.slug, "menu");
+  assert.deepEqual(recoveredOrder?.settings.menu_ids, [42]);
+  assert.equal(repairedLegacyOrder?.type, "content");
+  assert.notEqual(repairedLegacyOrder?.slug, "order");
+  const repairedSection = result.state.sections.find((section) => section.id === 100);
+  assert.equal(repairedSection?.page_id, 10);
+  assert.equal(repairedSection?.page, repairedLegacyOrder?.slug);
 });
 
 test("legacy builder reconciliation removes technical pages and repairs commerce defaults", () => {
