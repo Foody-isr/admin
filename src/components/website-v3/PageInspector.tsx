@@ -9,6 +9,7 @@ import type {
 } from "@/lib/api";
 import { SectionImageUploader } from "@/components/website/SectionEditors";
 import { OrderPageInfoEditor } from "@/components/website/OrderPageInfoEditor";
+import { useI18n } from "@/lib/i18n";
 import { ThemesPanel } from "@/components/website-menu/ThemesPanel";
 import { TypographyPanel } from "@/components/website-menu/TypographyPanel";
 import {
@@ -43,6 +44,7 @@ export function PageInspector({
   onChange,
   onReplace,
   onMakeDefault,
+  onMakeHomepage,
 }: {
   page: DraftPagePayload;
   tab: "content" | "appearance" | "settings";
@@ -57,7 +59,9 @@ export function PageInspector({
   onChange: (path: StatePath, value: unknown) => void;
   onReplace: (page: DraftPagePayload) => void;
   onMakeDefault: () => void;
+  onMakeHomepage: () => void;
 }) {
+  const { t } = useI18n();
   const errorFor = (fieldId: string) =>
     errors.find((error) => error.fieldId === fieldId)?.message;
   const appearance = page.appearance_overrides;
@@ -296,6 +300,15 @@ export function PageInspector({
           checked={page.nav_visible}
           onChange={(value) => onChange(["nav_visible"], value)}
         />
+        <ToggleField
+          fieldId="page.is_homepage"
+          label={t("websiteV3Homepage")}
+          description={t("websiteV3HomepageDescription")}
+          checked={page.is_homepage}
+          onChange={(checked) => {
+            if (checked) onMakeHomepage();
+          }}
+        />
       </InspectorGroup>
 
       {page.type === "order" || page.type === "catering" ? (
@@ -321,7 +334,11 @@ export function PageInspector({
           />
           <ToggleField
             fieldId="page.is_default"
-            label="Page principale"
+            label={t(
+              page.type === "order"
+                ? "websiteV3OrderPrimary"
+                : "websiteV3CateringPrimary",
+            )}
             description={`Cible du lien /${page.type === "order" ? "order" : "catering"}.`}
             checked={page.is_default}
             onChange={(checked) => {
@@ -372,6 +389,36 @@ export function PageInspector({
             <option value="full">Complète</option>
             <option value="compact">Compacte</option>
             <option value="hidden">Masquée</option>
+          </select>
+        </InspectorField>
+        <InspectorField label={t("hideNavbarName")}>
+          <select
+            data-field-id="page.appearance_overrides.hide_navbar_name"
+            value={
+              appearance.hide_navbar_name === undefined
+                ? "inherit"
+                : appearance.hide_navbar_name
+                  ? "hide"
+                  : "show"
+            }
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === "inherit") {
+                const { hide_navbar_name: _hidden, ...nextAppearance } =
+                  appearance;
+                onChange(["appearance_overrides"], nextAppearance);
+                return;
+              }
+              onChange(
+                ["appearance_overrides", "hide_navbar_name"],
+                value === "hide",
+              );
+            }}
+            className={controlClass}
+          >
+            <option value="inherit">{t("websiteV3InheritSite")}</option>
+            <option value="show">{t("websiteV3ShowRestaurantName")}</option>
+            <option value="hide">{t("websiteV3HideRestaurantName")}</option>
           </select>
         </InspectorField>
         <InspectorField label="Fond et comportement">

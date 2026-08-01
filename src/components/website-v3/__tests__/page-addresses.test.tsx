@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { LocaleProvider } from "@/lib/i18n";
 import type {
   CateringService,
   Menu,
@@ -198,25 +199,51 @@ test("page inspector exposes overlay colors when the page inherits overlay", () 
   assert.match(inspector, /Couleur du texte au survol/);
 });
 
+test("page inspector distinguishes the site homepage from commerce defaults", () => {
+  const inspector = renderInspector(commercePage("order", "commander", true));
+
+  assert.match(inspector, /Site entry page/);
+  assert.match(inspector, /Primary order page/);
+  assert.match(inspector, /data-field-id="page\.is_homepage"/);
+  assert.match(inspector, /data-field-id="page\.is_default"/);
+});
+
+test("page inspector exposes inherited, shown, and hidden restaurant name states", () => {
+  const inspector = renderInspector(contentPage());
+
+  assert.match(
+    inspector,
+    /data-field-id="page\.appearance_overrides\.hide_navbar_name"/,
+  );
+  assert.match(inspector, /Inherit from site/);
+  assert.match(inspector, /Show restaurant name/);
+  assert.match(inspector, /Hide restaurant name/);
+});
+
 function renderInspector(
   page: DraftPagePayload,
   config: Record<string, unknown> = {},
 ): string {
   return renderToStaticMarkup(
-    React.createElement(PageInspector, {
-      page,
-      tab: "settings",
-      restaurantId: 24,
-      restaurant: {} as Restaurant,
-      config,
-      catalog: {} as ThemeCatalog,
-      menus: [] as Menu[],
-      services: [] as CateringService[],
-      errors: [],
-      onChange: () => undefined,
-      onReplace: () => undefined,
-      onMakeDefault: () => undefined,
-    }),
+    React.createElement(
+      LocaleProvider,
+      null,
+      React.createElement(PageInspector, {
+        page,
+        tab: "settings",
+        restaurantId: 24,
+        restaurant: {} as Restaurant,
+        config,
+        catalog: {} as ThemeCatalog,
+        menus: [] as Menu[],
+        services: [] as CateringService[],
+        errors: [],
+        onChange: () => undefined,
+        onReplace: () => undefined,
+        onMakeDefault: () => undefined,
+        onMakeHomepage: () => undefined,
+      }),
+    ),
   );
 }
 
@@ -246,6 +273,7 @@ function commercePage(
     title: `${type} page`,
     sort_order: 0,
     nav_visible: true,
+    is_homepage: false,
     is_default: isDefault,
     seo: {},
     appearance_overrides: {},
@@ -263,6 +291,7 @@ function contentPage(): DraftPagePayload {
     title: "Notre histoire",
     sort_order: 0,
     nav_visible: true,
+    is_homepage: false,
     is_default: false,
     seo: {},
     appearance_overrides: {},
@@ -278,6 +307,7 @@ function landingPage(): DraftPagePayload {
     title: "Accueil",
     sort_order: 0,
     nav_visible: true,
+    is_homepage: true,
     is_default: false,
     seo: {},
     appearance_overrides: {},

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  canDeletePage,
+  makeHomepagePage,
   mapWebsiteDraftError,
   normalizeDraftState,
   updateWebsitePageAtPath,
@@ -21,6 +23,7 @@ function validState(): DraftStatePayload {
         title: "Accueil",
         sort_order: 0,
         nav_visible: true,
+        is_homepage: true,
         is_default: false,
         seo: {},
         appearance_overrides: {},
@@ -33,6 +36,7 @@ function validState(): DraftStatePayload {
         title: "Commander",
         sort_order: 1,
         nav_visible: true,
+        is_homepage: false,
         is_default: true,
         seo: {},
         appearance_overrides: {},
@@ -45,6 +49,7 @@ function validState(): DraftStatePayload {
         title: "Événements",
         sort_order: 2,
         nav_visible: true,
+        is_homepage: false,
         is_default: true,
         seo: {},
         appearance_overrides: {},
@@ -56,6 +61,96 @@ function validState(): DraftStatePayload {
     deleted_section_ids: [],
   };
 }
+
+test("makeHomepagePage selects one page without changing commerce defaults", () => {
+  const result = makeHomepagePage(validState(), "2");
+
+  assert.deepEqual(
+    result.pages.map((page) => [page.id, page.is_homepage, page.is_default]),
+    [
+      [1, false, false],
+      [2, true, true],
+      [3, false, true],
+    ],
+  );
+});
+
+test("the homepage cannot be deleted", () => {
+  const state = validState();
+  state.pages[0] = { ...state.pages[0], is_homepage: false };
+  state.pages.push({
+    id: 4,
+    type: "content",
+    slug: "histoire",
+    title: "Histoire",
+    sort_order: 3,
+    nav_visible: true,
+    is_homepage: true,
+    is_default: false,
+    seo: {},
+    appearance_overrides: {},
+    settings: {},
+  });
+
+  assert.equal(canDeletePage(state, "4"), false);
+});
+
+test("duplicating the homepage does not duplicate homepage identity", () => {
+  const duplicated = stateModule.duplicatePage(validState(), "1", () => "copy");
+
+  assert.equal(duplicated, null);
+
+  const state = makeHomepagePage(validState(), "2");
+  const orderCopy = stateModule.duplicatePage(state, "2", () => "copy");
+  assert.equal(orderCopy?.page.is_homepage, false);
+  assert.equal(
+    orderCopy?.state.pages.filter((page) => page.is_homepage).length,
+    1,
+  );
+});
+
+test("normalization selects a homepage for legacy drafts without one", () => {
+  const state = normalizeDraftState({
+    pages: validState().pages.map(({ is_homepage: _isHomepage, ...page }) => page),
+  });
+
+  assert.deepEqual(
+    state.pages.map((page) => page.is_homepage),
+    [true, false, false],
+  );
+  assert.deepEqual(
+    state.pages.map((page) => page.is_default),
+    [false, true, true],
+  );
+});
+
+test("normalization repairs multiple explicit homepages deterministically", () => {
+  const pages = validState().pages.map((page) => ({
+    ...page,
+    is_homepage: page.id === 2 || page.id === 3,
+  }));
+
+  const state = normalizeDraftState({ pages });
+
+  assert.deepEqual(
+    state.pages.map((page) => page.is_homepage),
+    [true, false, false],
+  );
+});
+
+test("normalization keeps partial legacy pages without stable identifiers", () => {
+  const state = normalizeDraftState({
+    pages: [
+      { type: "content", slug: "a", title: "A", sort_order: 0 },
+      { type: "content", slug: "b", title: "B", sort_order: 0 },
+    ],
+  });
+
+  assert.deepEqual(
+    state.pages.map((page) => page.is_homepage),
+    [true, false],
+  );
+});
 
 function mamieLegacyDraft(): DraftStatePayload {
   return normalizeDraftState({
@@ -228,6 +323,7 @@ test("renaming an editable page still derives its slug until manually edited", (
     title: "Histoire",
     sort_order: 3,
     nav_visible: true,
+    is_homepage: false,
     is_default: false,
     seo: {},
     appearance_overrides: {},
@@ -252,6 +348,7 @@ test("changing the default preserves each commerce page internal slug", () => {
     title: "Brunch",
     sort_order: 3,
     nav_visible: true,
+    is_homepage: false,
     is_default: false,
     seo: {},
     appearance_overrides: {},

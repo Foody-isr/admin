@@ -2,6 +2,27 @@ export type WebsitePageType = "landing" | "content" | "order" | "catering";
 export type PreviewDevice = "desktop" | "mobile";
 export type StatePath = readonly (string | number)[];
 
+export type NavbarCtaSurfaceStyle = {
+  variant?: "filled" | "outline" | "ghost";
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
+};
+
+export type NavbarCtaOverride = {
+  enabled?: boolean;
+  text?: string;
+  link?: string;
+  shape?: "pill" | "rounded" | "square";
+  size?: "sm" | "md" | "lg";
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
+  variant?: "filled" | "outline" | "ghost";
+  transparent?: NavbarCtaSurfaceStyle;
+  solid?: NavbarCtaSurfaceStyle;
+};
+
 export type DraftAppearanceOverrides = {
   bg?: string;
   ink?: string;
@@ -34,6 +55,8 @@ export type DraftAppearanceOverrides = {
   navbar_color?: string;
   navbar_text_color?: string;
   navbar_overlay_text_color?: string;
+  hide_navbar_name?: boolean;
+  navbar_cta?: NavbarCtaOverride;
   footer_mode?: "inherit" | "full" | "compact" | "hidden";
   order_page_info?: Record<string, unknown> | null;
   group_banners?: Record<
@@ -61,6 +84,7 @@ export type DraftPageBase = {
   title: string;
   sort_order: number;
   nav_visible: boolean;
+  is_homepage: boolean;
   is_default: boolean;
   seo: DraftSeoPayload;
   appearance_overrides: DraftAppearanceOverrides;

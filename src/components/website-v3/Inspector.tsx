@@ -40,6 +40,7 @@ export function Inspector({
   onPageReplace,
   onSectionChange,
   onMakeDefault,
+  onMakeHomepage,
   onStoriesNavigationAvailabilityChange,
   onRestaurantLogoUpload,
   onRestaurantLogoRemove,
@@ -61,6 +62,7 @@ export function Inspector({
   onPageReplace: (key: string, page: DraftPagePayload) => void;
   onSectionChange: (key: string, path: StatePath, value: unknown) => void;
   onMakeDefault: (key: string) => void;
+  onMakeHomepage: (key: string) => void;
   onStoriesNavigationAvailabilityChange: (
     available: boolean | undefined,
   ) => void;
@@ -186,6 +188,7 @@ export function Inspector({
             onPageReplace(stablePageKey(page), replacement)
           }
           onMakeDefault={() => onMakeDefault(stablePageKey(page))}
+          onMakeHomepage={() => onMakeHomepage(stablePageKey(page))}
         />
       ) : (
         <div className="p-5 text-sm text-slate-500">

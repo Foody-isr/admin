@@ -42,6 +42,7 @@ import {
   canDeletePage,
   duplicatePage,
   makeDefaultPage,
+  makeHomepagePage,
   mapWebsiteDraftError,
   movePage,
   normalizeDraftResponse,
@@ -515,6 +516,7 @@ function DesktopWebsiteV3Builder({
       slug: input.slug,
       sort_order: state.pages.length,
       nav_visible: true,
+      is_homepage: false,
       is_default: input.isDefault,
       seo: {},
       appearance_overrides: {},
@@ -920,6 +922,9 @@ function DesktopWebsiteV3Builder({
               onSectionChange={updateSection}
               onMakeDefault={(key) =>
                 setLocalState(makeDefaultPage(state, key))
+              }
+              onMakeHomepage={(key) =>
+                setLocalState(makeHomepagePage(state, key))
               }
               onStoriesNavigationAvailabilityChange={
                 updateStoriesNavigationAvailability

@@ -71,6 +71,13 @@ export function useI18n() {
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    websiteV3Homepage: 'Site entry page',
+    websiteV3HomepageDescription: "Page opened from the restaurant's main address.",
+    websiteV3OrderPrimary: 'Primary order page',
+    websiteV3CateringPrimary: 'Primary catering page',
+    websiteV3InheritSite: 'Inherit from site',
+    websiteV3ShowRestaurantName: 'Show restaurant name',
+    websiteV3HideRestaurantName: 'Hide restaurant name',
     // ── Desktop-only placeholder ──
     desktopOnlyTitle: 'Open on a larger screen',
     desktopOnlyMessage: 'This view is built for tablets and desktops. Sign in from a wider screen to manage these settings.',
@@ -3723,6 +3730,13 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    websiteV3Homepage: 'דף הכניסה לאתר',
+    websiteV3HomepageDescription: 'הדף שנפתח מהכתובת הראשית של המסעדה.',
+    websiteV3OrderPrimary: 'דף ההזמנות הראשי',
+    websiteV3CateringPrimary: 'דף הקייטרינג הראשי',
+    websiteV3InheritSite: 'ירושה מהאתר',
+    websiteV3ShowRestaurantName: 'הצגת שם המסעדה',
+    websiteV3HideRestaurantName: 'הסתרת שם המסעדה',
     // ── Desktop-only placeholder ──
     desktopOnlyTitle: 'יש לפתוח במסך גדול יותר',
     desktopOnlyMessage: 'תצוגה זו מותאמת לטאבלטים ומחשבים. היכנס ממסך רחב יותר כדי לנהל את ההגדרות.',
@@ -7369,6 +7383,13 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    websiteV3Homepage: 'Page d’entrée du site',
+    websiteV3HomepageDescription: 'Page ouverte depuis l’adresse principale du restaurant.',
+    websiteV3OrderPrimary: 'Page commande principale',
+    websiteV3CateringPrimary: 'Page traiteur principale',
+    websiteV3InheritSite: 'Hériter du site',
+    websiteV3ShowRestaurantName: 'Afficher le nom du restaurant',
+    websiteV3HideRestaurantName: 'Masquer le nom du restaurant',
     // ── Desktop-only placeholder ──
     desktopOnlyTitle: 'À ouvrir sur un écran plus grand',
     desktopOnlyMessage: 'Cette vue est conçue pour les tablettes et les ordinateurs. Connectez-vous depuis un écran plus large pour gérer ces paramètres.',

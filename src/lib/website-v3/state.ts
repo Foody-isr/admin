@@ -40,9 +40,12 @@ export function normalizeDraftResponse(response: {
 /** Normalizes legacy and partial API payloads into strict V3 state. */
 export function normalizeDraftState(state: unknown): DraftStatePayload {
   const source = isRecord(state) ? state : {};
+  const pages = Array.isArray(source.pages)
+    ? normalizeHomepagePages(source.pages.map(normalizePage))
+    : [];
   return {
     config: normalizeDraftConfig(source.config),
-    pages: Array.isArray(source.pages) ? source.pages.map(normalizePage) : [],
+    pages,
     sections: Array.isArray(source.sections)
       ? source.sections.map(normalizeSection)
       : [],
@@ -236,9 +239,11 @@ export function reconcileLegacyWebsiteDraft(
   });
   const nextState: DraftStatePayload = {
     ...state,
-    pages: pages
-      .sort((left, right) => left.sort_order - right.sort_order)
-      .map((page, index) => ({ ...page, sort_order: index })),
+    pages: normalizeHomepagePages(
+      pages
+        .sort((left, right) => left.sort_order - right.sort_order)
+        .map((page, index) => ({ ...page, sort_order: index })),
+    ),
     sections,
     deleted_page_ids: uniquePositiveIds([
       ...state.deleted_page_ids,
@@ -352,6 +357,7 @@ export function duplicatePage(
     title: `${page.title} — copie`,
     slug: uniqueSlug(`${page.slug}-copie`, state.pages),
     sort_order: state.pages.length,
+    is_homepage: false,
     is_default: false,
   });
   const clonedSections = state.sections
@@ -412,6 +418,21 @@ export function makeDefaultPage(
       ...page,
       is_default:
         page.type === target.type ? pageKey(page) === targetKey : page.is_default,
+    })) as DraftPagePayload[],
+  };
+}
+
+/** Makes one page the site homepage without changing commerce defaults. */
+export function makeHomepagePage(
+  state: DraftStatePayload,
+  targetKey: string,
+): DraftStatePayload {
+  if (!state.pages.some((page) => pageKey(page) === targetKey)) return state;
+  return {
+    ...state,
+    pages: state.pages.map((page) => ({
+      ...page,
+      is_homepage: pageKey(page) === targetKey,
     })) as DraftPagePayload[],
   };
 }
@@ -683,13 +704,14 @@ function normalizeDraftConfig(value: unknown): Record<string, unknown> {
   return config;
 }
 
-/** Checks whether deleting this page would remove the only default of its type. */
+/** Checks whether a page can be deleted without losing required page identities. */
 export function canDeletePage(
   state: DraftStatePayload,
   targetKey: string,
 ): boolean {
   const target = state.pages.find((page) => pageKey(page) === targetKey);
   if (!target || target.type === "landing") return false;
+  if (target.is_homepage) return false;
   if (!target.is_default) return true;
   return state.pages.some(
     (page) =>
@@ -723,6 +745,8 @@ function normalizePage(value: unknown): DraftPagePayload {
     sort_order: Number.isInteger(page.sort_order) ? Number(page.sort_order) : 0,
     nav_visible:
       typeof page.nav_visible === "boolean" ? page.nav_visible : true,
+    is_homepage:
+      typeof page.is_homepage === "boolean" ? page.is_homepage : false,
     is_default: typeof page.is_default === "boolean" ? page.is_default : false,
     seo: isRecord(page.seo) ? { ...page.seo } : {},
     appearance_overrides: isRecord(page.appearance_overrides)
@@ -749,6 +773,47 @@ function normalizePage(value: unknown): DraftPagePayload {
     return { ...base, type: "landing", settings: {} };
   }
   return { ...base, type: "content", settings: {} };
+}
+
+function normalizeHomepagePages(pages: DraftPagePayload[]): DraftPagePayload[] {
+  if (pages.length === 0) return pages;
+  const selected = pages.flatMap((page, index) =>
+    page.is_homepage ? [index] : [],
+  );
+  if (selected.length === 1) return pages;
+
+  const winnerIndex = pages
+    .map((page, index) => ({ page, index }))
+    .sort(
+      (left, right) =>
+        compareHomepageCandidates(left.page, right.page) ||
+        left.index - right.index,
+    )[0].index;
+  return pages.map((page, index) => ({
+    ...page,
+    is_homepage: index === winnerIndex,
+  })) as DraftPagePayload[];
+}
+
+function compareHomepageCandidates(
+  left: DraftPagePayload,
+  right: DraftPagePayload,
+): number {
+  const priority = (page: DraftPagePayload) => {
+    if (page.type === "landing") return 0;
+    if (page.type === "order" && page.is_default) return 1;
+    if (page.type === "catering" && page.is_default) return 2;
+    return 3;
+  };
+  return (
+    priority(left) - priority(right) ||
+    left.sort_order - right.sort_order ||
+    (left.id ?? Number.MAX_SAFE_INTEGER) -
+      (right.id ?? Number.MAX_SAFE_INTEGER) ||
+    (left.tmp_id ?? "").localeCompare(right.tmp_id ?? "") ||
+    left.slug.localeCompare(right.slug) ||
+    left.title.localeCompare(right.title)
+  );
 }
 
 function normalizeSection(value: unknown): DraftSectionPayload {
@@ -858,6 +923,7 @@ function legacyPagesFromSections(
               .join(" "),
       sort_order: index,
       nav_visible: true,
+      is_homepage: false,
       is_default: false,
       seo: {},
       appearance_overrides: {},

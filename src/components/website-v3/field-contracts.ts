@@ -238,6 +238,7 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.sort_order": 1,
   "page.nav_visible": false,
   "page.is_default": true,
+  "page.appearance_overrides.hide_navbar_name": true,
   "page.seo.title": "Website V3 SEO title",
   "page.seo.description": "Website V3 SEO description",
   "page.seo.share_image_url": "http://localhost:3000/logo-icon.svg",
@@ -310,6 +311,7 @@ function editorFor(
       kind: action,
       scope,
       tab: id === "page.title" ? "Contenu" :
+        id === "page.appearance_overrides.hide_navbar_name" ? "Réglages" :
         id.startsWith("page.appearance_overrides.") ? "Apparence" : "Réglages",
       pageTitle: order ? "Brunch Order" : catering ? "Office Catering" :
         defaultPage ? "Dinner Order" : "About",
@@ -404,12 +406,19 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   page("page.type", ["type"], "[data-website-v3-page]", "value"),
   page("page.sort_order", ["sort_order"], "nav", "count"),
   page("page.nav_visible", ["nav_visible"], "nav a", "visible"),
+  action("page.is_homepage", "page", ["is_homepage"]),
   page(
     "page.is_default",
     ["is_default"],
     "[data-website-v3-page]",
     "value",
     ["order", "catering"],
+  ),
+  page(
+    "page.appearance_overrides.hide_navbar_name",
+    ["appearance_overrides", "hide_navbar_name"],
+    "nav",
+    "visible",
   ),
   pageMetadata("page.seo.title", ["seo", "title"], {
     selector: "title",
