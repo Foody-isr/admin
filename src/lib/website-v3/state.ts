@@ -427,6 +427,16 @@ export function makeDefaultPage(
   };
 }
 
+/** Returns whether a page exposes its specific slug as an editable public address. */
+export function pageAddressIsEditable(
+  page: Pick<DraftPagePayload, "type" | "is_default">,
+): boolean {
+  if (page.type === "landing") return false;
+  return !(
+    page.is_default && (page.type === "order" || page.type === "catering")
+  );
+}
+
 /** Returns publish-blocking field errors keyed to the field registry. */
 export function validateDraftForPublish(
   state: DraftStatePayload,

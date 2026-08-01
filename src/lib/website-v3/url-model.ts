@@ -24,6 +24,7 @@ export function canonicalAliasForType(
 export function publicAddressForPage(
   page: Pick<DraftPagePayload, "type" | "slug" | "is_default">,
 ): string {
+  if (page.type === "landing") return "/";
   const canonical = canonicalAliasForType(page.type);
   return page.is_default && canonical ? canonical : `/${normalizeSlug(page.slug)}`;
 }

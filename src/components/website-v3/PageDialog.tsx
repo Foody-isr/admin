@@ -3,16 +3,17 @@
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { CateringService, Menu } from "@/lib/api";
-import { normalizeSlug } from "@/lib/website-v3/state";
+import { normalizeSlug, pageAddressIsEditable } from "@/lib/website-v3/state";
 import {
-  canonicalAliasForType,
   isReservedPublicSlug,
+  publicAddressForPage,
   suggestSpecificSlug,
 } from "@/lib/website-v3/url-model";
 import type {
   DraftPagePayload,
   WebsitePageType,
 } from "@/lib/website-v3/types";
+import { ReadOnlyAddress } from "./PageAddress";
 
 type CreatePageInput = {
   title: string;
@@ -57,7 +58,18 @@ export function PageDialog({
     (page) => normalizeSlug(page.slug) === normalizedSlug,
   );
   const reserved = isReservedPublicSlug(normalizedSlug);
-  const canonicalAlias = canonicalAliasForType(type);
+  const isDefaultCommercePage =
+    (type === "order" || type === "catering") &&
+    (needsDefault || makeDefault);
+  const addressIsEditable = pageAddressIsEditable({
+    type,
+    is_default: isDefaultCommercePage,
+  });
+  const publicAddress = publicAddressForPage({
+    type,
+    slug,
+    is_default: isDefaultCommercePage,
+  });
   const associationsValid =
     type === "order"
       ? menuIds.length > 0
@@ -182,40 +194,32 @@ export function PageDialog({
               ))}
             </div>
           </Field>
-          <Field label="Adresse spécifique">
-            {canonicalAlias ? (
-              <div className="mb-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700">
-                  Adresse publique principale
-                </span>
-                <span className="mt-0.5 block text-sm font-semibold text-emerald-950">
-                  {canonicalAlias}
-                </span>
-                <span className="mt-1 block text-[11px] leading-4 text-emerald-800">
-                  Elle dirigera automatiquement vers cette page si elle est
-                  définie comme page principale.
-                </span>
+          <Field label="Adresse publique">
+            {addressIsEditable ? (
+              <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-[#315fce] focus-within:ring-2 focus-within:ring-[#315fce]/10">
+                <span className="text-sm text-slate-400">/</span>
+                <input
+                  data-field-id="page.create.slug"
+                  value={slug}
+                  onChange={(event) => {
+                    setSlugEdited(true);
+                    setSlug(event.target.value);
+                  }}
+                  className="min-h-11 flex-1 bg-transparent px-1 text-sm outline-none"
+                />
               </div>
-            ) : null}
-            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-[#315fce] focus-within:ring-2 focus-within:ring-[#315fce]/10">
-              <span className="text-sm text-slate-400">/</span>
-              <input
-                data-field-id="page.create.slug"
-                value={slug}
-                onChange={(event) => {
-                  setSlugEdited(true);
-                  setSlug(event.target.value);
-                }}
-                className="min-h-11 flex-1 bg-transparent px-1 text-sm outline-none"
-              />
-            </div>
+            ) : (
+              <ReadOnlyAddress value={publicAddress} />
+            )}
             {duplicate || reserved ? (
               <p className="mt-1.5 text-xs font-medium text-red-600">
                 {duplicate
                   ? "Cette adresse est déjà utilisée."
-                  : canonicalAlias === `/${normalizedSlug}`
-                    ? `${canonicalAlias} est déjà fournie automatiquement. Utilisez une adresse spécifique comme /${suggestSpecificSlug(type, pages)}.`
-                    : "Cette adresse est utilisée par une fonction Foody."}
+                  : normalizedSlug === "order"
+                    ? "/order est attribuée automatiquement à la page commande principale."
+                    : normalizedSlug === "catering"
+                      ? "/catering est attribuée automatiquement à la page traiteur principale."
+                      : "Cette adresse est utilisée par une fonction Foody."}
               </p>
             ) : null}
           </Field>

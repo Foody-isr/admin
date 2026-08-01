@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import { FIELD_CONTRACTS } from "../field-contracts";
+import { publicAddressForPage } from "@/lib/website-v3/url-model";
 
 test("every statically rendered field ID has a registered contract", () => {
   const ids = new Set(FIELD_CONTRACTS.map((contract) => contract.id));
@@ -80,6 +81,19 @@ test("navigation text colors have editor-to-renderer contracts", () => {
     "config",
     "navbar_text_color",
   ]);
+});
+
+test("builder public addresses present one route for every page kind", () => {
+  assert.deepEqual(
+    [
+      publicAddressForPage({ type: "order", slug: "commander", is_default: true }),
+      publicAddressForPage({ type: "catering", slug: "traiteur", is_default: true }),
+      publicAddressForPage({ type: "order", slug: "brunch", is_default: false }),
+      publicAddressForPage({ type: "content", slug: "notre-histoire", is_default: false }),
+      publicAddressForPage({ type: "landing", slug: "accueil", is_default: false }),
+    ],
+    ["/order", "/catering", "/brunch", "/notre-histoire", "/"],
+  );
 });
 
 function sourceFiles(directory: string): string[] {

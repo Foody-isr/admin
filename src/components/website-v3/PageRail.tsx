@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { DraftPagePayload } from "@/lib/website-v3/types";
 import { pageKey } from "@/lib/website-v3/types";
+import { publicAddressForPage } from "@/lib/website-v3/url-model";
 
 export type RailSelection =
   | { kind: "site" }
@@ -116,7 +117,7 @@ export function PageRail({
                     ) : null}
                   </span>
                   <span className="block truncate text-[11px] text-slate-400">
-                    /{page.slug}
+                    {publicAddressForPage(page)}
                   </span>
                 </span>
               </button>

@@ -173,6 +173,54 @@ test("production ApiError details map to the primary-page field", () => {
   );
 });
 
+test("address controls only edit specific non-default page addresses", () => {
+  const pageAddressIsEditable = (
+    stateModule as Record<string, unknown>
+  ).pageAddressIsEditable;
+  assert.equal(typeof pageAddressIsEditable, "function");
+  if (typeof pageAddressIsEditable !== "function") return;
+
+  const isEditable = pageAddressIsEditable as (page: {
+    type: "landing" | "content" | "order" | "catering";
+    is_default: boolean;
+  }) => boolean;
+
+  assert.equal(isEditable({ type: "order", is_default: true }), false);
+  assert.equal(isEditable({ type: "catering", is_default: true }), false);
+  assert.equal(isEditable({ type: "order", is_default: false }), true);
+  assert.equal(isEditable({ type: "catering", is_default: false }), true);
+  assert.equal(isEditable({ type: "content", is_default: false }), true);
+  assert.equal(isEditable({ type: "landing", is_default: false }), false);
+});
+
+test("changing the default preserves each commerce page internal slug", () => {
+  const state = validState();
+  state.pages.push({
+    id: 4,
+    type: "order",
+    slug: "brunch",
+    title: "Brunch",
+    sort_order: 3,
+    nav_visible: true,
+    is_default: false,
+    seo: {},
+    appearance_overrides: {},
+    settings: { menu_ids: [11] },
+  });
+
+  const next = stateModule.makeDefaultPage(state, "4");
+
+  assert.deepEqual(
+    next.pages
+      .filter((page) => page.type === "order")
+      .map((page) => [page.slug, page.is_default]),
+    [
+      ["commander", false],
+      ["brunch", true],
+    ],
+  );
+});
+
 test("site footer remains valid without a page identity", () => {
   const state = validState();
   state.sections.push({

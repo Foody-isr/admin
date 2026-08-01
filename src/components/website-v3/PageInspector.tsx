@@ -14,9 +14,10 @@ import { TypographyPanel } from "@/components/website-menu/TypographyPanel";
 import {
   convertPageType,
   normalizeSlug,
+  pageAddressIsEditable,
 } from "@/lib/website-v3/state";
 import {
-  canonicalAliasForType,
+  publicAddressForPage,
 } from "@/lib/website-v3/url-model";
 import type {
   DraftPagePayload,
@@ -26,6 +27,7 @@ import type {
 } from "@/lib/website-v3/types";
 import { ColorField, InspectorField, InspectorGroup, ToggleField, controlClass } from "./controls";
 import { CommerceSelector } from "./CommerceSelector";
+import { ReadOnlyAddress } from "./PageAddress";
 
 export function PageInspector({
   page,
@@ -59,12 +61,17 @@ export function PageInspector({
   const errorFor = (fieldId: string) =>
     errors.find((error) => error.fieldId === fieldId)?.message;
   const appearance = page.appearance_overrides;
-  const canonicalAlias = canonicalAliasForType(page.type);
+  const addressIsEditable = pageAddressIsEditable(page);
+  const publicAddress = publicAddressForPage(page);
   const normalizedPageSlug = normalizeSlug(page.slug);
   const slugError =
-    canonicalAlias === `/${normalizedPageSlug}`
-      ? `${canonicalAlias} est l’adresse principale automatique. Choisissez une adresse spécifique pour cette page.`
-      : errorFor("page.slug");
+    !addressIsEditable
+      ? undefined
+      : normalizedPageSlug === "order"
+        ? "/order est attribuée automatiquement à la page commande principale."
+        : normalizedPageSlug === "catering"
+          ? "/catering est attribuée automatiquement à la page traiteur principale."
+          : errorFor("page.slug");
   const pageVisualConfig = {
     ...config,
     ...appearance,
@@ -239,41 +246,26 @@ export function PageInspector({
   return (
     <>
       <InspectorGroup title="Adresse et type">
-        {canonicalAlias ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700">
-              Adresse publique principale
-            </p>
-            <p className="mt-1 text-sm font-semibold text-emerald-950">
-              {canonicalAlias}
-            </p>
-            <p className="mt-1 text-[11px] leading-4 text-emerald-800">
-              Active lorsque cette page est définie comme page principale.
-            </p>
-          </div>
-        ) : null}
         <InspectorField
-          label={canonicalAlias ? "Adresse spécifique" : "Adresse publique"}
-          hint={
-            canonicalAlias
-              ? `Cette page reste aussi accessible via /${normalizedPageSlug}.`
-              : `Adresse normalisée : /${normalizedPageSlug}`
-          }
+          label="Adresse publique"
           error={slugError}
         >
-          <div className="flex items-center rounded-xl border border-slate-200 bg-white px-3 focus-within:border-[#315fce] focus-within:ring-2 focus-within:ring-[#315fce]/10">
-            <span className="text-sm text-slate-400">/</span>
-            <input
-              data-field-id="page.slug"
-              value={page.slug}
-              disabled={page.type === "landing"}
-              onChange={(event) => onChange(["slug"], event.target.value)}
-              onBlur={(event) =>
-                onChange(["slug"], normalizeSlug(event.target.value))
-              }
-              className="min-h-10 min-w-0 flex-1 bg-transparent px-1 text-sm outline-none disabled:text-slate-400"
-            />
-          </div>
+          {addressIsEditable ? (
+            <div className="flex items-center rounded-xl border border-slate-200 bg-white px-3 focus-within:border-[#315fce] focus-within:ring-2 focus-within:ring-[#315fce]/10">
+              <span className="text-sm text-slate-400">/</span>
+              <input
+                data-field-id="page.slug"
+                value={page.slug}
+                onChange={(event) => onChange(["slug"], event.target.value)}
+                onBlur={(event) =>
+                  onChange(["slug"], normalizeSlug(event.target.value))
+                }
+                className="min-h-10 min-w-0 flex-1 bg-transparent px-1 text-sm outline-none"
+              />
+            </div>
+          ) : (
+            <ReadOnlyAddress value={publicAddress} />
+          )}
         </InspectorField>
         <InspectorField label="Type">
           <select
