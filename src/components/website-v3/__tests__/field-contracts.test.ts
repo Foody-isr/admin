@@ -99,7 +99,9 @@ test("builder public addresses present one route for every page kind", () => {
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
     const path = resolve(directory, entry);
-    if (statSync(path).isDirectory()) return sourceFiles(path);
+    if (statSync(path).isDirectory()) {
+      return entry === "__tests__" ? [] : sourceFiles(path);
+    }
     return path.endsWith(".tsx") || path.endsWith(".ts")
       ? [readFileSync(path, "utf8")]
       : [];

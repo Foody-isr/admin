@@ -24,6 +24,85 @@ type CreatePageInput = {
   isDefault: boolean;
 };
 
+/** Returns the slug to keep after a page title changes in the create dialog. */
+export function nextSlugForPageTitle({
+  currentSlug,
+  slugEdited,
+  addressIsEditable,
+  title,
+}: {
+  currentSlug: string;
+  slugEdited: boolean;
+  addressIsEditable: boolean;
+  title: string;
+}): string {
+  return slugEdited || !addressIsEditable
+    ? currentSlug
+    : normalizeSlug(title);
+}
+
+/** Returns a visible-address validation message for the create-page dialog. */
+export function pageDialogAddressError({
+  addressIsEditable,
+  duplicate,
+  reserved,
+  slugEdited,
+  normalizedSlug,
+}: {
+  addressIsEditable: boolean;
+  duplicate: boolean;
+  reserved: boolean;
+  slugEdited: boolean;
+  normalizedSlug: string;
+}): string | undefined {
+  if (!addressIsEditable) return undefined;
+  if (duplicate) return "Cette adresse est déjà utilisée.";
+  if (!reserved || !slugEdited) return undefined;
+  if (normalizedSlug === "order") {
+    return "/order est attribuée automatiquement à la page commande principale.";
+  }
+  if (normalizedSlug === "catering") {
+    return "/catering est attribuée automatiquement à la page traiteur principale.";
+  }
+  return "Cette adresse est utilisée par une fonction Foody.";
+}
+
+/** Renders the single public-address control used by the create-page dialog. */
+export function PageDialogAddressField({
+  addressIsEditable,
+  publicAddress,
+  slug,
+  error,
+  onChange,
+}: {
+  addressIsEditable: boolean;
+  publicAddress: string;
+  slug: string;
+  error?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <>
+      {addressIsEditable ? (
+        <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-[#315fce] focus-within:ring-2 focus-within:ring-[#315fce]/10">
+          <span className="text-sm text-slate-400">/</span>
+          <input
+            data-field-id="page.create.slug"
+            value={slug}
+            onChange={(event) => onChange(event.target.value)}
+            className="min-h-11 flex-1 bg-transparent px-1 text-sm outline-none"
+          />
+        </div>
+      ) : (
+        <ReadOnlyAddress value={publicAddress} />
+      )}
+      {error ? (
+        <p className="mt-1.5 text-xs font-medium text-red-600">{error}</p>
+      ) : null}
+    </>
+  );
+}
+
 export function PageDialog({
   open,
   pages,
@@ -82,10 +161,24 @@ export function PageDialog({
     !duplicate &&
     !reserved &&
     associationsValid;
+  const addressError = pageDialogAddressError({
+    addressIsEditable,
+    duplicate,
+    reserved,
+    slugEdited,
+    normalizedSlug,
+  });
 
   const updateTitle = (value: string) => {
     setTitle(value);
-    if (!slugEdited) setSlug(normalizeSlug(value));
+    setSlug(
+      nextSlugForPageTitle({
+        currentSlug: slug,
+        slugEdited,
+        addressIsEditable,
+        title: value,
+      }),
+    );
   };
 
   const submit = () => {
@@ -195,33 +288,16 @@ export function PageDialog({
             </div>
           </Field>
           <Field label="Adresse publique">
-            {addressIsEditable ? (
-              <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-[#315fce] focus-within:ring-2 focus-within:ring-[#315fce]/10">
-                <span className="text-sm text-slate-400">/</span>
-                <input
-                  data-field-id="page.create.slug"
-                  value={slug}
-                  onChange={(event) => {
-                    setSlugEdited(true);
-                    setSlug(event.target.value);
-                  }}
-                  className="min-h-11 flex-1 bg-transparent px-1 text-sm outline-none"
-                />
-              </div>
-            ) : (
-              <ReadOnlyAddress value={publicAddress} />
-            )}
-            {duplicate || reserved ? (
-              <p className="mt-1.5 text-xs font-medium text-red-600">
-                {duplicate
-                  ? "Cette adresse est déjà utilisée."
-                  : normalizedSlug === "order"
-                    ? "/order est attribuée automatiquement à la page commande principale."
-                    : normalizedSlug === "catering"
-                      ? "/catering est attribuée automatiquement à la page traiteur principale."
-                      : "Cette adresse est utilisée par une fonction Foody."}
-              </p>
-            ) : null}
+            <PageDialogAddressField
+              addressIsEditable={addressIsEditable}
+              publicAddress={publicAddress}
+              slug={slug}
+              error={addressError}
+              onChange={(value) => {
+                setSlugEdited(true);
+                setSlug(value);
+              }}
+            />
           </Field>
 
           {type === "order" ? (
