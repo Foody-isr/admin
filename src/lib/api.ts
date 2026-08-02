@@ -849,10 +849,20 @@ export interface WebsiteConfig {
   nav_order?: string;
   checkout_config?: CheckoutConfig | null;
   order_page_info?: OrderPageInfo | null;
+  order_type_selector?: OrderTypeSelectorConfig | null;
   // Draft / publish workflow (added in v2)
   draft_dirty?: boolean;
   draft_saved_at?: string | null;
   published_at?: string | null;
+}
+
+export interface OrderTypeSelectorConfig {
+  shape?: 'pill' | 'rounded' | 'square';
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'filled' | 'outline' | 'ghost';
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
 }
 
 // ─── Typography overrides ────────────────────────────────────────────────

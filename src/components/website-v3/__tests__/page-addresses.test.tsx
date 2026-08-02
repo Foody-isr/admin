@@ -220,9 +220,24 @@ test("page inspector exposes inherited, shown, and hidden restaurant name states
   assert.match(inspector, /Hide restaurant name/);
 });
 
+test("order page appearance exposes order type selector controls", () => {
+  const inspector = renderInspector(
+    commercePage("order", "commander", true),
+    {},
+    "appearance",
+  );
+
+  assert.match(inspector, /Sélecteur du type de commande/);
+  assert.match(inspector, /order_type_selector\.shape/);
+  assert.match(inspector, /order_type_selector\.variant/);
+  assert.match(inspector, /order_type_selector\.size/);
+  assert.match(inspector, /order_type_selector\.border_color/);
+});
+
 function renderInspector(
   page: DraftPagePayload,
   config: Record<string, unknown> = {},
+  tab: "content" | "appearance" | "settings" = "settings",
 ): string {
   return renderToStaticMarkup(
     React.createElement(
@@ -230,11 +245,11 @@ function renderInspector(
       null,
       React.createElement(PageInspector, {
         page,
-        tab: "settings",
+        tab,
         restaurantId: 24,
         restaurant: {} as Restaurant,
         config,
-        catalog: {} as ThemeCatalog,
+        catalog: { themes: [], typography_pairings: [] } as ThemeCatalog,
         menus: [] as Menu[],
         services: [] as CateringService[],
         errors: [],

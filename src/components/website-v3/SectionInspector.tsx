@@ -110,7 +110,11 @@ export function SectionInspector({
           <ToggleField
             fieldId="section.settings.bg_overlay"
             label="Voile sur l’image"
-            checked={Boolean(section.settings.bg_overlay)}
+            checked={
+              section.section_type === "hero_banner"
+                ? section.settings.bg_overlay !== false
+                : Boolean(section.settings.bg_overlay)
+            }
             onChange={(value) =>
               onChange(["settings", "bg_overlay"], value)
             }

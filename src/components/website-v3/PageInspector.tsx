@@ -619,6 +619,12 @@ function CommerceAppearance({
 }) {
   const appearance = page.appearance_overrides;
   const coverUrl = appearance.cover_url || restaurant.cover_url || "";
+  const orderTypeSelector = record(appearance.order_type_selector);
+  const updateOrderTypeSelector = (patch: Record<string, unknown>) =>
+    onChange(["appearance_overrides", "order_type_selector"], {
+      ...orderTypeSelector,
+      ...patch,
+    });
 
   return (
     <>
@@ -736,6 +742,78 @@ function CommerceAppearance({
 
       {page.type === "order" ? (
         <>
+          <InspectorGroup
+            title="Sélecteur du type de commande"
+            description="Personnalisez le bouton À emporter / Livraison sur cette page."
+          >
+            <InspectorField label="Forme">
+              <select
+                data-field-id="page.appearance_overrides.order_type_selector.shape"
+                value={text(orderTypeSelector.shape) || "rounded"}
+                onChange={(event) =>
+                  updateOrderTypeSelector({ shape: event.target.value })
+                }
+                className={controlClass}
+              >
+                <option value="pill">Pilule</option>
+                <option value="rounded">Arrondi</option>
+                <option value="square">Rectangle</option>
+              </select>
+            </InspectorField>
+            <InspectorField label="Style">
+              <select
+                data-field-id="page.appearance_overrides.order_type_selector.variant"
+                value={text(orderTypeSelector.variant) || "filled"}
+                onChange={(event) =>
+                  updateOrderTypeSelector({ variant: event.target.value })
+                }
+                className={controlClass}
+              >
+                <option value="filled">Plein</option>
+                <option value="outline">Contour</option>
+                <option value="ghost">Transparent</option>
+              </select>
+            </InspectorField>
+            <InspectorField label="Taille">
+              <select
+                data-field-id="page.appearance_overrides.order_type_selector.size"
+                value={text(orderTypeSelector.size) || "md"}
+                onChange={(event) =>
+                  updateOrderTypeSelector({ size: event.target.value })
+                }
+                className={controlClass}
+              >
+                <option value="sm">Petite</option>
+                <option value="md">Moyenne</option>
+                <option value="lg">Grande</option>
+              </select>
+            </InspectorField>
+            <ColorField
+              fieldId="page.appearance_overrides.order_type_selector.bg"
+              label="Fond"
+              value={text(orderTypeSelector.bg)}
+              fallback="#f1f5f9"
+              onChange={(value) => updateOrderTypeSelector({ bg: value })}
+            />
+            <ColorField
+              fieldId="page.appearance_overrides.order_type_selector.text_color"
+              label="Texte et icône"
+              value={text(orderTypeSelector.text_color)}
+              fallback="#315fce"
+              onChange={(value) =>
+                updateOrderTypeSelector({ text_color: value })
+              }
+            />
+            <ColorField
+              fieldId="page.appearance_overrides.order_type_selector.border_color"
+              label="Contour"
+              value={text(orderTypeSelector.border_color)}
+              fallback="#315fce"
+              onChange={(value) =>
+                updateOrderTypeSelector({ border_color: value })
+              }
+            />
+          </InspectorGroup>
           <InspectorGroup
             title="Catalogue et séparateurs"
             description="Retrouvez les dispositions et styles de catégories disponibles dans la V2."

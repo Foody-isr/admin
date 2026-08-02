@@ -23,6 +23,11 @@ export type NavbarCtaOverride = {
   solid?: NavbarCtaSurfaceStyle;
 };
 
+export type OrderTypeSelectorOverride = NavbarCtaSurfaceStyle & {
+  shape?: "pill" | "rounded" | "square";
+  size?: "sm" | "md" | "lg";
+};
+
 export type DraftAppearanceOverrides = {
   bg?: string;
   ink?: string;
@@ -59,6 +64,7 @@ export type DraftAppearanceOverrides = {
   navbar_cta?: NavbarCtaOverride;
   footer_mode?: "inherit" | "full" | "compact" | "hidden";
   order_page_info?: Record<string, unknown> | null;
+  order_type_selector?: OrderTypeSelectorOverride | null;
   group_banners?: Record<
     string,
     {
