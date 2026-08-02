@@ -79,6 +79,9 @@ async function configureHiddenGlobalRestaurantName(page: Page): Promise<void> {
 async function configureHomepageCtaStates(page: Page): Promise<void> {
   await selectBuilderPage(page, 'Home');
   await openInspectorTab(page, 'Réglages');
+  await expect(
+    page.locator('[data-field-id="page.is_homepage"]'),
+  ).toBeChecked();
   await page
     .locator('[data-field-id="page.appearance_overrides.navbar_style"]')
     .selectOption('overlay');
@@ -134,6 +137,9 @@ async function configureOrderHomepage(page: Page): Promise<void> {
   await openInspectorTab(page, 'Réglages');
 
   const defaultOrder = page.locator('[data-field-id="page.is_default"]');
+  await expect(
+    page.locator('[data-field-id="page.is_homepage"]'),
+  ).not.toBeChecked();
   await expect(defaultOrder).toBeChecked();
   await page.locator('[data-field-id="page.is_homepage"]').check();
   await expect(defaultOrder).toBeChecked();

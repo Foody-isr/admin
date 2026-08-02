@@ -17,6 +17,21 @@ function cateringPage({ slug, is_default }: { slug: string; is_default: boolean 
   return { type: "catering" as const, slug, is_default };
 }
 
+function landingPage({
+  slug,
+  is_homepage,
+}: {
+  slug: string;
+  is_homepage?: boolean;
+}) {
+  return {
+    type: "landing" as const,
+    slug,
+    is_default: false,
+    ...(is_homepage === undefined ? {} : { is_homepage }),
+  };
+}
+
 test("commerce aliases are public entry points, not editable page slugs", () => {
   assert.equal(canonicalAliasForType("order"), "/order");
   assert.equal(canonicalAliasForType("catering"), "/catering");
@@ -52,6 +67,21 @@ test("non-default commerce pages expose their specific slug", () => {
   assert.equal(publicAddressForPage(orderPage({ slug: "shabbat", is_default: false })), "/shabbat");
 });
 
+test("only the explicit landing homepage exposes the restaurant root", () => {
+  assert.equal(
+    publicAddressForPage(landingPage({ slug: "home", is_homepage: true })),
+    "/",
+  );
+  assert.equal(
+    publicAddressForPage(landingPage({ slug: "events", is_homepage: false })),
+    "/events",
+  );
+});
+
+test("legacy landing pages without homepage identity keep the root fallback", () => {
+  assert.equal(publicAddressForPage(landingPage({ slug: "home" })), "/");
+});
+
 test("builder public URLs use the same canonical page addresses", () => {
   const input = {
     webOrigin: "https://dev-app.foody-pos.co.il/ignored/path",
@@ -60,9 +90,16 @@ test("builder public URLs use the same canonical page addresses", () => {
   assert.equal(
     publicURLForPage({
       ...input,
-      page: { type: "landing", slug: "accueil", is_default: false },
+      page: landingPage({ slug: "accueil", is_homepage: true }),
     }),
     "https://dev-app.foody-pos.co.il/r/moulin%20dor%C3%A9e",
+  );
+  assert.equal(
+    publicURLForPage({
+      ...input,
+      page: landingPage({ slug: "evenements", is_homepage: false }),
+    }),
+    "https://dev-app.foody-pos.co.il/r/moulin%20dor%C3%A9e/evenements",
   );
   assert.equal(
     publicURLForPage({

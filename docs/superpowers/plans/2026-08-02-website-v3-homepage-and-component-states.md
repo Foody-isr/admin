@@ -873,6 +873,11 @@ npm run build
 
 If the local server race suite shows the repository's known cross-package shared-database pollution, rerun every changed package independently with `-race -count=1` and require GitHub CI's isolated database run to pass before deployment.
 
+Final-review Admin validation: `npm test` passed 64/64, `npx tsc --noEmit`,
+`npm run lint`, `npm run check:i18n`, `npm run build`, and
+`git diff --check` exited successfully. Lint/build retained only pre-existing
+warnings outside the final-review fix.
+
 - [x] **Step 4: Run local or develop E2E GREEN**
 
 Start the three services against one environment, then run:
@@ -885,6 +890,12 @@ npx playwright test tests/website-v3 --grep "homepage and component states"
 Expected: PASS for iframe updates, publication, root redirect, and public styles.
 
 Execution evidence (review fix): GREEN captured against Foody Web `3a1ae67`; the focused scenario passed with hidden/show restaurant-name checks, transparent/solid CTA variant checks, and published mobile sticky category checks.
+
+Final-review execution evidence: GREEN captured against Foody Server `df930de`
+and Foody Web `626ff32`; the authenticated scenario passed 1/1 in 21.7 seconds.
+It first asserts seeded `Home` is the homepage, seeded `Brunch Order` is not,
+then proves `Brunch Order` remains the default order page before and after the
+homepage switch.
 
 - [x] **Step 5: Commit E2E coverage only**
 
@@ -899,12 +910,15 @@ git commit -m "test: cover website homepage and state styles"
 Confirm each repository is on `develop`, contains only intended commits, and is synchronized with origin. Push:
 
 ```bash
+git -C foodyweb push origin develop
 git -C foodyserver push origin develop
 git -C foodyadmin push origin develop
-git -C foodyweb push origin develop
 ```
 
-Server goes first so Admin and Web never deploy against a missing `is_homepage` contract.
+Web goes first because its compatibility parser accepts both legacy payloads without
+`is_homepage` and new payloads containing the boolean. Server can then start emitting
+`is_homepage` without breaking public Website V3 parsing, followed by Admin once both
+ends of the contract are deployed.
 
 - [ ] **Step 7: Monitor all CI and deployments**
 

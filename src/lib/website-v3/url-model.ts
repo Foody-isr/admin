@@ -2,6 +2,12 @@ import { normalizeSlug } from "./state";
 import type { DraftPagePayload, WebsitePageType } from "./types";
 import { isReservedPublicWebsiteSlug } from "./public-route-segments";
 
+type PublicAddressPage = Pick<
+  DraftPagePayload,
+  "type" | "slug" | "is_default"
+> &
+  Partial<Pick<DraftPagePayload, "is_homepage">>;
+
 /** Returns the stable public alias owned by a commerce page type. */
 export function canonicalAliasForType(
   type: WebsitePageType,
@@ -13,9 +19,9 @@ export function canonicalAliasForType(
 
 /** Returns the single public address presented for a website page. */
 export function publicAddressForPage(
-  page: Pick<DraftPagePayload, "type" | "slug" | "is_default">,
+  page: PublicAddressPage,
 ): string {
-  if (page.type === "landing") return "/";
+  if (page.type === "landing" && page.is_homepage !== false) return "/";
   const canonical = canonicalAliasForType(page.type);
   return page.is_default && canonical ? canonical : `/${normalizeSlug(page.slug)}`;
 }
@@ -28,7 +34,7 @@ export function publicURLForPage({
 }: {
   webOrigin: string;
   restaurantSlug: string;
-  page: Pick<DraftPagePayload, "type" | "slug" | "is_default">;
+  page: PublicAddressPage;
 }): string {
   const address = publicAddressForPage(page);
   const restaurantPath = `/r/${encodeURIComponent(restaurantSlug)}`;
