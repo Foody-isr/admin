@@ -824,7 +824,7 @@ git commit -m "feat: render website component state styles"
 - Consumes: all server, admin, and web contracts from Tasks 1–6.
 - Produces: a reproducible develop verification covering draft, preview, publish, and public navigation.
 
-- [ ] **Step 1: Write the failing Playwright scenarios**
+- [x] **Step 1: Write the failing Playwright scenarios**
 
 Add desktop builder scenarios that:
 
@@ -838,7 +838,7 @@ Add desktop builder scenarios that:
 
 Use stable `data-field-id`, `data-navbar-state`, `data-footer-text`, and section hook selectors rather than visual timing guesses.
 
-- [ ] **Step 2: Run E2E and verify RED before the final integration**
+- [x] **Step 2: Run E2E and verify RED before the final integration**
 
 ```bash
 cd foodyadmin
@@ -847,7 +847,7 @@ npx playwright test tests/website-v3 --grep "homepage and component states"
 
 Expected before all services are running together: FAIL at the first unavailable server/public contract.
 
-- [ ] **Step 3: Run complete service validation**
+- [x] **Step 3: Run complete service validation**
 
 ```bash
 cd foodyserver
@@ -871,7 +871,7 @@ npm run build
 
 If the local server race suite shows the repository's known cross-package shared-database pollution, rerun every changed package independently with `-race -count=1` and require GitHub CI's isolated database run to pass before deployment.
 
-- [ ] **Step 4: Run local or develop E2E GREEN**
+- [x] **Step 4: Run local or develop E2E GREEN**
 
 Start the three services against one environment, then run:
 
@@ -882,7 +882,7 @@ npx playwright test tests/website-v3 --grep "homepage and component states"
 
 Expected: PASS for iframe updates, publication, root redirect, and public styles.
 
-- [ ] **Step 5: Commit E2E coverage only**
+- [x] **Step 5: Commit E2E coverage only**
 
 ```bash
 cd foodyadmin
