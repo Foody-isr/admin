@@ -907,18 +907,25 @@ git commit -m "test: cover website homepage and state styles"
 
 - [ ] **Step 6: Push in dependency order**
 
-Confirm each repository is on `develop`, contains only intended commits, and is synchronized with origin. Push:
+Confirm each feature worktree contains only intended commits and is synchronized with
+`origin/develop`. Push and deploy one compatibility boundary at a time:
 
 ```bash
-git -C foodyweb push origin develop
-git -C foodyserver push origin develop
-git -C foodyadmin push origin develop
+git -C foodyweb push origin HEAD:develop
+# Wait for Foody Web Deploy Dev, including the dev alias step, to succeed.
+
+git -C foodyserver push origin HEAD:develop
+# Wait for Foody Server Test and Deploy Dev to succeed.
+
+git -C foodyadmin push origin HEAD:develop
+# Wait for Foody Admin deployment to succeed.
 ```
 
 Web goes first because its compatibility parser accepts both legacy payloads without
 `is_homepage` and new payloads containing the boolean. Server can then start emitting
 `is_homepage` without breaking public Website V3 parsing, followed by Admin once both
-ends of the contract are deployed.
+ends of the contract are deployed. Never run these three pushes back-to-back: each
+deployment-success gate is mandatory before the next push.
 
 - [ ] **Step 7: Monitor all CI and deployments**
 
