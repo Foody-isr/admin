@@ -145,7 +145,7 @@ export function NavbarPanel({ config, onUpdate, restaurantId }: {
       {sec('Composition par type de page',
         <div className="space-y-2">
           <p className="text-[10px] text-fg-secondary leading-tight">
-            Choisissez l&apos;affichage de la navigation, séparément sur <strong>ordinateur</strong> et <strong>mobile</strong>. Complète = logo + liens + bouton ; Compacte = logo + menu hamburger + bouton ; Masquée = aucune barre en haut.
+            Choisissez l&apos;affichage de la navigation, séparément sur <strong>ordinateur</strong> et <strong>mobile</strong>. Complète = barre avec logo, liens et bouton ; Compacte = menu et bouton flottants, sans barre ni logo ; Masquée = aucune navigation en haut.
           </p>
           {groupBlock('content', 'Pages de contenu', 'Accueil et pages de contenu')}
           {groupBlock('shopping', 'Pages boutique', 'Commande, traiteur, pages boutique')}

@@ -322,6 +322,7 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.content.cta_text": "Connected CTA",
   "section.content.cta_link": "/about",
   "section.content.image_url": "http://localhost:3000/logo-icon.svg",
+  "section.content.video_url": "https://cdn.example.com/hero-cover.mp4",
   "section.content.custom_text": "© Website V3 connected",
   "section.content.show_address": false,
   "section.content.show_phone": false,
@@ -416,6 +417,7 @@ function editorFor(
   const hero = [
     "section.content.headline", "section.content.subheadline",
     "section.content.cta_text", "section.content.cta_link",
+    "section.content.video_url",
   ].includes(id);
   const scrolling = id === "section.content.text";
   const menuHighlights = [
@@ -690,6 +692,7 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.content.cta_text", ["content", "cta_text"], "[data-website-section] a", "text"),
   section("section.content.cta_link", ["content", "cta_link"], "[data-website-section] a", "value"),
   section("section.content.image_url", ["content", "image_url"], "[data-website-section] img", "value"),
+  section("section.content.video_url", ["content", "video_url"], "[data-website-section] video", "value"),
   section("section.content.custom_text", ["content", "custom_text"], "[data-footer-text]", "text"),
   section("section.content.show_address", ["content", "show_address"], "[data-contact-address]", "visible"),
   section("section.content.show_phone", ["content", "show_phone"], "[data-contact-phone]", "visible"),

@@ -419,7 +419,7 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète · liens visibles</option>
-            <option value="compact">Compacte · menu hamburger</option>
+            <option value="compact">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -440,7 +440,7 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète</option>
-            <option value="compact">Compacte</option>
+            <option value="compact">Compacte · sans barre ni logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -453,7 +453,7 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète · liens visibles</option>
-            <option value="compact">Compacte · menu hamburger</option>
+            <option value="compact">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -466,7 +466,7 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète</option>
-            <option value="compact">Compacte</option>
+            <option value="compact">Compacte · sans barre ni logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>

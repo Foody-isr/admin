@@ -7,7 +7,7 @@ import {
   MenuHighlightsEditor,
   PicnicBasketEditor,
 } from "@/components/website/SectionEditors";
-import { uploadSectionImage } from "@/lib/api";
+import { uploadSectionImage, uploadSectionVideo } from "@/lib/api";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import { InspectorField, controlClass } from "./controls";
 
@@ -16,6 +16,26 @@ type SectionContentEditorsProps = {
   section: DraftSectionPayload;
   onChange: (path: StatePath, value: unknown) => void;
 };
+
+/** Builds one atomic Hero update so image, focal point, video, and legacy state cannot overwrite each other. */
+export function heroImageReplacement(
+  section: DraftSectionPayload,
+  imageUrl: string,
+): DraftSectionPayload {
+  return {
+    ...section,
+    content: {
+      ...section.content,
+      image_url: imageUrl,
+      video_url: "",
+      image_focal_x: 50,
+      image_focal_y: 50,
+    },
+    settings: text(section.settings.bg_image)
+      ? { ...section.settings, bg_image: "" }
+      : section.settings,
+  };
+}
 
 /** Renders the editable content model for every V3 content section. */
 export function SectionContentEditors({
@@ -167,21 +187,24 @@ function HeroEditor({
   const contentImage = text(content.image_url);
   const legacyBackgroundImage = text(settings.bg_image);
   const currentImage = contentImage || legacyBackgroundImage;
+  const currentVideo = text(content.video_url);
 
   function updateContent(key: string, value: unknown) {
     onChange(["content", key], value);
   }
 
   function replaceImage(url: string) {
-    updateContent("image_url", url);
-    if (legacyBackgroundImage) onChange(["settings", "bg_image"], "");
-    updateContent("image_focal_x", 50);
-    updateContent("image_focal_y", 50);
+    onChange([], heroImageReplacement(section, url));
   }
 
   function removeImage() {
-    updateContent("image_url", "");
-    if (legacyBackgroundImage) onChange(["settings", "bg_image"], "");
+    onChange([], {
+      ...section,
+      content: { ...content, image_url: "" },
+      settings: legacyBackgroundImage
+        ? { ...settings, bg_image: "" }
+        : settings,
+    });
   }
 
   return (
@@ -221,6 +244,19 @@ function HeroEditor({
         onUploaded={replaceImage}
         onRemove={removeImage}
       />
+      <VideoUploadField
+        restaurantId={restaurantId}
+        currentUrl={currentVideo}
+        posterUrl={currentImage}
+        onUploaded={(url) => updateContent("video_url", url)}
+        onRemove={() => updateContent("video_url", "")}
+      />
+      {currentVideo ? (
+        <p className="-mt-2 text-[11px] leading-4 text-slate-500">
+          Ajouter ou remplacer l’image réactive la couverture image à la place
+          de la vidéo.
+        </p>
+      ) : null}
       {legacyBackgroundImage && !contentImage ? (
         <p className="-mt-2 text-[11px] leading-4 text-slate-500">
           Cette image provient de l’ancienne configuration. Elle sera
@@ -228,6 +264,112 @@ function HeroEditor({
         </p>
       ) : null}
     </>
+  );
+}
+
+function VideoUploadField({
+  restaurantId,
+  currentUrl,
+  posterUrl,
+  onUploaded,
+  onRemove,
+}: {
+  restaurantId: number;
+  currentUrl: string;
+  posterUrl: string;
+  onUploaded: (url: string) => void;
+  onRemove: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function upload(file: File | undefined) {
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      setError("La vidéo ne doit pas dépasser 50 Mo.");
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      onUploaded(await uploadSectionVideo(restaurantId, file));
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Le téléversement a échoué.",
+      );
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="text-xs font-semibold text-slate-600">Vidéo de couverture</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+          MP4 ou WebM, 50 Mo maximum. La vidéo sera muette et jouée en boucle.
+        </p>
+      </div>
+      {currentUrl ? (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
+          <video
+            src={currentUrl}
+            poster={posterUrl || undefined}
+            muted
+            loop
+            playsInline
+            controls
+            className="max-h-44 w-full object-cover"
+          />
+          <div className="flex gap-2 bg-white p-2">
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => inputRef.current?.click()}
+              className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              {uploading ? "Téléversement…" : "Remplacer"}
+            </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+            >
+              Supprimer
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+          className="w-full rounded-xl border-2 border-dashed border-slate-200 px-3 py-6 text-sm font-semibold text-slate-600 hover:border-[#315fce] hover:text-[#315fce] disabled:opacity-50"
+        >
+          {uploading ? "Téléversement…" : "Ajouter une vidéo"}
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="video/mp4,video/webm"
+        onChange={(event) => void upload(event.target.files?.[0])}
+        className="hidden"
+      />
+      <input
+        type="url"
+        data-field-id="section.content.video_url"
+        value={currentUrl}
+        onChange={(event) => onUploaded(event.target.value)}
+        className={controlClass}
+        placeholder="Ou collez l’URL de la vidéo"
+      />
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+    </div>
   );
 }
 

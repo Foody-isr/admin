@@ -3,11 +3,42 @@ import { test } from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DraftSectionPayload } from "@/lib/website-v3/types";
+import { heroImageReplacement } from "../SectionContentEditors";
 import { SectionInspector } from "../SectionInspector";
 
 Object.assign(globalThis, { React });
 
-test("hero content exposes CTA fields and the already configured image", () => {
+test("hero image replacement is atomic and switches away from video", () => {
+  const section = {
+    tmp_id: "hero-test",
+    section_type: "hero_banner",
+    page: "home",
+    page_tmp_id: "page-test",
+    sort_order: 0,
+    is_visible: true,
+    layout: "centered",
+    content: {
+      image_url: "https://cdn.example.com/old.jpg",
+      video_url: "https://cdn.example.com/cover.mp4",
+      image_focal_x: 12,
+      image_focal_y: 87,
+    },
+    settings: { bg_image: "https://cdn.example.com/legacy.jpg" },
+  } satisfies DraftSectionPayload;
+
+  const updated = heroImageReplacement(
+    section,
+    "https://cdn.example.com/new.jpg",
+  );
+
+  assert.equal(updated.content.image_url, "https://cdn.example.com/new.jpg");
+  assert.equal(updated.content.video_url, "");
+  assert.equal(updated.content.image_focal_x, 50);
+  assert.equal(updated.content.image_focal_y, 50);
+  assert.equal(updated.settings.bg_image, "");
+});
+
+test("hero content exposes CTA fields and configured cover media", () => {
   const markup = renderSection({
     section_type: "hero_banner",
     content: {
@@ -16,6 +47,7 @@ test("hero content exposes CTA fields and the already configured image", () => {
       cta_text: "Commander",
       cta_link: "/order",
       image_url: "",
+      video_url: "https://cdn.example.com/current-hero.mp4",
     },
     settings: {
       bg_image: "https://cdn.example.com/current-hero.jpg",
@@ -25,6 +57,9 @@ test("hero content exposes CTA fields and the already configured image", () => {
   assert.match(markup, /Texte du bouton/);
   assert.match(markup, /Lien du bouton/);
   assert.match(markup, /src="https:\/\/cdn\.example\.com\/current-hero\.jpg"/);
+  assert.match(markup, /src="https:\/\/cdn\.example\.com\/current-hero\.mp4"/);
+  assert.match(markup, /Vidéo de couverture/);
+  assert.match(markup, /data-field-id="section\.content\.video_url"/);
   assert.match(markup, /Téléverser|Remplacer/);
 });
 

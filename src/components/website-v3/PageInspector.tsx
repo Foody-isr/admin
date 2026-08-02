@@ -392,7 +392,7 @@ export function PageInspector({
           >
             <option value="inherit">Hériter du site</option>
             <option value="full">Complète</option>
-            <option value="compact">Compacte</option>
+            <option value="compact">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -409,7 +409,7 @@ export function PageInspector({
           >
             <option value="inherit">Hériter du site</option>
             <option value="full">Complète</option>
-            <option value="compact">Compacte</option>
+            <option value="compact">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>

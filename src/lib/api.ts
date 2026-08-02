@@ -135,6 +135,12 @@ export interface RestaurantSettings {
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
+  // Stock management
+  // Auto-deactivate a menu item when its linked ingredients reach 0.
+  auto_disable_soldout?: boolean;
+  // Default predefined-stock unit for new items with weighted sizes:
+  //   '' — portions (default), 'g' — grams, 'kg' — kilograms.
+  default_stock_unit?: '' | 'g' | 'kg';
   // Delivery — minimum cart total to allow a delivery order (0 = no minimum).
   // Drives the "Min ₪X" pill on the foodyweb hero in delivery mode.
   minimum_order_delivery?: number;
@@ -926,7 +932,7 @@ export interface WebsitePageMeta {
 }
 
 /** A single navbar composition mode for one device.
- *  full = logo + inline links + CTA; compact = logo + hamburger + CTA;
+ *  full = logo + inline links + CTA; compact = floating hamburger + CTA;
  *  hidden = no top bar. */
 export type NavMode = 'full' | 'compact' | 'hidden';
 export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
@@ -4927,10 +4933,31 @@ export async function uploadSectionImage(restaurantId: number, file: File): Prom
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+    const details = typeof body.details === 'string' ? ` — ${body.details}` : '';
+    throw new Error(`${body.error || body.message || `Upload failed (${res.status})`}${details}`);
   }
   const data = await res.json();
   return data.image_url;
+}
+
+export async function uploadSectionVideo(restaurantId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('video', file);
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/sections/upload-video`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.video_url;
 }
 
 /** Upload a custom font file for the website builder's typography controls.
