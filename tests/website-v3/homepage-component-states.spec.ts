@@ -33,6 +33,7 @@ websiteV3Test(
     await configureHomepageCtaStates(builderPage);
 
     const homePreview = previewFrame(builderPage);
+    await expectRestaurantName(homePreview, false);
     await expectCtaStates(homePreview);
 
     await configureOrderHomepage(builderPage);
@@ -59,6 +60,7 @@ websiteV3Test(
     await expectOrderComponentStates(publicPage);
 
     await openPublicPage(publicPage, restaurantSlug, 'home');
+    await expectRestaurantName(publicPage, false);
     await expectCtaStates(publicPage);
 
     await expectPublishedMobileStyles(browser, restaurantSlug);
@@ -202,6 +204,7 @@ async function expectCtaStates(root: Page | FrameLocator): Promise<void> {
 
   await expect(navbar).toHaveAttribute('data-navbar-state', 'transparent');
   await expect(cta).toHaveAttribute('data-navbar-cta-state', 'transparent');
+  await expect(cta).toHaveAttribute('data-navbar-cta-variant', 'outline');
   await expect(cta).toHaveCSS('background-color', rgb(colors.ctaTransparentBg));
   await expect(cta).toHaveCSS('color', rgb(colors.ctaTransparentText));
   await expect(cta).toHaveCSS('border-color', rgb(colors.ctaTransparentBorder));
@@ -209,6 +212,7 @@ async function expectCtaStates(root: Page | FrameLocator): Promise<void> {
   await navbar.hover();
   await expect(navbar).toHaveAttribute('data-navbar-state', 'solid');
   await expect(cta).toHaveAttribute('data-navbar-cta-state', 'solid');
+  await expect(cta).toHaveAttribute('data-navbar-cta-variant', 'filled');
   await expect(cta).toHaveCSS('background-color', rgb(colors.ctaSolidBg));
   await expect(cta).toHaveCSS('color', rgb(colors.ctaSolidText));
   await expect(cta).toHaveCSS('border-color', rgb(colors.ctaSolidBorder));
@@ -225,10 +229,7 @@ async function expectOrderComponentStates(
   root: Page | FrameLocator,
   assertSticky = true,
 ): Promise<void> {
-  const navbar = root.locator('nav[data-navbar-state]').first();
-  await expect(
-    navbar.getByText('Website V3 E2E Restaurant', { exact: true }),
-  ).toBeVisible();
+  await expectRestaurantName(root, true);
 
   await expectCategoryStates(root, assertSticky);
 
@@ -284,10 +285,7 @@ async function expectPublishedMobileStyles(
   const page = await context.newPage();
   await page.goto(`${webBaseURL}/r/${restaurantSlug}/order`);
 
-  await expect(page.locator('[data-category-bar-state]').first()).toHaveCSS(
-    'background-color',
-    rgb(colors.categoryNormalBg),
-  );
+  await expectCategoryStates(page, true);
   await expect(
     page
       .locator('[data-section-type="menu_highlights"]')
@@ -306,6 +304,21 @@ async function expectPublishedMobileStyles(
     .toBe(true);
 
   await context.close();
+}
+
+async function expectRestaurantName(
+  root: Page | FrameLocator,
+  visible: boolean,
+): Promise<void> {
+  const name = root
+    .locator('nav[data-navbar-state]')
+    .first()
+    .getByText('Website V3 E2E Restaurant', { exact: true });
+  if (visible) {
+    await expect(name).toBeVisible();
+    return;
+  }
+  await expect(name).toHaveCount(0);
 }
 
 async function fillColor(page: Page, fieldId: string, value: string): Promise<void> {

@@ -847,6 +847,8 @@ npx playwright test tests/website-v3 --grep "homepage and component states"
 
 Expected before all services are running together: FAIL at the first unavailable server/public contract.
 
+Execution evidence (review fix): valid RED captured against Foody Web `998d1f1`, where the CTA exposed its navbar state but not `data-navbar-cta-variant`; the new transparent CTA assertion expected `outline` and received `null`.
+
 - [x] **Step 3: Run complete service validation**
 
 ```bash
@@ -881,6 +883,8 @@ npx playwright test tests/website-v3 --grep "homepage and component states"
 ```
 
 Expected: PASS for iframe updates, publication, root redirect, and public styles.
+
+Execution evidence (review fix): GREEN captured against Foody Web `3a1ae67`; the focused scenario passed with hidden/show restaurant-name checks, transparent/solid CTA variant checks, and published mobile sticky category checks.
 
 - [x] **Step 5: Commit E2E coverage only**
 
