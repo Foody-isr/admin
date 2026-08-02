@@ -22,7 +22,7 @@ import {
   replaceOrderCombo,
   updateOrderFulfillment,
   setOrderDiscount,
-  getBatchFulfillmentConfig,
+  getStaffBatchFulfillmentConfig,
   type Order,
   type OrderItem,
   type MenuItem,
@@ -299,11 +299,13 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       .catch(() => { setItemMap(new Map()); setCatalog([]); });
   }, [open, restaurantId, itemMap.size]);
 
-  // Load batch fulfillment config on open.
+  // Load batch fulfillment config on open. The staff variant also surfaces the
+  // current in-production série past its ordering cutoff, so staff can force this
+  // order into the série already in production (the public picker hides it).
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    getBatchFulfillmentConfig(restaurantId)
+    getStaffBatchFulfillmentConfig(restaurantId)
       .then((cfg) => { if (!cancelled) setBatchConfig(cfg); })
       .catch(() => { if (!cancelled) setBatchConfig(null); });
     return () => { cancelled = true; };

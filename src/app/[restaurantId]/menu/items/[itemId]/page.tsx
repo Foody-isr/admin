@@ -34,7 +34,7 @@ import VariantsEditor, {
 } from '@/components/menu-item/VariantsEditor';
 import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-item/MenuItemTabRecipe';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
-import ItemAvailabilityPanel from '@/components/menu-item/ItemAvailabilityPanel';
+import ItemAvailabilityPanel, { ItemAvailabilityPanelHandle } from '@/components/menu-item/ItemAvailabilityPanel';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
@@ -168,8 +168,10 @@ export default function EditItemPage() {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
   const [vatRate, setVatRate] = useState(18);
+  const [defaultStockUnit, setDefaultStockUnit] = useState<'' | 'g' | 'kg'>('');
 
   const recipeRef = useRef<MenuItemTabRecipeHandle>(null);
+  const availabilityRef = useRef<ItemAvailabilityPanelHandle>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -281,7 +283,12 @@ export default function EditItemPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => {
-    getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
+    getRestaurantSettings(rid)
+      .then((s) => {
+        setVatRate(s.vat_rate ?? 18);
+        setDefaultStockUnit((s.default_stock_unit as '' | 'g' | 'kg') ?? '');
+      })
+      .catch(() => {});
   }, [rid]);
 
   const allMenuItems = categories.flatMap((c) =>
@@ -399,6 +406,11 @@ export default function EditItemPage() {
       setItem((prev) => prev ? { ...prev, ...updated } : prev);
       if (recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
+      }
+      // Stock & disponibilité tab is transactional: it stages edits locally and
+      // only persists here on Save (never on change/blur), so Annuler discards.
+      if (availabilityRef.current?.isDirty()) {
+        await availabilityRef.current.save();
       }
       if (variantsDirty && itemType !== 'combo') {
         await syncItemVariants(rid, iid, {
@@ -822,7 +834,14 @@ export default function EditItemPage() {
 
             {/* ── Tab: Stock & disponibilité ───────────────────── */}
             {activeTab === 'availability' && item && (
-              <ItemAvailabilityPanel rid={rid} itemId={iid} item={item} onSaved={loadData} />
+              <ItemAvailabilityPanel
+                ref={availabilityRef}
+                rid={rid}
+                itemId={iid}
+                item={item}
+                defaultStockUnit={defaultStockUnit}
+                onSaved={loadData}
+              />
             )}
           </div>
         </div>

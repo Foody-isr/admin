@@ -49,6 +49,7 @@ const MIN_TEXT_CONTRAST = 3;
 type Props = {
   config: WebsiteConfig;
   catalog: ThemeCatalog;
+  excludedSectionColors?: readonly SectionKey[];
   onUpdate: (patch: Partial<WebsiteConfig>) => void;
 };
 
@@ -69,7 +70,12 @@ function seedFromCatalog(catalog: ThemeCatalog, themeId: string): CustomPalette 
   };
 }
 
-export function ThemesPanel({ config, catalog, onUpdate }: Props) {
+export function ThemesPanel({
+  config,
+  catalog,
+  excludedSectionColors = [],
+  onUpdate,
+}: Props) {
   const { t } = useI18n();
   const [hexDraft, setHexDraft] = useState(config.brand_color ?? '');
 
@@ -232,14 +238,18 @@ export function ThemesPanel({ config, catalog, onUpdate }: Props) {
         </div>
       </div>
 
-      <SectionColorsEditor config={config} onUpdate={onUpdate} />
+      <SectionColorsEditor
+        config={config}
+        excludedSections={excludedSectionColors}
+        onUpdate={onUpdate}
+      />
     </div>
   );
 }
 
 /* ─────────────────────── Per-section color overrides ─────────────────────── */
 
-type SectionKey = 'navbar' | 'hero' | 'metadata' | 'categoryBar';
+type SectionKey = 'navbar' | 'hero' | 'metadata' | 'categoryBar' | 'catering';
 type SectionField = 'bg' | 'text' | 'accent';
 
 // Each section exposes Background + Text; the category bar adds an Active-pill
@@ -249,11 +259,20 @@ const SECTION_DEFS: { key: SectionKey; label: string; fields: { field: SectionFi
   { key: 'hero', label: 'Hero (bandeau du resto)', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }] },
   { key: 'metadata', label: 'Infos (pré-commande, min…)', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }] },
   { key: 'categoryBar', label: 'Barre de catégories', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }, { field: 'accent', label: 'Pastille active' }] },
+  { key: 'catering', label: 'Traiteur (boutique)', fields: [{ field: 'bg', label: 'Fond' }, { field: 'accent', label: 'Boutons / accents' }, { field: 'text', label: 'Texte des boutons' }] },
 ];
 
 type SectionMap = Record<string, Record<string, string | undefined> | undefined>;
 
-function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUpdate: (patch: Partial<WebsiteConfig>) => void }) {
+function SectionColorsEditor({
+  config,
+  excludedSections,
+  onUpdate,
+}: {
+  config: WebsiteConfig;
+  excludedSections: readonly SectionKey[];
+  onUpdate: (patch: Partial<WebsiteConfig>) => void;
+}) {
   const sc = (config.section_colors ?? {}) as SectionMap;
 
   const commit = (next: SectionMap) => {
@@ -283,7 +302,9 @@ function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUp
         </p>
       </div>
 
-      {SECTION_DEFS.map((def) => {
+      {SECTION_DEFS.filter(
+        (definition) => !excludedSections.includes(definition.key),
+      ).map((def) => {
         const active = !!sc[def.key];
         const bg = sc[def.key]?.bg;
         // Text and the active-pill both sit on the section's background, so an
@@ -301,7 +322,11 @@ function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUp
               contrastRatio(bg, sc[def.key]![f.field]!) < MIN_TEXT_CONTRAST,
           );
         return (
-          <div key={def.key} className="border-t border-[var(--divider)] pt-3 first:border-t-0 first:pt-0">
+          <div
+            key={def.key}
+            data-section-color-key={def.key}
+            className="border-t border-[var(--divider)] pt-3 first:border-t-0 first:pt-0"
+          >
             <label className="flex items-center justify-between gap-2 cursor-pointer">
               <span className="text-[11px] font-medium text-fg-primary">{def.label}</span>
               <input
@@ -422,11 +447,14 @@ type EditorProps = {
 
 function CustomPaletteEditor({ palette, catalog, onChange, onReset }: EditorProps) {
   const { t } = useI18n();
-  const rows: { key: 'bg' | 'surface' | 'accent' | 'ink'; label: string }[] = [
+  const rows: { key: 'bg' | 'surface' | 'accent' | 'ink' | 'categoryInk' | 'searchBg' | 'menuText'; label: string }[] = [
     { key: 'bg', label: t('customPaletteBg') },
     { key: 'surface', label: t('customPaletteSurface') },
     { key: 'accent', label: t('customPaletteAccent') },
     { key: 'ink', label: t('customPaletteInk') },
+    { key: 'categoryInk', label: t('customPaletteCategoryInk') },
+    { key: 'searchBg', label: t('customPaletteSearchBg') },
+    { key: 'menuText', label: t('customPaletteMenuText') },
   ];
 
   return (
@@ -440,9 +468,15 @@ function CustomPaletteEditor({ palette, catalog, onChange, onReset }: EditorProp
           pick a polarity that fought their own colors. */}
 
       {/* The 4 swatch rows. Color picker + hex input, both wired to the same field. */}
-      {rows.map(({ key, label }) => (
-        <PaletteColorRow key={key} label={label} value={palette[key]} onChange={(v) => onChange({ [key]: v } as Partial<CustomPalette>)} />
-      ))}
+      {rows.map(({ key, label }) => {
+        // Optional swatches inherit until set: categoryInk starts from the text
+        // color, searchBg from the surface color — so each row opens on a
+        // sensible value rather than an empty/invalid swatch.
+        const inherited = key === 'searchBg' ? palette.surface : palette.ink;
+        return (
+          <PaletteColorRow key={key} label={label} value={palette[key] ?? inherited} onChange={(v) => onChange({ [key]: v } as Partial<CustomPalette>)} />
+        );
+      })}
 
       {/* Start-from-preset seeder. Confirms before overwriting current edits. */}
       <div>

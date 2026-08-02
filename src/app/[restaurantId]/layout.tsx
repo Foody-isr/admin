@@ -43,7 +43,11 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const { direction, t } = useI18n();
   const restaurantId = Number(params.restaurantId);
-  const isFullscreen = pathname.endsWith('/website') || pathname.endsWith('/table-qr/print');
+  const isFullscreen =
+    pathname.endsWith('/website') ||
+    pathname.endsWith('/website-v2') ||
+    pathname.endsWith('/website-v3') ||
+    pathname.endsWith('/table-qr/print');
   const isWideLayout = pathname.includes('/orders');
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -196,6 +200,7 @@ function RestaurantShell({
           className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden transition-[margin] duration-200 ${marginClass}`}
         >
           <TopBar
+            restaurantId={restaurantId}
             restaurantName={restaurant.name}
             pageName={pageName}
             onToggleSidebar={toggleSidebar}

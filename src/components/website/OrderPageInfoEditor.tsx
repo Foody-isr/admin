@@ -17,6 +17,19 @@ const DEFAULT_INFO: OrderPageInfo = {
   modal_text: '',
 };
 
+function normalizeOrderPageInfo(value: OrderPageInfo | null): OrderPageInfo {
+  const bar = value?.bar;
+  return {
+    bar: {
+      pickup: Array.isArray(bar?.pickup) ? bar.pickup : DEFAULT_INFO.bar.pickup,
+      delivery: Array.isArray(bar?.delivery) ? bar.delivery : DEFAULT_INFO.bar.delivery,
+      dine_in: Array.isArray(bar?.dine_in) ? bar.dine_in : DEFAULT_INFO.bar.dine_in,
+    },
+    modal: Array.isArray(value?.modal) ? value.modal : DEFAULT_INFO.modal,
+    modal_text: typeof value?.modal_text === 'string' ? value.modal_text : '',
+  };
+}
+
 const MODE_LABEL: Record<Mode, string> = {
   pickup: 'Retrait',
   delivery: 'Livraison',
@@ -115,7 +128,7 @@ export function OrderPageInfoEditor({
   const single = locked || modes.length <= 1;
   const [selected, setSelected] = useState<Mode>(modes[0]);
   const mode: Mode = single ? modes[0] : modes.includes(selected) ? selected : modes[0];
-  const v = value ?? DEFAULT_INFO;
+  const v = normalizeOrderPageInfo(value);
 
   const toggleBar = (key: OrderPageBarItem) => {
     const list = v.bar[mode];

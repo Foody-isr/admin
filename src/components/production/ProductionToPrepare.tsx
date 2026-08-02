@@ -2,9 +2,14 @@
 
 import { useI18n } from '@/lib/i18n';
 import { ProductionSheetResponse, ProductionSheetItem } from '@/lib/api';
+import { productionBoxes } from '@/lib/production';
 
 interface Props {
   sheet: ProductionSheetResponse;
+  /** Portion sizes offered per article, for the chosen box size's repacking. */
+  availablePortions?: Record<number, number[]>;
+  /** Page-wide box size; null = Auto (the containers clients actually ordered). */
+  boxSize?: number | null;
 }
 
 function formatTotal(item: ProductionSheetItem): string {
@@ -12,8 +17,10 @@ function formatTotal(item: ProductionSheetItem): string {
   return `${item.total}`;
 }
 
-/** "À préparer" cook-list: one card per item, grouped by category, with total + packaging chips. */
-export function ProductionToPrepare({ sheet }: Props) {
+/** "À préparer" cook-list: one card per item, grouped by category, with total +
+ *  packaging chips. Chips come from productionBoxes, the same helper the desktop
+ *  matrix header uses, so both screens portion identically. */
+export function ProductionToPrepare({ sheet, availablePortions, boxSize }: Props) {
   const { t } = useI18n();
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
 
@@ -32,6 +39,12 @@ export function ProductionToPrepare({ sheet }: Props) {
               {cat.item_ids.map((id) => {
                 const item = itemsById.get(id);
                 if (!item) return null;
+                const boxes = productionBoxes(
+                  sheet.orders,
+                  item,
+                  boxSize,
+                  availablePortions?.[id] ?? [],
+                );
                 return (
                   <div key={id} className="flex border border-[var(--line)] rounded-r-lg overflow-hidden">
                     <div
@@ -42,14 +55,14 @@ export function ProductionToPrepare({ sheet }: Props) {
                     </div>
                     <div className="flex-1 px-[var(--s-3)] py-[var(--s-2)]">
                       <p className="text-fs-sm font-semibold truncate">{item.name}</p>
-                      {item.measure === 'weight' && item.packaging && item.packaging.length > 0 && (
+                      {boxes.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {item.packaging.map((p) => (
+                          {boxes.map((b) => (
                             <span
-                              key={p.portion_g}
+                              key={b.portion}
                               className="text-fs-xs px-2 py-0.5 rounded-r-xl border border-[var(--line)] text-[var(--fg-muted)]"
                             >
-                              {p.count} × {p.portion_g} g
+                              {b.count} × {b.portion} g
                             </span>
                           ))}
                         </div>

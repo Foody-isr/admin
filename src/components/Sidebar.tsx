@@ -34,6 +34,7 @@ import {
   Languages,
   Tag,
   DollarSign,
+  CreditCard,
   Printer,
   Bell,
   LayoutGrid,
@@ -41,10 +42,12 @@ import {
   QrCode,
   Sparkles,
   Boxes,
+  Package,
   MessageCircle,
   MapPin,
   Truck,
   Fingerprint,
+  PartyPopper,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -53,6 +56,7 @@ interface SubItem {
   href: string;
   labelKey: string;
   badge?: number;
+  badgeLabelKey?: string;
   /**
    * Permissions granting access to this entry (any one of them). Needed when a
    * section groups pages with different gates — Clients holds both the customer
@@ -169,14 +173,19 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       ],
     },
     {
-      href: `${base}/website`,
+      href: `${base}/website-v3`,
       labelKey: 'online',
       icon: Globe,
       perm: ['settings.edit'],
       // The group is visible on mobile so an admin can reach Stories (connect
       // Instagram) from a phone. The website builder itself stays desktop-only.
       subItems: [
-        { href: `${base}/website`, labelKey: 'websiteBuilder', desktopOnly: true },
+        {
+          href: `${base}/website-v3`,
+          labelKey: 'websiteBuilderV3',
+          badgeLabelKey: 'betaLabel',
+          desktopOnly: true,
+        },
         { href: `${base}/reels`, labelKey: 'reels' },
       ],
     },
@@ -213,6 +222,19 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       subItems: [
         { href: `${base}/staff`, labelKey: 'staffMembers' },
         { href: `${base}/roles`, labelKey: 'rolesPermissions' },
+      ],
+    },
+    {
+      href: `${base}/catering/services`,
+      labelKey: 'nav_catering',
+      icon: PartyPopper,
+      perm: ['catering.view', 'catering.manage'],
+      subItems: [
+        { href: `${base}/catering/services`, labelKey: 'nav_catering_services', perm: ['catering.view', 'catering.manage'] },
+        { href: `${base}/catering/branches`, labelKey: 'nav_catering_branches', perm: ['catering.manage'] },
+        { href: `${base}/catering/quotes`, labelKey: 'nav_catering_quotes', perm: ['catering.view', 'catering.manage'] },
+        { href: `${base}/catering/events`, labelKey: 'nav_catering_events', perm: ['catering.view', 'catering.manage'] },
+        { href: `${base}/catering/routing`, labelKey: 'nav_catering_routing', perm: ['catering.manage'] },
       ],
     },
     {
@@ -293,7 +315,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       groupKey: 'settingsGroupCommerce',
       items: [
         { id: 'orders', href: `${base}/settings/orders`, labelKey: 'ordersAndAvailability', icon: CalendarClock },
+        { id: 'stock', href: `${base}/settings/stock`, labelKey: 'stockSettings', icon: Package },
         { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
+        { id: 'cibus', href: `${base}/settings/cibus`, labelKey: 'cibusSettings', icon: CreditCard, desktopOnly: true },
         { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
         { id: 'ai-assistant', href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant', icon: Sparkles },
         { id: 'delivery', href: `${base}/settings/delivery`, labelKey: 'deliveryZones', icon: MapPin },
@@ -533,6 +557,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                               href={sub.href}
                               label={t(sub.labelKey)}
                               badge={sub.badge}
+                              badgeLabel={sub.badgeLabelKey ? t(sub.badgeLabelKey) : undefined}
                               active={active}
                               desktopOnly={sub.desktopOnly}
                               onClick={onClose}
@@ -549,6 +574,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                           href={sub.href}
                           label={t(sub.labelKey)}
                           badge={sub.badge}
+                          badgeLabel={sub.badgeLabelKey ? t(sub.badgeLabelKey) : undefined}
                           active={active}
                           desktopOnly={sub.desktopOnly}
                           onClick={onClose}
@@ -725,6 +751,7 @@ function SubLink({
   href,
   label,
   badge,
+  badgeLabel,
   active,
   desktopOnly,
   onClick,
@@ -732,6 +759,7 @@ function SubLink({
   href: string;
   label: string;
   badge?: number;
+  badgeLabel?: string;
   active: boolean;
   desktopOnly?: boolean;
   onClick?: () => void;
@@ -760,7 +788,17 @@ function SubLink({
           {badge}
         </span>
       )}
+      {badgeLabel && (
+        <span
+          className={`rounded-r-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] ${
+            active
+              ? 'bg-[color-mix(in_oklab,var(--brand-500)_18%,transparent)] text-[var(--brand-500)]'
+              : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
+          }`}
+        >
+          {badgeLabel}
+        </span>
+      )}
     </Link>
   );
 }
-

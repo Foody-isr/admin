@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getModifierSet, createModifierSet, updateModifierSet,
-  deleteModifier, createModifierInSet, reorderModifierSetModifiers,
+  deleteModifier, createModifierInSet, updateModifierInSet, reorderModifierSetModifiers,
   deleteModifierSet,
   listStockItems, listPrepItems,
   getRestaurant,
@@ -236,6 +236,25 @@ export default function ModifierSetEditorPage() {
       } else {
         const setID = Number(setId);
         await updateModifierSet(rid, setID, input);
+        // Persist edits to existing rows (name, price, flags, translations…).
+        // Without this, changes to already-saved options are silently dropped.
+        const existingRows = finalRows.filter((r) => r.id && !r.isNew && r.name.trim());
+        for (const row of existingRows) {
+          await updateModifierInSet(rid, row.id as number, {
+            name: row.name,
+            kitchen_name: row.kitchen_name,
+            action: row.action,
+            price_delta: row.price_delta,
+            is_active: row.is_active,
+            is_preselected: row.is_preselected,
+            hide_online: row.hide_online,
+            stock_item_id: row.stock_item_id ?? null,
+            prep_item_id: row.prep_item_id ?? null,
+            quantity: row.quantity,
+            unit: row.unit,
+            translations: row.translations ?? {},
+          });
+        }
         const newRows = finalRows.filter((r) => r.isNew && r.name.trim());
         for (const row of newRows) {
           await createModifierInSet(rid, setID, {

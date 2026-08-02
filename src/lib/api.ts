@@ -77,6 +77,8 @@ export interface Restaurant {
   google_places_api_key?: string;
   pickup_enabled: boolean;
   dine_in_enabled: boolean;
+  /** No classic menu: customers land on the catering shop and Menu is hidden. */
+  catering_only?: boolean;
   is_active: boolean;
   opening_hours_config?: OpeningHoursConfig;
   created_at: string;
@@ -133,6 +135,12 @@ export interface RestaurantSettings {
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
+  // Stock management
+  // Auto-deactivate a menu item when its linked ingredients reach 0.
+  auto_disable_soldout?: boolean;
+  // Default predefined-stock unit for new items with weighted sizes:
+  //   '' — portions (default), 'g' — grams, 'kg' — kilograms.
+  default_stock_unit?: '' | 'g' | 'kg';
   // Delivery — minimum cart total to allow a delivery order (0 = no minimum).
   // Drives the "Min ₪X" pill on the foodyweb hero in delivery mode.
   minimum_order_delivery?: number;
@@ -720,7 +728,17 @@ export interface SectionColors {
   navbar?: { bg?: string; text?: string };
   hero?: { bg?: string; text?: string };
   metadata?: { bg?: string; text?: string };
-  categoryBar?: { bg?: string; text?: string; accent?: string };
+  categoryBar?: { bg?: string; text?: string; accent?: string; divider?: string };
+  categoryBarSticky?: { bg?: string; text?: string; accent?: string; divider?: string };
+  /** Catering shop: bg, buttons/accent, and button-label text. */
+  catering?: { bg?: string; text?: string; accent?: string };
+}
+
+export interface NavbarCtaSurfaceStyle {
+  variant?: 'filled' | 'outline' | 'ghost';
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
 }
 
 export interface WebsiteConfig {
@@ -752,6 +770,40 @@ export interface WebsiteConfig {
   navbar_color: string;
   logo_size: number;
   hide_navbar_name: boolean;
+  /** Landing navbar customization. navbar_style 'overlay' = transparent over the
+   *  hero, solid on hover; the two states can use different logos and text
+   *  colors. navbar_color is the solid-state background. */
+  navbar_logo_position?: 'left' | 'center' | 'right';
+  navbar_scrolled_logo_url?: string;
+  navbar_text_color?: string;
+  navbar_overlay_text_color?: string;
+  navbar_cta?: {
+    enabled?: boolean;
+    text?: string;
+    link?: string;
+    bg?: string;
+    text_color?: string;
+    border_color?: string;
+    /** Button style. shape = corner radius; size = padding scale; variant = fill treatment. */
+    shape?: 'pill' | 'rounded' | 'square';
+    size?: 'sm' | 'md' | 'lg';
+    variant?: 'filled' | 'outline' | 'ghost';
+    transparent?: NavbarCtaSurfaceStyle;
+    solid?: NavbarCtaSurfaceStyle;
+  } | null;
+  /** Navbar composition: inline page links on/off, and the hamburger drawer
+   *  button ('mobile' = phones only, 'always', or 'off'). */
+  navbar_show_links?: boolean;
+  navbar_hamburger?: 'mobile' | 'always' | 'off';
+  /** Navbar typography: a navbar-specific font family (links + restaurant name)
+   *  plus weight/size/letter-spacing/uppercase. */
+  navbar_font?: string;
+  navbar_type?: { weight?: number; size?: number; letter_spacing?: number; uppercase?: boolean } | null;
+  /** Inline nav-link visual treatment. */
+  navbar_link_style?: 'text' | 'underline' | 'pill' | 'bordered';
+  /** Per-(page-type × device) navigation composition (Phase B). NULL ⇒ derived
+   *  from the legacy navbar_* fields. */
+  nav_layout?: NavLayout | null;
   hide_hero_logo: boolean;
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
   hero_logo_bg: 'white' | 'black';
@@ -767,6 +819,15 @@ export interface WebsiteConfig {
     surface: string;
     accent: string;
     ink: string;
+    /** Text color for category banners/dividers. Optional — inherits `ink`
+     *  on the customer-facing app when unset. */
+    categoryInk?: string;
+    /** Background fill of the search field. Optional — inherits the muted
+     *  surface on the customer-facing app when unset. */
+    searchBg?: string;
+    /** Text color for item/combo detail modals ("fiches"). Optional — inherits
+     *  `ink` on the customer-facing app when unset. */
+    menuText?: string;
   } | null;
   /** Optional per-section color overrides; omitted section/field inherits the theme. */
   section_colors?: SectionColors | null;
@@ -782,14 +843,26 @@ export interface WebsiteConfig {
   landing_enabled: boolean;
   /** Whether the customer Stories/Reels page + bottom-nav tab is shown. */
   stories_enabled?: boolean;
+  /** Whether public navigation shows the guest order-history destination. */
+  show_orders_link?: boolean;
   /** Comma-separated order of the mobile bottom-nav page tabs ("menu","stories"). First = default landing tab. */
   nav_order?: string;
   checkout_config?: CheckoutConfig | null;
   order_page_info?: OrderPageInfo | null;
+  order_type_selector?: OrderTypeSelectorConfig | null;
   // Draft / publish workflow (added in v2)
   draft_dirty?: boolean;
   draft_saved_at?: string | null;
   published_at?: string | null;
+}
+
+export interface OrderTypeSelectorConfig {
+  shape?: 'pill' | 'rounded' | 'square';
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'filled' | 'outline' | 'ghost';
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
 }
 
 // ─── Typography overrides ────────────────────────────────────────────────
@@ -807,6 +880,8 @@ export interface TypographyRoleOverride {
   weight?: number;
   /** Text case. Absent = Auto (keep the theme's behavior). */
   transform?: 'uppercase' | 'none';
+  /** Text color for this semantic role. Empty/absent = inherit the theme. */
+  color?: string;
 }
 
 /** One uploaded font file = one @font-face at a given weight/style. A custom
@@ -861,7 +936,41 @@ export interface WebsitePageMeta {
   slug: string;
   label: string;
   sort_order: number;
+  /** Show this page in the horizontal top nav. Defaults to true when omitted. */
+  show_in_nav?: boolean;
+  /** Treat this custom page as a "shopping" page (drops the full top nav, uses
+   *  the shopping navigation). Defaults to false (content page). */
+  is_shopping?: boolean;
 }
+
+/** A single navbar composition mode for one device.
+ *  full = logo + inline links + CTA; compact = floating hamburger + CTA;
+ *  hidden = no top bar. */
+export type NavMode = 'full' | 'compact' | 'hidden';
+export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
+/** Per-page-type navigation composition. content = landing + content pages;
+ *  shopping = order, catering, and custom pages flagged shopping. */
+export type NavigationIcon = 'home' | 'menu' | 'grid' | 'play' | 'bag' | 'user' | 'page';
+export type BottomNavigationStyle = {
+  order?: string[];
+  icons?: Record<string, NavigationIcon>;
+  background_color?: string;
+  button_background_color?: string;
+  text_color?: string;
+  active_text_color?: string;
+};
+export type CompactNavigationStyle = {
+  hamburger_position?: 'left' | 'right';
+  actions_position?: 'left' | 'right';
+  icon_color?: string;
+  button_background_color?: string;
+};
+export type NavLayout = {
+  content: NavLayoutSide;
+  shopping: NavLayoutSide;
+  bottom_navigation?: BottomNavigationStyle;
+  compact_navigation?: CompactNavigationStyle;
+};
 
 // ─── Checkout-form builder ──────────────────────────────────────────────
 // Mirrors foodyserver/internal/restaurants/checkout_config.go. Null/undefined
@@ -2191,6 +2300,26 @@ export async function getRestaurant(id: number): Promise<Restaurant> {
   return data.restaurant;
 }
 
+/** Loads public navigation eligibility without blocking protected admin flows. */
+export async function getPublicRestaurantNavigationState(
+  idOrSlug: number | string,
+): Promise<{ storiesNavigationAvailable: boolean | undefined }> {
+  try {
+    const data = await apiFetch<{
+      restaurant?: { stories_navigation_available?: boolean };
+    }>(
+      `/api/v1/public/restaurants/${encodeURIComponent(String(idOrSlug))}`,
+      typeof idOrSlug === "number" ? idOrSlug : undefined,
+    );
+    return {
+      storiesNavigationAvailable:
+        data.restaurant?.stories_navigation_available === true,
+    };
+  } catch {
+    return { storiesNavigationAvailable: undefined };
+  }
+}
+
 export async function updateRestaurant(id: number, input: Partial<Restaurant>): Promise<Restaurant> {
   const data = await apiFetch<{ restaurant: Restaurant }>(
     `/api/v1/restaurants/${id}`, id,
@@ -2216,6 +2345,37 @@ export async function updateRestaurantSettings(
   return data.settings;
 }
 
+// ─── Cibus (Pluxee) terminal credentials (merchant self-serve) ──────────────
+// The restaurant enters its own Cibus terminal identity. Cibus must first be
+// enabled (selected as the payment provider) by a Foody superadmin; `enabled`
+// reflects that. Credentials are write-only from here — reads return masked hints.
+
+export interface CibusCreds {
+  enabled: boolean;
+  masked_restaurant_id?: string;
+  masked_pos_id?: string;
+  masked_company_code?: string;
+}
+
+export interface UpdateCibusCredsInput {
+  cibus_restaurant_id?: string;
+  cibus_pos_id?: string;
+  cibus_company_code?: string;
+}
+
+export async function getCibusCreds(id: number): Promise<CibusCreds> {
+  return apiFetch<CibusCreds>(`/api/v1/restaurants/${id}/cibus-credentials`, id);
+}
+
+export async function updateCibusCreds(
+  id: number, input: UpdateCibusCredsInput
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(
+    `/api/v1/restaurants/${id}/cibus-credentials`, id,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+}
+
 // ─── Batch fulfillment config (public-shape) ────────────────────────────────
 // Mirrors the foodyserver response from GET /api/v1/public/batch-fulfillment-config/:idOrSlug.
 // foodyadmin reads this to drive the carte-page batch picker.
@@ -2236,6 +2396,10 @@ export interface BatchCycleSummary {
   open_at: string;   // ISO 8601 datetime
   cutoff_at: string; // ISO 8601 datetime
   fulfillment_days: BatchFulfillmentDayInfo[];
+  /** Cycle whose ordering window has closed but is still in production. Only ever
+   *  set on the staff config (getStaffBatchFulfillmentConfig); lets staff force an
+   *  order into the série already in production. */
+  ordering_closed?: boolean;
 }
 
 export interface BatchFulfillmentConfigResponse {
@@ -2260,6 +2424,19 @@ export async function getBatchFulfillmentConfig(
 ): Promise<BatchFulfillmentConfigResponse> {
   return apiFetch<BatchFulfillmentConfigResponse>(
     `/api/v1/public/restaurants/${restaurantId}/batch-fulfillment-config`,
+    restaurantId,
+  );
+}
+
+/** Staff-only batch config. Same shape as the public one, but its upcoming_cycles
+ *  may include the current in-production série past its ordering cutoff (flagged
+ *  ordering_closed). Drives the série picker in the manual order create/edit flows,
+ *  letting staff force an order into the série already in production. */
+export async function getStaffBatchFulfillmentConfig(
+  restaurantId: number
+): Promise<BatchFulfillmentConfigResponse> {
+  return apiFetch<BatchFulfillmentConfigResponse>(
+    `/api/v1/restaurants/${restaurantId}/staff-batch-fulfillment-config`,
     restaurantId,
   );
 }
@@ -2737,6 +2914,74 @@ export async function setMenuLocations(restaurantId: number, menuId: number, loc
   return data.locations ?? [];
 }
 
+// --- Chain (multi-branch) ---
+
+/** One branch (restaurant) of a chain, as returned by the switcher endpoint. */
+export interface ChainBranch {
+  id: number;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  is_current: boolean;
+}
+
+/** Chain overview for the current restaurant. chain_id is null for a standalone
+ *  restaurant, in which case `branches` contains only that restaurant. */
+export interface ChainOverview {
+  chain_id: number | null;
+  chain_name?: string;
+  branches: ChainBranch[];
+}
+
+export interface CreateBranchInput {
+  name: string;
+  chain_name?: string;
+  address?: string;
+  phone?: string;
+}
+
+/** Returns the chain of the current restaurant and the branches the caller can access. */
+export async function getChainBranches(restaurantId: number): Promise<ChainOverview> {
+  return apiFetch<ChainOverview>(`/api/v1/chain/branches`, restaurantId);
+}
+
+/** Self-serve create of a new branch under the current restaurant's chain
+ *  (creating the chain lazily on the first branch). Requires chain.manage. */
+export async function createChainBranch(restaurantId: number, input: CreateBranchInput): Promise<{ branch_id: number }> {
+  return apiFetch<{ branch_id: number }>(
+    `/api/v1/chain/branches`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+/** Lists a chain's branches by chain id (no single-restaurant context), for the
+ *  Global reports view. Access is authorized server-side. */
+export async function getChainOverview(chainId: number): Promise<ChainOverview> {
+  return apiFetch<ChainOverview>(`/api/v1/chains/${chainId}/branches`);
+}
+
+/** Merged period summary across every branch of the chain (chain-scoped, no
+ *  single restaurant). Powers the Global dashboard KPIs. */
+export async function getChainPeriodSummary(chainId: number, scope: AnalyticsScope, basis?: DateBasis): Promise<PeriodComparison> {
+  const params = new URLSearchParams({
+    chain_id: String(chainId),
+    ...analyticsScopeParams(scope),
+    ...dateBasisParams(basis),
+  });
+  return apiFetch<PeriodComparison>(`/api/v1/analytics/period?${params}`);
+}
+
+/** Merged top sellers across every branch of the chain. */
+export async function getChainTopSellers(chainId: number, scope?: AnalyticsScope, basis?: DateBasis): Promise<TopSeller[]> {
+  const params = new URLSearchParams({
+    chain_id: String(chainId),
+    ...analyticsScopeParams(scope),
+    ...dateBasisParams(basis),
+  });
+  const data = await apiFetch<{ top_items: TopSeller[] }>(`/api/v1/analytics/top-sellers?${params}`);
+  return data.top_items ?? [];
+}
+
 export async function createMenuItem(restaurantId: number, input: Partial<MenuItem> & { category_id: number; name: string; price: number }): Promise<MenuItem> {
   const data = await apiFetch<{ item: MenuItem }>(
     `/api/v1/menu/items?restaurant_id=${restaurantId}`, restaurantId,
@@ -2997,6 +3242,20 @@ export async function createModifierInSet(restaurantId: number, setId: number, i
   const data = await apiFetch<{ modifier: MenuItemModifier }>(
     `/api/v1/menu/modifier-sets/${setId}/modifiers?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.modifier;
+}
+
+/**
+ * Persist edits to an existing modifier that lives inside a modifier set
+ * (name, kitchen name, price, flags, stock link, translations). The set-scoped
+ * fields map onto the shared `PUT /menu/modifiers/:id` endpoint, which already
+ * scopes by restaurant and supports set-owned modifiers.
+ */
+export async function updateModifierInSet(restaurantId: number, id: number, input: ModifierInSetInput): Promise<MenuItemModifier> {
+  const data = await apiFetch<{ modifier: MenuItemModifier }>(
+    `/api/v1/menu/modifiers/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
   );
   return data.modifier;
 }
@@ -4158,6 +4417,10 @@ export interface ProductionSheetOrder {
   window_end?: string;
   cells: Record<string, number>; // menu_item_id (string key) -> grams or count
   units?: Record<string, number>; // menu_item_id -> ordered container count (2 pots, not 1000 g)
+  /** menu_item_id -> packaging behind that cell (weighed items only): a 500 g
+   *  cell made of two 250 g pots reads [{250, 2}]. Summing the rows rebuilds the
+   *  day's packaging for whatever subset of clients is on screen. */
+  portions?: Record<string, ProductionSheetPortion[]>;
   provenance?: Record<string, ProductionCellProvenance>; // menu_item_id -> combo/individual split
   prepared?: boolean; // shared "done" flag (Order.prepared_at set); synced live across tablets
 }
@@ -4702,10 +4965,31 @@ export async function uploadSectionImage(restaurantId: number, file: File): Prom
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+    const details = typeof body.details === 'string' ? ` — ${body.details}` : '';
+    throw new Error(`${body.error || body.message || `Upload failed (${res.status})`}${details}`);
   }
   const data = await res.json();
   return data.image_url;
+}
+
+export async function uploadSectionVideo(restaurantId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('video', file);
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/sections/upload-video`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.video_url;
 }
 
 /** Upload a custom font file for the website builder's typography controls.
@@ -4833,13 +5117,22 @@ export async function listSiteStyles(): Promise<SiteStylePreset[]> {
   return data.styles || [];
 }
 
-// ─── Website Editor v2 — Draft / Publish ─────────────────────────────────────
+// ─── Website Editor v2 / v3 — Draft / Publish ────────────────────────────────
+
+export type {
+  DraftPagePayload as WebsiteV3DraftPagePayload,
+  DraftResponse as WebsiteV3DraftResponse,
+  DraftSectionPayload as WebsiteV3DraftSectionPayload,
+  DraftStatePayload as WebsiteV3DraftStatePayload,
+} from './website-v3/types';
 
 export type DraftSectionPayload = {
   id?: number;
   tmp_id?: string;
   section_type: string;
   page: string;
+  page_id?: number;
+  page_tmp_id?: string;
   sort_order: number;
   is_visible: boolean;
   layout: string;
@@ -4847,10 +5140,26 @@ export type DraftSectionPayload = {
   settings: Record<string, any>;
 };
 
+export type DraftPagePayload = {
+  id?: number;
+  tmp_id?: string;
+  type: string;
+  slug: string;
+  title: string;
+  sort_order: number;
+  nav_visible?: boolean;
+  is_default?: boolean;
+  seo?: Record<string, any>;
+  settings?: Record<string, any>;
+  appearance_overrides?: Record<string, any>;
+};
+
 export type DraftStatePayload = {
   config: Record<string, any>;
+  pages?: DraftPagePayload[];
   sections: DraftSectionPayload[];
   deleted_section_ids: number[];
+  deleted_page_ids?: number[];
 };
 
 export type DraftResponse = {
@@ -4872,6 +5181,32 @@ export async function saveWebsiteDraft(
   return apiFetch<DraftResponse>(
     `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId,
     { method: 'PUT', body: JSON.stringify(payload) }
+  );
+}
+
+/** The live WebsitePage rows (typed pages + their commerce settings) for a
+ *  restaurant, independent of the draft snapshot. Backed by the public
+ *  page-centric read. Used by the commerce-connection panel. */
+export async function getWebsitePages(restaurantId: number): Promise<DraftPagePayload[]> {
+  const res = await apiFetch<{ pages: DraftPagePayload[] }>(
+    `/api/v1/public/restaurants/${restaurantId}/website-pages`,
+    restaurantId,
+  );
+  return res.pages ?? [];
+}
+
+/** Set a builder page's settings_json (per-page commerce connection:
+ *  {commerce, menu_ids, service_ids}). Isolated from the draft — saves
+ *  immediately, does not touch the builder's autosave/publish snapshot. */
+export async function setWebsitePageSettings(
+  restaurantId: number,
+  pageId: number,
+  settings: Record<string, unknown>,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/website-pages/${pageId}/settings`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify({ settings }) },
   );
 }
 
@@ -7718,4 +8053,331 @@ export async function checkDeliverable(
   } catch {
     return { deliverable: false };
   }
+}
+
+// ---- Catering ----
+export type CateringPricingModel = 'per_unit' | 'per_person' | 'custom_quote';
+
+export interface CateringService {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  slug: string;
+  description: string;
+  pricing_model: CateringPricingModel;
+  quote_mode: 'auto' | 'review';
+  /** How many articles a customer may pick: 'single', 'multiple', or '' = auto
+   *  (per_person → one formula, per_unit → several items). */
+  selection_mode?: '' | 'single' | 'multiple';
+  is_active: boolean;
+  display_order: number;
+}
+
+export interface CateringServiceInput {
+  name: string;
+  description?: string;
+  pricing_model: CateringPricingModel;
+  quote_mode?: 'auto' | 'review';
+  selection_mode?: '' | 'single' | 'multiple';
+  is_active?: boolean;
+  display_order?: number;
+}
+
+export interface CateringBranch {
+  location: {
+    id: number;
+    name: string;
+    address: string;
+    is_active: boolean;
+    catering_type: 'standard' | 'labo';
+    latitude?: number | null;
+    longitude?: number | null;
+  };
+  service_ids: number[];
+}
+
+export interface CateringBranchInput {
+  catering_type: 'standard' | 'labo';
+  latitude?: number | null;
+  longitude?: number | null;
+  service_ids: number[];
+}
+
+/** List all catering services for a restaurant. */
+export async function listCateringServices(restaurantId: number): Promise<CateringService[]> {
+  const res = await apiFetch<{ services: CateringService[] }>('/api/v1/catering/services', restaurantId);
+  return res.services ?? [];
+}
+
+/** Create a catering service. */
+export async function createCateringService(restaurantId: number, body: CateringServiceInput): Promise<CateringService> {
+  return apiFetch<CateringService>('/api/v1/catering/services', restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update a catering service. */
+export async function updateCateringService(restaurantId: number, id: number, body: CateringServiceInput): Promise<CateringService> {
+  return apiFetch<CateringService>(`/api/v1/catering/services/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Archive (soft-delete) a catering service. */
+export async function archiveCateringService(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/services/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+/** List branches with their catering capabilities. */
+export async function listCateringBranches(restaurantId: number): Promise<CateringBranch[]> {
+  const res = await apiFetch<{ branches: CateringBranch[] }>('/api/v1/catering/branches', restaurantId);
+  return res.branches ?? [];
+}
+
+/** Set a branch's catering type, coordinates, and service capabilities. */
+export async function updateCateringBranch(restaurantId: number, locationId: number, body: CateringBranchInput): Promise<CateringBranch> {
+  return apiFetch<CateringBranch>(`/api/v1/catering/branches/${locationId}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+export interface CateringRoutingRule {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  name: string;
+  cities: string[];
+  target_location_id: number;
+  priority: number;
+  is_fallback: boolean;
+  is_active: boolean;
+}
+
+export interface CateringRoutingRuleInput {
+  service_id: number;
+  name: string;
+  cities: string[];
+  target_location_id: number;
+  priority?: number;
+  is_fallback?: boolean;
+  is_active?: boolean;
+}
+
+/** List catering routing rules (priority desc, id asc). */
+export async function listCateringRoutingRules(restaurantId: number): Promise<CateringRoutingRule[]> {
+  const res = await apiFetch<{ routing_rules: CateringRoutingRule[] }>('/api/v1/catering/routing-rules', restaurantId);
+  return res.routing_rules ?? [];
+}
+
+/** Create a catering routing rule. */
+export async function createCateringRoutingRule(restaurantId: number, body: CateringRoutingRuleInput): Promise<CateringRoutingRule> {
+  return apiFetch<CateringRoutingRule>('/api/v1/catering/routing-rules', restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update a catering routing rule. */
+export async function updateCateringRoutingRule(restaurantId: number, id: number, body: CateringRoutingRuleInput): Promise<CateringRoutingRule> {
+  return apiFetch<CateringRoutingRule>(`/api/v1/catering/routing-rules/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Delete (soft) a catering routing rule. */
+export async function deleteCateringRoutingRule(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/routing-rules/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+// ---- Catering events (deposit-paid, routed to a branch) ----
+
+export interface CateringEvent {
+  id: number;
+  quote_id: number;
+  service_id: number;
+  assigned_location_id: number | null;
+  event_date: string | null;
+  event_type: string;
+  event_city: string;
+  deposit_amount: number;
+  status: string;
+  created_at: string;
+  customer_name: string;
+  customer_phone: string;
+  service_name: string;
+  assigned_location_name: string;
+}
+
+/** List catering events (deposit paid, routed), optionally filtered by status. */
+export async function listCateringEvents(restaurantId: number, status?: string): Promise<CateringEvent[]> {
+  const qs = status ? `?status=${status}` : '';
+  const res = await apiFetch<{ events: CateringEvent[] }>(`/api/v1/catering/events${qs}`, restaurantId);
+  return res.events ?? [];
+}
+
+export type CateringQuoteStatus = 'auto_approved' | 'pending_human_review' | 'approved' | 'rejected';
+
+export type CateringDepositStatus = 'none' | 'pending' | 'paid' | 'refunding' | 'refunded';
+
+export interface CateringQuote {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  public_token: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  guests: number;
+  event_date: string | null;
+  event_city: string;
+  event_type: string;
+  config: unknown;
+  total: number;
+  status: CateringQuoteStatus;
+  review_note: string;
+  deposit_status: CateringDepositStatus;
+  deposit_amount: number;
+  /** Non-empty when a second successful charge landed on an already-paid quote (customer charged twice) and needs refunding. */
+  deposit_overcharge_txn_uid: string;
+  deposit_refund_txn_uid: string;
+  deposit_refunded_amount: number;
+  deposit_refunded_at: string | null;
+  overcharge_refund_txn_uid: string;
+  created_at: string;
+}
+
+export interface CateringQuoteReviewInput { total?: number; note?: string }
+
+/** Which charge a refund targets: the primary deposit, or a recorded duplicate charge. */
+export type CateringRefundTarget = 'deposit' | 'overcharge';
+
+export interface CateringDepositRefundInput { amount: number; target: CateringRefundTarget }
+
+/** List catering quotes, optionally filtered by status. */
+export async function listCateringQuotes(restaurantId: number, status?: CateringQuoteStatus): Promise<CateringQuote[]> {
+  const qs = status ? `?status=${status}` : '';
+  const res = await apiFetch<{ quotes: CateringQuote[] }>(`/api/v1/catering/quotes${qs}`, restaurantId);
+  return res.quotes ?? [];
+}
+
+/** Get one catering quote. */
+export async function getCateringQuote(restaurantId: number, id: number): Promise<CateringQuote> {
+  return apiFetch<CateringQuote>(`/api/v1/catering/quotes/${id}`, restaurantId);
+}
+
+/** Approve (optionally adjust total) a catering quote. */
+export async function approveCateringQuote(restaurantId: number, id: number, body: CateringQuoteReviewInput): Promise<CateringQuote> {
+  return apiFetch<CateringQuote>(`/api/v1/catering/quotes/${id}/approve`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Reject a catering quote. */
+export async function rejectCateringQuote(restaurantId: number, id: number, body: CateringQuoteReviewInput): Promise<CateringQuote> {
+  return apiFetch<CateringQuote>(`/api/v1/catering/quotes/${id}/reject`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Refund a catering quote's deposit (or a recorded duplicate charge) via PayPlus, at staff discretion. */
+export async function refundCateringDeposit(restaurantId: number, id: number, body: CateringDepositRefundInput): Promise<CateringQuote> {
+  return apiFetch<CateringQuote>(`/api/v1/catering/quotes/${id}/refund`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+// ---- Catering catalog (Phase 2) ----
+/** A per-person price break: from `min_guests` guests, the rate is `price`/person. */
+export interface CateringPriceTier { min_guests: number; price: number }
+
+export interface CateringCatalogItem {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  name: string;
+  /** Short marketing intro shown under the title (1-2 sentences), distinct from
+   *  the itemized `description`. Translatable via the translations map. */
+  overview: string;
+  description: string;
+  image_url: string;
+  base_price: number;
+  price_tiers?: CateringPriceTier[] | null;
+  translations?: Record<string, Record<string, string>>;
+  min_quantity: number;
+  min_guests: number;
+  event_type: string;
+  lead_time_days: number;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface CateringCatalogItemInput {
+  name: string;
+  overview?: string;
+  description?: string;
+  image_url?: string;
+  base_price: number;
+  price_tiers?: CateringPriceTier[];
+  translations?: Record<string, Record<string, string>>;
+  min_quantity?: number;
+  min_guests?: number;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export type CateringOptionPriceMode = 'fixed' | 'per_person';
+
+export interface CateringOption {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  name: string;
+  description: string;
+  price: number;
+  price_mode: CateringOptionPriceMode;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface CateringOptionInput {
+  name: string;
+  description?: string;
+  price: number;
+  price_mode: CateringOptionPriceMode;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+/** List catalog items for a catering service. */
+export async function listCateringItems(restaurantId: number, serviceId: number): Promise<CateringCatalogItem[]> {
+  const res = await apiFetch<{ items: CateringCatalogItem[] }>(`/api/v1/catering/services/${serviceId}/items`, restaurantId);
+  return res.items ?? [];
+}
+
+/** Create a catalog item under a service. */
+export async function createCateringItem(restaurantId: number, serviceId: number, body: CateringCatalogItemInput): Promise<CateringCatalogItem> {
+  return apiFetch<CateringCatalogItem>(`/api/v1/catering/services/${serviceId}/items`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update a catalog item. */
+export async function updateCateringItem(restaurantId: number, id: number, body: CateringCatalogItemInput): Promise<CateringCatalogItem> {
+  return apiFetch<CateringCatalogItem>(`/api/v1/catering/items/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Archive (soft-delete) a catalog item. */
+export async function archiveCateringItem(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/items/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+/** Reorder items within a service. `itemIds` is the full ordered set; the first
+ *  gets sort_order=0, the next 1, and so on. */
+export async function reorderCateringItems(restaurantId: number, serviceId: number, itemIds: number[]): Promise<void> {
+  await apiFetch(`/api/v1/catering/services/${serviceId}/items/reorder`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ item_ids: itemIds }),
+  });
+}
+
+/** List add-on options for a catering service. */
+export async function listCateringOptions(restaurantId: number, serviceId: number): Promise<CateringOption[]> {
+  const res = await apiFetch<{ options: CateringOption[] }>(`/api/v1/catering/services/${serviceId}/options`, restaurantId);
+  return res.options ?? [];
+}
+
+/** Create an option under a service. */
+export async function createCateringOption(restaurantId: number, serviceId: number, body: CateringOptionInput): Promise<CateringOption> {
+  return apiFetch<CateringOption>(`/api/v1/catering/services/${serviceId}/options`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update an option. */
+export async function updateCateringOption(restaurantId: number, id: number, body: CateringOptionInput): Promise<CateringOption> {
+  return apiFetch<CateringOption>(`/api/v1/catering/options/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Archive (soft-delete) an option. */
+export async function archiveCateringOption(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/options/${id}`, restaurantId, { method: 'DELETE' });
 }

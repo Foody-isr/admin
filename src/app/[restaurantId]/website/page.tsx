@@ -3,15 +3,16 @@
 import { useState, useEffect, useCallback, useRef, forwardRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   getWebsiteConfig, updateWebsiteConfig, resetWebsiteConfig, getRestaurant, updateRestaurant,
   listWebsiteSections, createWebsiteSection, updateWebsiteSection,
   deleteWebsiteSection, reorderWebsiteSections, listSiteStyles,
-  uploadRestaurantLogo, uploadRestaurantBackground, uploadSectionImage,
-  getAllCategories, getThemeCatalog,
+  uploadRestaurantLogo, uploadRestaurantBackground,
+  getThemeCatalog,
   getWebsiteDraft, saveWebsiteDraft, publishWebsiteDraft, discardWebsiteDraft,
   DraftStatePayload, DraftSectionPayload,
-  WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
+  WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant,
   ThemeCatalog, WebsitePageMeta, updateGroup, uploadGroupImage,
 } from '@/lib/api';
 import type { BannerDesign } from '@/lib/api';
@@ -20,11 +21,14 @@ import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
 import { CoverBackgroundEditor } from '@/components/website-menu/CoverBackgroundEditor';
-import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
+import { SECTION_TYPE_META, SectionSettingsPanel, getDefaultContent } from '@/components/website/SectionEditors';
+import { NavbarPanel } from '@/components/website/NavbarPanel';
 import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 import CheckoutEditor from '@/components/website/CheckoutEditor';
+import { WEBSITE_TEMPLATES, type WebsiteTemplate } from './templates';
 import CheckoutPreviewIframe from '@/components/website/CheckoutPreviewIframe';
 import { OrderPageInfoEditor } from '@/components/website/OrderPageInfoEditor';
+import { PageCommercePanel } from '@/components/website/PageCommercePanel';
 import type { CheckoutConfig, OrderPageInfo } from '@/lib/api';
 import { WEBSITE_FONT_FAMILIES } from '@/lib/website-fonts';
 
@@ -35,6 +39,17 @@ type HeroCoverLayout = 'card' | 'logo' | 'bare';
 /** Coerces a stored cover-layout value to a known option; unknowns fall back to 'card'. */
 const asHeroCoverLayout = (v: string | undefined | null): HeroCoverLayout =>
   v === 'logo' || v === 'bare' ? v : 'card';
+
+/** Human label for the page currently being edited (for the top-bar context). */
+function activePageLabelFor(activePage: string, pages: WebsitePageMeta[]): string {
+  switch (activePage) {
+    case 'home': return 'Accueil';
+    case 'menu': return 'Page de commande';
+    case 'catering': return 'Traiteur';
+    case '_site': return 'Pied de page';
+    default: return pages.find((p) => p.slug === activePage)?.label ?? activePage;
+  }
+}
 
 type PreviewMessage = {
   type: 'foody-theme-preview';
@@ -84,50 +99,6 @@ type PreviewMessage = {
 // offer the same expanded set.
 const FONT_OPTIONS = WEBSITE_FONT_FAMILIES;
 
-const SECTION_TYPE_META: Record<string, { labelKey: string; icon: string; descKey: string }> = {
-  hero_banner:     { labelKey: 'heroBanner',      icon: '\u{1F5BC}\u{FE0F}', descKey: 'heroBannerDesc' },
-  scrolling_text:  { labelKey: 'scrollingText',   icon: '\u{1F4DC}', descKey: 'scrollingTextDesc' },
-  text_and_image:  { labelKey: 'textAndImage',     icon: '\u{1F4DD}', descKey: 'textAndImageDesc' },
-  gallery:         { labelKey: 'gallery',           icon: '\u{1F3A8}', descKey: 'galleryDesc' },
-  testimonials:    { labelKey: 'testimonials',      icon: '\u{1F4AC}', descKey: 'testimonialsDesc' },
-  about:           { labelKey: 'about',             icon: '\u{1F4A1}', descKey: 'aboutDesc' },
-  menu_highlights: { labelKey: 'menuHighlights',   icon: '\u{2B50}', descKey: 'menuHighlightsDesc' },
-  promo_banner:    { labelKey: 'promoBanner',      icon: '\u{1F3F7}\u{FE0F}', descKey: 'promoBannerDesc' },
-  social_feed:     { labelKey: 'socialLinks',      icon: '\u{1F4F1}', descKey: 'socialLinksDesc' },
-  action_buttons:  { labelKey: 'actionButtons',    icon: '\u{1F518}', descKey: 'actionButtonsDesc' },
-  picnic_basket:   { labelKey: 'picnicBasket',     icon: '\u{1F9FA}', descKey: 'picnicBasketDesc' },
-  footer:          { labelKey: 'footer',            icon: '\u{1F3E0}', descKey: 'footerDesc' },
-};
-
-const LAYOUT_OPTIONS: Record<string, { value: string; labelKey: string }[]> = {
-  hero_banner:    [{ value: 'centered', labelKey: 'centered' }, { value: 'left_aligned', labelKey: 'leftAligned' }, { value: 'split', labelKey: 'split' }],
-  text_and_image: [{ value: 'default', labelKey: 'imageRight' }, { value: 'image_left', labelKey: 'imageLeft' }],
-  gallery:        [{ value: 'grid', labelKey: 'grid' }, { value: 'masonry', labelKey: 'masonry' }],
-  testimonials:   [{ value: 'carousel', labelKey: 'carousel' }, { value: 'grid', labelKey: 'grid' }],
-  about:          [{ value: 'centered', labelKey: 'centered' }, { value: 'split', labelKey: 'split' }, { value: 'banner', labelKey: 'banner' }],
-  footer:         [{ value: 'columns', labelKey: 'columns' }, { value: 'centered', labelKey: 'centered' }, { value: 'minimal', labelKey: 'minimal' }],
-};
-
-const COLOR_STYLES = [
-  { value: 'light', labelKey: 'light' },
-  { value: 'dark', labelKey: 'dark' },
-  { value: 'custom', labelKey: 'custom' },
-];
-
-const ACTION_TYPES = [
-  { value: 'order_pickup', labelKey: 'orderPickup' },
-  { value: 'order_delivery', labelKey: 'orderDelivery' },
-  { value: 'view_menu', labelKey: 'viewMenu' },
-  { value: 'external_link', labelKey: 'externalLink' },
-  { value: 'scroll_to_section', labelKey: 'scrollToSection' },
-];
-
-const BUTTON_STYLES = [
-  { value: 'primary', labelKey: 'primary' },
-  { value: 'secondary', labelKey: 'secondary' },
-  { value: 'outline', labelKey: 'outline' },
-];
-
 function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime();
   if (!Number.isFinite(then)) return '';
@@ -145,6 +116,10 @@ type Tab = 'styles' | 'sections';
 
 export default function WebsitePage() {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  // Catering is offered as an editable "Traiteur" page only when this restaurant
+  // has catering (same catering.manage gate used across the catering section).
+  const canManageCatering = hasAnyPermission('catering.manage');
   const params = useParams();
   const router = useRouter();
   const restaurantId = Number(params.restaurantId);
@@ -162,7 +137,7 @@ export default function WebsitePage() {
   // Paramètres: slug, contact display toggles, social links, SEO.
   // The old "Site Settings"/"Section Settings" duality is gone.
   type EditorMode = 'pages' | 'theme' | 'checkout' | 'settings';
-  type ThemeSubMode = 'colors' | 'typography' | 'logo';
+  type ThemeSubMode = 'colors' | 'typography' | 'logo' | 'navbar';
   type SettingsSubMode = 'general' | 'contact' | 'social' | 'orderInfo' | 'seo';
   const [editorMode, setEditorMode] = useState<EditorMode>('pages');
   const [themeSubMode, setThemeSubMode] = useState<ThemeSubMode>('colors');
@@ -255,6 +230,7 @@ export default function WebsitePage() {
   const [selectedBanner, setSelectedBanner] = useState<{ groupId: number; design: BannerDesign } | null>(null);
   const bannerSaveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [activePage, setActivePage] = useState('home');
   // Custom pages (beyond the built-in home + menu). Each renders at
   // /r/<slug>/<page.slug> on foodyweb and appears in the hamburger nav.
@@ -266,8 +242,10 @@ export default function WebsitePage() {
   const [showAddress, setShowAddress] = useState(true);
   const [showPhone, setShowPhone] = useState(true);
   const [showHours, setShowHours] = useState(true);
-  const [navbarStyle, setNavbarStyle] = useState<string>('solid');
-  const [navbarColor, setNavbarColor] = useState<string>('');
+  // navbar_style / navbar_color now live on `config` (edited in the Thème →
+  // Navigation panel and persisted via buildDraftPayload). The old dedicated
+  // local-state pipeline + the duplicate Paramètres → Général dropdown were
+  // removed — they silently overwrote the panel's picks on save.
   const [logoSize, setLogoSize] = useState<number>(40);
   const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
   const [heroNameFont, setHeroNameFont] = useState<string>('');
@@ -326,12 +304,12 @@ export default function WebsitePage() {
       heroLogoBg: next.hero_logo_bg === 'black' ? 'black' : 'white',
       heroCoverLayout: asHeroCoverLayout(next.hero_cover_layout),
       heroLogoSize: next.hero_logo_size > 0 ? next.hero_logo_size : 100,
-      // These four are edited in dedicated state (not `config`), so read them
+      // These two are edited in dedicated state (not `config`), so read them
       // from the live state vars rather than `next`.
       heroNameFont,
       tagline,
-      navbarStyle,
-      navbarColor,
+      navbarStyle: next.navbar_style || 'solid',
+      navbarColor: next.navbar_color || '',
       socialLinks: next.social_links ?? {},
       restaurantPreview: restaurant
         ? {
@@ -359,7 +337,7 @@ export default function WebsitePage() {
       typography: next.typography ?? null,
     };
     win.postMessage(message, '*');
-  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, orderPageInfo, heroNameFont, tagline, navbarStyle, navbarColor, restaurant]);
+  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, orderPageInfo, heroNameFont, tagline, restaurant]);
 
   // Re-post the menu preview whenever the banner controls change so the iframe
   // reflects them live (these fields are not part of `config`, so the config
@@ -375,7 +353,7 @@ export default function WebsitePage() {
   useEffect(() => {
     if (config) postMenuPreview(config);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heroNameFont, tagline, navbarStyle, navbarColor,
+  }, [heroNameFont, tagline,
       restaurant?.logo_url, restaurant?.cover_url, restaurant?.background_color,
       restaurant?.cover_display_mode, restaurant?.cover_focal_x, restaurant?.cover_focal_y]);
 
@@ -461,9 +439,12 @@ export default function WebsitePage() {
     setSelectedSectionId(null);
   }
 
-  // Filter sections by active page, footer always last
+  // Filter sections by active page, footer always last. The "Page de commande"
+  // pseudo-page (activePage 'menu') hosts sections stored under the reserved
+  // 'order' slug (consumed by the order route; avoids a phantom /menu page).
+  const activeSectionPage = activePage === 'menu' ? 'order' : activePage;
   const filteredSections = sections
-    .filter(s => (s.page || 'home') === activePage)
+    .filter(s => (s.page || 'home') === activeSectionPage)
     .sort((a, b) => {
       if (a.section_type === 'footer') return 1;
       if (b.section_type === 'footer') return -1;
@@ -489,8 +470,6 @@ export default function WebsitePage() {
     setShowAddress(stateConfig.show_address ?? true);
     setShowPhone(stateConfig.show_phone ?? true);
     setShowHours(stateConfig.show_hours ?? true);
-    setNavbarStyle(stateConfig.navbar_style || 'solid');
-    setNavbarColor(stateConfig.navbar_color || '');
     setLogoSize(stateConfig.logo_size > 0 ? stateConfig.logo_size : 40);
     setHideNavbarName(stateConfig.hide_navbar_name || false);
     setHeroNameFont(stateConfig.hero_name_font || '');
@@ -565,6 +544,18 @@ export default function WebsitePage() {
           navbar_color: stateConfig.navbar_color || '',
           logo_size: stateConfig.logo_size > 0 ? stateConfig.logo_size : 40,
           hide_navbar_name: stateConfig.hide_navbar_name || false,
+          navbar_logo_position: stateConfig.navbar_logo_position || 'left',
+          navbar_scrolled_logo_url: stateConfig.navbar_scrolled_logo_url || '',
+          navbar_text_color: stateConfig.navbar_text_color || '',
+          navbar_overlay_text_color: stateConfig.navbar_overlay_text_color || '',
+          navbar_cta: stateConfig.navbar_cta ?? null,
+          navbar_show_links: stateConfig.navbar_show_links ?? true,
+          navbar_hamburger: stateConfig.navbar_hamburger || 'mobile',
+          navbar_font: stateConfig.navbar_font || '',
+          navbar_type: stateConfig.navbar_type ?? null,
+          navbar_link_style: stateConfig.navbar_link_style || 'text',
+          nav_layout: stateConfig.nav_layout ?? null,
+          nav_order: stateConfig.nav_order || '',
           hide_hero_logo: stateConfig.hide_hero_logo || false,
           hero_logo_bg: stateConfig.hero_logo_bg === 'black' ? 'black' : 'white',
           hero_cover_layout: asHeroCoverLayout(stateConfig.hero_cover_layout),
@@ -612,8 +603,12 @@ export default function WebsitePage() {
         setRestaurant(rest);
         setSiteStyles(styles);
 
-        // Auto-create essential sections (footer, action_buttons) if missing.
-        // Done locally so it lands in the draft without touching live state.
+        // Auto-create the site-wide footer if missing. Only NON-DELETABLE
+        // sections may be auto-seeded here: this runs on every builder load, so
+        // seeding a user-deletable type (e.g. action_buttons) would resurrect it
+        // on the next refresh right after the user deleted it. The footer is
+        // safe because it can never be deleted (see isDeletable). New sites get
+        // their optional sections (CTAs, etc.) from templates or "+ Ajouter".
         const existingTypes = new Set((draft.state.sections || []).map((s) => s.section_type));
         const missing: DraftSectionPayload[] = [];
         if (!existingTypes.has('footer')) {
@@ -623,14 +618,6 @@ export default function WebsitePage() {
             tmp_id: `tmp_${Date.now()}_footer`, section_type: 'footer', page: '_site',
             is_visible: true, layout: 'columns', sort_order: 99,
             content: getDefaultContent('footer'), settings: { color_style: 'dark' },
-          });
-        }
-        if (!existingTypes.has('action_buttons')) {
-          missing.push({
-            tmp_id: `tmp_${Date.now()}_action`, section_type: 'action_buttons', page: 'home',
-            is_visible: true, layout: 'default', sort_order: (draft.state.sections?.length || 0),
-            content: getDefaultContent('action_buttons'),
-            settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' },
           });
         }
         if (missing.length > 0) {
@@ -672,10 +659,22 @@ export default function WebsitePage() {
         mid_cta_body: config?.mid_cta_body || '',
         mid_cta_btn_text: config?.mid_cta_btn_text || '',
         footer_text: config?.footer_text || '',
-        navbar_style: navbarStyle,
-        navbar_color: navbarColor,
+        navbar_style: config?.navbar_style || 'solid',
+        navbar_color: config?.navbar_color || '',
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
+        navbar_logo_position: config?.navbar_logo_position || 'left',
+        navbar_scrolled_logo_url: config?.navbar_scrolled_logo_url || '',
+        navbar_text_color: config?.navbar_text_color || '',
+        navbar_overlay_text_color: config?.navbar_overlay_text_color || '',
+        navbar_cta: config?.navbar_cta ?? null,
+        navbar_show_links: config?.navbar_show_links ?? true,
+        navbar_hamburger: config?.navbar_hamburger || 'mobile',
+        navbar_font: config?.navbar_font || '',
+        navbar_type: config?.navbar_type ?? null,
+        navbar_link_style: config?.navbar_link_style || 'text',
+        nav_layout: config?.nav_layout ?? null,
+        nav_order: config?.nav_order || '',
         hide_hero_logo: config?.hide_hero_logo ?? false,
         hero_logo_bg: config?.hero_logo_bg === 'black' ? 'black' : 'white',
         hero_cover_layout: asHeroCoverLayout(config?.hero_cover_layout),
@@ -708,7 +707,7 @@ export default function WebsitePage() {
       }),
       deleted_section_ids: deletedIds,
     };
-  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, pages, landingEnabled, checkoutConfig, orderPageInfo, sections, deletedIds]);
+  }, [config, tagline, showAddress, showPhone, showHours, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, pages, landingEnabled, checkoutConfig, orderPageInfo, sections, deletedIds]);
 
   // ─── Autosave: persist the entire draft on any local change ──────
 
@@ -818,13 +817,60 @@ export default function WebsitePage() {
   function handleAddPage() {
     const slug = slugifyPage('page');
     const label = `Nouvelle page ${pages.length + 1}`;
-    setPages((prev) => [...prev, { slug, label, sort_order: prev.length }]);
+    setPages((prev) => [...prev, { slug, label, sort_order: prev.length, show_in_nav: true }]);
     setActivePage(slug);
     setSelectedSectionId(null);
   }
 
   function handleRenamePage(slug: string, label: string) {
     setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, label } : p)));
+  }
+
+  function handleTogglePageNav(slug: string, show: boolean) {
+    setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, show_in_nav: show } : p)));
+  }
+
+  function handleTogglePageShopping(slug: string, shopping: boolean) {
+    setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, is_shopping: shopping } : p)));
+  }
+
+  // Apply a ready-made template: replace the current page content with the
+  // template's pages + sections (the site-wide footer is preserved). Existing
+  // DB-backed sections are queued for deletion; the whole thing autosaves as a
+  // draft the owner can then tweak and publish.
+  function applyTemplate(tpl: WebsiteTemplate) {
+    const footer = sections.find((s) => s.section_type === 'footer');
+    const toDelete = sections.filter((s) => s.id > 0 && s.section_type !== 'footer').map((s) => s.id);
+    if (toDelete.length > 0) setDeletedIds((prev) => [...prev, ...toDelete]);
+
+    const tmpMap = new Map<number, string>();
+    let synth = -1;
+    const stamp = Date.now();
+    const templateSections: WebsiteSection[] = tpl.sections.map((s, i) => {
+      const id = synth--;
+      tmpMap.set(id, `tmp_${stamp}_${i}_${Math.random().toString(36).slice(2, 6)}`);
+      return {
+        id,
+        restaurant_id: restaurantId,
+        section_type: s.section_type,
+        page: s.page,
+        sort_order: i,
+        is_visible: true,
+        layout: s.layout || 'default',
+        content: s.content as Record<string, unknown>,
+        settings: (s.settings as Record<string, unknown>) || { color_style: 'light', text_alignment: 'center', padding: 'normal' },
+        created_at: '',
+        updated_at: '',
+      } as WebsiteSection;
+    });
+    newSectionTmpIds.current = tmpMap;
+    setSections(footer ? [...templateSections, footer] : templateSections);
+    setPages(tpl.pages);
+    setLandingEnabled(true);
+    setConfig((c) => (c ? ({ ...c, pages: tpl.pages, landing_enabled: true } as WebsiteConfig) : c));
+    setActivePage('home');
+    setSelectedSectionId(null);
+    setShowTemplates(false);
   }
 
   function handleDeletePage(slug: string) {
@@ -914,7 +960,7 @@ export default function WebsitePage() {
       id: syntheticId,
       restaurant_id: restaurantId,
       section_type: sectionType,
-      page: activePage,
+      page: activePage === 'menu' ? 'order' : activePage,
       sort_order: sections.length,
       is_visible: true,
       layout: 'default',
@@ -998,34 +1044,50 @@ export default function WebsitePage() {
             </svg>
           </button>
           <div className="flex flex-col leading-tight">
-            <span className="text-[9px] uppercase tracking-[0.12em] text-fg-secondary">Site web</span>
+            <span className="text-[9px] uppercase tracking-[0.12em] text-fg-secondary">
+              {editorMode === 'pages' ? 'Page en cours' : 'Site web'}
+            </span>
             <span className="text-[13px] font-semibold text-fg-primary truncate max-w-[180px]">
-              {restaurant?.name ?? 'Sans titre'}
+              {editorMode === 'pages'
+                ? activePageLabelFor(activePage, pages)
+                : (restaurant?.name ?? 'Sans titre')}
             </span>
           </div>
         </div>
 
-        {/* Center: mode tabs (Pages / Thème / Paramètres) */}
-        <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--surface-subtle)' }}>
-          {(['pages', 'theme', 'checkout', 'settings'] as EditorMode[]).map((m) => {
-            const label = m === 'pages' ? 'Pages'
-              : m === 'theme' ? 'Thème'
-              : m === 'checkout' ? 'Commande'
-              : 'Paramètres';
-            const active = editorMode === m;
-            return (
-              <button
-                key={m}
-                onClick={() => { setEditorMode(m); if (m !== 'pages') setSelectedSectionId(null); }}
-                className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition ${
-                  active ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
-                }`}
-                style={active ? { background: 'var(--surface)' } : undefined}
-              >
-                {label}
-              </button>
-            );
-          })}
+        {/* Center: page-centric editing (Pages) separated from site-wide settings.
+            Communicates the redesign's core distinction — you edit a PAGE, and the
+            rest applies to the whole SITE. */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setEditorMode('pages')}
+            className={`px-4 py-1.5 rounded-lg text-[13px] font-semibold transition ${
+              editorMode === 'pages' ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
+            }`}
+            style={{ background: editorMode === 'pages' ? 'var(--surface)' : 'var(--surface-subtle)' }}
+          >
+            Pages
+          </button>
+          <span className="text-fg-secondary opacity-30 select-none">|</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-secondary opacity-60">Site</span>
+          <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--surface-subtle)' }}>
+            {(['theme', 'checkout', 'settings'] as EditorMode[]).map((m) => {
+              const label = m === 'theme' ? 'Thème' : m === 'checkout' ? 'Commande' : 'Paramètres';
+              const active = editorMode === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => { setEditorMode(m); setSelectedSectionId(null); }}
+                  className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition ${
+                    active ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
+                  }`}
+                  style={active ? { background: 'var(--surface)' } : undefined}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Right: device, status, preview link, annuler, publier */}
@@ -1098,13 +1160,18 @@ export default function WebsitePage() {
         {/* Left Rail (content depends on mode) */}
         <div className="border-r border-divider flex flex-col flex-shrink-0 overflow-y-auto" style={{ width: 320, background: 'var(--surface)' }}>
           {editorMode === 'pages' && (
+            <>
             <PagesLeftRail
               activePage={activePage}
               onActivePageChange={setActivePage}
               landingEnabled={landingEnabled}
+              cateringEnabled={canManageCatering}
               pages={pages}
               onAddPage={handleAddPage}
+              onOpenTemplates={() => setShowTemplates(true)}
               onRenamePage={handleRenamePage}
+              onTogglePageNav={handleTogglePageNav}
+              onTogglePageShopping={handleTogglePageShopping}
               onDeletePage={handleDeletePage}
               onReorderPage={handleReorderPage}
               footerExists={footerSection !== null}
@@ -1135,6 +1202,8 @@ export default function WebsitePage() {
               restaurant={restaurant}
               onRestaurantUpdate={setRestaurant}
             />
+            <PageCommercePanel restaurantId={restaurantId} activePage={activePage} />
+            </>
           )}
           {editorMode === 'theme' && (
             <ThemeLeftRail
@@ -1165,16 +1234,12 @@ export default function WebsitePage() {
               onSubModeChange={setSettingsSubMode}
               restaurant={restaurant}
               tagline={tagline}
-              navbarStyle={navbarStyle}
-              navbarColor={navbarColor}
               showAddress={showAddress}
               showPhone={showPhone}
               showHours={showHours}
               landingEnabled={landingEnabled}
               socialLinks={(config?.social_links as Record<string, string>) ?? {}}
               onTaglineChange={setTagline}
-              onNavbarStyleChange={setNavbarStyle}
-              onNavbarColorChange={setNavbarColor}
               onShowAddressChange={setShowAddress}
               onShowPhoneChange={setShowPhone}
               onShowHoursChange={setShowHours}
@@ -1205,6 +1270,17 @@ export default function WebsitePage() {
               subTab={checkoutSubTab}
               checkoutConfig={checkoutConfig}
             />
+          ) : editorMode === 'theme' && themeSubMode === 'navbar' ? (
+            // The Navigation sub-tab customizes the LANDING navbar, so preview the
+            // landing here (the rest of the Thème tab previews the order page).
+            <LiveHomePreviewIframe
+              mode={previewMode}
+              slug={restaurant?.slug}
+              draftPayload={buildDraftPayload()}
+              onSectionClick={() => {}}
+              onBoundsUpdate={handleBoundsUpdate}
+              onIframeRectUpdate={handleIframeRectUpdate}
+            />
           ) : (editorMode === 'pages' && activePage === 'menu') || editorMode === 'theme' ? (
             // The Thème tab (colors/typography/logo) and the Page de commande
             // both preview against the order page. Theme CSS vars are only
@@ -1228,7 +1304,7 @@ export default function WebsitePage() {
             <LiveHomePreviewIframe
               mode={previewMode}
               slug={restaurant?.slug}
-              path={activePage === '_site' ? '/order' : `/${activePage}`}
+              path={activePage === '_site' || activePage === 'menu' ? '/order' : `/${activePage}`}
               draftPayload={buildDraftPayload()}
               onSectionClick={(id) => {
                 if (typeof id === 'number') setSelectedSectionId(id);
@@ -1313,7 +1389,6 @@ export default function WebsitePage() {
           selectedId={selectedSectionId}
           bounds={sectionBounds}
           iframeScrollY={iframeScrollY}
-          onSelect={(id) => { if (typeof id === 'number') setSelectedSectionId(id); }}
           onMoveUp={(id) => typeof id === 'number' && handleMoveSection(id, 'up')}
           onMoveDown={(id) => typeof id === 'number' && handleMoveSection(id, 'down')}
           onToggleVisibility={(id) => {
@@ -1333,6 +1408,14 @@ export default function WebsitePage() {
       {/* Add Section Modal */}
       {showAddModal && (
         <AddSectionModal onAdd={handleAddSection} onClose={() => setShowAddModal(false)} />
+      )}
+
+      {showTemplates && (
+        <TemplatePickerModal
+          hasCatering={canManageCatering}
+          onApply={applyTemplate}
+          onClose={() => setShowTemplates(false)}
+        />
       )}
 
       {/* Discard confirm modal */}
@@ -1369,13 +1452,17 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, cateringEnabled, pages, onAddPage, onOpenTemplates, onRenamePage, onTogglePageNav, onTogglePageShopping, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
+  cateringEnabled: boolean;
   pages: WebsitePageMeta[];
   onAddPage: () => void;
+  onOpenTemplates: () => void;
   onRenamePage: (slug: string, label: string) => void;
+  onTogglePageNav: (slug: string, show: boolean) => void;
+  onTogglePageShopping: (slug: string, shopping: boolean) => void;
   onDeletePage: (slug: string) => void;
   onReorderPage: (slug: string, dir: 'up' | 'down') => void;
   footerExists: boolean;
@@ -1408,7 +1495,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
 }) {
   const activeCustom = pages.find((p) => p.slug === activePage) || null;
   const isFooter = activePage === '_site';
-  const showSectionList = !isFooter && activePage !== 'menu';
+  const showSectionList = !isFooter;
   const sectionLabel = activePage === 'home' ? 'Sections' : activeCustom ? `Sections — ${activeCustom.label}` : 'Sections';
 
   // Category banner: the style is shared across devices; only the fit (Cadrage)
@@ -1432,7 +1519,15 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
       {/* Pages list — built-in (Accueil/Commande) + custom pages + the site
           footer. Works regardless of the landing toggle; custom pages appear in
           the customer hamburger menu. */}
-      <div className="px-3 pt-4 pb-3 border-b border-divider">
+      <div className="px-3 pt-3">
+        <button
+          onClick={onOpenTemplates}
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-brand-500/40 bg-brand-500/5 px-3 py-2 text-[12px] font-semibold text-brand-600 hover:bg-brand-500/10 transition-colors"
+        >
+          <span>{'✨'}</span> Modèles de site
+        </button>
+      </div>
+      <div className="px-3 pt-3 pb-3 border-b border-divider">
         <div className="flex items-center justify-between px-1 mb-2">
           <span className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">Pages</span>
           <button onClick={onAddPage} className="text-[11px] font-medium text-brand-500 hover:text-brand-600">+ Nouvelle page</button>
@@ -1446,6 +1541,11 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
           <div className={rowCls(activePage === 'menu')}>
             <button onClick={() => onActivePageChange('menu')} className={rowBtnCls(activePage === 'menu')}>Page de commande</button>
           </div>
+          {cateringEnabled && (
+            <div className={rowCls(activePage === 'catering')}>
+              <button onClick={() => onActivePageChange('catering')} className={rowBtnCls(activePage === 'catering')}>Traiteur</button>
+            </div>
+          )}
           {pages.map((p, i) => (
             <div key={p.slug} className={rowCls(activePage === p.slug)}>
               <button onClick={() => onActivePageChange(p.slug)} className={rowBtnCls(activePage === p.slug)}>{p.label}</button>
@@ -1483,8 +1583,26 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
             className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           />
           <p className="mt-1.5 text-[10px] text-fg-secondary leading-relaxed">
-            Adresse : <span className="text-fg-primary">/{activeCustom.slug}</span> · apparaît dans le menu hamburger.
+            Adresse : <span className="text-fg-primary">/{activeCustom.slug}</span>
           </p>
+          <label className="mt-3 flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={activeCustom.show_in_nav !== false}
+              onChange={(e) => onTogglePageNav(activeCustom.slug, e.target.checked)}
+              className="accent-brand-500"
+            />
+            <span className="text-[11px] text-fg-secondary">Afficher dans la navigation</span>
+          </label>
+          <label className="mt-2 flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={activeCustom.is_shopping === true}
+              onChange={(e) => onTogglePageShopping(activeCustom.slug, e.target.checked)}
+              className="accent-brand-500"
+            />
+            <span className="text-[11px] text-fg-secondary">Page boutique (masque la barre complète, utilise la nav boutique)</span>
+          </label>
         </div>
       )}
 
@@ -1716,8 +1834,8 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
 }
 
 function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, heroNameFont, onHeroNameFontChange, restaurantId, restaurant, onRestaurantUpdate }: {
-  subMode: 'colors' | 'typography' | 'logo';
-  onSubModeChange: (m: 'colors' | 'typography' | 'logo') => void;
+  subMode: 'colors' | 'typography' | 'logo' | 'navbar';
+  onSubModeChange: (m: 'colors' | 'typography' | 'logo' | 'navbar') => void;
   config: WebsiteConfig | null;
   themeCatalog: ThemeCatalog | null;
   onConfigUpdate: (patch: Partial<WebsiteConfig>) => void;
@@ -1730,6 +1848,7 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   const tabs: { id: typeof subMode; label: string }[] = [
     { id: 'colors', label: 'Couleurs' },
     { id: 'typography', label: 'Typographie' },
+    { id: 'navbar', label: 'Navigation' },
     { id: 'logo', label: 'Logo & favicon' },
   ];
   return (
@@ -1768,6 +1887,8 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
             onHeroNameFontChange={onHeroNameFontChange}
             heroSample={restaurant?.name}
           />
+        ) : subMode === 'navbar' ? (
+          <NavbarPanel config={config} onUpdate={onConfigUpdate} restaurantId={restaurantId} />
         ) : (
           <BrandingPanel
             config={config}
@@ -1782,21 +1903,17 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   );
 }
 
-function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange, lockOrderType }: {
+function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange, lockOrderType }: {
   subMode: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo';
   onSubModeChange: (m: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo') => void;
   restaurant: Restaurant | null;
   tagline: string;
-  navbarStyle: string;
-  navbarColor: string;
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
   landingEnabled: boolean;
   socialLinks: Record<string, string>;
   onTaglineChange: (v: string) => void;
-  onNavbarStyleChange: (v: string) => void;
-  onNavbarColorChange: (v: string) => void;
   onShowAddressChange: (v: boolean) => void;
   onShowPhoneChange: (v: boolean) => void;
   onShowHoursChange: (v: boolean) => void;
@@ -1856,6 +1973,9 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
               </label>
             </div>
 
+            {/* Bottom-bar tab order moved to Thème → Navigation (it rides the
+                builder draft now, alongside the composition matrix). */}
+
             <div>
               <label className="block text-xs font-medium text-fg-primary mb-1.5">Slogan</label>
               <input
@@ -1866,30 +1986,8 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
                 className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-fg-primary mb-1.5">Style de la barre de navigation</label>
-              <select
-                value={navbarStyle}
-                onChange={(e) => onNavbarStyleChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-              >
-                <option value="solid">Plein</option>
-                <option value="transparent">Transparent</option>
-                <option value="hidden">Masqué</option>
-                <option value="custom">Sur mesure</option>
-              </select>
-            </div>
-            {navbarStyle === 'custom' && (
-              <div>
-                <label className="block text-xs font-medium text-fg-primary mb-1.5">Couleur de la navbar</label>
-                <input
-                  type="color"
-                  value={navbarColor || '#000000'}
-                  onChange={(e) => onNavbarColorChange(e.target.value)}
-                  className="w-full h-9 rounded-lg border border-divider cursor-pointer"
-                />
-              </div>
-            )}
+            {/* Navbar style/color moved to Thème → Navigation (single source of
+                truth). The old dropdown here silently overwrote those picks. */}
             <div className="text-[11px] text-fg-secondary pt-2 border-t border-divider">
               Slug: <code className="text-fg-primary">{restaurant?.slug || '—'}</code>
               <span className="block mt-1 opacity-70">(modifiable via les paramètres du restaurant)</span>
@@ -2303,1216 +2401,6 @@ function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisi
   );
 }
 
-// ─── About Blocks Editor ──────────────────────────────────────────────
-function AboutBlocksEditor({ content, updateContent, restaurantId }: {
-  content: Record<string, any>;
-  updateContent: (key: string, value: any) => void;
-  restaurantId: number;
-}) {
-  // Backward compat: migrate legacy {title, body} to blocks
-  const blocks: Record<string, any>[] =
-    Array.isArray(content.blocks) && content.blocks.length > 0
-      ? content.blocks
-      : [{ title: content.title || '', body: content.body || '' }];
-
-  function setBlocks(newBlocks: Record<string, any>[]) {
-    updateContent('blocks', newBlocks);
-  }
-
-  function updateBlock(index: number, key: string, value: string) {
-    const updated = blocks.map((b, i) => i === index ? { ...b, [key]: value } : b);
-    setBlocks(updated);
-  }
-
-  function addBlock() {
-    setBlocks([...blocks, { title: '', body: '' }]);
-  }
-
-  function removeBlock(index: number) {
-    if (blocks.length <= 1) return;
-    setBlocks(blocks.filter((_, i) => i !== index));
-  }
-
-  return (
-    <div className="space-y-4">
-      {blocks.map((block, idx) => (
-        <div key={idx} className="border border-[var(--divider)] rounded-xl p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-fg-secondary">Block {idx + 1}</span>
-            {blocks.length > 1 && (
-              <button type="button" onClick={() => removeBlock(idx)} className="text-xs text-red-500 hover:text-red-700 transition">Remove</button>
-            )}
-          </div>
-          <SectionImageUploader
-            restaurantId={restaurantId}
-            currentUrl={block.image_url || ''}
-            onUploaded={(url) => updateBlock(idx, 'image_url', url)}
-            onRemove={() => updateBlock(idx, 'image_url', '')}
-            label="Block image (optional)"
-          />
-          <TextFieldWithTypography
-            label="Title"
-            value={block.title || ''}
-            onChange={v => updateBlock(idx, 'title', v)}
-            placeholder="Section title"
-            fieldPrefix="title"
-            settings={block}
-            onSettingChange={(key, val) => updateBlock(idx, key, val)}
-          />
-          <TextFieldWithTypography
-            label="Text"
-            value={block.body || ''}
-            onChange={v => updateBlock(idx, 'body', v)}
-            placeholder="Section text"
-            fieldPrefix="text"
-            settings={block}
-            onSettingChange={(key, val) => updateBlock(idx, key, val)}
-            multiline
-          />
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={addBlock}
-        className="w-full py-2.5 rounded-xl border-2 border-dashed border-[var(--divider)] text-sm font-medium text-fg-secondary hover:border-brand-500 hover:text-brand-500 transition-all"
-      >
-        + Add Block
-      </button>
-    </div>
-  );
-}
-
-// ─── Picnic Basket Editor ─────────────────────────────────────────────
-function TextFieldWithTypography({ label, value, onChange, placeholder, fieldPrefix, settings, onSettingChange, multiline }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  fieldPrefix: string;
-  settings: Record<string, any>;
-  onSettingChange: (key: string, value: string) => void;
-  multiline?: boolean;
-}) {
-  const inputClass = "w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary";
-  const labelClass = "text-xs text-fg-secondary mb-1 block";
-  const smallSelectClass = "text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary";
-  const colorKey = `${fieldPrefix}_color`;
-  const fontKey = `${fieldPrefix}_font`;
-  const sizeKey = `${fieldPrefix}_size`;
-  const weightKey = `${fieldPrefix}_weight`;
-
-  const sizes = fieldPrefix.includes('subtitle') || fieldPrefix.includes('completion')
-    ? ['sm', 'md', 'lg']
-    : ['sm', 'md', 'lg', 'xl'];
-
-  return (
-    <div className="border border-[var(--divider)] rounded-lg p-3 space-y-2">
-      <div>
-        <label className={labelClass}>{label}</label>
-        {multiline ? (
-          <textarea value={value} onChange={e => onChange(e.target.value)} className={`${inputClass} min-h-[60px]`} placeholder={placeholder} />
-        ) : (
-          <input type="text" value={value} onChange={e => onChange(e.target.value)} className={inputClass} placeholder={placeholder} />
-        )}
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className={labelClass}>Color</label>
-          <div className="flex items-center gap-1">
-            <input type="color" value={settings[colorKey] || '#000000'} onChange={e => onSettingChange(colorKey, e.target.value)} className="w-6 h-6 rounded border border-[var(--divider)] cursor-pointer" />
-            <input type="text" value={settings[colorKey] || ''} onChange={e => onSettingChange(colorKey, e.target.value)} className={`${smallSelectClass} flex-1 w-0`} placeholder="inherit" />
-          </div>
-        </div>
-        <div>
-          <label className={labelClass}>Font</label>
-          <select value={settings[fontKey] || ''} onChange={e => onSettingChange(fontKey, e.target.value)} className={`${smallSelectClass} w-full`}>
-            <option value="">Default</option>
-            {FONT_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass}>Size</label>
-          <div className="flex gap-0.5">
-            {sizes.map(s => (
-              <button key={s} type="button" onClick={() => onSettingChange(sizeKey, s)} className={`flex-1 px-1 py-0.5 rounded text-[10px] font-medium border transition-all ${(settings[sizeKey] || 'md') === s ? 'bg-[var(--brand)] text-white border-[var(--brand)]' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary'}`}>
-                {s.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div>
-        <label className={labelClass}>Weight</label>
-        <div className="flex gap-1">
-          {[{ value: 'normal', label: 'Regular' }, { value: 'medium', label: 'Medium' }, { value: 'bold', label: 'Bold' }].map(opt => (
-            <button key={opt.value} type="button" onClick={() => onSettingChange(weightKey, opt.value)} className={`flex-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all ${(settings[weightKey] || (fieldPrefix === 'title' ? 'bold' : 'normal')) === opt.value ? 'bg-[var(--brand)] text-white border-[var(--brand)]' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary'}`}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PicnicBasketEditor({ content, settings, updateContent, updateSettings, restaurantId }: {
-  content: Record<string, any>;
-  settings: Record<string, any>;
-  updateContent: (key: string, value: any) => void;
-  updateSettings: (key: string, value: any) => void;
-  restaurantId: number;
-}) {
-  return (
-    <div className="space-y-3">
-      <TextFieldWithTypography
-        label="Title"
-        value={content.title || ''}
-        onChange={v => updateContent('title', v)}
-        placeholder="Preparing Your Basket"
-        fieldPrefix="title"
-        settings={settings}
-        onSettingChange={updateSettings}
-      />
-      <TextFieldWithTypography
-        label="Subtitle"
-        value={content.subtitle || ''}
-        onChange={v => updateContent('subtitle', v)}
-        placeholder="Scroll to fill your Shabbat basket"
-        fieldPrefix="subtitle"
-        settings={settings}
-        onSettingChange={updateSettings}
-      />
-      <TextFieldWithTypography
-        label="Completion Text"
-        value={content.completion_text || ''}
-        onChange={v => updateContent('completion_text', v)}
-        placeholder="Ready for Shabbat! 🕯️"
-        fieldPrefix="completion"
-        settings={settings}
-        onSettingChange={updateSettings}
-      />
-      <div>
-        <label className="text-xs text-fg-secondary mb-1 block">Basket Link</label>
-        <input type="text" value={content.basket_link || ''} onChange={e => updateContent('basket_link', e.target.value)} className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary" placeholder="/order (default)" />
-        <p className="text-xs text-fg-secondary mt-1">Where the basket links to when clicked. Default: /order</p>
-      </div>
-      <SectionImageUploader
-        restaurantId={restaurantId}
-        currentUrl={content.basket_image || ''}
-        onUploaded={(url) => updateContent('basket_image', url)}
-        onRemove={() => updateContent('basket_image', '')}
-        label="Basket Image (optional — uses default illustration if empty)"
-      />
-      {/* Basket Layout Controls */}
-      <div className="border-t border-[var(--divider)] pt-3 mt-3">
-        <p className="text-xs font-medium text-fg-primary mb-2">Basket Layout</p>
-        {/* Scale */}
-        <div>
-          <label className="text-xs text-fg-secondary block mb-1">Basket Size ({content.basket_scale ?? 100}%)</label>
-          <input type="range" min={50} max={250} step={5} value={content.basket_scale ?? 100} onChange={e => updateContent('basket_scale', Number(e.target.value))} className="w-full accent-brand-500" />
-          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
-            <span>50%</span><span>250%</span>
-          </div>
-        </div>
-        {/* Vertical Position */}
-        <div className="mt-2">
-          <label className="text-xs text-fg-secondary block mb-1">Vertical Position ({content.basket_offset_y ?? 0}px)</label>
-          <input type="range" min={-200} max={200} step={5} value={content.basket_offset_y ?? 0} onChange={e => updateContent('basket_offset_y', Number(e.target.value))} className="w-full accent-brand-500" />
-          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
-            <span>Up (-200)</span><span>Down (+200)</span>
-          </div>
-        </div>
-        {/* Horizontal Position */}
-        <div className="mt-2">
-          <label className="text-xs text-fg-secondary block mb-1">Horizontal Position ({content.basket_offset_x ?? 0}px)</label>
-          <input type="range" min={-150} max={150} step={5} value={content.basket_offset_x ?? 0} onChange={e => updateContent('basket_offset_x', Number(e.target.value))} className="w-full accent-brand-500" />
-          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
-            <span>Left (-150)</span><span>Right (+150)</span>
-          </div>
-        </div>
-        {/* Item Landing Distance */}
-        <div className="mt-2">
-          <label className="text-xs text-fg-secondary block mb-1">Item Landing Distance ({content.item_gap ?? 70}px)</label>
-          <input type="range" min={0} max={200} step={5} value={content.item_gap ?? 70} onChange={e => updateContent('item_gap', Number(e.target.value))} className="w-full accent-brand-500" />
-          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
-            <span>0px (top)</span><span>200px (deep)</span>
-          </div>
-        </div>
-        {/* Reset */}
-        <button type="button" onClick={() => { updateContent('basket_scale', 100); updateContent('basket_offset_y', 0); updateContent('basket_offset_x', 0); updateContent('item_gap', 70); }} className="mt-2 text-xs text-brand-500 hover:underline">
-          Reset to defaults
-        </button>
-      </div>
-
-      <SectionMultiImageUploader
-        restaurantId={restaurantId}
-        images={(content.items || []).filter((img: any) => img.url)}
-        onUpdate={(items) => updateContent('items', items)}
-        label="Food Item Images"
-        hint="Add 4-8 dish images for the best effect. They will float down into the basket as visitors scroll. Uses emoji placeholders if empty."
-      />
-    </div>
-  );
-}
-
-// ─── Menu Highlights Editor ──────────────────────────────────────────
-function MenuHighlightsEditor({ content, settings, updateContent, updateSettings, restaurantId }: {
-  content: Record<string, any>;
-  settings: Record<string, any>;
-  updateContent: (key: string, value: any) => void;
-  updateSettings: (key: string, value: any) => void;
-  restaurantId: number;
-}) {
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
-  const [loadingMenu, setLoadingMenu] = useState(true);
-  const [search, setSearch] = useState('');
-  const selectedIds: number[] = content.item_ids || [];
-
-  useEffect(() => {
-    getAllCategories(restaurantId)
-      .then(cats => setCategories(cats))
-      .catch(() => setCategories([]))
-      .finally(() => setLoadingMenu(false));
-  }, [restaurantId]);
-
-  const allItems = categories.flatMap(cat =>
-    (cat.items || []).map(item => ({ ...item, categoryName: cat.name }))
-  );
-
-  const selectedItems = selectedIds
-    .map(id => allItems.find(i => i.id === id))
-    .filter(Boolean) as (MenuItem & { categoryName: string })[];
-
-  const filtered = search.trim()
-    ? allItems.filter(i =>
-        i.name.toLowerCase().includes(search.toLowerCase()) ||
-        i.categoryName.toLowerCase().includes(search.toLowerCase())
-      )
-    : allItems;
-
-  function toggleItem(id: number) {
-    const ids = [...selectedIds];
-    const idx = ids.indexOf(id);
-    if (idx >= 0) {
-      ids.splice(idx, 1);
-    } else {
-      ids.push(id);
-    }
-    updateContent('item_ids', ids);
-  }
-
-  function removeItem(id: number) {
-    updateContent('item_ids', selectedIds.filter(i => i !== id));
-  }
-
-  function moveItem(index: number, dir: -1 | 1) {
-    const ids = [...selectedIds];
-    const target = index + dir;
-    if (target < 0 || target >= ids.length) return;
-    [ids[index], ids[target]] = [ids[target], ids[index]];
-    updateContent('item_ids', ids);
-  }
-
-  const inputClass = "w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary";
-
-  return (
-    <div className="space-y-3">
-      <TextFieldWithTypography
-        label="Title"
-        value={content.title || ''}
-        onChange={v => updateContent('title', v)}
-        placeholder="Chef's Picks"
-        fieldPrefix="title"
-        settings={settings}
-        onSettingChange={updateSettings}
-      />
-      <TextFieldWithTypography
-        label="Subtitle"
-        value={content.subtitle || ''}
-        onChange={v => updateContent('subtitle', v)}
-        placeholder="Our most popular dishes"
-        fieldPrefix="subtitle"
-        settings={settings}
-        onSettingChange={updateSettings}
-      />
-
-      {/* Selected items */}
-      {selectedItems.length > 0 && (
-        <div>
-          <label className="text-xs text-fg-secondary mb-1 block">Selected Items ({selectedItems.length})</label>
-          <div className="space-y-1">
-            {selectedItems.map((item, idx) => (
-              <div key={item.id} className="flex items-center gap-2 bg-[var(--surface-subtle)] rounded-lg px-2 py-1.5 text-sm">
-                {item.image_url ? (
-                  <img src={item.image_url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-8 h-8 rounded bg-[var(--divider)] flex items-center justify-center text-xs flex-shrink-0">🍽️</div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-fg-primary truncate">{item.name}</p>
-                  <p className="text-[10px] text-fg-secondary">{item.categoryName} · ₪{item.price}</p>
-                </div>
-                <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="w-5 h-5 flex items-center justify-center rounded text-fg-secondary hover:bg-[var(--divider)] disabled:opacity-30" title="Move up">↑</button>
-                  <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === selectedItems.length - 1} className="w-5 h-5 flex items-center justify-center rounded text-fg-secondary hover:bg-[var(--divider)] disabled:opacity-30" title="Move down">↓</button>
-                  <button type="button" onClick={() => removeItem(item.id)} className="w-5 h-5 flex items-center justify-center rounded text-red-400 hover:bg-red-500/10" title="Remove">×</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Item picker */}
-      <div>
-        <label className="text-xs text-fg-secondary mb-1 block">Add Items</label>
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className={inputClass}
-          placeholder="Search menu items..."
-        />
-        {loadingMenu ? (
-          <p className="text-xs text-fg-secondary mt-2">Loading menu...</p>
-        ) : (
-          <div className="mt-2 max-h-48 overflow-y-auto border border-[var(--divider)] rounded-lg">
-            {filtered.length === 0 ? (
-              <p className="text-xs text-fg-secondary p-3 text-center">No items found</p>
-            ) : (
-              filtered.map(item => {
-                const isSelected = selectedIds.includes(item.id);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => toggleItem(item.id)}
-                    className={`w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--surface-subtle)] transition ${isSelected ? 'bg-brand-500/10' : ''}`}
-                  >
-                    {item.image_url ? (
-                      <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-7 h-7 rounded bg-[var(--divider)] flex items-center justify-center text-[10px] flex-shrink-0">🍽️</div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-fg-primary truncate">{item.name}</p>
-                      <p className="text-[10px] text-fg-secondary">{item.categoryName} · ₪{item.price}</p>
-                    </div>
-                    <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${isSelected ? 'bg-brand-500 border-brand-500 text-white' : 'border-[var(--divider)]'}`}>
-                      {isSelected && <span className="text-[10px]">✓</span>}
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Section Image Uploader ──────────────────────────────────────────
-function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onRemove, label, className }: {
-  restaurantId: number;
-  currentUrl?: string;
-  onUploaded: (url: string) => void;
-  onRemove?: () => void;
-  label?: string;
-  className?: string;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const url = await uploadSectionImage(restaurantId, file);
-      onUploaded(url);
-    } catch (err: any) {
-      alert(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
-    }
-  }
-
-  return (
-    <div className={className}>
-      {label && <label className="text-xs text-fg-secondary mb-1 block">{label}</label>}
-      {currentUrl ? (
-        <div className="relative group">
-          <img src={currentUrl} alt="" className="rounded-lg max-h-32 object-cover w-full" />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-            <button type="button" onClick={() => inputRef.current?.click()} className="px-2 py-1 bg-white rounded text-xs font-medium" disabled={uploading}>
-              {uploading ? 'Uploading...' : 'Replace'}
-            </button>
-            {onRemove && (
-              <button type="button" onClick={onRemove} className="px-2 py-1 bg-red-500 text-white rounded text-xs font-medium">Remove</button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-          className="w-full py-6 border-2 border-dashed border-[var(--divider)] rounded-lg text-xs text-fg-secondary hover:border-[var(--brand)] hover:text-[var(--brand)] transition-all flex flex-col items-center gap-1"
-        >
-          {uploading ? (
-            <span>Uploading...</span>
-          ) : (
-            <>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              <span>Click to upload image</span>
-            </>
-          )}
-        </button>
-      )}
-      <input ref={inputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
-    </div>
-  );
-}
-
-// ─── Multi-Image Uploader (for gallery, picnic basket items) ──────────
-function SectionMultiImageUploader({ restaurantId, images, onUpdate, label, hint }: {
-  restaurantId: number;
-  images: { url: string; alt?: string }[];
-  onUpdate: (images: { url: string; alt?: string }[]) => void;
-  label?: string;
-  hint?: string;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    try {
-      const newImages = [...images];
-      for (let i = 0; i < files.length; i++) {
-        const url = await uploadSectionImage(restaurantId, files[i]);
-        newImages.push({ url, alt: '' });
-      }
-      onUpdate(newImages);
-    } catch (err: any) {
-      alert(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
-    }
-  }
-
-  function removeImage(index: number) {
-    onUpdate(images.filter((_, i) => i !== index));
-  }
-
-  function moveImage(index: number, direction: 'up' | 'down') {
-    const target = direction === 'up' ? index - 1 : index + 1;
-    if (target < 0 || target >= images.length) return;
-    const updated = [...images];
-    [updated[index], updated[target]] = [updated[target], updated[index]];
-    onUpdate(updated);
-  }
-
-  return (
-    <div>
-      {label && <label className="text-xs text-fg-secondary mb-1 block">{label}</label>}
-      {images.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 mb-2">
-          {images.map((img, i) => (
-            <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-[var(--divider)]">
-              <img src={img.url} alt={img.alt || ''} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                {i > 0 && (
-                  <button type="button" onClick={() => moveImage(i, 'up')} className="p-1 bg-white rounded text-xs">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                  </button>
-                )}
-                <button type="button" onClick={() => removeImage(i)} className="p-1 bg-red-500 text-white rounded text-xs">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-                {i < images.length - 1 && (
-                  <button type="button" onClick={() => moveImage(i, 'down')} className="p-1 bg-white rounded text-xs">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-        className="w-full py-3 border-2 border-dashed border-[var(--divider)] rounded-lg text-xs text-fg-secondary hover:border-[var(--brand)] hover:text-[var(--brand)] transition-all"
-      >
-        {uploading ? 'Uploading...' : '+ Add Images'}
-      </button>
-      {hint && <p className="text-xs text-fg-secondary mt-1">{hint}</p>}
-      <input ref={inputRef} type="file" accept="image/*" multiple onChange={handleUpload} className="hidden" />
-    </div>
-  );
-}
-
-function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
-  section: WebsiteSection;
-  restaurantId: number;
-  onUpdate: (updates: Partial<WebsiteSection>) => void;
-  onDelete: () => void;
-}) {
-  const { t } = useI18n();
-  const meta = SECTION_TYPE_META[section.section_type];
-  const content = section.content || {};
-  const settings = section.settings || {};
-
-  const aboutImg = section.section_type === 'about' && !!settings.bg_image;
-  const overlayOn = aboutImg ? (settings.bg_overlay ?? true) : !!settings.bg_overlay;
-  const overlayOpacity = settings.bg_overlay_opacity ?? (aboutImg ? 45 : 50);
-
-  function updateContent(key: string, value: any) {
-    onUpdate({ content: { ...content, [key]: value } as any });
-  }
-
-  function updateSettings(key: string, value: any) {
-    onUpdate({ settings: { ...settings, [key]: value } as any });
-  }
-
-  const layouts = LAYOUT_OPTIONS[section.section_type];
-
-  const inputClass = "w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary";
-  const labelClass = "text-xs text-fg-secondary mb-1 block";
-
-  return (
-    <div className="max-w-xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{meta?.icon || '\u{1F4C4}'}</span>
-          <h2 className="text-lg font-semibold text-fg-primary">{meta ? t(meta.labelKey) : section.section_type}</h2>
-        </div>
-        <button onClick={onDelete} className="text-sm text-red-500 hover:text-red-700 font-medium">Delete</button>
-      </div>
-
-      {/* Layout variants */}
-      {layouts && layouts.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-fg-secondary mb-2">Layout</h3>
-          <div className="flex gap-2">
-            {(() => {
-              const effLayout =
-                section.section_type === 'about' && (!section.layout || section.layout === 'default')
-                  ? 'centered'
-                  : section.layout;
-              return layouts.map(l => (
-                <button
-                  key={l.value}
-                  onClick={() => onUpdate({ layout: l.value })}
-                  className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                    effLayout === l.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
-                  }`}
-                >
-                  {t(l.labelKey)}
-                </button>
-              ));
-            })()}
-          </div>
-        </div>
-      )}
-
-      {/* Color Style */}
-      <div>
-        <h3 className="text-sm font-semibold text-fg-secondary mb-2">Color Style</h3>
-        <div className="flex gap-2">
-          {COLOR_STYLES.map(cs => (
-            <button
-              key={cs.value}
-              onClick={() => updateSettings('color_style', cs.value)}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                settings.color_style === cs.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
-              }`}
-            >
-              {t(cs.labelKey)}
-            </button>
-          ))}
-        </div>
-        {settings.color_style === 'custom' && (
-          <div className="mt-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-fg-secondary w-20">Background</label>
-              <input type="color" value={settings.custom_bg || '#ffffff'} onChange={e => updateSettings('custom_bg', e.target.value)} className="w-7 h-7 rounded border border-[var(--divider)] cursor-pointer" />
-              <input type="text" value={settings.custom_bg || '#ffffff'} onChange={e => updateSettings('custom_bg', e.target.value)} className="flex-1 text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary" />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-fg-secondary w-20">Text</label>
-              <input type="color" value={settings.custom_text || '#000000'} onChange={e => updateSettings('custom_text', e.target.value)} className="w-7 h-7 rounded border border-[var(--divider)] cursor-pointer" />
-              <input type="text" value={settings.custom_text || '#000000'} onChange={e => updateSettings('custom_text', e.target.value)} className="flex-1 text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary" />
-            </div>
-          </div>
-        )}
-
-        {/* Background Image — for About, only meaningful in the Banner layout */}
-        {(section.section_type !== 'about' || section.layout === 'banner') && (
-        <div className="mt-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-fg-secondary font-medium">Background Image</label>
-            {settings.bg_image && (
-              <button type="button" onClick={() => { updateSettings('bg_image', ''); }} className="text-xs text-red-500 hover:text-red-700">Remove</button>
-            )}
-          </div>
-          <SectionImageUploader
-            restaurantId={restaurantId}
-            currentUrl={settings.bg_image || ''}
-            onUploaded={(url) => updateSettings('bg_image', url)}
-            onRemove={() => updateSettings('bg_image', '')}
-          />
-          {settings.bg_image && (
-            <div className="space-y-3 pt-1">
-              {/* Overlay toggle */}
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-fg-secondary">Overlay</label>
-                <button
-                  type="button"
-                  onClick={() => updateSettings('bg_overlay', !overlayOn)}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${overlayOn ? 'bg-[var(--brand)]' : 'bg-gray-300'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${overlayOn ? 'translate-x-4' : ''}`} />
-                </button>
-              </div>
-              {overlayOn && (
-                <>
-                  {/* Overlay color */}
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-fg-secondary w-20">Overlay Color</label>
-                    <input type="color" value={settings.bg_overlay_color || '#000000'} onChange={e => updateSettings('bg_overlay_color', e.target.value)} className="w-7 h-7 rounded border border-[var(--divider)] cursor-pointer" />
-                    <input type="text" value={settings.bg_overlay_color || '#000000'} onChange={e => updateSettings('bg_overlay_color', e.target.value)} className="flex-1 text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary" />
-                  </div>
-                  {/* Overlay opacity */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs text-fg-secondary">Overlay Opacity</label>
-                      <span className="text-xs text-fg-secondary">{overlayOpacity}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="5"
-                      value={overlayOpacity}
-                      onChange={e => updateSettings('bg_overlay_opacity', Number(e.target.value))}
-                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-[var(--brand)]"
-                    />
-                  </div>
-                </>
-              )}
-              {/* Background size */}
-              <div>
-                <label className="text-xs text-fg-secondary mb-1 block">Image Fit</label>
-                <div className="flex gap-1.5">
-                  {[
-                    { value: 'cover', label: 'Cover' },
-                    { value: 'contain', label: 'Contain' },
-                    { value: 'repeat', label: 'Repeat' },
-                  ].map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => updateSettings('bg_size', opt.value)}
-                      className={`flex-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all ${(settings.bg_size || 'cover') === opt.value ? 'bg-[var(--brand)] text-white border-[var(--brand)]' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary'}`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Background position */}
-              <div>
-                <label className="text-xs text-fg-secondary mb-1 block">Image Position</label>
-                <div className="grid grid-cols-3 gap-1">
-                  {['top', 'center', 'bottom'].map(pos => (
-                    <button
-                      key={pos}
-                      type="button"
-                      onClick={() => updateSettings('bg_position', pos)}
-                      className={`px-2 py-1 rounded-lg border text-xs font-medium transition-all capitalize ${(settings.bg_position || 'center') === pos ? 'bg-[var(--brand)] text-white border-[var(--brand)]' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary'}`}
-                    >
-                      {pos}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        )}
-      </div>
-
-      {/* Typography */}
-      {['hero_banner', 'text_and_image', 'about', 'promo_banner', 'scrolling_text', 'footer'].includes(section.section_type) && (
-        <div>
-          <h3 className="text-sm font-semibold text-fg-secondary mb-2">{section.section_type === 'about' ? 'Default typography (all blocks)' : 'Typography'}</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-fg-secondary mb-1.5 block">Heading Size</label>
-              <div className="flex gap-1.5">
-                {[
-                  { value: 'sm', label: 'S' },
-                  { value: 'md', label: 'M' },
-                  { value: 'lg', label: 'L' },
-                  { value: 'xl', label: 'XL' },
-                ].map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => updateSettings('heading_size', opt.value)}
-                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                      (settings.heading_size || 'md') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-fg-secondary mb-1.5 block">Body Size</label>
-              <div className="flex gap-1.5">
-                {[
-                  { value: 'sm', label: 'S' },
-                  { value: 'md', label: 'M' },
-                  { value: 'lg', label: 'L' },
-                ].map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => updateSettings('body_size', opt.value)}
-                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                      (settings.body_size || 'md') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-fg-secondary mb-1.5 block">Font Weight</label>
-              <div className="flex gap-1.5">
-                {[
-                  { value: 'normal', label: 'Regular' },
-                  { value: 'medium', label: 'Medium' },
-                  { value: 'bold', label: 'Bold' },
-                ].map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => updateSettings('font_weight', opt.value)}
-                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                      (settings.font_weight || 'normal') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* About — design controls */}
-      {section.section_type === 'about' && (
-        <div className="space-y-4">
-          {section.layout === 'split' && (
-            <div className="space-y-2">
-              <label className="text-xs text-fg-secondary font-medium block">Side Image</label>
-              <SectionImageUploader
-                restaurantId={restaurantId}
-                currentUrl={settings.image_url || ''}
-                onUploaded={(url) => updateSettings('image_url', url)}
-                onRemove={() => updateSettings('image_url', '')}
-              />
-              <div>
-                <label className="text-xs text-fg-secondary mb-1 block">Image Side</label>
-                <div className="flex gap-1.5">
-                  {[{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }].map(opt => (
-                    <button key={opt.value} type="button" onClick={() => updateSettings('image_side', opt.value)}
-                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.image_side || 'left') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-          <div>
-            <label className="text-xs text-fg-secondary mb-1 block">Text Alignment</label>
-            <div className="flex gap-1.5">
-              {[{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }].map(opt => {
-                const def = section.layout === 'split' ? 'left' : 'center';
-                return (
-                  <button key={opt.value} type="button" onClick={() => updateSettings('text_align', opt.value)}
-                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.text_align || def) === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary mb-1 block">Content Width</label>
-            <div className="flex gap-1.5">
-              {[{ value: 'narrow', label: 'Narrow' }, { value: 'normal', label: 'Normal' }, { value: 'wide', label: 'Wide' }].map(opt => (
-                <button key={opt.value} type="button" onClick={() => updateSettings('content_width', opt.value)}
-                  className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.content_width || 'normal') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary mb-1 block">Vertical Spacing</label>
-            <div className="flex gap-1.5">
-              {[{ value: 'compact', label: 'Compact' }, { value: 'normal', label: 'Normal' }, { value: 'spacious', label: 'Spacious' }].map(opt => (
-                <button key={opt.value} type="button" onClick={() => updateSettings('padding', opt.value)}
-                  className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.padding || 'normal') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs text-fg-secondary font-medium block">Button (optional)</label>
-            <input type="text" value={settings.cta_label || ''} onChange={e => updateSettings('cta_label', e.target.value)} className={inputClass} placeholder="Button label (e.g. Commander)" />
-            <input type="text" value={settings.cta_link || ''} onChange={e => updateSettings('cta_link', e.target.value)} className={inputClass} placeholder="Link (e.g. /order)" />
-          </div>
-        </div>
-      )}
-
-      {/* Content fields */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-fg-secondary">Content</h3>
-
-        {/* About — multi-block editor */}
-        {section.section_type === 'about' && (
-          <AboutBlocksEditor content={content} updateContent={updateContent} restaurantId={restaurantId} />
-        )}
-
-        {/* Hero Banner — per-field typography */}
-        {section.section_type === 'hero_banner' && (
-          <>
-            <TextFieldWithTypography
-              label="Headline"
-              value={content.headline || ''}
-              onChange={v => updateContent('headline', v)}
-              placeholder="Your headline here"
-              fieldPrefix="headline"
-              settings={settings}
-              onSettingChange={updateSettings}
-            />
-            <TextFieldWithTypography
-              label="Subheadline"
-              value={content.subheadline || ''}
-              onChange={v => updateContent('subheadline', v)}
-              placeholder="Description text..."
-              fieldPrefix="subheadline"
-              settings={settings}
-              onSettingChange={updateSettings}
-              multiline
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass}>CTA Text</label>
-                <input type="text" value={content.cta_text || ''} onChange={e => updateContent('cta_text', e.target.value)} className={inputClass} placeholder="Order Now" />
-              </div>
-              <div>
-                <label className={labelClass}>CTA Link</label>
-                <input type="text" value={content.cta_link || ''} onChange={e => updateContent('cta_link', e.target.value)} className={inputClass} placeholder="#menu" />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Text & Image — per-field typography */}
-        {section.section_type === 'text_and_image' && (
-          <>
-            <TextFieldWithTypography
-              label="Title"
-              value={content.title || ''}
-              onChange={v => updateContent('title', v)}
-              placeholder="Our Story"
-              fieldPrefix="title"
-              settings={settings}
-              onSettingChange={updateSettings}
-            />
-            <TextFieldWithTypography
-              label="Body"
-              value={content.body || ''}
-              onChange={v => updateContent('body', v)}
-              placeholder="Tell your customers about your restaurant..."
-              fieldPrefix="body"
-              settings={settings}
-              onSettingChange={updateSettings}
-              multiline
-            />
-          </>
-        )}
-
-        {/* Promo Banner — per-field typography */}
-        {section.section_type === 'promo_banner' && (
-          <>
-            <TextFieldWithTypography
-              label="Title"
-              value={content.title || ''}
-              onChange={v => updateContent('title', v)}
-              placeholder="Special Offer"
-              fieldPrefix="title"
-              settings={settings}
-              onSettingChange={updateSettings}
-            />
-            <TextFieldWithTypography
-              label="Body"
-              value={content.body || ''}
-              onChange={v => updateContent('body', v)}
-              placeholder="Check out our latest deals!"
-              fieldPrefix="body"
-              settings={settings}
-              onSettingChange={updateSettings}
-              multiline
-            />
-          </>
-        )}
-
-        {section.section_type === 'scrolling_text' && (
-          <div>
-            <label className={labelClass}>Text (use | to separate phrases)</label>
-            <input type="text" value={content.text || ''} onChange={e => updateContent('text', e.target.value)} className={inputClass} placeholder="Fresh daily | Family recipes | Handmade pasta" />
-          </div>
-        )}
-
-        {section.section_type === 'testimonials' && (
-          <div>
-            <label className={labelClass}>Reviews (one per line: Name | Text | Rating)</label>
-            <textarea
-              value={(content.reviews || []).map((r: any) => `${r.name} | ${r.text} | ${r.rating}`).join('\n')}
-              onChange={e => {
-                const reviews = e.target.value.split('\n').filter(Boolean).map(line => {
-                  const [name = '', text = '', rating = '5'] = line.split('|').map(s => s.trim());
-                  return { name, text, rating: parseInt(rating) || 5 };
-                });
-                updateContent('reviews', reviews);
-              }}
-              className={`${inputClass} min-h-[100px] font-mono`}
-              placeholder="John D. | Amazing food! | 5&#10;Sarah M. | Best hummus in town | 5"
-            />
-          </div>
-        )}
-
-        {section.section_type === 'gallery' && (
-          <SectionMultiImageUploader
-            restaurantId={restaurantId}
-            images={(content.images || []).filter((img: any) => img.url)}
-            onUpdate={(images) => updateContent('images', images)}
-            label="Gallery Images"
-            hint="Upload photos to showcase your restaurant."
-          />
-        )}
-
-        {section.section_type === 'social_feed' && (
-          <div className="space-y-2">
-            {['instagram', 'facebook', 'tiktok'].map(platform => (
-              <div key={platform}>
-                <label className={`${labelClass} capitalize`}>{platform}</label>
-                <input
-                  type="url"
-                  value={(content.links || []).find((l: any) => l.platform === platform)?.url || ''}
-                  onChange={e => {
-                    const links = [...(content.links || [])];
-                    const idx = links.findIndex((l: any) => l.platform === platform);
-                    if (idx >= 0) {
-                      links[idx] = { platform, url: e.target.value };
-                    } else if (e.target.value) {
-                      links.push({ platform, url: e.target.value });
-                    }
-                    updateContent('links', links.filter((l: any) => l.url));
-                  }}
-                  className={inputClass}
-                  placeholder={`https://${platform}.com/yourrestaurant`}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {section.section_type === 'menu_highlights' && (
-          <MenuHighlightsEditor content={content} settings={settings} updateContent={updateContent} updateSettings={updateSettings} restaurantId={restaurantId} />
-        )}
-
-        {/* Picnic Basket Editor */}
-        {section.section_type === 'picnic_basket' && (
-          <PicnicBasketEditor content={content} settings={settings} updateContent={updateContent} updateSettings={updateSettings} restaurantId={restaurantId} />
-        )}
-
-        {/* Action Buttons Editor */}
-        {section.section_type === 'action_buttons' && (
-          <ActionButtonsEditor content={content} updateContent={updateContent} />
-        )}
-
-        {/* Footer Editor */}
-        {section.section_type === 'footer' && (
-          <div className="space-y-3">
-            <div className="space-y-2">
-              {[
-                { key: 'show_logo', label: 'Show Logo & Name' },
-                { key: 'show_description', label: 'Show Description' },
-                { key: 'show_address', label: 'Show Address' },
-                { key: 'show_phone', label: 'Show Phone' },
-                { key: 'show_hours', label: 'Show Hours' },
-              ].map(t => (
-                <label key={t.key} className="flex items-center justify-between py-1">
-                  <span className="text-xs text-fg-primary">{t.label}</span>
-                  <button type="button" onClick={() => updateContent(t.key, !content[t.key])} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${content[t.key] !== false ? 'bg-brand-500' : 'bg-[var(--divider)]'}`}>
-                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${content[t.key] !== false ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                  </button>
-                </label>
-              ))}
-            </div>
-            <div>
-              <label className={labelClass}>Copyright Text</label>
-              <input type="text" value={content.custom_text || ''} onChange={e => updateContent('custom_text', e.target.value)} className={inputClass} placeholder="© 2026 Restaurant. Powered by Foody." />
-            </div>
-            <div className="space-y-2">
-              <label className={labelClass}>Social Links</label>
-              {['instagram', 'facebook', 'tiktok', 'whatsapp'].map(platform => (
-                <div key={platform}>
-                  <label className={`${labelClass} capitalize`}>{platform}</label>
-                  <input
-                    type="url"
-                    value={(content.social_links || []).find((l: any) => l.platform === platform)?.url || ''}
-                    onChange={e => {
-                      const links = [...(content.social_links || [])];
-                      const idx = links.findIndex((l: any) => l.platform === platform);
-                      if (idx >= 0) {
-                        links[idx] = { platform, url: e.target.value };
-                      } else if (e.target.value) {
-                        links.push({ platform, url: e.target.value });
-                      }
-                      updateContent('social_links', links.filter((l: any) => l.url));
-                    }}
-                    className={inputClass}
-                    placeholder={`https://${platform}.com/yourrestaurant`}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Image upload for sections that support it */}
-        {['hero_banner', 'text_and_image', 'promo_banner'].includes(section.section_type) && (
-          <SectionImageUploader
-            restaurantId={restaurantId}
-            currentUrl={content.image_url || ''}
-            onUploaded={(url) => {
-              // Reset focal to center on new upload — same rule as Restaurant cover.
-              onUpdate({ content: { ...content, image_url: url, image_focal_x: 50, image_focal_y: 50 } as any });
-            }}
-            onRemove={() => updateContent('image_url', '')}
-            label="Image"
-          />
-        )}
-
-        {/* Focal-point picker — Hero Banner only, when an image is set. Both
-            axes saved in one onUpdate call so the debounced save can't drop
-            one of them. */}
-        {section.section_type === 'hero_banner' && content.image_url && (
-          <div>
-            <CoverFocalPicker
-              src={content.image_url}
-              focalX={typeof content.image_focal_x === 'number' ? content.image_focal_x : 50}
-              focalY={typeof content.image_focal_y === 'number' ? content.image_focal_y : 50}
-              onChange={(x, y) => {
-                onUpdate({ content: { ...content, image_focal_x: x, image_focal_y: y } as any });
-              }}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ActionButtonsEditor({ content, updateContent }: {
-  content: Record<string, any>;
-  updateContent: (key: string, value: any) => void;
-}) {
-  const { t } = useI18n();
-  const buttons: any[] = content.buttons || [];
-
-  function updateButton(idx: number, field: string, value: string) {
-    const updated = buttons.map((b, i) => i === idx ? { ...b, [field]: value } : b);
-    updateContent('buttons', updated);
-  }
-
-  function addButton() {
-    updateContent('buttons', [...buttons, { label: 'Button', action: 'view_menu', style: 'primary' }]);
-  }
-
-  function removeButton(idx: number) {
-    updateContent('buttons', buttons.filter((_, i) => i !== idx));
-  }
-
-  const inputClass = "w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary";
-  const labelClass = "text-xs text-fg-secondary mb-1 block";
-
-  return (
-    <div className="space-y-4">
-      {buttons.map((btn, idx) => (
-        <div key={idx} className="p-4 rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-fg-primary">Button {idx + 1}</span>
-            <button onClick={() => removeButton(idx)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
-          </div>
-          <div>
-            <label className={labelClass}>Label</label>
-            <input type="text" value={btn.label || ''} onChange={e => updateButton(idx, 'label', e.target.value)} className={inputClass} placeholder="Order Now" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Action</label>
-              <select value={btn.action || 'view_menu'} onChange={e => updateButton(idx, 'action', e.target.value)} className={inputClass}>
-                {ACTION_TYPES.map(a => <option key={a.value} value={a.value}>{t(a.labelKey)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Style</label>
-              <select value={btn.style || 'primary'} onChange={e => updateButton(idx, 'style', e.target.value)} className={inputClass}>
-                {BUTTON_STYLES.map(s => <option key={s.value} value={s.value}>{t(s.labelKey)}</option>)}
-              </select>
-            </div>
-          </div>
-          {(btn.action === 'external_link' || btn.action === 'scroll_to_section') && (
-            <div>
-              <label className={labelClass}>{btn.action === 'external_link' ? 'URL' : 'Section ID'}</label>
-              <input type="text" value={btn.target || ''} onChange={e => updateButton(idx, 'target', e.target.value)} className={inputClass} placeholder={btn.action === 'external_link' ? 'https://...' : 'section-id'} />
-            </div>
-          )}
-        </div>
-      ))}
-      <button
-        onClick={addButton}
-        className="w-full py-2.5 rounded-xl border-2 border-dashed border-[var(--divider)] text-sm font-medium text-fg-secondary hover:border-brand-500 hover:text-brand-500 transition-all"
-      >
-        + Add Button
-      </button>
-    </div>
-  );
-}
-
-
 function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor, logoSize, hideNavbarName, sections, selectedSectionId }: {
   mode: 'mobile' | 'desktop';
   activePage: string;
@@ -3645,22 +2533,42 @@ function AddSectionModal({ onAdd, onClose }: { onAdd: (type: string) => void; on
   );
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────
-
-function getDefaultContent(sectionType: string): Record<string, any> {
-  switch (sectionType) {
-    case 'hero_banner': return { headline: 'Welcome', subheadline: 'Fresh food, made with love', cta_text: 'Order Now', cta_link: '#menu' };
-    case 'scrolling_text': return { text: 'Fresh ingredients daily | Family recipes | Handmade with love' };
-    case 'text_and_image': return { title: 'Our Story', body: 'Tell your customers about your restaurant...', image_position: 'right' };
-    case 'gallery': return { images: [] };
-    case 'testimonials': return { reviews: [] };
-    case 'about': return { blocks: [{ title: 'About Us', body: 'Tell your customers about your restaurant, your story, and what makes your food special.' }] };
-    case 'menu_highlights': return { title: "Chef's Picks", subtitle: 'Our most popular dishes', item_ids: [] };
-    case 'promo_banner': return { title: 'Special Offer', body: 'Check out our latest deals!' };
-    case 'social_feed': return { links: [] };
-    case 'action_buttons': return { buttons: [{ label: 'Order Now', action: 'view_menu', style: 'primary' }] };
-    case 'picnic_basket': return { title: 'Preparing Your Basket', subtitle: 'Scroll to fill your Shabbat basket with love', items: [], basket_image: '', completion_text: 'Ready for Shabbat! \u{1F56F}\u{FE0F}' };
-    case 'footer': return { show_logo: true, show_description: true, show_address: true, show_phone: true, show_hours: true, custom_text: '', social_links: [] };
-    default: return {};
+// Template picker: pick a ready-made multi-page design. Applying replaces the
+// current page content (with a confirm) and seeds the draft to tweak + publish.
+function TemplatePickerModal({ hasCatering, onApply, onClose }: {
+  hasCatering: boolean;
+  onApply: (tpl: WebsiteTemplate) => void;
+  onClose: () => void;
+}) {
+  function pick(tpl: WebsiteTemplate) {
+    if (typeof window !== 'undefined' && !window.confirm('Appliquer ce modèle ? Le contenu actuel de vos pages sera remplacé (vous pourrez ensuite tout modifier avant de publier).')) return;
+    onApply(tpl);
   }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="rounded-2xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface)' }} onClick={e => e.stopPropagation()}>
+        <h2 className="text-lg font-bold text-fg-primary">Modèles de site</h2>
+        <p className="text-sm text-fg-secondary mt-1 mb-4">Choisissez un modèle pour créer votre site en un clic, puis remplacez les images et les textes.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {WEBSITE_TEMPLATES.map((tpl) => (
+            <button
+              key={tpl.id}
+              onClick={() => pick(tpl)}
+              className="p-4 rounded-xl border border-[var(--divider)] hover:border-brand-500 hover:bg-brand-500/5 transition-all text-left"
+            >
+              <span className="text-3xl block mb-1.5">{tpl.emoji}</span>
+              <div className="font-semibold text-fg-primary text-sm flex items-center gap-1.5">
+                {tpl.name}
+                {tpl.usesCatering && !hasCatering && (
+                  <span className="text-[9px] font-medium uppercase tracking-wide text-amber-600 bg-amber-500/10 rounded px-1.5 py-0.5">Traiteur requis</span>
+                )}
+              </div>
+              <div className="text-xs text-fg-secondary mt-1 leading-relaxed">{tpl.description}</div>
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} className="mt-4 w-full py-2 text-sm text-fg-secondary hover:text-fg-primary transition">Annuler</button>
+      </div>
+    </div>
+  );
 }
