@@ -71,6 +71,7 @@ export function PreviewCanvas({
   const frameRef = useRef<HTMLIFrameElement>(null);
   const desktopPreviewContainerRef = useRef<HTMLDivElement>(null);
   const readyRef = useRef(false);
+  const [previewSurface, setPreviewSurface] = useState<"page" | "checkout">("page");
   const [desktopLayout, setDesktopLayout] = useState(() =>
     resolveDesktopPreviewLayout(DESKTOP_PREVIEW_WIDTH, 820),
   );
@@ -92,7 +93,11 @@ export function PreviewCanvas({
   const restaurantPath = `/r/${encodeURIComponent(
     restaurantSlug || String(restaurantId),
   )}`;
-  const source = `${targetOrigin}${restaurantPath}?preview=1`;
+  const source = previewSurface === "checkout"
+    ? `${targetOrigin}/order/checkout?restaurantId=${encodeURIComponent(
+        restaurantSlug || String(restaurantId),
+      )}&orderType=delivery&preview=1&pageSlug=${encodeURIComponent(activePage.slug)}`
+    : `${targetOrigin}${restaurantPath}?preview=1`;
   const sections = state.sections
     .filter((section) => belongsToPage(section, activePage))
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -101,6 +106,20 @@ export function PreviewCanvas({
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== targetOrigin) return;
       if (event.source !== frameRef.current?.contentWindow) return;
+      if (event.data?.type === "foody-checkout-preview-ready") {
+        readyRef.current = true;
+        postCheckoutLatest(frameRef.current?.contentWindow, targetOrigin, latestRef.current);
+        return;
+      }
+      if (event.data?.type === "foody-checkout-preview-applied") {
+        onAcknowledged({
+          revision: event.data.revision,
+          contentRevision: event.data.contentRevision,
+          activePageKey: event.data.activePageKey,
+          device: event.data.device,
+        });
+        return;
+      }
       if (isWebsiteV3ReadyMessage(event.data)) {
         readyRef.current = true;
         postLatest(frameRef.current?.contentWindow, targetOrigin, restaurantId, latestRef.current);
@@ -128,7 +147,11 @@ export function PreviewCanvas({
 
   useEffect(() => {
     if (!readyRef.current) return;
-    postLatest(frameRef.current?.contentWindow, targetOrigin, restaurantId, latestRef.current);
+    if (previewSurface === "checkout") {
+      postCheckoutLatest(frameRef.current?.contentWindow, targetOrigin, latestRef.current);
+    } else {
+      postLatest(frameRef.current?.contentWindow, targetOrigin, restaurantId, latestRef.current);
+    }
   }, [
     activePage,
     contentRevision,
@@ -137,7 +160,18 @@ export function PreviewCanvas({
     revision,
     state,
     targetOrigin,
+    previewSurface,
   ]);
+
+  useEffect(() => {
+    readyRef.current = false;
+  }, [previewSurface, source]);
+
+  useEffect(() => {
+    if (activePage.type !== "order" && previewSurface === "checkout") {
+      setPreviewSurface("page");
+    }
+  }, [activePage.type, previewSurface]);
 
   useEffect(() => {
     if (device === "mobile") return;
@@ -162,9 +196,10 @@ export function PreviewCanvas({
 
   const previewIframe = (
     <iframe
+      key={source}
       ref={frameRef}
       src={source}
-      title={`Aperçu de ${activePage.title}`}
+      title={previewSurface === "checkout" ? "Aperçu du checkout" : `Aperçu de ${activePage.title}`}
       className="h-full w-full bg-white"
     />
   );
@@ -176,6 +211,24 @@ export function PreviewCanvas({
         <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
           {activePage.type}
         </span>
+        {activePage.type === "order" ? (
+          <div className="ml-2 flex rounded-lg border border-white/10 bg-white/5 p-0.5">
+            {(["page", "checkout"] as const).map((surface) => (
+              <button
+                key={surface}
+                type="button"
+                onClick={() => setPreviewSurface(surface)}
+                className={`rounded-md px-2.5 py-1 text-[10px] font-semibold transition ${
+                  previewSurface === surface
+                    ? "bg-white text-slate-950"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {surface === "page" ? "Page" : "Checkout"}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="ml-auto flex items-center gap-1.5">
           {activePage.type === "landing" || activePage.type === "content" ? (
             <details className="group relative">
@@ -344,6 +397,29 @@ function postLatest(
     state: latest.state,
   };
   target.postMessage(message, targetOrigin);
+}
+
+function postCheckoutLatest(
+  target: Window | null | undefined,
+  targetOrigin: string,
+  latest: {
+    state: DraftStatePayload;
+    activePage: DraftPagePayload;
+    device: PreviewDevice;
+    revision: number;
+    contentRevision: number;
+  },
+) {
+  if (!target) return;
+  target.postMessage({
+    type: "foody-checkout-preview",
+    checkoutConfig: latest.state.config.checkout_config ?? null,
+    appearanceOverrides: latest.activePage.appearance_overrides,
+    revision: latest.revision,
+    contentRevision: latest.contentRevision,
+    activePageKey: pageKey(latest.activePage),
+    device: latest.device,
+  }, targetOrigin);
 }
 
 function belongsToPage(

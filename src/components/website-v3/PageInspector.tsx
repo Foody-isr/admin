@@ -632,7 +632,7 @@ function CheckoutTextColorsEditor({
   return (
     <InspectorGroup
       title="Textes du checkout"
-      description="Séparez les titres, aides, champs, montants et boutons de la couleur générale de la page commande."
+      description="Séparez les titres, aides, champs, montants et boutons de la couleur générale. Utilisez l’onglet Checkout au-dessus de l’aperçu pour voir ces changements en direct."
     >
       {CHECKOUT_TEXT_COLOR_FIELDS.map(([key, label, fallback]) => (
         <ColorField

@@ -105,3 +105,52 @@ test("content pages expose a discoverable component library", () => {
   assert.match(markup, /aria-label="Texte \+ image"/);
   assert.doesNotMatch(markup, /<select[^>]+Ajouter une section/);
 });
+
+test("order pages expose an explicit checkout preview surface", () => {
+  Object.assign(globalThis, { React });
+  const state = {
+    config: { checkout_config: { lock_order_type: true } },
+    pages: [
+      {
+        id: 11,
+        type: "order" as const,
+        slug: "commander",
+        title: "Commander",
+        sort_order: 0,
+        nav_visible: true,
+        is_homepage: false,
+        is_default: true,
+        seo: {},
+        settings: { menu_ids: [3] },
+        appearance_overrides: {
+          checkout_text_colors: { heading: "#ffffff" },
+        },
+      },
+    ],
+    sections: [],
+    deleted_page_ids: [],
+    deleted_section_ids: [],
+  };
+  const markup = renderToStaticMarkup(
+    React.createElement(PreviewCanvas, {
+      webOrigin: "https://dev-app.foody-pos.co.il",
+      restaurantSlug: "moulin-doree",
+      restaurantId: 24,
+      state,
+      activePage: state.pages[0],
+      device: "desktop",
+      revision: 2,
+      contentRevision: 2,
+      onAcknowledged: () => undefined,
+      onNavigatePage: () => undefined,
+      onSelectSection: () => undefined,
+      onAddSection: () => undefined,
+      onMoveSection: () => undefined,
+      onToggleSection: () => undefined,
+      onDeleteSection: () => undefined,
+    }),
+  );
+
+  assert.match(markup, />Page<\/button>/);
+  assert.match(markup, />Checkout<\/button>/);
+});

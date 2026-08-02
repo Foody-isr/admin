@@ -112,6 +112,8 @@ export interface RestaurantSettings {
   scheduling_enabled: boolean;
   // Slot-based scheduling detail (mutually exclusive with batch fulfillment).
   scheduling_min_days_ahead?: number;
+  /** Precise default preparation promise. Supersedes the legacy day field. */
+  scheduling_lead_time_minutes?: number;
   scheduling_max_days_ahead?: number;
   scheduling_slot_duration_minutes?: number;
   scheduling_require_prepayment?: boolean;
@@ -515,12 +517,14 @@ export interface MenuItem {
    *  "surplus" = pre-orderable in the weekly lot before the cutoff AND sellable
    *  as same-day surplus after the cutoff while count stock remains;
    *  "standalone" = never in the lot, sold same-day whenever count stock remains.
-   *  Requires count stock; mutually exclusive with lead_time_days. */
+   *  Requires count stock. NOT exclusive with a preparation notice: the notice is
+   *  the made-to-order promise, immediate sale is the exception counted stock on
+   *  the shelf lets a guest skip. */
   immediate_sale_mode?: ImmediateSaleMode;
-  /** Minimum preparation notice in days (e.g. a number cake needs 2). In batch
-   *  mode the item is hidden from any lot whose earliest collection day is sooner
-   *  than this. 0 = no lead time. Mutually exclusive with immediate_sale_mode. */
-  lead_time_days?: number;
+  /** Item's own preparation notice, in MINUTES. null/absent inherits the
+   *  restaurant default (Réglages → Commandes). Batch collection dates read it
+   *  rounded up to whole days, so 90 minutes still means "not today". */
+  preparation_lead_time_minutes?: number | null;
   /** Computed (read-only) availability stamped onto staff menu responses. */
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
