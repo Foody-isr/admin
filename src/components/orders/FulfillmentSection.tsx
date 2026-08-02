@@ -60,6 +60,8 @@ export function FulfillmentSection({
     [batchConfig, orderType],
   );
   const hasTargets = targets.length > 0;
+  const selectedTarget = targets.find((x) => x.id === value.scheduledFor);
+  const forcingClosedSerie = value.timing === 'scheduled' && !!selectedTarget?.orderingClosed;
 
   function selectTarget(date: string) {
     const target = targets.find((x) => x.id === date);
@@ -110,11 +112,15 @@ export function FulfillmentSection({
           >
             {targets.map((tg) => (
               <option key={tg.id} value={tg.id}>
-                {`${formatTargetDay(tg.date, locale)}${tg.windowStart ? ` · ${tg.windowStart}-${tg.windowEnd}` : ''}`}
+                {`${formatTargetDay(tg.date, locale)}${tg.windowStart ? ` · ${tg.windowStart}-${tg.windowEnd}` : ''}${tg.orderingClosed ? ` · ${t('fulfillmentSerieClosed')}` : ''}`}
               </option>
             ))}
           </select>
         </label>
+      )}
+
+      {forcingClosedSerie && (
+        <p className="text-fs-xs text-[var(--warning-500)]">{t('fulfillmentSerieClosedHint')}</p>
       )}
 
       {value.timing === 'scheduled' && !hasTargets && (

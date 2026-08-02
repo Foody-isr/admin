@@ -80,6 +80,9 @@ export default function OrdersAvailabilityPage() {
   const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
+  // Catering-only mode is offered only when this restaurant has catering (the
+  // same catering.manage gate used across the catering section).
+  const canManageCatering = hasAnyPermission('catering.manage');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,6 +99,7 @@ export default function OrdersAvailabilityPage() {
   const [pickupEnabled, setPickupEnabled] = useState(true);
   const [dineInEnabled, setDineInEnabled] = useState(true);
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+  const [cateringOnly, setCateringOnly] = useState(false);
 
   // ── Opening hours (Restaurant) ────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<OrderType>('pickup');
@@ -138,6 +142,7 @@ export default function OrdersAvailabilityPage() {
         setPickupEnabled(r.pickup_enabled ?? true);
         setDineInEnabled(r.dine_in_enabled ?? true);
         setDeliveryEnabled(r.delivery_enabled ?? false);
+        setCateringOnly(r.catering_only ?? false);
         // Opening hours
         if (r.opening_hours_config) {
           const merged = defaultConfig();
@@ -286,6 +291,7 @@ export default function OrdersAvailabilityPage() {
         pickup_enabled: pickupEnabled,
         delivery_enabled: deliveryEnabled,
         dine_in_enabled: dineInEnabled,
+        catering_only: cateringOnly,
         opening_hours_config: config,
         week_start_day: weekStartDay,
         workdays,
@@ -452,6 +458,14 @@ export default function OrdersAvailabilityPage() {
             checked={deliveryEnabled}
             onChange={setDeliveryEnabled}
           />
+          {canManageCatering && (
+            <ServiceToggle
+              label={t('cateringOnlyMode')}
+              sub={t('cateringOnlyModeDesc')}
+              checked={cateringOnly}
+              onChange={setCateringOnly}
+            />
+          )}
           {noServiceEnabled && (
             <div
               className="text-fs-xs px-[var(--s-3)] py-[var(--s-2)] rounded-r-md"
