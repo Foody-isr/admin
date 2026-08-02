@@ -11,6 +11,7 @@ import {
   AvailabilityPreview,
   AvailabilityOverride,
   AvailabilityState,
+  ImmediateSaleMode,
   MenuItem,
 } from '@/lib/api';
 import { Field, Select } from '@/components/ds';
@@ -212,7 +213,6 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
   const [leadTimeMinutes, setLeadTimeMinutes] = useState<number | null>(
     item.preparation_lead_time_minutes ?? null,
   );
-  const [readyStockEnabled, setReadyStockEnabled] = useState(item.ready_stock_enabled ?? false);
   // Shared field value in the CURRENT unit. Measure stores base grams, so convert
   // for display when the unit is weight.
   const [stockValue, setStockValue] = useState<number>(() =>
@@ -248,6 +248,13 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     [sizeGrams],
   );
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
+  // Immediate-sale channel. Opt-in, needs a plain count stock. It is NOT
+  // exclusive with a preparation notice: the notice is the made-to-order
+  // promise, immediate sale is the exception counted stock lets a guest skip.
+  // Staged like the rest of the tab — committed by doSave, discarded on Annuler.
+  const [immediateSaleMode, setImmediateSaleMode] = useState<ImmediateSaleMode>(
+    item.immediate_sale_mode ?? '',
+  );
 
   const modes: { value: AvailabilityOverride; label: string; desc: string }[] = [
     {
@@ -291,19 +298,31 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     }
   }, [rules, ruleId]);
 
+  // Immediate sale requires a plain count stock (shared, portions). Mirrors the
+  // server's validateImmediateSale so the user never hits a rejection. A
+  // preparation notice no longer blocks it, so the two controls stay independent.
+  // Derived before doSave because the save payload applies the same rule.
+  const hasCountStock = stockTracked && stockMode === 'shared' && stockUnit === '';
+  const immediateOptionsEnabled = hasCountStock;
+
   // Commit the whole tab in one shot from current local state — called by the
-  // parent modal on "Enregistrer" (never on change/blur). Availability + the
-  // shared stock fields go in a single updateMenuItem; per-size mode seeds every
-  // size's count first (an unset size defaults to 0 = sold out server-side) then
-  // flips the mode. Throws on failure so the parent's Save flow surfaces it.
+  // parent modal on "Enregistrer" (never on change/blur). Availability, the
+  // sale mode / lead time and the shared stock fields go in a single
+  // updateMenuItem; per-size mode seeds every size's count first (an unset size
+  // defaults to 0 = sold out server-side) then flips the mode. Throws on failure
+  // so the parent's Save flow surfaces it.
   const doSave = useCallback(async () => {
     if (!canEdit) return;
-    const readyStockEligible = stockTracked && stockMode === 'shared' && stockUnit === '';
     const availability = {
       availability_rule_id: ruleId, // 0 clears to inherit
       availability_override: override,
+      // Staged stock can invalidate an earlier immediate-sale pick (e.g. the user
+      // switches to per-size counts while "surplus" is on). The buttons disable
+      // but keep their value, so drop it here rather than let the server reject
+      // the whole save.
+      immediate_sale_mode: immediateOptionsEnabled ? immediateSaleMode : '',
+      // null = inherit the restaurant default; a number = this item's own notice.
       preparation_lead_time_minutes: leadTimeMinutes,
-      ready_stock_enabled: readyStockEligible && readyStockEnabled,
     };
     if (!stockTracked) {
       await updateMenuItem(rid, itemId, { ...availability, stock_quantity: null, stock_mode: '', stock_unit: '' });
@@ -344,7 +363,8 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     ruleId,
     override,
     leadTimeMinutes,
-    readyStockEnabled,
+    immediateOptionsEnabled,
+    immediateSaleMode,
     stockTracked,
     stockMode,
     stockUnit,
@@ -432,6 +452,12 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     loading:    { fg: 'var(--fg-muted)',    bgMix: 'color-mix(in oklab, var(--fg-muted) 14%, transparent)' },
   };
   const tone = statusTone[state];
+
+  const saleModes: { value: ImmediateSaleMode; label: string; desc: string }[] = [
+    { value: '', label: t('saleModePreorderOnly'), desc: t('saleModePreorderOnlyDesc') },
+    { value: 'surplus', label: t('saleModeSurplus'), desc: t('saleModeSurplusDesc') },
+    { value: 'standalone', label: t('saleModeStandalone'), desc: t('saleModeStandaloneDesc') },
+  ];
 
   return (
     <div className="max-w-4xl flex flex-col gap-[var(--s-5)]">
@@ -839,26 +865,61 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
           </div>
         )}
 
-        <div className="border-t border-[var(--line)] pt-[var(--s-4)]">
-          <label className={cn('flex items-start gap-[var(--s-3)]', readyStockEligible && canEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-65')}>
-            <input
-              type="checkbox"
-              checked={readyStockEligible && readyStockEnabled}
-              disabled={!canEdit || !readyStockEligible}
-              onChange={(e) => {
-                setReadyStockEnabled(e.target.checked);
+        {/* Canal de vente — "Disponible maintenant". Deliberately below the
+            preparation promise: the promise is the rule, this is the exception
+            counted stock on the shelf buys you. */}
+        <div className="border-t border-[var(--line)] pt-[var(--s-4)] flex flex-col gap-[var(--s-3)]">
+          <div className="min-w-0">
+            <div className="text-fs-md font-semibold text-[var(--fg)]">{t('saleModeTitle')}</div>
+            <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{t('saleModeSubtitle')}</div>
+          </div>
+        {saleModes.map((m) => {
+          const selected = immediateSaleMode === m.value;
+          const disabled = !canEdit || (m.value !== '' && !immediateOptionsEnabled);
+          return (
+            <button
+              key={m.value || '_'}
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                if (!canEdit || disabled || m.value === immediateSaleMode) return;
+                setImmediateSaleMode(m.value);
                 setDirty(true);
               }}
-              className="mt-0.5 accent-[var(--brand-500)]"
-            />
-            <PackageCheck className="w-4 h-4 mt-0.5 shrink-0 text-[var(--brand-500)]" />
-            <span className="min-w-0">
-              <span className="block text-fs-sm font-semibold text-[var(--fg)]">{t('readyStockTitle')}</span>
-              <span className="block text-fs-xs text-[var(--fg-muted)] mt-1 leading-[var(--lh-base)]">
-                {readyStockEligible ? t('readyStockDesc') : t('readyStockRequiresCount')}
+              className={cn(
+                'w-full flex items-start gap-[var(--s-3)] rounded-r-lg border p-[var(--s-4)] text-start transition-colors',
+                selected ? 'border-[var(--brand-500)]' : 'border-[var(--line)] hover:border-[var(--line-strong)]',
+                disabled && 'opacity-60 cursor-not-allowed',
+              )}
+              style={{
+                background: selected
+                  ? 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))'
+                  : 'var(--surface)',
+              }}
+            >
+              <span
+                className={cn(
+                  'mt-0.5 w-4 h-4 shrink-0 rounded-full border-2 grid place-items-center',
+                  selected ? 'border-[var(--brand-500)]' : 'border-[var(--line-strong)]',
+                )}
+              >
+                {selected && <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-500)]" />}
               </span>
-            </span>
-          </label>
+              <span className="min-w-0">
+                <span className="block text-fs-sm font-semibold text-[var(--fg)]">{m.label}</span>
+                <span className="block text-fs-xs text-[var(--fg-muted)] mt-1 leading-[var(--lh-base)]">
+                  {m.desc}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+
+        {!hasCountStock && (
+          <p className="text-fs-xs text-[var(--fg-subtle)] leading-[var(--lh-base)]">
+            {t('saleModeNeedsCountStock')}
+          </p>
+        )}
         </div>
       </section>
 
