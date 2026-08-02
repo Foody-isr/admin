@@ -948,7 +948,27 @@ export type NavMode = 'full' | 'compact' | 'hidden';
 export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
 /** Per-page-type navigation composition. content = landing + content pages;
  *  shopping = order, catering, and custom pages flagged shopping. */
-export type NavLayout = { content: NavLayoutSide; shopping: NavLayoutSide };
+export type NavigationIcon = 'home' | 'menu' | 'grid' | 'play' | 'bag' | 'user' | 'page';
+export type BottomNavigationStyle = {
+  order?: string[];
+  icons?: Record<string, NavigationIcon>;
+  background_color?: string;
+  button_background_color?: string;
+  text_color?: string;
+  active_text_color?: string;
+};
+export type CompactNavigationStyle = {
+  hamburger_position?: 'left' | 'right';
+  actions_position?: 'left' | 'right';
+  icon_color?: string;
+  button_background_color?: string;
+};
+export type NavLayout = {
+  content: NavLayoutSide;
+  shopping: NavLayoutSide;
+  bottom_navigation?: BottomNavigationStyle;
+  compact_navigation?: CompactNavigationStyle;
+};
 
 // ─── Checkout-form builder ──────────────────────────────────────────────
 // Mirrors foodyserver/internal/restaurants/checkout_config.go. Null/undefined

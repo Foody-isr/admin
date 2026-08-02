@@ -228,6 +228,33 @@ export function SiteInspector({
     bottom_bar: true,
     ...record(navLayout.shopping),
   };
+  const bottomNavigation = record(navLayout.bottom_navigation);
+  const compactNavigation = record(navLayout.compact_navigation);
+  const hasFullNavigation = [contentNav.desktop, contentNav.mobile, shoppingNav.desktop, shoppingNav.mobile].includes("full");
+  const bottomItems = [
+    ...pages.filter((page) => page.nav_visible).sort((a, b) => a.sort_order - b.sort_order)
+      .map((page) => ({ key: page.slug, label: page.title })),
+    ...(storiesEnabled ? [{ key: "stories", label: "Stories" }] : []),
+    ...(boolean(config.show_orders_link, true) ? [{ key: "orders", label: "Mes commandes" }] : []),
+    { key: "account", label: "Compte" },
+  ];
+  const configuredBottomOrder = Array.isArray(bottomNavigation.order)
+    ? bottomNavigation.order.filter((key): key is string => typeof key === "string")
+    : [];
+  const orderedBottomItems = bottomItems.slice().sort((a, b) => {
+    const ai = configuredBottomOrder.indexOf(a.key);
+    const bi = configuredBottomOrder.indexOf(b.key);
+    return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+  });
+  const updateNavigationExtension = (key: "bottom_navigation" | "compact_navigation", patch: Record<string, unknown>) =>
+    onChange([], { ...config, nav_layout: { ...navLayout, [key]: { ...record(navLayout[key]), ...patch } } });
+  const moveBottomItem = (index: number, delta: number) => {
+    const next = orderedBottomItems.map((item) => item.key);
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    updateNavigationExtension("bottom_navigation", { order: next });
+  };
   const updateNavSide = (
     side: "content" | "shopping",
     patch: Record<string, unknown>,
@@ -255,7 +282,7 @@ export function SiteInspector({
           onUpload={onRestaurantLogoUpload}
           onRemove={onRestaurantLogoRemove}
         />
-        <InspectorField label="Position dans la barre">
+        {hasFullNavigation ? <><InspectorField label="Position dans la barre">
           <select
             data-field-id="site.navbar_logo_position"
             value={string(config.navbar_logo_position) || "left"}
@@ -301,6 +328,7 @@ export function SiteInspector({
           className={controlClass}
           placeholder="Ou collez l’URL du logo alternatif"
         />
+        </> : null}
         <RangeField
           fieldId="site.hero_logo_size"
           label="Taille sur la couverture"
@@ -337,7 +365,7 @@ export function SiteInspector({
         title="Navigation"
         description="Composez une navigation lisible pour les pages contenu et commerce."
       >
-        <InspectorField label="Style">
+        {hasFullNavigation ? <><InspectorField label="Style">
           <select
             data-field-id="site.navbar_style"
             value={navbarStyle}
@@ -380,19 +408,7 @@ export function SiteInspector({
           fallback="#111111"
           onChange={(value) => onChange(["navbar_text_color"], value)}
         />
-        <ToggleField
-          fieldId="site.navbar_show_links"
-          label="Afficher les liens sur les pages contenu"
-          description="Active la navigation complète sur ordinateur."
-          checked={contentNav.desktop === "full"}
-          onChange={(value) =>
-            updateNavSide(
-              "content",
-              { desktop: value ? "full" : "compact" },
-              { navbar_show_links: value },
-            )
-          }
-        />
+        </> : null}
         <div className="space-y-2">
           {pages
             .slice()
@@ -471,6 +487,12 @@ export function SiteInspector({
           </select>
         </InspectorField>
         <ToggleField
+          fieldId={"site.nav-layout.content.bottom-bar"}
+          label="Barre mobile des pages contenu"
+          checked={boolean(contentNav.bottom_bar, false)}
+          onChange={(value) => updateNavSide("content", { bottom_bar: value })}
+        />
+        <ToggleField
           fieldId={"site.nav-layout.shopping.bottom-bar"}
           label="Barre mobile de la boutique"
           description="Conserve un accès à la navigation lorsque la barre du haut est masquée."
@@ -479,6 +501,37 @@ export function SiteInspector({
             updateNavSide("shopping", { bottom_bar: value })
           }
         />
+        {(contentNav.bottom_bar || shoppingNav.bottom_bar) ? (
+          <div className="space-y-3 border-t border-slate-100 pt-4">
+            <p className="text-xs font-semibold text-slate-700">Personnalisation de la barre mobile</p>
+            <ColorField fieldId="site.bottom-navigation.background" label="Couleur de fond" value={string(bottomNavigation.background_color)} fallback="#ffffff" onChange={(value) => updateNavigationExtension("bottom_navigation", { background_color: value })} />
+            <ColorField fieldId="site.bottom-navigation.button-background" label="Fond des boutons" value={string(bottomNavigation.button_background_color)} fallback="#ffffff" onChange={(value) => updateNavigationExtension("bottom_navigation", { button_background_color: value })} />
+            <ColorField fieldId="site.bottom-navigation.text" label="Couleur des textes" value={string(bottomNavigation.text_color)} fallback="#64748b" onChange={(value) => updateNavigationExtension("bottom_navigation", { text_color: value })} />
+            <ColorField fieldId="site.bottom-navigation.active-text" label="Texte et icône actifs" value={string(bottomNavigation.active_text_color)} fallback="#315fce" onChange={(value) => updateNavigationExtension("bottom_navigation", { active_text_color: value })} />
+            <div className="space-y-2">
+              {orderedBottomItems.map((item, index) => (
+                <div key={item.key} className="flex items-center gap-2 rounded-lg border border-slate-200 p-2">
+                  <span className="min-w-0 flex-1 truncate text-xs text-slate-700">{item.label}</span>
+                  <select className={`${controlClass} !w-24 !py-1`} value={string(record(bottomNavigation.icons)[item.key]) || "page"}
+                    onChange={(event) => updateNavigationExtension("bottom_navigation", { icons: { ...record(bottomNavigation.icons), [item.key]: event.target.value } })}>
+                    <option value="home">Accueil</option><option value="menu">Menu</option><option value="grid">Grille</option><option value="play">Lecture</option><option value="bag">Sac</option><option value="user">Compte</option><option value="page">Page</option>
+                  </select>
+                  <button type="button" disabled={index === 0} onClick={() => moveBottomItem(index, -1)} className="rounded border px-2 py-1 text-xs disabled:opacity-30" aria-label={`Monter ${item.label}`}>↑</button>
+                  <button type="button" disabled={index === orderedBottomItems.length - 1} onClick={() => moveBottomItem(index, 1)} className="rounded border px-2 py-1 text-xs disabled:opacity-30" aria-label={`Descendre ${item.label}`}>↓</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {(contentNav.desktop === "compact" || shoppingNav.desktop === "compact") ? (
+          <div className="space-y-3 border-t border-slate-100 pt-4">
+            <p className="text-xs font-semibold text-slate-700">Navigation compacte · ordinateur</p>
+            <InspectorField label="Position du menu hamburger"><select className={controlClass} value={string(compactNavigation.hamburger_position) || "left"} onChange={(event) => updateNavigationExtension("compact_navigation", { hamburger_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
+            <InspectorField label="Position du compte et des actions"><select className={controlClass} value={string(compactNavigation.actions_position) || "right"} onChange={(event) => updateNavigationExtension("compact_navigation", { actions_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
+            <ColorField fieldId="site.compact-navigation.icon" label="Couleur des icônes" value={string(compactNavigation.icon_color)} fallback="#111111" onChange={(value) => updateNavigationExtension("compact_navigation", { icon_color: value })} />
+            <ColorField fieldId="site.compact-navigation.button-background" label="Fond des boutons" value={string(compactNavigation.button_background_color)} fallback="#ffffff" onChange={(value) => updateNavigationExtension("compact_navigation", { button_background_color: value })} />
+          </div>
+        ) : null}
         <div className="border-t border-slate-100 pt-4">
           <NavigationCtaEditor
             value={record(config.navbar_cta)}
