@@ -112,6 +112,8 @@ export interface RestaurantSettings {
   scheduling_enabled: boolean;
   // Slot-based scheduling detail (mutually exclusive with batch fulfillment).
   scheduling_min_days_ahead?: number;
+  /** Precise default preparation promise. Supersedes the legacy day field. */
+  scheduling_lead_time_minutes?: number;
   scheduling_max_days_ahead?: number;
   scheduling_slot_duration_minutes?: number;
   scheduling_require_prepayment?: boolean;
@@ -511,6 +513,11 @@ export interface MenuItem {
    *  mode it is a display hint: the per-option values stay portion counts, and the
    *  admin renders them as weight (count x size weight) when this is set. */
   stock_unit?: string;
+  /** Item-specific preparation promise; null inherits the restaurant default. */
+  preparation_lead_time_minutes?: number | null;
+  /** Counted finished stock may satisfy an immediate order without removing the
+   * normal preparation promise used once that stock is exhausted. */
+  ready_stock_enabled?: boolean;
   /** Computed (read-only) availability stamped onto staff menu responses. */
   availability_state?: AvailabilityState;
   buildable_count?: number | null;

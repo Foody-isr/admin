@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
-import { CheckCircle2, AlertTriangle, XCircle, Info, ArrowRight } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, Info, ArrowRight, Clock3, PackageCheck } from 'lucide-react';
 import {
   listAvailabilityRules,
   previewItemAvailability,
@@ -209,6 +209,10 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
   const [stockMode, setStockMode] = useState<'shared' | 'per_variant'>(
     item.stock_mode === 'per_variant' ? 'per_variant' : 'shared',
   );
+  const [leadTimeMinutes, setLeadTimeMinutes] = useState<number | null>(
+    item.preparation_lead_time_minutes ?? null,
+  );
+  const [readyStockEnabled, setReadyStockEnabled] = useState(item.ready_stock_enabled ?? false);
   // Shared field value in the CURRENT unit. Measure stores base grams, so convert
   // for display when the unit is weight.
   const [stockValue, setStockValue] = useState<number>(() =>
@@ -294,9 +298,12 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
   // flips the mode. Throws on failure so the parent's Save flow surfaces it.
   const doSave = useCallback(async () => {
     if (!canEdit) return;
+    const readyStockEligible = stockTracked && stockMode === 'shared' && stockUnit === '';
     const availability = {
       availability_rule_id: ruleId, // 0 clears to inherit
       availability_override: override,
+      preparation_lead_time_minutes: leadTimeMinutes,
+      ready_stock_enabled: readyStockEligible && readyStockEnabled,
     };
     if (!stockTracked) {
       await updateMenuItem(rid, itemId, { ...availability, stock_quantity: null, stock_mode: '', stock_unit: '' });
@@ -336,6 +343,8 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     itemId,
     ruleId,
     override,
+    leadTimeMinutes,
+    readyStockEnabled,
     stockTracked,
     stockMode,
     stockUnit,
@@ -380,6 +389,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
 
   // Suffix shown next to stock fields: the unit itself for weight, else "portions".
   const unitLabel = stockUnit === '' ? t('availabilityPortions') : stockUnit;
+  const readyStockEligible = stockTracked && stockMode === 'shared' && stockUnit === '';
 
   function ruleSummary(rule: AvailabilityRule | undefined): string {
     if (!rule) return '';
@@ -734,6 +744,122 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
           );
         })}
 
+      </section>
+
+      {/* Preparation promise — separate from sellability. A product may need
+          two days to make while a counted finished batch remains sellable now. */}
+      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] flex flex-col gap-[var(--s-4)]">
+        <div className="flex items-start gap-[var(--s-3)]">
+          <div
+            className="w-9 h-9 rounded-r-md grid place-items-center shrink-0"
+            style={{
+              background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+              color: 'var(--brand-500)',
+            }}
+          >
+            <Clock3 className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-fs-md font-semibold text-[var(--fg)]">{t('itemPreparationPromiseTitle')}</div>
+            <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5 leading-[var(--lh-base)]">
+              {t('itemPreparationPromiseDesc')}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--s-3)]">
+          <button
+            type="button"
+            disabled={!canEdit}
+            onClick={() => {
+              setLeadTimeMinutes(null);
+              setDirty(true);
+            }}
+            className={cn(
+              'rounded-r-lg border p-[var(--s-4)] text-start transition-colors',
+              leadTimeMinutes == null ? 'border-[var(--brand-500)]' : 'border-[var(--line)] hover:border-[var(--line-strong)]',
+            )}
+            style={leadTimeMinutes == null ? { background: 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))' } : undefined}
+          >
+            <span className="block text-fs-sm font-semibold text-[var(--fg)]">{t('itemPreparationInherit')}</span>
+            <span className="block text-fs-xs text-[var(--fg-muted)] mt-1">{t('itemPreparationInheritDesc')}</span>
+          </button>
+          <button
+            type="button"
+            disabled={!canEdit}
+            onClick={() => {
+              setLeadTimeMinutes(leadTimeMinutes ?? 1440);
+              setDirty(true);
+            }}
+            className={cn(
+              'rounded-r-lg border p-[var(--s-4)] text-start transition-colors',
+              leadTimeMinutes != null ? 'border-[var(--brand-500)]' : 'border-[var(--line)] hover:border-[var(--line-strong)]',
+            )}
+            style={leadTimeMinutes != null ? { background: 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))' } : undefined}
+          >
+            <span className="block text-fs-sm font-semibold text-[var(--fg)]">{t('itemPreparationCustom')}</span>
+            <span className="block text-fs-xs text-[var(--fg-muted)] mt-1">{t('itemPreparationCustomDesc')}</span>
+          </button>
+        </div>
+
+        {leadTimeMinutes != null && (
+          <div className="rounded-r-md border border-[var(--line)] p-[var(--s-4)] flex flex-col gap-[var(--s-3)]">
+            <Field label={t('itemPreparationDelay')}>
+              <div className="flex items-center gap-[var(--s-2)]">
+                <NumberInput
+                  integer
+                  min={0}
+                  value={Math.round(leadTimeMinutes / 60)}
+                  disabled={!canEdit}
+                  onChange={(hours) => {
+                    setLeadTimeMinutes(Math.max(0, Math.round(hours)) * 60);
+                    setDirty(true);
+                  }}
+                  className="h-10 w-24 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] font-mono"
+                />
+                <span className="text-fs-sm text-[var(--fg-muted)]">{t('hours')}</span>
+                <div className="flex flex-wrap gap-1 ms-[var(--s-2)]">
+                  {[0, 24, 48, 72].map((hours) => (
+                    <button
+                      key={hours}
+                      type="button"
+                      disabled={!canEdit}
+                      onClick={() => {
+                        setLeadTimeMinutes(hours * 60);
+                        setDirty(true);
+                      }}
+                      className="rounded-full border border-[var(--line)] px-[var(--s-2)] py-1 text-fs-xs font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)]"
+                    >
+                      {hours === 0 ? t('itemPreparationSameDay') : `${hours} h`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Field>
+          </div>
+        )}
+
+        <div className="border-t border-[var(--line)] pt-[var(--s-4)]">
+          <label className={cn('flex items-start gap-[var(--s-3)]', readyStockEligible && canEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-65')}>
+            <input
+              type="checkbox"
+              checked={readyStockEligible && readyStockEnabled}
+              disabled={!canEdit || !readyStockEligible}
+              onChange={(e) => {
+                setReadyStockEnabled(e.target.checked);
+                setDirty(true);
+              }}
+              className="mt-0.5 accent-[var(--brand-500)]"
+            />
+            <PackageCheck className="w-4 h-4 mt-0.5 shrink-0 text-[var(--brand-500)]" />
+            <span className="min-w-0">
+              <span className="block text-fs-sm font-semibold text-[var(--fg)]">{t('readyStockTitle')}</span>
+              <span className="block text-fs-xs text-[var(--fg-muted)] mt-1 leading-[var(--lh-base)]">
+                {readyStockEligible ? t('readyStockDesc') : t('readyStockRequiresCount')}
+              </span>
+            </span>
+          </label>
+        </div>
       </section>
 
       <LearnMore feature="availability" label={t('helpLearnMoreAvailability')} />
