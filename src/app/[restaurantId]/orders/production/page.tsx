@@ -509,6 +509,8 @@ export default function ProductionPage() {
             onRowClick={handleRowClick}
             doneIds={doneIds}
             onToggleDone={toggleDone}
+            availablePortions={availablePortions}
+            boxSize={boxSize}
           />
         ) : (
           <div className="flex flex-col gap-[var(--s-2)]">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { CheckCircle2, AlertTriangle, XCircle, Info, ArrowRight } from 'lucide-react';
 import {
   listAvailabilityRules,
@@ -93,7 +93,6 @@ function StockValueField({
   disabled,
   width,
   onChange,
-  onCommit,
 }: {
   value: number;
   integer: boolean;
@@ -101,7 +100,6 @@ function StockValueField({
   disabled?: boolean;
   width: string;
   onChange: (v: number) => void;
-  onCommit: () => void;
 }) {
   return (
     <div className="inline-flex items-stretch overflow-hidden rounded-md border border-[var(--line-strong)] bg-[var(--surface)] transition-colors focus-within:border-[var(--brand-500)]">
@@ -111,7 +109,6 @@ function StockValueField({
         value={value}
         disabled={disabled}
         onChange={onChange}
-        onBlur={onCommit}
         placeholder="0"
         className={cn(
           'h-10 bg-transparent px-[var(--s-3)] text-fs-sm tabular-nums text-[var(--fg)] focus:outline-none',
@@ -128,10 +125,21 @@ function StockValueField({
   );
 }
 
+/** Imperative handle so the parent modal commits this tab on "Enregistrer"
+ *  (mirrors MenuItemTabRecipeHandle). Nothing on this tab persists until the
+ *  modal's Save is clicked; "Annuler" simply discards the staged local state. */
+export interface ItemAvailabilityPanelHandle {
+  save: () => Promise<void>;
+  isDirty: () => boolean;
+}
+
 interface Props {
   rid: number;
   itemId: number;
   item: MenuItem;
+  /** Restaurant-wide default predefined-stock unit ('' portions | 'g' | 'kg').
+   *  Seeds the unit for a not-yet-configured item that has weighted sizes. */
+  defaultStockUnit?: StockUnit;
   /** Called after a successful save so the parent can refresh its copy. */
   onSaved?: () => void;
 }
@@ -144,10 +152,15 @@ interface Props {
 // • Two sections only: live État + the unified Disponibilité control. The
 //   single radio group makes the rule a sub-option of "Suivre une règle" so
 //   the rule/override layers stop reading as two redundant controls.
-export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Props) {
+const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(function ItemAvailabilityPanel(
+  { rid, itemId, item, defaultStockUnit = '', onSaved },
+  ref,
+) {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
+  // Any user edit on this tab flips this; the parent's Save only commits when dirty.
+  const [dirty, setDirty] = useState(false);
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
   const [ruleId, setRuleId] = useState<number>(item.availability_rule_id ?? 0); // 0 = inherit
   const [override, setOverride] = useState<AvailabilityOverride>(item.availability_override ?? 'auto');
@@ -182,9 +195,16 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     return m;
   }, [sizeOptions]);
   const hasWeightedSizes = hasOptionSizes && sizeOptions.every((o) => sizeGrams[o.id] != null);
-  // Unit of the predefined count. Seed from the saved unit / mode.
+  // Unit of the predefined count. Seed from the item's saved unit / mode; for a
+  // not-yet-configured item, fall back to the restaurant default — but only when
+  // the unit toggle is meaningful (weighted sizes). Weight ("measure") mode has
+  // no per-size weight to deduct on a size-less item, so it must stay portions.
   const initialUnit: StockUnit =
-    item.stock_unit === 'kg' ? 'kg' : item.stock_unit === 'g' || item.stock_mode === 'measure' ? 'g' : '';
+    item.stock_unit === 'kg'
+      ? 'kg'
+      : item.stock_unit === 'g' || item.stock_mode === 'measure'
+        ? 'g'
+        : (hasWeightedSizes ? defaultStockUnit : '') || '';
   const [stockUnit, setStockUnit] = useState<StockUnit>(initialUnit);
   // 'shared' = one pool for every size; 'per_variant' = a pool per size.
   const [stockMode, setStockMode] = useState<'shared' | 'per_variant'>(
@@ -225,10 +245,9 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     [sizeGrams],
   );
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   // Immediate-sale channel + preparation lead time. Both are opt-in and mutually
   // exclusive: an immediate item needs a plain count stock and no lead time.
+  // Staged like the rest of the tab — committed by doSave, discarded on Annuler.
   const [immediateSaleMode, setImmediateSaleMode] = useState<ImmediateSaleMode>(
     item.immediate_sale_mode ?? '',
   );
@@ -276,151 +295,91 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     }
   }, [rules, ruleId]);
 
-  const save = useCallback(
-    async (next: { ruleId?: number; override?: AvailabilityOverride }) => {
-      setBusy(true);
-      setError(null);
-      try {
-        await updateMenuItem(rid, itemId, {
-          availability_rule_id: next.ruleId ?? ruleId, // 0 clears to inherit
-          availability_override: next.override ?? override,
-        });
-        await loadPreview();
-        onSaved?.();
-      } catch (e: any) {
-        setError(e?.message || t('availabilityCouldNotSave'));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [rid, itemId, ruleId, override, loadPreview, onSaved, t],
-  );
+  // Immediate sale requires a plain count stock (shared, portions) and no lead
+  // time. Lead time is disabled while an immediate mode is on. Mirrors the
+  // server's validateSaleAndLeadTime so the user never hits a rejection.
+  // Derived before doSave because the save payload applies the same rule.
+  const hasCountStock = stockTracked && stockMode === 'shared' && stockUnit === '';
+  const immediateOptionsEnabled = hasCountStock && leadTimeDays <= 0;
+  const leadEnabled = immediateSaleMode === '';
 
-  // Persist the immediate-sale mode ("Disponible maintenant"). The server
-  // rejects a non-empty mode unless the item is on count stock and has no lead
-  // time — the UI disables the invalid choices, this is the safety net.
-  const saveSaleMode = useCallback(
-    async (mode: ImmediateSaleMode) => {
-      setBusy(true);
-      setError(null);
-      try {
-        await updateMenuItem(rid, itemId, { immediate_sale_mode: mode });
-        await loadPreview();
-        onSaved?.();
-      } catch (e: any) {
-        setError(e?.message || t('availabilityCouldNotSave'));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [rid, itemId, loadPreview, onSaved, t],
-  );
+  // Commit the whole tab in one shot from current local state — called by the
+  // parent modal on "Enregistrer" (never on change/blur). Availability, the
+  // sale mode / lead time and the shared stock fields go in a single
+  // updateMenuItem; per-size mode seeds every size's count first (an unset size
+  // defaults to 0 = sold out server-side) then flips the mode. Throws on failure
+  // so the parent's Save flow surfaces it.
+  const doSave = useCallback(async () => {
+    if (!canEdit) return;
+    const availability = {
+      availability_rule_id: ruleId, // 0 clears to inherit
+      availability_override: override,
+      // Staged stock can invalidate an earlier immediate-sale pick (e.g. the user
+      // switches to per-size counts while "surplus" is on). The buttons disable
+      // but keep their value, so drop it here rather than let the server reject
+      // the whole save.
+      immediate_sale_mode: immediateOptionsEnabled ? immediateSaleMode : '',
+      lead_time_days: Math.max(0, Math.round(leadTimeDays || 0)),
+    };
+    if (!stockTracked) {
+      await updateMenuItem(rid, itemId, { ...availability, stock_quantity: null, stock_mode: '', stock_unit: '' });
+    } else if (stockMode === 'per_variant' && sizeSet) {
+      await Promise.all(
+        sizeOptions.map((o) =>
+          setItemOptionStock(rid, sizeSet.id, itemId, o.id, fieldToCount(o.id, perSizeField[o.id] ?? 0, stockUnit)),
+        ),
+      );
+      await updateMenuItem(rid, itemId, {
+        ...availability,
+        stock_mode: 'per_variant',
+        stock_quantity: null,
+        stock_unit: stockUnit,
+      });
+    } else if (stockUnit === '') {
+      await updateMenuItem(rid, itemId, {
+        ...availability,
+        stock_quantity: Math.max(0, Math.round(stockValue)),
+        stock_mode: 'count',
+        stock_unit: '',
+      });
+    } else {
+      await updateMenuItem(rid, itemId, {
+        ...availability,
+        stock_quantity: Math.max(0, Math.round(toBaseUnit(stockValue, stockUnit))), // base grams
+        stock_mode: 'measure',
+        stock_unit: stockUnit,
+      });
+    }
+    setDirty(false);
+    await loadPreview();
+    onSaved?.();
+  }, [
+    canEdit,
+    rid,
+    itemId,
+    ruleId,
+    override,
+    immediateOptionsEnabled,
+    immediateSaleMode,
+    leadTimeDays,
+    stockTracked,
+    stockMode,
+    stockUnit,
+    stockValue,
+    perSizeField,
+    sizeSet,
+    sizeOptions,
+    fieldToCount,
+    loadPreview,
+    onSaved,
+  ]);
 
-  // Persist the preparation lead time in days (clamped at zero).
-  const saveLeadTime = useCallback(
-    async (days: number) => {
-      const clamped = Math.max(0, Math.round(days || 0));
-      setBusy(true);
-      setError(null);
-      try {
-        await updateMenuItem(rid, itemId, { lead_time_days: clamped });
-        await loadPreview();
-        onSaved?.();
-      } catch (e: any) {
-        setError(e?.message || t('availabilityCouldNotSave'));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [rid, itemId, loadPreview, onSaved, t],
-  );
+  useImperativeHandle(ref, () => ({ save: doSave, isDirty: () => dirty }), [doSave, dirty]);
 
-  // Persist the SHARED predefined stock. `null` stops tracking. Otherwise the unit
-  // picks the server mode: portions -> "count" (the value is a plain unit count);
-  // weight -> "measure" (the value is stored in the base unit, grams, and each
-  // ordered size deducts its own weight). Always sends stock_mode so leaving
-  // 'per_variant' makes the server drop the now-stale per-size counts.
-  const saveSharedStock = useCallback(
-    async (val: number | null, unit: StockUnit) => {
-      setBusy(true);
-      setError(null);
-      try {
-        if (val == null) {
-          await updateMenuItem(rid, itemId, { stock_quantity: null, stock_mode: '', stock_unit: '' });
-        } else if (unit === '') {
-          await updateMenuItem(rid, itemId, {
-            stock_quantity: Math.max(0, Math.round(val)),
-            stock_mode: 'count',
-            stock_unit: '',
-          });
-        } else {
-          await updateMenuItem(rid, itemId, {
-            stock_quantity: Math.max(0, Math.round(toBaseUnit(val, unit))), // base grams
-            stock_mode: 'measure',
-            stock_unit: unit,
-          });
-        }
-        await loadPreview();
-        onSaved?.();
-      } catch (e: any) {
-        setError(e?.message || t('availabilityCouldNotSave'));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [rid, itemId, loadPreview, onSaved, t],
-  );
-
-  // Switch to per-size stock: push every size's count, then set the mode (clearing
-  // the shared count). Order matters — an unset size defaults to 0 (sold out)
-  // server-side, so we seed all sizes before flipping the mode. `unit` persists as
-  // a display hint; the per-option values stay portion counts either way.
-  const saveStockPerVariant = useCallback(
-    async (unit: StockUnit, fields: Record<number, number>) => {
-      if (!sizeSet) return;
-      setBusy(true);
-      setError(null);
-      try {
-        await Promise.all(
-          sizeOptions.map((o) =>
-            setItemOptionStock(rid, sizeSet.id, itemId, o.id, fieldToCount(o.id, fields[o.id] ?? 0, unit)),
-          ),
-        );
-        await updateMenuItem(rid, itemId, { stock_mode: 'per_variant', stock_quantity: null, stock_unit: unit });
-        await loadPreview();
-        onSaved?.();
-      } catch (e: any) {
-        setError(e?.message || t('availabilityCouldNotSave'));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [rid, itemId, sizeSet, sizeOptions, fieldToCount, loadPreview, onSaved, t],
-  );
-
-  // Persist a single size's count (field blur) without disturbing the others.
-  const saveSizeCount = useCallback(
-    async (optionId: number, val: number, unit: StockUnit) => {
-      if (!sizeSet) return;
-      setBusy(true);
-      setError(null);
-      try {
-        await setItemOptionStock(rid, sizeSet.id, itemId, optionId, fieldToCount(optionId, val, unit));
-        await loadPreview();
-        onSaved?.();
-      } catch (e: any) {
-        setError(e?.message || t('availabilityCouldNotSave'));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [rid, itemId, sizeSet, fieldToCount, loadPreview, onSaved, t],
-  );
-
-  // Change the display unit and re-persist. Per-size converts cleanly through the
-  // stable portion count. Shared portions<->weight can't be inferred (a gram
-  // budget has no fixed portion count without a size mix), so it resets to 0;
-  // weight<->weight (g<->kg) converts.
+  // Change the display unit (staged, not persisted). Per-size converts cleanly
+  // through the stable portion count. Shared portions<->weight can't be inferred
+  // (a gram budget has no fixed portion count without a size mix), so it resets to
+  // 0; weight<->weight (g<->kg) converts.
   const changeUnit = useCallback(
     (newUnit: StockUnit) => {
       if (!canEdit || newUnit === stockUnit) return;
@@ -431,7 +390,6 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
             : 0;
         setStockUnit(newUnit);
         setStockValue(next);
-        saveSharedStock(next, newUnit);
       } else {
         const nextFields: Record<number, number> = {};
         for (const o of sizeOptions) {
@@ -440,21 +398,10 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
         }
         setStockUnit(newUnit);
         setPerSizeField(nextFields);
-        saveStockPerVariant(newUnit, nextFields);
       }
+      setDirty(true);
     },
-    [
-      canEdit,
-      stockUnit,
-      stockMode,
-      stockValue,
-      sizeOptions,
-      perSizeField,
-      fieldToCount,
-      countToField,
-      saveSharedStock,
-      saveStockPerVariant,
-    ],
+    [canEdit, stockUnit, stockMode, stockValue, sizeOptions, perSizeField, fieldToCount, countToField],
   );
 
   // Suffix shown next to stock fields: the unit itself for weight, else "portions".
@@ -502,12 +449,6 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
   };
   const tone = statusTone[state];
 
-  // Immediate sale requires a plain count stock (shared, portions) and no lead
-  // time. Lead time is disabled while an immediate mode is on. Mirrors the
-  // server's validateSaleAndLeadTime so the user never hits a rejection.
-  const hasCountStock = stockTracked && stockMode === 'shared' && stockUnit === '';
-  const immediateOptionsEnabled = hasCountStock && leadTimeDays <= 0;
-  const leadEnabled = immediateSaleMode === '';
   const saleModes: { value: ImmediateSaleMode; label: string; desc: string }[] = [
     { value: '', label: t('saleModePreorderOnly'), desc: t('saleModePreorderOnlyDesc') },
     { value: 'surplus', label: t('saleModeSurplus'), desc: t('saleModeSurplusDesc') },
@@ -593,18 +534,17 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
             <div key={m.value}>
               <button
                 type="button"
-                disabled={busy || !canEdit}
+                disabled={!canEdit}
                 onClick={() => {
                   if (!canEdit) return;
                   setOverride(m.value);
-                  save({ override: m.value });
+                  setDirty(true);
                 }}
                 className={cn(
                   'w-full flex items-start gap-[var(--s-3)] rounded-r-lg border p-[var(--s-4)] text-start transition-colors',
                   selected
                     ? 'border-[var(--brand-500)]'
                     : 'border-[var(--line)] hover:border-[var(--line-strong)]',
-                  busy && 'opacity-60 cursor-not-allowed',
                   !canEdit && 'cursor-default',
                 )}
                 style={{
@@ -635,12 +575,12 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                     <Field label={t('availabilityRuleField')}>
                       <Select
                         value={String(ruleId)}
-                        disabled={busy || !canEdit}
+                        disabled={!canEdit}
                         onChange={(e) => {
                           if (!canEdit) return;
                           const v = Number(e.target.value);
                           setRuleId(v);
-                          save({ ruleId: v });
+                          setDirty(true);
                         }}
                       >
                         <option value="0">
@@ -672,18 +612,14 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                       <input
                         type="checkbox"
                         checked={stockTracked}
-                        disabled={busy || !canEdit}
+                        disabled={!canEdit}
                         onChange={(e) => {
                           if (!canEdit) return;
                           const on = e.target.checked;
                           setStockTracked(on);
-                          if (on) {
-                            // Always (re)start in shared mode; per-size is opt-in below.
-                            setStockMode('shared');
-                            saveSharedStock(stockValue, stockUnit);
-                          } else {
-                            saveSharedStock(null, '');
-                          }
+                          // Always (re)start in shared mode; per-size is opt-in below.
+                          if (on) setStockMode('shared');
+                          setDirty(true);
                         }}
                         className="mt-0.5 accent-[var(--brand-500)]"
                       />
@@ -710,11 +646,10 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                                 </span>
                                 <Segmented
                                   value={stockMode}
-                                  disabled={busy || !canEdit}
+                                  disabled={!canEdit}
                                   onChange={(m) => {
                                     setStockMode(m);
-                                    if (m === 'shared') saveSharedStock(stockValue, stockUnit);
-                                    else saveStockPerVariant(stockUnit, perSizeField);
+                                    setDirty(true);
                                   }}
                                   options={[
                                     { value: 'shared', label: t('manualStockModeShared') },
@@ -732,7 +667,7 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                                 </span>
                                 <Segmented
                                   value={stockUnit}
-                                  disabled={busy || !canEdit}
+                                  disabled={!canEdit}
                                   onChange={changeUnit}
                                   options={[
                                     { value: '', label: t('manualStockUnitPortions') },
@@ -757,11 +692,11 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                               value={stockValue}
                               integer={stockUnit !== 'kg'}
                               unitLabel={unitLabel}
-                              disabled={busy || !canEdit}
+                              disabled={!canEdit}
                               width="w-28"
-                              onChange={setStockValue}
-                              onCommit={() => {
-                                if (canEdit) saveSharedStock(stockValue, stockUnit);
+                              onChange={(v) => {
+                                setStockValue(v);
+                                setDirty(true);
                               }}
                             />
                             {(stockUnit !== '' || hasVariants) && (
@@ -809,11 +744,11 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                                       value={perSizeField[o.id] ?? 0}
                                       integer={stockUnit !== 'kg'}
                                       unitLabel={unitLabel}
-                                      disabled={busy || !canEdit}
+                                      disabled={!canEdit}
                                       width="w-20"
-                                      onChange={(v) => setPerSizeField((prev) => ({ ...prev, [o.id]: v }))}
-                                      onCommit={() => {
-                                        if (canEdit) saveSizeCount(o.id, perSizeField[o.id] ?? 0, stockUnit);
+                                      onChange={(v) => {
+                                        setPerSizeField((prev) => ({ ...prev, [o.id]: v }));
+                                        setDirty(true);
                                       }}
                                     />
                                   </div>
@@ -831,18 +766,6 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
           );
         })}
 
-        {error && (
-          <div
-            className="rounded-r-md border p-[var(--s-3)] text-fs-sm"
-            style={{
-              background: 'color-mix(in oklab, var(--danger-500) 8%, transparent)',
-              borderColor: 'color-mix(in oklab, var(--danger-500) 30%, transparent)',
-              color: 'var(--danger-500)',
-            }}
-          >
-            {error}
-          </div>
-        )}
       </section>
 
       {/* Vente & délai — immediate-sale channel ("Disponible maintenant") and
@@ -855,7 +778,7 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
 
         {saleModes.map((m) => {
           const selected = immediateSaleMode === m.value;
-          const disabled = busy || !canEdit || (m.value !== '' && !immediateOptionsEnabled);
+          const disabled = !canEdit || (m.value !== '' && !immediateOptionsEnabled);
           return (
             <button
               key={m.value || '_'}
@@ -864,7 +787,7 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
               onClick={() => {
                 if (!canEdit || disabled || m.value === immediateSaleMode) return;
                 setImmediateSaleMode(m.value);
-                saveSaleMode(m.value);
+                setDirty(true);
               }}
               className={cn(
                 'w-full flex items-start gap-[var(--s-3)] rounded-r-lg border p-[var(--s-4)] text-start transition-colors',
@@ -909,11 +832,11 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
             value={leadTimeDays}
             integer
             unitLabel={t('leadTimeDaysUnit')}
-            disabled={busy || !canEdit || !leadEnabled}
+            disabled={!canEdit || !leadEnabled}
             width="w-16"
-            onChange={setLeadTimeDays}
-            onCommit={() => {
-              if (canEdit && leadEnabled) saveLeadTime(leadTimeDays);
+            onChange={(v) => {
+              setLeadTimeDays(v);
+              setDirty(true);
             }}
           />
           {!leadEnabled && (
@@ -925,4 +848,6 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
       <LearnMore feature="availability" label={t('helpLearnMoreAvailability')} />
     </div>
   );
-}
+});
+
+export default ItemAvailabilityPanel;

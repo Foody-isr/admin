@@ -135,6 +135,12 @@ export interface RestaurantSettings {
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
+  // Stock management
+  // Auto-deactivate a menu item when its linked ingredients reach 0.
+  auto_disable_soldout?: boolean;
+  // Default predefined-stock unit for new items with weighted sizes:
+  //   '' — portions (default), 'g' — grams, 'kg' — kilograms.
+  default_stock_unit?: '' | 'g' | 'kg';
   // Delivery — minimum cart total to allow a delivery order (0 = no minimum).
   // Drives the "Min ₪X" pill on the foodyweb hero in delivery mode.
   minimum_order_delivery?: number;
@@ -732,9 +738,17 @@ export interface SectionColors {
   navbar?: { bg?: string; text?: string };
   hero?: { bg?: string; text?: string };
   metadata?: { bg?: string; text?: string };
-  categoryBar?: { bg?: string; text?: string; accent?: string };
+  categoryBar?: { bg?: string; text?: string; accent?: string; divider?: string };
+  categoryBarSticky?: { bg?: string; text?: string; accent?: string; divider?: string };
   /** Catering shop: bg, buttons/accent, and button-label text. */
   catering?: { bg?: string; text?: string; accent?: string };
+}
+
+export interface NavbarCtaSurfaceStyle {
+  variant?: 'filled' | 'outline' | 'ghost';
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
 }
 
 export interface WebsiteConfig {
@@ -779,10 +793,13 @@ export interface WebsiteConfig {
     link?: string;
     bg?: string;
     text_color?: string;
+    border_color?: string;
     /** Button style. shape = corner radius; size = padding scale; variant = fill treatment. */
     shape?: 'pill' | 'rounded' | 'square';
     size?: 'sm' | 'md' | 'lg';
     variant?: 'filled' | 'outline' | 'ghost';
+    transparent?: NavbarCtaSurfaceStyle;
+    solid?: NavbarCtaSurfaceStyle;
   } | null;
   /** Navbar composition: inline page links on/off, and the hamburger drawer
    *  button ('mobile' = phones only, 'always', or 'off'). */
@@ -836,14 +853,26 @@ export interface WebsiteConfig {
   landing_enabled: boolean;
   /** Whether the customer Stories/Reels page + bottom-nav tab is shown. */
   stories_enabled?: boolean;
+  /** Whether public navigation shows the guest order-history destination. */
+  show_orders_link?: boolean;
   /** Comma-separated order of the mobile bottom-nav page tabs ("menu","stories"). First = default landing tab. */
   nav_order?: string;
   checkout_config?: CheckoutConfig | null;
   order_page_info?: OrderPageInfo | null;
+  order_type_selector?: OrderTypeSelectorConfig | null;
   // Draft / publish workflow (added in v2)
   draft_dirty?: boolean;
   draft_saved_at?: string | null;
   published_at?: string | null;
+}
+
+export interface OrderTypeSelectorConfig {
+  shape?: 'pill' | 'rounded' | 'square';
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'filled' | 'outline' | 'ghost';
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
 }
 
 // ─── Typography overrides ────────────────────────────────────────────────
@@ -861,6 +890,8 @@ export interface TypographyRoleOverride {
   weight?: number;
   /** Text case. Absent = Auto (keep the theme's behavior). */
   transform?: 'uppercase' | 'none';
+  /** Text color for this semantic role. Empty/absent = inherit the theme. */
+  color?: string;
 }
 
 /** One uploaded font file = one @font-face at a given weight/style. A custom
@@ -923,13 +954,33 @@ export interface WebsitePageMeta {
 }
 
 /** A single navbar composition mode for one device.
- *  full = logo + inline links + CTA; compact = logo + hamburger + CTA;
+ *  full = logo + inline links + CTA; compact = floating hamburger + CTA;
  *  hidden = no top bar. */
 export type NavMode = 'full' | 'compact' | 'hidden';
 export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
 /** Per-page-type navigation composition. content = landing + content pages;
  *  shopping = order, catering, and custom pages flagged shopping. */
-export type NavLayout = { content: NavLayoutSide; shopping: NavLayoutSide };
+export type NavigationIcon = 'home' | 'menu' | 'grid' | 'play' | 'bag' | 'user' | 'page';
+export type BottomNavigationStyle = {
+  order?: string[];
+  icons?: Record<string, NavigationIcon>;
+  background_color?: string;
+  button_background_color?: string;
+  text_color?: string;
+  active_text_color?: string;
+};
+export type CompactNavigationStyle = {
+  hamburger_position?: 'left' | 'right';
+  actions_position?: 'left' | 'right';
+  icon_color?: string;
+  button_background_color?: string;
+};
+export type NavLayout = {
+  content: NavLayoutSide;
+  shopping: NavLayoutSide;
+  bottom_navigation?: BottomNavigationStyle;
+  compact_navigation?: CompactNavigationStyle;
+};
 
 // ─── Checkout-form builder ──────────────────────────────────────────────
 // Mirrors foodyserver/internal/restaurants/checkout_config.go. Null/undefined
@@ -2259,6 +2310,26 @@ export async function getRestaurant(id: number): Promise<Restaurant> {
   return data.restaurant;
 }
 
+/** Loads public navigation eligibility without blocking protected admin flows. */
+export async function getPublicRestaurantNavigationState(
+  idOrSlug: number | string,
+): Promise<{ storiesNavigationAvailable: boolean | undefined }> {
+  try {
+    const data = await apiFetch<{
+      restaurant?: { stories_navigation_available?: boolean };
+    }>(
+      `/api/v1/public/restaurants/${encodeURIComponent(String(idOrSlug))}`,
+      typeof idOrSlug === "number" ? idOrSlug : undefined,
+    );
+    return {
+      storiesNavigationAvailable:
+        data.restaurant?.stories_navigation_available === true,
+    };
+  } catch {
+    return { storiesNavigationAvailable: undefined };
+  }
+}
+
 export async function updateRestaurant(id: number, input: Partial<Restaurant>): Promise<Restaurant> {
   const data = await apiFetch<{ restaurant: Restaurant }>(
     `/api/v1/restaurants/${id}`, id,
@@ -2335,6 +2406,10 @@ export interface BatchCycleSummary {
   open_at: string;   // ISO 8601 datetime
   cutoff_at: string; // ISO 8601 datetime
   fulfillment_days: BatchFulfillmentDayInfo[];
+  /** Cycle whose ordering window has closed but is still in production. Only ever
+   *  set on the staff config (getStaffBatchFulfillmentConfig); lets staff force an
+   *  order into the série already in production. */
+  ordering_closed?: boolean;
 }
 
 export interface BatchFulfillmentConfigResponse {
@@ -2359,6 +2434,19 @@ export async function getBatchFulfillmentConfig(
 ): Promise<BatchFulfillmentConfigResponse> {
   return apiFetch<BatchFulfillmentConfigResponse>(
     `/api/v1/public/restaurants/${restaurantId}/batch-fulfillment-config`,
+    restaurantId,
+  );
+}
+
+/** Staff-only batch config. Same shape as the public one, but its upcoming_cycles
+ *  may include the current in-production série past its ordering cutoff (flagged
+ *  ordering_closed). Drives the série picker in the manual order create/edit flows,
+ *  letting staff force an order into the série already in production. */
+export async function getStaffBatchFulfillmentConfig(
+  restaurantId: number
+): Promise<BatchFulfillmentConfigResponse> {
+  return apiFetch<BatchFulfillmentConfigResponse>(
+    `/api/v1/restaurants/${restaurantId}/staff-batch-fulfillment-config`,
     restaurantId,
   );
 }
@@ -4339,6 +4427,10 @@ export interface ProductionSheetOrder {
   window_end?: string;
   cells: Record<string, number>; // menu_item_id (string key) -> grams or count
   units?: Record<string, number>; // menu_item_id -> ordered container count (2 pots, not 1000 g)
+  /** menu_item_id -> packaging behind that cell (weighed items only): a 500 g
+   *  cell made of two 250 g pots reads [{250, 2}]. Summing the rows rebuilds the
+   *  day's packaging for whatever subset of clients is on screen. */
+  portions?: Record<string, ProductionSheetPortion[]>;
   provenance?: Record<string, ProductionCellProvenance>; // menu_item_id -> combo/individual split
   prepared?: boolean; // shared "done" flag (Order.prepared_at set); synced live across tablets
 }
@@ -4883,10 +4975,31 @@ export async function uploadSectionImage(restaurantId: number, file: File): Prom
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+    const details = typeof body.details === 'string' ? ` — ${body.details}` : '';
+    throw new Error(`${body.error || body.message || `Upload failed (${res.status})`}${details}`);
   }
   const data = await res.json();
   return data.image_url;
+}
+
+export async function uploadSectionVideo(restaurantId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('video', file);
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/sections/upload-video`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.video_url;
 }
 
 /** Upload a custom font file for the website builder's typography controls.
@@ -5014,13 +5127,22 @@ export async function listSiteStyles(): Promise<SiteStylePreset[]> {
   return data.styles || [];
 }
 
-// ─── Website Editor v2 — Draft / Publish ─────────────────────────────────────
+// ─── Website Editor v2 / v3 — Draft / Publish ────────────────────────────────
+
+export type {
+  DraftPagePayload as WebsiteV3DraftPagePayload,
+  DraftResponse as WebsiteV3DraftResponse,
+  DraftSectionPayload as WebsiteV3DraftSectionPayload,
+  DraftStatePayload as WebsiteV3DraftStatePayload,
+} from './website-v3/types';
 
 export type DraftSectionPayload = {
   id?: number;
   tmp_id?: string;
   section_type: string;
   page: string;
+  page_id?: number;
+  page_tmp_id?: string;
   sort_order: number;
   is_visible: boolean;
   layout: string;
@@ -5028,10 +5150,26 @@ export type DraftSectionPayload = {
   settings: Record<string, any>;
 };
 
+export type DraftPagePayload = {
+  id?: number;
+  tmp_id?: string;
+  type: string;
+  slug: string;
+  title: string;
+  sort_order: number;
+  nav_visible?: boolean;
+  is_default?: boolean;
+  seo?: Record<string, any>;
+  settings?: Record<string, any>;
+  appearance_overrides?: Record<string, any>;
+};
+
 export type DraftStatePayload = {
   config: Record<string, any>;
+  pages?: DraftPagePayload[];
   sections: DraftSectionPayload[];
   deleted_section_ids: number[];
+  deleted_page_ids?: number[];
 };
 
 export type DraftResponse = {
@@ -5053,6 +5191,32 @@ export async function saveWebsiteDraft(
   return apiFetch<DraftResponse>(
     `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId,
     { method: 'PUT', body: JSON.stringify(payload) }
+  );
+}
+
+/** The live WebsitePage rows (typed pages + their commerce settings) for a
+ *  restaurant, independent of the draft snapshot. Backed by the public
+ *  page-centric read. Used by the commerce-connection panel. */
+export async function getWebsitePages(restaurantId: number): Promise<DraftPagePayload[]> {
+  const res = await apiFetch<{ pages: DraftPagePayload[] }>(
+    `/api/v1/public/restaurants/${restaurantId}/website-pages`,
+    restaurantId,
+  );
+  return res.pages ?? [];
+}
+
+/** Set a builder page's settings_json (per-page commerce connection:
+ *  {commerce, menu_ids, service_ids}). Isolated from the draft — saves
+ *  immediately, does not touch the builder's autosave/publish snapshot. */
+export async function setWebsitePageSettings(
+  restaurantId: number,
+  pageId: number,
+  settings: Record<string, unknown>,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/website-pages/${pageId}/settings`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify({ settings }) },
   );
 }
 

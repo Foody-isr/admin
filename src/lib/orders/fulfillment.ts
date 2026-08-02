@@ -17,6 +17,11 @@ export interface FulfillmentTarget {
   dayName: string;       // e.g. "Friday"
   windowStart?: string;  // "HH:MM"
   windowEnd?: string;    // "HH:MM"
+  /** True when this target is the current in-production série whose ordering
+   *  window has already closed — offered only to staff, who force an order into
+   *  it. Surfaced by getStaffBatchFulfillmentConfig; always false on the public
+   *  config. */
+  orderingClosed?: boolean;
 }
 
 /**
@@ -46,6 +51,7 @@ export function buildFulfillmentTargets(
         dayName: day.day_name,
         windowStart: win.start,
         windowEnd: win.end,
+        orderingClosed: cycle.ordering_closed,
       });
       break; // move to next cycle after the first matching day
     }
