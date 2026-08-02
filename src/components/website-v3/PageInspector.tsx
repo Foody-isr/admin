@@ -239,6 +239,14 @@ export function PageInspector({
           />
         ) : null}
         {page.type === "order" ? (
+          <CartTextColorsEditor
+            value={record(appearance.cart_text_colors)}
+            onChange={(value) =>
+              onChange(["appearance_overrides", "cart_text_colors"], value)
+            }
+          />
+        ) : null}
+        {page.type === "order" ? (
           <InspectorGroup
             title={t("websiteV3CategoryBarTitle")}
             description={t("websiteV3CategoryBarDescription")}
@@ -638,6 +646,44 @@ function CheckoutTextColorsEditor({
         <ColorField
           key={key}
           fieldId={`page.appearance_overrides.checkout_text_colors.${key}`}
+          label={label}
+          value={text(value[key])}
+          fallback={fallback}
+          onChange={(color) => onChange({ ...value, [key]: color })}
+        />
+      ))}
+    </InspectorGroup>
+  );
+}
+
+// The cart drawer lives on the order page, so it inherits the page's global ink.
+// A palette whose ink matches its surface makes the whole cart unreadable, and no
+// page-level setting can fix that without repainting the page too — hence its own
+// text roles. There is no "text typed into fields" role: the cart has no inputs.
+const CART_TEXT_COLOR_FIELDS = [
+  ["heading", "Titres", "#111827"],
+  ["primary", "Noms d\u2019articles et quantit\u00e9s", "#111827"],
+  ["secondary", "Texte secondaire et aides", "#64748b"],
+  ["price", "Prix et totaux", "#111827"],
+  ["button", "Texte du bouton principal", "#ffffff"],
+] as const;
+
+function CartTextColorsEditor({
+  value,
+  onChange,
+}: {
+  value: Record<string, unknown>;
+  onChange: (value: Record<string, unknown>) => void;
+}) {
+  return (
+    <InspectorGroup
+      title="Textes du panier"
+      description="Le panier h\u00e9rite sinon de la couleur de texte g\u00e9n\u00e9rale de la page. R\u00e9glez-la ici quand cette couleur se confond avec le fond du panier. Ouvrez le panier dans l\u2019aper\u00e7u pour voir le r\u00e9sultat."
+    >
+      {CART_TEXT_COLOR_FIELDS.map(([key, label, fallback]) => (
+        <ColorField
+          key={key}
+          fieldId={`page.appearance_overrides.cart_text_colors.${key}`}
           label={label}
           value={text(value[key])}
           fallback={fallback}
