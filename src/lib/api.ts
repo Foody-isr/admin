@@ -511,6 +511,16 @@ export interface MenuItem {
    *  mode it is a display hint: the per-option values stay portion counts, and the
    *  admin renders them as weight (count x size weight) when this is set. */
   stock_unit?: string;
+  /** Immediate-sale channel ("Disponible maintenant"). "" = pre-order only;
+   *  "surplus" = pre-orderable in the weekly lot before the cutoff AND sellable
+   *  as same-day surplus after the cutoff while count stock remains;
+   *  "standalone" = never in the lot, sold same-day whenever count stock remains.
+   *  Requires count stock; mutually exclusive with lead_time_days. */
+  immediate_sale_mode?: ImmediateSaleMode;
+  /** Minimum preparation notice in days (e.g. a number cake needs 2). In batch
+   *  mode the item is hidden from any lot whose earliest collection day is sooner
+   *  than this. 0 = no lead time. Mutually exclusive with immediate_sale_mode. */
+  lead_time_days?: number;
   /** Computed (read-only) availability stamped onto staff menu responses. */
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
@@ -7445,6 +7455,7 @@ export async function setFoodCostTarget(
 
 export type AvailabilityOverride = 'auto' | 'force_available' | 'force_sold_out';
 export type AvailabilityState = 'available' | 'low' | 'sold_out' | 'hidden';
+export type ImmediateSaleMode = '' | 'surplus' | 'standalone';
 export type OutOfStockBehavior = 'sold_out' | 'hide';
 
 /** A reusable availability rule in the restaurant's rule library. */

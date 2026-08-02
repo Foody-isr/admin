@@ -11,6 +11,7 @@ import {
   AvailabilityPreview,
   AvailabilityOverride,
   AvailabilityState,
+  ImmediateSaleMode,
   MenuItem,
 } from '@/lib/api';
 import { Field, Select } from '@/components/ds';
@@ -244,6 +245,13 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     [sizeGrams],
   );
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
+  // Immediate-sale channel + preparation lead time. Both are opt-in and mutually
+  // exclusive: an immediate item needs a plain count stock and no lead time.
+  // Staged like the rest of the tab — committed by doSave, discarded on Annuler.
+  const [immediateSaleMode, setImmediateSaleMode] = useState<ImmediateSaleMode>(
+    item.immediate_sale_mode ?? '',
+  );
+  const [leadTimeDays, setLeadTimeDays] = useState<number>(item.lead_time_days ?? 0);
 
   const modes: { value: AvailabilityOverride; label: string; desc: string }[] = [
     {
@@ -287,16 +295,31 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     }
   }, [rules, ruleId]);
 
+  // Immediate sale requires a plain count stock (shared, portions) and no lead
+  // time. Lead time is disabled while an immediate mode is on. Mirrors the
+  // server's validateSaleAndLeadTime so the user never hits a rejection.
+  // Derived before doSave because the save payload applies the same rule.
+  const hasCountStock = stockTracked && stockMode === 'shared' && stockUnit === '';
+  const immediateOptionsEnabled = hasCountStock && leadTimeDays <= 0;
+  const leadEnabled = immediateSaleMode === '';
+
   // Commit the whole tab in one shot from current local state — called by the
-  // parent modal on "Enregistrer" (never on change/blur). Availability + the
-  // shared stock fields go in a single updateMenuItem; per-size mode seeds every
-  // size's count first (an unset size defaults to 0 = sold out server-side) then
-  // flips the mode. Throws on failure so the parent's Save flow surfaces it.
+  // parent modal on "Enregistrer" (never on change/blur). Availability, the
+  // sale mode / lead time and the shared stock fields go in a single
+  // updateMenuItem; per-size mode seeds every size's count first (an unset size
+  // defaults to 0 = sold out server-side) then flips the mode. Throws on failure
+  // so the parent's Save flow surfaces it.
   const doSave = useCallback(async () => {
     if (!canEdit) return;
     const availability = {
       availability_rule_id: ruleId, // 0 clears to inherit
       availability_override: override,
+      // Staged stock can invalidate an earlier immediate-sale pick (e.g. the user
+      // switches to per-size counts while "surplus" is on). The buttons disable
+      // but keep their value, so drop it here rather than let the server reject
+      // the whole save.
+      immediate_sale_mode: immediateOptionsEnabled ? immediateSaleMode : '',
+      lead_time_days: Math.max(0, Math.round(leadTimeDays || 0)),
     };
     if (!stockTracked) {
       await updateMenuItem(rid, itemId, { ...availability, stock_quantity: null, stock_mode: '', stock_unit: '' });
@@ -336,6 +359,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     itemId,
     ruleId,
     override,
+    immediateOptionsEnabled,
+    immediateSaleMode,
+    leadTimeDays,
     stockTracked,
     stockMode,
     stockUnit,
@@ -422,6 +448,12 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     loading:    { fg: 'var(--fg-muted)',    bgMix: 'color-mix(in oklab, var(--fg-muted) 14%, transparent)' },
   };
   const tone = statusTone[state];
+
+  const saleModes: { value: ImmediateSaleMode; label: string; desc: string }[] = [
+    { value: '', label: t('saleModePreorderOnly'), desc: t('saleModePreorderOnlyDesc') },
+    { value: 'surplus', label: t('saleModeSurplus'), desc: t('saleModeSurplusDesc') },
+    { value: 'standalone', label: t('saleModeStandalone'), desc: t('saleModeStandaloneDesc') },
+  ];
 
   return (
     <div className="max-w-4xl flex flex-col gap-[var(--s-5)]">
@@ -734,6 +766,83 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
           );
         })}
 
+      </section>
+
+      {/* Vente & délai — immediate-sale channel ("Disponible maintenant") and
+          preparation lead time. */}
+      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] flex flex-col gap-[var(--s-3)]">
+        <div className="min-w-0 mb-[var(--s-2)]">
+          <div className="text-fs-md font-semibold text-[var(--fg)]">{t('saleModeTitle')}</div>
+          <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{t('saleModeSubtitle')}</div>
+        </div>
+
+        {saleModes.map((m) => {
+          const selected = immediateSaleMode === m.value;
+          const disabled = !canEdit || (m.value !== '' && !immediateOptionsEnabled);
+          return (
+            <button
+              key={m.value || '_'}
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                if (!canEdit || disabled || m.value === immediateSaleMode) return;
+                setImmediateSaleMode(m.value);
+                setDirty(true);
+              }}
+              className={cn(
+                'w-full flex items-start gap-[var(--s-3)] rounded-r-lg border p-[var(--s-4)] text-start transition-colors',
+                selected ? 'border-[var(--brand-500)]' : 'border-[var(--line)] hover:border-[var(--line-strong)]',
+                disabled && 'opacity-60 cursor-not-allowed',
+              )}
+              style={{
+                background: selected
+                  ? 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))'
+                  : 'var(--surface)',
+              }}
+            >
+              <span
+                className={cn(
+                  'mt-0.5 w-4 h-4 shrink-0 rounded-full border-2 grid place-items-center',
+                  selected ? 'border-[var(--brand-500)]' : 'border-[var(--line-strong)]',
+                )}
+              >
+                {selected && <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-500)]" />}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-fs-sm font-semibold text-[var(--fg)]">{m.label}</span>
+                <span className="block text-fs-xs text-[var(--fg-muted)] mt-1 leading-[var(--lh-base)]">
+                  {m.desc}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+
+        {!hasCountStock && (
+          <p className="text-fs-xs text-[var(--fg-subtle)] leading-[var(--lh-base)]">
+            {t('saleModeNeedsCountStock')}
+          </p>
+        )}
+
+        {/* Préparation — minimum advance notice in days. */}
+        <div className="mt-[var(--s-2)] pt-[var(--s-3)] border-t border-[var(--line)] flex flex-col gap-[var(--s-2)]">
+          <div className="text-fs-sm font-semibold text-[var(--fg)]">{t('leadTimeTitle')}</div>
+          <div className="text-fs-xs text-[var(--fg-muted)] leading-[var(--lh-base)]">{t('leadTimeHint')}</div>
+          <StockValueField
+            value={leadTimeDays}
+            integer
+            unitLabel={t('leadTimeDaysUnit')}
+            disabled={!canEdit || !leadEnabled}
+            width="w-16"
+            onChange={(v) => {
+              setLeadTimeDays(v);
+              setDirty(true);
+            }}
+          />
+          {!leadEnabled && (
+            <p className="text-fs-xs text-[var(--fg-subtle)]">{t('leadTimeDisabledByImmediate')}</p>
+          )}
+        </div>
       </section>
 
       <LearnMore feature="availability" label={t('helpLearnMoreAvailability')} />
