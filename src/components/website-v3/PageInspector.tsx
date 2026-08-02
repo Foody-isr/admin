@@ -165,6 +165,7 @@ export function PageInspector({
               updateAppearance({ hero_name_font: family })
             }
             onUpdate={updateAppearance}
+            fieldIdPrefix="page.appearance_overrides.typography.roles"
           />
         </InspectorGroup>
         <InspectorGroup
@@ -182,7 +183,7 @@ export function PageInspector({
           />
           <ColorField
             fieldId="page.appearance_overrides.ink"
-            label="Texte"
+            label="Texte général (par défaut)"
             value={page.appearance_overrides.ink ?? ""}
             fallback="#111827"
             onChange={(value) =>
@@ -229,6 +230,14 @@ export function PageInspector({
             />
           </InspectorField>
         </InspectorGroup>
+        {page.type === "order" ? (
+          <CheckoutTextColorsEditor
+            value={record(appearance.checkout_text_colors)}
+            onChange={(value) =>
+              onChange(["appearance_overrides", "checkout_text_colors"], value)
+            }
+          />
+        ) : null}
         {page.type === "order" ? (
           <InspectorGroup
             title={t("websiteV3CategoryBarTitle")}
@@ -601,6 +610,41 @@ export function PageInspector({
         </InspectorField>
       </InspectorGroup>
     </>
+  );
+}
+
+const CHECKOUT_TEXT_COLOR_FIELDS = [
+  ["heading", "Titres", "#111827"],
+  ["primary", "Texte principal", "#111827"],
+  ["secondary", "Texte secondaire et aides", "#64748b"],
+  ["input", "Texte saisi dans les champs", "#111827"],
+  ["price", "Prix et totaux", "#111827"],
+  ["button", "Texte des boutons principaux", "#ffffff"],
+] as const;
+
+function CheckoutTextColorsEditor({
+  value,
+  onChange,
+}: {
+  value: Record<string, unknown>;
+  onChange: (value: Record<string, unknown>) => void;
+}) {
+  return (
+    <InspectorGroup
+      title="Textes du checkout"
+      description="Séparez les titres, aides, champs, montants et boutons de la couleur générale de la page commande."
+    >
+      {CHECKOUT_TEXT_COLOR_FIELDS.map(([key, label, fallback]) => (
+        <ColorField
+          key={key}
+          fieldId={`page.appearance_overrides.checkout_text_colors.${key}`}
+          label={label}
+          value={text(value[key])}
+          fallback={fallback}
+          onChange={(color) => onChange({ ...value, [key]: color })}
+        />
+      ))}
+    </InspectorGroup>
   );
 }
 

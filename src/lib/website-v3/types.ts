@@ -42,6 +42,14 @@ export type DraftAppearanceOverrides = {
   custom_palette?: Record<string, unknown> | null;
   section_colors?: Record<string, unknown> | null;
   typography?: Record<string, unknown> | null;
+  checkout_text_colors?: {
+    heading?: string;
+    primary?: string;
+    secondary?: string;
+    input?: string;
+    price?: string;
+    button?: string;
+  } | null;
   hero_name_font?: string;
   hero_logo_bg?: "white" | "black";
   hero_cover_layout?: "card" | "logo" | "bare";

@@ -880,6 +880,8 @@ export interface TypographyRoleOverride {
   weight?: number;
   /** Text case. Absent = Auto (keep the theme's behavior). */
   transform?: 'uppercase' | 'none';
+  /** Text color for this semantic role. Empty/absent = inherit the theme. */
+  color?: string;
 }
 
 /** One uploaded font file = one @font-face at a given weight/style. A custom
