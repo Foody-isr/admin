@@ -74,10 +74,24 @@ const MIN_ITEM_SIZE = 3; // percent
 const MAX_ITEM_SIZE = 60; // percent
 const SNAP_THRESHOLD = 1.2; // percent — within this distance, edges/centers snap together
 
+// The canonical width/height ratio the canvas is rendered at, mirroring
+// common.FloorPlanCanvasAspect on the server and kFloorPlanCanvasAspect in
+// foodypos. Width is stored as a % of canvas width and height as a % of canvas
+// height, so a placement only keeps its shape across surfaces when every
+// surface letterboxes to this same ratio. Taken from the Figma canvas
+// (1160x667). Do not change it here alone.
+const CANVAS_ASPECT = 1.74;
+
 // Default size + spacing used when click-placing tables from the sidebar.
 // Tables auto-fill the canvas row-by-row in a regular grid; the picker
 // skips slots that overlap anything the user has already placed/moved.
-const DEFAULT_TABLE_SIZE = 6;       // %
+//
+// Width and height differ because they are percentages of different axes: on a
+// CANVAS_ASPECT canvas these produce the ~1.3:1 chip the Figma design shows.
+// Equal percentages would instead inherit the canvas ratio and read as a flat
+// letterbox. Kept in sync with common.DefaultPlacementWidth/Height (Go).
+const DEFAULT_TABLE_W = 10.5;       // % of canvas width
+const DEFAULT_TABLE_H = 14;         // % of canvas height
 const AUTO_PLACE_GAP = 2;           // % — gap between adjacent auto-placed tables
 const AUTO_PLACE_MARGIN = 4;        // % — margin from canvas edges
 
@@ -107,10 +121,13 @@ function nextAutoSlot(
     ...placements.map((p) => ({ x: p.x, y: p.y, width: p.width, height: p.height })),
     ...decorations.map((d) => ({ x: d.x, y: d.y, width: d.width, height: d.height })),
   ];
-  const stride = DEFAULT_TABLE_SIZE + AUTO_PLACE_GAP;
-  for (let y = AUTO_PLACE_MARGIN; y + DEFAULT_TABLE_SIZE <= 100 - AUTO_PLACE_MARGIN; y += stride) {
-    for (let x = AUTO_PLACE_MARGIN; x + DEFAULT_TABLE_SIZE <= 100 - AUTO_PLACE_MARGIN; x += stride) {
-      const slot = { x, y, width: DEFAULT_TABLE_SIZE, height: DEFAULT_TABLE_SIZE };
+  // Stride is per-axis: the slot is no longer square, so a single stride would
+  // either overlap rows or leave a large gap between columns.
+  const strideX = DEFAULT_TABLE_W + AUTO_PLACE_GAP;
+  const strideY = DEFAULT_TABLE_H + AUTO_PLACE_GAP;
+  for (let y = AUTO_PLACE_MARGIN; y + DEFAULT_TABLE_H <= 100 - AUTO_PLACE_MARGIN; y += strideY) {
+    for (let x = AUTO_PLACE_MARGIN; x + DEFAULT_TABLE_W <= 100 - AUTO_PLACE_MARGIN; x += strideX) {
+      const slot = { x, y, width: DEFAULT_TABLE_W, height: DEFAULT_TABLE_H };
       if (!occupied.some((o) => rectsOverlap(slot, o))) {
         return { x, y };
       }
@@ -939,11 +956,12 @@ export default function FloorPlanEditorPage() {
     e.preventDefault();
     if (!dropState.current || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(94, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(94, ((e.clientY - rect.top) / rect.height) * 100));
+    // Clamp per axis so the dropped chip lands fully inside the canvas.
+    const x = Math.max(0, Math.min(100 - DEFAULT_TABLE_W, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100 - DEFAULT_TABLE_H, ((e.clientY - rect.top) / rect.height) * 100));
     const { tableId, tableName } = dropState.current;
     if (!placedIds.has(tableId)) {
-      setPlacements((prev) => [...prev, { tableId, tableName, x, y, width: 6, height: 6, shape: 'square', rotation: 0 }]);
+      setPlacements((prev) => [...prev, { tableId, tableName, x, y, width: DEFAULT_TABLE_W, height: DEFAULT_TABLE_H, shape: 'square', rotation: 0 }]);
     }
     dropState.current = null;
   };
@@ -1254,13 +1272,20 @@ export default function FloorPlanEditorPage() {
             )}
           </div>
 
-          {/* Center — canvas */}
-          <div className="flex-1 overflow-auto p-4 relative">
+          {/* Center — canvas.
+              Locked to CANVAS_ASPECT and letterboxed inside whatever space is
+              available, rather than stretched to fill it. A free-floating ratio
+              (this used to be `w-full` x `70vh`) silently changed what the
+              stored height percentages meant, so a table drawn square here came
+              out as a flattened rectangle on the POS. Capping the width at
+              `70vh * ratio` keeps the previous vertical footprint. */}
+          <div className="flex-1 overflow-auto p-4 relative flex justify-center items-start">
             <div
               ref={canvasRef}
               className="relative w-full select-none"
               style={{
-                height: '70vh',
+                aspectRatio: String(CANVAS_ASPECT),
+                maxWidth: `calc(70vh * ${CANVAS_ASPECT})`,
                 background: 'white',
                 backgroundImage: 'linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px)',
                 backgroundSize: '40px 40px',
@@ -1528,7 +1553,7 @@ export default function FloorPlanEditorPage() {
                         onDragStart={canManage ? () => { dropState.current = { tableId: tbl.id, tableName: tbl.name }; } : undefined}
                         onClick={canManage ? () => {
                           const { x, y } = nextAutoSlot(placements, decorations);
-                          setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: DEFAULT_TABLE_SIZE, height: DEFAULT_TABLE_SIZE, shape: 'square', rotation: 0 }]);
+                          setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: DEFAULT_TABLE_W, height: DEFAULT_TABLE_H, shape: 'square', rotation: 0 }]);
                           setSelection([{ type: 'table', id: tbl.id }]);
                         } : undefined}
                         className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer select-none transition-opacity hover:opacity-80"
