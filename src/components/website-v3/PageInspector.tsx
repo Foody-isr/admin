@@ -674,8 +674,8 @@ export function PageInspector({
       {shows("checkout.form") ? (
         <InspectorGroup
           groupId="checkout.form"
-          title="Formulaire du checkout"
-          description="Les champs demandés au client, la vérification par SMS et l’écran de confirmation. Ces réglages sont partagés par toutes les pages commande du site, pas seulement celle-ci."
+          title={t("websiteV3CheckoutFormTitle")}
+          description={t("websiteV3CheckoutFormDescription")}
         >
           <CheckoutSettingsEditor
             value={(config.checkout_config ?? null) as CheckoutConfig | null}
@@ -705,18 +705,19 @@ function SurfaceHandoff({
   tab: InspectorTab;
   onSurfaceChange: (surface: InspectorSurface) => void;
 }) {
+  const { t } = useI18n();
   if (!shows("page.handoff")) return null;
-  const description =
-    tab === "appearance"
-      ? "Le thème, la typographie et les couleurs de base appartiennent à la page. Ils s’appliquent aussi au checkout, mais se règlent sur la surface Page."
-      : tab === "content"
-        ? "Le checkout n’a pas de contenu propre : il reprend le panier de cette page. Le titre et les sections se règlent sur la surface Page."
-        : "L’adresse, le type, les cartes, la navigation et le référencement appartiennent à la page et se règlent sur la surface Page.";
   return (
     <InspectorGroup
       groupId="page.handoff"
-      title="Réglages de la page"
-      description={description}
+      title={t("websiteV3HandoffTitle")}
+      description={t(
+        tab === "appearance"
+          ? "websiteV3HandoffAppearance"
+          : tab === "content"
+            ? "websiteV3HandoffContent"
+            : "websiteV3HandoffSettings",
+      )}
     >
       <button
         type="button"
@@ -724,7 +725,7 @@ function SurfaceHandoff({
         onClick={() => onSurfaceChange("page")}
         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-[#315fce] transition hover:border-[#315fce] hover:bg-[#315fce]/5"
       >
-        Régler sur la page
+        {t("websiteV3HandoffAction")}
       </button>
     </InspectorGroup>
   );

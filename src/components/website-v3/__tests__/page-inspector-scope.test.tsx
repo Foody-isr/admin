@@ -166,7 +166,9 @@ test("every checkout tab offers a one-click way back to the page", () => {
       /data-inspector-action="surface\.page"/,
       `${tab}: no handoff action`,
     );
-    assert.match(markup, /Régler sur la page/, tab);
+    // Keyed copy: LocaleProvider initialises to 'en' and renderToStaticMarkup
+    // never runs its effect, so assertions on new copy are in English.
+    assert.match(markup, /Set on the page/, tab);
   }
 });
 
@@ -175,8 +177,8 @@ test("every checkout tab offers a one-click way back to the page", () => {
 test("the handoff says the page settings also apply to the checkout", () => {
   const markup = renderInspector("order", "appearance", "checkout");
 
-  assert.match(markup, /s’appliquent aussi au checkout/);
-  assert.doesNotMatch(markup, /ne s’appliquent pas au checkout/);
+  assert.match(markup, /apply to the checkout too/);
+  assert.doesNotMatch(markup, /do not apply to the checkout/);
 });
 
 // ─── No page type regressed ──────────────────────────────────────────────────

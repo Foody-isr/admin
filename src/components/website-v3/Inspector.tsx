@@ -14,6 +14,7 @@ import type {
   FieldError,
   StatePath,
 } from "@/lib/website-v3/types";
+import { useI18n } from "@/lib/i18n";
 import { isTechnicalSitePage } from "@/lib/website-v3/state";
 import type {
   InspectorSurface,
@@ -81,6 +82,7 @@ export function Inspector({
   onRestaurantLogoUpload: (file: File) => Promise<void>;
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const page = useMemo(
     () =>
       selection.kind === "page" || selection.kind === "section"
@@ -111,6 +113,11 @@ export function Inspector({
         ? section.section_type.replace(/_/g, " ")
         : page?.title || "Page";
 
+  // Only an order page has two surfaces. Not offered for the site selection
+  // (which resolves to the landing page) or for a section.
+  const showSurfaceSwitcher =
+    selection.kind === "page" && page?.type === "order";
+
   return (
     <div className="min-h-full">
       <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 pb-0 pt-5 backdrop-blur">
@@ -120,7 +127,46 @@ export function Inspector({
         <h2 className="mt-1 truncate text-xl font-semibold capitalize tracking-tight text-slate-950">
           {title}
         </h2>
-        <div className="mt-5 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
+        {showSurfaceSwitcher ? (
+          // Deliberately styled unlike the tab strip below: the surface picks
+          // WHAT you are editing, the tab picks which aspect of it. If it read
+          // as a fourth tab it would recreate the confusion this fixes.
+          <div className="mt-4 flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+              {t("websiteV3SurfaceLabel")}
+            </span>
+            <div
+              role="group"
+              aria-label={t("websiteV3SurfaceGroupLabel")}
+              className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+            >
+              {(
+                [
+                  ["page", "websiteV3SurfacePage"],
+                  ["checkout", "websiteV3SurfaceCheckout"],
+                ] as const
+              ).map(([value, labelKey]) => (
+                <button
+                  key={value}
+                  type="button"
+                  data-inspector-surface={value}
+                  aria-pressed={surface === value}
+                  onClick={() => onSurfaceChange(value)}
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                    surface === value
+                      ? "bg-white text-slate-950 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  {t(labelKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <div
+          className={`${showSurfaceSwitcher ? "mt-3" : "mt-5"} grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1`}
+        >
           {(
             [
               ["content", "Contenu"],

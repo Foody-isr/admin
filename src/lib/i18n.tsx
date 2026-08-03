@@ -148,6 +148,22 @@ const translations: Record<Locale, Record<string, string>> = {
     websiteV3HighlightsCardMuted: 'Card secondary text',
     websiteV3HighlightsPrice: 'Price',
     websiteV3HighlightsAccent: 'Action and accent',
+    // ── Preview surface (order page: menu vs checkout) ──
+    websiteV3SurfaceLabel: 'Preview',
+    websiteV3SurfaceGroupLabel: 'Preview surface',
+    websiteV3SurfacePage: 'Page',
+    websiteV3SurfaceCheckout: 'Checkout',
+    websiteV3CheckoutFormTitle: 'Checkout form',
+    websiteV3CheckoutFormDescription:
+      'The fields asked of the customer, SMS verification and the confirmation screen. These settings are shared by every order page on the site, not just this one.',
+    websiteV3HandoffTitle: 'Page settings',
+    websiteV3HandoffAppearance:
+      'The theme, typography and base colours belong to the page. They apply to the checkout too, but are set on the Page surface.',
+    websiteV3HandoffContent:
+      'The checkout has no content of its own: it shows this page’s cart. The title and sections are set on the Page surface.',
+    websiteV3HandoffSettings:
+      'The address, type, menus, navigation and SEO belong to the page and are set on the Page surface.',
+    websiteV3HandoffAction: 'Set on the page',
     // ── Desktop-only placeholder ──
     desktopOnlyTitle: 'Open on a larger screen',
     desktopOnlyMessage: 'This view is built for tablets and desktops. Sign in from a wider screen to manage these settings.',
@@ -3918,6 +3934,22 @@ const translations: Record<Locale, Record<string, string>> = {
     websiteV3HighlightsCardMuted: 'טקסט משני בכרטיס',
     websiteV3HighlightsPrice: 'מחיר',
     websiteV3HighlightsAccent: 'פעולה והדגשה',
+    // ── Preview surface (order page: menu vs checkout) ──
+    websiteV3SurfaceLabel: 'תצוגה מקדימה',
+    websiteV3SurfaceGroupLabel: 'משטח התצוגה המקדימה',
+    websiteV3SurfacePage: 'דף',
+    websiteV3SurfaceCheckout: 'תשלום',
+    websiteV3CheckoutFormTitle: 'טופס התשלום',
+    websiteV3CheckoutFormDescription:
+      'השדות שהלקוח ממלא, אימות ב‑SMS ומסך האישור. ההגדרות האלה משותפות לכל דפי ההזמנה באתר, לא רק לדף הזה.',
+    websiteV3HandoffTitle: 'הגדרות הדף',
+    websiteV3HandoffAppearance:
+      'ערכת הנושא, הטיפוגרפיה וצבעי הבסיס שייכים לדף. הם חלים גם על דף התשלום, אבל נקבעים במשטח הדף.',
+    websiteV3HandoffContent:
+      'לדף התשלום אין תוכן משלו: הוא מציג את העגלה של הדף הזה. הכותרת והמקטעים נקבעים במשטח הדף.',
+    websiteV3HandoffSettings:
+      'הכתובת, הסוג, התפריטים, הניווט וה‑SEO שייכים לדף ונקבעים במשטח הדף.',
+    websiteV3HandoffAction: 'לקבוע בדף',
     // ── Desktop-only placeholder ──
     desktopOnlyTitle: 'יש לפתוח במסך גדול יותר',
     desktopOnlyMessage: 'תצוגה זו מותאמת לטאבלטים ומחשבים. היכנס ממסך רחב יותר כדי לנהל את ההגדרות.',
@@ -7682,6 +7714,22 @@ const translations: Record<Locale, Record<string, string>> = {
     websiteV3HighlightsCardMuted: 'Texte secondaire des cartes',
     websiteV3HighlightsPrice: 'Prix',
     websiteV3HighlightsAccent: 'Action et accent',
+    // ── Preview surface (order page: menu vs checkout) ──
+    websiteV3SurfaceLabel: 'Aperçu',
+    websiteV3SurfaceGroupLabel: 'Surface de l’aperçu',
+    websiteV3SurfacePage: 'Page',
+    websiteV3SurfaceCheckout: 'Checkout',
+    websiteV3CheckoutFormTitle: 'Formulaire du checkout',
+    websiteV3CheckoutFormDescription:
+      'Les champs demandés au client, la vérification par SMS et l’écran de confirmation. Ces réglages sont partagés par toutes les pages commande du site, pas seulement celle-ci.',
+    websiteV3HandoffTitle: 'Réglages de la page',
+    websiteV3HandoffAppearance:
+      'Le thème, la typographie et les couleurs de base appartiennent à la page. Ils s’appliquent aussi au checkout, mais se règlent sur la surface Page.',
+    websiteV3HandoffContent:
+      'Le checkout n’a pas de contenu propre : il reprend le panier de cette page. Le titre et les sections se règlent sur la surface Page.',
+    websiteV3HandoffSettings:
+      'L’adresse, le type, les cartes, la navigation et le référencement appartiennent à la page et se règlent sur la surface Page.',
+    websiteV3HandoffAction: 'Régler sur la page',
     // ── Desktop-only placeholder ──
     desktopOnlyTitle: 'À ouvrir sur un écran plus grand',
     desktopOnlyMessage: 'Cette vue est conçue pour les tablettes et les ordinateurs. Connectez-vous depuis un écran plus large pour gérer ces paramètres.',
