@@ -2,6 +2,7 @@
 
 import type {
   CateringService,
+  CheckoutConfig,
   Menu,
   Restaurant,
   ThemeCatalog,
@@ -20,7 +21,9 @@ import {
 import {
   publicAddressForPage,
 } from "@/lib/website-v3/url-model";
+import { showsInspectorGroup } from "@/lib/website-v3/inspector-scope";
 import type {
+  InspectorGroupId,
   InspectorSurface,
   InspectorTab,
 } from "@/lib/website-v3/inspector-scope";
@@ -33,6 +36,7 @@ import type {
 } from "@/lib/website-v3/types";
 import { ColorField, InspectorField, InspectorGroup, ToggleField, controlClass } from "./controls";
 import { CategoryBarStateEditor } from "./CategoryBarStateEditor";
+import { CheckoutSettingsEditor } from "./CheckoutSettingsEditor";
 import { CommerceSelector } from "./CommerceSelector";
 import { NavigationCtaEditor } from "./NavigationCtaEditor";
 import { ReadOnlyAddress } from "./PageAddress";
@@ -80,6 +84,10 @@ export function PageInspector({
   onMakeHomepage: () => void;
 }) {
   const { t } = useI18n();
+  /** The single visibility rule for this panel. Every group asks it, so what a
+   *  surface owns is readable in one place — lib/website-v3/inspector-scope. */
+  const shows = (id: InspectorGroupId) =>
+    showsInspectorGroup(id, { pageType: page.type, tab, surface });
   const errorFor = (fieldId: string) =>
     errors.find((error) => error.fieldId === fieldId)?.message;
   const appearance = page.appearance_overrides;
@@ -112,6 +120,7 @@ export function PageInspector({
   if (tab === "content") {
     return (
       <>
+        {shows("page.identity") ? (
         <InspectorGroup
           groupId="page.identity"
           title="Identité de la page"
@@ -126,6 +135,8 @@ export function PageInspector({
             />
           </InspectorField>
         </InspectorGroup>
+        ) : null}
+        {shows("page.sections") ? (
         <InspectorGroup
           groupId="page.sections"
           title="Sections"
@@ -143,6 +154,8 @@ export function PageInspector({
                 : "Le contenu traiteur est alimenté par les prestations sélectionnées dans Réglages."}
           </p>
         </InspectorGroup>
+        ) : null}
+        <SurfaceHandoff shows={shows} tab={tab} onSurfaceChange={onSurfaceChange} />
       </>
     );
   }
@@ -150,6 +163,7 @@ export function PageInspector({
   if (tab === "appearance") {
     return (
       <>
+        {shows("page.theme") ? (
         <InspectorGroup
           groupId="page.theme"
           title="Direction visuelle de la page"
@@ -169,6 +183,8 @@ export function PageInspector({
             onUpdate={updateAppearance}
           />
         </InspectorGroup>
+        ) : null}
+        {shows("page.typography") ? (
         <InspectorGroup
           groupId="page.typography"
           title="Typographie de la page"
@@ -187,6 +203,8 @@ export function PageInspector({
             fieldIdPrefix="page.appearance_overrides.typography.roles"
           />
         </InspectorGroup>
+        ) : null}
+        {shows("page.quick_colors") ? (
         <InspectorGroup
           groupId="page.quick_colors"
           title="Ajustements rapides"
@@ -220,6 +238,8 @@ export function PageInspector({
             }
           />
         </InspectorGroup>
+        ) : null}
+        {shows("page.fonts") ? (
         <InspectorGroup groupId="page.fonts" title="Polices de la page">
           <InspectorField label="Police des titres">
             <input
@@ -250,7 +270,8 @@ export function PageInspector({
             />
           </InspectorField>
         </InspectorGroup>
-        {page.type === "order" ? (
+        ) : null}
+        {shows("checkout.text_colors") ? (
           <CheckoutTextColorsEditor
             value={record(appearance.checkout_text_colors)}
             onChange={(value) =>
@@ -258,15 +279,14 @@ export function PageInspector({
             }
           />
         ) : null}
-        {page.type === "order" ? (
-          <CartAppearanceEditor
-            value={record(appearance.cart_text_colors)}
-            onChange={(value) =>
-              onChange(["appearance_overrides", "cart_text_colors"], value)
-            }
-          />
-        ) : null}
-        {page.type === "order" ? (
+        <CartAppearanceEditor
+          shows={shows}
+          value={record(appearance.cart_text_colors)}
+          onChange={(value) =>
+            onChange(["appearance_overrides", "cart_text_colors"], value)
+          }
+        />
+        {shows("page.category_bar") ? (
           <InspectorGroup
             groupId="page.category_bar"
             title={t("websiteV3CategoryBarTitle")}
@@ -283,15 +303,15 @@ export function PageInspector({
             />
           </InspectorGroup>
         ) : null}
-        {page.type === "order" || page.type === "catering" ? (
-          <CommerceAppearance
-            page={page}
-            restaurantId={restaurantId}
-            restaurant={restaurant}
-            menus={menus}
-            onChange={onChange}
-          />
-        ) : null}
+        <CommerceAppearance
+          shows={shows}
+          page={page}
+          restaurantId={restaurantId}
+          restaurant={restaurant}
+          menus={menus}
+          onChange={onChange}
+        />
+        <SurfaceHandoff shows={shows} tab={tab} onSurfaceChange={onSurfaceChange} />
       </>
     );
   }
@@ -314,6 +334,7 @@ export function PageInspector({
 
   return (
     <>
+      {shows("page.address") ? (
       <InspectorGroup groupId="page.address" title="Adresse et type">
         <InspectorField
           label="Adresse publique"
@@ -370,8 +391,13 @@ export function PageInspector({
           }}
         />
       </InspectorGroup>
+      ) : null}
 
-      {page.type === "order" || page.type === "catering" ? (
+      {/* The page type is re-checked so TypeScript keeps the narrowing that
+          CommerceSelector's prop type needs. Redundant at runtime: the table
+          already restricts this group to order and catering pages. */}
+      {shows("page.commerce") &&
+      (page.type === "order" || page.type === "catering") ? (
         <InspectorGroup groupId="page.commerce" title="Commerce">
           <CommerceSelector
             page={page}
@@ -413,6 +439,7 @@ export function PageInspector({
         </InspectorGroup>
       ) : null}
 
+      {shows("page.navigation") ? (
       <InspectorGroup
         groupId="page.navigation"
         title="Navigation et pied de page"
@@ -579,8 +606,9 @@ export function PageInspector({
           </select>
         </InspectorField>
       </InspectorGroup>
+      ) : null}
 
-      {page.type === "order" ? (
+      {shows("page.order_info") ? (
         <InspectorGroup
           groupId="page.order_info"
           title="Informations de commande"
@@ -606,6 +634,7 @@ export function PageInspector({
         </InspectorGroup>
       ) : null}
 
+      {shows("page.seo") ? (
       <InspectorGroup groupId="page.seo" title="Référencement et partage">
         <InspectorField label="Titre SEO">
           <input
@@ -640,7 +669,64 @@ export function PageInspector({
           />
         </InspectorField>
       </InspectorGroup>
+      ) : null}
+
+      {shows("checkout.form") ? (
+        <InspectorGroup
+          groupId="checkout.form"
+          title="Formulaire du checkout"
+          description="Les champs demandés au client, la vérification par SMS et l’écran de confirmation. Ces réglages sont partagés par toutes les pages commande du site, pas seulement celle-ci."
+        >
+          <CheckoutSettingsEditor
+            value={(config.checkout_config ?? null) as CheckoutConfig | null}
+            onChange={(next) => onConfigChange(["checkout_config"], next)}
+          />
+        </InspectorGroup>
+      ) : null}
+
+      <SurfaceHandoff shows={shows} tab={tab} onSurfaceChange={onSurfaceChange} />
     </>
+  );
+}
+
+/** Shown on the checkout surface, where the page's own settings are hidden.
+ *
+ *  The theme, typography and base tokens DO repaint the checkout — the theme
+ *  through foodyweb's OrderThemeBridge, the tokens through --bg-page/--text/
+ *  --brand/--font-* — but the page owns them, so the copy must not claim the
+ *  checkout is unaffected. It says where they live and gets the user there in
+ *  one click, keeping the current tab. */
+function SurfaceHandoff({
+  shows,
+  tab,
+  onSurfaceChange,
+}: {
+  shows: (id: InspectorGroupId) => boolean;
+  tab: InspectorTab;
+  onSurfaceChange: (surface: InspectorSurface) => void;
+}) {
+  if (!shows("page.handoff")) return null;
+  const description =
+    tab === "appearance"
+      ? "Le thème, la typographie et les couleurs de base appartiennent à la page. Ils s’appliquent aussi au checkout, mais se règlent sur la surface Page."
+      : tab === "content"
+        ? "Le checkout n’a pas de contenu propre : il reprend le panier de cette page. Le titre et les sections se règlent sur la surface Page."
+        : "L’adresse, le type, les cartes, la navigation et le référencement appartiennent à la page et se règlent sur la surface Page.";
+  return (
+    <InspectorGroup
+      groupId="page.handoff"
+      title="Réglages de la page"
+      description={description}
+    >
+      <button
+        type="button"
+        data-inspector-action="surface.page"
+        onClick={() => onSurfaceChange("page")}
+        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-[#315fce] transition hover:border-[#315fce] hover:bg-[#315fce]/5"
+      >
+        Régler sur la page
+      </button>
+    </InspectorGroup>
   );
 }
 
@@ -714,9 +800,11 @@ const CART_BUTTON_COLOR_FIELDS = [
 ] as const;
 
 function CartAppearanceEditor({
+  shows,
   value,
   onChange,
 }: {
+  shows: (id: InspectorGroupId) => boolean;
   value: Record<string, unknown>;
   onChange: (value: Record<string, unknown>) => void;
 }) {
@@ -737,38 +825,46 @@ function CartAppearanceEditor({
 
   return (
     <>
-      <InspectorGroup
-        groupId="cart.text"
-        title="Textes du panier"
-        description="Le panier hérite sinon de la couleur de texte générale de la page. Réglez-la ici quand cette couleur se confond avec le fond du panier. Ouvrez le panier dans l’aperçu pour voir le résultat."
-      >
-        {CART_TEXT_COLOR_FIELDS.map(colorField)}
-      </InspectorGroup>
-      <InspectorGroup
-        groupId="cart.surfaces"
-        title="Surfaces du panier"
-        description="Le fond du panier, les vignettes et pastilles, les séparateurs entre articles et le voile qui assombrit la page derrière. L’accent colore les icônes, le badge Combo et l’encadré d’astuce."
-      >
-        {CART_SURFACE_COLOR_FIELDS.map(colorField)}
-      </InspectorGroup>
-      <InspectorGroup
-        groupId="cart.buttons"
-        title="Boutons du panier"
-        description="Le bouton de commande, la croix de fermeture, les boutons plus et moins et l’icône de suppression. Sans réglage, ils reprennent l’accent et les surfaces ci-dessus."
-      >
-        {CART_BUTTON_COLOR_FIELDS.map(colorField)}
-      </InspectorGroup>
+      {shows("cart.text") ? (
+        <InspectorGroup
+          groupId="cart.text"
+          title="Textes du panier"
+          description="Le panier hérite sinon de la couleur de texte générale de la page. Réglez-la ici quand cette couleur se confond avec le fond du panier. Ouvrez le panier dans l’aperçu pour voir le résultat."
+        >
+          {CART_TEXT_COLOR_FIELDS.map(colorField)}
+        </InspectorGroup>
+      ) : null}
+      {shows("cart.surfaces") ? (
+        <InspectorGroup
+          groupId="cart.surfaces"
+          title="Surfaces du panier"
+          description="Le fond du panier, les vignettes et pastilles, les séparateurs entre articles et le voile qui assombrit la page derrière. L’accent colore les icônes, le badge Combo et l’encadré d’astuce."
+        >
+          {CART_SURFACE_COLOR_FIELDS.map(colorField)}
+        </InspectorGroup>
+      ) : null}
+      {shows("cart.buttons") ? (
+        <InspectorGroup
+          groupId="cart.buttons"
+          title="Boutons du panier"
+          description="Le bouton de commande, la croix de fermeture, les boutons plus et moins et l’icône de suppression. Sans réglage, ils reprennent l’accent et les surfaces ci-dessus."
+        >
+          {CART_BUTTON_COLOR_FIELDS.map(colorField)}
+        </InspectorGroup>
+      ) : null}
     </>
   );
 }
 
 function CommerceAppearance({
+  shows,
   page,
   restaurantId,
   restaurant,
   menus,
   onChange,
 }: {
+  shows: (id: InspectorGroupId) => boolean;
   page: DraftPagePayload;
   restaurantId: number;
   restaurant: Restaurant;
@@ -786,6 +882,7 @@ function CommerceAppearance({
 
   return (
     <>
+      {shows("page.cover") ? (
       <InspectorGroup
         groupId="page.cover"
         title="Couverture"
@@ -898,8 +995,9 @@ function CommerceAppearance({
           />
         </InspectorField>
       </InspectorGroup>
+      ) : null}
 
-      {page.type === "order" ? (
+      {shows("page.order_type_selector") ? (
         <>
           <InspectorGroup
             groupId="page.order_type_selector"
@@ -974,6 +1072,10 @@ function CommerceAppearance({
               }
             />
           </InspectorGroup>
+        </>
+      ) : null}
+
+      {shows("page.catalog") ? (
           <InspectorGroup
             groupId="page.catalog"
             title="Catalogue et séparateurs"
@@ -1082,6 +1184,12 @@ function CommerceAppearance({
             </select>
           </InspectorField>
           </InspectorGroup>
+      ) : null}
+
+      {/* `page.type` is re-checked so TypeScript keeps the discriminated-union
+          narrowing that `settings.menu_ids` needs. The table already restricts
+          this group to order pages, so the check is redundant at runtime. */}
+      {shows("page.category_visuals") && page.type === "order" ? (
           <InspectorGroup
             groupId="page.category_visuals"
             title="Visuels par catégorie"
@@ -1101,7 +1209,6 @@ function CommerceAppearance({
               }
             />
           </InspectorGroup>
-        </>
       ) : null}
     </>
   );
