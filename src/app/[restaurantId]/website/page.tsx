@@ -1305,6 +1305,7 @@ export default function WebsitePage() {
               mode={previewMode}
               slug={restaurant?.slug}
               path={activePage === '_site' || activePage === 'menu' ? '/order' : `/${activePage}`}
+              forceFooter={activePage === '_site'}
               draftPayload={buildDraftPayload()}
               onSectionClick={(id) => {
                 if (typeof id === 'number') setSelectedSectionId(id);
@@ -2127,7 +2128,7 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, showA
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
-function LiveHomePreviewIframe({ mode, slug, draftPayload, path = '', onSectionClick, onBoundsUpdate, onIframeRectUpdate }: {
+function LiveHomePreviewIframe({ mode, slug, draftPayload, path = '', forceFooter = false, onSectionClick, onBoundsUpdate, onIframeRectUpdate }: {
   mode: 'mobile' | 'desktop';
   slug: string | undefined;
   draftPayload: DraftStatePayload;
@@ -2135,6 +2136,10 @@ function LiveHomePreviewIframe({ mode, slug, draftPayload, path = '', onSectionC
    *  the order page ('/order') for the site footer, or a custom page
    *  ('/<slug>'). Every variant receives the full draft via foody-draft-state. */
   path?: string;
+  /** Set only by the site-footer tab, which borrows the order page as a canvas
+   *  and must see the footer even when that page hides its own. Everywhere else
+   *  the preview must honour the page's footer mode. */
+  forceFooter?: boolean;
   onSectionClick: (id: number | string) => void;
   onBoundsUpdate: (bounds: SectionBounds[], scrollY: number) => void;
   onIframeRectUpdate: (rect: { top: number; left: number; width: number; height: number } | null) => void;
@@ -2228,7 +2233,7 @@ function LiveHomePreviewIframe({ mode, slug, draftPayload, path = '', onSectionC
     >
       <iframe
         ref={iframeRef}
-        src={`${WEB_URL}/r/${slug}${path}?preview=1`}
+        src={`${WEB_URL}/r/${slug}${path}?preview=1${forceFooter ? '&force_footer=1' : ''}`}
         title="Live preview"
         className="w-full h-full"
         style={{ border: 'none' }}
