@@ -1248,6 +1248,8 @@ const translations: Record<Locale, Record<string, string>> = {
     wfTriggerStartHint: 'Starting point: orders begin here. Adding an automation is optional.',
     wfTriggerManualHint: 'Manual: staff move the order to this step. Add an automation to do it for them.',
     wfSaveFlow: 'Save this flow',
+    wfFlowSaved: 'Flow saved',
+    wfUnsavedFlow: 'Unsaved flow changes',
     wfReset: 'Reset to default flow',
     wfResetConfirm: 'Reset this flow to the default template? Your changes will be lost.',
     workflowBuilderFlowDesc:
@@ -5048,6 +5050,8 @@ const translations: Record<Locale, Record<string, string>> = {
     wfTriggerStartHint: 'נקודת התחלה: הזמנות מתחילות כאן. הוספת אוטומציה היא אופציונלית.',
     wfTriggerManualHint: 'ידני: הצוות מעביר את ההזמנה לשלב הזה. הוסף אוטומציה כדי לעשות זאת במקומו.',
     wfSaveFlow: 'שמור מסלול זה',
+    wfFlowSaved: 'המסלול נשמר',
+    wfUnsavedFlow: 'שינויים במסלול לא נשמרו',
     wfReset: 'איפוס למסלול ברירת המחדל',
     wfResetConfirm: 'לאפס את המסלול לתבנית ברירת המחדל? השינויים שלך יאבדו.',
     workflowBuilderFlowDesc:
@@ -8814,6 +8818,8 @@ const translations: Record<Locale, Record<string, string>> = {
     wfTriggerStartHint: 'Point de départ : les commandes démarrent ici. Ajouter une automatisation est optionnel.',
     wfTriggerManualHint: 'Avancement manuel : le staff fait passer la commande à cette étape. Ajoutez une automatisation pour le faire à sa place.',
     wfSaveFlow: 'Enregistrer ce parcours',
+    wfFlowSaved: 'Parcours enregistré',
+    wfUnsavedFlow: 'Parcours non enregistré',
     wfReset: 'Réinitialiser au parcours par défaut',
     wfResetConfirm: 'Réinitialiser ce parcours au modèle par défaut ? Vos modifications seront perdues.',
     workflowBuilderFlowDesc:
