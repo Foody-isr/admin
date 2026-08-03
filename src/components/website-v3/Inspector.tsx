@@ -15,12 +15,18 @@ import type {
   StatePath,
 } from "@/lib/website-v3/types";
 import { isTechnicalSitePage } from "@/lib/website-v3/state";
+import type {
+  InspectorSurface,
+  InspectorTab,
+} from "@/lib/website-v3/inspector-scope";
 import { PageInspector } from "./PageInspector";
 import type { RailSelection } from "./PageRail";
 import { SectionInspector } from "./SectionInspector";
 import { SiteInspector } from "./SiteInspector";
 
-export type InspectorTab = "content" | "appearance" | "settings";
+/** Re-exported for the many components that already import it from here.
+ *  The type itself lives with the scope table it keys. */
+export type { InspectorTab };
 
 export function Inspector({
   restaurantId,
@@ -29,12 +35,14 @@ export function Inspector({
   state,
   selection,
   tab,
+  surface,
   menus,
   services,
   catalog,
   catalogWarning,
   errors,
   onTabChange,
+  onSurfaceChange,
   onConfigChange,
   onPageChange,
   onPageReplace,
@@ -51,12 +59,16 @@ export function Inspector({
   state: DraftStatePayload;
   selection: RailSelection;
   tab: InspectorTab;
+  /** The preview surface on screen. Scopes the page inspector's fields so it
+   *  never offers a setting the visible surface does not render. */
+  surface: InspectorSurface;
   menus: Menu[];
   services: CateringService[];
   catalog: ThemeCatalog;
   catalogWarning?: string | null;
   errors: FieldError[];
   onTabChange: (tab: InspectorTab) => void;
+  onSurfaceChange: (surface: InspectorSurface) => void;
   onConfigChange: (path: StatePath, value: unknown) => void;
   onPageChange: (key: string, path: StatePath, value: unknown) => void;
   onPageReplace: (key: string, page: DraftPagePayload) => void;
@@ -170,9 +182,12 @@ export function Inspector({
         <PageInspector
           page={page}
           tab={tab}
+          surface={surface}
+          onSurfaceChange={onSurfaceChange}
           restaurantId={restaurantId}
           restaurant={restaurant}
           config={state.config}
+          onConfigChange={onConfigChange}
           catalog={catalog}
           catalogWarning={catalogWarning}
           menus={menus}

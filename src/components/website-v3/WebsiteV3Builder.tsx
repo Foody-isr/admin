@@ -940,12 +940,14 @@ function DesktopWebsiteV3Builder({
               state={state}
               selection={selection}
               tab={tab}
+              surface={surface}
               menus={loaded.menus}
               services={loaded.services}
               catalog={loaded.catalog}
               catalogWarning={loaded.catalogWarning}
               errors={allErrors}
               onTabChange={setTab}
+              onSurfaceChange={changeSurface}
               onConfigChange={updateConfig}
               onPageChange={updatePage}
               onPageReplace={replacePage}

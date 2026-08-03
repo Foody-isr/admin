@@ -246,9 +246,12 @@ function renderInspector(
       React.createElement(PageInspector, {
         page,
         tab,
+        surface: "page" as const,
+        onSurfaceChange: () => undefined,
         restaurantId: 24,
         restaurant: {} as Restaurant,
         config,
+        onConfigChange: () => undefined,
         catalog: { themes: [], typography_pairings: [] } as ThemeCatalog,
         menus: [] as Menu[],
         services: [] as CateringService[],

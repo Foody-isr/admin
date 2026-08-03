@@ -228,9 +228,12 @@ test("order page appearance renders one normal category palette owner", () => {
     React.createElement(PageInspector, {
       page,
       tab: "appearance",
+      surface: "page" as const,
+      onSurfaceChange: () => undefined,
       restaurantId: 24,
       restaurant: {} as Restaurant,
       config: {},
+      onConfigChange: () => undefined,
       catalog: themeCatalog(),
       menus: [] as Menu[],
       services: [] as CateringService[],

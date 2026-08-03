@@ -21,6 +21,10 @@ import {
   publicAddressForPage,
 } from "@/lib/website-v3/url-model";
 import type {
+  InspectorSurface,
+  InspectorTab,
+} from "@/lib/website-v3/inspector-scope";
+import type {
   DraftPagePayload,
   FieldError,
   NavbarCtaOverride,
@@ -36,9 +40,12 @@ import { ReadOnlyAddress } from "./PageAddress";
 export function PageInspector({
   page,
   tab,
+  surface,
+  onSurfaceChange,
   restaurantId,
   restaurant,
   config,
+  onConfigChange,
   catalog,
   catalogWarning,
   menus,
@@ -50,10 +57,18 @@ export function PageInspector({
   onMakeHomepage,
 }: {
   page: DraftPagePayload;
-  tab: "content" | "appearance" | "settings";
+  tab: InspectorTab;
+  /** The preview surface on screen. An order page has two — the menu and the
+   *  checkout route — and most settings apply to exactly one of them. */
+  surface: InspectorSurface;
+  onSurfaceChange: (surface: InspectorSurface) => void;
   restaurantId: number;
   restaurant: Restaurant;
   config: Record<string, unknown>;
+  /** Writes SITE-level config. Only the checkout form uses it: checkout_config
+   *  is shared by every order page, so it must never go through the
+   *  page-scoped `onChange`. */
+  onConfigChange: (path: StatePath, value: unknown) => void;
   catalog: ThemeCatalog;
   catalogWarning?: string | null;
   menus: Menu[];
