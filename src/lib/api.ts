@@ -2245,6 +2245,10 @@ export interface BatchCycleSummary {
   open_at: string;   // ISO 8601 datetime
   cutoff_at: string; // ISO 8601 datetime
   fulfillment_days: BatchFulfillmentDayInfo[];
+  /** Cycle whose ordering window has closed but is still in production. Only ever
+   *  set on the staff config (getStaffBatchFulfillmentConfig); lets staff force an
+   *  order into the série already in production. */
+  ordering_closed?: boolean;
 }
 
 export interface BatchFulfillmentConfigResponse {
@@ -2269,6 +2273,19 @@ export async function getBatchFulfillmentConfig(
 ): Promise<BatchFulfillmentConfigResponse> {
   return apiFetch<BatchFulfillmentConfigResponse>(
     `/api/v1/public/restaurants/${restaurantId}/batch-fulfillment-config`,
+    restaurantId,
+  );
+}
+
+/** Staff-only batch config. Same shape as the public one, but its upcoming_cycles
+ *  may include the current in-production série past its ordering cutoff (flagged
+ *  ordering_closed). Drives the série picker in the manual order create/edit flows,
+ *  letting staff force an order into the série already in production. */
+export async function getStaffBatchFulfillmentConfig(
+  restaurantId: number
+): Promise<BatchFulfillmentConfigResponse> {
+  return apiFetch<BatchFulfillmentConfigResponse>(
+    `/api/v1/restaurants/${restaurantId}/staff-batch-fulfillment-config`,
     restaurantId,
   );
 }
