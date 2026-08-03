@@ -229,6 +229,11 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.checkout_text_colors.input": "#111827",
   "page.appearance_overrides.checkout_text_colors.price": "#92400e",
   "page.appearance_overrides.checkout_text_colors.button": "#ffffff",
+  "page.appearance_overrides.cart_text_colors.heading": "#0f172a",
+  "page.appearance_overrides.cart_text_colors.primary": "#1e293b",
+  "page.appearance_overrides.cart_text_colors.secondary": "#64748b",
+  "page.appearance_overrides.cart_text_colors.price": "#92400e",
+  "page.appearance_overrides.cart_text_colors.button": "#ffffff",
   "site.nav_layout": `{"logo":"left","links":"center","cta":"right"}`,
   "site.bottom-navigation.background": "#f1f5f9",
   "site.bottom-navigation.button-background": "#ffffff",
@@ -655,6 +660,16 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
     page(
       `page.appearance_overrides.checkout_text_colors.${role}`,
       ["appearance_overrides", "checkout_text_colors", role],
+      "order",
+      "color",
+      ["order"],
+    ),
+  ),
+  // Cart drawer roles. No "input": the cart has no fields.
+  ...(["heading", "primary", "secondary", "price", "button"] as const).map((role) =>
+    page(
+      `page.appearance_overrides.cart_text_colors.${role}`,
+      ["appearance_overrides", "cart_text_colors", role],
       "order",
       "color",
       ["order"],

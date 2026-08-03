@@ -50,6 +50,16 @@ export type DraftAppearanceOverrides = {
     price?: string;
     button?: string;
   } | null;
+  /** Cart drawer text roles. Separate from the page's global ink, which the cart
+   *  would otherwise inherit — a palette whose ink matches the cart surface
+   *  renders it unreadable. No "input": the cart has no fields. */
+  cart_text_colors?: {
+    heading?: string;
+    primary?: string;
+    secondary?: string;
+    price?: string;
+    button?: string;
+  } | null;
   hero_name_font?: string;
   hero_logo_bg?: "white" | "black";
   hero_cover_layout?: "card" | "logo" | "bare";
