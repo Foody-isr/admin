@@ -20,6 +20,7 @@ import {
   DESKTOP_PREVIEW_WIDTH,
   resolveDesktopPreviewLayout,
 } from "@/lib/website-v3/preview-layout";
+import type { InspectorSurface } from "@/lib/website-v3/inspector-scope";
 import type {
   DraftPagePayload,
   DraftSectionPayload,
@@ -36,6 +37,8 @@ export function PreviewCanvas({
   activePage,
   activeSectionKey,
   device,
+  surface,
+  onSurfaceChange,
   revision,
   contentRevision,
   onAcknowledged,
@@ -53,6 +56,10 @@ export function PreviewCanvas({
   activePage: DraftPagePayload;
   activeSectionKey?: string;
   device: PreviewDevice;
+  /** Owned by the builder so the inspector can scope its fields to the surface
+   *  on screen. Already clamped: only order pages ever receive "checkout". */
+  surface: InspectorSurface;
+  onSurfaceChange: (surface: InspectorSurface) => void;
   revision: number;
   contentRevision: number;
   onAcknowledged: (acknowledgement: {
@@ -71,7 +78,6 @@ export function PreviewCanvas({
   const frameRef = useRef<HTMLIFrameElement>(null);
   const desktopPreviewContainerRef = useRef<HTMLDivElement>(null);
   const readyRef = useRef(false);
-  const [previewSurface, setPreviewSurface] = useState<"page" | "checkout">("page");
   const [desktopLayout, setDesktopLayout] = useState(() =>
     resolveDesktopPreviewLayout(DESKTOP_PREVIEW_WIDTH, 820),
   );
@@ -93,7 +99,7 @@ export function PreviewCanvas({
   const restaurantPath = `/r/${encodeURIComponent(
     restaurantSlug || String(restaurantId),
   )}`;
-  const source = previewSurface === "checkout"
+  const source = surface === "checkout"
     ? `${targetOrigin}/order/checkout?restaurantId=${encodeURIComponent(
         restaurantSlug || String(restaurantId),
       )}&orderType=delivery&preview=1&pageSlug=${encodeURIComponent(activePage.slug)}`
@@ -147,7 +153,7 @@ export function PreviewCanvas({
 
   useEffect(() => {
     if (!readyRef.current) return;
-    if (previewSurface === "checkout") {
+    if (surface === "checkout") {
       postCheckoutLatest(frameRef.current?.contentWindow, targetOrigin, latestRef.current);
     } else {
       postLatest(frameRef.current?.contentWindow, targetOrigin, restaurantId, latestRef.current);
@@ -160,18 +166,14 @@ export function PreviewCanvas({
     revision,
     state,
     targetOrigin,
-    previewSurface,
+    surface,
   ]);
 
+  // Stays local: readyRef tracks THIS iframe's handshake, and `source` already
+  // derives from `surface`, so a surface change always invalidates it.
   useEffect(() => {
     readyRef.current = false;
-  }, [previewSurface, source]);
-
-  useEffect(() => {
-    if (activePage.type !== "order" && previewSurface === "checkout") {
-      setPreviewSurface("page");
-    }
-  }, [activePage.type, previewSurface]);
+  }, [surface, source]);
 
   useEffect(() => {
     if (device === "mobile") return;
@@ -199,7 +201,7 @@ export function PreviewCanvas({
       key={source}
       ref={frameRef}
       src={source}
-      title={previewSurface === "checkout" ? "Aperçu du checkout" : `Aperçu de ${activePage.title}`}
+      title={surface === "checkout" ? "Aperçu du checkout" : `Aperçu de ${activePage.title}`}
       className="h-full w-full bg-white"
     />
   );
@@ -213,18 +215,18 @@ export function PreviewCanvas({
         </span>
         {activePage.type === "order" ? (
           <div className="ml-2 flex rounded-lg border border-white/10 bg-white/5 p-0.5">
-            {(["page", "checkout"] as const).map((surface) => (
+            {(["page", "checkout"] as const).map((option) => (
               <button
-                key={surface}
+                key={option}
                 type="button"
-                onClick={() => setPreviewSurface(surface)}
+                onClick={() => onSurfaceChange(option)}
                 className={`rounded-md px-2.5 py-1 text-[10px] font-semibold transition ${
-                  previewSurface === surface
+                  surface === option
                     ? "bg-white text-slate-950"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                {surface === "page" ? "Page" : "Checkout"}
+                {option === "page" ? "Page" : "Checkout"}
               </button>
             ))}
           </div>

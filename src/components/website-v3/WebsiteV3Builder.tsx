@@ -53,6 +53,8 @@ import {
   validateDraftForPublish,
 } from "@/lib/website-v3/state";
 import { publicURLForPage } from "@/lib/website-v3/url-model";
+import { effectiveSurface } from "@/lib/website-v3/inspector-scope";
+import type { InspectorSurface } from "@/lib/website-v3/inspector-scope";
 import type {
   DraftPagePayload,
   DraftResponse,
@@ -112,6 +114,12 @@ function DesktopWebsiteV3Builder({
   const [selection, setSelection] = useState<RailSelection>({ kind: "site" });
   const [tab, setTab] = useState<InspectorTab>("content");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
+  /** Which surface of the active page the preview shows. Only order pages have
+   *  a checkout, so this is a *request* — `effectiveSurface` clamps it. Owned
+   *  here rather than in PreviewCanvas so the inspector can show the settings
+   *  that belong to the surface on screen. */
+  const [requestedSurface, setRequestedSurface] =
+    useState<InspectorSurface>("page");
   const [saveStatus, setSaveStatus] = useState<AutosaveStatus>("idle");
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [serverErrors, setServerErrors] = useState<FieldError[]>([]);
@@ -315,6 +323,10 @@ function DesktopWebsiteV3Builder({
     [bumpPreview],
   );
 
+  // Clamped here, above the early returns, so the value is stable for both the
+  // preview and the inspector and no non-order page can resolve to "checkout".
+  const activePageType = activePage?.type;
+  const surface = effectiveSurface(activePageType, requestedSurface);
   const activePreviewKey = activePage ? pageKey(activePage) : "";
   const currentAcknowledgement = acknowledgements[device];
   const previewCovered = hasCompletePreviewCoverage(
@@ -342,6 +354,15 @@ function DesktopWebsiteV3Builder({
     currentAcknowledgement,
     previewRevision,
   ]);
+
+  // Drop a stale checkout request when the selection moves to a page that has
+  // no checkout. `surface` above already clamps the rendered value, so this is
+  // only there to keep the stored request honest for the next order page.
+  useEffect(() => {
+    if (activePageType && activePageType !== "order" && requestedSurface === "checkout") {
+      setRequestedSurface("page");
+    }
+  }, [activePageType, requestedSurface]);
 
   useEffect(() => {
     if (
@@ -805,6 +826,15 @@ function DesktopWebsiteV3Builder({
     bumpPreview(false, next);
   };
 
+  /** Deliberately does NOT call bumpPreview: changing surface swaps the iframe
+   *  `src`, which remounts it and replays the ready handshake on its own.
+   *  Bumping would move previewRevision and could flip previewStatus and
+   *  canPublish for a surface change that published nothing. */
+  const changeSurface = (next: InspectorSurface) => {
+    if (busyRef.current || next === requestedSurface) return;
+    setRequestedSurface(next);
+  };
+
   const selectPage = (key: string) => {
     if (busyRef.current) return;
     setSelection({ kind: "page", key });
@@ -946,6 +976,8 @@ function DesktopWebsiteV3Builder({
             activePage={activePage}
             activeSectionKey={activeSectionKey}
             device={device}
+            surface={surface}
+            onSurfaceChange={changeSurface}
             revision={previewRevision}
             contentRevision={contentRevision}
             onAcknowledged={acknowledgePreview}
