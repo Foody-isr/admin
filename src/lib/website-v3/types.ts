@@ -50,15 +50,29 @@ export type DraftAppearanceOverrides = {
     price?: string;
     button?: string;
   } | null;
-  /** Cart drawer text roles. Separate from the page's global ink, which the cart
-   *  would otherwise inherit — a palette whose ink matches the cart surface
-   *  renders it unreadable. No "input": the cart has no fields. */
+  /** Every colour the cart drawer paints. Separate from the page's global ink,
+   *  which the cart would otherwise inherit — a palette whose ink matches the
+   *  cart surface renders it unreadable. No "input": the cart has no fields.
+   *  Kept under the historical `cart_text_colors` key so drafts saved before
+   *  the surface and button roles existed keep resolving. */
   cart_text_colors?: {
     heading?: string;
     primary?: string;
     secondary?: string;
     price?: string;
+    surface?: string;
+    surfaceMuted?: string;
+    divider?: string;
+    accent?: string;
+    overlay?: string;
     button?: string;
+    buttonBg?: string;
+    closeText?: string;
+    closeBg?: string;
+    stepperBg?: string;
+    stepperText?: string;
+    stepperBorder?: string;
+    remove?: string;
   } | null;
   hero_name_font?: string;
   hero_logo_bg?: "white" | "black";

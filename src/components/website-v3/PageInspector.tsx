@@ -239,7 +239,7 @@ export function PageInspector({
           />
         ) : null}
         {page.type === "order" ? (
-          <CartTextColorsEditor
+          <CartAppearanceEditor
             value={record(appearance.cart_text_colors)}
             onChange={(value) =>
               onChange(["appearance_overrides", "cart_text_colors"], value)
@@ -662,35 +662,76 @@ function CheckoutTextColorsEditor({
 // text roles. There is no "text typed into fields" role: the cart has no inputs.
 const CART_TEXT_COLOR_FIELDS = [
   ["heading", "Titres", "#111827"],
-  ["primary", "Noms d\u2019articles et quantit\u00e9s", "#111827"],
+  ["primary", "Noms d’articles et quantités", "#111827"],
   ["secondary", "Texte secondaire et aides", "#64748b"],
   ["price", "Prix et totaux", "#111827"],
-  ["button", "Texte du bouton principal", "#ffffff"],
 ] as const;
 
-function CartTextColorsEditor({
+// Surfaces and buttons store into the same `cart_text_colors` record as the
+// text roles (same drawer, same override blob) but get their own groups, so a
+// list titled "Textes" never hides a background swatch.
+const CART_SURFACE_COLOR_FIELDS = [
+  ["surface", "Fond du panier", "#ffffff"],
+  ["surfaceMuted", "Fonds secondaires", "#f1f5f9"],
+  ["divider", "Séparateurs entre articles", "#e2e8f0"],
+  ["accent", "Accent (icônes, badges)", "#eb5204"],
+  ["overlay", "Voile derrière le panier", "#000000"],
+] as const;
+
+const CART_BUTTON_COLOR_FIELDS = [
+  ["buttonBg", "Fond du bouton principal", "#eb5204"],
+  ["button", "Texte du bouton principal", "#ffffff"],
+  ["closeBg", "Fond du bouton de fermeture", "#f1f5f9"],
+  ["closeText", "Icône du bouton de fermeture", "#111827"],
+  ["stepperBg", "Fond des boutons de quantité", "#ffffff"],
+  ["stepperText", "Signes plus et moins", "#eb5204"],
+  ["stepperBorder", "Contour des boutons de quantité", "#e2e8f0"],
+  ["remove", "Icône de suppression", "#ef4444"],
+] as const;
+
+function CartAppearanceEditor({
   value,
   onChange,
 }: {
   value: Record<string, unknown>;
   onChange: (value: Record<string, unknown>) => void;
 }) {
+  const colorField = ([key, label, fallback]: readonly [
+    string,
+    string,
+    string,
+  ]) => (
+    <ColorField
+      key={key}
+      fieldId={`page.appearance_overrides.cart_text_colors.${key}`}
+      label={label}
+      value={text(value[key])}
+      fallback={fallback}
+      onChange={(color) => onChange({ ...value, [key]: color })}
+    />
+  );
+
   return (
-    <InspectorGroup
-      title="Textes du panier"
-      description="Le panier h\u00e9rite sinon de la couleur de texte g\u00e9n\u00e9rale de la page. R\u00e9glez-la ici quand cette couleur se confond avec le fond du panier. Ouvrez le panier dans l\u2019aper\u00e7u pour voir le r\u00e9sultat."
-    >
-      {CART_TEXT_COLOR_FIELDS.map(([key, label, fallback]) => (
-        <ColorField
-          key={key}
-          fieldId={`page.appearance_overrides.cart_text_colors.${key}`}
-          label={label}
-          value={text(value[key])}
-          fallback={fallback}
-          onChange={(color) => onChange({ ...value, [key]: color })}
-        />
-      ))}
-    </InspectorGroup>
+    <>
+      <InspectorGroup
+        title="Textes du panier"
+        description="Le panier hérite sinon de la couleur de texte générale de la page. Réglez-la ici quand cette couleur se confond avec le fond du panier. Ouvrez le panier dans l’aperçu pour voir le résultat."
+      >
+        {CART_TEXT_COLOR_FIELDS.map(colorField)}
+      </InspectorGroup>
+      <InspectorGroup
+        title="Surfaces du panier"
+        description="Le fond du panier, les vignettes et pastilles, les séparateurs entre articles et le voile qui assombrit la page derrière. L’accent colore les icônes, le badge Combo et l’encadré d’astuce."
+      >
+        {CART_SURFACE_COLOR_FIELDS.map(colorField)}
+      </InspectorGroup>
+      <InspectorGroup
+        title="Boutons du panier"
+        description="Le bouton de commande, la croix de fermeture, les boutons plus et moins et l’icône de suppression. Sans réglage, ils reprennent l’accent et les surfaces ci-dessus."
+      >
+        {CART_BUTTON_COLOR_FIELDS.map(colorField)}
+      </InspectorGroup>
+    </>
   );
 }
 
