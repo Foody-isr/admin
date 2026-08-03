@@ -6,16 +6,23 @@ export const controlClass =
   "min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#315fce] focus:ring-2 focus:ring-[#315fce]/10 disabled:bg-slate-50 disabled:text-slate-400";
 
 export function InspectorGroup({
+  groupId,
   title,
   description,
   children,
 }: {
+  /** Stable identity from lib/website-v3/inspector-scope. Survives copy and
+   *  locale changes, which is what makes the visibility matrix assertable. */
+  groupId?: string;
   title: string;
   description?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="border-b border-slate-100 px-5 py-5 last:border-b-0">
+    <section
+      data-inspector-group={groupId}
+      className="border-b border-slate-100 px-5 py-5 last:border-b-0"
+    >
       <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
       {description ? (
         <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>

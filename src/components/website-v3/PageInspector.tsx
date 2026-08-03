@@ -113,6 +113,7 @@ export function PageInspector({
     return (
       <>
         <InspectorGroup
+          groupId="page.identity"
           title="Identité de la page"
           description="Le titre est utilisé dans la navigation et comme repère dans le builder."
         >
@@ -126,6 +127,7 @@ export function PageInspector({
           </InspectorField>
         </InspectorGroup>
         <InspectorGroup
+          groupId="page.sections"
           title="Sections"
           description={
             page.type === "landing" || page.type === "content"
@@ -149,6 +151,7 @@ export function PageInspector({
     return (
       <>
         <InspectorGroup
+          groupId="page.theme"
           title="Direction visuelle de la page"
           description="Cette page peut avoir son propre thème. Les anciennes valeurs restent utilisées tant qu’aucune surcharge n’est choisie."
         >
@@ -167,6 +170,7 @@ export function PageInspector({
           />
         </InspectorGroup>
         <InspectorGroup
+          groupId="page.typography"
           title="Typographie de la page"
           description="Les styles de titres, catégories, produits, prix et descriptions sont propres à cette page."
         >
@@ -184,6 +188,7 @@ export function PageInspector({
           />
         </InspectorGroup>
         <InspectorGroup
+          groupId="page.quick_colors"
           title="Ajustements rapides"
           description="Ces couleurs remplacent les variables principales du thème uniquement sur cette page."
         >
@@ -215,7 +220,7 @@ export function PageInspector({
             }
           />
         </InspectorGroup>
-        <InspectorGroup title="Polices des pages de contenu">
+        <InspectorGroup groupId="page.fonts" title="Polices de la page">
           <InspectorField label="Police des titres">
             <input
               data-field-id="page.appearance_overrides.headingFont"
@@ -263,6 +268,7 @@ export function PageInspector({
         ) : null}
         {page.type === "order" ? (
           <InspectorGroup
+            groupId="page.category_bar"
             title={t("websiteV3CategoryBarTitle")}
             description={t("websiteV3CategoryBarDescription")}
           >
@@ -308,7 +314,7 @@ export function PageInspector({
 
   return (
     <>
-      <InspectorGroup title="Adresse et type">
+      <InspectorGroup groupId="page.address" title="Adresse et type">
         <InspectorField
           label="Adresse publique"
           error={slugError}
@@ -366,7 +372,7 @@ export function PageInspector({
       </InspectorGroup>
 
       {page.type === "order" || page.type === "catering" ? (
-        <InspectorGroup title="Commerce">
+        <InspectorGroup groupId="page.commerce" title="Commerce">
           <CommerceSelector
             page={page}
             menus={menus}
@@ -408,6 +414,7 @@ export function PageInspector({
       ) : null}
 
       <InspectorGroup
+        groupId="page.navigation"
         title="Navigation et pied de page"
         description="La disposition choisit les éléments affichés. Le fond et le comportement règlent uniquement l’apparence de cette page."
       >
@@ -575,6 +582,7 @@ export function PageInspector({
 
       {page.type === "order" ? (
         <InspectorGroup
+          groupId="page.order_info"
           title="Informations de commande"
           description="Choisissez les informations visibles dans la barre et dans la fenêtre Plus pour cette page."
         >
@@ -598,7 +606,7 @@ export function PageInspector({
         </InspectorGroup>
       ) : null}
 
-      <InspectorGroup title="Référencement et partage">
+      <InspectorGroup groupId="page.seo" title="Référencement et partage">
         <InspectorField label="Titre SEO">
           <input
             data-field-id="page.seo.title"
@@ -654,8 +662,9 @@ function CheckoutTextColorsEditor({
 }) {
   return (
     <InspectorGroup
+      groupId="checkout.text_colors"
       title="Textes du checkout"
-      description="Séparez les titres, aides, champs, montants et boutons de la couleur générale. Utilisez l’onglet Checkout au-dessus de l’aperçu pour voir ces changements en direct."
+      description="Séparez les titres, aides, champs, montants et boutons de la couleur générale de la page. L’aperçu à droite montre le checkout, donc ces couleurs s’y appliquent en direct."
     >
       {CHECKOUT_TEXT_COLOR_FIELDS.map(([key, label, fallback]) => (
         <ColorField
@@ -729,18 +738,21 @@ function CartAppearanceEditor({
   return (
     <>
       <InspectorGroup
+        groupId="cart.text"
         title="Textes du panier"
         description="Le panier hérite sinon de la couleur de texte générale de la page. Réglez-la ici quand cette couleur se confond avec le fond du panier. Ouvrez le panier dans l’aperçu pour voir le résultat."
       >
         {CART_TEXT_COLOR_FIELDS.map(colorField)}
       </InspectorGroup>
       <InspectorGroup
+        groupId="cart.surfaces"
         title="Surfaces du panier"
         description="Le fond du panier, les vignettes et pastilles, les séparateurs entre articles et le voile qui assombrit la page derrière. L’accent colore les icônes, le badge Combo et l’encadré d’astuce."
       >
         {CART_SURFACE_COLOR_FIELDS.map(colorField)}
       </InspectorGroup>
       <InspectorGroup
+        groupId="cart.buttons"
         title="Boutons du panier"
         description="Le bouton de commande, la croix de fermeture, les boutons plus et moins et l’icône de suppression. Sans réglage, ils reprennent l’accent et les surfaces ci-dessus."
       >
@@ -775,6 +787,7 @@ function CommerceAppearance({
   return (
     <>
       <InspectorGroup
+        groupId="page.cover"
         title="Couverture"
         description="L’image, le cadrage et la composition ne s’appliquent qu’à cette page."
       >
@@ -889,6 +902,7 @@ function CommerceAppearance({
       {page.type === "order" ? (
         <>
           <InspectorGroup
+            groupId="page.order_type_selector"
             title="Sélecteur du type de commande"
             description="Personnalisez le bouton À emporter / Livraison sur cette page."
           >
@@ -961,6 +975,7 @@ function CommerceAppearance({
             />
           </InspectorGroup>
           <InspectorGroup
+            groupId="page.catalog"
             title="Catalogue et séparateurs"
             description="Retrouvez les dispositions et styles de catégories disponibles dans la V2."
           >
@@ -1068,6 +1083,7 @@ function CommerceAppearance({
           </InspectorField>
           </InspectorGroup>
           <InspectorGroup
+            groupId="page.category_visuals"
             title="Visuels par catégorie"
             description="Chaque groupe peut avoir une image, un cadrage et un titre coloré propres à cette page de commande."
           >
