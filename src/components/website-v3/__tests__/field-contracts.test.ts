@@ -5,6 +5,8 @@ import { test } from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FIELD_CONTRACTS } from "../field-contracts";
+import { showsInspectorGroup } from "@/lib/website-v3/inspector-scope";
+import type { InspectorGroupId } from "@/lib/website-v3/inspector-scope";
 import { SiteInspector } from "../SiteInspector";
 import { publicAddressForPage } from "@/lib/website-v3/url-model";
 import { LocaleProvider } from "@/lib/i18n";
@@ -73,6 +75,80 @@ test("every custom contract selector is backed by a foodyweb renderer hook", () 
     });
   });
 });
+
+// The contract registry (keyed by field id) and the inspector scope table
+// (keyed by group) must agree, or a driver navigates to a page or surface where
+// the control does not render — which is exactly how the checkout colour
+// contracts sat broken while still "passing" their static checks.
+test("every contract is reachable on the page type and surface it declares", () => {
+  FIELD_CONTRACTS.forEach((contract) => {
+    if (contract.scope !== "page") return;
+    if (contract.editor.kind === "action") return;
+
+    const orderOnly =
+      contract.pageTypes !== "all" &&
+      contract.pageTypes.length === 1 &&
+      contract.pageTypes[0] === "order";
+    if (orderOnly) {
+      assert.equal(
+        contract.editor.pageTitle,
+        "Brunch Order",
+        `${contract.id}: an order-only field must be edited on an order page`,
+      );
+    }
+
+    const surface = contract.editor.surface ?? "page";
+    if (surface === "checkout") {
+      assert.equal(
+        orderOnly,
+        true,
+        `${contract.id}: only an order page has a checkout surface`,
+      );
+    }
+
+    // The group the field belongs to must actually render for EVERY page type
+    // the contract claims, on the surface it claims.
+    const groupId = groupForField(contract.id);
+    if (!groupId) return;
+    const tab =
+      contract.editor.tab === "Contenu"
+        ? "content"
+        : contract.editor.tab === "Apparence"
+          ? "appearance"
+          : "settings";
+    const pageTypes =
+      contract.pageTypes === "all"
+        ? (["landing", "content", "order", "catering"] as const)
+        : contract.pageTypes;
+    pageTypes.forEach((pageType) => {
+      assert.equal(
+        showsInspectorGroup(groupId, { pageType, tab, surface }),
+        true,
+        `${contract.id}: ${groupId} does not render on ${pageType}/${tab}/${surface}`,
+      );
+    });
+  });
+});
+
+/** Maps a field id to the inspector group that renders it. Only the families
+ *  whose visibility this change moved need an entry; anything else is skipped
+ *  rather than guessed. */
+function groupForField(id: string): InspectorGroupId | null {
+  if (id.startsWith("page.appearance_overrides.checkout_text_colors."))
+    return "checkout.text_colors";
+  if (id.startsWith("page.appearance_overrides.cart_text_colors."))
+    return "cart.text";
+  if (id.startsWith("page.appearance_overrides.section_colors.categoryBar"))
+    return "page.category_bar";
+  if (id.startsWith("page.appearance_overrides.order_type_selector."))
+    return "page.order_type_selector";
+  if (id === "page.title") return "page.identity";
+  if (id === "page.slug" || id === "page.type" || id === "page.nav_visible")
+    return "page.address";
+  if (id.startsWith("page.seo.")) return "page.seo";
+  if (id.startsWith("page.settings.")) return "page.commerce";
+  return null;
+}
 
 test("navigation text colors have editor-to-renderer contracts", () => {
   const contracts = new Map(

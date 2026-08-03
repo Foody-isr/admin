@@ -97,6 +97,12 @@ async function selectContractContext(
     }
   }
   await openInspectorTab(page, contract.editor.tab);
+  // An order page has two preview surfaces and the inspector only offers the
+  // fields the visible one renders, so the surface must be selected before the
+  // control exists. See lib/website-v3/inspector-scope.
+  if (contract.editor.surface === 'checkout') {
+    await page.locator('[data-inspector-surface="checkout"]').click();
+  }
   if (contract.editor.prerequisite) {
     const prerequisite = page.locator(`[data-field-id="${contract.editor.prerequisite.id}"]`);
     if ((await prerequisite.getAttribute('type')) === 'checkbox') {

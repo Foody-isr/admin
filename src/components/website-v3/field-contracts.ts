@@ -2,6 +2,7 @@ import type {
   PreviewDevice,
   WebsitePageType,
 } from "@/lib/website-v3/types";
+import type { InspectorSurface } from "@/lib/website-v3/inspector-scope";
 
 type Assertion = "text" | "attribute" | "css" | "visible" | "count";
 type TestValue = string | number | boolean | number[];
@@ -21,6 +22,9 @@ type FieldEditorContract = {
   pageTitle: string;
   sectionLabel?: string;
   publicSlug: string;
+  /** Preview surface the control lives on. Absent means "page" — only an order
+   *  page has a second surface. See lib/website-v3/inspector-scope. */
+  surface?: InspectorSurface;
   commit: "change" | "blur";
   prerequisite?: { id: string; value: TestValue };
 };
@@ -206,7 +210,7 @@ function contract(
     ...base,
     devices: BOTH,
     testValue,
-    editor: editorFor(base.id, base.scope, actionContract),
+    editor: editorFor(base.id, base.scope, actionContract, base.pageTypes),
     preview: expectation,
     public: expectation,
   };
@@ -383,6 +387,7 @@ function editorFor(
   id: string,
   scope: FieldContract["scope"],
   isAction: boolean,
+  pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
   const action = isAction ? "action" : "field";
   if (id.startsWith("site.footer.")) {
@@ -422,7 +427,14 @@ function editorFor(
     const categoryBar = id.includes(
       "page.appearance_overrides.section_colors.categoryBar",
     );
-    const orderPage = order || categoryBar;
+    // Any order-only field must be edited ON an order page. Deriving this from
+    // pageTypes instead of an id allowlist fixes 37 contracts that pointed at
+    // the "About" content page, where their editor has never rendered.
+    const orderOnly =
+      pageTypes !== ALL_PAGES &&
+      pageTypes.length === 1 &&
+      pageTypes[0] === "order";
+    const orderPage = order || categoryBar || orderOnly;
     const pageCtaState = id.startsWith(
       "page.appearance_overrides.navbar_cta.",
     );
@@ -441,6 +453,13 @@ function editorFor(
       publicSlug: orderPage ? "brunch-order" : catering ? "office-catering" :
         defaultPage ? "dinner-order" :
         id === "page.slug" ? String(FIELD_TEST_VALUES[id]) : "about",
+      // The checkout text colours only render on the order page's checkout
+      // surface, so a driver must switch surface before locating them.
+      surface: id.startsWith(
+        "page.appearance_overrides.checkout_text_colors.",
+      )
+        ? "checkout"
+        : "page",
       commit: "change",
       prerequisite: pageCtaState
         ? { id: "page.appearance_overrides.navbar_cta", value: true }
