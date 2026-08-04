@@ -86,6 +86,11 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   const [saved, setSaved] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Per order type, because each tab saves on its own. The page footer's
+  // "Save changes" button saves restaurant settings and never PUTs a flow, so
+  // without this marker an edited-but-unsaved flow looks saved after pressing it.
+  const [dirtyTypes, setDirtyTypes] = useState<Record<string, boolean>>({});
+  const dirty = !!dirtyTypes[activeType];
 
   useEffect(() => {
     getOrderWorkflows(rid)
@@ -106,6 +111,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   const stages = byType[activeType] ?? [];
   const setStages = (next: WorkflowStage[]) => {
     setByType((w) => ({ ...w, [activeType]: next }));
+    setDirtyTypes((d) => ({ ...d, [activeType]: true }));
     setSaved(false);
   };
   const patchStage = (i: number, patch: Partial<WorkflowStage>) =>
@@ -143,6 +149,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       const wf = await updateOrderWorkflow(rid, activeType, stages);
       setByType((w) => ({ ...w, [activeType]: wf.stages }));
       setTemplateSource((s) => ({ ...s, [activeType]: wf.template_source }));
+      setDirtyTypes((d) => ({ ...d, [activeType]: false }));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
@@ -167,6 +174,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       setTemplateSource((s) => ({ ...s, [activeType]: wf.template_source }));
       setOpenIndex(null);
       setEditConn(null);
+      setDirtyTypes((d) => ({ ...d, [activeType]: false }));
       setSaved(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -260,6 +268,16 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
               }}
             >
               {typeLabel(ot)}
+              {/* Each tab saves on its own, so edits left behind in another tab
+                  are never sent. Mark them rather than let them look applied. */}
+              {dirtyTypes[ot] && (
+                <span
+                  aria-label={t('wfUnsavedFlow') || 'Parcours non enregistré'}
+                  title={t('wfUnsavedFlow') || 'Parcours non enregistré'}
+                  className="ms-[var(--s-2)] inline-block w-[6px] h-[6px] rounded-full align-middle"
+                  style={{ background: 'var(--brand-500)' }}
+                />
+              )}
             </button>
           );
         })}
@@ -525,7 +543,16 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
               {resetting ? t('saving') : t('wfReset') || 'Réinitialiser au parcours par défaut'}
             </Button>
           )}
-          {saved && <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>}
+          {saved && (
+            <span className="text-fs-sm text-[var(--success-500)] font-medium">
+              {t('wfFlowSaved') || 'Parcours enregistré'}
+            </span>
+          )}
+          {!saved && dirty && (
+            <span className="text-fs-sm text-[var(--fg-subtle)]">
+              {t('wfUnsavedFlow') || 'Parcours non enregistré'}
+            </span>
+          )}
           {error && <span className="text-fs-sm text-[var(--danger-500)] font-medium">{error}</span>}
         </div>
       )}
