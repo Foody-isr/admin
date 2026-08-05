@@ -3635,6 +3635,39 @@ export async function deleteOrderNote(restaurantId: number, orderId: number, not
   );
 }
 
+// ─── Order audit trail ──────────────────────────────────────────────────────
+// Recorded staff changes to an order, stored in their own table rather than on
+// the order, so they survive it and never ride along on the public order
+// endpoint. Read requires orders.manage: the trail names which staff member made
+// each change. Written by the server; there is no client write path.
+
+export interface AuditEvent {
+  id: number;
+  restaurant_id: number;
+  subject_type: string;
+  subject_id: number;
+  /** e.g. "order.fulfillment.rescheduled". */
+  action: string;
+  field?: string;
+  old_value?: string;
+  new_value?: string;
+  reason_code?: string;
+  reason_note?: string;
+  actor_user_id: number;
+  /** Snapshotted at write time, so it survives a staff rename or removal. */
+  actor_name?: string;
+  actor_role?: string;
+  created_at: string;
+}
+
+export async function getOrderAudit(restaurantId: number, orderId: number): Promise<AuditEvent[]> {
+  const data = await apiFetch<{ events: AuditEvent[] }>(
+    `/api/v1/orders/${orderId}/audit?restaurant_id=${restaurantId}`,
+    restaurantId,
+  );
+  return data.events ?? [];
+}
+
 // overrideOrderPaymentStatus manually corrects an order's payment status
 // (paid ⇄ unpaid ⇄ pending), bypassing the forward-only payment transition rule.
 // Owner/manager only, and only for cash/manual orders (provider-settled orders
@@ -3944,6 +3977,13 @@ export interface FulfillmentUpdateInput {
    *  unchanged; sent → it replaces the fee and the order total is recomputed.
    *  Ignored server-side for pickup (which always has a zero fee). */
   delivery_fee?: number;
+  /** Why the order is being moved to a different collection day. REQUIRED by the
+   *  server whenever `scheduled_for` changes on an already-scheduled order — the
+   *  call is rejected without it. Ignored for address/type/fee-only edits.
+   *  See src/lib/orders/fulfillment-reason.ts for the allowed codes. */
+  reason_code?: string;
+  /** Free text for the move. Mandatory server-side when reason_code is 'other'. */
+  reason_note?: string;
 }
 
 /** Updates an existing order's fulfillment (type, address, schedule). The server
