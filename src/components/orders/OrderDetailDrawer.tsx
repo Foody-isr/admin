@@ -1701,6 +1701,54 @@ type DiscountAuditEntry = {
   at: string;
 };
 
+// common.StatusOverrideEntry / common.PaymentOverrideEntry — the two manual
+// correction trails the server has written into external_metadata for months
+// (status_overrides, payment_status_overrides). Nothing read them back until
+// now, so operators typed a note into OverrideStatusDialog that no one could
+// ever see. Both structs are field-for-field identical server-side.
+//
+// They carry user_id but no name: unlike OrderNote and AuditEvent, the server
+// never snapshotted one. The role is the most we can honestly show.
+type OverrideEntry = {
+  from: string;
+  to: string;
+  note?: string;
+  user_id?: number;
+  role?: string;
+  at: string;
+};
+
+const PAYMENT_STATUS_KEY: Record<string, string> = {
+  paid: 'paid',
+  pending: 'pending',
+  unpaid: 'unpaid',
+  refunded: 'refunded',
+};
+
+function localizePaymentStatus(status: string, t: (k: string) => string): string {
+  const key = PAYMENT_STATUS_KEY[status];
+  if (!key) return status.replace(/_/g, ' ');
+  const value = t(key);
+  return value === key ? status.replace(/_/g, ' ') : value;
+}
+
+// Who made the correction, as precisely as the recorded data allows.
+function overrideActor(entry: OverrideEntry, t: (k: string) => string): string {
+  if (entry.role) {
+    const label = t(`roleName_${entry.role}`);
+    if (label !== `roleName_${entry.role}`) return label;
+    return entry.role;
+  }
+  return t('activityAuditUnknownActor') || 'a staff member';
+}
+
+// readOverrides pulls one of the two correction trails off an order, tolerating
+// the key being absent (most orders) or holding something unexpected.
+function readOverrides(order: Order, key: string): OverrideEntry[] {
+  const raw = (order.external_metadata ?? {})[key];
+  return Array.isArray(raw) ? (raw as OverrideEntry[]) : [];
+}
+
 // Builds the "Discount applied · …" label from whichever detail is available:
 // a coupon code, a percentage/fixed value, or the resolved ₪ amount, plus the
 // staff reason when present.
@@ -1775,6 +1823,25 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
       future: true,
     });
   }
+  // Manual status / payment corrections. Written by the server since long before
+  // the audit table existed, so unlike the entries below these ARE retroactive:
+  // every correction already recorded on this order shows up, with the note the
+  // operator typed at the time.
+  for (const e of readOverrides(order, 'status_overrides')) {
+    const base = (t('activityStatusCorrected') || 'Status corrected from {from} to {to} by {who}')
+      .replace('{from}', localizeStatus(e.from, t))
+      .replace('{to}', localizeStatus(e.to, t))
+      .replace('{who}', overrideActor(e, t));
+    events.push({ at: e.at, label: e.note ? `${base} (${e.note})` : base });
+  }
+  for (const e of readOverrides(order, 'payment_status_overrides')) {
+    const base = (t('activityPaymentCorrected') || 'Payment corrected from {from} to {to} by {who}')
+      .replace('{from}', localizePaymentStatus(e.from, t))
+      .replace('{to}', localizePaymentStatus(e.to, t))
+      .replace('{who}', overrideActor(e, t));
+    events.push({ at: e.at, label: e.note ? `${base} (${e.note})` : base });
+  }
+
   // Recorded staff changes. The label names the person, the move and the reason:
   // an entry that only said "rescheduled" would leave the same question the
   // trail exists to answer.
