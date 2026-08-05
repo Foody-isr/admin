@@ -120,9 +120,9 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
     onClose();
   };
 
-  const handleTakePayment = (method: PaymentMethod) => {
+  const handleTakePayment = (method: PaymentMethod, reference?: string) => {
     if (!order) return Promise.resolve();
-    return updateOrderPaymentStatus(restaurantId, order.id, 'paid', method)
+    return updateOrderPaymentStatus(restaurantId, order.id, 'paid', method, reference)
       .then((updated) => setOrder((prev) => (prev ? { ...prev, ...updated } : prev)))
       .catch(() => refetch());
   };

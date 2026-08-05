@@ -5,11 +5,13 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus, overrideOrderStatus,
-  updateOrderPaymentStatus, overrideOrderPaymentStatus, updateOrderCustomerDetails,
+  updateOrderPaymentStatus, overrideOrderPaymentStatus, correctOrderPaymentMethod,
+  updateOrderCustomerDetails,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   setOrderForceProduction,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
   Order, OrderStatus, PaymentStatus, ListOrdersParams, type DateBasis,
+  type ManualPaymentMethod,
   type OrderCustomerDetailsInput,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
@@ -46,8 +48,10 @@ import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { OverrideStatusDialog } from '@/components/orders/OverrideStatusDialog';
 import { OverridePaymentDialog } from '@/components/orders/OverridePaymentDialog';
+import { CorrectPaymentMethodDialog } from '@/components/orders/CorrectPaymentMethodDialog';
+import { paymentReference, settledPaymentMethod } from '@/lib/orders/payment';
 import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
-import { CashTag } from '@/components/orders/CashTag';
+import { PaymentMethodTag } from '@/components/orders/PaymentMethodTag';
 import {
   DataTable,
   DataTableHead,
@@ -355,6 +359,30 @@ export default function OrdersPage() {
       removeProcessingGuard(id);
     }
   };
+  // Correct HOW a settled order was paid (owner/manager, manual settlements
+  // only). Distinct from the status correction above: nothing about whether the
+  // order is paid changes, only the record of the method, plus an optional
+  // reference for a card charged outside Foody. Server audit-logs it.
+  const handleCorrectPaymentMethod = (orderId: number) => setPaymentMethodOrderId(orderId);
+  const handleCorrectPaymentMethodConfirm = async (
+    method: ManualPaymentMethod,
+    reference: string,
+    note: string,
+  ) => {
+    if (paymentMethodOrderId == null) return;
+    const id = paymentMethodOrderId;
+    setActionLoading(id);
+    addProcessingGuard(id);
+    try {
+      const updated = await correctOrderPaymentMethod(rid, id, method, reference, note);
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    } catch {
+      await fetchOrders();
+    } finally {
+      setActionLoading(null);
+      removeProcessingGuard(id);
+    }
+  };
   // "Ajouter au plan de production" toggle from the order overflow menu. Pins
   // (force=true) or unpins the order onto the production sheet, overriding the
   // scheduled/paid gates. Optimistic; refetches on failure to resync.
@@ -418,10 +446,11 @@ export default function OrdersPage() {
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [overrideOrderId, setOverrideOrderId] = useState<number | null>(null);
   const [paymentOverrideId, setPaymentOverrideId] = useState<number | null>(null);
+  const [paymentMethodOrderId, setPaymentMethodOrderId] = useState<number | null>(null);
   const [editCustomerId, setEditCustomerId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
-  const handleTakePayment = (method: PaymentMethod) => {
+  const handleTakePayment = (method: PaymentMethod, reference?: string) => {
     if (!selectedOrder) return Promise.resolve();
     const orderId = selectedOrder.id;
     setActionLoading(orderId);
@@ -430,7 +459,7 @@ export default function OrdersPage() {
     setOrders((prev) => prev.map((o) =>
       o.id === orderId ? { ...o, payment_status: 'paid' } : o,
     ));
-    return updateOrderPaymentStatus(rid, orderId, 'paid', method)
+    return updateOrderPaymentStatus(rid, orderId, 'paid', method, reference)
       .then((updated) => {
         setOrders((prev) => prev.map((o) =>
           o.id === orderId ? { ...o, ...updated } : o,
@@ -816,7 +845,7 @@ export default function OrdersPage() {
                             return tv === order.payment_status ? order.payment_status : tv;
                           })()}
                         </Badge>
-                        <CashTag paymentMethod={order.payment_method} paymentStatus={order.payment_status} />
+                        <PaymentMethodTag order={order} />
                       </div>
                     </DataTableCell>
                     <DataTableCell align="right" className="font-medium text-fg-primary" mobileLabel={t('total')}>
@@ -871,6 +900,7 @@ export default function OrdersPage() {
         onDelete={() => selectedOrder && handleDelete(selectedOrder.id)}
         onOverride={() => selectedOrder && handleOverride(selectedOrder.id)}
         onCorrectPayment={() => selectedOrder && handleCorrectPayment(selectedOrder.id)}
+        onCorrectPaymentMethod={() => selectedOrder && handleCorrectPaymentMethod(selectedOrder.id)}
         onSendToKitchen={() => selectedOrder && handleSendToKitchen(selectedOrder.id)}
         onMarkReady={() => selectedOrder && handleMarkReady(selectedOrder.id)}
         onMarkServed={() => selectedOrder && handleMarkServed(selectedOrder.id)}
@@ -937,6 +967,21 @@ export default function OrdersPage() {
         onOpenChange={(v) => { if (!v) setPaymentOverrideId(null); }}
         onConfirm={handleCorrectPaymentConfirm}
       />
+
+      {/* Correct HOW a settled order was paid — owner/manager, manual
+          settlements, status untouched */}
+      {(() => {
+        const target = orders.find((o) => o.id === paymentMethodOrderId);
+        return (
+          <CorrectPaymentMethodDialog
+            open={paymentMethodOrderId !== null}
+            currentMethod={target ? settledPaymentMethod(target) : undefined}
+            currentReference={target ? paymentReference(target) : undefined}
+            onOpenChange={(v) => { if (!v) setPaymentMethodOrderId(null); }}
+            onConfirm={handleCorrectPaymentMethodConfirm}
+          />
+        );
+      })()}
 
       {/* Fix a misspelled customer name / delivery address */}
       <EditCustomerDialog

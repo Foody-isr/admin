@@ -9,14 +9,17 @@ import {
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import type { ManualPaymentMethod } from '@/lib/api';
 
-export type PaymentMethod = 'cash' | 'credit_card';
+export type PaymentMethod = ManualPaymentMethod;
 
 interface TakePaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   totalAmount: number;
-  onConfirm: (method: PaymentMethod) => Promise<void> | void;
+  /** reference is the optional trace staff can attach to a card payment taken
+   *  outside Foody (slip number, provider invoice number). Empty for cash. */
+  onConfirm: (method: PaymentMethod, reference?: string) => Promise<void> | void;
   /** Pre-discount reduction (₪). When provided, a read-only line is shown above
    *  the total so cashiers understand why the amount differs from item prices. */
   discountAmount?: number;
@@ -24,7 +27,7 @@ interface TakePaymentDialogProps {
   discountLabel?: string;
 }
 
-type Stage = 'method' | 'cash_input' | 'cash_change';
+type Stage = 'method' | 'cash_input' | 'cash_change' | 'card_input';
 
 export function TakePaymentDialog({
   open, onOpenChange, totalAmount, onConfirm, discountAmount, discountLabel,
@@ -35,6 +38,7 @@ export function TakePaymentDialog({
   const [submitting, setSubmitting] = useState(false);
   const [finalReceived, setFinalReceived] = useState(0);
   const [finalChange, setFinalChange] = useState(0);
+  const [reference, setReference] = useState('');
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -44,6 +48,7 @@ export function TakePaymentDialog({
       setSubmitting(false);
       setFinalReceived(0);
       setFinalChange(0);
+      setReference('');
     }
   }, [open]);
 
@@ -87,10 +92,17 @@ export function TakePaymentDialog({
     setStage('cash_input');
   };
 
-  const handleSelectCard = async () => {
+  // Card gets its own step rather than confirming straight away, so the slip or
+  // provider invoice number can be captured at the one moment staff have it in
+  // hand. Skipping is one click — the reference is optional, not a gate.
+  const handleSelectCard = () => {
+    setStage('card_input');
+  };
+
+  const handleConfirmCard = async () => {
     setSubmitting(true);
     try {
-      await onConfirm('credit_card');
+      await onConfirm('credit_card', reference.trim() || undefined);
       onOpenChange(false);
     } finally {
       setSubmitting(false);
@@ -149,6 +161,16 @@ export function TakePaymentDialog({
               onPickExact={onPickExact}
               onConfirm={handleConfirmCash}
               onCancel={close}
+            />
+          )}
+          {stage === 'card_input' && (
+            <CardReferenceStage
+              total={totalAmount}
+              reference={reference}
+              submitting={submitting}
+              onReferenceChange={setReference}
+              onConfirm={handleConfirmCard}
+              onCancel={() => setStage('method')}
             />
           )}
           {stage === 'cash_change' && (
@@ -291,6 +313,61 @@ function MethodTile({
       {icon}
       <span className="text-fs-md font-semibold">{label}</span>
     </button>
+  );
+}
+
+// ─── Stage 2a: Card reference ──────────────────────────────────────────
+//
+// Foody often does not process the card itself: staff charge it on the
+// provider's own terminal or console and record the result here. Without
+// somewhere to put the slip or invoice number, that settlement leaves no trace
+// on our side and can never be reconciled against the provider's books. The
+// field is optional so a normal collection stays one extra click.
+
+function CardReferenceStage({
+  total, reference, submitting, onReferenceChange, onConfirm, onCancel,
+}: {
+  total: number;
+  reference: string;
+  submitting: boolean;
+  onReferenceChange: (v: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="p-[var(--s-5)]">
+      <h2 className="text-fs-lg font-semibold text-[var(--fg)]">{t('creditCard')}</h2>
+      <p className="text-fs-sm text-[var(--fg-muted)] mt-0.5">{t('paymentReferenceHint')}</p>
+
+      <div
+        className="flex items-center justify-between rounded-r-md px-[var(--s-4)] py-[var(--s-3)] my-[var(--s-4)]"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}
+      >
+        <span className="text-fs-sm text-[var(--fg-muted)]">{t('total')}</span>
+        <span className="font-mono tabular-nums text-fs-lg font-semibold">₪{total.toFixed(2)}</span>
+      </div>
+
+      <label htmlFor="payment-reference" className="block text-fs-sm text-[var(--fg-muted)] mb-[var(--s-2)]">
+        {t('paymentReference')} <span className="text-[var(--fg-subtle)]">({t('optional')})</span>
+      </label>
+      <input
+        id="payment-reference"
+        value={reference}
+        onChange={(e) => onReferenceChange(e.target.value)}
+        autoComplete="off"
+        className="w-full rounded-r-md border border-[var(--line)] bg-[var(--bg)] text-[var(--fg)] text-fs-md px-[var(--s-3)] py-[var(--s-2)] focus:outline-none focus:border-[var(--brand-500)]"
+      />
+
+      <div className="flex items-center gap-[var(--s-3)] mt-[var(--s-5)]">
+        <Button variant="ghost" className="flex-1" onClick={onCancel} disabled={submitting}>
+          {t('back')}
+        </Button>
+        <Button variant="primary" className="flex-1" onClick={onConfirm} disabled={submitting}>
+          <CheckIcon /> {t('confirm')}
+        </Button>
+      </div>
+    </div>
   );
 }
 
