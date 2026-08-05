@@ -51,7 +51,7 @@ import { OverridePaymentDialog } from '@/components/orders/OverridePaymentDialog
 import { CorrectPaymentMethodDialog } from '@/components/orders/CorrectPaymentMethodDialog';
 import { paymentReference, settledPaymentMethod } from '@/lib/orders/payment';
 import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
-import { PaymentMethodTag } from '@/components/orders/PaymentMethodTag';
+import { CashTag } from '@/components/orders/CashTag';
 import {
   DataTable,
   DataTableHead,
@@ -845,7 +845,7 @@ export default function OrdersPage() {
                             return tv === order.payment_status ? order.payment_status : tv;
                           })()}
                         </Badge>
-                        <PaymentMethodTag order={order} />
+                        <CashTag order={order} />
                       </div>
                     </DataTableCell>
                     <DataTableCell align="right" className="font-medium text-fg-primary" mobileLabel={t('total')}>

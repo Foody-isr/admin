@@ -155,8 +155,11 @@ export function CorrectPaymentMethodDialog({
             </div>
 
             <div className="mt-[var(--s-4)]">
+              {/* Labelled as the REASON, not just "Note": next to the invoice
+                  number above, an unqualified "Note" reads like a second place
+                  to put the same thing. */}
               <label htmlFor="correct-payment-method-note" className="block text-fs-sm text-[var(--fg-muted)] mb-[var(--s-2)]">
-                {t('correctStatusNote')}
+                {t('correctPaymentMethodNote')}
               </label>
               <textarea
                 id="correct-payment-method-note"
