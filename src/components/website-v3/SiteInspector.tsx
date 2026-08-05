@@ -67,6 +67,14 @@ export function SiteInspector({
     ? string(config.restaurant_logo_url)
     : restaurantLogoUrl;
   const navbarStyle = normalizeNavbarStyle(config.navbar_style);
+  const shareImageUrl = string(config.share_image_url);
+  const shareImageMode =
+    string(config.share_image_mode) === "cover" ? "cover" : "logo";
+  const shareImageBg =
+    string(config.share_image_bg) === "black" ||
+    string(config.share_image_bg) === "brand"
+      ? string(config.share_image_bg)
+      : "white";
 
   useEffect(() => {
     let active = true;
@@ -359,6 +367,56 @@ export function SiteInspector({
           className={controlClass}
           placeholder="Ou collez l’URL du favicon"
         />
+        <SectionImageUploader
+          restaurantId={restaurantId}
+          currentUrl={shareImageUrl}
+          onUploaded={(url) => onChange(["share_image_url"], url)}
+          onRemove={() => onChange(["share_image_url"], "")}
+          label="Image de partage (WhatsApp, réseaux sociaux)"
+        />
+        <input
+          type="url"
+          value={shareImageUrl}
+          onChange={(event) =>
+            onChange(["share_image_url"], event.target.value)
+          }
+          className={controlClass}
+          placeholder="Ou collez l’URL de l’image de partage"
+        />
+        <InspectorField
+          label="Rendu de l’aperçu"
+          hint={
+            shareImageMode === "cover"
+              ? "L’image remplit le cadre 1200×630, recadrée au centre."
+              : "L’image est centrée sur un fond uni. Sans image de partage, le logo principal est utilisé."
+          }
+        >
+          <select
+            value={shareImageMode}
+            onChange={(event) =>
+              onChange(["share_image_mode"], event.target.value)
+            }
+            className={controlClass}
+          >
+            <option value="logo">Logo centré sur un fond</option>
+            <option value="cover">Image plein cadre</option>
+          </select>
+        </InspectorField>
+        {shareImageMode === "logo" ? (
+          <InspectorField label="Fond de l’aperçu">
+            <select
+              value={shareImageBg}
+              onChange={(event) =>
+                onChange(["share_image_bg"], event.target.value)
+              }
+              className={controlClass}
+            >
+              <option value="white">Blanc</option>
+              <option value="black">Noir</option>
+              <option value="brand">Couleur de marque</option>
+            </select>
+          </InspectorField>
+        ) : null}
       </InspectorGroup>
 
       <InspectorGroup
