@@ -35,6 +35,8 @@ import { cn } from '@/lib/utils';
 import { itemSizeOptions } from '@/lib/item-options';
 import { FulfillmentSection } from './FulfillmentSection';
 import type { FulfillmentValue } from '@/lib/orders/fulfillment';
+import type { FulfillmentChangeReasonCode } from '@/lib/orders/fulfillment-reason';
+import { SerieChangeDialog } from './SerieChangeDialog';
 import { NewOrderItemModal, type NewOrderLine, type ComboSelection, lineUnitPrice } from './NewOrderItemModal';
 import { NewOrderComboModal } from './NewOrderComboModal';
 
@@ -193,6 +195,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   const [editingCombo, setEditingCombo] = useState<{ group: string; combo: MenuItem; initial: ComboSelection[]; key: string } | null>(null);
   const comboEditNonce = useRef(0);
   const [saving, setSaving] = useState(false);
+  const [serieDialogOpen, setSerieDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
@@ -409,6 +412,15 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
 
   const isDirty = linesDirty || fulfillmentDirty || discountDirty;
 
+  // Derived from the order's stored collection day, not from fulfillmentDirty:
+  // an address or fee edit on a scheduled order is dirty but moves nobody.
+  const serieMove = useMemo(() => {
+    const from = order?.scheduled_for?.slice(0, 10);
+    const to = fulfillment.timing === 'scheduled' ? fulfillment.scheduledFor : undefined;
+    if (!from || !to || from === to) return null;
+    return { from, to };
+  }, [order, fulfillment]);
+
   function changeQty(uid: string, delta: number) {
     setLines((prev) =>
       prev.map((l) => (l.uid === uid ? { ...l, quantity: Math.max(1, l.quantity + delta) } : l)),
@@ -519,12 +531,25 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     return matches.length === 1 ? matches[0] : undefined;
   }
 
+  // handleSave is the gate; performSave does the writing. A move to another
+  // collection day is stopped here to collect a reason, because the server now
+  // refuses it without one — and because the picker's adjacent rows make the
+  // move easy to trigger by accident. Every other edit saves straight through.
   async function handleSave() {
     if (!order) return;
     if (remainingCount === 0) {
       setError(t('emptyOrderError') || 'An order must keep at least one item.');
       return;
     }
+    if (serieMove) {
+      setSerieDialogOpen(true);
+      return;
+    }
+    await performSave();
+  }
+
+  async function performSave(reason?: { code: FulfillmentChangeReasonCode; note: string }) {
+    if (!order) return;
     setSaving(true);
     setError(null);
 
@@ -585,6 +610,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
           scheduled_for: fulfillment.timing === 'scheduled' ? fulfillment.scheduledFor : undefined,
           scheduled_pickup_window_start: fulfillment.timing === 'scheduled' ? fulfillment.windowStart : undefined,
           scheduled_pickup_window_end: fulfillment.timing === 'scheduled' ? fulfillment.windowEnd : undefined,
+          ...(reason ? { reason_code: reason.code, reason_note: reason.note } : {}),
           ...(orderType === 'delivery'
             ? {
                 delivery_address: address,
@@ -1100,6 +1126,18 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
         initialSelections={editingCombo?.initial}
         editKey={editingCombo?.key}
       />
+
+      {/* Justification for moving the order to another collection day. Mounted
+          only when such a move is staged, so its date props are never blank. */}
+      {serieMove && (
+        <SerieChangeDialog
+          open={serieDialogOpen}
+          onOpenChange={setSerieDialogOpen}
+          fromDate={serieMove.from}
+          toDate={serieMove.to}
+          onConfirm={(code, note) => performSave({ code, note })}
+        />
+      )}
     </>
   );
 }

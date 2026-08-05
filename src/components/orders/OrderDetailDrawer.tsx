@@ -25,12 +25,13 @@ import {
   buildMailtoUrl,
 } from '@/lib/receipt-share';
 import { cancellationInfo, CANCELLATION_REASON_KEY } from '@/lib/orders/cancellation';
+import { FULFILLMENT_REASON_KEY, type FulfillmentChangeReasonCode } from '@/lib/orders/fulfillment-reason';
 import { CashTag } from '@/components/orders/CashTag';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import {
   initOrderPaymentLink, collectOrderBalance, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
-  getOrderNotes, addOrderNote, deleteOrderNote,
-  type Order, type OrderItem, type OrderNote, type CheckoutConfig, type CheckoutFieldConfig,
+  getOrderNotes, addOrderNote, deleteOrderNote, getOrderAudit,
+  type Order, type OrderItem, type OrderNote, type AuditEvent, type CheckoutConfig, type CheckoutFieldConfig,
 } from '@/lib/api';
 import { Badge, Button, Drawer, Section, Textarea } from '@/components/ds';
 
@@ -1718,6 +1719,20 @@ function discountAppliedLabel(
 }
 
 function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string }) {
+  // Recorded staff changes live outside the order row, so they need their own
+  // fetch. Self-fetching (like OrderNotesSection) keeps this reachable from all
+  // three drawer hosts without threading props. A 403 — the caller lacks
+  // orders.manage — is not an error worth surfacing here: the timeline simply
+  // shows what the order itself already carries.
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    getOrderAudit(order.restaurant_id, order.id)
+      .then((rows) => { if (!cancelled) setAuditEvents(rows); })
+      .catch(() => { if (!cancelled) setAuditEvents([]); });
+    return () => { cancelled = true; };
+  }, [order.restaurant_id, order.id]);
+
   const events: Array<{ at: string; label: string; future?: boolean }> = [];
   events.push({
     at: order.created_at,
@@ -1760,6 +1775,24 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
       future: true,
     });
   }
+  // Recorded staff changes. The label names the person, the move and the reason:
+  // an entry that only said "rescheduled" would leave the same question the
+  // trail exists to answer.
+  for (const a of auditEvents) {
+    if (a.action !== 'order.fulfillment.rescheduled') continue;
+    const who = a.actor_name || t('activityAuditUnknownActor') || 'staff';
+    const reasonKey = a.reason_code
+      ? FULFILLMENT_REASON_KEY[a.reason_code as FulfillmentChangeReasonCode]
+      : undefined;
+    const reason = reasonKey ? t(reasonKey) : '';
+    const base = (t('activitySerieMoved') || 'Série moved from {from} to {to} by {who}')
+      .replace('{from}', formatScheduledFor(a.old_value ?? ''))
+      .replace('{to}', formatScheduledFor(a.new_value ?? ''))
+      .replace('{who}', who);
+    const detail = [reason, a.reason_note].filter(Boolean).join(' · ');
+    events.push({ at: a.created_at, label: detail ? `${base} (${detail})` : base });
+  }
+
   if (order.accepted_at) {
     events.push({ at: order.accepted_at, label: t('activityAccepted') || 'Order accepted' });
   }
