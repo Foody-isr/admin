@@ -1000,6 +1000,15 @@ const translations: Record<Locale, Record<string, string>> = {
     activityAuditUnknownActor: 'a staff member',
     cashToCollect: 'Collect in cash',
     paidInCash: 'Paid in cash',
+    cardToCollect: 'Collect by card',
+    paidByCard: 'Paid by card',
+    correctPaymentMethod: 'Correct payment method',
+    correctPaymentMethodPrompt: 'How was this order actually paid?',
+    correctPaymentMethodSilentNote: 'This only fixes the record. No money moves and the customer is not notified.',
+    paymentReference: 'Reference',
+    paymentReferenceHint: 'Card slip or provider invoice number, for a payment taken outside Foody.',
+    activityPaymentMethodCorrected: 'Payment method corrected from {from} to {to} by {who}',
+    activityPaymentReferenceRecorded: 'Payment reference recorded by {who}',
     note: 'Note:',
 
     // ── Order timeline (short labels under each step) ──
@@ -4828,6 +4837,15 @@ const translations: Record<Locale, Record<string, string>> = {
     activityAuditUnknownActor: 'איש צוות',
     cashToCollect: 'לגבות במזומן',
     paidInCash: 'שולם במזומן',
+    cardToCollect: 'לגבות בכרטיס',
+    paidByCard: 'שולם בכרטיס',
+    correctPaymentMethod: 'תיקון אמצעי תשלום',
+    correctPaymentMethodPrompt: 'איך ההזמנה הזו שולמה בפועל?',
+    correctPaymentMethodSilentNote: 'הפעולה מתקנת את הרישום בלבד. לא מועבר כסף והלקוח אינו מקבל הודעה.',
+    paymentReference: 'אסמכתא',
+    paymentReferenceHint: 'מספר שובר או מספר חשבונית מהסולק, עבור תשלום שנגבה מחוץ ל־Foody.',
+    activityPaymentMethodCorrected: 'אמצעי התשלום תוקן מ־{from} ל־{to} על ידי {who}',
+    activityPaymentReferenceRecorded: 'אסמכתת תשלום נרשמה על ידי {who}',
     note: 'הערה:',
 
     // ── Order timeline (short labels under each step) ──
@@ -8622,6 +8640,15 @@ const translations: Record<Locale, Record<string, string>> = {
     activityAuditUnknownActor: 'un membre de l\'équipe',
     cashToCollect: 'À encaisser en espèces',
     paidInCash: 'Payé en espèces',
+    cardToCollect: 'À encaisser par carte',
+    paidByCard: 'Payé par carte',
+    correctPaymentMethod: 'Corriger le mode de paiement',
+    correctPaymentMethodPrompt: 'Comment cette commande a-t-elle réellement été payée ?',
+    correctPaymentMethodSilentNote: 'Cette action corrige uniquement l\'enregistrement. Aucun mouvement d\'argent, et le client n\'est pas notifié.',
+    paymentReference: 'Référence',
+    paymentReferenceHint: 'Numéro de ticket ou de facture du prestataire, pour un paiement encaissé hors de Foody.',
+    activityPaymentMethodCorrected: 'Mode de paiement corrigé de {from} vers {to} par {who}',
+    activityPaymentReferenceRecorded: 'Référence de paiement enregistrée par {who}',
     note: 'Note :',
 
     // ── Order timeline (short labels under each step) ──

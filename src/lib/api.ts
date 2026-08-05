@@ -33,6 +33,12 @@ export type OrderStatus =
   | 'ready_for_pickup' | 'ready_for_delivery' | 'out_for_delivery';
 export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'refunded';
 
+/** Payment methods staff can record by hand. Mirrors the server's
+ *  `manualPaymentMethods` allow-list, which rejects anything else — provider
+ *  names ("payplus", "sumit") are written by the provider callbacks alone, so
+ *  no manual edit can claim a settlement that never happened. */
+export type ManualPaymentMethod = 'cash' | 'credit_card';
+
 export interface User {
   id: number;
   full_name: string;
@@ -3938,6 +3944,29 @@ export async function overrideOrderPaymentStatus(
   return data.order;
 }
 
+// correctOrderPaymentMethod relabels HOW a settled order was paid (cash ⇄ card)
+// and optionally attaches a reference for a charge taken outside Foody (a card
+// slip or provider invoice number). It never moves the payment status and never
+// moves money. Owner/manager only; provider-settled orders are rejected
+// server-side and must go through a refund. Audit-logged.
+export async function correctOrderPaymentMethod(
+  restaurantId: number,
+  orderId: number,
+  paymentMethod: ManualPaymentMethod,
+  reference = '',
+  note = '',
+): Promise<Order> {
+  const data = await apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/payment-method?restaurant_id=${restaurantId}`,
+    restaurantId,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ payment_method: paymentMethod, reference, note }),
+    },
+  );
+  return data.order;
+}
+
 /** Fields staff can correct on an order's customer, from the order screen. */
 export interface OrderCustomerDetailsInput {
   name: string;
@@ -3999,10 +4028,15 @@ export async function updateOrderPaymentStatus(
   restaurantId: number,
   orderId: number,
   paymentStatus: PaymentStatus,
-  paymentMethod?: string,
+  paymentMethod?: ManualPaymentMethod,
+  /** Optional trace for a payment taken outside Foody (card slip, provider
+   *  invoice number) so the settlement stays reconcilable against the
+   *  provider's own books. */
+  reference?: string,
 ): Promise<Order> {
   const body: Record<string, string> = { payment_status: paymentStatus };
   if (paymentMethod) body.payment_method = paymentMethod;
+  if (reference) body.reference = reference;
   const data = await apiFetch<{ order: Order }>(
     `/api/v1/orders/${orderId}/payment-status?restaurant_id=${restaurantId}`,
     restaurantId,

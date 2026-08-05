@@ -26,7 +26,8 @@ import {
 } from '@/lib/receipt-share';
 import { cancellationInfo, CANCELLATION_REASON_KEY } from '@/lib/orders/cancellation';
 import { FULFILLMENT_REASON_KEY, type FulfillmentChangeReasonCode } from '@/lib/orders/fulfillment-reason';
-import { CashTag } from '@/components/orders/CashTag';
+import { PaymentMethodTag } from '@/components/orders/PaymentMethodTag';
+import { isProviderSettled, localizePaymentMethod, paymentReference } from '@/lib/orders/payment';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import {
   initOrderPaymentLink, collectOrderBalance, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
@@ -261,7 +262,7 @@ function statusIndex(status: string) {
 // ─── Order Detail Drawer — 1060px, matches design-reference/order-details.jsx ────
 
 export function OrderDetailDrawer({
-  order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete, onOverride, onCorrectPayment, onSendToKitchen, onMarkReady, onMarkServed,
+  order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete, onOverride, onCorrectPayment, onCorrectPaymentMethod, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit, onConfirmWeights, onEditCustomer,
   onToggleForceProduction,
@@ -279,6 +280,9 @@ export function OrderDetailDrawer({
   onOverride?: () => void;
   /** Opens the correct-payment dialog (owner/manager, cash/manual orders only). */
   onCorrectPayment?: () => void;
+  /** Opens the correct-payment-METHOD dialog: relabels how a settled order was
+   *  paid (cash ⇄ card) without moving its payment status. */
+  onCorrectPaymentMethod?: () => void;
   onSendToKitchen: () => void;
   onMarkReady: () => void;
   onMarkServed: () => void;
@@ -511,14 +515,14 @@ export function OrderDetailDrawer({
   // moved real money and must be refunded, never data-corrected. Mirrors the
   // server guard; the server rejects anyway, this just hides an option that
   // would always fail. Owner/manager only (gated by canOverride).
-  const isProviderSettled =
-    (order.hold_amount ?? 0) > 0 ||
-    (order.captured_amount ?? 0) > 0 ||
-    !!order.settlement_status ||
-    ['payplus', 'sumit'].includes(
-      String(order.external_metadata?.payment_method ?? '').toLowerCase(),
-    );
-  const canCorrectPayment = !!canOverride && !isCancelled && !isProviderSettled;
+  const providerSettled = isProviderSettled(order);
+  const canCorrectPayment = !!canOverride && !isCancelled && !providerSettled;
+  // Relabelling HOW a settled order was paid is a separate correction from
+  // moving its status: it is the fix for picking the wrong method at collection,
+  // which previously forced staff to walk the order back to unpaid and re-collect
+  // it. Only meaningful once something has actually been settled.
+  const canCorrectPaymentMethod =
+    !!canOverride && !isCancelled && !providerSettled && order.payment_status === 'paid';
   // "Ajouter au plan de production" override. Any manager can pin an order onto
   // the production sheet; hidden on dead (rejected/cancelled) orders since the
   // sheet excludes them regardless. Reversible — the label flips to "Retirer".
@@ -647,16 +651,18 @@ export function OrderDetailDrawer({
                 <CheckCircle2Icon /> {t('closeOrder')}
               </Button>
             )}
-            {canManage && (canCorrectStatus || canCorrectPayment || canForceProduction || canCancelOrder || (canDelete && !!onDelete)) && (
+            {canManage && (canCorrectStatus || canCorrectPayment || canCorrectPaymentMethod || canForceProduction || canCancelOrder || (canDelete && !!onDelete)) && (
               <OrderOverflowMenu
                 canCorrect={canCorrectStatus && !!onOverride}
                 canCorrectPayment={canCorrectPayment && !!onCorrectPayment}
+                canCorrectPaymentMethod={canCorrectPaymentMethod && !!onCorrectPaymentMethod}
                 canForceProduction={canForceProduction}
                 forceProductionActive={!!order.force_production}
                 canCancel={canCancelOrder}
                 canDelete={!!(canDelete && onDelete)}
                 onCorrect={onOverride}
                 onCorrectPayment={onCorrectPayment}
+                onCorrectPaymentMethod={onCorrectPaymentMethod}
                 onToggleForceProduction={onToggleForceProduction}
                 onCancel={onReject}
                 onDelete={onDelete}
@@ -1001,12 +1007,19 @@ export function OrderDetailDrawer({
                     return tv === order.payment_status ? order.payment_status : tv;
                   })()}
                 </Badge>
-                <CashTag
-                  paymentMethod={order.payment_method}
-                  paymentStatus={order.payment_status}
-                  variant="full"
-                />
+                <PaymentMethodTag order={order} variant="full" />
               </div>
+
+              {/* Reference for a payment taken outside Foody (card slip, provider
+                  invoice number). Shown as recorded, verbatim: it is the only
+                  handle staff have to reconcile the order against the
+                  provider's own books. */}
+              {paymentReference(order) && (
+                <div className="flex items-center justify-between gap-2 mt-[var(--s-2)] text-fs-xs">
+                  <span className="text-[var(--fg-subtle)]">{t('paymentReference')}</span>
+                  <span className="font-mono truncate">{paymentReference(order)}</span>
+                </div>
+              )}
 
               {/* Stock oversell warning — a late payment revived this order after
                   its predefined stock was already taken, or a staff edit drew past
@@ -1779,6 +1792,22 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
   // an entry that only said "rescheduled" would leave the same question the
   // trail exists to answer.
   for (const a of auditEvents) {
+    if (a.action === 'order.payment.method_corrected') {
+      const who = a.actor_name || t('activityAuditUnknownActor') || 'staff';
+      // Two shapes share this action: the method moving, and a reference being
+      // attached. Label them apart — "payment corrected" on a row that only
+      // recorded a slip number would misdescribe what happened.
+      const base =
+        a.field === 'payment_reference'
+          ? (t('activityPaymentReferenceRecorded') || 'Payment reference recorded by {who}')
+              .replace('{who}', who)
+          : (t('activityPaymentMethodCorrected') || 'Payment method corrected from {from} to {to} by {who}')
+              .replace('{from}', localizePaymentMethod(a.old_value ?? '', t))
+              .replace('{to}', localizePaymentMethod(a.new_value ?? '', t))
+              .replace('{who}', who);
+      events.push({ at: a.created_at, label: a.reason_note ? `${base} (${a.reason_note})` : base });
+      continue;
+    }
     if (a.action !== 'order.fulfillment.rescheduled') continue;
     const who = a.actor_name || t('activityAuditUnknownActor') || 'staff';
     const reasonKey = a.reason_code
@@ -2027,17 +2056,20 @@ function SendToCustomerMenu({
 // footer); both items are danger-colored.
 
 function OrderOverflowMenu({
-  canCorrect, canCorrectPayment, canForceProduction, forceProductionActive,
-  canCancel, canDelete, onCorrect, onCorrectPayment, onToggleForceProduction, onCancel, onDelete, disabled,
+  canCorrect, canCorrectPayment, canCorrectPaymentMethod, canForceProduction, forceProductionActive,
+  canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
+  onToggleForceProduction, onCancel, onDelete, disabled,
 }: {
   canCorrect?: boolean;
   canCorrectPayment?: boolean;
+  canCorrectPaymentMethod?: boolean;
   canForceProduction?: boolean;
   forceProductionActive?: boolean;
   canCancel: boolean;
   canDelete: boolean;
   onCorrect?: () => void;
   onCorrectPayment?: () => void;
+  onCorrectPaymentMethod?: () => void;
   onToggleForceProduction?: () => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -2093,6 +2125,15 @@ function OrderOverflowMenu({
               <BanknoteIcon className="size-4" /> {t('correctPayment') || 'Corriger le paiement'}
             </button>
           )}
+          {canCorrectPaymentMethod && onCorrectPaymentMethod && (
+            <button
+              onClick={() => { setOpen(false); onCorrectPaymentMethod(); }}
+              className={itemClass}
+              style={{ color: 'var(--fg)' }}
+            >
+              <CreditCardIcon className="size-4" /> {t('correctPaymentMethod')}
+            </button>
+          )}
           {canForceProduction && onToggleForceProduction && (
             <button
               onClick={() => { setOpen(false); onToggleForceProduction(); }}
@@ -2105,7 +2146,7 @@ function OrderOverflowMenu({
                 : (t('addToProduction') || 'Ajouter au plan de production')}
             </button>
           )}
-          {((canCorrect && onCorrect) || (canCorrectPayment && onCorrectPayment) || (canForceProduction && onToggleForceProduction)) && (canCancel || canDelete) && (
+          {((canCorrect && onCorrect) || (canCorrectPayment && onCorrectPayment) || (canCorrectPaymentMethod && onCorrectPaymentMethod) || (canForceProduction && onToggleForceProduction)) && (canCancel || canDelete) && (
             <div className="my-1 h-px" style={{ background: 'var(--divider)' }} />
           )}
           {canCancel && (
