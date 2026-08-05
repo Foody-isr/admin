@@ -26,7 +26,7 @@ import {
 } from '@/lib/receipt-share';
 import { cancellationInfo, CANCELLATION_REASON_KEY } from '@/lib/orders/cancellation';
 import { FULFILLMENT_REASON_KEY, type FulfillmentChangeReasonCode } from '@/lib/orders/fulfillment-reason';
-import { PaymentMethodTag } from '@/components/orders/PaymentMethodTag';
+import { CashTag } from '@/components/orders/CashTag';
 import { isProviderSettled, localizePaymentMethod, paymentReference } from '@/lib/orders/payment';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import {
@@ -1007,7 +1007,7 @@ export function OrderDetailDrawer({
                     return tv === order.payment_status ? order.payment_status : tv;
                   })()}
                 </Badge>
-                <PaymentMethodTag order={order} variant="full" />
+                <CashTag order={order} variant="full" />
               </div>
 
               {/* Reference for a payment taken outside Foody (card slip, provider
