@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 /**
  * SelectionOverlay — direct-selection layer drawn ABOVE the live preview
  * iframe. Receives section bounds from the iframe via postMessage and
- * renders hover/selection outlines + a floating toolbar.
+ * renders selection outlines + a floating toolbar for the selected section.
  *
- * The overlay div is `pointer-events: none` by default; only the toolbar
- * buttons capture events. Clicks on the body of a section pass through to
- * the iframe (where SectionRenderer's wrapper handles them and emits
- * `foody-section-click`).
+ * CRITICAL: the outline boxes are `pointer-events: none` so wheel and click
+ * pass THROUGH to the cross-origin iframe. The iframe scrolls natively (and
+ * reports its scrollY so the outlines follow), and its in-preview section
+ * wrappers emit `foody-section-click` to drive selection (see foodyweb
+ * PreviewSectionWrapper). If these boxes captured pointer events they would eat
+ * the wheel — the preview could not be scrolled, and the stray scroll would
+ * bubble out and move the whole editor. Only the floating toolbar captures
+ * events.
  */
 
 export type SectionBounds = {
@@ -35,8 +37,8 @@ type Props = {
   /** Scroll offset published by the iframe (so we can compensate when the
    *  iframe content scrolls). */
   iframeScrollY: number;
-  /** Section action handlers — wired by the editor page. */
-  onSelect: (id: number | string) => void;
+  /** Section action handlers — wired by the editor page. Selection itself is
+   *  driven by the iframe's own click (foody-section-click), not the overlay. */
   onMoveUp: (id: number | string) => void;
   onMoveDown: (id: number | string) => void;
   onToggleVisibility: (id: number | string) => void;
@@ -51,20 +53,12 @@ export function SelectionOverlay({
   selectedId,
   bounds,
   iframeScrollY,
-  onSelect,
   onMoveUp,
   onMoveDown,
   onToggleVisibility,
   onDelete,
   isDeletable,
 }: Props) {
-  const [hoveredId, setHoveredId] = useState<number | string | null>(null);
-
-  // Clear hover when bounds change (sections re-flow) — prevents stale highlights.
-  useEffect(() => {
-    setHoveredId(null);
-  }, [bounds.length]);
-
   if (!iframeRect) return null;
 
   // Translate iframe-document coordinates into viewport (overlay) coordinates.
@@ -89,33 +83,27 @@ export function SelectionOverlay({
       {bounds.map((b) => {
         const vp = toViewport(b);
         const isSelected = selectedId === b.id;
-        const isHovered = hoveredId === b.id && !isSelected;
-        // Three visual states — ALL sections show a subtle outline by default
-        // so the user can tell the preview is interactive without hovering.
+        // ALL sections show a subtle outline by default so the user can tell the
+        // preview is interactive; the selected one is solid. These boxes are
+        // pointer-events:none (see file header) — selection comes from the
+        // iframe's click, not from here.
         const border = isSelected
           ? "2px solid #EB5204"
-          : isHovered
-          ? "2px dashed #EB5204"
           : "1px dashed rgba(235, 82, 4, 0.45)";
         return (
           <div
             key={b.id}
-            onMouseEnter={() => setHoveredId(b.id)}
-            onMouseLeave={() => setHoveredId((cur) => (cur === b.id ? null : cur))}
-            onClick={() => onSelect(b.id)}
             style={{
               position: "absolute",
               top: vp.top,
               left: vp.left,
               width: vp.width,
               height: vp.height,
-              pointerEvents: "auto",
-              cursor: "pointer",
+              pointerEvents: "none",
               border,
               borderRadius: 4,
               boxSizing: "border-box",
-              background: isHovered && !isSelected ? "rgba(235, 82, 4, 0.04)" : "transparent",
-              transition: "background 120ms ease, border-color 120ms ease",
+              transition: "border-color 120ms ease",
             }}
           >
             {isSelected && (

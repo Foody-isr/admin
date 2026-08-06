@@ -328,6 +328,7 @@ export default function NewOrderPage() {
               delivery_floor: data.floor.trim() || undefined,
               delivery_apt: data.apt.trim() || undefined,
               delivery_notes: data.deliveryNotes.trim() || undefined,
+              delivery_entry_code: data.entryCode.trim() || undefined,
               delivery_fee: data.deliveryFee,
             }
           : {}),

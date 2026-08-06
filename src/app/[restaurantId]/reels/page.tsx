@@ -10,7 +10,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getSocialConnection,
   connectSocial,
   disconnectSocial,
   syncSocial,
@@ -18,11 +17,14 @@ import {
   updateReel,
   reorderReels,
   deleteReel,
-  getWebsiteConfig,
-  updateWebsiteConfig,
   SocialConnection,
   Reel,
 } from '@/lib/api';
+import {
+  isActiveSocialConnection,
+  loadInstagramStoriesSettings,
+  updateInstagramStoriesEnabled,
+} from '@/lib/social-navigation';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, PageHead, Section } from '@/components/ds';
@@ -49,24 +51,6 @@ declare global {
   }
 }
 
-type NavTab = 'menu' | 'stories';
-const NAV_TABS: NavTab[] = ['menu', 'stories'];
-
-/** Normalizes a stored nav_order string into the ordered page-tab keys, filling
- *  in any missing tabs in the default order so none are ever dropped. */
-function parseNavOrder(raw?: string): NavTab[] {
-  const seen = new Set<NavTab>();
-  const out: NavTab[] = [];
-  for (const part of (raw || '').split(',').map((s) => s.trim())) {
-    if ((NAV_TABS as string[]).includes(part) && !seen.has(part as NavTab)) {
-      out.push(part as NavTab);
-      seen.add(part as NavTab);
-    }
-  }
-  for (const k of NAV_TABS) if (!seen.has(k)) out.push(k);
-  return out;
-}
-
 /** Pulls the short-lived user access token from the FB.login callback payload. */
 function extractAccessToken(response: unknown): string | null {
   if (response && typeof response === 'object') {
@@ -90,7 +74,6 @@ export default function ReelsPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [storiesEnabled, setStoriesEnabled] = useState(false);
-  const [navOrder, setNavOrder] = useState<NavTab[]>(['menu', 'stories']);
 
   // Load the Facebook SDK once (shared pattern with the WhatsApp page).
   useEffect(() => {
@@ -109,12 +92,11 @@ export default function ReelsPage() {
   const refresh = useCallback(() => {
     if (!Number.isFinite(rid)) return;
     setLoading(true);
-    Promise.all([getSocialConnection(rid, 'instagram'), listReels(rid), getWebsiteConfig(rid)])
-      .then(([c, r, cfg]) => {
-        setConn(c);
+    Promise.all([loadInstagramStoriesSettings(rid), listReels(rid)])
+      .then(([settings, r]) => {
+        setConn(settings.connection);
         setReels(r);
-        setStoriesEnabled(!!cfg.stories_enabled);
-        setNavOrder(parseNavOrder(cfg.nav_order));
+        setStoriesEnabled(settings.storiesEnabled);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
@@ -123,24 +105,9 @@ export default function ReelsPage() {
   const toggleStories = async (next: boolean) => {
     setStoriesEnabled(next); // optimistic
     try {
-      await updateWebsiteConfig(rid, { stories_enabled: next });
+      setStoriesEnabled(await updateInstagramStoriesEnabled(rid, next));
     } catch (e: unknown) {
       setStoriesEnabled(!next); // rollback
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
-  const moveNav = async (index: number, dir: -1 | 1) => {
-    const target = index + dir;
-    if (target < 0 || target >= navOrder.length) return;
-    const prev = navOrder;
-    const next = [...navOrder];
-    [next[index], next[target]] = [next[target], next[index]];
-    setNavOrder(next); // optimistic
-    try {
-      await updateWebsiteConfig(rid, { nav_order: next.join(',') });
-    } catch (e: unknown) {
-      setNavOrder(prev); // rollback
       setError(e instanceof Error ? e.message : String(e));
     }
   };
@@ -240,7 +207,7 @@ export default function ReelsPage() {
       if (storiesEnabled) {
         setStoriesEnabled(false);
         try {
-          await updateWebsiteConfig(rid, { stories_enabled: false });
+          await updateInstagramStoriesEnabled(rid, false);
         } catch {
           /* non-fatal */
         }
@@ -291,7 +258,7 @@ export default function ReelsPage() {
   const serverReady = conn?.server_configured !== false && !!META_APP_ID && !!IG_CONFIG_ID;
   // Stories can only be shown once Instagram is connected — otherwise the
   // customer tab would lead to an empty page. The toggle is locked until then.
-  const connected = conn?.connected === true;
+  const connected = isActiveSocialConnection(conn);
 
   return (
     <div>
@@ -329,60 +296,10 @@ export default function ReelsPage() {
         </div>
       </Section>
 
-      {storiesEnabled && (
-        <Section title={t('reelsNavTitle')}>
-          <p className="mb-3 text-fs-sm opacity-70">{t('reelsNavDesc')}</p>
-          <ul className="flex flex-col gap-2">
-            {navOrder.map((key, i) => (
-              <li
-                key={key}
-                className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                style={{ borderColor: 'var(--line)' }}
-              >
-                <span className="flex items-center gap-2 font-medium">
-                  <span className="text-fs-sm opacity-50">{i + 1}.</span>
-                  {key === 'menu' ? t('reelsNavMenu') : t('reelsNavStories')}
-                  {i === 0 && (
-                    <span
-                      className="rounded-full px-2 py-0.5 text-fs-xs"
-                      style={{ background: 'var(--brand-50)', color: 'var(--brand-600)' }}
-                    >
-                      {t('reelsNavDefault')}
-                    </span>
-                  )}
-                </span>
-                <span className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    disabled={!canEdit || i === 0}
-                    onClick={() => moveNav(i, -1)}
-                    aria-label={t('reelsNavUp')}
-                    className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
-                    style={{ borderColor: 'var(--line)' }}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canEdit || i === navOrder.length - 1}
-                    onClick={() => moveNav(i, 1)}
-                    aria-label={t('reelsNavDown')}
-                    className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
-                    style={{ borderColor: 'var(--line)' }}
-                  >
-                    ↓
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-
       <Section title={t('reelsConnTitle')}>
         {loading ? (
           <p>{t('reelsLoading')}</p>
-        ) : conn?.connected ? (
+        ) : connected && conn ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="min-w-0">
               <div className="font-medium">@{conn.handle}</div>

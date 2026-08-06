@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Drawer, Field, Input, Textarea } from '@/components/ds';
+import { Chip, Drawer, Field, Input, Textarea } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
-  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon, TagIcon,
+  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon, TagIcon, XIcon,
 } from 'lucide-react';
 import { FulfillmentSection } from './FulfillmentSection';
 import {
@@ -13,9 +13,14 @@ import {
   defaultFulfillment,
   type FulfillmentValue,
 } from '@/lib/orders/fulfillment';
-import { listDiscounts, validateDiscount, checkDeliverable, type Discount, type BatchFulfillmentConfigResponse } from '@/lib/api';
+import {
+  listDiscounts, validateDiscount, checkDeliverable,
+  type Discount, type BatchFulfillmentConfigResponse,
+  type CustomerSearchResult, type CustomerSearchAddress,
+} from '@/lib/api';
 import { reasonKey } from '@/lib/discounts';
 import { usePermissions } from '@/lib/permissions-context';
+import { CustomerPicker } from './CustomerPicker';
 
 export type OrderType = 'pickup' | 'delivery';
 // Payment is captured as two axes: the method (cash / card / payment link) and
@@ -34,6 +39,7 @@ export interface CheckoutData {
   city: string;
   floor: string;
   apt: string;
+  entryCode: string;
   deliveryNotes: string;
   /** Delivery fee in ₪ (0 for pickup). Prefilled from the matched delivery zone,
    *  editable by staff. */
@@ -136,6 +142,15 @@ export function NewOrderCheckoutDrawer({
   const [city, setCity] = useState('');
   const [floor, setFloor] = useState('');
   const [apt, setApt] = useState('');
+  const [entryCode, setEntryCode] = useState('');
+  // Customer linked from the picker. Only used to show the chip and offer
+  // their other addresses; it locks no field.
+  const [linked, setLinked] = useState<CustomerSearchResult | null>(null);
+  // A pick rewrites both the name and the phone field at once, so both
+  // pickers' "don't re-search the value I just wrote" refs have to be armed
+  // together (see CustomerPicker's skipNextSearchRef doc comment).
+  const nameSkipSearchRef = useRef(false);
+  const phoneSkipSearchRef = useRef(false);
   const [deliveryNotes, setDeliveryNotes] = useState('');
   // Delivery fee (₪). Prefilled from the matched zone via checkDeliverable, but
   // fully editable — once staff type a value, `feeTouched` stops the auto-prefill
@@ -183,6 +198,8 @@ export function NewOrderCheckoutDrawer({
       setAppliedManual(null);
       setDeliveryFee('');
       setFeeTouched(false);
+      setEntryCode('');
+      setLinked(null);
       return;
     }
     if (didInitFulfillment.current) return;
@@ -311,6 +328,30 @@ export function NewOrderCheckoutDrawer({
     { key: 'link', icon: <LinkIcon />, label: t('payMethodLink') },
   ];
 
+  // Fill the sheet from an existing customer. The most recent address is
+  // prefilled; the others stay reachable under the Address field. Arms both
+  // pickers' skip-ref before writing either field, so neither one mistakes
+  // this fill for a fresh search.
+  const applyCustomer = (customer: CustomerSearchResult) => {
+    nameSkipSearchRef.current = true;
+    phoneSkipSearchRef.current = true;
+    setLinked(customer);
+    setCustomerName(customer.name);
+    setCustomerPhone(customer.phone);
+    if (customer.addresses.length > 0) applyAddress(customer.addresses[0]);
+  };
+
+  const applyAddress = (a: CustomerSearchAddress) => {
+    setAddress(a.address);
+    setCity(a.city);
+    setFloor(a.floor);
+    setApt(a.apt);
+    setEntryCode(a.entry_code);
+    setDeliveryNotes(a.delivery_notes);
+    // The new address's fee must be recomputed, not inherited.
+    setFeeTouched(false);
+  };
+
   return (
     <Drawer
       open={open}
@@ -320,7 +361,7 @@ export function NewOrderCheckoutDrawer({
       width={480}
       onSave={() =>
         onConfirm({
-          customerName, customerPhone, orderType, address, city, floor, apt,
+          customerName, customerPhone, orderType, address, city, floor, apt, entryCode,
           deliveryNotes, deliveryFee: feeValue, paymentMethod: payMethod, paymentCollected: collected,
           fulfillment, addToProduction,
           ...(appliedCoupon ? { discountCode: appliedCoupon.code } : {}),
@@ -354,17 +395,64 @@ export function NewOrderCheckoutDrawer({
         {/* Customer */}
         <div className="flex flex-col gap-[var(--s-3)]">
           <Field label={t('customerName')}>
-            <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder={t('customerNamePlaceholder')} autoFocus />
+            <CustomerPicker
+              restaurantId={restaurantId}
+              field="name"
+              value={customerName}
+              onChange={(v) => { setCustomerName(v); setLinked(null); }}
+              onPick={applyCustomer}
+              placeholder={t('customerNamePlaceholder')}
+              autoFocus
+              skipNextSearchRef={nameSkipSearchRef}
+            />
           </Field>
           <Field label={t('customerPhone')}>
-            <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="05X-XXXXXXX" inputMode="tel" />
+            <CustomerPicker
+              restaurantId={restaurantId}
+              field="phone"
+              value={customerPhone}
+              onChange={(v) => { setCustomerPhone(v); setLinked(null); }}
+              onPick={applyCustomer}
+              placeholder="05X-XXXXXXX"
+              skipNextSearchRef={phoneSkipSearchRef}
+            />
           </Field>
+          {linked && (
+            // The whole chip unlinks on click (its trailing × is decorative,
+            // not a nested button) — a single interactive element stays valid
+            // HTML and mirrors correctly in RTL for free.
+            <Chip
+              onClick={() => setLinked(null)}
+              trailing={<XIcon className="size-3.5" aria-hidden="true" />}
+              aria-label={`${t('customerPickerLinked')} · ${t('customerPickerOrders').replace('{n}', String(linked.order_count))}. ${t('close')}`}
+              className="self-start"
+            >
+              {t('customerPickerLinked')} · {t('customerPickerOrders').replace('{n}', String(linked.order_count))}
+            </Chip>
+          )}
 
           {orderType === 'delivery' && (
             <>
               <Field label={t('deliveryAddress')}>
                 <Input value={address} onChange={(e) => setAddress(e.target.value)} />
               </Field>
+
+              {linked && linked.addresses.length > 1 && (
+                <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+                  <span className="text-fs-sm text-[var(--fg-muted)]">
+                    {t('customerPickerKnownAddresses').replace('{n}', String(linked.addresses.length))}
+                  </span>
+                  {linked.addresses.map((a) => (
+                    <Chip
+                      key={`${a.address}|${a.city}|${a.floor}|${a.apt}`}
+                      onClick={() => applyAddress(a)}
+                    >
+                      {[a.address, a.city].filter(Boolean).join(', ')}
+                    </Chip>
+                  ))}
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-2">
                 <Field label={t('city')} className="col-span-1">
                   <Input value={city} onChange={(e) => setCity(e.target.value)} />
@@ -376,6 +464,9 @@ export function NewOrderCheckoutDrawer({
                   <Input value={apt} onChange={(e) => setApt(e.target.value)} />
                 </Field>
               </div>
+              <Field label={t('buildingCode')}>
+                <Input value={entryCode} onChange={(e) => setEntryCode(e.target.value)} />
+              </Field>
               <Field label={t('deliveryNotes')}>
                 <Textarea value={deliveryNotes} onChange={(e) => setDeliveryNotes(e.target.value)} />
               </Field>
