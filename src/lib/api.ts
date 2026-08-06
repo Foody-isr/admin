@@ -1300,6 +1300,8 @@ export interface CustomerInsight {
   floor?: string;
   apt?: string;
   entry_code?: string;
+  /** Tous les numéros du client, principal en tête. Un seul si non fusionné. */
+  phones?: string[];
 }
 
 export interface CustomerListResult {
@@ -6174,6 +6176,98 @@ export async function updateCustomerProfile(
     { method: 'PUT', body: JSON.stringify(input) }
   );
   return data.profile;
+}
+
+// ─── Recherche et fusion de clients ──────────────────────────────────────────
+
+/** Une adresse de livraison connue du client, prête à remplir le formulaire. */
+export interface CustomerSearchAddress {
+  address: string;
+  city: string;
+  floor: string;
+  apt: string;
+  entry_code: string;
+  delivery_notes: string;
+  last_used: string;
+}
+
+/** Un client trouvé par le sélecteur, avec tout ce qu'il faut pour remplir la
+ *  fiche en un seul aller-retour. */
+export interface CustomerSearchResult {
+  name: string;
+  phone: string;
+  phones: string[];
+  order_count: number;
+  last_order_at: string;
+  addresses: CustomerSearchAddress[];
+}
+
+export async function searchCustomers(
+  restaurantId: number,
+  q: string,
+  limit = 8
+): Promise<CustomerSearchResult[]> {
+  const query = new URLSearchParams({ q, limit: String(limit), restaurant_id: String(restaurantId) });
+  const data = await apiFetch<{ customers: CustomerSearchResult[] }>(
+    `/api/v1/restaurants/${restaurantId}/customers/search?${query}`,
+    restaurantId
+  );
+  return data.customers ?? [];
+}
+
+/** Une fiche d'un groupe de doublons suspects. */
+export interface DuplicateCandidate {
+  name: string;
+  phone: string;
+  order_count: number;
+  total_spent: number;
+  last_order_at: string;
+}
+
+/** Deux fiches ou plus qui désignent probablement la même personne. */
+export interface DuplicateGroup {
+  reason: 'same_name' | 'same_address';
+  value: string;
+  customers: DuplicateCandidate[];
+}
+
+export async function getCustomerDuplicates(restaurantId: number): Promise<DuplicateGroup[]> {
+  const data = await apiFetch<{ groups: DuplicateGroup[] }>(
+    `/api/v1/restaurants/${restaurantId}/customers/duplicates`,
+    restaurantId
+  );
+  return data.groups ?? [];
+}
+
+export async function mergeCustomers(
+  restaurantId: number,
+  primaryPhone: string,
+  aliasPhones: string[]
+): Promise<void> {
+  await apiFetch<void>(`/api/v1/restaurants/${restaurantId}/customers/merge`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({ primary_phone: primaryPhone, alias_phones: aliasPhones }),
+  });
+}
+
+export async function unmergeCustomer(restaurantId: number, phone: string): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/customers/merge/${encodeURIComponent(phone)}`,
+    restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function dismissCustomerDuplicate(
+  restaurantId: number,
+  phoneA: string,
+  phoneB: string
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/customers/duplicates/dismiss`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify({ phone_a: phoneA, phone_b: phoneB }) }
+  );
 }
 
 // ─── RBAC: Roles & Permissions ────────────────────────────────────────────────
