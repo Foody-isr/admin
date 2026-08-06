@@ -1177,6 +1177,13 @@ const translations: Record<Locale, Record<string, string>> = {
     adding: 'Adding...',
     removeCustomerConfirm: 'Remove {name} from trusted customers?',
     failedToAddCustomer: 'Failed to add customer',
+    mergeCustomers: 'Merge customers',
+    mergeCustomersSelected: 'Merge ({n})',
+    mergeCustomersPrimary: 'Main number',
+    mergeCustomersSummary: '{orders} orders from {n} records will be grouped',
+    mergeCustomersConfirm: 'Merge',
+    mergeCustomersNumbers: '{n} numbers',
+    detachNumber: 'Detach',
 
     // ── Settings ──
     restaurantInfo: 'Restaurant Info',
@@ -5019,6 +5026,13 @@ const translations: Record<Locale, Record<string, string>> = {
     adding: 'מוסיף...',
     removeCustomerConfirm: 'להסיר את {name} מהלקוחות המהימנים?',
     failedToAddCustomer: 'הוספת הלקוח נכשלה',
+    mergeCustomers: 'מיזוג לקוחות',
+    mergeCustomersSelected: 'מיזוג ({n})',
+    mergeCustomersPrimary: 'מספר ראשי',
+    mergeCustomersSummary: '{orders} הזמנות מתוך {n} רשומות יקובצו',
+    mergeCustomersConfirm: 'מיזוג',
+    mergeCustomersNumbers: '{n} מספרים',
+    detachNumber: 'ניתוק',
 
     // ── Settings ──
     restaurantInfo: 'פרטי מסעדה',
@@ -8827,6 +8841,13 @@ const translations: Record<Locale, Record<string, string>> = {
     adding: 'Ajout...',
     removeCustomerConfirm: 'Retirer {name} des clients de confiance ?',
     failedToAddCustomer: "Échec de l'ajout du client",
+    mergeCustomers: 'Fusionner les clients',
+    mergeCustomersSelected: 'Fusionner ({n})',
+    mergeCustomersPrimary: 'Numéro principal',
+    mergeCustomersSummary: '{orders} commandes issues de {n} fiches seront regroupées',
+    mergeCustomersConfirm: 'Fusionner',
+    mergeCustomersNumbers: '{n} numéros',
+    detachNumber: 'Détacher',
 
     // ── Settings ──
     restaurantInfo: 'Infos restaurant',
