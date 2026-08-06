@@ -118,6 +118,11 @@ export function CustomerPicker({
     }
   };
 
+  // Distinct per field so the name and phone pickers, mounted side by side,
+  // never collide on the same option ids.
+  const listboxId = `customer-picker-${field}-listbox`;
+  const optionId = (i: number) => `customer-picker-${field}-option-${i}`;
+
   return (
     <div className="relative" ref={boxRef}>
       <Input
@@ -131,10 +136,16 @@ export function CustomerPicker({
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
+        aria-controls={listboxId}
+        aria-activedescendant={open && results.length > 0 ? optionId(highlight) : undefined}
       />
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-[var(--line)] bg-[var(--bg)] shadow-3">
+        <div
+          id={listboxId}
+          role="listbox"
+          className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-r-md border border-[var(--line)] bg-[var(--bg)] shadow-3"
+        >
           {loading && results.length === 0 && (
             <div className="px-[var(--s-3)] py-[var(--s-2)] text-fs-sm text-[var(--fg-muted)]">
               {t('customerPickerSearching')}
@@ -148,6 +159,9 @@ export function CustomerPicker({
           {results.map((customer, i) => (
             <button
               key={customer.phone}
+              id={optionId(i)}
+              role="option"
+              aria-selected={i === highlight}
               type="button"
               onMouseEnter={() => setHighlight(i)}
               onClick={() => pick(customer)}

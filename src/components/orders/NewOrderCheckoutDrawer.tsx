@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Drawer, Field, Input, Textarea } from '@/components/ds';
+import { Chip, Drawer, Field, Input, Textarea } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
-  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon, TagIcon,
+  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon, TagIcon, XIcon,
 } from 'lucide-react';
 import { FulfillmentSection } from './FulfillmentSection';
 import {
@@ -418,12 +418,17 @@ export function NewOrderCheckoutDrawer({
             />
           </Field>
           {linked && (
-            <div className="flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)]">
-              <span className="rounded-full border border-[var(--line)] px-[var(--s-3)] py-[var(--s-1)]">
-                {t('customerPickerLinked')} · {t('customerPickerOrders').replace('{n}', String(linked.order_count))}
-              </span>
-              <button type="button" onClick={() => setLinked(null)} aria-label={t('close')}>×</button>
-            </div>
+            // The whole chip unlinks on click (its trailing × is decorative,
+            // not a nested button) — a single interactive element stays valid
+            // HTML and mirrors correctly in RTL for free.
+            <Chip
+              onClick={() => setLinked(null)}
+              trailing={<XIcon className="size-3.5" aria-hidden="true" />}
+              aria-label={`${t('customerPickerLinked')} · ${t('customerPickerOrders').replace('{n}', String(linked.order_count))}. ${t('close')}`}
+              className="self-start"
+            >
+              {t('customerPickerLinked')} · {t('customerPickerOrders').replace('{n}', String(linked.order_count))}
+            </Chip>
           )}
 
           {orderType === 'delivery' && (
@@ -438,14 +443,12 @@ export function NewOrderCheckoutDrawer({
                     {t('customerPickerKnownAddresses').replace('{n}', String(linked.addresses.length))}
                   </span>
                   {linked.addresses.map((a) => (
-                    <button
+                    <Chip
                       key={`${a.address}|${a.city}|${a.floor}|${a.apt}`}
-                      type="button"
                       onClick={() => applyAddress(a)}
-                      className="rounded-full border border-[var(--line)] px-[var(--s-3)] py-[var(--s-1)] text-fs-sm text-[var(--fg-muted)] hover:bg-[var(--surface)] transition-colors"
                     >
                       {[a.address, a.city].filter(Boolean).join(', ')}
-                    </button>
+                    </Chip>
                   ))}
                 </div>
               )}
