@@ -1184,6 +1184,11 @@ const translations: Record<Locale, Record<string, string>> = {
     mergeCustomersConfirm: 'Merge',
     mergeCustomersNumbers: '{n} numbers',
     detachNumber: 'Detach',
+    duplicatesBanner: '{n} duplicates to review',
+    duplicatesReasonSameName: 'Same name',
+    duplicatesReasonSameAddress: 'Same address',
+    duplicatesDismiss: 'Ignore',
+    duplicatesHide: 'Hide',
 
     // ── Settings ──
     restaurantInfo: 'Restaurant Info',
@@ -5033,6 +5038,11 @@ const translations: Record<Locale, Record<string, string>> = {
     mergeCustomersConfirm: 'מיזוג',
     mergeCustomersNumbers: '{n} מספרים',
     detachNumber: 'ניתוק',
+    duplicatesBanner: '{n} כפילויות לבדיקה',
+    duplicatesReasonSameName: 'אותו שם',
+    duplicatesReasonSameAddress: 'אותה כתובת',
+    duplicatesDismiss: 'התעלם',
+    duplicatesHide: 'הסתר',
 
     // ── Settings ──
     restaurantInfo: 'פרטי מסעדה',
@@ -8848,6 +8858,11 @@ const translations: Record<Locale, Record<string, string>> = {
     mergeCustomersConfirm: 'Fusionner',
     mergeCustomersNumbers: '{n} numéros',
     detachNumber: 'Détacher',
+    duplicatesBanner: '{n} doublons à vérifier',
+    duplicatesReasonSameName: 'Même nom',
+    duplicatesReasonSameAddress: 'Même adresse',
+    duplicatesDismiss: 'Ignorer',
+    duplicatesHide: 'Masquer',
 
     // ── Settings ──
     restaurantInfo: 'Infos restaurant',

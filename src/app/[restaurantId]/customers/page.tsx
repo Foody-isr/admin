@@ -33,6 +33,7 @@ import {
   DataTableSelectCell,
 } from '@/components/data-table';
 import { MergeCustomersModal, MergeRow } from './MergeCustomersModal';
+import { DuplicateSuggestions } from './DuplicateSuggestions';
 
 const PER_PAGE = 25;
 
@@ -332,6 +333,12 @@ export default function CustomersPage() {
           onChange={(e) => setSearchInput(e.target.value)}
         />
       </div>
+
+      {/* Duplicate suggestions — restaurant-wide, independent of the current
+          search/page so it doesn't disappear just because a filter narrowed
+          the table to zero rows. Actions require manage rights, same as the
+          rest of this page's merge/edit affordances. */}
+      {canManage && <DuplicateSuggestions restaurantId={rid} onChanged={reload} />}
 
       {loading ? (
         <div className="flex justify-center py-16">
