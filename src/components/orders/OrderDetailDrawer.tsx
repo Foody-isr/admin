@@ -196,6 +196,20 @@ function formatTime(iso: string): string {
   }
 }
 
+// Day heading for the activity timeline, used only when an order's events span
+// more than one day.
+function formatEventDay(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString([], {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export function localizeOrderType(type: Order['order_type'], t: (k: string) => string): string {
   if (type === 'dine_in') return t('dineIn');
   if (type === 'pickup') return t('pickup');
@@ -1013,8 +1027,13 @@ export function OrderDetailDrawer({
               {/* Reference for a payment taken outside Foody (card slip, provider
                   invoice number). Shown as recorded, verbatim: it is the only
                   handle staff have to reconcile the order against the
-                  provider's own books. */}
-              {paymentReference(order) && (
+                  provider's own books.
+                  Hidden once the provider confirmed it and it became the order's
+                  document_number — the Invoice card below then states it, with a
+                  PDF next to it, and repeating the bare number here would read as
+                  a second, lesser copy. */}
+              {paymentReference(order)
+                && paymentReference(order) !== String(order.external_metadata?.document_number ?? '') && (
                 <div className="flex items-center justify-between gap-2 mt-[var(--s-2)] text-fs-xs">
                   <span className="text-[var(--fg-subtle)]">{t('paymentReference')}</span>
                   <span className="font-mono truncate">{paymentReference(order)}</span>
@@ -1841,12 +1860,39 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
     });
   }
 
+  // Chronological, not construction order. The events above are pushed grouped
+  // by kind (creation, discounts, recorded changes, lifecycle stamps), which is
+  // not the order they happened in: a correction made the next morning was
+  // rendering above the acceptance from the day before. Only the timestamp
+  // orders a timeline.
+  events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+  // The row shows the time alone, which reads as one continuous day. Once an
+  // order spans several (a scheduled order, or one corrected the next morning),
+  // that is actively misleading, so each new day announces itself. A
+  // single-day timeline keeps its clean, unlabelled look.
+  const dayKey = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : d.toDateString();
+  };
+  const spansDays = new Set(events.map((e) => dayKey(e.at))).size > 1;
+
   return (
     <div className="flex flex-col gap-[var(--s-3)] text-fs-xs relative">
       {events.map((e, i) => (
-        <div key={`${e.at}-${i}`} className="flex items-start gap-[var(--s-3)] relative">
-          {/* Connector line */}
-          {i < events.length - 1 && (
+        <Fragment key={`${e.at}-${i}`}>
+        {spansDays && (i === 0 || dayKey(e.at) !== dayKey(events[i - 1].at)) && (
+          <div className="flex items-center gap-[var(--s-2)] pt-[var(--s-1)] first:pt-0">
+            <span className="font-medium uppercase tracking-[.06em] text-[10px] text-[var(--fg-muted)]">
+              {formatEventDay(e.at)}
+            </span>
+            <span className="flex-1 h-px" style={{ background: 'var(--line)' }} />
+          </div>
+        )}
+        <div className="flex items-start gap-[var(--s-3)] relative">
+          {/* Connector line. Suppressed before a day separator, which breaks the
+              column anyway. */}
+          {i < events.length - 1 && dayKey(events[i + 1].at) === dayKey(e.at) && (
             <span
               aria-hidden
               className="absolute start-[18px] top-3 bottom-[-12px] w-px"
@@ -1875,6 +1921,7 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
             </span>
           </div>
         </div>
+        </Fragment>
       ))}
     </div>
   );
