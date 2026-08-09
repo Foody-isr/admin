@@ -301,12 +301,18 @@ function legacyBuildOrderRecap({ order, restaurantName, locale, receiptUrl }: Bu
 //   6. within address: street-or-unit present vs both empty (line omitted)
 //   7. within unit: floor/apartment/buildingCode each independently present
 //   8. items: plain item, item with variant, item with modifiers, item with
-//      notes, combo group, combo step with variant/qty>1/modifiers
+//      notes, combo group, combo step with variant/qty>1/modifiers, combo row
+//      with no combo_name (comboFallback label)
 //   9. totals: neither fee nor discount (plain total) / discount only / fee
 //      only / both
 //   10. payment: paid-and-no-balance / balance-due>0 / unpaid-not-refunded
 //       (3 sub-variants by order_type) / refunded-with-no-balance (silent)
 //   11. tracking link present vs absent
+//   12. formatSlot's own asap wording: no scheduled_for at all (distinct from
+//       "scheduled but no window", which still has an iso and a date/time).
+//       STRINGS.asap is duplicated into LEGACY_STRINGS for the frozen
+//       reference, so this text must actually be exercised somewhere, or a
+//       transcription error in either copy would pass unnoticed.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const REGULAR_ITEM: OrderItem = {
@@ -355,6 +361,31 @@ const COMBO_ITEMS: OrderItem[] = [
     combo_name: "Menu Burger",
     combo_price: 39,
     selected_variant_name: "Grande",
+  },
+];
+
+// Same shape as COMBO_ITEMS but with no combo_name at all — groupOrder() then
+// falls back to labels.comboFallback ("Combo" / "קומבו"), a string that, like
+// asap, is duplicated into LEGACY_STRINGS below and must be exercised by at
+// least one fixture (see branch 8/12 above).
+const COMBO_ITEMS_NO_NAME: OrderItem[] = [
+  {
+    id: 5,
+    menu_item_id: 22,
+    name: "Falafel",
+    price: 0,
+    quantity: 1,
+    combo_group: "combo-2",
+    combo_price: 28,
+  },
+  {
+    id: 6,
+    menu_item_id: 23,
+    name: "Boisson",
+    price: 0,
+    quantity: 1,
+    combo_group: "combo-2",
+    combo_price: 28,
   },
 ];
 
@@ -484,14 +515,49 @@ const FIXTURES: Fixture[] = [
     restaurantName: "Chez Foody",
   },
   {
-    // Branches: 3/4 with scheduled_for but no window at all (asap-shaped
-    // fallback inside formatSlot is exercised through the real function, not
-    // reimplemented here).
+    // Branches: 3/4 with scheduled_for but no window at all (date + time
+    // fallback inside formatSlot; distinct from branch 12's true asap case
+    // below, which has no scheduled_for at all).
     name: "pickup, scheduled but no pickup window",
     order: baseOrder({
       order_type: "pickup",
       scheduled_pickup_window_start: "",
       scheduled_pickup_window_end: "",
+    }),
+    restaurantName: "Chez Foody",
+  },
+  {
+    // Branch 12: no scheduled_for at all → formatSlot returns STRINGS.asap
+    // verbatim ("dès que possible" / "as soon as possible" / etc). Never
+    // exercised before this fixture.
+    name: "pickup, no scheduled_for at all (asap wording)",
+    order: baseOrder({
+      order_type: "pickup",
+      scheduled_for: undefined,
+      scheduled_pickup_window_start: undefined,
+      scheduled_pickup_window_end: undefined,
+    }),
+    restaurantName: "Chez Foody",
+  },
+  {
+    // Branch 8: a combo row with no combo_name → comboFallback label. Never
+    // exercised before this fixture (COMBO_ITEMS above always sets combo_name).
+    name: "pickup, combo with no combo_name (comboFallback label)",
+    order: baseOrder({ order_type: "pickup", items: COMBO_ITEMS_NO_NAME }),
+    restaurantName: "Chez Foody",
+  },
+  {
+    // Branch 9: delivery fee without a discount — never built before (fixture
+    // "delivery, full address..." sets both; "blank restaurant name..." sets
+    // discount only). The totals block changes shape between these.
+    name: "delivery, fee only, no discount",
+    order: baseOrder({
+      order_type: "delivery",
+      delivery_address: "3 rue Lafayette",
+      delivery_city: "Nice",
+      delivery_fee: 10,
+      discount_amount: 0,
+      total_amount: 64,
     }),
     restaurantName: "Chez Foody",
   },
@@ -558,6 +624,25 @@ test("buildOrderRecap honors a custom body over the registry default", () => {
   assert.equal(buildOrderRecap(opts), "Merci Leah pour votre commande #100 !");
 });
 
+// Finding 3 (post-review): a saved customization that is empty or
+// whitespace-only must NOT be sent as-is — `??` treats '' as a legitimate
+// body, but the server only validates a max length, so a restaurant that
+// clears the editor and saves would otherwise ship a blank WhatsApp message.
+test("buildOrderRecap falls back to the registry default when body is empty or whitespace-only", () => {
+  const fixture = FIXTURES[0];
+  const baseOpts = {
+    order: fixture.order,
+    restaurantName: fixture.restaurantName,
+    locale: "fr" as const,
+    receiptUrl: fixture.receiptUrl,
+  };
+  const expected = buildOrderRecap(baseOpts);
+
+  assert.equal(buildOrderRecap({ ...baseOpts, body: "" }), expected);
+  assert.equal(buildOrderRecap({ ...baseOpts, body: "   " }), expected);
+  assert.equal(buildOrderRecap({ ...baseOpts, body: "\n\n  \n" }), expected);
+});
+
 // ─── Risk 1: the slot line's label is chosen dynamically per order, not a
 // static per-locale template string. Pickup and delivery must read differently
 // even though they share the same template body. ────────────────────────────
@@ -597,6 +682,49 @@ test("risk 2: no doubled or missing emoji on the type/slot/address lines", () =>
   assert.ok(!out.includes("🗓️ 🗓️"), "slot emoji must not double");
   assert.ok(out.includes("📍 Adresse de livraison : "), "address line must show exactly one pin emoji + label");
   assert.ok(!out.includes("📍 📍"), "address emoji must not double");
+});
+
+// ─── Coverage gap closed: both wordings below were, before the fixtures added
+// above, never rendered by ANY fixture in ANY locale — so a transcription
+// error in either STRINGS or its LEGACY_STRINGS duplicate would have passed
+// the whole suite unnoticed (fidelity is proven only for text a fixture
+// actually produces). These assert the exact wording appears, per locale, on
+// top of the fixture-driven byte-identity checks above. ─────────────────────
+
+const ASAP_TEXT: Record<RecapLocale, string> = {
+  fr: "dès que possible",
+  he: "בהקדם האפשרי",
+  en: "as soon as possible",
+};
+
+const COMBO_FALLBACK_TEXT: Record<RecapLocale, string> = {
+  fr: "Combo",
+  he: "קומבו",
+  en: "Combo",
+};
+
+test("an order with no scheduled_for renders the asap wording in every locale", () => {
+  const order = baseOrder({
+    order_type: "pickup",
+    scheduled_for: undefined,
+    scheduled_pickup_window_start: undefined,
+    scheduled_pickup_window_end: undefined,
+  });
+  for (const locale of RECAP_LOCALES) {
+    const out = buildOrderRecap({ order, restaurantName: "Chez Foody", locale });
+    assert.ok(out.includes(ASAP_TEXT[locale]), `${locale} recap must include the asap wording`);
+  }
+});
+
+test("a combo row with no combo_name renders the comboFallback label in every locale", () => {
+  const order = baseOrder({ order_type: "pickup", items: COMBO_ITEMS_NO_NAME });
+  for (const locale of RECAP_LOCALES) {
+    const out = buildOrderRecap({ order, restaurantName: "Chez Foody", locale });
+    assert.ok(
+      out.includes(`• ${COMBO_FALLBACK_TEXT[locale]} ·`),
+      `${locale} recap must include the combo fallback label`,
+    );
+  }
 });
 
 // ─── buildRecapContext, tested directly (no template involved) ─────────────

@@ -367,9 +367,13 @@ export function buildRecapContext({
  * `body` is the restaurant's own customization of the order_recap template,
  * loaded by the caller. Without it, the registry's shipped default applies,
  * and the message is exactly what it was before restaurants could edit it.
+ * An empty or whitespace-only `body` falls back to the default the same way:
+ * the server only caps its length, so a restaurant that clears the editor and
+ * saves must not silently start sending blank WhatsApp messages.
  */
 export function buildOrderRecap(opts: BuildRecapOptions & { body?: string }): string {
   const def = findTemplate('order_recap');
-  const body = opts.body ?? def?.defaults[opts.locale] ?? '';
+  const customBody = opts.body && opts.body.trim() ? opts.body : undefined;
+  const body = customBody ?? def?.defaults[opts.locale] ?? '';
   return renderTemplate(body, buildRecapContext(opts));
 }

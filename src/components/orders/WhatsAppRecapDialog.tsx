@@ -90,14 +90,34 @@ export function WhatsAppRecapDialog({
   );
 
   // Reset to the customer's language and a freshly composed message each time the
-  // dialog opens, so a previous send never leaks into the next one.
+  // dialog opens, so a previous send never leaks into the next one. Deliberately
+  // does NOT depend on `compose`: listMessageTemplates resolves to a new array
+  // on every call (even the empty-templates case), so `compose` is recreated a
+  // moment after open once the fetch below lands — depending on it here would
+  // re-run this full reset then too, wiping whatever staff had already typed in
+  // that window. The effect right after this one handles a customization that
+  // arrives after open, guarded so it never clobbers an edit.
   useEffect(() => {
     if (!open) return;
     setLocale(customerLocale);
     setMessage(compose(customerLocale));
     setEdited(false);
     setCopied(false);
-  }, [open, customerLocale, compose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, customerLocale]);
+
+  // The restaurant's customization can still be loading when the dialog first
+  // renders. Once it resolves, refresh the preview to show it, in whichever
+  // language is currently selected — but only if the staff has not started
+  // editing: an edit, once made, must never be silently overwritten by a
+  // background fetch landing late, exactly like switchLocale already refuses
+  // to discard one without asking.
+  useEffect(() => {
+    if (!open || edited) return;
+    setMessage(compose(locale));
+    setCopied(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compose]);
 
   // Switching language recomposes the message — but never silently discards a
   // hand-written edit.
