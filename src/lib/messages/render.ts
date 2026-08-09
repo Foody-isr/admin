@@ -16,14 +16,31 @@
 
 const TOKEN_RE = /\{\{\s*([a-z0-9_]+)\s*\}\}/g;
 
+/**
+ * Contrat strict : OMETTRE une clé n'est PAS la même chose que lui donner une
+ * valeur vide. Une clé omise (absente à la fois de `tokens` et de `blocks`)
+ * est traitée comme un jeton inconnu : elle s'efface sur place sans jamais
+ * faire disparaître sa ligne. Une clé présente avec une valeur vide déclare
+ * explicitement que le concept ne s'applique pas à cette commande, et PEUT
+ * faire disparaître sa ligne. `renderTemplate` ne voit jamais la déclaration
+ * du template (`TemplateDefinition`), donc il ne peut pas détecter une
+ * omission par erreur : c'est au constructeur de contexte de fournir une
+ * entrée pour CHAQUE jeton et bloc que son template utilise, `""` compris
+ * pour ceux qui ne s'appliquent pas. Omettre une clé laisse passer un texte
+ * à moitié rendu jusqu'au client (ex. « Track your order : » sans lien) :
+ * c'est la même catégorie de faute que les accolades brutes. Voir
+ * `missingFromContext()` dans registry.ts, un garde-fou à utiliser dans les
+ * tests d'un constructeur de contexte, pas dans `renderTemplate` lui-même.
+ */
 export interface RenderContext {
-  /** Valeurs simples : nom du client, numéro de commande, lien de suivi. */
+  /** Valeurs simples : nom du client, numéro de commande. */
   tokens: Record<string, string>;
-  /** Blocs composés par Foody : liste d'articles, totaux, adresse. */
+  /** Blocs composés par Foody : liste d'articles, totaux, adresse, salutation, lien de suivi. */
   blocks: Record<string, string>;
 }
 
-function hasKey(record: Record<string, string>, name: string): boolean {
+/** Une clé déclarée, même avec une valeur vide, se distingue d'une clé absente. */
+export function hasKey(record: Record<string, string>, name: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, name);
 }
 
