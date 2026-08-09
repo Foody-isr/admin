@@ -67,6 +67,17 @@ export function useI18n() {
   return ctx;
 }
 
+/**
+ * `t()` returns the raw key on a miss (see `t` above) — callers that want a
+ * readable fallback instead of a key like "prefNewOrderTitle" leaking into
+ * the UI should go through this rather than re-implementing the same
+ * `v && v !== key ? v : fallback` check locally. Pure, no hook required.
+ */
+export function i18nOr(t: (key: string) => string, key: string, fallback: string): string {
+  const v = t(key);
+  return v && v !== key ? v : fallback;
+}
+
 // ── Translations ─────────────────────────────────────────────────────────────
 
 const translations: Record<Locale, Record<string, string>> = {

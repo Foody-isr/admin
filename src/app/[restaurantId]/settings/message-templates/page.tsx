@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Badge, Button, PageHead, Section, Tab, Tabs, TabsContent, TabsList } from '@/components/ds';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, i18nOr } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
   listMessageTemplates,
@@ -63,8 +63,23 @@ export default function MessageTemplatesPage() {
   // synchronously without wanting to re-render on every keystroke.
   const dirtyRef = useRef<Set<string>>(new Set());
 
+  // Monotonic generation counter guarding against a stale reload's response
+  // landing after a newer one. Saving two locales back to back kicks off two
+  // overlapping GETs (each save awaits its PUT, then calls reload()); network
+  // timing gives no guarantee the first GET's response arrives first. Without
+  // this guard, an older response can resolve after a newer save and
+  // overwrite that locale's just-saved body and "translated automatically"
+  // badge with a pre-save snapshot — wrong, on the one screen whose entire
+  // job is telling the owner what is actually saved. Only the response
+  // belonging to the most recently STARTED reload is ever applied; an older
+  // one that resolves late is silently dropped (a subsequent reload, if any,
+  // is still authoritative and unaffected).
+  const reloadSeqRef = useRef(0);
+
   const reload = useCallback(async () => {
+    const seq = ++reloadSeqRef.current;
     const list = await listMessageTemplates(rid);
+    if (seq !== reloadSeqRef.current) return; // superseded by a newer reload — drop this stale response
     setRows(list);
     setDrafts((prev) => {
       const next = { ...prev };
@@ -268,9 +283,4 @@ export default function MessageTemplatesPage() {
       )}
     </div>
   );
-}
-
-function i18nOr(t: (k: string) => string, key: string, fallback: string): string {
-  const v = t(key);
-  return v && v !== key ? v : fallback;
 }

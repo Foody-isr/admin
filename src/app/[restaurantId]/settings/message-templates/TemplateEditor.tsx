@@ -12,10 +12,12 @@
 
 import { useMemo, useRef } from 'react';
 import { Chip, Textarea } from '@/components/ds';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, i18nOr } from '@/lib/i18n';
 import { unknownTokens, type TemplateDefinition } from '@/lib/messages/registry';
+import { spliceToken } from '@/lib/messages/insert-token';
 import { buildOrderRecap, type RecapLocale } from '@/lib/orders/whatsapp-recap';
 import { receiptShareUrl } from '@/lib/receipt-share';
+import { cn } from '@/lib/utils';
 import type { Order } from '@/lib/api';
 
 // ─── Sample order — fixed, local to this file, never sent anywhere ──────────
@@ -111,6 +113,10 @@ export function TemplateEditor({ definition, locale, body, onChange, readOnly }:
   // Inserts a token where the cursor sits, replacing the current selection.
   // Without restoring focus and repositioning the caret, inserting two tokens
   // in a row would force the owner to click back into the field in between.
+  // The actual string math (spliceToken) is a pure function tested on its
+  // own in insert-token.test.ts; everything here is DOM plumbing that can't
+  // be unit-tested without a browser (reading the live selection, restoring
+  // focus, scheduling the caret move for after React re-renders the value).
   const insertToken = (name: string) => {
     const el = areaRef.current;
     const token = `{{${name}}}`;
@@ -121,11 +127,11 @@ export function TemplateEditor({ definition, locale, body, onChange, readOnly }:
 
     const start = el.selectionStart ?? body.length;
     const end = el.selectionEnd ?? start;
-    onChange(body.slice(0, start) + token + body.slice(end));
+    const { next, caret } = spliceToken(body, start, end, token);
+    onChange(next);
 
     requestAnimationFrame(() => {
       el.focus();
-      const caret = start + token.length;
       el.setSelectionRange(caret, caret);
     });
   };
@@ -153,10 +159,16 @@ export function TemplateEditor({ definition, locale, body, onChange, readOnly }:
         ref={areaRef}
         value={body}
         onChange={(e) => onChange(e.target.value)}
-        disabled={readOnly}
+        // `readOnly`, not `disabled`: a staff member without settings.edit
+        // still needs to select and copy the message text. `disabled` would
+        // block selection along with editing; `readOnly` blocks only editing.
+        // The dimmed look `disabled` gets for free from the design system's
+        // `disabled:opacity-50` is reproduced manually here since it doesn't
+        // have a `read-only:` counterpart.
+        readOnly={readOnly}
         dir={dir}
         rows={10}
-        className="font-mono"
+        className={cn('font-mono', readOnly && 'opacity-70 cursor-default bg-[var(--surface-2)]')}
       />
 
       <div>
@@ -200,11 +212,4 @@ export function TemplateEditor({ definition, locale, body, onChange, readOnly }:
       </div>
     </div>
   );
-}
-
-/** t() returns the key on a miss — fall back to a readable default (the raw
- *  token name) rather than showing something like "token_numero_commande". */
-function i18nOr(t: (k: string) => string, key: string, fallback: string): string {
-  const v = t(key);
-  return v && v !== key ? v : fallback;
 }

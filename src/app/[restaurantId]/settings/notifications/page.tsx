@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Bell, BellOff, Smartphone, AlertTriangle, ShoppingCart, XCircle, CreditCard, PackageX, Trash2, Monitor } from 'lucide-react';
 import { Badge, Button, PageHead } from '@/components/ds';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, i18nOr } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
   getCurrentSubscription,
@@ -596,14 +596,6 @@ function DeviceList({
       </ul>
     </div>
   );
-}
-
-/** t() returns the key on miss — `i18nOr` falls back to the supplied default
- *  string in that case so French copy stays readable while translations
- *  trickle in. */
-function i18nOr(t: (k: string) => string, key: string, fallback: string): string {
-  const v = t(key);
-  return v && v !== key ? v : fallback;
 }
 
 /** Minimal ARIA-compliant toggle switch — the design system doesn't ship one
