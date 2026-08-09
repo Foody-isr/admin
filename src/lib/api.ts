@@ -8564,3 +8564,58 @@ export async function updateCateringOption(restaurantId: number, id: number, bod
 export async function archiveCateringOption(restaurantId: number, id: number): Promise<void> {
   await apiFetch(`/api/v1/catering/options/${id}`, restaurantId, { method: 'DELETE' });
 }
+
+// ─── Templates de messages ───────────────────────────────────────────────────
+
+/** Une personnalisation de message, pour un restaurant, une clé et une langue.
+ *  Les textes par défaut ne viennent PAS du serveur : ils vivent dans le
+ *  registre de l'admin, pour ne pas exister en double dans deux langages. */
+export interface MessageTemplate {
+  id: number;
+  restaurant_id: number;
+  key: string;
+  locale: string;
+  body: string;
+  is_auto_translated: boolean;
+  updated_at: string;
+}
+
+export interface SaveTemplateResult {
+  translated_locales: string[];
+  /** Présent quand le texte a bien été enregistré mais que les autres langues
+   *  n'ont pas pu être générées. Ce n'est pas un échec de l'enregistrement. */
+  translation_error?: string;
+}
+
+export async function listMessageTemplates(restaurantId: number): Promise<MessageTemplate[]> {
+  const data = await apiFetch<{ templates: MessageTemplate[] }>(
+    `/api/v1/restaurants/${restaurantId}/message-templates`,
+    restaurantId
+  );
+  return data.templates ?? [];
+}
+
+export async function saveMessageTemplate(
+  restaurantId: number,
+  key: string,
+  locale: string,
+  body: string
+): Promise<SaveTemplateResult> {
+  return apiFetch<SaveTemplateResult>(
+    `/api/v1/restaurants/${restaurantId}/message-templates/${encodeURIComponent(key)}/${encodeURIComponent(locale)}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify({ body }) }
+  );
+}
+
+export async function resetMessageTemplate(
+  restaurantId: number,
+  key: string,
+  locale: string
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/message-templates/${encodeURIComponent(key)}/${encodeURIComponent(locale)}`,
+    restaurantId,
+    { method: 'DELETE' }
+  );
+}
