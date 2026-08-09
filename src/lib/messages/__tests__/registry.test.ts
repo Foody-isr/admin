@@ -48,6 +48,25 @@ test("unknownTokens returns each unknown token once", () => {
   assert.deepEqual(unknownTokens("{{nawak}} {{nawak}}", def), ["nawak"]);
 });
 
+// The four shapes that used to slip past every guard at once: not substituted,
+// not flagged, not protected before translation. Only the preview caught them.
+// The editor's live validation is the one signal the owner sees WHILE typing,
+// so it has to fire on anything brace-shaped, not just on well-formed names.
+test("unknownTokens flags a malformed placeholder while it is being typed", () => {
+  const def = findTemplate("order_recap")!;
+  assert.deepEqual(unknownTokens("Bonjour {{Client}}", def), ["Client"]);
+  assert.deepEqual(unknownTokens("Bonjour {{ CLIENT }}", def), ["CLIENT"]);
+  assert.deepEqual(unknownTokens("Bonjour {{numéro}}", def), ["numéro"]);
+  assert.deepEqual(unknownTokens("Bonjour {{client-name}}", def), ["client-name"]);
+});
+
+// The inner spacing the renderer tolerates must not be reported as a typo, or
+// the editor would cry wolf over text that works perfectly.
+test("unknownTokens does not flag a declared token written with inner spacing", () => {
+  const def = findTemplate("order_recap")!;
+  assert.deepEqual(unknownTokens("Bonjour {{ client }}", def), []);
+});
+
 // ─── Fidelity: renderTemplate(default, ctx) vs buildOrderRecap(...) ─────────
 //
 // buildOrderRecap() in whatsapp-recap.ts is still the message that actually

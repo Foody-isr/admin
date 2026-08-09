@@ -10,7 +10,7 @@
 // même texte qu'avant.
 
 import type { RecapLocale } from '@/lib/orders/whatsapp-recap';
-import { hasKey, tokensUsed, type RenderContext } from './render';
+import { bracePlaceholders, hasKey, tokensUsed, type RenderContext } from './render';
 
 export interface TemplateDefinition {
   key: string;
@@ -103,11 +103,22 @@ export function findTemplate(key: string): TemplateDefinition | undefined {
   return TEMPLATE_REGISTRY.find((d) => d.key === key);
 }
 
-/** Les jetons d'un corps que le registre ne déclare pas. C'est ce que
- *  l'éditeur signale pendant la frappe. */
+/**
+ * Les jetons d'un corps que le registre ne déclare pas. C'est ce que
+ * l'éditeur signale pendant la frappe.
+ *
+ * Balaye `bracePlaceholders` et non `tokensUsed` : une coquille se glisse
+ * autant dans la CASSE ou les CARACTÈRES du nom que dans le nom lui-même.
+ * `{{Client}}`, `{{ CLIENT }}`, `{{numéro}}` et `{{client-name}}` ne sont
+ * substitués par personne — ils doivent donc être signalés comme n'importe
+ * quel `{{nawak}}`, sans quoi l'éditeur reste muet et seul l'aperçu trahit le
+ * problème. L'espacement intérieur d'un jeton VALIDE reste toléré (`.trim()`
+ * dans `bracePlaceholders`), pour ne pas crier au loup sur `{{ client }}` qui
+ * fonctionne parfaitement.
+ */
 export function unknownTokens(body: string, def: TemplateDefinition): string[] {
   const declared = new Set([...def.tokens, ...def.blocks]);
-  return tokensUsed(body).filter((t) => !declared.has(t));
+  return bracePlaceholders(body).filter((t) => !declared.has(t));
 }
 
 /**

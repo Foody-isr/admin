@@ -25,14 +25,13 @@ import {
 import { TEMPLATE_REGISTRY, type TemplateDefinition } from '@/lib/messages/registry';
 import { RECAP_LOCALES, type RecapLocale } from '@/lib/orders/whatsapp-recap';
 import { TemplateEditor } from './TemplateEditor';
+import { hasUnsavedDraft, runSaveFlow, type DraftStatus } from './draft-state';
 
 const LOCALE_LABEL: Record<RecapLocale, string> = {
   fr: 'Français',
   he: 'עברית',
   en: 'English',
 };
-
-type StatusTone = 'success' | 'warning' | 'danger';
 
 function compositeKey(key: string, locale: RecapLocale): string {
   return `${key}::${locale}`;
@@ -54,7 +53,13 @@ export default function MessageTemplatesPage() {
   const [activeLocale, setActiveLocale] = useState<Record<string, RecapLocale>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [resetting, setResetting] = useState<Record<string, boolean>>({});
-  const [status, setStatus] = useState<Record<string, { tone: StatusTone; text: string }>>({});
+  const [status, setStatus] = useState<Record<string, DraftStatus>>({});
+
+  // Mirror of `drafts`, always current. handleSave has to read the draft as it
+  // stands AFTER its request resolves, to decide whether the owner kept typing
+  // meanwhile; `drafts` captured in that closure is a snapshot from before the
+  // request. Kept in step by applyDrafts(), the single writer.
+  const draftsRef = useRef<Record<string, string>>({});
 
   // Composite keys the owner has typed into since the last server sync. Reload
   // must never overwrite one of these with a freshly fetched value, or a
@@ -76,12 +81,25 @@ export default function MessageTemplatesPage() {
   // is still authoritative and unaffected).
   const reloadSeqRef = useRef(0);
 
+  // The only writer of `drafts`, so `draftsRef` cannot drift from the state.
+  // Both are updated synchronously here rather than via a setState updater:
+  // an updater must stay pure, and mutating the ref inside one would break
+  // that (React may invoke it twice).
+  const applyDrafts = useCallback(
+    (update: (prev: Record<string, string>) => Record<string, string>) => {
+      const next = update(draftsRef.current);
+      draftsRef.current = next;
+      setDrafts(next);
+    },
+    [],
+  );
+
   const reload = useCallback(async () => {
     const seq = ++reloadSeqRef.current;
     const list = await listMessageTemplates(rid);
     if (seq !== reloadSeqRef.current) return; // superseded by a newer reload — drop this stale response
     setRows(list);
-    setDrafts((prev) => {
+    applyDrafts((prev) => {
       const next = { ...prev };
       for (const def of TEMPLATE_REGISTRY) {
         for (const locale of RECAP_LOCALES) {
@@ -93,7 +111,7 @@ export default function MessageTemplatesPage() {
       }
       return next;
     });
-  }, [rid]);
+  }, [rid, applyDrafts]);
 
   useEffect(() => {
     setLoading(true);
@@ -131,8 +149,11 @@ export default function MessageTemplatesPage() {
   const setDraft = (key: string, locale: RecapLocale, value: string) => {
     const ck = compositeKey(key, locale);
     dirtyRef.current.add(ck);
-    setDrafts((prev) => ({ ...prev, [ck]: value }));
+    applyDrafts((prev) => ({ ...prev, [ck]: value }));
   };
+
+  const bodyFor = (def: TemplateDefinition, locale: RecapLocale) =>
+    drafts[compositeKey(def.key, locale)] ?? def.defaults[locale];
 
   const clearStatus = (ck: string) => {
     setStatus((prev) => {
@@ -143,36 +164,36 @@ export default function MessageTemplatesPage() {
     });
   };
 
+  // The sequencing here is the whole point, and it lives in runSaveFlow so it
+  // can be tested: the verdict shown to the staff is decided by the SAVE's
+  // outcome and applied before the follow-up read is awaited, and the dirty
+  // flag is only released if the textarea still holds exactly what was sent.
   const handleSave = async (def: TemplateDefinition, locale: RecapLocale) => {
     const ck = compositeKey(def.key, locale);
-    const body = drafts[ck] ?? def.defaults[locale];
+    const body = bodyFor(def, locale);
     setSaving((prev) => ({ ...prev, [ck]: true }));
     clearStatus(ck);
-    try {
-      const result = await saveMessageTemplate(rid, def.key, locale, body);
-      // This language now matches the server; a background reload may
-      // legitimately refresh it (e.g. re-confirms the same text).
-      dirtyRef.current.delete(ck);
-      await reload();
-      if (result.translation_error) {
-        // The write succeeded — only the derived languages failed. Must not
-        // read as a failure of the save itself.
-        setStatus((prev) => ({
-          ...prev,
-          [ck]: { tone: 'warning', text: t('messageTemplatesTranslateFailed') },
-        }));
-      } else {
-        setStatus((prev) => ({ ...prev, [ck]: { tone: 'success', text: t('messageTemplatesSaved') } }));
-      }
-    } catch (e) {
-      // The write itself failed (e.g. 500) — this one IS a failure, said plainly.
-      setStatus((prev) => ({
-        ...prev,
-        [ck]: { tone: 'danger', text: e instanceof Error ? e.message : String(e) },
-      }));
-    } finally {
-      setSaving((prev) => ({ ...prev, [ck]: false }));
-    }
+
+    await runSaveFlow({
+      sent: body,
+      save: () => saveMessageTemplate(rid, def.key, locale, body),
+      currentDraft: () => draftsRef.current[ck] ?? def.defaults[locale],
+      translationFailed: (result) => !!result.translation_error,
+      labels: {
+        saved: t('messageTemplatesSaved'),
+        translateFailed: t('messageTemplatesTranslateFailed'),
+      },
+      commit: ({ clearDirty, status: outcome }) => {
+        // Released only when the draft still matches: if the owner kept typing
+        // during the request, the flag must stay so reload() leaves their
+        // keystrokes alone.
+        if (clearDirty) dirtyRef.current.delete(ck);
+        setStatus((prev) => ({ ...prev, [ck]: outcome }));
+      },
+      reload,
+    });
+
+    setSaving((prev) => ({ ...prev, [ck]: false }));
   };
 
   const handleReset = async (def: TemplateDefinition, locale: RecapLocale) => {
@@ -181,16 +202,24 @@ export default function MessageTemplatesPage() {
     try {
       await resetMessageTemplate(rid, def.key, locale);
       dirtyRef.current.delete(ck);
-      await reload();
       clearStatus(ck);
     } catch (e) {
       setStatus((prev) => ({
         ...prev,
         [ck]: { tone: 'danger', text: e instanceof Error ? e.message : String(e) },
       }));
-    } finally {
       setResetting((prev) => ({ ...prev, [ck]: false }));
+      return;
     }
+
+    // Same rule as saving: the DELETE succeeded, so a failing refresh must not
+    // be dressed up as a failed reset.
+    try {
+      await reload();
+    } catch {
+      /* the customization is gone from the server; the screen is one refresh behind */
+    }
+    setResetting((prev) => ({ ...prev, [ck]: false }));
   };
 
   return (
@@ -226,6 +255,15 @@ export default function MessageTemplatesPage() {
                 <TabsList>
                   {RECAP_LOCALES.map((loc) => {
                     const locRow = rowFor(def.key, loc);
+                    // One Save button, three languages, and Save writes only
+                    // the active one. Editing French then Hebrew and pressing
+                    // Save once persists French alone; the Hebrew draft merely
+                    // survives in its box because the dirty flag shields it
+                    // from the reload, which LOOKS retained right up until the
+                    // page is left and it is gone. The indicator is the fix:
+                    // it does not change what Save writes, it stops the loss
+                    // from being invisible.
+                    const unsaved = hasUnsavedDraft(bodyFor(def, loc), locRow, def.defaults[loc]);
                     return (
                       <Tab key={loc} value={loc}>
                         {LOCALE_LABEL[loc]}
@@ -235,6 +273,18 @@ export default function MessageTemplatesPage() {
                             aria-hidden
                             title={t('messageTemplatesAutoTranslated')}
                           />
+                        )}
+                        {unsaved && (
+                          // Deliberately a different shape AND colour from the
+                          // "translated automatically" dot: a tab can carry
+                          // both at once, and two identical dots would say
+                          // nothing.
+                          <span
+                            className="w-1.5 h-1.5 shrink-0 rounded-full border border-[var(--warning-500)] bg-transparent"
+                            title={t('messageTemplatesUnsaved')}
+                          >
+                            <span className="sr-only">{t('messageTemplatesUnsaved')}</span>
+                          </span>
                         )}
                       </Tab>
                     );
@@ -246,7 +296,7 @@ export default function MessageTemplatesPage() {
                     <TemplateEditor
                       definition={def}
                       locale={loc}
-                      body={drafts[compositeKey(def.key, loc)] ?? def.defaults[loc]}
+                      body={bodyFor(def, loc)}
                       onChange={(value) => setDraft(def.key, loc, value)}
                       readOnly={!canEdit}
                     />

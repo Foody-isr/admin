@@ -16,6 +16,16 @@
 
 const TOKEN_RE = /\{\{\s*([a-z0-9_]+)\s*\}\}/g;
 
+// Toute forme entre accolades, bien formée ou non : `{{Client}}`, `{{ CLIENT }}`,
+// `{{numéro}}`, `{{client-name}}`. TOKEN_RE ne reconnaît que les noms bien
+// formés, et c'est volontaire — lui seul décide ce qui est SUBSTITUÉ et ce qui
+// compte dans la suppression de ligne. Mais « un client ne doit jamais recevoir
+// d'accolades » ne connaît pas d'exception : une coquille de casse ou un accent
+// reste une coquille, et doit s'effacer, pas partir en WhatsApp. BRACE_RE porte
+// cette règle-là, et sert aussi à l'éditeur pour signaler la coquille pendant
+// la frappe.
+const BRACE_RE = /\{\{[^{}]*\}\}/g;
+
 /**
  * Contrat strict : OMETTRE une clé n'est PAS la même chose que lui donner une
  * valeur vide. Une clé omise (absente à la fois de `tokens` et de `blocks`)
@@ -66,15 +76,38 @@ export function renderTemplate(body: string, ctx: RenderContext): string {
     });
 
     if (tokenCount > 0 && tokenCount === emptyCount) continue;
-    kept.push(rendered);
+    // Balayage final : tout ce qui garde la forme `{{…}}` après substitution
+    // disparaît. Ça couvre les coquilles que TOKEN_RE ne reconnaît pas
+    // (`{{Client}}`, `{{numéro}}`) comme les accolades qu'une VALEUR pourrait
+    // introduire (un article dont le nom en contient). Le balayage s'applique
+    // après coup et ne compte dans aucun des deux compteurs : une coquille
+    // s'efface sur place, elle ne fait jamais disparaître sa ligne — sans quoi
+    // une majuscule de trop supprimerait la confirmation entière.
+    kept.push(rendered.replace(BRACE_RE, ''));
   }
 
   return kept.join('\n');
 }
 
-/** Les noms de jetons présents dans un corps, chacun une seule fois. */
+/** Les noms de jetons BIEN FORMÉS présents dans un corps, chacun une seule
+ *  fois. C'est ce que `renderTemplate` substitue réellement. */
 export function tokensUsed(body: string): string[] {
   const seen = new Set<string>();
   for (const match of Array.from(body.matchAll(TOKEN_RE))) seen.add(match[1]);
+  return Array.from(seen);
+}
+
+/**
+ * Le contenu de TOUTE forme `{{…}}` d'un corps, bien formée ou non, débarrassé
+ * de ses espaces, chacune une seule fois. Contrairement à `tokensUsed`, ne
+ * filtre rien : `{{Client}}` en ressort comme `Client`. C'est la base de la
+ * validation de l'éditeur — ce qui n'est pas substitué doit être signalé
+ * PENDANT la frappe, sinon l'aperçu est le seul endroit où la coquille se voit.
+ */
+export function bracePlaceholders(body: string): string[] {
+  const seen = new Set<string>();
+  for (const match of Array.from(body.matchAll(BRACE_RE))) {
+    seen.add(match[0].slice(2, -2).trim());
+  }
   return Array.from(seen);
 }
