@@ -22,7 +22,7 @@ import {
   RECAP_LOCALES,
   type RecapLocale,
 } from '@/lib/orders/whatsapp-recap';
-import type { Order } from '@/lib/api';
+import { listMessageTemplates, type MessageTemplate, type Order } from '@/lib/api';
 
 const LOCALE_LABEL: Record<RecapLocale, string> = {
   fr: 'Français',
@@ -34,6 +34,7 @@ interface WhatsAppRecapDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   order: Order;
+  restaurantId: number;
   restaurantName: string;
   /** Restaurant's own language — the fallback for orders with no customer_locale. */
   restaurantDefaultLocale?: string;
@@ -43,6 +44,7 @@ export function WhatsAppRecapDialog({
   open,
   onOpenChange,
   order,
+  restaurantId,
   restaurantName,
   restaurantDefaultLocale,
 }: WhatsAppRecapDialogProps) {
@@ -59,6 +61,21 @@ export function WhatsAppRecapDialog({
   const [edited, setEdited] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // The restaurant's own customization of order_recap, per language, loaded once
+  // per dialog opening. A failure (network, auth) must never block the send flow
+  // — it just leaves templates empty, so compose() falls back to the registry's
+  // shipped default, i.e. today's message.
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    listMessageTemplates(restaurantId)
+      .then(setTemplates)
+      .catch(() => setTemplates([]));
+  }, [open, restaurantId]);
+
+  const bodyFor = (target: RecapLocale) =>
+    templates.find((tpl) => tpl.key === 'order_recap' && tpl.locale === target)?.body;
+
   const compose = useMemo(
     () => (target: RecapLocale) =>
       buildOrderRecap({
@@ -66,8 +83,10 @@ export function WhatsAppRecapDialog({
         restaurantName,
         locale: target,
         receiptUrl: receiptShareUrl(order.receipt_token),
+        body: bodyFor(target),
       }),
-    [order, restaurantName],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [order, restaurantName, templates],
   );
 
   // Reset to the customer's language and a freshly composed message each time the

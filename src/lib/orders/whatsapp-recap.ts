@@ -12,6 +12,8 @@
 
 import type { Order } from '@/lib/api';
 import { groupOrder } from '@/lib/orders/group-order';
+import { findTemplate } from '@/lib/messages/registry';
+import { renderTemplate, type RenderContext } from '@/lib/messages/render';
 
 /** Languages a customer can order in. Anything else falls back to FALLBACK_LOCALE. */
 export const RECAP_LOCALES = ['fr', 'he', 'en'] as const;
@@ -65,6 +67,12 @@ interface RecapStrings {
   uncategorized: string;
 }
 
+// pickupOn/deliveryOn/deliveryAddress carry no emoji of their own: the
+// order_recap template (registry.ts) prefixes their line with a static
+// "🗓️ "/"📍 " already, unlike typePickup/typeDelivery/typeDineIn, whose line
+// has no static prefix and so must keep owning theirs. Splitting it this way
+// means every line's emoji lives in exactly one place, never doubled, never
+// dropped — see whatsapp-recap.test.ts's "risk 2" cases.
 const STRINGS: Record<RecapLocale, RecapStrings> = {
   fr: {
     orderRef: (id) => `Commande #${id}`,
@@ -73,10 +81,10 @@ const STRINGS: Record<RecapLocale, RecapStrings> = {
     typePickup: '📦 À emporter',
     typeDelivery: '🛵 Livraison',
     typeDineIn: '🍽️ Sur place',
-    pickupOn: '🗓️ Retrait',
-    deliveryOn: '🗓️ Livraison',
+    pickupOn: 'Retrait',
+    deliveryOn: 'Livraison',
     asap: 'dès que possible',
-    deliveryAddress: '📍 Adresse de livraison',
+    deliveryAddress: 'Adresse de livraison',
     floor: 'Étage',
     apartment: 'Appartement',
     buildingCode: 'Code immeuble',
@@ -101,10 +109,10 @@ const STRINGS: Record<RecapLocale, RecapStrings> = {
     typePickup: '📦 איסוף עצמי',
     typeDelivery: '🛵 משלוח',
     typeDineIn: '🍽️ בישיבה',
-    pickupOn: '🗓️ איסוף',
-    deliveryOn: '🗓️ משלוח',
+    pickupOn: 'איסוף',
+    deliveryOn: 'משלוח',
     asap: 'בהקדם האפשרי',
-    deliveryAddress: '📍 כתובת למשלוח',
+    deliveryAddress: 'כתובת למשלוח',
     floor: 'קומה',
     apartment: 'דירה',
     buildingCode: 'קוד כניסה',
@@ -129,10 +137,10 @@ const STRINGS: Record<RecapLocale, RecapStrings> = {
     typePickup: '📦 Pickup',
     typeDelivery: '🛵 Delivery',
     typeDineIn: '🍽️ Dine-in',
-    pickupOn: '🗓️ Pickup',
-    deliveryOn: '🗓️ Delivery',
+    pickupOn: 'Pickup',
+    deliveryOn: 'Delivery',
     asap: 'as soon as possible',
-    deliveryAddress: '📍 Delivery address',
+    deliveryAddress: 'Delivery address',
     floor: 'Floor',
     apartment: 'Apt',
     buildingCode: 'Building code',
@@ -230,41 +238,65 @@ export interface BuildRecapOptions {
 }
 
 /**
- * Compose the full WhatsApp recap: heading, greeting, fulfillment type and slot,
- * delivery address, every line item with its variant / modifiers / notes, the
- * totals breakdown, the payment status and the tracking link.
+ * Build the values a template needs to render the recap: simple tokens
+ * (restaurant name, order number...) and Foody-composed blocks (the item
+ * list, the totals breakdown, the address...). Separated from rendering so it
+ * is testable on its own, with no template and no server involved.
  *
- * WhatsApp renders *asterisks* as bold; the rest is plain text with newlines,
- * which is exactly why this send goes out as a wa.me deep link rather than a
- * Meta template (template variables cannot contain newlines).
+ * Every token and block `order_recap` declares (see registry.ts) is always
+ * present here, even when its value is `''` — an omitted key and an empty
+ * value mean different things to renderTemplate() (see render.ts's
+ * RenderContext contract), and only the latter is safe: a customer must never
+ * see a raw `{{token}}` because a key was forgotten.
  */
-export function buildOrderRecap({
+export function buildRecapContext({
   order,
   restaurantName,
   locale,
   receiptUrl,
-}: BuildRecapOptions): string {
+}: BuildRecapOptions): RenderContext {
   const s = STRINGS[locale];
   const g = groupOrder(order, { uncategorized: s.uncategorized, comboFallback: s.comboFallback });
-
-  const lines: string[] = [];
-
-  // ─── Heading + greeting ─────────────────────────────────────────────────────
-  if (restaurantName.trim()) lines.push(`*${restaurantName.trim()}*`);
-  lines.push(s.orderRef(order.id));
-  lines.push('');
-  lines.push(`${s.greeting((order.customer_name || '').trim())} ${s.confirmed}`);
-  lines.push('');
-
-  // ─── Fulfillment: type, slot, address ───────────────────────────────────────
   const isDelivery = order.order_type === 'delivery';
-  const typeLabel =
-    order.order_type === 'delivery' ? s.typeDelivery : order.order_type === 'dine_in' ? s.typeDineIn : s.typePickup;
-  lines.push(typeLabel);
-  if (order.order_type !== 'dine_in') {
-    lines.push(`${isDelivery ? s.deliveryOn : s.pickupOn} : ${formatSlot(order, locale)}`);
+
+  // ── Bloc articles ───────────────────────────────────────────────────────────
+  const itemLines: string[] = [];
+  for (const item of g.regularItems) {
+    const variant = (item.selected_variant_name || '').trim();
+    const name = variant ? `${item.name} (${variant})` : item.name;
+    itemLines.push(`• ${item.quantity}× ${name} · ${money(item.price * item.quantity)}`);
+
+    const mods = modifierLine(item.modifiers);
+    if (mods) itemLines.push(`   ↳ ${mods}`);
+    if ((item.notes || '').trim()) itemLines.push(`   ↳ “${item.notes!.trim()}”`);
   }
 
+  for (const combo of g.comboGroups) {
+    itemLines.push(`• ${combo.name} · ${money(combo.price)}`);
+    for (const step of combo.items) {
+      const variant = (step.selected_variant_name || '').trim();
+      const name = variant ? `${step.name} (${variant})` : step.name;
+      const qty = step.quantity > 1 ? `${step.quantity}× ` : '';
+      itemLines.push(`   ↳ ${qty}${name}`);
+
+      const mods = modifierLine(step.modifiers);
+      if (mods) itemLines.push(`      ${mods}`);
+    }
+  }
+
+  // ── Bloc totaux ──────────────────────────────────────────────────────────────
+  // Only break the total down when there is something to break out — a plain
+  // order shows one Total line, not a subtotal that repeats it.
+  const totalLines: string[] = [];
+  if (g.deliveryFee > 0 || g.discountAmount > 0) {
+    totalLines.push(`${s.subtotal} : ${money(g.subtotal)}`);
+    if (g.discountAmount > 0) totalLines.push(`${s.discount} : −${money(g.discountAmount)}`);
+    if (g.deliveryFee > 0) totalLines.push(`${s.deliveryFee} : ${money(g.deliveryFee)}`);
+  }
+  totalLines.push(`*${s.total} : ${money(g.total)}*`);
+
+  // ── Bloc adresse : vide hors livraison, pour que sa ligne disparaisse ────────
+  let address = '';
   if (isDelivery) {
     const street = [order.delivery_address, order.delivery_city].map((v) => (v || '').trim()).filter(Boolean).join(', ');
     const unit = [
@@ -275,67 +307,69 @@ export function buildOrderRecap({
       .filter(Boolean)
       .join(', ');
     if (street || unit) {
-      const address = unit ? `${street} (${unit})` : street;
-      lines.push(`${s.deliveryAddress} : ${address}`);
+      address = `${s.deliveryAddress} : ${unit ? `${street} (${unit})` : street}`;
     }
   }
 
-  // ─── Items ──────────────────────────────────────────────────────────────────
-  lines.push('');
-  lines.push(`*${s.itemsHeading}*`);
-
-  for (const item of g.regularItems) {
-    const variant = (item.selected_variant_name || '').trim();
-    const name = variant ? `${item.name} (${variant})` : item.name;
-    lines.push(`• ${item.quantity}× ${name} · ${money(item.price * item.quantity)}`);
-
-    const mods = modifierLine(item.modifiers);
-    if (mods) lines.push(`   ↳ ${mods}`);
-    if ((item.notes || '').trim()) lines.push(`   ↳ “${item.notes!.trim()}”`);
-  }
-
-  for (const combo of g.comboGroups) {
-    lines.push(`• ${combo.name} · ${money(combo.price)}`);
-    for (const step of combo.items) {
-      const variant = (step.selected_variant_name || '').trim();
-      const name = variant ? `${step.name} (${variant})` : step.name;
-      const qty = step.quantity > 1 ? `${step.quantity}× ` : '';
-      lines.push(`   ↳ ${qty}${name}`);
-
-      const mods = modifierLine(step.modifiers);
-      if (mods) lines.push(`      ${mods}`);
-    }
-  }
-
-  // ─── Totals ─────────────────────────────────────────────────────────────────
-  lines.push('');
-  // Only break the total down when there is something to break out — a plain
-  // order shows one Total line, not a subtotal that repeats it.
-  if (g.deliveryFee > 0 || g.discountAmount > 0) {
-    lines.push(`${s.subtotal} : ${money(g.subtotal)}`);
-    if (g.discountAmount > 0) lines.push(`${s.discount} : −${money(g.discountAmount)}`);
-    if (g.deliveryFee > 0) lines.push(`${s.deliveryFee} : ${money(g.deliveryFee)}`);
-  }
-  lines.push(`*${s.total} : ${money(g.total)}*`);
-
-  // ─── Payment ────────────────────────────────────────────────────────────────
+  // ── Bloc statut de paiement ───────────────────────────────────────────────────
+  let payment = '';
   const balanceDue = order.balance_due ?? 0;
   if (order.payment_status === 'paid' && balanceDue <= 0) {
-    lines.push(s.paid);
+    payment = s.paid;
   } else if (balanceDue > 0) {
     // Paid, then items were added: only the supplement is still owed.
-    lines.push(`⚠️ ${s.balanceDue} : ${money(balanceDue)}`);
+    payment = `⚠️ ${s.balanceDue} : ${money(balanceDue)}`;
   } else if (order.payment_status !== 'refunded') {
-    lines.push(
-      isDelivery ? s.toPayDelivery : order.order_type === 'dine_in' ? s.toPayDineIn : s.toPayPickup,
-    );
+    payment = isDelivery ? s.toPayDelivery : order.order_type === 'dine_in' ? s.toPayDineIn : s.toPayPickup;
   }
 
-  // ─── Tracking link ──────────────────────────────────────────────────────────
-  if (receiptUrl) {
-    lines.push('');
-    lines.push(`${s.trackOrder} : ${receiptUrl}`);
-  }
+  return {
+    tokens: {
+      restaurant: restaurantName.trim(),
+      client: (order.customer_name || '').trim(),
+      numero_commande: String(order.id),
+      // The label (Retrait/Livraison) depends on the order, not the locale, so
+      // it cannot be static template text the way "Votre commande" is — it has
+      // to travel with the value. The emoji stays owned by the template body
+      // (its static "🗓️ " prefix), same split as the address block below.
+      creneau:
+        order.order_type === 'dine_in'
+          ? ''
+          : `${isDelivery ? s.deliveryOn : s.pickupOn} : ${formatSlot(order, locale)}`,
+    },
+    blocks: {
+      type_commande: isDelivery ? s.typeDelivery : order.order_type === 'dine_in' ? s.typeDineIn : s.typePickup,
+      articles: itemLines.join('\n'),
+      totaux: totalLines.join('\n'),
+      adresse: address,
+      statut_paiement: payment,
+      // Always non-empty (STRINGS.greeting renders "Bonjour," even without a
+      // name) so the confirmation line it shares never gets dropped by an
+      // empty customer name.
+      salutation: s.greeting((order.customer_name || '').trim()),
+      // Carries its own leading blank line so both vanish together when there
+      // is no receipt URL — a static blank line in the template body couldn't
+      // disappear on its own (a line with no token is never dropped).
+      lien_suivi: receiptUrl ? `\n${s.trackOrder} : ${receiptUrl}` : '',
+    },
+  };
+}
 
-  return lines.join('\n');
+/**
+ * Compose the full WhatsApp recap: heading, greeting, fulfillment type and slot,
+ * delivery address, every line item with its variant / modifiers / notes, the
+ * totals breakdown, the payment status and the tracking link.
+ *
+ * WhatsApp renders *asterisks* as bold; the rest is plain text with newlines,
+ * which is exactly why this send goes out as a wa.me deep link rather than a
+ * Meta template (template variables cannot contain newlines).
+ *
+ * `body` is the restaurant's own customization of the order_recap template,
+ * loaded by the caller. Without it, the registry's shipped default applies,
+ * and the message is exactly what it was before restaurants could edit it.
+ */
+export function buildOrderRecap(opts: BuildRecapOptions & { body?: string }): string {
+  const def = findTemplate('order_recap');
+  const body = opts.body ?? def?.defaults[opts.locale] ?? '';
+  return renderTemplate(body, buildRecapContext(opts));
 }
