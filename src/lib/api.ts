@@ -8577,6 +8577,8 @@ export interface MessageTemplate {
   locale: string;
   body: string;
   is_auto_translated: boolean;
+  updated_by_id?: number;
+  created_at: string;
   updated_at: string;
 }
 
