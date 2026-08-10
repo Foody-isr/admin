@@ -100,6 +100,43 @@ export function productionBoxes(
   return orderedPortionBreakdown(orders, item.menu_item_id, item.packaging);
 }
 
+/** True when a weighed article is shown as the containers ordered (2 pots)
+ *  rather than their summed weight (500 g). Counted articles already count, so
+ *  the preference never applies to them.
+ *
+ *  This decision belongs here, not in a screen: it used to live only in the
+ *  desktop matrix, so an article flipped to "Unités" read as containers on a
+ *  desktop and as grams on a phone — the same sheet portioned two ways, with
+ *  the toggle appearing inert to whoever set it on the phone. */
+export function showsUnits(
+  item: ProductionSheetItem,
+  unitDisplayIds: Set<number> | undefined,
+): boolean {
+  return item.measure === 'weight' && !!unitDisplayIds?.has(item.menu_item_id);
+}
+
+/** The article's day total under the current display preference: ordered
+ *  containers, else the measured total. A sheet served before `total_units`
+ *  existed reports 0 containers rather than falling back to grams, which would
+ *  print a weight beside a container suffix. */
+export function itemTotalValue(
+  item: ProductionSheetItem,
+  unitDisplayIds: Set<number> | undefined,
+): number {
+  return showsUnits(item, unitDisplayIds) ? item.total_units ?? 0 : item.total;
+}
+
+/** One client's quantity for one article, under the same preference. */
+export function orderQtyValue(
+  order: ProductionSheetOrder,
+  item: ProductionSheetItem,
+  unitDisplayIds: Set<number> | undefined,
+): number {
+  const key = String(item.menu_item_id);
+  if (showsUnits(item, unitDisplayIds)) return order.units?.[key] ?? 0;
+  return order.cells[key] ?? 0;
+}
+
 /** Compact gram label: "250 g", "1 kg", "1.5 kg". */
 export function fmtPortionGrams(g: number): string {
   if (g >= 1000) {

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { productionBoxes } from "../production";
+import {
+  itemTotalValue,
+  orderQtyValue,
+  productionBoxes,
+  showsUnits,
+} from "../production";
 import type {
   ProductionSheetItem,
   ProductionSheetOrder,
@@ -77,4 +82,60 @@ test("a chosen box size repacks the column total instead", () => {
 test("counted items have no packaging chips", () => {
   const orders = [order([{ portion_g: 250, count: 2 }])];
   assert.deepEqual(productionBoxes(orders, item({ measure: "unit", total: 3 }), null, []), []);
+});
+
+// --- Portions / units display, shared by the desktop matrix and the phone ---
+// The preference used to live only in ProductionMatrix, so a weighed article
+// flipped to "Unités" read as container counts on desktop and as grams on a
+// phone — same sheet, same day, two portionings. These pin the decision itself.
+
+function ids(...v: number[]): Set<number> {
+  return new Set(v);
+}
+
+test("a weighed article follows the units preference; a counted one ignores it", () => {
+  const weighed = item({ menu_item_id: 7, measure: "weight" });
+  const counted = item({ menu_item_id: 8, measure: "unit" });
+  assert.equal(showsUnits(weighed, ids(7)), true);
+  assert.equal(showsUnits(weighed, ids(9)), false);
+  assert.equal(showsUnits(weighed, undefined), false);
+  // Counted articles already count; the preference must not touch them.
+  assert.equal(showsUnits(counted, ids(8)), false);
+});
+
+test("the day total switches to ordered containers under the units preference", () => {
+  const it = item({ menu_item_id: 7, total: 3000, total_units: 6 });
+  assert.equal(itemTotalValue(it, ids(7)), 6);
+  assert.equal(itemTotalValue(it, undefined), 3000);
+});
+
+test("a sheet served before total_units existed reads 0 containers, never grams", () => {
+  // Falling through to `total` here would print 3 000 next to a "u." suffix.
+  const it = item({ menu_item_id: 7, total: 3000, total_units: undefined });
+  assert.equal(itemTotalValue(it, ids(7)), 0);
+});
+
+test("one client's quantity switches to containers under the same preference", () => {
+  const it = item({ menu_item_id: 7, total: 3000, total_units: 6 });
+  const o: ProductionSheetOrder = {
+    order_id: 1,
+    customer_name: "Ouriel",
+    order_type: "pickup",
+    cells: { "7": 500 },
+    units: { "7": 2 },
+  };
+  assert.equal(orderQtyValue(o, it, ids(7)), 2);
+  assert.equal(orderQtyValue(o, it, undefined), 500);
+});
+
+test("a client with no line for the article reads 0 in either mode", () => {
+  const it = item({ menu_item_id: 7 });
+  const o: ProductionSheetOrder = {
+    order_id: 1,
+    customer_name: "Ouriel",
+    order_type: "pickup",
+    cells: {},
+  };
+  assert.equal(orderQtyValue(o, it, ids(7)), 0);
+  assert.equal(orderQtyValue(o, it, undefined), 0);
 });

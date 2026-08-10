@@ -2,7 +2,7 @@
 
 import { useI18n } from '@/lib/i18n';
 import { ProductionSheetResponse, ProductionSheetItem } from '@/lib/api';
-import { productionBoxes } from '@/lib/production';
+import { itemTotalValue, productionBoxes, showsUnits } from '@/lib/production';
 
 interface Props {
   sheet: ProductionSheetResponse;
@@ -10,17 +10,29 @@ interface Props {
   availablePortions?: Record<number, number[]>;
   /** Page-wide box size; null = Auto (the containers clients actually ordered). */
   boxSize?: number | null;
+  /** Weighed articles shown as ordered container counts instead of grams, from
+   *  the page's portions/units preference — the same set the desktop matrix
+   *  reads, so a choice made on either screen shows on both. */
+  unitDisplayIds?: Set<number>;
 }
 
-function formatTotal(item: ProductionSheetItem): string {
-  if (item.measure === 'weight') return `${item.total.toLocaleString()} g`;
-  return `${item.total}`;
+function formatTotal(item: ProductionSheetItem, unitDisplayIds: Set<number> | undefined): string {
+  const value = itemTotalValue(item, unitDisplayIds);
+  if (showsUnits(item, unitDisplayIds)) return `${value} u.`;
+  if (item.measure === 'weight') return `${value.toLocaleString()} g`;
+  return `${value}`;
 }
 
 /** "À préparer" cook-list: one card per item, grouped by category, with total +
- *  packaging chips. Chips come from productionBoxes, the same helper the desktop
- *  matrix header uses, so both screens portion identically. */
-export function ProductionToPrepare({ sheet, availablePortions, boxSize }: Props) {
+ *  packaging chips. Every number here comes from the helpers in lib/production —
+ *  the same ones the desktop matrix header reads — so the two screens cannot
+ *  portion the same sheet differently. */
+export function ProductionToPrepare({
+  sheet,
+  availablePortions,
+  boxSize,
+  unitDisplayIds,
+}: Props) {
   const { t } = useI18n();
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
 
@@ -51,7 +63,7 @@ export function ProductionToPrepare({ sheet, availablePortions, boxSize }: Props
                       className="min-w-[84px] flex items-center justify-center text-fs-2xl font-bold tabular-nums text-[var(--brand-500)]"
                       style={{ background: 'color-mix(in oklab, var(--brand-500) 7%, transparent)' }}
                     >
-                      {formatTotal(item)}
+                      {formatTotal(item, unitDisplayIds)}
                     </div>
                     <div className="flex-1 px-[var(--s-3)] py-[var(--s-2)]">
                       <p className="text-fs-sm font-semibold truncate">{item.name}</p>

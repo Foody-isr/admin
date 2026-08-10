@@ -34,6 +34,7 @@ import {
 } from '@/components/data-table';
 import { MergeCustomersModal, MergeRow } from './MergeCustomersModal';
 import { DuplicateSuggestions } from './DuplicateSuggestions';
+import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
 
 const PER_PAGE = 25;
 
@@ -536,70 +537,24 @@ export default function CustomersPage() {
                 )}
               </div>
 
-              {!profileLoading && profile && !profile.has_account && (
-                <div className="text-fs-xs text-fg-secondary">{t('customerNoAccountHint')}</div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-fg-secondary mb-1">{t('address')}</label>
-                <input
-                  className="input"
-                  value={editAddress}
-                  disabled={!profile?.has_account}
-                  onChange={(e) => setEditAddress(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-fg-secondary mb-1">{t('city')}</label>
-                <input
-                  className="input"
-                  value={editCity}
-                  disabled={!profile?.has_account}
-                  onChange={(e) => setEditCity(e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('floor')}</label>
-                  <input
-                    className="input"
-                    value={editFloor}
-                    disabled={!profile?.has_account}
-                    onChange={(e) => setEditFloor(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('apartment')}</label>
-                  <input
-                    className="input"
-                    value={editApt}
-                    disabled={!profile?.has_account}
-                    onChange={(e) => setEditApt(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-fg-secondary mb-1">{t('buildingCode')}</label>
-                <input
-                  className="input"
-                  value={editEntryCode}
-                  disabled={!profile?.has_account}
-                  onChange={(e) => setEditEntryCode(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-fg-secondary mb-1">{t('deliveryNotesOptional')}</label>
-                <input
-                  className="input"
-                  value={editDeliveryNotes}
-                  disabled={!profile?.has_account}
-                  onChange={(e) => setEditDeliveryNotes(e.target.value)}
-                />
-              </div>
+              <CustomerDeliveryFields
+                value={{
+                  address: editAddress,
+                  city: editCity,
+                  floor: editFloor,
+                  apt: editApt,
+                  entryCode: editEntryCode,
+                  deliveryNotes: editDeliveryNotes,
+                }}
+                onChange={(p) => {
+                  if (p.address !== undefined) setEditAddress(p.address);
+                  if (p.city !== undefined) setEditCity(p.city);
+                  if (p.floor !== undefined) setEditFloor(p.floor);
+                  if (p.apt !== undefined) setEditApt(p.apt);
+                  if (p.entryCode !== undefined) setEditEntryCode(p.entryCode);
+                  if (p.deliveryNotes !== undefined) setEditDeliveryNotes(p.deliveryNotes);
+                }}
+              />
             </div>
 
             <label className="flex items-start justify-between gap-3 cursor-pointer pt-1 border-t border-fg-tertiary/10">

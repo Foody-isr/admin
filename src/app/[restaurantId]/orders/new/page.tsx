@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getMenu, listAllItems, createOrder, ApiError,
@@ -10,17 +10,25 @@ import {
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
 import { itemSizeOptions } from '@/lib/item-options';
-import { isEffectivelySoldOut } from '@/components/menu/AvailabilityPill';
+import { isItemSoldOut } from '@/lib/orders/itemAvailability';
+import {
+  loadOrderDraft, saveOrderDraft, clearOrderDraft, type DraftCustomer,
+} from '@/lib/orders/orderDraft';
+import { rehydrateDraftLines, toDraftLines, type LineIssue } from '@/lib/orders/draftLines';
+import {
+  issueLabel, issueTone, issueCanBeAccepted, isSubmissionBlocked,
+} from '@/lib/orders/draftIssuePresentation';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
 import { BatchPicker } from '@/components/menu/BatchPicker';
+import { DraftRestoredBanner } from '@/components/orders/DraftRestoredBanner';
 import { cn } from '@/lib/utils';
 import {
   NewOrderItemModal, lineUnitPrice, lineTotal, type NewOrderLine,
 } from '@/components/orders/NewOrderItemModal';
 import {
-  NewOrderCheckoutDrawer, type CheckoutData,
+  NewOrderCheckoutDrawer, type CheckoutData, type DrawerDraftState,
 } from '@/components/orders/NewOrderCheckoutDrawer';
 import { NewOrderComboModal } from '@/components/orders/NewOrderComboModal';
 import {
@@ -34,6 +42,23 @@ interface Section { id: number; name: string; items: MenuItem[] }
 function uid(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `l-${Date.now()}-${Math.random()}`;
 }
+
+/** Removes one line's entry from `issues`, or returns the same map reference
+ *  when there's nothing to remove (so a functional `setIssues` update can
+ *  bail out without triggering a re-render). Shared by `acceptIssue` and
+ *  `removeLine` so both resolve actions prune the same way. */
+function dropIssue(prev: Map<string, LineIssue>, lineUid: string): Map<string, LineIssue> {
+  if (!prev.has(lineUid)) return prev;
+  const next = new Map(prev);
+  next.delete(lineUid);
+  return next;
+}
+
+// Fallback customer used when saving a draft before the drawer has reported
+// any state (e.g. a cart-only draft — checkout never opened).
+const EMPTY_CUSTOMER: DraftCustomer = {
+  name: '', phone: '', address: '', city: '', floor: '', apt: '', entryCode: '', deliveryNotes: '',
+};
 
 // Categorical palette (from design tokens) used to colour-code sections in the
 // grid — colour the section header, the per-tile accent edge and the chip dot
@@ -57,15 +82,6 @@ function hasOptions(it: MenuItem): boolean {
   return variants || mods;
 }
 
-// Whether an item can't currently be ordered — every size is sold out, or the
-// item itself is force-sold-out / hidden. The order-time availability guard
-// rejects such lines, so the picker greys the tile and blocks selection (the
-// same behaviour the guest web app shows). Items with only SOME sizes sold out
-// stay orderable here; the size picker disables the individual sold-out sizes.
-function isItemSoldOut(it: MenuItem): boolean {
-  return isEffectivelySoldOut(it.availability_state, it.availability_override);
-}
-
 export default function NewOrderPage() {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
@@ -84,6 +100,34 @@ export default function NewOrderPage() {
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
   const [comboItem, setComboItem] = useState<MenuItem | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+
+  // Draft persistence — see src/lib/orders/orderDraft.ts and draftLines.ts.
+  // `drawerState` is the drawer's draftable slice, reported via onStateChange.
+  const [drawerState, setDrawerState] = useState<DrawerDraftState | null>(null);
+  // Lines flagged by rehydration (missing / sold out / price changed). Kept
+  // separate from `lines` rather than folded into each line's shape: an issue
+  // is provisional (accept/remove clears it) while the line itself is the
+  // durable cart state that gets saved to the draft and sent to the server.
+  const [issues, setIssues] = useState<Map<string, LineIssue>>(new Map());
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [restoredState, setRestoredState] = useState<DrawerDraftState | null>(null);
+  // Prix mémorisés par ligne restaurée. C'est la référence contre laquelle « le
+  // prix a changé » se mesure, et elle doit survivre à la réécriture qui suit
+  // la reprise : recalculée depuis l'article courant, elle se remplaçait par le
+  // nouveau prix et la ligne revenait saine au retour suivant. Une entrée
+  // disparaît quand le staff accepte le changement — accepter, c'est justement
+  // dire que le prix courant devient la référence.
+  const [draftPrices, setDraftPrices] = useState<Map<string, number>>(new Map());
+  // Remount key for the checkout drawer. The drawer keeps the customer sheet in
+  // its own `useState`, and Radix only portals its *content* — closing it
+  // unmounts the dialog, never the component — so nothing the page does to
+  // `lines` can reach the customer fields. Bumping this key is the one honest
+  // way to drop them: it remounts the subtree, so every field (name, phone,
+  // address, `linked`, payment, discount) returns to its initial value with no
+  // per-field reset list to keep in sync. Without it, discarding a restored
+  // draft kept customer A attached while the staff built customer B's cart, and
+  // the next write-back saved B's lines under A's name and address.
+  const [drawerResetKey, setDrawerResetKey] = useState(0);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -138,6 +182,88 @@ export default function NewOrderPage() {
     })();
     return () => { cancelled = true; };
   }, [restaurantId]);
+
+  // Restore a stored draft once the menu has actually loaded. `itemMap` has to
+  // be populated first: rehydrateDraftLines tells "this item is gone" from
+  // "the menu hasn't arrived yet" only by looking the id up in it, so restoring
+  // any earlier would flag every single line as missing.
+  const didRestore = useRef(false);
+  // Pending debounced write-back, and "this cart has already been sent to the
+  // kitchen" — see the write-back effect below and `forgetDraft`.
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const submittedRef = useRef(false);
+  useEffect(() => {
+    if (didRestore.current || loading || itemMap.size === 0) return;
+    didRestore.current = true;
+
+    const draft = loadOrderDraft(restaurantId);
+    if (!draft) return;
+
+    const rehydrated = rehydrateDraftLines(draft.lines, itemMap);
+    setLines(rehydrated.map((r) => r.line));
+    setIssues(new Map(rehydrated.filter((r) => r.issue).map((r) => [r.line.uid, r.issue!])));
+    setDraftPrices(new Map(rehydrated.map((r) => [r.line.uid, r.unitPriceAtDraft])));
+    setRestoredState({
+      customer: draft.customer, linked: draft.linked,
+      orderType: draft.orderType, fulfillment: draft.fulfillment,
+    });
+    setDraftRestored(true);
+  }, [loading, itemMap, restaurantId]);
+
+  // An issue must never outlive its line: once a flagged line leaves the cart,
+  // its entry in `issues` would otherwise linger and keep the checkout button
+  // blocked with a reason that no longer applies. `removeLine` already prunes
+  // its own line synchronously (so the button updates on the same paint as
+  // the click); this effect is the general safety net for every other path
+  // that can also drop a line — quantity reaching zero, "Clear all" — without
+  // repeating the cleanup at each call site.
+  useEffect(() => {
+    setIssues((prev) => {
+      if (prev.size === 0) return prev;
+      const live = new Set(lines.map((l) => l.uid));
+      let changed = false;
+      const next = new Map<string, LineIssue>();
+      prev.forEach((issue, lineUid) => {
+        if (live.has(lineUid)) next.set(lineUid, issue);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
+  }, [lines]);
+
+  // Debounced write-back. Gated on `didRestore` so the very first render (empty
+  // cart, before the restore attempt above has even run) never overwrites a
+  // stored draft with nothing — that would destroy exactly what this feature
+  // protects.
+  //
+  // The pending timer is held in a ref so `forgetDraft` can cancel it, and the
+  // callback re-checks `submittedRef` before writing. Both are needed and for
+  // different windows: the ref kills a timer that has not fired yet, the flag
+  // stops one that is already running. Without them a write armed just before
+  // "Create order" fired *after* the draft was cleared and put the order back
+  // in storage — and on the payment-link branch the page does not navigate, so
+  // that timer was guaranteed to survive. The next visit would then restore a
+  // cart that is already in the kitchen, under a banner that says nothing about
+  // it having been sent.
+  useEffect(() => {
+    if (!didRestore.current || submittedRef.current) return;
+    const timer = setTimeout(() => {
+      saveTimerRef.current = null;
+      if (submittedRef.current) return;
+      saveOrderDraft(restaurantId, {
+        lines: toDraftLines(lines, draftPrices),
+        customer: drawerState?.customer ?? EMPTY_CUSTOMER,
+        linked: drawerState?.linked ?? null,
+        orderType: drawerState?.orderType ?? 'pickup',
+        fulfillment: drawerState?.fulfillment ?? { timing: 'immediate' },
+      });
+    }, 500);
+    saveTimerRef.current = timer;
+    return () => {
+      clearTimeout(timer);
+      if (saveTimerRef.current === timer) saveTimerRef.current = null;
+    };
+  }, [lines, drawerState, draftPrices, restaurantId]);
 
   // POS-orderable cartes (menus), in the same order as the Cartes page
   // (sort_order, set via "Réorganiser"). Drives the carte selector.
@@ -239,6 +365,9 @@ export default function NewOrderPage() {
 
   const subtotal = lines.reduce((sum, l) => sum + lineTotal(l), 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+  // Every flagged line must be dealt with (accepted or removed) before the
+  // order can go to checkout — see DraftRestoredBanner.
+  const blockedByIssues = isSubmissionBlocked(issues);
 
   // Per-item quantity in the ticket, for the tile badge.
   const qtyByItem = useMemo(() => {
@@ -261,6 +390,7 @@ export default function NewOrderPage() {
       return;
     }
     // Quick add — merge into an existing plain line for the same item.
+    setDraftRestored(false);
     setLines((prev) => {
       const idx = prev.findIndex(
         (l) => l.item.id === full.id && !l.selectedVariantId && l.modifiers.length === 0 && !l.notes,
@@ -275,10 +405,12 @@ export default function NewOrderPage() {
   }
 
   function addLine(line: NewOrderLine) {
+    setDraftRestored(false);
     setLines((prev) => [...prev, line]);
   }
 
   function changeQty(lineUid: string, delta: number) {
+    setDraftRestored(false);
     setLines((prev) =>
       prev
         .map((l) => (l.uid === lineUid ? { ...l, quantity: l.quantity + delta } : l))
@@ -287,7 +419,61 @@ export default function NewOrderPage() {
   }
 
   function removeLine(lineUid: string) {
+    // Removing a *flagged* line (the row's own "Retirer") is triage, not a
+    // cart edit — it should read the same as Accept below, or the two
+    // resolve actions would leave the banner in different states for doing
+    // the same job. The trash-can on an ordinary line is still a real edit
+    // and hides the banner as before. Either way the checkout gate itself
+    // never depends on this: it reads `issues.size`, pruned synchronously
+    // right here so the disabled button and its reason clear on this same
+    // paint rather than lagging a render behind the effect below.
+    if (!issues.has(lineUid)) setDraftRestored(false);
     setLines((prev) => prev.filter((l) => l.uid !== lineUid));
+    setIssues((prev) => dropIssue(prev, lineUid));
+  }
+
+  // Lifts the block on a `price_changed` line without touching it: the price
+  // shown already comes from `lineUnitPrice` on the current item, and the
+  // server recomputes the authoritative total at creation. Not treated as a
+  // cart change (unlike add/qty/remove above) — the staff is dealing with the
+  // resumed draft itself, not adding new work on top of it, so the banner
+  // stays up.
+  function acceptIssue(lineUid: string) {
+    setIssues((prev) => dropIssue(prev, lineUid));
+    // Le prix courant devient la référence — c'est la définition d'accepter.
+    // Sans cet oubli, la réécriture garderait l'ancien prix et la ligne
+    // reviendrait signalée au prochain retour, malgré l'acceptation.
+    setDraftPrices((prev) => {
+      if (!prev.has(lineUid)) return prev;
+      const next = new Map(prev);
+      next.delete(lineUid);
+      return next;
+    });
+  }
+
+  /** Erases the stored draft *and* the write that was about to recreate it.
+   *  Clearing storage alone is not enough: a debounced write armed moments
+   *  earlier fires afterwards and puts the record straight back. */
+  function forgetDraft() {
+    if (saveTimerRef.current !== null) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    clearOrderDraft(restaurantId);
+  }
+
+  /** Everything a discard has to put back to zero, cart and customer alike.
+   *  Emptying the cart without remounting the drawer left the previous
+   *  customer attached — name, phone, address and the "Client existant" chip —
+   *  so the next order was silently composed under the wrong identity. The two
+   *  halves of an order are discarded together or not at all. */
+  function resetOrderComposition() {
+    setLines([]);
+    setIssues(new Map());
+    setDraftPrices(new Map());
+    setDraftRestored(false);
+    setRestoredState(null);
+    setDrawerResetKey((k) => k + 1);
   }
 
   async function handleConfirm(data: CheckoutData) {
@@ -361,8 +547,24 @@ export default function NewOrderPage() {
         ...(data.manualDiscount ? { manual_discount: data.manualDiscount } : {}),
       });
 
+      // The order now exists server-side: the draft has done its job. Cleared
+      // on the success path only (never in `finally`) — a failed create must
+      // leave the draft intact, or a network blip destroys the very work this
+      // feature exists to protect. `submittedRef` is set BEFORE clearing so no
+      // in-flight debounce can write this cart back after the fact.
+      submittedRef.current = true;
+      forgetDraft();
+      setIssues(new Map());
+      setDraftRestored(false);
+      setRestoredState(null);
+      // The cart itself is left alone (the summary screen below replaces the
+      // page, and clearing it would flash an empty ticket before the redirect),
+      // but the customer sheet is remounted: the next order must not start
+      // pre-filled with the customer of the one just sent.
+      setCheckoutOpen(false);
+      setDrawerResetKey((k) => k + 1);
+
       if (res.payment_url) {
-        setCheckoutOpen(false);
         setPaymentUrl(res.payment_url);
       } else {
         router.push(`/${restaurantId}/orders/all`);
@@ -629,7 +831,7 @@ export default function NewOrderPage() {
             {lines.length > 0 && (
               <button
                 type="button"
-                onClick={() => setLines([])}
+                onClick={() => { forgetDraft(); resetOrderComposition(); }}
                 className="inline-flex items-center gap-1 rounded-full px-[var(--s-2)] py-1 text-fs-xs font-medium text-[var(--fg-muted)] transition-colors hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]"
               >
                 <Trash2Icon className="size-3.5" />
@@ -640,6 +842,19 @@ export default function NewOrderPage() {
 
           {/* Lines */}
           <div className="min-h-0 flex-1 overflow-y-auto px-[var(--s-4)]">
+            {/* Survives past `draftRestored` going false while any issue is
+                still outstanding — otherwise resolving one of several flagged
+                lines would drop the "N to check" signal while the others are
+                still blocking checkout, right when the staff most needs it.
+                Once every flag has been dealt with, an ordinary edit (which
+                clears `draftRestored`) collapses it as usual. */}
+            {(draftRestored || issues.size > 0) && lines.length > 0 && (
+              <DraftRestoredBanner
+                itemCount={lines.length}
+                issueCount={issues.size}
+                onDiscard={() => { forgetDraft(); resetOrderComposition(); }}
+              />
+            )}
             {lines.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-[var(--s-3)] py-[var(--s-10)] text-center">
                 <span className="flex size-14 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--fg-subtle)]">
@@ -649,7 +864,9 @@ export default function NewOrderPage() {
               </div>
             ) : (
               <ul className="flex flex-col divide-y divide-[var(--line)]">
-                {lines.map((l) => (
+                {lines.map((l) => {
+                  const issue = issues.get(l.uid);
+                  return (
                   <li key={l.uid} className="flex flex-col gap-[var(--s-2)] py-[var(--s-3)] duration-200 animate-in fade-in slide-in-from-top-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -689,8 +906,23 @@ export default function NewOrderPage() {
                         <Trash2Icon className="size-4" />
                       </button>
                     </div>
+                    {issue && (
+                      <div className="flex flex-wrap items-center gap-[var(--s-2)] rounded-r-sm border border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-2)] py-[var(--s-2)]">
+                        <Badge tone={issueTone(issue)} dot>{issueLabel(issue, t)}</Badge>
+                        <div className="flex-1" />
+                        {issueCanBeAccepted(issue) && (
+                          <Button variant="secondary" size="sm" onClick={() => acceptIssue(l.uid)}>
+                            {t('draftIssueAccept')}
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => removeLine(l.uid)}>
+                          {t('draftIssueRemove')}
+                        </Button>
+                      </div>
+                    )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -702,21 +934,28 @@ export default function NewOrderPage() {
               <span className="font-mono tabular-nums text-fs-2xl font-bold">₪{subtotal.toFixed(2)}</span>
             </div>
             {canManage && (
-              <Button
-                variant="primary"
-                size="lg"
-                className="h-[52px] w-full text-fs-md font-semibold"
-                disabled={lines.length === 0}
-                onClick={() => { setSubmitError(null); setCheckoutOpen(true); }}
-              >
-                <span className="flex w-full items-center justify-between">
-                  <span className="inline-flex items-center gap-[var(--s-2)]">
-                    <CreditCardIcon />
-                    {t('checkout')}
+              <>
+                {blockedByIssues && (
+                  <p className="mb-[var(--s-2)] text-center text-fs-xs font-medium text-[var(--danger-500)]">
+                    {t('draftBlockedSubmit')}
+                  </p>
+                )}
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="h-[52px] w-full text-fs-md font-semibold"
+                  disabled={lines.length === 0 || blockedByIssues}
+                  onClick={() => { setSubmitError(null); setCheckoutOpen(true); }}
+                >
+                  <span className="flex w-full items-center justify-between">
+                    <span className="inline-flex items-center gap-[var(--s-2)]">
+                      <CreditCardIcon />
+                      {t('checkout')}
+                    </span>
+                    <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
                   </span>
-                  <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
-                </span>
-              </Button>
+                </Button>
+              </>
             )}
           </div>
         </aside>
@@ -740,6 +979,7 @@ export default function NewOrderPage() {
       />
 
       <NewOrderCheckoutDrawer
+        key={drawerResetKey}
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         total={subtotal}
@@ -756,6 +996,8 @@ export default function NewOrderPage() {
           line_total: lineTotal(l),
           quantity: l.quantity,
         }))}
+        onStateChange={setDrawerState}
+        initialState={restoredState ?? undefined}
       />
     </div>
   );

@@ -511,6 +511,7 @@ export default function ProductionPage() {
             onToggleDone={toggleDone}
             availablePortions={availablePortions}
             boxSize={boxSize}
+            unitDisplayIds={unitDisplayIds}
           />
         ) : (
           <div className="flex flex-col gap-[var(--s-2)]">

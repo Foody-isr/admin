@@ -21,6 +21,8 @@ import {
 import { reasonKey } from '@/lib/discounts';
 import { usePermissions } from '@/lib/permissions-context';
 import { CustomerPicker } from './CustomerPicker';
+import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
+import type { DraftCustomer } from '@/lib/orders/orderDraft';
 
 export type OrderType = 'pickup' | 'delivery';
 // Payment is captured as two axes: the method (cash / card / payment link) and
@@ -63,6 +65,16 @@ export interface DiscountItem {
   quantity: number;
 }
 
+/** La part du drawer qui entre dans le brouillon. Le paiement, les remises et
+ *  les frais de livraison en sont volontairement absents : les restaurer
+ *  périmés créerait une commande faussement payée ou facturée au mauvais tarif. */
+export interface DrawerDraftState {
+  customer: DraftCustomer;
+  linked: CustomerSearchResult | null;
+  orderType: OrderType;
+  fulfillment: FulfillmentValue;
+}
+
 interface NewOrderCheckoutDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -77,6 +89,11 @@ interface NewOrderCheckoutDrawerProps {
   restaurantId: number;
   /** Cart lines in the shape required by POST /discounts/validate. */
   discountItems: DiscountItem[];
+  /** Appelé quand la part brouillonnable de l'état change. La page compose
+   *  l'enregistrement complet ; le drawer n'écrit rien lui-même. */
+  onStateChange?: (state: DrawerDraftState) => void;
+  /** État repris d'un brouillon, appliqué une seule fois au montage. */
+  initialState?: DrawerDraftState;
 }
 
 // A single selectable tile (used for order type + payment choices).
@@ -129,7 +146,7 @@ function ToggleButton({ active, onClick, label }: { active: boolean; onClick: ()
 
 export function NewOrderCheckoutDrawer({
   open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig, defaultDate,
-  restaurantId, discountItems,
+  restaurantId, discountItems, onStateChange, initialState,
 }: NewOrderCheckoutDrawerProps) {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
@@ -167,6 +184,60 @@ export function NewOrderCheckoutDrawer({
 
   const [fulfillment, setFulfillment] = useState<FulfillmentValue>({ timing: 'immediate' });
 
+  // ── Draft restore / report ──────────────────────────────────────────────────
+  // Applies a restored draft exactly once, on mount. Ref-guarded rather than an
+  // `initialState !== null` check alone: `initialState` can stay the same object
+  // across re-renders (the page only sets it once), but the guard is what
+  // guarantees a late-arriving prop never re-applies over what the staff has
+  // since typed — this is the WhatsApp-recap-dialog bug, avoided on purpose.
+  const didApplyInitial = useRef(false);
+  // Le créneau repris attend d'être consommé par la première ouverture. Sans
+  // ce drapeau, la branche d'ouverture ci-dessous écrasait le créneau restauré
+  // par le créneau par défaut (la première série à venir, ou « Immédiat ») :
+  // `didInitFulfillment` est remis à false à chaque rendu fermé, y compris le
+  // tout premier, donc la première ouverture se croyait toujours la première
+  // ouverture d'un formulaire vierge. L'effet de remontée persistait ensuite le
+  // créneau écrasé dans le brouillon, si bien que le créneau était capturé,
+  // restauré, puis jeté sur le seul chemin qui le consomme.
+  const draftFulfillmentPending = useRef<FulfillmentValue | null>(null);
+  useEffect(() => {
+    if (didApplyInitial.current || !initialState) return;
+    didApplyInitial.current = true;
+    draftFulfillmentPending.current = initialState.fulfillment;
+    // Le nom et le téléphone repris ne sont pas une frappe du staff : sans
+    // armer les deux refs, l'effet de recherche de CustomerPicker partirait sur
+    // la valeur restaurée et ouvrirait sa liste par-dessus un champ autofocus,
+    // où Entrée sélectionne la ligne surlignée.
+    nameSkipSearchRef.current = true;
+    phoneSkipSearchRef.current = true;
+    setCustomerName(initialState.customer.name);
+    setCustomerPhone(initialState.customer.phone);
+    setAddress(initialState.customer.address);
+    setCity(initialState.customer.city);
+    setFloor(initialState.customer.floor);
+    setApt(initialState.customer.apt);
+    setEntryCode(initialState.customer.entryCode);
+    setDeliveryNotes(initialState.customer.deliveryNotes);
+    setLinked(initialState.linked);
+    setOrderType(initialState.orderType);
+    setFulfillment(initialState.fulfillment);
+  }, [initialState]);
+
+  // Reports the draftable slice of state up on every change, so the page can
+  // fold it into the persisted draft. `onStateChange` is `setDrawerState` from
+  // the page — a `useState` setter, stable across renders — so this effect
+  // never loops.
+  useEffect(() => {
+    onStateChange?.({
+      customer: {
+        name: customerName, phone: customerPhone,
+        address, city, floor, apt, entryCode, deliveryNotes,
+      },
+      linked, orderType, fulfillment,
+    });
+  }, [customerName, customerPhone, address, city, floor, apt, entryCode,
+      deliveryNotes, linked, orderType, fulfillment, onStateChange]);
+
   // ── Discount state ────────────────────────────────────────────────────────
   const [coupons, setCoupons] = useState<Discount[]>([]);
   const [couponCode, setCouponCode] = useState('');
@@ -189,6 +260,11 @@ export function NewOrderCheckoutDrawer({
     if (!open) {
       didInitFulfillment.current = false;
       // Reset discount state when the drawer closes so it starts fresh next time.
+      // Deliberately does NOT touch customer-sheet fields (name, phone, address,
+      // city, floor, apt, entryCode, deliveryNotes, linked): those are meant to
+      // survive a close/reopen exactly like the rest of the sheet, and since
+      // Task 3 they're also what a persisted draft records. Resetting entryCode
+      // or linked here used to silently drop them from the draft on every close.
       setCouponCode('');
       setDiscountError(null);
       setAppliedCoupon(null);
@@ -198,12 +274,38 @@ export function NewOrderCheckoutDrawer({
       setAppliedManual(null);
       setDeliveryFee('');
       setFeeTouched(false);
-      setEntryCode('');
-      setLinked(null);
       return;
     }
     if (didInitFulfillment.current) return;
     didInitFulfillment.current = true;
+    // Un créneau repris d'un brouillon a déjà été posé au montage : le défaut
+    // ne doit pas passer par-dessus. Consommé une fois, pour que les
+    // ouvertures suivantes retrouvent le comportement habituel.
+    //
+    // Sauf s'il n'est plus proposable : douze heures suffisent à faire passer
+    // une série. Un créneau repris qui ne figure plus parmi les cibles ne peut
+    // pas être choisi dans le sélecteur — il partirait tel quel, sur une date
+    // que le restaurant ne sert plus. Dans ce cas seulement, le défaut reprend
+    // la main.
+    const pending = draftFulfillmentPending.current;
+    draftFulfillmentPending.current = null;
+    if (pending && (pending.timing === 'immediate' || targets.length === 0)) return;
+    if (pending) {
+      // La date suffit à retrouver la série, mais pas à la décrire : ses heures
+      // ont pu bouger depuis. On garde la date reprise et on relit ses heures
+      // sur la cible fraîche — sinon le sélecteur affiche le nouveau créneau
+      // pendant que la commande part avec l'ancien.
+      const match = targets.find((tg) => tg.date === pending.scheduledFor);
+      if (match) {
+        setFulfillment({
+          timing: 'scheduled',
+          scheduledFor: match.date,
+          windowStart: match.windowStart,
+          windowEnd: match.windowEnd,
+        });
+        return;
+      }
+    }
     const preferred = defaultDate ? targets.find((tg) => tg.date === defaultDate) : undefined;
     setFulfillment(
       preferred
@@ -433,43 +535,34 @@ export function NewOrderCheckoutDrawer({
 
           {orderType === 'delivery' && (
             <>
-              <Field label={t('deliveryAddress')}>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-              </Field>
-
-              {linked && linked.addresses.length > 1 && (
-                <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-                  <span className="text-fs-sm text-[var(--fg-muted)]">
-                    {t('customerPickerKnownAddresses').replace('{n}', String(linked.addresses.length))}
-                  </span>
-                  {linked.addresses.map((a) => (
-                    <Chip
-                      key={`${a.address}|${a.city}|${a.floor}|${a.apt}`}
-                      onClick={() => applyAddress(a)}
-                    >
-                      {[a.address, a.city].filter(Boolean).join(', ')}
-                    </Chip>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-2">
-                <Field label={t('city')} className="col-span-1">
-                  <Input value={city} onChange={(e) => setCity(e.target.value)} />
-                </Field>
-                <Field label={t('floor')} className="col-span-1">
-                  <Input value={floor} onChange={(e) => setFloor(e.target.value)} />
-                </Field>
-                <Field label={t('apt')} className="col-span-1">
-                  <Input value={apt} onChange={(e) => setApt(e.target.value)} />
-                </Field>
-              </div>
-              <Field label={t('buildingCode')}>
-                <Input value={entryCode} onChange={(e) => setEntryCode(e.target.value)} />
-              </Field>
-              <Field label={t('deliveryNotes')}>
-                <Textarea value={deliveryNotes} onChange={(e) => setDeliveryNotes(e.target.value)} />
-              </Field>
+              <CustomerDeliveryFields
+                value={{ address, city, floor, apt, entryCode, deliveryNotes }}
+                onChange={(p) => {
+                  if (p.address !== undefined) setAddress(p.address);
+                  if (p.city !== undefined) setCity(p.city);
+                  if (p.floor !== undefined) setFloor(p.floor);
+                  if (p.apt !== undefined) setApt(p.apt);
+                  if (p.entryCode !== undefined) setEntryCode(p.entryCode);
+                  if (p.deliveryNotes !== undefined) setDeliveryNotes(p.deliveryNotes);
+                }}
+                underAddress={
+                  linked && linked.addresses.length > 1 ? (
+                    <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+                      <span className="text-fs-sm text-[var(--fg-muted)]">
+                        {t('customerPickerKnownAddresses').replace('{n}', String(linked.addresses.length))}
+                      </span>
+                      {linked.addresses.map((a) => (
+                        <Chip
+                          key={`${a.address}|${a.city}|${a.floor}|${a.apt}`}
+                          onClick={() => applyAddress(a)}
+                        >
+                          {[a.address, a.city].filter(Boolean).join(', ')}
+                        </Chip>
+                      ))}
+                    </div>
+                  ) : null
+                }
+              />
               <Field label={t('deliveryFee')}>
                 <Input
                   value={deliveryFee}
