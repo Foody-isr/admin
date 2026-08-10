@@ -50,8 +50,23 @@ export function CustomerPicker({
   const [loading, setLoading] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
+  // La valeur présente au montage n'a pas été tapée ici : elle vient du parent
+  // (fiche client reprise d'un brouillon, ou simple réouverture du drawer, qui
+  // remonte ce composant puisque Radix ne monte le contenu qu'à l'ouverture).
+  // Chercher dessus ouvrirait la liste toute seule par-dessus un champ
+  // autofocus, où Entrée sélectionne la ligne surlignée — soit un client
+  // rattaché sans que personne ne l'ait choisi.
+  const firstRun = useRef(true);
 
   useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      // Ce que le parent avait armé ne concernait que cette valeur de montage,
+      // qu'on vient d'ignorer : le laisser armé avalerait la première vraie
+      // frappe du staff.
+      skipNextSearchRef.current = false;
+      return;
+    }
     if (skipNextSearchRef.current) {
       skipNextSearchRef.current = false;
       return;

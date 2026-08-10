@@ -190,9 +190,25 @@ export function NewOrderCheckoutDrawer({
   // guarantees a late-arriving prop never re-applies over what the staff has
   // since typed — this is the WhatsApp-recap-dialog bug, avoided on purpose.
   const didApplyInitial = useRef(false);
+  // Le créneau repris attend d'être consommé par la première ouverture. Sans
+  // ce drapeau, la branche d'ouverture ci-dessous écrasait le créneau restauré
+  // par le créneau par défaut (la première série à venir, ou « Immédiat ») :
+  // `didInitFulfillment` est remis à false à chaque rendu fermé, y compris le
+  // tout premier, donc la première ouverture se croyait toujours la première
+  // ouverture d'un formulaire vierge. L'effet de remontée persistait ensuite le
+  // créneau écrasé dans le brouillon, si bien que le créneau était capturé,
+  // restauré, puis jeté sur le seul chemin qui le consomme.
+  const draftFulfillmentPending = useRef(false);
   useEffect(() => {
     if (didApplyInitial.current || !initialState) return;
     didApplyInitial.current = true;
+    draftFulfillmentPending.current = true;
+    // Le nom et le téléphone repris ne sont pas une frappe du staff : sans
+    // armer les deux refs, l'effet de recherche de CustomerPicker partirait sur
+    // la valeur restaurée et ouvrirait sa liste par-dessus un champ autofocus,
+    // où Entrée sélectionne la ligne surlignée.
+    nameSkipSearchRef.current = true;
+    phoneSkipSearchRef.current = true;
     setCustomerName(initialState.customer.name);
     setCustomerPhone(initialState.customer.phone);
     setAddress(initialState.customer.address);
@@ -261,6 +277,13 @@ export function NewOrderCheckoutDrawer({
     }
     if (didInitFulfillment.current) return;
     didInitFulfillment.current = true;
+    // Un créneau repris d'un brouillon a déjà été posé au montage : le défaut
+    // ne doit pas passer par-dessus. Consommé une fois, pour que les
+    // ouvertures suivantes retrouvent le comportement habituel.
+    if (draftFulfillmentPending.current) {
+      draftFulfillmentPending.current = false;
+      return;
+    }
     const preferred = defaultDate ? targets.find((tg) => tg.date === defaultDate) : undefined;
     setFulfillment(
       preferred
