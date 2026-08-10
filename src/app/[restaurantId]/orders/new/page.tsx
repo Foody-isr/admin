@@ -111,6 +111,16 @@ export default function NewOrderPage() {
   const [issues, setIssues] = useState<Map<string, LineIssue>>(new Map());
   const [draftRestored, setDraftRestored] = useState(false);
   const [restoredState, setRestoredState] = useState<DrawerDraftState | null>(null);
+  // Remount key for the checkout drawer. The drawer keeps the customer sheet in
+  // its own `useState`, and Radix only portals its *content* — closing it
+  // unmounts the dialog, never the component — so nothing the page does to
+  // `lines` can reach the customer fields. Bumping this key is the one honest
+  // way to drop them: it remounts the subtree, so every field (name, phone,
+  // address, `linked`, payment, discount) returns to its initial value with no
+  // per-field reset list to keep in sync. Without it, discarding a restored
+  // draft kept customer A attached while the staff built customer B's cart, and
+  // the next write-back saved B's lines under A's name and address.
+  const [drawerResetKey, setDrawerResetKey] = useState(0);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -171,6 +181,10 @@ export default function NewOrderPage() {
   // "the menu hasn't arrived yet" only by looking the id up in it, so restoring
   // any earlier would flag every single line as missing.
   const didRestore = useRef(false);
+  // Pending debounced write-back, and "this cart has already been sent to the
+  // kitchen" — see the write-back effect below and `forgetDraft`.
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const submittedRef = useRef(false);
   useEffect(() => {
     if (didRestore.current || loading || itemMap.size === 0) return;
     didRestore.current = true;
@@ -213,9 +227,21 @@ export default function NewOrderPage() {
   // cart, before the restore attempt above has even run) never overwrites a
   // stored draft with nothing — that would destroy exactly what this feature
   // protects.
+  //
+  // The pending timer is held in a ref so `forgetDraft` can cancel it, and the
+  // callback re-checks `submittedRef` before writing. Both are needed and for
+  // different windows: the ref kills a timer that has not fired yet, the flag
+  // stops one that is already running. Without them a write armed just before
+  // "Create order" fired *after* the draft was cleared and put the order back
+  // in storage — and on the payment-link branch the page does not navigate, so
+  // that timer was guaranteed to survive. The next visit would then restore a
+  // cart that is already in the kitchen, under a banner that says nothing about
+  // it having been sent.
   useEffect(() => {
-    if (!didRestore.current) return;
+    if (!didRestore.current || submittedRef.current) return;
     const timer = setTimeout(() => {
+      saveTimerRef.current = null;
+      if (submittedRef.current) return;
       saveOrderDraft(restaurantId, {
         lines: toDraftLines(lines),
         customer: drawerState?.customer ?? EMPTY_CUSTOMER,
@@ -224,7 +250,11 @@ export default function NewOrderPage() {
         fulfillment: drawerState?.fulfillment ?? { timing: 'immediate' },
       });
     }, 500);
-    return () => clearTimeout(timer);
+    saveTimerRef.current = timer;
+    return () => {
+      clearTimeout(timer);
+      if (saveTimerRef.current === timer) saveTimerRef.current = null;
+    };
   }, [lines, drawerState, restaurantId]);
 
   // POS-orderable cartes (menus), in the same order as the Cartes page
@@ -404,6 +434,30 @@ export default function NewOrderPage() {
     setIssues((prev) => dropIssue(prev, lineUid));
   }
 
+  /** Erases the stored draft *and* the write that was about to recreate it.
+   *  Clearing storage alone is not enough: a debounced write armed moments
+   *  earlier fires afterwards and puts the record straight back. */
+  function forgetDraft() {
+    if (saveTimerRef.current !== null) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    clearOrderDraft(restaurantId);
+  }
+
+  /** Everything a discard has to put back to zero, cart and customer alike.
+   *  Emptying the cart without remounting the drawer left the previous
+   *  customer attached — name, phone, address and the "Client existant" chip —
+   *  so the next order was silently composed under the wrong identity. The two
+   *  halves of an order are discarded together or not at all. */
+  function resetOrderComposition() {
+    setLines([]);
+    setIssues(new Map());
+    setDraftRestored(false);
+    setRestoredState(null);
+    setDrawerResetKey((k) => k + 1);
+  }
+
   async function handleConfirm(data: CheckoutData) {
     setSubmitting(true);
     setSubmitError(null);
@@ -478,13 +532,21 @@ export default function NewOrderPage() {
       // The order now exists server-side: the draft has done its job. Cleared
       // on the success path only (never in `finally`) — a failed create must
       // leave the draft intact, or a network blip destroys the very work this
-      // feature exists to protect.
-      clearOrderDraft(restaurantId);
+      // feature exists to protect. `submittedRef` is set BEFORE clearing so no
+      // in-flight debounce can write this cart back after the fact.
+      submittedRef.current = true;
+      forgetDraft();
       setIssues(new Map());
       setDraftRestored(false);
+      setRestoredState(null);
+      // The cart itself is left alone (the summary screen below replaces the
+      // page, and clearing it would flash an empty ticket before the redirect),
+      // but the customer sheet is remounted: the next order must not start
+      // pre-filled with the customer of the one just sent.
+      setCheckoutOpen(false);
+      setDrawerResetKey((k) => k + 1);
 
       if (res.payment_url) {
-        setCheckoutOpen(false);
         setPaymentUrl(res.payment_url);
       } else {
         router.push(`/${restaurantId}/orders/all`);
@@ -751,7 +813,7 @@ export default function NewOrderPage() {
             {lines.length > 0 && (
               <button
                 type="button"
-                onClick={() => { setDraftRestored(false); setLines([]); }}
+                onClick={() => { forgetDraft(); resetOrderComposition(); }}
                 className="inline-flex items-center gap-1 rounded-full px-[var(--s-2)] py-1 text-fs-xs font-medium text-[var(--fg-muted)] transition-colors hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]"
               >
                 <Trash2Icon className="size-3.5" />
@@ -772,12 +834,7 @@ export default function NewOrderPage() {
               <DraftRestoredBanner
                 itemCount={lines.length}
                 issueCount={issues.size}
-                onDiscard={() => {
-                  clearOrderDraft(restaurantId);
-                  setLines([]);
-                  setIssues(new Map());
-                  setDraftRestored(false);
-                }}
+                onDiscard={() => { forgetDraft(); resetOrderComposition(); }}
               />
             )}
             {lines.length === 0 ? (
@@ -904,6 +961,7 @@ export default function NewOrderPage() {
       />
 
       <NewOrderCheckoutDrawer
+        key={drawerResetKey}
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         total={subtotal}
