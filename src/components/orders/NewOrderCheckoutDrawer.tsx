@@ -21,6 +21,7 @@ import {
 import { reasonKey } from '@/lib/discounts';
 import { usePermissions } from '@/lib/permissions-context';
 import { CustomerPicker } from './CustomerPicker';
+import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
 import type { DraftCustomer } from '@/lib/orders/orderDraft';
 
 export type OrderType = 'pickup' | 'delivery';
@@ -534,43 +535,34 @@ export function NewOrderCheckoutDrawer({
 
           {orderType === 'delivery' && (
             <>
-              <Field label={t('deliveryAddress')}>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-              </Field>
-
-              {linked && linked.addresses.length > 1 && (
-                <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-                  <span className="text-fs-sm text-[var(--fg-muted)]">
-                    {t('customerPickerKnownAddresses').replace('{n}', String(linked.addresses.length))}
-                  </span>
-                  {linked.addresses.map((a) => (
-                    <Chip
-                      key={`${a.address}|${a.city}|${a.floor}|${a.apt}`}
-                      onClick={() => applyAddress(a)}
-                    >
-                      {[a.address, a.city].filter(Boolean).join(', ')}
-                    </Chip>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-2">
-                <Field label={t('city')} className="col-span-1">
-                  <Input value={city} onChange={(e) => setCity(e.target.value)} />
-                </Field>
-                <Field label={t('floor')} className="col-span-1">
-                  <Input value={floor} onChange={(e) => setFloor(e.target.value)} />
-                </Field>
-                <Field label={t('apt')} className="col-span-1">
-                  <Input value={apt} onChange={(e) => setApt(e.target.value)} />
-                </Field>
-              </div>
-              <Field label={t('buildingCode')}>
-                <Input value={entryCode} onChange={(e) => setEntryCode(e.target.value)} />
-              </Field>
-              <Field label={t('deliveryNotes')}>
-                <Textarea value={deliveryNotes} onChange={(e) => setDeliveryNotes(e.target.value)} />
-              </Field>
+              <CustomerDeliveryFields
+                value={{ address, city, floor, apt, entryCode, deliveryNotes }}
+                onChange={(p) => {
+                  if (p.address !== undefined) setAddress(p.address);
+                  if (p.city !== undefined) setCity(p.city);
+                  if (p.floor !== undefined) setFloor(p.floor);
+                  if (p.apt !== undefined) setApt(p.apt);
+                  if (p.entryCode !== undefined) setEntryCode(p.entryCode);
+                  if (p.deliveryNotes !== undefined) setDeliveryNotes(p.deliveryNotes);
+                }}
+                underAddress={
+                  linked && linked.addresses.length > 1 ? (
+                    <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+                      <span className="text-fs-sm text-[var(--fg-muted)]">
+                        {t('customerPickerKnownAddresses').replace('{n}', String(linked.addresses.length))}
+                      </span>
+                      {linked.addresses.map((a) => (
+                        <Chip
+                          key={`${a.address}|${a.city}|${a.floor}|${a.apt}`}
+                          onClick={() => applyAddress(a)}
+                        >
+                          {[a.address, a.city].filter(Boolean).join(', ')}
+                        </Chip>
+                      ))}
+                    </div>
+                  ) : null
+                }
+              />
               <Field label={t('deliveryFee')}>
                 <Input
                   value={deliveryFee}
