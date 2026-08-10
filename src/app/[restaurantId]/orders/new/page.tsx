@@ -15,10 +15,14 @@ import {
   loadOrderDraft, saveOrderDraft, clearOrderDraft, type DraftCustomer,
 } from '@/lib/orders/orderDraft';
 import { rehydrateDraftLines, toDraftLines, type LineIssue } from '@/lib/orders/draftLines';
+import {
+  issueLabel, issueTone, issueCanBeAccepted, isSubmissionBlocked,
+} from '@/lib/orders/draftIssuePresentation';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
 import { BatchPicker } from '@/components/menu/BatchPicker';
+import { DraftRestoredBanner } from '@/components/orders/DraftRestoredBanner';
 import { cn } from '@/lib/utils';
 import {
   NewOrderItemModal, lineUnitPrice, lineTotal, type NewOrderLine,
@@ -89,8 +93,10 @@ export default function NewOrderPage() {
   // Draft persistence — see src/lib/orders/orderDraft.ts and draftLines.ts.
   // `drawerState` is the drawer's draftable slice, reported via onStateChange.
   const [drawerState, setDrawerState] = useState<DrawerDraftState | null>(null);
-  // Lines flagged by rehydration (missing / sold out / price changed) — Task 4
-  // renders these; here they're only computed and cleared.
+  // Lines flagged by rehydration (missing / sold out / price changed). Kept
+  // separate from `lines` rather than folded into each line's shape: an issue
+  // is provisional (accept/remove clears it) while the line itself is the
+  // durable cart state that gets saved to the draft and sent to the server.
   const [issues, setIssues] = useState<Map<string, LineIssue>>(new Map());
   const [draftRestored, setDraftRestored] = useState(false);
   const [restoredState, setRestoredState] = useState<DrawerDraftState | null>(null);
@@ -170,6 +176,26 @@ export default function NewOrderPage() {
     });
     setDraftRestored(true);
   }, [loading, itemMap, restaurantId]);
+
+  // An issue must never outlive its line: once a flagged line leaves the cart
+  // (removed directly, or its quantity dropped to zero), its entry in `issues`
+  // would otherwise linger and keep the checkout button blocked with a reason
+  // that no longer applies. Pruned centrally so every removal path (the line's
+  // own remove button, "Clear all", quantity reaching zero) stays correct
+  // without repeating the cleanup at each call site.
+  useEffect(() => {
+    setIssues((prev) => {
+      if (prev.size === 0) return prev;
+      const live = new Set(lines.map((l) => l.uid));
+      let changed = false;
+      const next = new Map<string, LineIssue>();
+      prev.forEach((issue, lineUid) => {
+        if (live.has(lineUid)) next.set(lineUid, issue);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
+  }, [lines]);
 
   // Debounced write-back. Gated on `didRestore` so the very first render (empty
   // cart, before the restore attempt above has even run) never overwrites a
@@ -289,6 +315,9 @@ export default function NewOrderPage() {
 
   const subtotal = lines.reduce((sum, l) => sum + lineTotal(l), 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+  // Every flagged line must be dealt with (accepted or removed) before the
+  // order can go to checkout — see DraftRestoredBanner.
+  const blockedByIssues = isSubmissionBlocked(issues);
 
   // Per-item quantity in the ticket, for the tile badge.
   const qtyByItem = useMemo(() => {
@@ -311,6 +340,7 @@ export default function NewOrderPage() {
       return;
     }
     // Quick add — merge into an existing plain line for the same item.
+    setDraftRestored(false);
     setLines((prev) => {
       const idx = prev.findIndex(
         (l) => l.item.id === full.id && !l.selectedVariantId && l.modifiers.length === 0 && !l.notes,
@@ -325,10 +355,12 @@ export default function NewOrderPage() {
   }
 
   function addLine(line: NewOrderLine) {
+    setDraftRestored(false);
     setLines((prev) => [...prev, line]);
   }
 
   function changeQty(lineUid: string, delta: number) {
+    setDraftRestored(false);
     setLines((prev) =>
       prev
         .map((l) => (l.uid === lineUid ? { ...l, quantity: l.quantity + delta } : l))
@@ -337,7 +369,23 @@ export default function NewOrderPage() {
   }
 
   function removeLine(lineUid: string) {
+    setDraftRestored(false);
     setLines((prev) => prev.filter((l) => l.uid !== lineUid));
+  }
+
+  // Lifts the block on a `price_changed` line without touching it: the price
+  // shown already comes from `lineUnitPrice` on the current item, and the
+  // server recomputes the authoritative total at creation. Not treated as a
+  // cart change (unlike add/qty/remove above) — the staff is dealing with the
+  // resumed draft itself, not adding new work on top of it, so the banner
+  // stays up.
+  function acceptIssue(lineUid: string) {
+    setIssues((prev) => {
+      if (!prev.has(lineUid)) return prev;
+      const next = new Map(prev);
+      next.delete(lineUid);
+      return next;
+    });
   }
 
   async function handleConfirm(data: CheckoutData) {
@@ -687,7 +735,7 @@ export default function NewOrderPage() {
             {lines.length > 0 && (
               <button
                 type="button"
-                onClick={() => setLines([])}
+                onClick={() => { setDraftRestored(false); setLines([]); }}
                 className="inline-flex items-center gap-1 rounded-full px-[var(--s-2)] py-1 text-fs-xs font-medium text-[var(--fg-muted)] transition-colors hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]"
               >
                 <Trash2Icon className="size-3.5" />
@@ -698,6 +746,18 @@ export default function NewOrderPage() {
 
           {/* Lines */}
           <div className="min-h-0 flex-1 overflow-y-auto px-[var(--s-4)]">
+            {draftRestored && lines.length > 0 && (
+              <DraftRestoredBanner
+                itemCount={lines.length}
+                issueCount={issues.size}
+                onDiscard={() => {
+                  clearOrderDraft(restaurantId);
+                  setLines([]);
+                  setIssues(new Map());
+                  setDraftRestored(false);
+                }}
+              />
+            )}
             {lines.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-[var(--s-3)] py-[var(--s-10)] text-center">
                 <span className="flex size-14 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--fg-subtle)]">
@@ -707,7 +767,9 @@ export default function NewOrderPage() {
               </div>
             ) : (
               <ul className="flex flex-col divide-y divide-[var(--line)]">
-                {lines.map((l) => (
+                {lines.map((l) => {
+                  const issue = issues.get(l.uid);
+                  return (
                   <li key={l.uid} className="flex flex-col gap-[var(--s-2)] py-[var(--s-3)] duration-200 animate-in fade-in slide-in-from-top-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -747,8 +809,23 @@ export default function NewOrderPage() {
                         <Trash2Icon className="size-4" />
                       </button>
                     </div>
+                    {issue && (
+                      <div className="flex flex-wrap items-center gap-[var(--s-2)] rounded-r-sm border border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-2)] py-[var(--s-2)]">
+                        <Badge tone={issueTone(issue)} dot>{issueLabel(issue, t)}</Badge>
+                        <div className="flex-1" />
+                        {issueCanBeAccepted(issue) && (
+                          <Button variant="secondary" size="sm" onClick={() => acceptIssue(l.uid)}>
+                            {t('draftIssueAccept')}
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => removeLine(l.uid)}>
+                          {t('draftIssueRemove')}
+                        </Button>
+                      </div>
+                    )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -760,21 +837,28 @@ export default function NewOrderPage() {
               <span className="font-mono tabular-nums text-fs-2xl font-bold">₪{subtotal.toFixed(2)}</span>
             </div>
             {canManage && (
-              <Button
-                variant="primary"
-                size="lg"
-                className="h-[52px] w-full text-fs-md font-semibold"
-                disabled={lines.length === 0}
-                onClick={() => { setSubmitError(null); setCheckoutOpen(true); }}
-              >
-                <span className="flex w-full items-center justify-between">
-                  <span className="inline-flex items-center gap-[var(--s-2)]">
-                    <CreditCardIcon />
-                    {t('checkout')}
+              <>
+                {blockedByIssues && (
+                  <p className="mb-[var(--s-2)] text-center text-fs-xs font-medium text-[var(--danger-500)]">
+                    {t('draftBlockedSubmit')}
+                  </p>
+                )}
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="h-[52px] w-full text-fs-md font-semibold"
+                  disabled={lines.length === 0 || blockedByIssues}
+                  onClick={() => { setSubmitError(null); setCheckoutOpen(true); }}
+                >
+                  <span className="flex w-full items-center justify-between">
+                    <span className="inline-flex items-center gap-[var(--s-2)]">
+                      <CreditCardIcon />
+                      {t('checkout')}
+                    </span>
+                    <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
                   </span>
-                  <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
-                </span>
-              </Button>
+                </Button>
+              </>
             )}
           </div>
         </aside>
