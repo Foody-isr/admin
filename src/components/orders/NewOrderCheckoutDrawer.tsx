@@ -243,6 +243,11 @@ export function NewOrderCheckoutDrawer({
     if (!open) {
       didInitFulfillment.current = false;
       // Reset discount state when the drawer closes so it starts fresh next time.
+      // Deliberately does NOT touch customer-sheet fields (name, phone, address,
+      // city, floor, apt, entryCode, deliveryNotes, linked): those are meant to
+      // survive a close/reopen exactly like the rest of the sheet, and since
+      // Task 3 they're also what a persisted draft records. Resetting entryCode
+      // or linked here used to silently drop them from the draft on every close.
       setCouponCode('');
       setDiscountError(null);
       setAppliedCoupon(null);
@@ -252,8 +257,6 @@ export function NewOrderCheckoutDrawer({
       setAppliedManual(null);
       setDeliveryFee('');
       setFeeTouched(false);
-      setEntryCode('');
-      setLinked(null);
       return;
     }
     if (didInitFulfillment.current) return;
