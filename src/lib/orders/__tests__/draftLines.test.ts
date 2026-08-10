@@ -95,7 +95,12 @@ test("a combo whose component went out of stock names the component", () => {
 });
 
 // L'article manquant l'emporte sur le prix : inutile de dire à quelqu'un que le
-// prix a changé sur une ligne qu'il ne peut pas commander.
+// prix a changé sur une ligne qu'il ne peut pas commander. Aujourd'hui ce
+// n'est pas un choix entre deux diagnostics calculés : le `if (!item) return`
+// précoce rend le calcul de prix inatteignable pour une ligne sans article.
+// Ce test est donc un piège à régression pour un futur refactor (par exemple
+// un fallback de prix ajouté à la coquille) plutôt que la preuve d'une
+// branche de priorité vivante aujourd'hui.
 test("a missing item wins over a price change", () => {
   const out = rehydrateDraftLines([line({ unitPriceAtDraft: 99 })], new Map());
   assert.deepEqual(out[0].issue, { kind: "missing" });
@@ -128,4 +133,36 @@ test("a line missing its modifiers array does not throw and degrades gracefully"
 test("a malformed lines value degrades to an empty cart instead of throwing", () => {
   assert.doesNotThrow(() => rehydrateDraftLines(null as unknown as DraftLine[], new Map()));
   assert.deepEqual(rehydrateDraftLines(null as unknown as DraftLine[], new Map()), []);
+});
+
+// La revue a reproduit trois plantages précis : une entrée non-objet dans le
+// tableau des lignes, dans ses modificateurs, ou dans ses sélections de
+// combo. C'est exactement la forme que prend une écriture localStorage
+// tronquée ou une migration partielle. Rien ne plante encore aujourd'hui
+// seulement parce que la page n'appelle pas rehydrateDraftLines ; la Tâche 3
+// la branche, et alors ça planterait.
+test("a null entry in the lines array degrades to a missing shell instead of throwing", () => {
+  const map = new Map([[7, item()]]);
+  const lines = [line(), null as unknown as DraftLine];
+  assert.doesNotThrow(() => rehydrateDraftLines(lines, map));
+  const out = rehydrateDraftLines(lines, map);
+  assert.equal(out.length, 2);
+  assert.deepEqual(out[1].issue, { kind: "missing" });
+});
+
+test("a null entry inside modifiers degrades instead of throwing", () => {
+  const map = new Map([[7, item()]]);
+  const malformed = line({ modifiers: [null] as unknown as DraftLine["modifiers"] });
+  assert.doesNotThrow(() => rehydrateDraftLines([malformed], map));
+});
+
+test("a null entry inside comboSelections degrades instead of throwing", () => {
+  const combo = item({ id: 50, name: "Menu midi", item_type: "combo", price: 45 });
+  const map = new Map([[50, combo]]);
+  const malformed = line({
+    uid: "c1", itemId: 50, unitPriceAtDraft: 45,
+    comboItemId: 50,
+    comboSelections: [null] as unknown as DraftLine["comboSelections"],
+  });
+  assert.doesNotThrow(() => rehydrateDraftLines([malformed], map));
 });

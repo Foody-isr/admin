@@ -9,7 +9,9 @@
 
 import type { DraftLine } from './orderDraft';
 import type { MenuItem } from '@/lib/api';
-import { lineUnitPrice, type NewOrderLine } from '@/components/orders/NewOrderItemModal';
+import {
+  lineUnitPrice, type NewOrderLine, type NewOrderLineModifier, type ComboSelection,
+} from '@/components/orders/NewOrderItemModal';
 import { isItemSoldOut } from './itemAvailability';
 
 export type LineIssue =
@@ -81,19 +83,43 @@ export function rehydrateDraftLines(
 }
 
 /** Ramène une ligne de brouillon potentiellement corrompue à une forme sûre.
- *  `modifiers` doit être un tableau : c'est lui que `lineUnitPrice` réduit, et
- *  un `undefined` y ferait planter `.reduce`. `comboSelections` malformé
- *  redevient `undefined` (« pas de combo ») plutôt que de propager une valeur
- *  non itérable jusqu'à la boucle de `diagnose`. */
-function sanitizeLine(d: DraftLine): DraftLine {
+ *  `raw` est `unknown`, pas `DraftLine` : un JSON tronqué peut mettre `null`
+ *  ou une chaîne à la place d'un objet de ligne, pas seulement lui manquer un
+ *  champ. Un `itemId` introuvable (le défaut `-1`) fait retomber la ligne dans
+ *  le chemin « article manquant » déjà géré, ce qui évite d'avoir deux façons
+ *  de dire « ligne irrécupérable ». `modifiers` doit être un tableau :
+ *  `lineUnitPrice` le réduit, et `undefined` y ferait planter `.reduce`.
+ *  `comboSelections` malformé redevient `undefined` (« pas de combo ») plutôt
+ *  que de propager une valeur non itérable jusqu'à la boucle de `diagnose`. */
+function sanitizeLine(raw: unknown): DraftLine {
+  const d = (raw !== null && typeof raw === 'object' ? raw : {}) as Partial<DraftLine>;
   return {
-    ...d,
+    uid: typeof d.uid === 'string' ? d.uid : '',
+    itemId: typeof d.itemId === 'number' ? d.itemId : -1,
     quantity: typeof d.quantity === 'number' && d.quantity > 0 ? d.quantity : 1,
     notes: typeof d.notes === 'string' ? d.notes : '',
-    modifiers: Array.isArray(d.modifiers) ? d.modifiers : [],
-    comboSelections: Array.isArray(d.comboSelections) ? d.comboSelections : undefined,
+    selectedVariantId: d.selectedVariantId,
+    selectedVariantName: d.selectedVariantName,
+    selectedVariantPrice: d.selectedVariantPrice,
+    modifiers: sanitizeModifiers(d.modifiers),
+    comboItemId: d.comboItemId,
+    comboSelections: sanitizeComboSelections(d.comboSelections),
     unitPriceAtDraft: typeof d.unitPriceAtDraft === 'number' ? d.unitPriceAtDraft : 0,
   };
+}
+
+/** Un modificateur qui n'est pas un objet (`null`, une chaîne...) ne porte ni
+ *  prix ni nom : on le retire plutôt que de le faire traverser `.reduce`. */
+function sanitizeModifiers(raw: unknown): NewOrderLineModifier[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((m): m is NewOrderLineModifier => m !== null && typeof m === 'object');
+}
+
+/** Même logique que `sanitizeModifiers`, pour la boucle de `diagnose` qui lit
+ *  `sel.menuItemId` sans filet. */
+function sanitizeComboSelections(raw: unknown): ComboSelection[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  return raw.filter((s): s is ComboSelection => s !== null && typeof s === 'object');
 }
 
 function diagnose(
