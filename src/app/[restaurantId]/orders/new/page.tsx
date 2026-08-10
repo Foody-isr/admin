@@ -10,7 +10,7 @@ import {
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
 import { itemSizeOptions } from '@/lib/item-options';
-import { isEffectivelySoldOut } from '@/components/menu/AvailabilityPill';
+import { isItemSoldOut } from '@/lib/orders/itemAvailability';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
@@ -55,15 +55,6 @@ function hasOptions(it: MenuItem): boolean {
     (it.modifiers ?? []).some((m) => m.is_active) ||
     (it.modifier_sets ?? []).some((s) => (s.modifiers ?? []).some((m) => m.is_active));
   return variants || mods;
-}
-
-// Whether an item can't currently be ordered — every size is sold out, or the
-// item itself is force-sold-out / hidden. The order-time availability guard
-// rejects such lines, so the picker greys the tile and blocks selection (the
-// same behaviour the guest web app shows). Items with only SOME sizes sold out
-// stay orderable here; the size picker disables the individual sold-out sizes.
-function isItemSoldOut(it: MenuItem): boolean {
-  return isEffectivelySoldOut(it.availability_state, it.availability_override);
 }
 
 export default function NewOrderPage() {
