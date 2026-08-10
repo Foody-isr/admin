@@ -6,6 +6,7 @@ import { XIcon, InfoIcon } from 'lucide-react';
 import { Button, Field, Input } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order, OrderCustomerDetailsInput } from '@/lib/api';
+import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
 
 interface EditCustomerDialogProps {
   open: boolean;
@@ -16,12 +17,15 @@ interface EditCustomerDialogProps {
 }
 
 // EditCustomerDialog lets staff fix a misspelled customer name or delivery
-// address straight from the order screen. The name is a canonical correction
-// keyed by the customer's phone — it shows on this order, the customer's other
-// orders, and the client page. The delivery address is corrected on THIS order
-// only (a customer can deliver to many addresses over time). When the order has
-// no phone, the name can only be fixed on this order. Mirrors the server
-// contract (PUT /orders/:id/customer-details).
+// address straight from the order screen. Both are canonical corrections keyed
+// by the customer's phone: they show on this order, the customer's other orders
+// and the client page. When the order has no phone there is no customer key, so
+// the correction applies to this order alone. Mirrors the server contract
+// (PUT /orders/:id/customer-details).
+//
+// The address fields come from CustomerDeliveryFields, the one form used
+// wherever staff edit a customer, so this dialog cannot drift from the Clients
+// page and the manual order sheet the way it had.
 export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: EditCustomerDialogProps) {
   const { t } = useI18n();
   const isDelivery = order?.order_type === 'delivery';
@@ -33,6 +37,7 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
   const [floor, setFloor] = useState('');
   const [apt, setApt] = useState('');
   const [entryCode, setEntryCode] = useState('');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Prefill from the order each time the dialog opens (or the order changes).
@@ -44,6 +49,7 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
     setFloor(order.delivery_floor ?? '');
     setApt(order.delivery_apt ?? '');
     setEntryCode(order.delivery_entry_code ?? '');
+    setDeliveryNotes(order.delivery_notes ?? '');
     setSubmitting(false);
   }, [open, order]);
 
@@ -65,6 +71,7 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
         input.delivery_floor = floor.trim();
         input.delivery_apt = apt.trim();
         input.delivery_entry_code = entryCode.trim();
+        input.delivery_notes = deliveryNotes.trim();
       }
       await onConfirm(input);
       onOpenChange(false);
@@ -113,27 +120,17 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
 
               {isDelivery && (
                 <div className="flex flex-col gap-[var(--s-3)] rounded-r-md border border-[var(--line)] p-[var(--s-4)]">
-                  <div className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-                    {t('deliveryAddress')}
-                  </div>
-                  <Field label={t('deliveryAddress')}>
-                    <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-                  </Field>
-                  <div className="grid grid-cols-2 gap-[var(--s-3)]">
-                    <Field label={t('city')}>
-                      <Input value={city} onChange={(e) => setCity(e.target.value)} />
-                    </Field>
-                    <Field label={t('buildingCode')}>
-                      <Input value={entryCode} onChange={(e) => setEntryCode(e.target.value)} />
-                    </Field>
-                    <Field label={t('floor')}>
-                      <Input value={floor} onChange={(e) => setFloor(e.target.value)} />
-                    </Field>
-                    <Field label={t('apartment')}>
-                      <Input value={apt} onChange={(e) => setApt(e.target.value)} />
-                    </Field>
-                  </div>
-                  <p className="text-fs-xs text-[var(--fg-subtle)]">{t('editCustomerAddressHint')}</p>
+                  <CustomerDeliveryFields
+                    value={{ address, city, floor, apt, entryCode, deliveryNotes }}
+                    onChange={(p) => {
+                      if (p.address !== undefined) setAddress(p.address);
+                      if (p.city !== undefined) setCity(p.city);
+                      if (p.floor !== undefined) setFloor(p.floor);
+                      if (p.apt !== undefined) setApt(p.apt);
+                      if (p.entryCode !== undefined) setEntryCode(p.entryCode);
+                      if (p.deliveryNotes !== undefined) setDeliveryNotes(p.deliveryNotes);
+                    }}
+                  />
                 </div>
               )}
             </div>

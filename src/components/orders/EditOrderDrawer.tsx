@@ -34,6 +34,7 @@ import { usePermissions } from '@/lib/permissions-context';
 import { cn } from '@/lib/utils';
 import { itemSizeOptions } from '@/lib/item-options';
 import { FulfillmentSection } from './FulfillmentSection';
+import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
 import type { FulfillmentValue } from '@/lib/orders/fulfillment';
 import type { FulfillmentChangeReasonCode } from '@/lib/orders/fulfillment-reason';
 import { SerieChangeDialog } from './SerieChangeDialog';
@@ -203,6 +204,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   const [city, setCity] = useState('');
   const [floor, setFloor] = useState('');
   const [apt, setApt] = useState('');
+  const [entryCode, setEntryCode] = useState('');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
   // Delivery fee (₪) as a string for the input; '' means no fee.
   const [deliveryFee, setDeliveryFee] = useState('');
   // Staff manual discount. Seeded from the order's current manual discount (if
@@ -264,6 +267,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setCity(order.delivery_city ?? '');
     setFloor(order.delivery_floor ?? '');
     setApt(order.delivery_apt ?? '');
+    setEntryCode(order.delivery_entry_code ?? '');
+    setDeliveryNotes(order.delivery_notes ?? '');
     setDeliveryFee(order.delivery_fee && order.delivery_fee > 0 ? String(order.delivery_fee) : '');
     // Seed the manual-discount fields from the order's current manual discount.
     // A coupon (discount_source 'coupon') is not editable here, so leave the
@@ -354,6 +359,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
         city !== (order.delivery_city ?? '') ||
         floor !== (order.delivery_floor ?? '') ||
         apt !== (order.delivery_apt ?? '') ||
+        entryCode !== (order.delivery_entry_code ?? '') ||
+        deliveryNotes !== (order.delivery_notes ?? '') ||
         (Math.max(0, parseFloat(deliveryFee) || 0)) !== (order.delivery_fee ?? 0))
     ) {
       return true;
@@ -368,7 +375,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       );
     }
     return false;
-  }, [order, orderType, address, city, floor, apt, deliveryFee, fulfillment]);
+  }, [order, orderType, address, city, floor, apt, entryCode, deliveryNotes, deliveryFee, fulfillment]);
 
   const linesDirty = useMemo(
     () =>
@@ -617,6 +624,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                 delivery_city: city,
                 delivery_floor: floor,
                 delivery_apt: apt,
+                delivery_entry_code: entryCode,
+                delivery_notes: deliveryNotes,
                 delivery_fee: Math.max(0, parseFloat(deliveryFee) || 0),
               }
             : {}),
@@ -689,14 +698,17 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
 
           {orderType === 'delivery' && (
             <div className="flex flex-col gap-[var(--s-3)]">
-              <Field label={t('deliveryAddress')}>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-              </Field>
-              <div className="grid grid-cols-3 gap-2">
-                <Field label={t('city')}><Input value={city} onChange={(e) => setCity(e.target.value)} /></Field>
-                <Field label={t('floor')}><Input value={floor} onChange={(e) => setFloor(e.target.value)} /></Field>
-                <Field label={t('apt')}><Input value={apt} onChange={(e) => setApt(e.target.value)} /></Field>
-              </div>
+              <CustomerDeliveryFields
+                value={{ address, city, floor, apt, entryCode, deliveryNotes }}
+                onChange={(p) => {
+                  if (p.address !== undefined) setAddress(p.address);
+                  if (p.city !== undefined) setCity(p.city);
+                  if (p.floor !== undefined) setFloor(p.floor);
+                  if (p.apt !== undefined) setApt(p.apt);
+                  if (p.entryCode !== undefined) setEntryCode(p.entryCode);
+                  if (p.deliveryNotes !== undefined) setDeliveryNotes(p.deliveryNotes);
+                }}
+              />
               <Field label={t('deliveryFee')}>
                 <Input
                   value={deliveryFee}
