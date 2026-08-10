@@ -15,6 +15,7 @@ function t(key: string): string {
     draftIssuePriceChanged: "{was} ₪ → {now} ₪",
     draftIssueComboMissing: "{name} no longer exists",
     draftIssueComboSoldOut: "{name} is no longer available",
+    draftIssueQuantityInvalid: "unreadable quantity",
   };
   return dict[key] ?? key;
 }
@@ -44,6 +45,18 @@ test("issueLabel: combo_part sold_out names the component", () => {
     { kind: "combo_part", partName: "Frites", reason: "sold_out" }, t,
   );
   assert.equal(label, "Frites is no longer available");
+});
+
+test("issueLabel: quantity_invalid", () => {
+  assert.equal(issueLabel({ kind: "quantity_invalid" }, t), "unreadable quantity");
+});
+
+// Une quantité illisible ne s'accepte pas : la quantité part au serveur telle
+// quelle, donc la seule sortie sûre est de retirer la ligne et de la reprendre.
+test("quantity_invalid blocks and offers only Remove", () => {
+  assert.equal(issueTone({ kind: "quantity_invalid" }), "danger");
+  assert.equal(issueCanBeAccepted({ kind: "quantity_invalid" }), false);
+  assert.equal(isSubmissionBlocked(new Map([["l1", { kind: "quantity_invalid" }]])), true);
 });
 
 test("issueTone: price_changed is a warning, everything else is danger", () => {

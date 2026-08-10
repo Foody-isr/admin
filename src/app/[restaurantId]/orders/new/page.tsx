@@ -111,6 +111,13 @@ export default function NewOrderPage() {
   const [issues, setIssues] = useState<Map<string, LineIssue>>(new Map());
   const [draftRestored, setDraftRestored] = useState(false);
   const [restoredState, setRestoredState] = useState<DrawerDraftState | null>(null);
+  // Prix mémorisés par ligne restaurée. C'est la référence contre laquelle « le
+  // prix a changé » se mesure, et elle doit survivre à la réécriture qui suit
+  // la reprise : recalculée depuis l'article courant, elle se remplaçait par le
+  // nouveau prix et la ligne revenait saine au retour suivant. Une entrée
+  // disparaît quand le staff accepte le changement — accepter, c'est justement
+  // dire que le prix courant devient la référence.
+  const [draftPrices, setDraftPrices] = useState<Map<string, number>>(new Map());
   // Remount key for the checkout drawer. The drawer keeps the customer sheet in
   // its own `useState`, and Radix only portals its *content* — closing it
   // unmounts the dialog, never the component — so nothing the page does to
@@ -195,6 +202,7 @@ export default function NewOrderPage() {
     const rehydrated = rehydrateDraftLines(draft.lines, itemMap);
     setLines(rehydrated.map((r) => r.line));
     setIssues(new Map(rehydrated.filter((r) => r.issue).map((r) => [r.line.uid, r.issue!])));
+    setDraftPrices(new Map(rehydrated.map((r) => [r.line.uid, r.unitPriceAtDraft])));
     setRestoredState({
       customer: draft.customer, linked: draft.linked,
       orderType: draft.orderType, fulfillment: draft.fulfillment,
@@ -243,7 +251,7 @@ export default function NewOrderPage() {
       saveTimerRef.current = null;
       if (submittedRef.current) return;
       saveOrderDraft(restaurantId, {
-        lines: toDraftLines(lines),
+        lines: toDraftLines(lines, draftPrices),
         customer: drawerState?.customer ?? EMPTY_CUSTOMER,
         linked: drawerState?.linked ?? null,
         orderType: drawerState?.orderType ?? 'pickup',
@@ -255,7 +263,7 @@ export default function NewOrderPage() {
       clearTimeout(timer);
       if (saveTimerRef.current === timer) saveTimerRef.current = null;
     };
-  }, [lines, drawerState, restaurantId]);
+  }, [lines, drawerState, draftPrices, restaurantId]);
 
   // POS-orderable cartes (menus), in the same order as the Cartes page
   // (sort_order, set via "Réorganiser"). Drives the carte selector.
@@ -432,6 +440,15 @@ export default function NewOrderPage() {
   // stays up.
   function acceptIssue(lineUid: string) {
     setIssues((prev) => dropIssue(prev, lineUid));
+    // Le prix courant devient la référence — c'est la définition d'accepter.
+    // Sans cet oubli, la réécriture garderait l'ancien prix et la ligne
+    // reviendrait signalée au prochain retour, malgré l'acceptation.
+    setDraftPrices((prev) => {
+      if (!prev.has(lineUid)) return prev;
+      const next = new Map(prev);
+      next.delete(lineUid);
+      return next;
+    });
   }
 
   /** Erases the stored draft *and* the write that was about to recreate it.
@@ -453,6 +470,7 @@ export default function NewOrderPage() {
   function resetOrderComposition() {
     setLines([]);
     setIssues(new Map());
+    setDraftPrices(new Map());
     setDraftRestored(false);
     setRestoredState(null);
     setDrawerResetKey((k) => k + 1);

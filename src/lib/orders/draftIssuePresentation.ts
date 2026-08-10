@@ -28,20 +28,24 @@ export function issueLabel(issue: LineIssue, t: (key: string) => string): string
     case 'combo_part':
       return (issue.reason === 'missing' ? t('draftIssueComboMissing') : t('draftIssueComboSoldOut'))
         .replace('{name}', issue.partName);
+    case 'quantity_invalid':
+      return t('draftIssueQuantityInvalid');
   }
 }
 
 /** Ton visuel du diagnostic : `price_changed` reste commandable (avertissement),
- *  les trois autres cas non (danger). */
+ *  les autres cas non (danger). */
 export function issueTone(issue: LineIssue): 'danger' | 'warning' {
   return issue.kind === 'price_changed' ? 'warning' : 'danger';
 }
 
 /** Seul `price_changed` laisse l'article commandable tel quel : le prix
  *  affiché vient déjà de `lineUnitPrice` sur l'article courant, et le
- *  serveur recalcule le total autoritatif à la création. Sur les trois
- *  autres cas l'article ne peut de toute façon pas être envoyé en cuisine,
- *  donc seule l'action Retirer a du sens. */
+ *  serveur recalcule le total autoritatif à la création. Sur les autres
+ *  cas l'article ne peut de toute façon pas être envoyé en cuisine,
+ *  donc seule l'action Retirer a du sens — y compris `quantity_invalid` :
+ *  la quantité part au serveur telle quelle, donc « accepter » reviendrait
+ *  à valider une quantité que personne n'a saisie. */
 export function issueCanBeAccepted(issue: LineIssue): boolean {
   return issue.kind === 'price_changed';
 }

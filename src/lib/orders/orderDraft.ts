@@ -10,7 +10,10 @@ import type { FulfillmentValue } from '@/lib/orders/fulfillment';
 import type { CustomerSearchResult } from '@/lib/api';
 
 const STORAGE_PREFIX = 'foody.orders.draft.';
-const CURRENT_VERSION = 1;
+/** v2 : les lignes portent le nom de l'article (`DraftLine.name`). Un
+ *  enregistrement v1 n'en a pas, et une ligne dont l'article a disparu s'y
+ *  afficherait sans nom — on le jette plutôt que de le rendre à moitié. */
+const CURRENT_VERSION = 2;
 
 /** Douze heures : la durée d'un service. Un panier plus vieux que ça n'est pas
  *  un brouillon qu'on reprend, c'est une commande d'hier qu'on renvoie en
@@ -26,6 +29,11 @@ export const DRAFT_TTL_MS = 12 * 60 * 60 * 1000;
 export interface DraftLine {
   uid: string;
   itemId: number;
+  /** Le nom de l'article au moment de la mise au brouillon. C'est la seule
+   *  chose qui reste quand l'article disparaît du catalogue : sans lui, la
+   *  ligne à retirer s'affiche « #412 · n'existe plus », au moment précis où
+   *  le staff doit décider s'il la garde. */
+  name: string;
   quantity: number;
   notes: string;
   selectedVariantId?: number;

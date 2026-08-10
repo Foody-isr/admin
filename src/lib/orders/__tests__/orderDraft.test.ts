@@ -28,6 +28,7 @@ function draft(over: Partial<OrderDraftInput> = {}): OrderDraftInput {
       {
         uid: "l1",
         itemId: 7,
+        name: "Salade Tuna",
         quantity: 2,
         notes: "sans oignons",
         modifiers: [],

@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { rehydrateDraftLines, toDraftLines } from "../draftLines";
 import type { DraftLine } from "../orderDraft";
 import type { MenuItem } from "@/lib/api";
+import { lineUnitPrice } from "@/components/orders/NewOrderItemModal";
 
 function item(over: Partial<MenuItem> = {}): MenuItem {
   return {
@@ -14,10 +15,16 @@ function item(over: Partial<MenuItem> = {}): MenuItem {
 
 function line(over: Partial<DraftLine> = {}): DraftLine {
   return {
-    uid: "l1", itemId: 7, quantity: 2, notes: "",
+    uid: "l1", itemId: 7, name: "Salade Tuna", quantity: 2, notes: "",
     modifiers: [], unitPriceAtDraft: 25,
     ...over,
   };
+}
+
+/** Ce que la page réécrit dans le brouillon après une reprise : les prix
+ *  mémorisés, indexés par ligne. */
+function remembered(rehydrated: ReturnType<typeof rehydrateDraftLines>): Map<string, number> {
+  return new Map(rehydrated.map((r) => [r.line.uid, r.unitPriceAtDraft] as const));
 }
 
 test("a line whose item is unchanged carries no issue", () => {
@@ -154,6 +161,120 @@ test("a null entry inside modifiers degrades instead of throwing", () => {
   const map = new Map([[7, item()]]);
   const malformed = line({ modifiers: [null] as unknown as DraftLine["modifiers"] });
   assert.doesNotThrow(() => rehydrateDraftLines([malformed], map));
+});
+
+// Le drapeau « prix modifié » doit survivre à la réécriture qui suit la
+// reprise. Recalculer `unitPriceAtDraft` depuis l'article courant remplaçait le
+// prix mémorisé par le nouveau : au retour suivant la ligne revenait saine et
+// la validation n'était plus bloquée. Une acceptation silencieuse au deuxième
+// aller-retour, exactement ce que « signaler sans supprimer » doit empêcher.
+test("a flagged price change survives the write-back that follows a restore", () => {
+  const raised = new Map([[7, item({ price: 28 })]]);
+
+  const first = rehydrateDraftLines([line()], raised);
+  assert.deepEqual(first[0].issue, { kind: "price_changed", was: 25, now: 28 });
+
+  const written = toDraftLines(first.map((r) => r.line), remembered(first));
+  assert.equal(written[0].unitPriceAtDraft, 25, "la référence reste le prix d'origine");
+
+  const second = rehydrateDraftLines(written, raised);
+  assert.deepEqual(second[0].issue, { kind: "price_changed", was: 25, now: 28 });
+});
+
+// Accepter, c'est le staff qui valide le nouveau prix : à partir de là, c'est
+// lui la référence. La page oublie le prix mémorisé de cette ligne, donc la
+// réécriture stocke le prix courant et la ligne revient saine.
+test("accepting the change makes the current price the remembered one", () => {
+  const raised = new Map([[7, item({ price: 28 })]]);
+  const first = rehydrateDraftLines([line()], raised);
+
+  const written = toDraftLines(first.map((r) => r.line), new Map());
+  assert.equal(written[0].unitPriceAtDraft, 28);
+  assert.equal(rehydrateDraftLines(written, raised)[0].issue, null);
+});
+
+test("without a remembered price, toDraftLines falls back to the current one", () => {
+  const map = new Map([[7, item()]]);
+  const [rehydrated] = rehydrateDraftLines([line()], map);
+  assert.equal(toDraftLines([rehydrated.line])[0].unitPriceAtDraft, 25);
+});
+
+// « Le nom mémorisé permet de l'afficher », disait le commentaire de la
+// coquille — sauf qu'aucun nom n'était stocké. La ligne s'affichait « #412 ·
+// n'existe plus » au moment précis où le staff doit décider quoi en faire.
+test("a vanished item is displayed by name, not by id", () => {
+  const out = rehydrateDraftLines([line({ name: "Salade Tuna" })], new Map());
+  assert.deepEqual(out[0].issue, { kind: "missing" });
+  assert.equal(out[0].line.item.name, "Salade Tuna");
+});
+
+test("a vanished line keeps the variant the staff had chosen", () => {
+  const drafted = line({ name: "Salade Tuna", selectedVariantId: 3, selectedVariantName: "Grande" });
+  const out = rehydrateDraftLines([drafted], new Map());
+  assert.equal(out[0].line.selectedVariantName, "Grande");
+  assert.equal(out[0].line.selectedVariantId, 3);
+});
+
+// Une coquille ne doit rien peser dans le total : elle ne peut pas être
+// honorée. Le prix de la variante est donc volontairement laissé de côté.
+test("a vanished line still weighs nothing in the total", () => {
+  const drafted = line({ selectedVariantId: 3, selectedVariantName: "Grande", selectedVariantPrice: 35 });
+  const out = rehydrateDraftLines([drafted], new Map());
+  assert.equal(lineUnitPrice(out[0].line), 0);
+});
+
+test("a line with no remembered name falls back to its id", () => {
+  const out = rehydrateDraftLines([line({ name: "" })], new Map());
+  assert.equal(out[0].line.item.name, "#7");
+});
+
+test("toDraftLines captures the item name", () => {
+  const map = new Map([[7, item()]]);
+  const [rehydrated] = rehydrateDraftLines([line()], map);
+  assert.equal(toDraftLines([rehydrated.line])[0].name, "Salade Tuna");
+});
+
+// La quantité, elle, part au serveur telle quelle. La ramener à 1 en silence
+// enverrait en cuisine une commande que personne n'a passée.
+test("a non-positive quantity flags the line instead of silently becoming 1", () => {
+  const map = new Map([[7, item()]]);
+  const out = rehydrateDraftLines([line({ quantity: 0 })], map);
+  assert.deepEqual(out[0].issue, { kind: "quantity_invalid" });
+  assert.equal(out[0].line.quantity, 1, "la ligne reste commandable une fois le drapeau traité");
+});
+
+test("a fractional quantity is flagged", () => {
+  const map = new Map([[7, item()]]);
+  const out = rehydrateDraftLines([line({ quantity: 2.5 })], map);
+  assert.deepEqual(out[0].issue, { kind: "quantity_invalid" });
+});
+
+test("a quantity that is not a number at all is flagged", () => {
+  const map = new Map([[7, item()]]);
+  const malformed = line({ quantity: "3" as unknown as number });
+  assert.deepEqual(rehydrateDraftLines([malformed], map)[0].issue, { kind: "quantity_invalid" });
+});
+
+test("a sound quantity carries no quantity flag", () => {
+  const map = new Map([[7, item()]]);
+  assert.equal(rehydrateDraftLines([line()], map)[0].issue, null);
+});
+
+// Un article introuvable l'emporte : inutile de discuter la quantité d'une
+// ligne qui ne peut de toute façon pas partir.
+test("a missing item wins over an invalid quantity", () => {
+  const out = rehydrateDraftLines([line({ quantity: 0 })], new Map());
+  assert.deepEqual(out[0].issue, { kind: "missing" });
+});
+
+// Deux lignes corrompues retombaient toutes les deux sur `uid: ''` : même clé
+// React, une seule entrée dans `issues`, et un Retirer qui en supprimait deux.
+test("two malformed lines get distinct uids", () => {
+  const lines = [null, null] as unknown as DraftLine[];
+  const out = rehydrateDraftLines(lines, new Map());
+  assert.equal(out.length, 2);
+  assert.notEqual(out[0].line.uid, out[1].line.uid);
+  assert.ok(out[0].line.uid, "une ligne sans uid en reçoit un, jamais une chaîne vide");
 });
 
 test("a null entry inside comboSelections degrades instead of throwing", () => {
