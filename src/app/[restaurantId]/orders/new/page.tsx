@@ -43,6 +43,17 @@ function uid(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `l-${Date.now()}-${Math.random()}`;
 }
 
+/** Removes one line's entry from `issues`, or returns the same map reference
+ *  when there's nothing to remove (so a functional `setIssues` update can
+ *  bail out without triggering a re-render). Shared by `acceptIssue` and
+ *  `removeLine` so both resolve actions prune the same way. */
+function dropIssue(prev: Map<string, LineIssue>, lineUid: string): Map<string, LineIssue> {
+  if (!prev.has(lineUid)) return prev;
+  const next = new Map(prev);
+  next.delete(lineUid);
+  return next;
+}
+
 // Fallback customer used when saving a draft before the drawer has reported
 // any state (e.g. a cart-only draft — checkout never opened).
 const EMPTY_CUSTOMER: DraftCustomer = {
@@ -177,12 +188,13 @@ export default function NewOrderPage() {
     setDraftRestored(true);
   }, [loading, itemMap, restaurantId]);
 
-  // An issue must never outlive its line: once a flagged line leaves the cart
-  // (removed directly, or its quantity dropped to zero), its entry in `issues`
-  // would otherwise linger and keep the checkout button blocked with a reason
-  // that no longer applies. Pruned centrally so every removal path (the line's
-  // own remove button, "Clear all", quantity reaching zero) stays correct
-  // without repeating the cleanup at each call site.
+  // An issue must never outlive its line: once a flagged line leaves the cart,
+  // its entry in `issues` would otherwise linger and keep the checkout button
+  // blocked with a reason that no longer applies. `removeLine` already prunes
+  // its own line synchronously (so the button updates on the same paint as
+  // the click); this effect is the general safety net for every other path
+  // that can also drop a line — quantity reaching zero, "Clear all" — without
+  // repeating the cleanup at each call site.
   useEffect(() => {
     setIssues((prev) => {
       if (prev.size === 0) return prev;
@@ -369,8 +381,17 @@ export default function NewOrderPage() {
   }
 
   function removeLine(lineUid: string) {
-    setDraftRestored(false);
+    // Removing a *flagged* line (the row's own "Retirer") is triage, not a
+    // cart edit — it should read the same as Accept below, or the two
+    // resolve actions would leave the banner in different states for doing
+    // the same job. The trash-can on an ordinary line is still a real edit
+    // and hides the banner as before. Either way the checkout gate itself
+    // never depends on this: it reads `issues.size`, pruned synchronously
+    // right here so the disabled button and its reason clear on this same
+    // paint rather than lagging a render behind the effect below.
+    if (!issues.has(lineUid)) setDraftRestored(false);
     setLines((prev) => prev.filter((l) => l.uid !== lineUid));
+    setIssues((prev) => dropIssue(prev, lineUid));
   }
 
   // Lifts the block on a `price_changed` line without touching it: the price
@@ -380,12 +401,7 @@ export default function NewOrderPage() {
   // resumed draft itself, not adding new work on top of it, so the banner
   // stays up.
   function acceptIssue(lineUid: string) {
-    setIssues((prev) => {
-      if (!prev.has(lineUid)) return prev;
-      const next = new Map(prev);
-      next.delete(lineUid);
-      return next;
-    });
+    setIssues((prev) => dropIssue(prev, lineUid));
   }
 
   async function handleConfirm(data: CheckoutData) {
@@ -746,7 +762,13 @@ export default function NewOrderPage() {
 
           {/* Lines */}
           <div className="min-h-0 flex-1 overflow-y-auto px-[var(--s-4)]">
-            {draftRestored && lines.length > 0 && (
+            {/* Survives past `draftRestored` going false while any issue is
+                still outstanding — otherwise resolving one of several flagged
+                lines would drop the "N to check" signal while the others are
+                still blocking checkout, right when the staff most needs it.
+                Once every flag has been dealt with, an ordinary edit (which
+                clears `draftRestored`) collapses it as usual. */}
+            {(draftRestored || issues.size > 0) && lines.length > 0 && (
               <DraftRestoredBanner
                 itemCount={lines.length}
                 issueCount={issues.size}

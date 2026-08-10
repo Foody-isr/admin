@@ -75,9 +75,8 @@ test("isSubmissionBlocked: any flagged line blocks", () => {
   const issues = new Map<string, LineIssue>([["l1", { kind: "sold_out" }]]);
   assert.equal(isSubmissionBlocked(issues), true);
 });
-
-test("isSubmissionBlocked: resolving the last issue unblocks", () => {
-  const issues = new Map<string, LineIssue>([["l1", { kind: "sold_out" }]]);
-  issues.delete("l1");
-  assert.equal(isSubmissionBlocked(issues), false);
-});
+// No separate "resolving the last issue unblocks" case: isSubmissionBlocked
+// is pure over `.size`, so an emptied map and a map that started empty are
+// indistinguishable to it — the "empty map does not block" case above
+// already is that assertion, and a second test with different history would
+// only look like coverage without adding any.
