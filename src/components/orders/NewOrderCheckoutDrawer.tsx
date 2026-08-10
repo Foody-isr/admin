@@ -288,13 +288,22 @@ export function NewOrderCheckoutDrawer({
     // la main.
     const pending = draftFulfillmentPending.current;
     draftFulfillmentPending.current = null;
-    if (
-      pending
-      && (pending.timing === 'immediate'
-        || targets.length === 0
-        || targets.some((tg) => tg.date === pending.scheduledFor))
-    ) {
-      return;
+    if (pending && (pending.timing === 'immediate' || targets.length === 0)) return;
+    if (pending) {
+      // La date suffit à retrouver la série, mais pas à la décrire : ses heures
+      // ont pu bouger depuis. On garde la date reprise et on relit ses heures
+      // sur la cible fraîche — sinon le sélecteur affiche le nouveau créneau
+      // pendant que la commande part avec l'ancien.
+      const match = targets.find((tg) => tg.date === pending.scheduledFor);
+      if (match) {
+        setFulfillment({
+          timing: 'scheduled',
+          scheduledFor: match.date,
+          windowStart: match.windowStart,
+          windowEnd: match.windowEnd,
+        });
+        return;
+      }
     }
     const preferred = defaultDate ? targets.find((tg) => tg.date === defaultDate) : undefined;
     setFulfillment(
