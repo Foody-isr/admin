@@ -19,7 +19,7 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useIsMobile } from '@/components/ui/use-mobile';
-import { productionBoxes } from '@/lib/production';
+import { itemTotalValue, orderQtyValue, productionBoxes, showsUnits } from '@/lib/production';
 import { reorder } from '@/lib/production-column-order';
 
 interface Props {
@@ -117,8 +117,10 @@ export function ProductionMatrix({
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
   // A weighed column flipped to units shows ordered container counts (2 pots)
   // instead of grams; unit-measure columns already count and are unaffected.
-  const showUnits = (id: number) =>
-    itemsById.get(id)?.measure === 'weight' && !!unitDisplayIds?.has(id);
+  const showUnits = (id: number) => {
+    const it = itemsById.get(id);
+    return !!it && showsUnits(it, unitDisplayIds);
+  };
   const cats = sheet.categories;
   const editable = !!(onReorderCategories && onReorderItems);
 
@@ -383,7 +385,7 @@ export function ProductionMatrix({
                   {/* Total is intentionally not flagged for combos: a column total can mix
                       combo and non-combo items, so the dotted flag belongs on cells only. */}
                   <span className="text-base font-extrabold tabular-nums normal-case">
-                    {showUnits(id) ? `${item.total_units ?? 0} u.` : fmtTotal(item)}
+                    {showUnits(id) ? `${itemTotalValue(item, unitDisplayIds)} u.` : fmtTotal(item)}
                   </span>
                   {boxes.length > 0 && (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
@@ -449,7 +451,7 @@ export function ProductionMatrix({
                 {cats.flatMap((cat) =>
                   cat.item_ids.map((id) => {
                     const item = itemsById.get(id)!;
-                    const v = showUnits(id) ? o.units?.[String(id)] : o.cells[String(id)];
+                    const v = orderQtyValue(o, item, unitDisplayIds);
                     const measure = showUnits(id) ? 'unit' : item.measure;
                     const prov = o.provenance?.[String(id)];
                     const rowActive = hoverRow === o.order_id;
