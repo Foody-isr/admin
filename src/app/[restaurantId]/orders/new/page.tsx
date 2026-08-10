@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getMenu, listAllItems, createOrder, ApiError,
@@ -11,6 +11,10 @@ import {
 import { isMembershipActiveOn } from '@/lib/membership';
 import { itemSizeOptions } from '@/lib/item-options';
 import { isItemSoldOut } from '@/lib/orders/itemAvailability';
+import {
+  loadOrderDraft, saveOrderDraft, clearOrderDraft, type DraftCustomer,
+} from '@/lib/orders/orderDraft';
+import { rehydrateDraftLines, toDraftLines, type LineIssue } from '@/lib/orders/draftLines';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
@@ -20,7 +24,7 @@ import {
   NewOrderItemModal, lineUnitPrice, lineTotal, type NewOrderLine,
 } from '@/components/orders/NewOrderItemModal';
 import {
-  NewOrderCheckoutDrawer, type CheckoutData,
+  NewOrderCheckoutDrawer, type CheckoutData, type DrawerDraftState,
 } from '@/components/orders/NewOrderCheckoutDrawer';
 import { NewOrderComboModal } from '@/components/orders/NewOrderComboModal';
 import {
@@ -34,6 +38,12 @@ interface Section { id: number; name: string; items: MenuItem[] }
 function uid(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `l-${Date.now()}-${Math.random()}`;
 }
+
+// Fallback customer used when saving a draft before the drawer has reported
+// any state (e.g. a cart-only draft — checkout never opened).
+const EMPTY_CUSTOMER: DraftCustomer = {
+  name: '', phone: '', address: '', city: '', floor: '', apt: '', entryCode: '', deliveryNotes: '',
+};
 
 // Categorical palette (from design tokens) used to colour-code sections in the
 // grid — colour the section header, the per-tile accent edge and the chip dot
@@ -75,6 +85,15 @@ export default function NewOrderPage() {
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
   const [comboItem, setComboItem] = useState<MenuItem | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+
+  // Draft persistence — see src/lib/orders/orderDraft.ts and draftLines.ts.
+  // `drawerState` is the drawer's draftable slice, reported via onStateChange.
+  const [drawerState, setDrawerState] = useState<DrawerDraftState | null>(null);
+  // Lines flagged by rehydration (missing / sold out / price changed) — Task 4
+  // renders these; here they're only computed and cleared.
+  const [issues, setIssues] = useState<Map<string, LineIssue>>(new Map());
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [restoredState, setRestoredState] = useState<DrawerDraftState | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -129,6 +148,46 @@ export default function NewOrderPage() {
     })();
     return () => { cancelled = true; };
   }, [restaurantId]);
+
+  // Restore a stored draft once the menu has actually loaded. `itemMap` has to
+  // be populated first: rehydrateDraftLines tells "this item is gone" from
+  // "the menu hasn't arrived yet" only by looking the id up in it, so restoring
+  // any earlier would flag every single line as missing.
+  const didRestore = useRef(false);
+  useEffect(() => {
+    if (didRestore.current || loading || itemMap.size === 0) return;
+    didRestore.current = true;
+
+    const draft = loadOrderDraft(restaurantId);
+    if (!draft) return;
+
+    const rehydrated = rehydrateDraftLines(draft.lines, itemMap);
+    setLines(rehydrated.map((r) => r.line));
+    setIssues(new Map(rehydrated.filter((r) => r.issue).map((r) => [r.line.uid, r.issue!])));
+    setRestoredState({
+      customer: draft.customer, linked: draft.linked,
+      orderType: draft.orderType, fulfillment: draft.fulfillment,
+    });
+    setDraftRestored(true);
+  }, [loading, itemMap, restaurantId]);
+
+  // Debounced write-back. Gated on `didRestore` so the very first render (empty
+  // cart, before the restore attempt above has even run) never overwrites a
+  // stored draft with nothing — that would destroy exactly what this feature
+  // protects.
+  useEffect(() => {
+    if (!didRestore.current) return;
+    const timer = setTimeout(() => {
+      saveOrderDraft(restaurantId, {
+        lines: toDraftLines(lines),
+        customer: drawerState?.customer ?? EMPTY_CUSTOMER,
+        linked: drawerState?.linked ?? null,
+        orderType: drawerState?.orderType ?? 'pickup',
+        fulfillment: drawerState?.fulfillment ?? { timing: 'immediate' },
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [lines, drawerState, restaurantId]);
 
   // POS-orderable cartes (menus), in the same order as the Cartes page
   // (sort_order, set via "Réorganiser"). Drives the carte selector.
@@ -351,6 +410,14 @@ export default function NewOrderPage() {
         ...(data.discountCode ? { discount_code: data.discountCode } : {}),
         ...(data.manualDiscount ? { manual_discount: data.manualDiscount } : {}),
       });
+
+      // The order now exists server-side: the draft has done its job. Cleared
+      // on the success path only (never in `finally`) — a failed create must
+      // leave the draft intact, or a network blip destroys the very work this
+      // feature exists to protect.
+      clearOrderDraft(restaurantId);
+      setIssues(new Map());
+      setDraftRestored(false);
 
       if (res.payment_url) {
         setCheckoutOpen(false);
@@ -747,6 +814,8 @@ export default function NewOrderPage() {
           line_total: lineTotal(l),
           quantity: l.quantity,
         }))}
+        onStateChange={setDrawerState}
+        initialState={restoredState ?? undefined}
       />
     </div>
   );
