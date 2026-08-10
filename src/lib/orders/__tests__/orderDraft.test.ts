@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import {
   DRAFT_TTL_MS,
   isMeaningfulDraft,
@@ -121,6 +121,121 @@ test("corrupt JSON is discarded rather than thrown", () => {
 
   assert.equal(loadOrderDraft(1), null);
   assert.equal(store.has(key), false);
+});
+
+// Un enregistrement au JSON valide mais à la forme partielle — écriture
+// tronquée, changement de schéma à venir — était rendu tel quel. Le drawer lit
+// ensuite `customer.name` et `fulfillment` dans un effet : ça lève, la page de
+// commande ne rend plus rien, et comme rien n'effaçait l'enregistrement, ça se
+// répétait à chaque chargement jusqu'à vider localStorage à la main.
+function storeRaw(store: Map<string, string>, record: unknown): string {
+  const key = "foody.orders.draft.1";
+  store.set(key, JSON.stringify(record));
+  return key;
+}
+
+function storedRecord(store: Map<string, string>): Record<string, unknown> {
+  const key = Array.from(store.keys())[0];
+  return JSON.parse(store.get(key)!) as Record<string, unknown>;
+}
+
+test("a record without a customer is discarded instead of blanking the page", () => {
+  const store = installStorage();
+  saveOrderDraft(1, draft());
+  const full = storedRecord(store);
+  delete full.customer;
+  const key = storeRaw(store, full);
+
+  assert.equal(loadOrderDraft(1), null);
+  assert.equal(store.has(key), false, "a record that would crash the page must be removed, not kept");
+});
+
+test("a customer with a non-string field is discarded", () => {
+  const store = installStorage();
+  saveOrderDraft(1, draft());
+  const full = storedRecord(store);
+  (full.customer as Record<string, unknown>).phone = 42;
+  const key = storeRaw(store, full);
+
+  assert.equal(loadOrderDraft(1), null);
+  assert.equal(store.has(key), false);
+});
+
+test("an unknown orderType is discarded", () => {
+  const store = installStorage();
+  saveOrderDraft(1, draft());
+  const full = storedRecord(store);
+  full.orderType = "dine_in";
+  const key = storeRaw(store, full);
+
+  assert.equal(loadOrderDraft(1), null);
+  assert.equal(store.has(key), false);
+});
+
+test("a record without a fulfillment is discarded", () => {
+  const store = installStorage();
+  saveOrderDraft(1, draft());
+  const full = storedRecord(store);
+  delete full.fulfillment;
+  const key = storeRaw(store, full);
+
+  assert.equal(loadOrderDraft(1), null);
+  assert.equal(store.has(key), false);
+});
+
+test("a record whose lines are not an array is discarded", () => {
+  const store = installStorage();
+  saveOrderDraft(1, draft());
+  const full = storedRecord(store);
+  full.lines = "l1";
+  const key = storeRaw(store, full);
+
+  assert.equal(loadOrderDraft(1), null);
+  assert.equal(store.has(key), false);
+});
+
+test("a JSON scalar where a record is expected is discarded", () => {
+  const store = installStorage();
+  saveOrderDraft(1, draft());
+  const key = storeRaw(store, 7);
+
+  assert.equal(loadOrderDraft(1), null);
+  assert.equal(store.has(key), false);
+});
+
+// Le TTL est l'une des deux protections contre la reprise du panier de
+// quelqu'un d'autre. Reprendre un brouillon EST une écriture (la reprise pose
+// `lines`, l'effet de sauvegarde part, 500 ms plus tard l'enregistrement est
+// réécrit) : si l'horodatage se rafraîchissait à chaque écriture, un brouillon
+// oublié sur un poste ouvert tous les jours ne mourrait jamais. Les autres
+// tests de TTL trafiquent `savedAt` à la main et ne peuvent donc pas le voir ;
+// celui-ci fait le cycle réel sauvegarde → reprise → sauvegarde.
+test("re-saving a restored draft does not restart its 12-hour clock", () => {
+  const store = installStorage();
+  mock.timers.enable({ apis: ["Date"], now: 0 });
+  try {
+    saveOrderDraft(1, draft());
+
+    // Onze heures plus tard, le staff rouvre la page : le brouillon est repris,
+    // puis réécrit par l'effet de sauvegarde.
+    mock.timers.tick(11 * 60 * 60 * 1000);
+    const restored = loadOrderDraft(1);
+    assert.ok(restored, "onze heures, c'est encore dans la fenêtre");
+    saveOrderDraft(1, {
+      lines: restored!.lines,
+      customer: restored!.customer,
+      linked: restored!.linked,
+      orderType: restored!.orderType,
+      fulfillment: restored!.fulfillment,
+    });
+    assert.equal(storedRecord(store).savedAt, 0, "la réécriture garde l'heure de création");
+
+    // Deux heures encore : treize heures après la création, donc au-delà du TTL.
+    mock.timers.tick(2 * 60 * 60 * 1000);
+    assert.equal(loadOrderDraft(1), null, "un brouillon repris ne se prolonge pas indéfiniment");
+  } finally {
+    mock.timers.reset();
+  }
 });
 
 // Le quota est une raison de perdre un brouillon, jamais de casser la page.
