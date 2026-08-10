@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
-import { Calendar, CalendarDays, Info, PauseCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Calendar, CalendarDays, Clock3, Info, PackageCheck, PauseCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import {
   getRestaurant,
   updateRestaurant,
@@ -80,6 +80,9 @@ export default function OrdersAvailabilityPage() {
   const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
+  // Catering-only mode is offered only when this restaurant has catering (the
+  // same catering.manage gate used across the catering section).
+  const canManageCatering = hasAnyPermission('catering.manage');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,6 +99,7 @@ export default function OrdersAvailabilityPage() {
   const [pickupEnabled, setPickupEnabled] = useState(true);
   const [dineInEnabled, setDineInEnabled] = useState(true);
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+  const [cateringOnly, setCateringOnly] = useState(false);
 
   // ── Opening hours (Restaurant) ────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<OrderType>('pickup');
@@ -118,7 +122,7 @@ export default function OrdersAvailabilityPage() {
   // before saving. Computed by the server (single date resolver, no drift).
   const [batchPreview, setBatchPreview] = useState<BatchCycleSummary[]>([]);
   // Slots
-  const [slotMinDays, setSlotMinDays] = useState(1);
+  const [slotLeadMinutes, setSlotLeadMinutes] = useState(1440);
   const [slotMaxDays, setSlotMaxDays] = useState(7);
   const [slotDuration, setSlotDuration] = useState(30);
   const [slotPrepayment, setSlotPrepayment] = useState(false);
@@ -138,6 +142,7 @@ export default function OrdersAvailabilityPage() {
         setPickupEnabled(r.pickup_enabled ?? true);
         setDineInEnabled(r.dine_in_enabled ?? true);
         setDeliveryEnabled(r.delivery_enabled ?? false);
+        setCateringOnly(r.catering_only ?? false);
         // Opening hours
         if (r.opening_hours_config) {
           const merged = defaultConfig();
@@ -167,7 +172,7 @@ export default function OrdersAvailabilityPage() {
         setCutoffTime(s.batch_cutoff_time || '22:00');
         setBatchDays(s.batch_fulfillment_days ?? []);
         setBatchPrepayment(s.batch_require_prepayment ?? true);
-        setSlotMinDays(s.scheduling_min_days_ahead ?? 1);
+        setSlotLeadMinutes(s.scheduling_lead_time_minutes ?? (s.scheduling_min_days_ahead ?? 1) * 1440);
         setSlotMaxDays(s.scheduling_max_days_ahead ?? 7);
         setSlotDuration(s.scheduling_slot_duration_minutes ?? 30);
         setSlotPrepayment(s.scheduling_require_prepayment ?? false);
@@ -286,6 +291,7 @@ export default function OrdersAvailabilityPage() {
         pickup_enabled: pickupEnabled,
         delivery_enabled: deliveryEnabled,
         dine_in_enabled: dineInEnabled,
+        catering_only: cateringOnly,
         opening_hours_config: config,
         week_start_day: weekStartDay,
         workdays,
@@ -300,7 +306,9 @@ export default function OrdersAvailabilityPage() {
         batch_order_open_time: openTime,
         batch_fulfillment_days: batchDays,
         batch_require_prepayment: batchPrepayment,
-        scheduling_min_days_ahead: slotMinDays,
+        scheduling_lead_time_minutes: slotLeadMinutes,
+        // Keep the legacy field coherent for older clients during rollout.
+        scheduling_min_days_ahead: Math.ceil(slotLeadMinutes / 1440),
         scheduling_max_days_ahead: slotMaxDays,
         scheduling_slot_duration_minutes: slotDuration,
         scheduling_require_prepayment: slotPrepayment,
@@ -452,6 +460,14 @@ export default function OrdersAvailabilityPage() {
             checked={deliveryEnabled}
             onChange={setDeliveryEnabled}
           />
+          {canManageCatering && (
+            <ServiceToggle
+              label={t('cateringOnlyMode')}
+              sub={t('cateringOnlyModeDesc')}
+              checked={cateringOnly}
+              onChange={setCateringOnly}
+            />
+          )}
           {noServiceEnabled && (
             <div
               className="text-fs-xs px-[var(--s-3)] py-[var(--s-2)] rounded-r-md"
@@ -697,13 +713,13 @@ export default function OrdersAvailabilityPage() {
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-3)]">
           <ModeCard
-            title={t('preorderModeOff') || 'Désactivée'}
-            desc={t('preorderModeOffDesc') || 'Service immédiat selon les horaires d’ouverture.'}
+            title={t('preorderModeOff') || 'Dès que possible'}
+            desc={t('preorderModeOffDesc') || 'Le client commande pour le prochain service disponible.'}
             selected={mode === 'off'}
             onClick={() => setMode('off')}
           />
           <ModeCard
-            title={t('preorderModeSlots') || 'Créneaux horaires'}
+            title={t('preorderModeSlots') || 'Date et créneau'}
             desc={
               t('preorderModeSlotsDesc') ||
               'Le client choisit un jour et un créneau précis (ex. demain à 12h30). Idéal pour étaler le service.'
@@ -723,19 +739,46 @@ export default function OrdersAvailabilityPage() {
         </div>
 
         {mode === 'slots' && (
+          <div
+            className="mt-[var(--s-4)] rounded-r-lg border border-[var(--line)] p-[var(--s-4)]"
+            style={{ background: 'color-mix(in oklab, var(--brand-500) 7%, var(--surface))' }}
+          >
+            <div className="flex items-center gap-[var(--s-3)] text-fs-sm font-semibold text-[var(--fg)]">
+              <Clock3 className="w-4 h-4 text-[var(--brand-500)]" />
+              {t('customerPromiseTitle') || 'Ce que verra le client'}
+            </div>
+            <div className="mt-[var(--s-3)] grid grid-cols-1 sm:grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-[var(--s-2)] text-fs-xs text-[var(--fg-muted)]">
+              <span className="rounded-full bg-[var(--surface)] border border-[var(--line)] px-[var(--s-3)] py-2">
+                {t('promiseOrderPlaced') || 'Commande passée'}
+              </span>
+              <span className="hidden sm:block h-px bg-[var(--line-strong)]" />
+              <span className="rounded-full bg-[var(--surface)] border border-[var(--line)] px-[var(--s-3)] py-2 font-semibold text-[var(--brand-500)]">
+                +{Math.round(slotLeadMinutes / 60)} h
+              </span>
+              <span className="hidden sm:block h-px bg-[var(--line-strong)]" />
+              <span className="rounded-full bg-[var(--surface)] border border-[var(--line)] px-[var(--s-3)] py-2">
+                {t('promiseFirstOpenSlot') || 'Premier créneau ouvert'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {mode === 'slots' && (
           <div className="mt-[var(--s-4)] flex flex-col gap-[var(--s-4)]">
             <div className="flex flex-wrap gap-[var(--s-4)]">
-              <Field label={t('slotMinDaysAhead') || 'Délai minimum (jours)'}>
+              <Field label={t('slotMinDaysAhead') || 'Temps de préparation par défaut'}>
                 <Input
                   type="number"
                   min={0}
-                  value={slotMinDays}
-                  onChange={(e) => setSlotMinDays(Number(e.target.value))}
+                  step={1}
+                  value={Math.round(slotLeadMinutes / 60)}
+                  onChange={(e) => setSlotLeadMinutes(Math.max(0, Number(e.target.value)) * 60)}
                   className="font-mono"
                   style={{ width: 120 }}
                 />
+                <span className="ms-[var(--s-2)] text-fs-xs text-[var(--fg-muted)]">{t('hours') || 'heures'}</span>
               </Field>
-              <Field label={t('slotMaxDaysAhead') || 'Délai maximum (jours)'}>
+              <Field label={t('slotMaxDaysAhead') || 'Réservation possible jusqu’à'}>
                 <Input
                   type="number"
                   min={1}
@@ -756,6 +799,19 @@ export default function OrdersAvailabilityPage() {
                   style={{ width: 120 }}
                 />
               </Field>
+            </div>
+            <div className="flex flex-wrap gap-[var(--s-2)]">
+              {[0, 6, 24, 48, 72].map((hours) => (
+                <Button
+                  key={hours}
+                  type="button"
+                  size="sm"
+                  variant={slotLeadMinutes === hours * 60 ? 'primary' : 'secondary'}
+                  onClick={() => setSlotLeadMinutes(hours * 60)}
+                >
+                  {hours === 0 ? t('itemPreparationSameDay') || 'Même jour' : `${hours} h`}
+                </Button>
+              ))}
             </div>
             <PrepaymentToggle
               checked={slotPrepayment}
@@ -880,6 +936,21 @@ export default function OrdersAvailabilityPage() {
               }
             />
             {batchPrepayment && <CashNote t={t} />}
+          </div>
+        )}
+
+        {mode !== 'off' && (
+          <div className="mt-[var(--s-5)] flex items-start gap-[var(--s-3)] rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-4)]">
+            <PackageCheck className="w-5 h-5 mt-0.5 shrink-0 text-[var(--brand-500)]" />
+            <div className="min-w-0 flex-1">
+              <div className="text-fs-sm font-semibold text-[var(--fg)]">{t('productExceptionsTitle') || 'Exceptions par produit'}</div>
+              <p className="mt-1 text-fs-xs text-[var(--fg-muted)] leading-[var(--lh-base)]">
+                {t('productExceptionsDesc') || 'Un produit peut demander plus de préparation, ou être disponible aujourd’hui grâce à un stock déjà prêt.'}
+              </p>
+            </div>
+            <a href={`/${rid}/menu`} className="shrink-0 text-fs-xs font-semibold text-[var(--brand-500)] hover:underline">
+              {t('manageProducts') || 'Gérer les produits'}
+            </a>
           </div>
         )}
       </Section>

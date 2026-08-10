@@ -107,11 +107,12 @@ function normalizeTypography(t: TypographyOverrides): TypographyOverrides | null
   for (const r of ROLES) {
     const o = t.roles?.[r.key];
     if (!o) continue;
-    const clean: { font?: string; sizeMult?: number; weight?: number; transform?: 'uppercase' | 'none' } = {};
+    const clean: { font?: string; sizeMult?: number; weight?: number; transform?: 'uppercase' | 'none'; color?: string } = {};
     if (o.font) clean.font = o.font;
     if (typeof o.sizeMult === 'number' && o.sizeMult !== 1) clean.sizeMult = o.sizeMult;
     if (typeof o.weight === 'number') clean.weight = o.weight;
     if (o.transform === 'uppercase' || o.transform === 'none') clean.transform = o.transform;
+    if (o.color) clean.color = o.color;
     if (Object.keys(clean).length > 0) roles[r.key] = clean;
   }
   if (Object.keys(roles).length > 0) out.roles = roles;
@@ -173,10 +174,12 @@ type Props = {
   onHeroNameFontChange: (family: string) => void;
   /** Sample text for the hero row (the restaurant's name). */
   heroSample?: string;
+  /** Stable Website V3 prefix for preview selection and field connectivity. */
+  fieldIdPrefix?: string;
 };
 
 export function TypographyPanel({
-  config, catalog, onUpdate, restaurantId, heroNameFont, onHeroNameFontChange, heroSample,
+  config, catalog, onUpdate, restaurantId, heroNameFont, onHeroNameFontChange, heroSample, fieldIdPrefix,
 }: Props) {
   const { t } = useI18n();
   const typo: TypographyOverrides = config.typography ?? {};
@@ -231,6 +234,9 @@ export function TypographyPanel({
       if (f) referenced.add(f);
     }
     if (hero) referenced.add(hero);
+    // The navbar font (edited in the Navigation panel) also lives in extraFonts —
+    // keep it referenced so it isn't pruned when a role/hero font changes here.
+    if (config.navbar_font) referenced.add(config.navbar_font);
     const pruned = (next.extraFonts ?? []).filter((f) => isCustomFont(f) || referenced.has(f.family));
     onUpdate({ typography: normalizeTypography({ ...next, extraFonts: pruned }) });
   }
@@ -294,6 +300,13 @@ export function TypographyPanel({
     commit({
       ...typo,
       roles: { ...typo.roles, [key]: { ...typo.roles?.[key], transform } },
+    });
+  }
+
+  function setRoleColor(key: TypographyRoleKey, color?: string) {
+    commit({
+      ...typo,
+      roles: { ...typo.roles, [key]: { ...typo.roles?.[key], color: color || undefined } },
     });
   }
 
@@ -524,6 +537,7 @@ export function TypographyPanel({
                       fontFamily: o.font ? `"${o.font}"` : 'inherit',
                       fontWeight: o.weight,
                       textTransform: o.transform === 'uppercase' ? 'uppercase' : undefined,
+                      color: o.color || undefined,
                     }}
                     dir={r.key === 'itemPrice' ? 'ltr' : undefined}
                     title={r.sample}
@@ -531,6 +545,31 @@ export function TypographyPanel({
                     {r.sample}
                   </span>
                 </div>
+                {r.key !== 'categoryBar' && (
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-[10px] text-fg-tertiary shrink-0">Couleur</span>
+                  <input
+                    type="color"
+                    value={o.color || '#111827'}
+                    onChange={(e) => setRoleColor(r.key, e.target.value)}
+                    className="h-7 w-9 cursor-pointer rounded border border-divider bg-transparent p-0"
+                    aria-label={`Couleur · ${r.label}`}
+                  />
+                  <input
+                    type="text"
+                    data-field-id={fieldIdPrefix ? `${fieldIdPrefix}.${r.key}.color` : undefined}
+                    value={o.color ?? ''}
+                    onChange={(e) => setRoleColor(r.key, e.target.value)}
+                    placeholder="Couleur du thème"
+                    className="min-w-0 flex-1 rounded-lg border border-divider bg-[var(--surface)] px-2 py-1.5 text-xs font-mono"
+                  />
+                  {o.color ? (
+                    <button type="button" onClick={() => setRoleColor(r.key)} className="text-[10px] text-fg-secondary hover:text-fg-primary">
+                      Hériter
+                    </button>
+                  ) : null}
+                </div>
+                )}
                 <div className="flex gap-1.5">
                   <div className="flex-1 min-w-0">
                     <FontSelect

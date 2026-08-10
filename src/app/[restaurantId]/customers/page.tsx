@@ -9,6 +9,7 @@ import {
   removeTrustedCustomer,
   getCustomerProfile,
   updateCustomerProfile,
+  unmergeCustomer,
   CustomerListResult,
   CustomerProfile,
   TrustedCustomer,
@@ -19,16 +20,20 @@ import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { PlusIcon, SearchIcon, ChevronRightIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Switch } from '@/components/ui/switch';
-import { Button, PageHead } from '@/components/ds';
+import { Button, Badge, PageHead } from '@/components/ds';
 import {
   DataTable,
   DataTableHead,
   DataTableHeadCell,
   DataTableHeadSpacerCell,
+  DataTableSelectAllCell,
   DataTableBody,
   DataTableRow,
   DataTableCell,
+  DataTableSelectCell,
 } from '@/components/data-table';
+import { MergeCustomersModal, MergeRow } from './MergeCustomersModal';
+import { DuplicateSuggestions } from './DuplicateSuggestions';
 
 const PER_PAGE = 25;
 
@@ -56,6 +61,9 @@ type CustomerRow = {
   floor?: string;
   apt?: string;
   entryCode?: string;
+  // Every phone number folded into this customer via a manual merge, primary
+  // first. Absent (or length 1) for a customer that was never merged.
+  phones?: string[];
 };
 
 export default function CustomersPage() {
@@ -71,6 +79,11 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
 
+  // Row selection for manual merges. Keyed by phoneKey() so it survives the
+  // various phone formats the same customer can show up under.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [mergeOpen, setMergeOpen] = useState(false);
+
   // Add modal (manually whitelist a phone for cash)
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ phone: '', name: '', notes: '' });
@@ -84,6 +97,8 @@ export default function CustomersPage() {
   const [editNotes, setEditNotes] = useState('');
   const [editError, setEditError] = useState('');
   const [saving, setSaving] = useState(false);
+  // Phone currently being detached (disables its own button only).
+  const [detaching, setDetaching] = useState<string | null>(null);
 
   // Profile (address/apartment/floor) lives on the customer's account.
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
@@ -131,6 +146,11 @@ export default function CustomersPage() {
     return () => clearTimeout(id);
   }, [searchInput]);
 
+  // A new page or search query swaps out which customers `rows` holds.
+  // Carrying a selection across that swap could merge whoever now happens
+  // to occupy those keys, so drop it whenever the underlying list changes.
+  useEffect(() => { setSelected(new Set()); }, [page, search]);
+
   const trustedByKey = useMemo(() => {
     const m = new Map<string, TrustedCustomer>();
     for (const tc of trusted) m.set(phoneKey(tc.phone), tc);
@@ -149,6 +169,7 @@ export default function CustomersPage() {
       floor: c.floor,
       apt: c.apt,
       entryCode: c.entry_code,
+      phones: c.phones,
     }));
     // On the unfiltered first page, surface trusted customers who have no
     // orders yet (so manually added cash customers stay visible).
@@ -166,6 +187,19 @@ export default function CustomersPage() {
 
   const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString() : t('never'));
 
+  const toggleSelect = (key: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (!checked) { setSelected(new Set()); return; }
+    setSelected(new Set(rows.map((r) => phoneKey(r.phone))));
+  };
+
   const openEdit = async (row: CustomerRow) => {
     if (!canManage) return;
     setEditRow(row);
@@ -173,6 +207,7 @@ export default function CustomersPage() {
     setEditName(row.name || row.trusted?.name || '');
     setEditNotes(row.trusted?.notes || '');
     setEditError('');
+    setDetaching(null);
     // Reset profile fields, then load the saved account profile (falling back to
     // the customer's latest delivery order to pre-fill anything not yet saved).
     setProfile(null);
@@ -299,6 +334,12 @@ export default function CustomersPage() {
         />
       </div>
 
+      {/* Duplicate suggestions — restaurant-wide, independent of the current
+          search/page so it doesn't disappear just because a filter narrowed
+          the table to zero rows. Actions require manage rights, same as the
+          rest of this page's merge/edit affordances. */}
+      {canManage && <DuplicateSuggestions restaurantId={rid} onChanged={reload} />}
+
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
@@ -307,10 +348,24 @@ export default function CustomersPage() {
         <div className="card p-8 text-center text-fg-secondary">{t('noCustomers')}</div>
       ) : (
         <>
+          {canManage && selected.size >= 2 && (
+            <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
+              <Button variant="primary" onClick={() => setMergeOpen(true)}>
+                {t('mergeCustomersSelected').replace('{n}', String(selected.size))}
+              </Button>
+            </div>
+          )}
+
           <DataTable
             style={{ ['--cols' as string]: '1.3fr 1.2fr 1.8fr 0.6fr 0.9fr 0.8fr 32px' } as React.CSSProperties}
           >
             <DataTableHead>
+              {canManage && (
+                <DataTableSelectAllCell
+                  checked={rows.length > 0 && rows.every((r) => selected.has(phoneKey(r.phone)))}
+                  onCheckedChange={toggleSelectAll}
+                />
+              )}
               <DataTableHeadCell>{t('phone')}</DataTableHeadCell>
               <DataTableHeadCell>{t('name')}</DataTableHeadCell>
               <DataTableHeadCell>{t('address')}</DataTableHeadCell>
@@ -326,20 +381,32 @@ export default function CustomersPage() {
                   t,
                   { compact: true },
                 );
+                const key = phoneKey(row.phone);
+                const onRowClick = () => openEdit(row);
                 return (
                 <DataTableRow
-                  key={phoneKey(row.phone) || index}
+                  key={key || index}
                   index={index}
-                  onClick={() => openEdit(row)}
                   className={canManage ? 'cursor-pointer hover:bg-fg-tertiary/5' : ''}
                 >
-                  <DataTableCell mobilePrimary className="font-medium text-fg-primary">
+                  {canManage && (
+                    <DataTableSelectCell
+                      checked={selected.has(key)}
+                      onCheckedChange={() => toggleSelect(key)}
+                    />
+                  )}
+                  <DataTableCell mobilePrimary className="font-medium text-fg-primary" onClick={onRowClick}>
                     {row.phone}
+                    {(row.phones?.length ?? 1) > 1 && (
+                      <Badge tone="brand" className="ms-[var(--s-2)]">
+                        {t('mergeCustomersNumbers').replace('{n}', String(row.phones!.length))}
+                      </Badge>
+                    )}
                   </DataTableCell>
-                  <DataTableCell mobileLabel={t('name')} className="text-fg-primary">
+                  <DataTableCell mobileLabel={t('name')} className="text-fg-primary" onClick={onRowClick}>
                     {row.name || '—'}
                   </DataTableCell>
-                  <DataTableCell mobileLabel={t('address')}>
+                  <DataTableCell mobileLabel={t('address')} onClick={onRowClick}>
                     {addr ? (
                       <div className="flex flex-col leading-tight">
                         <span className="text-fg-primary">{addr.line1}</span>
@@ -351,13 +418,13 @@ export default function CustomersPage() {
                       <span className="text-fg-tertiary">—</span>
                     )}
                   </DataTableCell>
-                  <DataTableCell mobileLabel={t('orders')} className="text-fg-secondary">
+                  <DataTableCell mobileLabel={t('orders')} className="text-fg-secondary" onClick={onRowClick}>
                     {row.orders}
                   </DataTableCell>
-                  <DataTableCell mobileLabel={t('lastOrder')} className="text-fg-secondary">
+                  <DataTableCell mobileLabel={t('lastOrder')} className="text-fg-secondary" onClick={onRowClick}>
                     {fmtDate(row.lastOrderAt)}
                   </DataTableCell>
-                  <DataTableCell mobileLabel={t('canPayCash')}>
+                  <DataTableCell mobileLabel={t('canPayCash')} onClick={onRowClick}>
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-fs-xs font-medium ${
                         row.trusted
@@ -368,7 +435,7 @@ export default function CustomersPage() {
                       {row.trusted ? t('yes') : t('no')}
                     </span>
                   </DataTableCell>
-                  <DataTableCell align="right">
+                  <DataTableCell align="right" onClick={onRowClick}>
                     {canManage && (
                       <ChevronRightIcon className="w-4 h-4 text-fg-tertiary" />
                     )}
@@ -417,6 +484,39 @@ export default function CustomersPage() {
               <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phone')}</label>
               <div className="input bg-fg-tertiary/5 text-fg-secondary">{editRow.phone}</div>
             </div>
+
+            {(editRow.phones?.length ?? 1) > 1 && (
+              <div className="flex flex-col gap-[var(--s-2)]">
+                <Badge tone="brand" className="self-start">
+                  {t('mergeCustomersNumbers').replace('{n}', String(editRow.phones!.length))}
+                </Badge>
+                {editRow.phones!.slice(1).map((p) => (
+                  <div key={p} className="flex items-center justify-between">
+                    <span className="text-fs-sm">{p}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={detaching === p}
+                      onClick={async () => {
+                        setDetaching(p);
+                        setEditError('');
+                        try {
+                          await unmergeCustomer(rid, p);
+                          setEditRow(null);
+                          await reload();
+                        } catch (err: unknown) {
+                          setEditError(err instanceof Error ? err.message : t('failedToUpdateCustomer'));
+                        } finally {
+                          setDetaching(null);
+                        }
+                      }}
+                    >
+                      {t('detachNumber')}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-fg-secondary mb-1">{t('nameOptional')}</label>
@@ -584,6 +684,22 @@ export default function CustomersPage() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {/* Merge modal — combines the selected rows into one customer. */}
+      {mergeOpen && (
+        <MergeCustomersModal
+          restaurantId={rid}
+          rows={rows
+            .filter((r) => selected.has(phoneKey(r.phone)))
+            .map<MergeRow>((r) => ({ phone: r.phone, name: r.name, orders: r.orders }))}
+          onClose={() => setMergeOpen(false)}
+          onMerged={() => {
+            setMergeOpen(false);
+            setSelected(new Set());
+            reload();
+          }}
+        />
       )}
     </div>
   );

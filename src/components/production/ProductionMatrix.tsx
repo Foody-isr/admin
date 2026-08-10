@@ -19,7 +19,7 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useIsMobile } from '@/components/ui/use-mobile';
-import { packIntoBoxes, cellPortionBreakdown } from '@/lib/production';
+import { productionBoxes } from '@/lib/production';
 import { reorder } from '@/lib/production-column-order';
 
 interface Props {
@@ -367,18 +367,12 @@ export function ProductionMatrix({
           {cats.flatMap((cat) =>
             cat.item_ids.map((id) => {
               const item = itemsById.get(id)!;
-              // When the user picks a box size, repack the column total into the
-              // fewest containers using the article's portions (chosen size as
-              // the largest box). In "Auto" the breakdown mirrors the client cells
-              // as displayed (2 cells of 500 read as "2×500"), so the header maps
-              // line-for-line to the column instead of the raw ordered portions.
-              const chosen = boxSize;
-              const boxes =
-                item.measure !== 'weight'
-                  ? null
-                  : chosen
-                    ? packIntoBoxes(item.total, chosen, availablePortions?.[id] ?? [])
-                    : cellPortionBreakdown(sheet.orders.map((o) => o.cells[String(id)]));
+              const boxes = productionBoxes(
+                sheet.orders,
+                item,
+                boxSize,
+                availablePortions?.[id] ?? [],
+              );
               return (
                 <DataTableHeadCell
                   key={`tt-${id}`}
@@ -391,7 +385,7 @@ export function ProductionMatrix({
                   <span className="text-base font-extrabold tabular-nums normal-case">
                     {showUnits(id) ? `${item.total_units ?? 0} u.` : fmtTotal(item)}
                   </span>
-                  {boxes && boxes.length > 0 && (
+                  {boxes.length > 0 && (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
                       {boxes.map((b) => `${b.count}×${b.portion}`).join(' · ')}
                     </span>

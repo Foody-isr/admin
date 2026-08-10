@@ -1278,6 +1278,7 @@ export function OrderDetailDrawer({
       open={recapOpen}
       onOpenChange={setRecapOpen}
       order={order}
+      restaurantId={order.restaurant_id}
       restaurantName={restaurantInfo.name || ''}
       restaurantDefaultLocale={restaurantDefaultLocale}
     />

@@ -10,6 +10,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import { MessageSquareText } from 'lucide-react';
 import {
   getWhatsAppSender,
   connectWhatsApp,
@@ -19,6 +21,7 @@ import {
   WhatsAppSender,
 } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
+import { useI18n } from '@/lib/i18n';
 import { Badge, Button, Field, Input, PageHead, Section } from '@/components/ds';
 
 const FB_SDK_VERSION = process.env.NEXT_PUBLIC_META_GRAPH_VERSION || 'v21.0';
@@ -44,6 +47,7 @@ export default function WhatsAppSettingsPage() {
   const rid = Number(restaurantId);
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
+  const { t } = useI18n();
 
   const [sender, setSender] = useState<WhatsAppSender | null>(null);
   const [loading, setLoading] = useState(true);
@@ -184,7 +188,18 @@ export default function WhatsAppSettingsPage() {
 
   return (
     <div>
-      <PageHead title="WhatsApp Business" desc="Send order notifications from your own WhatsApp number." />
+      <PageHead
+        title="WhatsApp Business"
+        desc="Send order notifications from your own WhatsApp number."
+        actions={
+          <Button variant="secondary" asChild>
+            <Link href={`/${rid}/settings/message-templates`}>
+              <MessageSquareText className="w-4 h-4" />
+              {t('messageTemplatesFromWhatsApp')}
+            </Link>
+          </Button>
+        }
+      />
 
       <Section title="Connection">
         {loading ? (

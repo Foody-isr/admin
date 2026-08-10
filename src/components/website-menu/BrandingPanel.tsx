@@ -167,28 +167,8 @@ export function BrandingPanel({ config, onUpdate, restaurantId, restaurant, onRe
       </section>
       )}
 
-      {/* Hide navbar name */}
-      <section className="rounded-lg border border-[var(--divider)] p-3 flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-xs font-semibold mb-0.5">{t('hideNavbarName')}</h3>
-          <p className="text-[11px] text-fg-secondary leading-snug">{t('hideNavbarNameHelp')}</p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={config.hide_navbar_name}
-          onClick={() => onUpdate({ hide_navbar_name: !config.hide_navbar_name })}
-          className={`relative w-9 h-5 rounded-full shrink-0 transition-colors ${
-            config.hide_navbar_name ? 'bg-brand-500' : 'bg-[var(--divider)]'
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-              config.hide_navbar_name ? 'translate-x-[18px]' : 'translate-x-0.5'
-            }`}
-          />
-        </button>
-      </section>
+      {/* "Masquer le nom du restaurant" now lives only in Thème → Navigation
+          (it's a navbar composition setting, not a logo/favicon one). */}
 
       {/* Favicon */}
       <section className="rounded-lg border border-[var(--divider)] p-3">

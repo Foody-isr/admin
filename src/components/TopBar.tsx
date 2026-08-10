@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { useI18n } from '@/lib/i18n';
 import SearchTriggerButton from '@/components/search/SearchTriggerButton';
+import BranchSwitcher from '@/components/BranchSwitcher';
 import {
   ChevronRightIcon,
   ChevronDownIcon,
@@ -17,6 +18,7 @@ import {
   MenuIcon,
 } from 'lucide-react';
 interface TopBarProps {
+  restaurantId: number;
   restaurantName: string;
   pageName: string;
   onToggleSidebar: () => void;
@@ -27,7 +29,7 @@ interface TopBarProps {
  * Topbar — crumbs on the left, search input-group in the middle, actions on the right.
  * Matches chrome.jsx from the design reference.
  */
-export default function TopBar({ restaurantName, pageName, onToggleSidebar, orderCount }: TopBarProps) {
+export default function TopBar({ restaurantId, restaurantName, pageName, onToggleSidebar, orderCount }: TopBarProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t, direction } = useI18n();
@@ -51,7 +53,9 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
     ? user.full_name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?';
 
-  const crumbs = [restaurantName, pageName].filter(Boolean);
+  // The restaurant name is rendered as the BranchSwitcher (below); the remaining
+  // crumbs are the page trail after it.
+  const crumbs = [pageName].filter(Boolean);
 
   return (
     <header
@@ -67,20 +71,15 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
         <MenuIcon className="w-5 h-5" />
       </button>
 
-      {/* Crumbs */}
+      {/* Crumbs: branch switcher (restaurant) → page trail */}
       <div className="flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)] min-w-0">
+        <BranchSwitcher restaurantId={restaurantId} restaurantName={restaurantName} />
         {crumbs.map((c, i) => (
           <span key={`${c}-${i}`} className="flex items-center gap-[var(--s-2)] min-w-0">
-            {i > 0 && (
-              <ChevronRightIcon
-                className={`w-3 h-3 text-[var(--fg-subtle)] shrink-0 ${isRtl ? 'rotate-180' : ''}`}
-              />
-            )}
-            <span
-              className={`${i === crumbs.length - 1 ? 'text-[var(--fg)] font-medium' : ''} truncate`}
-            >
-              {c}
-            </span>
+            <ChevronRightIcon
+              className={`w-3 h-3 text-[var(--fg-subtle)] shrink-0 ${isRtl ? 'rotate-180' : ''}`}
+            />
+            <span className="text-[var(--fg)] font-medium truncate">{c}</span>
           </span>
         ))}
       </div>
