@@ -198,11 +198,11 @@ export function NewOrderCheckoutDrawer({
   // ouverture d'un formulaire vierge. L'effet de remontée persistait ensuite le
   // créneau écrasé dans le brouillon, si bien que le créneau était capturé,
   // restauré, puis jeté sur le seul chemin qui le consomme.
-  const draftFulfillmentPending = useRef(false);
+  const draftFulfillmentPending = useRef<FulfillmentValue | null>(null);
   useEffect(() => {
     if (didApplyInitial.current || !initialState) return;
     didApplyInitial.current = true;
-    draftFulfillmentPending.current = true;
+    draftFulfillmentPending.current = initialState.fulfillment;
     // Le nom et le téléphone repris ne sont pas une frappe du staff : sans
     // armer les deux refs, l'effet de recherche de CustomerPicker partirait sur
     // la valeur restaurée et ouvrirait sa liste par-dessus un champ autofocus,
@@ -280,8 +280,20 @@ export function NewOrderCheckoutDrawer({
     // Un créneau repris d'un brouillon a déjà été posé au montage : le défaut
     // ne doit pas passer par-dessus. Consommé une fois, pour que les
     // ouvertures suivantes retrouvent le comportement habituel.
-    if (draftFulfillmentPending.current) {
-      draftFulfillmentPending.current = false;
+    //
+    // Sauf s'il n'est plus proposable : douze heures suffisent à faire passer
+    // une série. Un créneau repris qui ne figure plus parmi les cibles ne peut
+    // pas être choisi dans le sélecteur — il partirait tel quel, sur une date
+    // que le restaurant ne sert plus. Dans ce cas seulement, le défaut reprend
+    // la main.
+    const pending = draftFulfillmentPending.current;
+    draftFulfillmentPending.current = null;
+    if (
+      pending
+      && (pending.timing === 'immediate'
+        || targets.length === 0
+        || targets.some((tg) => tg.date === pending.scheduledFor))
+    ) {
       return;
     }
     const preferred = defaultDate ? targets.find((tg) => tg.date === defaultDate) : undefined;
