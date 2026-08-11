@@ -3978,6 +3978,7 @@ export interface OrderCustomerDetailsInput {
   delivery_floor?: string;
   delivery_apt?: string;
   delivery_entry_code?: string;
+  delivery_notes?: string;
 }
 
 /**
