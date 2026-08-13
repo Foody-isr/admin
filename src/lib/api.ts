@@ -8504,6 +8504,7 @@ export interface CateringCatalogItem {
   id: number;
   restaurant_id: number;
   service_id: number;
+  group_id?: number;
   name: string;
   /** Short marketing intro shown under the title (1-2 sentences), distinct from
    *  the itemized `description`. Translatable via the translations map. */
@@ -8523,6 +8524,7 @@ export interface CateringCatalogItem {
 
 export interface CateringCatalogItemInput {
   name: string;
+  group_id?: number;
   overview?: string;
   description?: string;
   image_url?: string;
@@ -8533,6 +8535,44 @@ export interface CateringCatalogItemInput {
   min_guests?: number;
   is_active?: boolean;
   sort_order?: number;
+}
+
+export interface CateringCatalogGroup {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  name: string;
+  translations?: Record<string, Record<string, string>>;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface CateringCatalogGroupInput {
+  name: string;
+  translations?: Record<string, Record<string, string>>;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+/** List customer-facing groups for a catering service. */
+export async function listCateringGroups(restaurantId: number, serviceId: number): Promise<CateringCatalogGroup[]> {
+  const res = await apiFetch<{ groups: CateringCatalogGroup[] }>(`/api/v1/catering/services/${serviceId}/groups`, restaurantId);
+  return res.groups ?? [];
+}
+
+/** Create a customer-facing group under a catering service. */
+export async function createCateringGroup(restaurantId: number, serviceId: number, body: CateringCatalogGroupInput): Promise<CateringCatalogGroup> {
+  return apiFetch<CateringCatalogGroup>(`/api/v1/catering/services/${serviceId}/groups`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update a customer-facing catering group. */
+export async function updateCateringGroup(restaurantId: number, id: number, body: CateringCatalogGroupInput): Promise<CateringCatalogGroup> {
+  return apiFetch<CateringCatalogGroup>(`/api/v1/catering/groups/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Archive a catering group. Its articles become ungrouped. */
+export async function archiveCateringGroup(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/groups/${id}`, restaurantId, { method: 'DELETE' });
 }
 
 export type CateringOptionPriceMode = 'fixed' | 'per_person';
