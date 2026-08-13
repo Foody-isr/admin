@@ -48,6 +48,22 @@ export interface User {
   created_at: string;
 }
 
+/**
+ * Restaurant-wide layout of the admin orders table.
+ *
+ * Both fields are PARTIAL by design: they hold only the columns someone
+ * explicitly moved or toggled. A column absent from `visible` falls back to its
+ * built-in default, and a column absent from `order` keeps its natural
+ * position — so a column shipped in a later release still shows up correctly
+ * for restaurants that had already saved a layout.
+ */
+export interface OrdersTableConfig {
+  /** Column keys in the arrangement the admin dragged them into. */
+  order: string[];
+  /** Explicit show/hide decisions, keyed by column key. */
+  visible: Record<string, boolean>;
+}
+
 export interface Restaurant {
   id: number;
   owner_id: number;
@@ -87,6 +103,13 @@ export interface Restaurant {
   catering_only?: boolean;
   is_active: boolean;
   opening_hours_config?: OpeningHoursConfig;
+  /**
+   * Restaurant-wide column layout of the admin orders table, shared by every
+   * staff account. Absent until someone customises it, which is how the default
+   * layout stays the default for every other restaurant on the platform.
+   * See `@/lib/orders/table-config`.
+   */
+  orders_table_config?: OrdersTableConfig;
   created_at: string;
 }
 
@@ -646,6 +669,10 @@ export interface Order {
   courier_name?: string;
   courier_phone?: string;
   courier_assigned_at?: string;
+  /** Delivery tour this order was placed on, when it came in through one.
+   *  Preloaded on every staff order list (never served on a guest route). */
+  tour_id?: number | null;
+  tour?: { id: number; name: string; delivery_date?: string } | null;
   delivery_address?: string;
   delivery_city?: string;
   delivery_floor?: string;
@@ -4564,6 +4591,22 @@ export async function saveProductionColumnOrder(
   );
 }
 
+/**
+ * Persists the restaurant-wide column layout of the admin orders table. Read
+ * back off `Restaurant.orders_table_config`, which the orders page already
+ * loads — there is deliberately no matching GET. Requires SettingsEdit.
+ */
+export async function saveOrdersTableConfig(
+  restaurantId: number,
+  config: OrdersTableConfig,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/orders/table-config?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(config) },
+  );
+}
+
 // Toggle an order's shared production-sheet "done" flag (kitchen staff — the
 // server enforces KitchenManage and broadcasts the change live to other tablets).
 export async function setOrderPrepared(
@@ -8461,6 +8504,7 @@ export interface CateringCatalogItem {
   id: number;
   restaurant_id: number;
   service_id: number;
+  group_id?: number;
   name: string;
   /** Short marketing intro shown under the title (1-2 sentences), distinct from
    *  the itemized `description`. Translatable via the translations map. */
@@ -8480,6 +8524,7 @@ export interface CateringCatalogItem {
 
 export interface CateringCatalogItemInput {
   name: string;
+  group_id?: number;
   overview?: string;
   description?: string;
   image_url?: string;
@@ -8490,6 +8535,44 @@ export interface CateringCatalogItemInput {
   min_guests?: number;
   is_active?: boolean;
   sort_order?: number;
+}
+
+export interface CateringCatalogGroup {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  name: string;
+  translations?: Record<string, Record<string, string>>;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface CateringCatalogGroupInput {
+  name: string;
+  translations?: Record<string, Record<string, string>>;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+/** List customer-facing groups for a catering service. */
+export async function listCateringGroups(restaurantId: number, serviceId: number): Promise<CateringCatalogGroup[]> {
+  const res = await apiFetch<{ groups: CateringCatalogGroup[] }>(`/api/v1/catering/services/${serviceId}/groups`, restaurantId);
+  return res.groups ?? [];
+}
+
+/** Create a customer-facing group under a catering service. */
+export async function createCateringGroup(restaurantId: number, serviceId: number, body: CateringCatalogGroupInput): Promise<CateringCatalogGroup> {
+  return apiFetch<CateringCatalogGroup>(`/api/v1/catering/services/${serviceId}/groups`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update a customer-facing catering group. */
+export async function updateCateringGroup(restaurantId: number, id: number, body: CateringCatalogGroupInput): Promise<CateringCatalogGroup> {
+  return apiFetch<CateringCatalogGroup>(`/api/v1/catering/groups/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Archive a catering group. Its articles become ungrouped. */
+export async function archiveCateringGroup(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/groups/${id}`, restaurantId, { method: 'DELETE' });
 }
 
 export type CateringOptionPriceMode = 'fixed' | 'per_person';

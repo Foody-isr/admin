@@ -15,10 +15,12 @@ import { CateringLocaleFields } from '@/components/catering/CateringLocaleFields
 import { type Locale } from '@/components/i18n/LocaleTabs';
 import {
   listCateringServices, listCateringItems, createCateringItem, updateCateringItem, archiveCateringItem, reorderCateringItems,
+  listCateringGroups, createCateringGroup, updateCateringGroup, archiveCateringGroup,
   listCateringOptions, createCateringOption, updateCateringOption, archiveCateringOption,
   uploadSectionImage, getRestaurant,
   type CateringService, type CateringPricingModel,
   type CateringCatalogItem, type CateringCatalogItemInput,
+  type CateringCatalogGroup,
   type CateringOption, type CateringOptionInput, type CateringOptionPriceMode,
 } from '@/lib/api';
 
@@ -118,13 +120,20 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
 }) {
   const { t } = useI18n();
   const [items, setItems] = useState<CateringCatalogItem[]>([]);
+  const [groups, setGroups] = useState<CateringCatalogGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [editModal, setEditModal] = useState<{ open: boolean; editing?: CateringCatalogItem }>({ open: false });
+  const [groupModal, setGroupModal] = useState<{ open: boolean; editing?: CateringCatalogGroup }>({ open: false });
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await listCateringItems(restaurantId, serviceId));
+      const [nextItems, nextGroups] = await Promise.all([
+        listCateringItems(restaurantId, serviceId),
+        listCateringGroups(restaurantId, serviceId),
+      ]);
+      setItems(nextItems);
+      setGroups(nextGroups);
     } finally {
       setLoading(false);
     }
@@ -135,6 +144,12 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
   const handleArchive = async (item: CateringCatalogItem) => {
     if (!confirm(t('catering_item_archive_confirm'))) return;
     await archiveCateringItem(restaurantId, item.id);
+    reload();
+  };
+
+  const handleArchiveGroup = async (group: CateringCatalogGroup) => {
+    if (!confirm(t('catering_group_archive_confirm'))) return;
+    await archiveCateringGroup(restaurantId, group.id);
     reload();
   };
 
@@ -165,6 +180,43 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
 
   return (
     <div className="space-y-[var(--s-4)]">
+      <section className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-fg-primary">{t('catering_groups_title')}</h3>
+            <p className="text-sm text-fg-secondary">{t('catering_groups_hint')}</p>
+          </div>
+          {canEdit && (
+            <Button variant="secondary" size="sm" onClick={() => setGroupModal({ open: true })}>
+              <PlusIcon />
+              {t('catering_new_group')}
+            </Button>
+          )}
+        </div>
+        {groups.length === 0 ? (
+          <p className="mt-3 text-sm text-fg-tertiary">{t('catering_empty_groups')}</p>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {groups.map((group) => (
+              <div key={group.id} className="flex items-center gap-1 rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] py-1 ps-3 pe-1 text-sm">
+                <span className="font-medium text-fg-primary">{group.name}</span>
+                {!group.is_active && <span className="text-fg-tertiary">({t('catering_group_hidden')})</span>}
+                {canEdit && (
+                  <>
+                    <button type="button" aria-label={t('catering_edit_group')} onClick={() => setGroupModal({ open: true, editing: group })} className="rounded-full p-1 text-fg-secondary hover:bg-[var(--surface)] hover:text-fg-primary">
+                      <PencilIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" aria-label={t('catering_archive')} onClick={() => handleArchiveGroup(group)} className="rounded-full p-1 text-fg-secondary hover:bg-red-500/10 hover:text-red-500">
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {canEdit && (
         <div className="flex justify-end">
           <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
@@ -180,6 +232,7 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
         <DataTable>
           <DataTableHead>
             <DataTableHeadCell>{t('catering_field_name')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('catering_item_group')}</DataTableHeadCell>
             <DataTableHeadCell align="right">{priceLabel}</DataTableHeadCell>
             {pricingModel !== 'custom_quote' && (
               <DataTableHeadCell align="right">{minLabel}</DataTableHeadCell>
@@ -192,6 +245,9 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
               <DataTableRow key={item.id} index={index}>
                 <DataTableCell mobilePrimary className="font-medium text-fg-primary">
                   {item.name}
+                </DataTableCell>
+                <DataTableCell mobileLabel={t('catering_item_group')}>
+                  {groups.find((group) => group.id === item.group_id)?.name ?? t('catering_group_ungrouped')}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={priceLabel}>
                   {`₪${item.base_price.toFixed(2)}`}
@@ -252,20 +308,77 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
           serviceId={serviceId}
           pricingModel={pricingModel}
           sourceLocale={sourceLocale}
+          groups={groups}
           editing={editModal.editing}
           onClose={() => setEditModal({ open: false })}
           onSaved={() => { setEditModal({ open: false }); reload(); }}
+        />
+      )}
+
+      {groupModal.open && (
+        <GroupEditModal
+          restaurantId={restaurantId}
+          serviceId={serviceId}
+          editing={groupModal.editing}
+          onClose={() => setGroupModal({ open: false })}
+          onSaved={() => { setGroupModal({ open: false }); reload(); }}
         />
       )}
     </div>
   );
 }
 
-function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, editing, onClose, onSaved }: {
+function GroupEditModal({ restaurantId, serviceId, editing, onClose, onSaved }: {
+  restaurantId: number;
+  serviceId: number;
+  editing?: CateringCatalogGroup;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const [name, setName] = useState(editing?.name ?? '');
+  const [isActive, setIsActive] = useState(editing?.is_active ?? true);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const body = { name: name.trim(), is_active: isActive, sort_order: editing?.sort_order ?? 0 };
+      if (editing) await updateCateringGroup(restaurantId, editing.id, body);
+      else await createCateringGroup(restaurantId, serviceId, body);
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={editing ? t('catering_edit_group') : t('catering_new_group')} onClose={onClose}>
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-fg-secondary">{t('catering_group_name')}</label>
+          <input className="input" value={name} autoFocus onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }} />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-fg-primary">
+          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          {t('catering_field_active')}
+        </label>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" size="md" onClick={onClose}>{t('catering_cancel')}</Button>
+          <Button variant="primary" size="md" disabled={saving || !name.trim()} onClick={handleSave}>{t('catering_save')}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, groups, editing, onClose, onSaved }: {
   restaurantId: number;
   serviceId: number;
   pricingModel: CateringPricingModel;
   sourceLocale: Locale;
+  groups: CateringCatalogGroup[];
   editing?: CateringCatalogItem;
   onClose: () => void;
   onSaved: () => void;
@@ -283,6 +396,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, ed
     () => (editing?.price_tiers ?? []).map((t) => ({ min_guests: String(t.min_guests), price: String(t.price) })),
   );
   const [imageUrl, setImageUrl] = useState(editing?.image_url ?? '');
+  const [groupId, setGroupId] = useState(editing?.group_id ? String(editing.group_id) : '');
   const [uploading, setUploading] = useState(false);
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
@@ -304,6 +418,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, ed
     try {
       const body: CateringCatalogItemInput = {
         name: name.trim(),
+        group_id: groupId ? Number(groupId) : 0,
         overview,
         description,
         base_price: Number(basePrice) || 0,
@@ -352,6 +467,14 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, ed
           descHint={t('catering_field_contents_hint')}
           onEnter={handleSave}
         />
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-fg-secondary">{t('catering_item_group')}</label>
+          <select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+            <option value="">{t('catering_group_ungrouped')}</option>
+            {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+          </select>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_field_image')}</label>

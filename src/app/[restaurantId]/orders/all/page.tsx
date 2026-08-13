@@ -13,6 +13,7 @@ import {
   Order, OrderStatus, PaymentStatus, ListOrdersParams, type DateBasis,
   type ManualPaymentMethod,
   type OrderCustomerDetailsInput,
+  type OrdersTableConfig,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -23,9 +24,6 @@ import { type PrintTicketRestaurant } from '@/lib/print-ticket';
 import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
 import {
   OrderDetailDrawer,
-  STATUS_TONE,
-  PAYMENT_TONE,
-  localizeStatus,
   localizeOrderType,
   buildCustomFieldLabels,
 } from '@/components/orders/OrderDetailDrawer';
@@ -51,7 +49,8 @@ import { OverridePaymentDialog } from '@/components/orders/OverridePaymentDialog
 import { CorrectPaymentMethodDialog } from '@/components/orders/CorrectPaymentMethodDialog';
 import { paymentReference, settledPaymentMethod } from '@/lib/orders/payment';
 import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
-import { CashTag } from '@/components/orders/CashTag';
+import { OrderColumnPicker } from '@/components/orders/OrderColumnPicker';
+import { useOrdersTableConfig } from '@/lib/orders/useOrdersTableConfig';
 import {
   DataTable,
   DataTableHead,
@@ -168,6 +167,9 @@ export default function OrdersPage() {
   // The restaurant's own language — fallback for the customer-facing WhatsApp
   // recap when an order carries no customer_locale.
   const [restaurantLocale, setRestaurantLocale] = useState<string>('');
+  // The restaurant-wide orders-table column layout rides along on the record
+  // this page already loads, so choosing columns costs no extra request.
+  const [tableConfig, setTableConfig] = useState<OrdersTableConfig | null>(null);
   useEffect(() => {
     if (!rid) return;
     getRestaurant(rid)
@@ -176,9 +178,14 @@ export default function OrdersPage() {
         setWorkdays(getEffectiveWorkdays(r));
         setRestaurantInfo({ name: r.name, address: r.address, phone: r.phone });
         setRestaurantLocale(r.default_locale || '');
+        setTableConfig(r.orders_table_config ?? null);
       })
       .catch(() => {});
   }, [rid]);
+
+  // Which columns the table shows, and in what order. Shared by every staff
+  // account of this restaurant; editing it is a settings change.
+  const columns = useOrdersTableConfig(rid, tableConfig, hasAnyPermission('settings.edit'));
 
   // Maps custom checkout-field ids → their human label so order custom_fields
   // (e.g. { code_immeuble: "A12" }) render as "Code Immeuble", not the raw id.
@@ -760,6 +767,10 @@ export default function OrdersPage() {
               { value: 'refunded', label: t('refunded') },
             ]}
           />
+
+          {/* Column layout is a restaurant-wide setting, so only staff who may
+              change settings are offered the picker. */}
+          {hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}
         </div>
 
         {/* Table */}
@@ -783,13 +794,11 @@ export default function OrdersPage() {
           <>
             <DataTable>
               <DataTableHead>
-                <DataTableHeadCell>{t('orderNoColumn')}</DataTableHeadCell>
-                <DataTableHeadCell>{t('name')}</DataTableHeadCell>
-                <DataTableHeadCell>{t('type')}</DataTableHeadCell>
-                <DataTableHeadCell>{t('date')}</DataTableHeadCell>
-                <DataTableHeadCell>{t('status')}</DataTableHeadCell>
-                <DataTableHeadCell>{t('payment')}</DataTableHeadCell>
-                <DataTableHeadCell align="right">{t('total')}</DataTableHeadCell>
+                {columns.visible.map((col) => (
+                  <DataTableHeadCell key={col.key} align={col.align}>
+                    {t(col.labelKey)}
+                  </DataTableHeadCell>
+                ))}
               </DataTableHead>
               <DataTableBody>
                 {orders.map((order, index) => (
@@ -800,57 +809,17 @@ export default function OrdersPage() {
                     onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
                     className={`cursor-pointer ${selectedId === order.id ? 'bg-blue-500/10' : ''}`}
                   >
-                    <DataTableCell className="text-fg-secondary tabular-nums" mobileLabel={t('orderNoColumn')}>
-                      #{order.id}
-                    </DataTableCell>
-                    <DataTableCell mobilePrimary>
-                      <span className="font-semibold text-fg-primary">{order.customer_name || t('guestCustomer')}</span>
-                    </DataTableCell>
-                    <DataTableCell className="text-fg-secondary" mobileLabel={t('type')}>
-                      {localizeOrderType(order.order_type, t)}
-                    </DataTableCell>
-                    <DataTableCell className="text-fg-secondary" mobileLabel={t('date')}>
-                      <div className="flex md:flex-col items-baseline md:items-stretch gap-1.5 md:gap-0">
-                        <span className="tabular-nums">
-                          {new Date(order.created_at).toLocaleDateString([], {
-                            day: '2-digit',
-                            month: 'short',
-                          })}
-                        </span>
-                        <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
-                          {new Date(order.created_at).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-                    </DataTableCell>
-                    <DataTableCell mobileLabel={t('status')}>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
-                          {localizeStatus(order.status, t)}
-                        </Badge>
-                        {order.external_metadata?.stock_oversold === true && (
-                          <Badge tone="warning" dot>
-                            {t('stockOversoldBadge')}
-                          </Badge>
-                        )}
-                      </div>
-                    </DataTableCell>
-                    <DataTableCell mobileLabel={t('payment')}>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
-                          {(() => {
-                            const tv = t(order.payment_status);
-                            return tv === order.payment_status ? order.payment_status : tv;
-                          })()}
-                        </Badge>
-                        <CashTag order={order} />
-                      </div>
-                    </DataTableCell>
-                    <DataTableCell align="right" className="font-medium text-fg-primary" mobileLabel={t('total')}>
-                      ₪{(order.total_amount ?? 0).toFixed(0)}
-                    </DataTableCell>
+                    {columns.visible.map((col) => (
+                      <DataTableCell
+                        key={col.key}
+                        align={col.align}
+                        className={col.cellClassName}
+                        mobilePrimary={col.isMobilePrimary}
+                        mobileLabel={col.isMobilePrimary ? undefined : t(col.labelKey)}
+                      >
+                        {col.render(order, t)}
+                      </DataTableCell>
+                    ))}
                   </DataTableRow>
                 ))}
               </DataTableBody>

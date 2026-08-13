@@ -7,6 +7,11 @@ import {
   type ProductionSheetCategory,
   type ProductionColumnOrderConfig,
 } from '@/lib/api';
+import { orderBy, reorder } from '@/lib/partial-order';
+
+// Re-exported for the production sheet's existing importers; the implementation
+// is shared with the admin orders table (see partial-order.ts).
+export { orderBy, reorder };
 
 // Restaurant-wide column layout for the production sheet, shared across all
 // staff and devices (server-persisted on the Restaurant). Categories are
@@ -24,30 +29,6 @@ function normalize(cfg: ProductionColumnOrderConfig | null | undefined): ColumnO
     categories: Array.isArray(cfg.categories) ? cfg.categories : [],
     items: cfg.items && typeof cfg.items === 'object' ? cfg.items : {},
   };
-}
-
-/**
- * Order `ids` by the saved preference `pref`, appending any id not covered by
- * `pref` in its original relative position. This keeps the layout stable while
- * ensuring brand-new categories/items are never hidden by a stale saved order.
- */
-export function orderBy(ids: number[], pref: number[]): number[] {
-  if (!pref.length) return ids;
-  const present = new Set(ids);
-  const ordered = pref.filter((id) => present.has(id));
-  const placed = new Set(ordered);
-  for (const id of ids) if (!placed.has(id)) ordered.push(id);
-  return ordered;
-}
-
-/** Move `fromId` to just before `toId` within `ids` (drop-before semantics). */
-export function reorder(ids: number[], fromId: number, toId: number): number[] {
-  if (fromId === toId) return ids;
-  const out = ids.filter((id) => id !== fromId);
-  const idx = out.indexOf(toId);
-  if (idx < 0) return ids;
-  out.splice(idx, 0, fromId);
-  return out;
 }
 
 export interface ProductionColumnOrder {
