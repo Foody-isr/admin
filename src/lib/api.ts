@@ -48,6 +48,22 @@ export interface User {
   created_at: string;
 }
 
+/**
+ * Restaurant-wide layout of the admin orders table.
+ *
+ * Both fields are PARTIAL by design: they hold only the columns someone
+ * explicitly moved or toggled. A column absent from `visible` falls back to its
+ * built-in default, and a column absent from `order` keeps its natural
+ * position — so a column shipped in a later release still shows up correctly
+ * for restaurants that had already saved a layout.
+ */
+export interface OrdersTableConfig {
+  /** Column keys in the arrangement the admin dragged them into. */
+  order: string[];
+  /** Explicit show/hide decisions, keyed by column key. */
+  visible: Record<string, boolean>;
+}
+
 export interface Restaurant {
   id: number;
   owner_id: number;
@@ -87,6 +103,13 @@ export interface Restaurant {
   catering_only?: boolean;
   is_active: boolean;
   opening_hours_config?: OpeningHoursConfig;
+  /**
+   * Restaurant-wide column layout of the admin orders table, shared by every
+   * staff account. Absent until someone customises it, which is how the default
+   * layout stays the default for every other restaurant on the platform.
+   * See `@/lib/orders/table-config`.
+   */
+  orders_table_config?: OrdersTableConfig;
   created_at: string;
 }
 
@@ -646,6 +669,10 @@ export interface Order {
   courier_name?: string;
   courier_phone?: string;
   courier_assigned_at?: string;
+  /** Delivery tour this order was placed on, when it came in through one.
+   *  Preloaded on every staff order list (never served on a guest route). */
+  tour_id?: number | null;
+  tour?: { id: number; name: string; delivery_date?: string } | null;
   delivery_address?: string;
   delivery_city?: string;
   delivery_floor?: string;
@@ -4559,6 +4586,22 @@ export async function saveProductionColumnOrder(
 ): Promise<void> {
   await apiFetch<void>(
     `/api/v1/orders/production-config?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(config) },
+  );
+}
+
+/**
+ * Persists the restaurant-wide column layout of the admin orders table. Read
+ * back off `Restaurant.orders_table_config`, which the orders page already
+ * loads — there is deliberately no matching GET. Requires SettingsEdit.
+ */
+export async function saveOrdersTableConfig(
+  restaurantId: number,
+  config: OrdersTableConfig,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/orders/table-config?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'PUT', body: JSON.stringify(config) },
   );
