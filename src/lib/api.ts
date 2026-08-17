@@ -2972,9 +2972,31 @@ export async function setMenuLocations(restaurantId: number, menuId: number, loc
 export interface ChainBranch {
   id: number;
   name: string;
+  public_name: string;
   slug: string;
+  address?: string;
+  phone?: string;
+  opening_hours?: string;
+  pickup_enabled: boolean;
+  delivery_enabled: boolean;
+  dine_in_enabled: boolean;
+  listing_status: 'setup' | 'live' | 'hidden' | 'archived';
   is_active: boolean;
   is_current: boolean;
+  manager?: { user_id: number; full_name: string; email: string };
+  publication_checklist?: {
+    access: boolean;
+    contact: boolean;
+    catalog: boolean;
+    hours: boolean;
+    order_mode: boolean;
+    payment: boolean;
+    payment_required: boolean;
+    branding: boolean;
+    completed: number;
+    total: number;
+    ready: boolean;
+  };
 }
 
 /** Chain overview for the current restaurant. chain_id is null for a standalone
@@ -2982,7 +3004,16 @@ export interface ChainBranch {
 export interface ChainOverview {
   chain_id: number | null;
   chain_name?: string;
+  chain_slug?: string;
+  primary_restaurant_id?: number;
+  public_enabled: boolean;
   branches: ChainBranch[];
+}
+
+export interface EnsureChainInput {
+  name: string;
+  slug?: string;
+  primary_branch_name?: string;
 }
 
 export interface CreateBranchInput {
@@ -2990,6 +3021,17 @@ export interface CreateBranchInput {
   chain_name?: string;
   address?: string;
   phone?: string;
+  manager_name?: string;
+  manager_email?: string;
+  manager_phone?: string;
+  catalog_source_restaurant_id?: number;
+}
+
+export async function ensureChain(restaurantId: number, input: EnsureChainInput): Promise<ChainOverview> {
+  return apiFetch<ChainOverview>(`/api/v1/chain`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 
 /** Returns the chain of the current restaurant and the branches the caller can access. */
@@ -2999,11 +3041,32 @@ export async function getChainBranches(restaurantId: number): Promise<ChainOverv
 
 /** Self-serve create of a new branch under the current restaurant's chain
  *  (creating the chain lazily on the first branch). Requires chain.manage. */
-export async function createChainBranch(restaurantId: number, input: CreateBranchInput): Promise<{ branch_id: number }> {
-  return apiFetch<{ branch_id: number }>(
+export async function createChainBranch(restaurantId: number, input: CreateBranchInput): Promise<{ branch_id: number; manager_email?: string; manager_linked: boolean; catalog_copied: boolean }> {
+  return apiFetch<{ branch_id: number; manager_email?: string; manager_linked: boolean; catalog_copied: boolean }>(
     `/api/v1/chain/branches`, restaurantId,
     { method: 'POST', body: JSON.stringify(input) }
   );
+}
+
+export async function updateChainBranch(
+  restaurantId: number,
+  branchId: number,
+  input: { public_name?: string; listing_status?: ChainBranch['listing_status']; short_description?: string },
+): Promise<ChainBranch> {
+  const data = await apiFetch<{ branch: ChainBranch }>(
+    `/api/v1/chain/branches/${branchId}`,
+    restaurantId,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+  return data.branch;
+}
+
+export async function updateChainPublication(restaurantId: number, enabled: boolean): Promise<boolean> {
+  const data = await apiFetch<{ public_enabled: boolean }>(
+    `/api/v1/chain/publication`, restaurantId,
+    { method: 'PATCH', body: JSON.stringify({ enabled }) },
+  );
+  return data.public_enabled;
 }
 
 /** Lists a chain's branches by chain id (no single-restaurant context), for the
@@ -4940,6 +5003,17 @@ export async function inviteStaff(restaurantId: number, input: {
     { method: 'POST', body: JSON.stringify(input) }
   );
   return { member: data.staff_member, emailStatus: data.email_status ?? 'skipped' };
+}
+
+export async function resendStaffInvite(
+  restaurantId: number,
+  userId: number,
+): Promise<InviteEmailStatus> {
+  const data = await apiFetch<{ email_status?: InviteEmailStatus }>(
+    `/api/v1/restaurants/${restaurantId}/staff/${userId}/resend-invite`, restaurantId,
+    { method: 'POST' },
+  );
+  return data.email_status ?? 'skipped';
 }
 
 export async function updateStaffRole(
