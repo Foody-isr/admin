@@ -2663,6 +2663,9 @@ export interface ComboStepPreviewItem {
   menu_item_id: number;
   name: string;
   option_id?: number;
+  /** What the guest sees for this option, pinned size included. Absent when the
+   *  server could not compute it — treat the option as orderable then. */
+  availability_state?: AvailabilityState;
 }
 
 /** Runs the server's combo resolver for a draft dynamic step (category or
