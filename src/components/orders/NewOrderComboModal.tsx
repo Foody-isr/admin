@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '@/components/ds';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
-import { resolveComboStepPreview, type MenuItem, type ComboStep } from '@/lib/api';
+import { resolveComboStepPreview, type AvailabilityState, type MenuItem, type ComboStep } from '@/lib/api';
+import { isEffectivelySoldOut } from '@/components/menu/AvailabilityPill';
 import type { ComboSelection, NewOrderLine } from './NewOrderItemModal';
 
 // A single pickable option within a step. `key` uniquely identifies the
@@ -20,6 +21,11 @@ interface StepOption {
    *  represents (e.g. "500g"). Drives the per-size cap tally. */
   sizeLabel?: string;
   priceDelta: number;
+  /** Out of stock right now. The server computes this per step entry, so a step
+   *  pinned to 250g is sold out as soon as the 250g pool empties, even while the
+   *  item still sells in 500g. Booking it anyway is rejected by the order guard,
+   *  so the picker blocks it here. */
+  soldOut?: boolean;
 }
 
 function uid(): string {
@@ -32,15 +38,22 @@ function normLabel(s: string): string {
   return s.trim().toLowerCase();
 }
 
-/** All active sizes (option-set options + legacy variants) on a catalog item,
- *  as {optionId, name} pairs. Used to expand a per-size-rules step into one
- *  pickable option per allowed size. */
-function itemSizeOptions(item: MenuItem | undefined): Array<{ optionId: number; name: string }> {
+/** All active sizes (option-set options + legacy variants) on a catalog item.
+ *  Used to expand a per-size-rules step into one pickable option per allowed
+ *  size. Unlike the à-la-carte `itemSizeOptions` in lib/item-options, this keeps
+ *  combo-only sizes and looks past the first option set — those sizes exist
+ *  precisely to be picked inside a combo. Each size carries its own stock state
+ *  so an emptied 250g pool disables just that size. */
+function comboItemSizes(
+  item: MenuItem | undefined,
+): Array<{ optionId: number; name: string; availabilityState?: AvailabilityState }> {
   if (!item) return [];
-  const out: Array<{ optionId: number; name: string }> = [];
+  const out: Array<{ optionId: number; name: string; availabilityState?: AvailabilityState }> = [];
   for (const os of item.option_sets ?? []) {
     for (const o of os.options ?? []) {
-      if (o.is_active !== false) out.push({ optionId: o.id, name: o.name });
+      if (o.is_active !== false) {
+        out.push({ optionId: o.id, name: o.name, availabilityState: o.availability_state });
+      }
     }
   }
   for (const g of item.variant_groups ?? []) {
@@ -82,6 +95,12 @@ function optionsFromStep(
       name: full?.name ?? `#${si.menu_item_id}`,
       portion: portionLabel(full, si.option_id),
       priceDelta: si.price_delta ?? 0,
+      // The step's own copy of the item carries the pin-aware state; the
+      // catalog copy only knows the item-level one.
+      soldOut: isEffectivelySoldOut(
+        si.menu_item?.availability_state,
+        si.menu_item?.availability_override ?? full?.availability_override,
+      ),
     };
   });
 }
@@ -151,8 +170,13 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
               const allowed = new Set(rules.map((r) => normLabel(r.variant_label)));
               const expanded: StepOption[] = [];
               for (const it of items) {
-                const sizes = itemSizeOptions(itemMap.get(it.menu_item_id)).filter((s) =>
-                  allowed.has(normLabel(s.name)),
+                const catalogItem = itemMap.get(it.menu_item_id);
+                const sizes = comboItemSizes(catalogItem).filter((s) => allowed.has(normLabel(s.name)));
+                // The step exposes whole items here, so the item-level verdict
+                // from the preview gates every size, and each size adds its own.
+                const itemSoldOut = isEffectivelySoldOut(
+                  it.availability_state,
+                  catalogItem?.availability_override,
                 );
                 for (const s of sizes) {
                   expanded.push({
@@ -163,6 +187,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                     portion: s.name,
                     sizeLabel: s.name,
                     priceDelta: 0,
+                    soldOut: itemSoldOut || s.availabilityState === 'sold_out',
                   });
                 }
               }
@@ -176,6 +201,11 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                 // Group steps pin the size via the step's variant label.
                 portion: step.source_variant_label ?? portionLabel(itemMap.get(it.menu_item_id), it.option_id),
                 priceDelta: 0,
+                // Server-side state, already resolved against the pinned size.
+                soldOut: isEffectivelySoldOut(
+                  it.availability_state,
+                  itemMap.get(it.menu_item_id)?.availability_override,
+                ),
               }));
             }
           } catch {
@@ -259,6 +289,8 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
     const stepId = step.id as number;
     const max = step.max_picks;
     const current = stepCount(stepId);
+    // Out of stock: the order-time guard would reject the line anyway.
+    if (opt.soldOut) return;
     // Per-size cap: block a size once its max is reached.
     const remaining = sizeRemaining(step, opt.sizeLabel);
     if (remaining != null && remaining <= 0) return;
@@ -385,23 +417,27 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                       className={cn(
                         'flex items-center justify-between gap-3 rounded-md border px-[var(--s-3)] py-2 transition-colors',
                         selected ? 'border-[var(--brand-500)] bg-[var(--surface-2)]' : 'border-[var(--line)]',
+                        opt.soldOut && 'opacity-50',
                       )}
                     >
                       <button
                         type="button"
                         onClick={() => pick(step, opt)}
-                        className="flex flex-1 items-center gap-2 text-start text-fs-sm"
+                        disabled={opt.soldOut}
+                        className="flex flex-1 items-center gap-2 text-start text-fs-sm disabled:cursor-not-allowed"
                       >
                         {single && (
                           <span className={cn('size-3.5 shrink-0 rounded-full border', selected ? 'border-[var(--brand-500)] bg-[var(--brand-500)]' : 'border-[var(--line-strong)]')} />
                         )}
-                        <span>{opt.name}</span>
+                        <span className={cn(opt.soldOut && 'line-through')}>{opt.name}</span>
                         {opt.portion && (
                           <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-fs-xs font-medium text-[var(--fg-muted)]">
                             {opt.portion}
                           </span>
                         )}
-                        {remaining != null && (
+                        {opt.soldOut ? (
+                          <span className="text-fs-xs text-[var(--fg-subtle)]">{t('outOfStock')}</span>
+                        ) : remaining != null && (
                           <span className="text-fs-xs text-[var(--fg-subtle)]">
                             {sizeFull ? t('comboSizeFull') : t('comboSizeRemaining').replace('{n}', String(remaining))}
                           </span>
@@ -419,7 +455,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                           <button
                             type="button"
                             onClick={() => pick(step, opt)}
-                            disabled={(max > 0 && count >= max) || sizeFull}
+                            disabled={(max > 0 && count >= max) || sizeFull || opt.soldOut}
                             className="flex size-6 items-center justify-center rounded border border-[var(--line-strong)] text-fs-sm disabled:opacity-40"
                           >
                             +
