@@ -2976,6 +2976,7 @@ export interface ChainBranch {
   slug: string;
   address?: string;
   phone?: string;
+  short_description?: string;
   opening_hours?: string;
   pickup_enabled: boolean;
   delivery_enabled: boolean;
@@ -2983,6 +2984,7 @@ export interface ChainBranch {
   listing_status: 'setup' | 'live' | 'hidden' | 'archived';
   is_active: boolean;
   is_current: boolean;
+  is_primary: boolean;
   manager?: { user_id: number; full_name: string; email: string };
   publication_checklist?: {
     access: boolean;
@@ -3016,6 +3018,12 @@ export interface EnsureChainInput {
   primary_branch_name?: string;
 }
 
+export interface UpdateChainInput {
+  name?: string;
+  slug?: string;
+  primary_restaurant_id?: number;
+}
+
 export interface CreateBranchInput {
   name: string;
   chain_name?: string;
@@ -3030,6 +3038,13 @@ export interface CreateBranchInput {
 export async function ensureChain(restaurantId: number, input: EnsureChainInput): Promise<ChainOverview> {
   return apiFetch<ChainOverview>(`/api/v1/chain`, restaurantId, {
     method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateChain(restaurantId: number, input: UpdateChainInput): Promise<ChainOverview> {
+  return apiFetch<ChainOverview>(`/api/v1/chain`, restaurantId, {
+    method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
@@ -3051,7 +3066,15 @@ export async function createChainBranch(restaurantId: number, input: CreateBranc
 export async function updateChainBranch(
   restaurantId: number,
   branchId: number,
-  input: { public_name?: string; listing_status?: ChainBranch['listing_status']; short_description?: string },
+  input: {
+    name?: string;
+    public_name?: string;
+    slug?: string;
+    address?: string;
+    phone?: string;
+    listing_status?: ChainBranch['listing_status'];
+    short_description?: string;
+  },
 ): Promise<ChainBranch> {
   const data = await apiFetch<{ branch: ChainBranch }>(
     `/api/v1/chain/branches/${branchId}`,

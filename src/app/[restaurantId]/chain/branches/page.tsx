@@ -9,6 +9,7 @@ import { usePermissions } from '@/lib/permissions-context';
 import {
   getChainBranches,
   ensureChain,
+  updateChain,
   createChainBranch,
   updateChainBranch,
   updateChainPublication,
@@ -16,8 +17,9 @@ import {
   ChainOverview,
   ChainBranch,
   EnsureChainInput,
+  UpdateChainInput,
 } from '@/lib/api';
-import { PlusIcon, ExternalLinkIcon, NetworkIcon, ShieldCheckIcon, MapPinIcon, MailIcon, ClockIcon, CheckIcon } from 'lucide-react';
+import { PlusIcon, ExternalLinkIcon, NetworkIcon, ShieldCheckIcon, MapPinIcon, MailIcon, ClockIcon, CheckIcon, PencilIcon, StoreIcon } from 'lucide-react';
 
 /**
  * Branch management — the top-level "Succursales" surface (moved out of catering).
@@ -37,6 +39,8 @@ export default function ChainBranchesPage() {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [chainSettingsOpen, setChainSettingsOpen] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<ChainBranch | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const [busyBranch, setBusyBranch] = useState<number | null>(null);
 
@@ -53,6 +57,7 @@ export default function ChainBranchesPage() {
   const branches = overview?.branches ?? [];
   const hasChain = overview?.chain_id != null;
   const needsPublicIdentity = !hasChain || !overview?.chain_slug;
+  const primaryBranch = branches.find((branch) => branch.id === overview?.primary_restaurant_id);
 
   return (
     <div className="space-y-6">
@@ -109,17 +114,18 @@ export default function ChainBranchesPage() {
       ) : (
         <div className="space-y-4">
           {overview?.chain_slug && (
-            <div className={`flex flex-col gap-4 rounded-2xl border p-5 sm:flex-row sm:items-center sm:justify-between ${overview.public_enabled ? 'border-[var(--success-500)]/30 bg-[color-mix(in_oklab,var(--success-500)_7%,transparent)]' : 'border-[var(--line)] bg-[var(--surface-2)]'}`}>
-              <div>
+            <div className={`grid gap-5 rounded-2xl border p-5 lg:grid-cols-[1fr_auto] lg:items-center ${overview.public_enabled ? 'border-[var(--success-500)]/30 bg-[color-mix(in_oklab,var(--success-500)_7%,transparent)]' : 'border-[var(--line)] bg-[var(--surface-2)]'}`}>
+              <div className="min-w-0">
                 <p className="font-semibold text-fg-primary">{overview.public_enabled ? t('chain_global_live') : t('chain_global_disabled')}</p>
                 <p className="mt-1 text-sm text-fg-secondary">{overview.public_enabled ? t('chain_global_live_desc') : t('chain_global_disabled_desc')}</p>
-                {overview.public_enabled && (
-                  <a href={`${process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il'}/c/${overview.chain_slug}/order`} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-500 hover:underline">
-                    {t('chain_public_page')} <ExternalLinkIcon className="h-4 w-4" />
-                  </a>
-                )}
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                  <span className="inline-flex items-center gap-1.5 text-fg-secondary"><StoreIcon className="h-4 w-4 text-brand-500" />{t('chain_primary_site')}: <strong className="text-fg-primary">{primaryBranch?.public_name || primaryBranch?.name || '—'}</strong></span>
+                  {primaryBranch && <a href={`${process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il'}/r/${primaryBranch.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-brand-500 hover:underline">/r/{primaryBranch.slug}<ExternalLinkIcon className="h-3.5 w-3.5" /></a>}
+                  <span className="font-mono text-xs text-fg-tertiary">/c/{overview.chain_slug}/order</span>
+                </div>
               </div>
-              {canManage && (
+              {canManage && <div className="flex flex-wrap gap-2 lg:justify-end">
+                <button type="button" className="btn-secondary whitespace-nowrap" onClick={() => setChainSettingsOpen(true)}><PencilIcon className="h-4 w-4" />{t('chain_edit_brand')}</button>
                 <button type="button" disabled={busyBranch === 0} onClick={async () => {
                   setBusyBranch(0); setActionMessage('');
                   try { await updateChainPublication(restaurantId, !overview.public_enabled); load(); }
@@ -128,7 +134,7 @@ export default function ChainBranchesPage() {
                 }} className={overview.public_enabled ? 'btn-secondary whitespace-nowrap' : 'btn-primary whitespace-nowrap'}>
                   {overview.public_enabled ? t('chain_disable_global') : t('chain_activate_global')}
                 </button>
-              )}
+              </div>}
             </div>
           )}
           {actionMessage && (
@@ -157,6 +163,7 @@ export default function ChainBranchesPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="truncate text-xl font-semibold tracking-[-.02em] text-fg-primary">{b.public_name || b.name}</h2>
+                          {b.is_primary && <span className="rounded-full bg-[var(--success-500)]/15 px-2 py-0.5 text-fs-xs font-semibold text-[var(--success-500)]">{t('chain_primary_badge')}</span>}
                           {b.is_current && <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-fs-xs font-semibold text-brand-500">{t('chain_current_badge')}</span>}
                         </div>
                         <p className="mt-1 font-mono text-xs text-fg-tertiary">/r/{b.slug}/order</p>
@@ -196,8 +203,9 @@ export default function ChainBranchesPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 border-t border-[var(--line)] bg-[var(--surface-2)] px-5 py-3">
+                    {canManage && <button type="button" onClick={() => setEditingBranch(b)} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-fg-primary hover:bg-fg-tertiary/10"><PencilIcon className="h-3.5 w-3.5" />{t('edit')}</button>}
                     <button type="button" onClick={() => router.push(`/${b.id}/dashboard`)} className="rounded-lg px-3 py-2 text-xs font-semibold text-fg-primary hover:bg-fg-tertiary/10">{t('chain_open_admin')}</button>
-                    <a href={`${webBase}/r/${b.slug}/order`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-fg-primary hover:bg-fg-tertiary/10">{t('chain_open_site')}<ExternalLinkIcon className="h-3.5 w-3.5" /></a>
+                    <a href={`${webBase}/r/${b.slug}/order${b.is_primary ? `?branch_id=${b.id}` : ''}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-fg-primary hover:bg-fg-tertiary/10">{t('chain_open_site')}<ExternalLinkIcon className="h-3.5 w-3.5" /></a>
                     {canManage && b.manager && (
                       <button type="button" disabled={busyBranch === b.id} onClick={async () => {
                         setBusyBranch(b.id); setActionMessage('');
@@ -244,8 +252,81 @@ export default function ChainBranchesPage() {
           onCreated={() => { setAddOpen(false); load(); }}
         />
       )}
+
+      {chainSettingsOpen && overview && (
+        <EditChainModal
+          overview={overview}
+          onClose={() => setChainSettingsOpen(false)}
+          onSave={async (input) => {
+            await updateChain(restaurantId, input);
+            setChainSettingsOpen(false);
+            load();
+          }}
+        />
+      )}
+
+      {editingBranch && (
+        <EditBranchModal
+          branch={editingBranch}
+          onClose={() => setEditingBranch(null)}
+          onSave={async (input) => {
+            await updateChainBranch(restaurantId, editingBranch.id, input);
+            setEditingBranch(null);
+            load();
+          }}
+        />
+      )}
     </div>
   );
+}
+
+function EditChainModal({ overview, onClose, onSave }: { overview: ChainOverview; onClose: () => void; onSave: (input: UpdateChainInput) => Promise<void> }) {
+  const { t } = useI18n();
+  const [name, setName] = useState(overview.chain_name || '');
+  const [slug, setSlug] = useState(overview.chain_slug || '');
+  const [primaryId, setPrimaryId] = useState(overview.primary_restaurant_id || overview.branches[0]?.id || 0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  return <Modal title={t('chain_edit_brand')} onClose={onClose}>
+    <form className="space-y-4" onSubmit={async (event) => {
+      event.preventDefault(); setSaving(true); setError('');
+      try { await onSave({ name: name.trim(), slug: slugify(slug), primary_restaurant_id: primaryId }); }
+      catch (err) { setError(err instanceof Error ? err.message : t('chain_action_failed')); setSaving(false); }
+    }}>
+      {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">{error}</div>}
+      <div><label className="mb-1 block text-sm font-medium text-fg-secondary">{t('chain_brand_name')}</label><input autoFocus required className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
+      <div><label className="mb-1 block text-sm font-medium text-fg-secondary">{t('chain_brand_slug')}</label><div className="flex items-center rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] focus-within:border-brand-500"><span className="ps-3 text-sm text-fg-tertiary">/c/</span><input required className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm outline-none" value={slug} onChange={(e) => setSlug(slugify(e.target.value))} /><span className="pe-3 text-sm text-fg-tertiary">/order</span></div></div>
+      <div><label className="mb-1 block text-sm font-medium text-fg-secondary">{t('chain_primary_site')}</label><select className="input" value={primaryId} onChange={(e) => setPrimaryId(Number(e.target.value))}>{overview.branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.public_name || branch.name} — /r/{branch.slug}</option>)}</select><p className="mt-1 text-xs leading-5 text-fg-tertiary">{t('chain_primary_site_hint')}</p></div>
+      <div className="flex justify-end gap-2 pt-2"><button type="button" className="btn-secondary" onClick={onClose}>{t('cancel')}</button><button type="submit" disabled={saving || !name.trim() || !slug} className="btn-primary disabled:opacity-50">{saving ? t('saving') : t('save')}</button></div>
+    </form>
+  </Modal>;
+}
+
+function EditBranchModal({ branch, onClose, onSave }: { branch: ChainBranch; onClose: () => void; onSave: (input: Parameters<typeof updateChainBranch>[2]) => Promise<void> }) {
+  const { t } = useI18n();
+  const [name, setName] = useState(branch.name);
+  const [publicName, setPublicName] = useState(branch.public_name || branch.name);
+  const [slug, setSlug] = useState(branch.slug);
+  const [address, setAddress] = useState(branch.address || '');
+  const [phone, setPhone] = useState(branch.phone || '');
+  const [description, setDescription] = useState(branch.short_description || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  return <Modal title={t('chain_edit_branch')} onClose={onClose}>
+    <form className="space-y-4" onSubmit={async (event) => {
+      event.preventDefault(); setSaving(true); setError('');
+      try { await onSave({ name: name.trim(), public_name: publicName.trim(), slug: slugify(slug), address: address.trim(), phone: phone.trim(), short_description: description.trim() }); }
+      catch (err) { setError(err instanceof Error ? err.message : t('chain_action_failed')); setSaving(false); }
+    }}>
+      {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">{error}</div>}
+      <div className="grid gap-4 sm:grid-cols-2"><div><label className="mb-1 block text-sm font-medium text-fg-secondary">{t('chain_internal_name')}</label><input required className="input" value={name} onChange={(e) => setName(e.target.value)} /></div><div><label className="mb-1 block text-sm font-medium text-fg-secondary">{t('chain_public_name')}</label><input required className="input" value={publicName} onChange={(e) => setPublicName(e.target.value)} /></div></div>
+      <div><label className="mb-1 block text-sm font-medium text-fg-secondary">{t('chain_branch_url')}</label><div className="flex items-center rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] focus-within:border-brand-500"><span className="ps-3 text-sm text-fg-tertiary">/r/</span><input required className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm outline-none" value={slug} onChange={(e) => setSlug(slugify(e.target.value))} /><span className="pe-3 text-sm text-fg-tertiary">/order</span></div></div>
+      <div><label className="mb-1 block text-sm font-medium text-fg-secondary">{t('chain_branch_address')}</label><input className="input" value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+      <div><label className="mb-1 block text-sm font-medium text-fg-secondary">{t('chain_branch_phone')}</label><input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+      <div><label className="mb-1 block text-sm font-medium text-fg-secondary">{t('chain_short_description')}</label><textarea className="input min-h-24 resize-y" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
+      <div className="flex justify-end gap-2 pt-2"><button type="button" className="btn-secondary" onClick={onClose}>{t('cancel')}</button><button type="submit" disabled={saving || !name.trim() || !publicName.trim() || !slug} className="btn-primary disabled:opacity-50">{saving ? t('saving') : t('save')}</button></div>
+    </form>
+  </Modal>;
 }
 
 function CreateChainModal({
