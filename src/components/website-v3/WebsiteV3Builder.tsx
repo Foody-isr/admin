@@ -10,6 +10,7 @@ import {
 import {
   discardWebsiteDraft,
   getPublicRestaurantNavigationState,
+  getChainBranches,
   getRestaurant,
   getThemeCatalog,
   getWebsiteDraft,
@@ -23,6 +24,7 @@ import {
   type Menu,
   type Restaurant,
   type ThemeCatalog,
+  type ChainOverview,
 } from "@/lib/api";
 import { getDefaultContent } from "@/components/website/SectionEditors";
 import {
@@ -71,6 +73,9 @@ import { MobileUnavailable } from "./MobileUnavailable";
 import { PageDialog } from "./PageDialog";
 import { PageRail, type RailSelection } from "./PageRail";
 import { PreviewCanvas } from "./PreviewCanvas";
+import { BranchWebsitePresence } from "./BranchWebsitePresence";
+import { websiteManagementMode } from "@/lib/website-v3/chain-mode";
+import { useI18n } from "@/lib/i18n";
 
 const WEB_ORIGIN =
   process.env.NEXT_PUBLIC_WEB_URL || "https://dev-app.foody-pos.co.il";
@@ -86,7 +91,17 @@ type LoadedBuilder = {
 };
 
 export function WebsiteV3Builder({ restaurantId }: { restaurantId: number }) {
+  const { t } = useI18n();
+  const [chainOverview, setChainOverview] = useState<ChainOverview | null | undefined>(undefined);
   const [wideEnough, setWideEnough] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getChainBranches(restaurantId)
+      .then((overview) => { if (active) setChainOverview(overview); })
+      .catch(() => { if (active) setChainOverview(null); });
+    return () => { active = false; };
+  }, [restaurantId]);
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -95,6 +110,24 @@ export function WebsiteV3Builder({ restaurantId }: { restaurantId: number }) {
     media.addEventListener("change", sync);
     return () => media.removeEventListener("change", sync);
   }, []);
+
+  if (chainOverview === undefined) {
+    return <div className="grid min-h-[60vh] place-items-center bg-[var(--surface)]"><div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" /></div>;
+  }
+  if (chainOverview === null) {
+    return (
+      <div className="grid min-h-[70vh] place-items-center bg-[var(--surface-2)] p-6">
+        <div className="max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center shadow-sm">
+          <p className="font-semibold text-fg-primary">{t("branch_presence_context_error")}</p>
+          <button type="button" className="btn-secondary mt-4" onClick={() => window.location.reload()}>{t("retry")}</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (websiteManagementMode(restaurantId, chainOverview).kind === "local") {
+    return <BranchWebsitePresence restaurantId={restaurantId} overview={chainOverview} />;
+  }
 
   if (wideEnough !== true) {
     return <MobileUnavailable restaurantId={restaurantId} />;
