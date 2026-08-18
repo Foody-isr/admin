@@ -325,6 +325,13 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.accent": "#b42318",
   "page.appearance_overrides.headingFont": "Georgia",
   "page.appearance_overrides.bodyFont": "Inter",
+  "page.appearance_overrides.chain_order_entry.layout": "cards",
+  "page.appearance_overrides.chain_order_entry.surface_color": "#fffaf0",
+  "page.appearance_overrides.chain_order_entry.overlay_opacity": 42,
+  "page.appearance_overrides.chain_order_entry.show_search": false,
+  "page.appearance_overrides.chain_order_entry.show_near_me": false,
+  "page.appearance_overrides.chain_order_entry.show_branch_count": false,
+  "page.appearance_overrides.chain_order_entry.show_branch_numbers": false,
   "page.appearance_overrides.navbar_style": "overlay",
   "page.appearance_overrides.navbar_color": "#FAF1D2",
   "page.appearance_overrides.navbar_text_color": "#253265",
@@ -435,6 +442,17 @@ function editorFor(
       pageTypes.length === 1 &&
       pageTypes[0] === "order";
     const orderPage = order || categoryBar || orderOnly;
+    const chainSelector = id.startsWith(
+      "page.appearance_overrides.chain_order_entry.",
+    );
+    const chainSelectorSetting =
+      chainSelector &&
+      [
+        "show_search",
+        "show_near_me",
+        "show_branch_count",
+        "show_branch_numbers",
+      ].some((field) => id.endsWith(`.${field}`));
     const pageCtaState = id.startsWith(
       "page.appearance_overrides.navbar_cta.",
     );
@@ -445,6 +463,7 @@ function editorFor(
       kind: action,
       scope,
       tab: id === "page.title" ? "Contenu" :
+        chainSelectorSetting ? "Réglages" :
         id.startsWith("page.appearance_overrides.navbar_cta") ? "Réglages" :
         id === "page.appearance_overrides.hide_navbar_name" ? "Réglages" :
         id.startsWith("page.appearance_overrides.") ? "Apparence" : "Réglages",
@@ -455,7 +474,9 @@ function editorFor(
         id === "page.slug" ? String(FIELD_TEST_VALUES[id]) : "about",
       // The checkout text colours only render on the order page's checkout
       // surface, so a driver must switch surface before locating them.
-      surface: id.startsWith(
+      surface: chainSelector
+        ? "branches"
+        : id.startsWith(
         "page.appearance_overrides.checkout_text_colors.",
       )
         ? "checkout"
@@ -677,6 +698,37 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
     ["appearance_overrides", "bodyFont"],
     "body",
     "style",
+  ),
+  page(
+    "page.appearance_overrides.chain_order_entry.layout",
+    ["appearance_overrides", "chain_order_entry", "layout"],
+    "main",
+    "attribute",
+    ["order"],
+  ),
+  page(
+    "page.appearance_overrides.chain_order_entry.surface_color",
+    ["appearance_overrides", "chain_order_entry", "surface_color"],
+    "main",
+    "attribute",
+    ["order"],
+  ),
+  page(
+    "page.appearance_overrides.chain_order_entry.overlay_opacity",
+    ["appearance_overrides", "chain_order_entry", "overlay_opacity"],
+    "main",
+    "attribute",
+    ["order"],
+  ),
+  ...(["show_search", "show_near_me", "show_branch_count", "show_branch_numbers"] as const).map(
+    (field) =>
+      page(
+        `page.appearance_overrides.chain_order_entry.${field}`,
+        ["appearance_overrides", "chain_order_entry", field],
+        "main",
+        "attribute",
+        ["order"],
+      ),
   ),
   ...(["categoryTitle", "itemName", "itemPrice", "itemDescription"] as const).map((role) =>
     page(

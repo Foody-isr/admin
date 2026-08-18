@@ -248,7 +248,7 @@ test("the builder owns the surface and clamps it before rendering", async () => 
   assert.match(source, /const \[requestedSurface, setRequestedSurface\]/);
   assert.match(
     source,
-    /const surface = effectiveSurface\(activePageType, requestedSurface\)/,
+    /const surface = effectiveSurface\(activePageType, requestedSurface, showBranchSelector\)/,
   );
   // The clamp must sit above the loading/failure early returns, or the surface
   // is undefined for the first paint of every draft load.

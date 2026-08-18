@@ -132,14 +132,20 @@ export function WebsiteV3Builder({ restaurantId }: { restaurantId: number }) {
   if (wideEnough !== true) {
     return <MobileUnavailable restaurantId={restaurantId} />;
   }
-  return <DesktopWebsiteV3Builder restaurantId={restaurantId} />;
+  return <DesktopWebsiteV3Builder restaurantId={restaurantId} chainOverview={chainOverview} />;
 }
 
 function DesktopWebsiteV3Builder({
   restaurantId,
+  chainOverview,
 }: {
   restaurantId: number;
+  chainOverview: ChainOverview;
 }) {
+  const showBranchSelector =
+    chainOverview.chain_id !== null &&
+    chainOverview.primary_restaurant_id === restaurantId &&
+    chainOverview.branches.length > 1;
   const [loaded, setLoaded] = useState<LoadedBuilder | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -359,7 +365,7 @@ function DesktopWebsiteV3Builder({
   // Clamped here, above the early returns, so the value is stable for both the
   // preview and the inspector and no non-order page can resolve to "checkout".
   const activePageType = activePage?.type;
-  const surface = effectiveSurface(activePageType, requestedSurface);
+  const surface = effectiveSurface(activePageType, requestedSurface, showBranchSelector);
   const activePreviewKey = activePage ? pageKey(activePage) : "";
   const currentAcknowledgement = acknowledgements[device];
   const previewCovered = hasCompletePreviewCoverage(
@@ -392,10 +398,14 @@ function DesktopWebsiteV3Builder({
   // no checkout. `surface` above already clamps the rendered value, so this is
   // only there to keep the stored request honest for the next order page.
   useEffect(() => {
-    if (activePageType && activePageType !== "order" && requestedSurface === "checkout") {
+    if (
+      activePageType &&
+      (activePageType !== "order" || (requestedSurface === "branches" && !showBranchSelector)) &&
+      requestedSurface !== "page"
+    ) {
       setRequestedSurface("page");
     }
-  }, [activePageType, requestedSurface]);
+  }, [activePageType, requestedSurface, showBranchSelector]);
 
   useEffect(() => {
     if (
@@ -974,6 +984,7 @@ function DesktopWebsiteV3Builder({
               selection={selection}
               tab={tab}
               surface={surface}
+              showBranchSelector={showBranchSelector}
               menus={loaded.menus}
               services={loaded.services}
               catalog={loaded.catalog}
@@ -1012,6 +1023,7 @@ function DesktopWebsiteV3Builder({
             activeSectionKey={activeSectionKey}
             device={device}
             surface={surface}
+            showBranchSelector={showBranchSelector}
             onSurfaceChange={changeSurface}
             revision={previewRevision}
             contentRevision={contentRevision}

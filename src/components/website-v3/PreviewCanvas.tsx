@@ -38,6 +38,7 @@ export function PreviewCanvas({
   activeSectionKey,
   device,
   surface,
+  showBranchSelector = false,
   onSurfaceChange,
   revision,
   contentRevision,
@@ -59,6 +60,7 @@ export function PreviewCanvas({
   /** Owned by the builder so the inspector can scope its fields to the surface
    *  on screen. Already clamped: only order pages ever receive "checkout". */
   surface: InspectorSurface;
+  showBranchSelector?: boolean;
   onSurfaceChange: (surface: InspectorSurface) => void;
   revision: number;
   contentRevision: number;
@@ -103,7 +105,9 @@ export function PreviewCanvas({
     ? `${targetOrigin}/order/checkout?restaurantId=${encodeURIComponent(
         restaurantSlug || String(restaurantId),
       )}&orderType=delivery&preview=1&pageSlug=${encodeURIComponent(activePage.slug)}`
-    : `${targetOrigin}${restaurantPath}?preview=1`;
+    : surface === "branches"
+      ? `${targetOrigin}${restaurantPath}/order?preview=1`
+      : `${targetOrigin}${restaurantPath}?preview=1`;
   const sections = state.sections
     .filter((section) => belongsToPage(section, activePage))
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -201,7 +205,7 @@ export function PreviewCanvas({
       key={source}
       ref={frameRef}
       src={source}
-      title={surface === "checkout" ? "Aperçu du checkout" : `Aperçu de ${activePage.title}`}
+      title={surface === "checkout" ? "Aperçu du checkout" : surface === "branches" ? "Aperçu du choix de succursale" : `Aperçu de ${activePage.title}`}
       className="h-full w-full bg-white"
     />
   );
@@ -215,7 +219,11 @@ export function PreviewCanvas({
         </span>
         {activePage.type === "order" ? (
           <div className="ml-2 flex rounded-lg border border-white/10 bg-white/5 p-0.5">
-            {(["page", "checkout"] as const).map((option) => (
+            {([
+              ...(showBranchSelector ? (["branches"] as const) : []),
+              "page",
+              "checkout",
+            ] as InspectorSurface[]).map((option) => (
               <button
                 key={option}
                 type="button"
@@ -226,13 +234,17 @@ export function PreviewCanvas({
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                {option === "page" ? "Page" : "Checkout"}
+                {option === "branches"
+                  ? "Succursales"
+                  : option === "page"
+                    ? "Page"
+                    : "Checkout"}
               </button>
             ))}
           </div>
         ) : null}
         <div className="ml-auto flex items-center gap-1.5">
-          {activePage.type === "landing" || activePage.type === "content" ? (
+          {surface === "page" && (activePage.type === "landing" || activePage.type === "content") ? (
             <details className="group relative">
               <summary
                 data-field-id="section.create"
@@ -288,7 +300,7 @@ export function PreviewCanvas({
         </div>
       </div>
 
-      {sections.length > 0 ? (
+      {surface === "page" && sections.length > 0 ? (
         <div className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-white/10 bg-[#1f252e] px-3 py-2">
           {sections.map((section, index) => {
             const key = sectionKey(section);

@@ -28,6 +28,29 @@ export type OrderTypeSelectorOverride = NavbarCtaSurfaceStyle & {
   size?: "sm" | "md" | "lg";
 };
 
+export type ChainOrderEntryLocaleCopy = {
+  eyebrow?: string;
+  title?: string;
+  subtitle?: string;
+  pickup?: string;
+  delivery?: string;
+  search?: string;
+  nearMe?: string;
+  branches?: string;
+  orderHere?: string;
+};
+
+export type ChainOrderEntryOverride = {
+  layout?: "list" | "cards";
+  show_search?: boolean;
+  show_near_me?: boolean;
+  show_branch_count?: boolean;
+  show_branch_numbers?: boolean;
+  surface_color?: string;
+  overlay_opacity?: number;
+  translations?: Partial<Record<"en" | "fr" | "he", ChainOrderEntryLocaleCopy>>;
+};
+
 export type DraftAppearanceOverrides = {
   bg?: string;
   ink?: string;
@@ -97,6 +120,7 @@ export type DraftAppearanceOverrides = {
   footer_mode?: "inherit" | "full" | "compact" | "hidden";
   order_page_info?: Record<string, unknown> | null;
   order_type_selector?: OrderTypeSelectorOverride | null;
+  chain_order_entry?: ChainOrderEntryOverride | null;
   group_banners?: Record<
     string,
     {

@@ -40,6 +40,7 @@ import { CheckoutSettingsEditor } from "./CheckoutSettingsEditor";
 import { CommerceSelector } from "./CommerceSelector";
 import { NavigationCtaEditor } from "./NavigationCtaEditor";
 import { ReadOnlyAddress } from "./PageAddress";
+import { ChainOrderEntryEditor } from "./ChainOrderEntryEditor";
 
 export function PageInspector({
   page,
@@ -116,6 +117,17 @@ export function PageInspector({
       ...appearance,
       ...patch,
     });
+
+  if (surface === "branches") {
+    return (
+      <ChainOrderEntryEditor
+        tab={tab}
+        restaurantId={restaurantId}
+        appearance={page.appearance_overrides}
+        onChange={onChange}
+      />
+    );
+  }
 
   if (tab === "content") {
     return (
