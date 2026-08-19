@@ -14,7 +14,6 @@ import {
   getThemeCatalog,
   getWebsiteDraft,
   getWebsitePages,
-  listCateringServices,
   listMenus,
   publishWebsiteDraft,
   saveWebsiteDraft,
@@ -38,6 +37,7 @@ import {
   type PreviewExpectedRevisions,
 } from "@/lib/website-v3/preview-state";
 import { withWebsiteV3PreviewNavigationState } from "@/lib/website-v3/preview-protocol";
+import { loadOptionalCateringServices } from "@/lib/website-v3/catering-catalog";
 import {
   canDeletePage,
   duplicatePage,
@@ -172,7 +172,7 @@ function DesktopWebsiteV3Builder({
       getWebsitePages(restaurantId),
       getRestaurant(restaurantId),
       listMenus(restaurantId),
-      listCateringServices(restaurantId),
+      loadOptionalCateringServices(restaurantId),
       getPublicRestaurantNavigationState(restaurantId),
       getThemeCatalog()
         .then((catalog) => ({ catalog, warning: null as string | null }))
