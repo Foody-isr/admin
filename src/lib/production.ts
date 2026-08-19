@@ -1,8 +1,8 @@
 import type {
   MenuItem,
+  ProductionPortioning,
   ProductionSheetItem,
   ProductionSheetOrder,
-  ProductionSheetPortion,
 } from '@/lib/api';
 import { itemSizeOptions } from '@/lib/item-options';
 
@@ -57,52 +57,9 @@ export function packIntoBoxes(total: number, chosen: number, available: number[]
   return out;
 }
 
-/** Auto-mode breakdown for a weighed column: the containers actually ordered,
- *  tallied from the per-cell packaging the server attaches to each order row. A
- *  client who took 2 pots of 250 g counts as two 250 g containers — never as one
- *  500 g container, which is what reading their summed 500 g cell would suggest
- *  and which the kitchen may not even sell. Because it sums rows, it stays exact
- *  when the sheet is narrowed to some clients, unlike the day-level aggregate.
- *  `fallback` covers sheets served before per-order portions existed. Sorted by
- *  portion descending (largest box first), like packIntoBoxes. */
-function orderedPortionBreakdown(
-  orders: ProductionSheetOrder[],
-  itemId: number,
-  fallback: ProductionSheetPortion[] | undefined,
-): PortionBox[] {
-  const counts = new Map<number, number>();
-  for (const o of orders) {
-    for (const p of o.portions?.[String(itemId)] ?? []) {
-      counts.set(p.portion_g, (counts.get(p.portion_g) ?? 0) + p.count);
-    }
-  }
-  if (counts.size === 0) {
-    for (const p of fallback ?? []) counts.set(p.portion_g, p.count);
-  }
-  return Array.from(counts.entries())
-    .sort((a, b) => b[0] - a[0])
-    .map(([portion, count]) => ({ portion, count }));
-}
-
-/** The packaging chips for one weighed column — the single source both the
- *  desktop matrix header and the phone cook-list read, so the two screens can't
- *  drift apart on portioning. With a box size picked, the column total is
- *  repacked into the fewest containers of that size; in Auto it's the containers
- *  the clients actually ordered. Empty for counted items. */
-export function productionBoxes(
-  orders: ProductionSheetOrder[],
-  item: ProductionSheetItem,
-  boxSize: number | null | undefined,
-  availablePortions: number[],
-): PortionBox[] {
-  if (item.measure !== 'weight') return [];
-  if (boxSize) return packIntoBoxes(item.total, boxSize, availablePortions);
-  return orderedPortionBreakdown(orders, item.menu_item_id, item.packaging);
-}
-
-/** True when a weighed article is shown as the containers ordered (2 pots)
- *  rather than their summed weight (500 g). Counted articles already count, so
- *  the preference never applies to them.
+/** True when a weighed article is shown as container counts (2 pots) rather
+ *  than their summed weight (500 g). Counted articles already count, so the
+ *  preference never applies to them.
  *
  *  This decision belongs here, not in a screen: it used to live only in the
  *  desktop matrix, so an article flipped to "Unités" read as containers on a
@@ -115,26 +72,139 @@ export function showsUnits(
   return item.measure === 'weight' && !!unitDisplayIds?.has(item.menu_item_id);
 }
 
-/** The article's day total under the current display preference: ordered
- *  containers, else the measured total. A sheet served before `total_units`
- *  existed reports 0 containers rather than falling back to grams, which would
- *  print a weight beside a container suffix. */
-export function itemTotalValue(
-  item: ProductionSheetItem,
-  unitDisplayIds: Set<number> | undefined,
-): number {
-  return showsUnits(item, unitDisplayIds) ? item.total_units ?? 0 : item.total;
+/** The restaurant default before anything is saved: report what was ordered.
+ *  Repacking is opt-in because it merges pots a client asked for separately. */
+export const DEFAULT_PORTIONING: ProductionPortioning = { mode: 'ordered' };
+
+/** Total containers in a breakdown. */
+function boxCount(boxes: PortionBox[]): number {
+  return boxes.reduce((n, b) => n + b.count, 0);
 }
 
-/** One client's quantity for one article, under the same preference. */
-export function orderQtyValue(
-  order: ProductionSheetOrder,
-  item: ProductionSheetItem,
-  unitDisplayIds: Set<number> | undefined,
-): number {
-  const key = String(item.menu_item_id);
-  if (showsUnits(item, unitDisplayIds)) return order.units?.[key] ?? 0;
-  return order.cells[key] ?? 0;
+/** Compact chip text for a breakdown: "2×500 · 19×250". One formatter for the
+ *  column recap and the per-client detail under it, so a reader comparing the
+ *  two is never comparing two notations. */
+export function fmtBoxes(boxes: PortionBox[]): string {
+  return boxes.map((b) => `${b.count}×${b.portion}`).join(' · ');
+}
+
+/** True when a breakdown says more than the number it sits under. A 500 g cell
+ *  holding one 500 g pot needs no detail; the same 500 g made of two 250 g pots
+ *  does — that exact ambiguity is what made the column recap look wrong against
+ *  a hand count of the cells. */
+export function needsBoxDetail(boxes: PortionBox[]): boolean {
+  if (boxes.length === 0) return false;
+  return boxes.length > 1 || boxes[0].count > 1;
+}
+
+/** Largest container the packed rule may use for one article: the explicit cap
+ *  when the restaurant set one, else the article's own largest portion. null
+ *  when neither is known — with no container to pack into, the rule can't apply
+ *  and the ordered containers stand. */
+function packCap(portioning: ProductionPortioning, available: number[]): number | null {
+  const cap = portioning.max_box ?? 0;
+  if (cap > 0) return cap;
+  const largest = available.reduce((m, g) => (g > m ? g : m), 0);
+  return largest > 0 ? largest : null;
+}
+
+/** Merge per-cell breakdowns into one, largest box first (like packIntoBoxes). */
+function tallyBoxes(all: PortionBox[][]): PortionBox[] {
+  const counts = new Map<number, number>();
+  for (const boxes of all) {
+    for (const b of boxes) counts.set(b.portion, (counts.get(b.portion) ?? 0) + b.count);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[0] - a[0])
+    .map(([portion, count]) => ({ portion, count }));
+}
+
+/** The containers one client's order carries for one article, as ordered. */
+function orderedCellBoxes(order: ProductionSheetOrder, itemId: number): PortionBox[] {
+  return (order.portions?.[String(itemId)] ?? []).map((p) => ({
+    portion: p.portion_g,
+    count: p.count,
+  }));
+}
+
+/** Applies one restaurant's container rule to a sheet. Every container count on
+ *  every production surface comes from here — the desktop matrix, the phone
+ *  cook-list and the per-client cells all call the same object, so a sheet can
+ *  never be portioned two ways at once.
+ *
+ *  Both rules count containers **per client and then add them up**; neither ever
+ *  repacks a day total. Boxes are filled for one client at a time, so a recap
+ *  built from the day's grams would claim containers shared between clients and
+ *  stop reconciling with the cells above it. */
+export interface Portioner {
+  /** The rule in force (what the Affichage control shows as selected). */
+  portioning: ProductionPortioning;
+  /** Containers for one client's cell. Empty for counted articles. */
+  cellBoxes: (order: ProductionSheetOrder, item: ProductionSheetItem) => PortionBox[];
+  /** Containers for a whole column, over the orders given (search-filtered
+   *  sheets included — it sums the rows on screen, never the day aggregate). */
+  columnBoxes: (orders: ProductionSheetOrder[], item: ProductionSheetItem) => PortionBox[];
+  /** The article's day value under the portions/units preference: grams, or the
+   *  number of containers the rule produces. */
+  totalValue: (
+    orders: ProductionSheetOrder[],
+    item: ProductionSheetItem,
+    unitDisplayIds: Set<number> | undefined,
+  ) => number;
+  /** One client's value under that same preference. */
+  qtyValue: (
+    order: ProductionSheetOrder,
+    item: ProductionSheetItem,
+    unitDisplayIds: Set<number> | undefined,
+  ) => number;
+}
+
+export function makePortioner(
+  portioning: ProductionPortioning,
+  availablePortions: Record<number, number[]> | undefined,
+): Portioner {
+  const portionsFor = (itemId: number) => availablePortions?.[itemId] ?? [];
+
+  const cellBoxes = (order: ProductionSheetOrder, item: ProductionSheetItem): PortionBox[] => {
+    if (item.measure !== 'weight') return [];
+    const ordered = orderedCellBoxes(order, item.menu_item_id);
+    if (portioning.mode !== 'packed') return ordered;
+    const available = portionsFor(item.menu_item_id);
+    const cap = packCap(portioning, available);
+    const grams = order.cells[String(item.menu_item_id)] ?? 0;
+    // Nothing to pack, or no container to pack into: keep what was ordered
+    // rather than invent a breakdown out of a size we don't know.
+    if (cap == null || grams <= 0) return ordered;
+    return packIntoBoxes(grams, cap, available);
+  };
+
+  const columnBoxes = (orders: ProductionSheetOrder[], item: ProductionSheetItem): PortionBox[] => {
+    if (item.measure !== 'weight') return [];
+    const boxes = tallyBoxes(orders.map((o) => cellBoxes(o, item)));
+    if (boxes.length > 0) return boxes;
+    // Sheet served before per-order portions existed: the day aggregate is the
+    // only breakdown there is. Kept as a pre-deploy fallback only.
+    return (item.packaging ?? []).map((p) => ({ portion: p.portion_g, count: p.count }));
+  };
+
+  return {
+    portioning,
+    cellBoxes,
+    columnBoxes,
+    totalValue: (orders, item, unitDisplayIds) => {
+      if (!showsUnits(item, unitDisplayIds)) return item.total;
+      if (portioning.mode === 'packed') return boxCount(columnBoxes(orders, item));
+      // A sheet served before `total_units` existed reports 0 containers rather
+      // than falling back to grams, which would print a weight beside a "u.".
+      return item.total_units ?? 0;
+    },
+    qtyValue: (order, item, unitDisplayIds) => {
+      const key = String(item.menu_item_id);
+      if (!showsUnits(item, unitDisplayIds)) return order.cells[key] ?? 0;
+      if (portioning.mode === 'packed') return boxCount(cellBoxes(order, item));
+      return order.units?.[key] ?? 0;
+    },
+  };
 }
 
 /** Compact gram label: "250 g", "1 kg", "1.5 kg". */
