@@ -1,4 +1,5 @@
 import type { Discount } from './api';
+import { formatMoney } from './format-money';
 
 export type DiscountStatus = 'active' | 'scheduled' | 'expired' | 'inactive' | 'exhausted';
 
@@ -13,7 +14,7 @@ export function discountStatus(d: Discount, now: Date = new Date()): DiscountSta
 export function formatDiscountValue(d: Pick<Discount, 'type' | 'value'>): string {
   if (d.type === 'free_delivery') return 'freeDelivery'; // caller resolves via t()
   if (d.type === 'percent') return `${d.value}%`;
-  return `₪${d.value.toFixed(2)}`;
+  return formatMoney(d.value);
 }
 
 // Maps a server validation reason to an i18n key for a localized message.

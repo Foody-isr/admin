@@ -16,6 +16,7 @@
 // app/[restaurantId]/orders/all/page.tsx and foodyweb's ReceiptClient.
 
 import type { Order, OrderItem } from '@/lib/api';
+import { formatMoney } from '@/lib/format-money';
 import { groupOrder } from '@/lib/orders/group-order';
 
 export type TicketKind = 'receipt' | 'kitchen';
@@ -60,9 +61,10 @@ function esc(s: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
-function money(n: number): string {
-  return '₪' + (n ?? 0).toFixed(2);
-}
+// Kept as a local alias so the template literals below stay readable; the
+// formatting itself is shared with the screen so a printed ticket and the order
+// detail can never disagree about the same figure.
+const money = (n: number): string => formatMoney(n);
 
 // ─── Item rendering helpers ──────────────────────────────────────────────────
 

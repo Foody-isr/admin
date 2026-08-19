@@ -660,6 +660,11 @@ export interface Order {
   // Staff "add to production plan" override. When true the order appears on the
   // production sheet regardless of scheduling/payment (see setOrderForceProduction).
   force_production?: boolean;
+  // Which stage of the restaurant's configured pipeline the order sits in
+  // (see OrderWorkflow below). The server has always sent this; it lets the
+  // stepper resolve the exact stage instead of inferring one from the status,
+  // which matters when a custom workflow has two stages of the same kind.
+  workflow_stage_id?: number | null;
   accepted_at?: string;
   in_kitchen_at?: string;
   ready_at?: string;
@@ -6371,6 +6376,10 @@ export interface CustomerSearchResult {
   phone: string;
   phones: string[];
   order_count: number;
+  /** Lifetime spend across every order on this phone. Optional: the field is
+   *  added to the customers/search response separately, so the admin renders
+   *  the history strip without it until the server ships it. */
+  total_spent?: number;
   last_order_at: string;
   addresses: CustomerSearchAddress[];
 }

@@ -22,11 +22,9 @@ import { useBrowserNotifications } from '@/lib/use-browser-notifications';
 import { useI18n } from '@/lib/i18n';
 import { type PrintTicketRestaurant } from '@/lib/print-ticket';
 import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
-import {
-  OrderDetailDrawer,
-  localizeOrderType,
-  buildCustomFieldLabels,
-} from '@/components/orders/OrderDetailDrawer';
+import { OrderDetailModal } from '@/components/orders/detail/OrderDetailModal';
+import { localizeOrderType } from '@/lib/orders/status-presentation';
+import { buildCustomFieldLabels } from '@/lib/orders/checkout-fields';
 import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import DateBasisToggle from '@/components/DateBasisToggle';
@@ -38,7 +36,7 @@ import {
   ChevronDownIcon, PlusIcon,
   PauseIcon, PlayIcon,
 } from 'lucide-react';
-import { Badge, Button, PageHead } from '@/components/ds';
+import { Badge, Button, ConfirmDialog, PageHead } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
@@ -152,6 +150,12 @@ export default function OrdersPage() {
 
   const orders = rawOrders;
   const setOrders = setRawOrders;
+
+  // Irreversible actions ask first. Native confirm() was unstyleable, took
+  // its direction from the OS rather than the app (wrong in Hebrew), and gave
+  // the destructive and the harmless button identical weight.
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const [pendingClose, setPendingClose] = useState<{ id: number; type: string } | null>(null);
 
   // Selected order for right panel
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -414,7 +418,6 @@ export default function OrdersPage() {
   // Hard delete — permanently removes the order. Owner/admin only (also enforced
   // server-side). Guarded by an explicit, irreversible-action warning.
   const handleDelete = async (orderId: number) => {
-    if (!confirm(t('deleteOrderWarning'))) return;
     setActionLoading(orderId);
     addProcessingGuard(orderId);
     try {
@@ -480,7 +483,6 @@ export default function OrdersPage() {
   };
 
   const handleCloseOrder = (orderId: number, orderType: string) => {
-    if (!confirm(t('closeOrderConfirm'))) return;
     runAction(orderId, async () => {
       if (orderType === 'delivery') {
         await markOrderDelivered(rid, orderId);
@@ -857,7 +859,7 @@ export default function OrdersPage() {
       </div>
 
       {/* Right: order detail panel */}
-      <OrderDetailDrawer
+      <OrderDetailModal
         order={selectedOrder}
         canManage={canManage}
         canDelete={isOwner}
@@ -866,7 +868,7 @@ export default function OrdersPage() {
         onClose={() => setSelectedId(null)}
         onAccept={() => selectedOrder && handleAccept(selectedOrder.id)}
         onReject={() => selectedOrder && handleReject(selectedOrder.id)}
-        onDelete={() => selectedOrder && handleDelete(selectedOrder.id)}
+        onDelete={() => selectedOrder && setPendingDelete(selectedOrder.id)}
         onOverride={() => selectedOrder && handleOverride(selectedOrder.id)}
         onCorrectPayment={() => selectedOrder && handleCorrectPayment(selectedOrder.id)}
         onCorrectPaymentMethod={() => selectedOrder && handleCorrectPaymentMethod(selectedOrder.id)}
@@ -876,7 +878,9 @@ export default function OrdersPage() {
         onOutForDelivery={() => selectedOrder && handleOutForDelivery(selectedOrder.id)}
         onMarkDelivered={() => selectedOrder && handleMarkDelivered(selectedOrder.id)}
         onTakePayment={() => setPaymentOpen(true)}
-        onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
+        onCloseOrder={() =>
+          selectedOrder && setPendingClose({ id: selectedOrder.id, type: selectedOrder.order_type })
+        }
         onEdit={() => setEditOpen(true)}
         onConfirmWeights={() => setWeightsOpen(true)}
         onEditCustomer={() => selectedOrder && setEditCustomerId(selectedOrder.id)}
@@ -914,6 +918,35 @@ export default function OrdersPage() {
       />
 
       {/* Cancel order — reason required */}
+      <ConfirmDialog
+        open={pendingDelete != null}
+        onOpenChange={(v) => { if (!v) setPendingDelete(null); }}
+        title={t('deleteOrder')}
+        description={t('deleteOrderWarning')}
+        confirmLabel={t('deleteOrder')}
+        cancelLabel={t('cancel')}
+        danger
+        onConfirm={() => {
+          const id = pendingDelete;
+          setPendingDelete(null);
+          if (id != null) void handleDelete(id);
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingClose != null}
+        onOpenChange={(v) => { if (!v) setPendingClose(null); }}
+        title={t('closeOrder')}
+        description={t('closeOrderConfirm')}
+        confirmLabel={t('confirm')}
+        cancelLabel={t('cancel')}
+        onConfirm={() => {
+          const p = pendingClose;
+          setPendingClose(null);
+          if (p) handleCloseOrder(p.id, p.type);
+        }}
+      />
+
       <CancelOrderDialog
         open={cancelOrderId !== null}
         onOpenChange={(v) => { if (!v) setCancelOrderId(null); }}

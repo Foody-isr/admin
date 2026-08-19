@@ -10,7 +10,7 @@ import {
   listOrders, listCouriers, markOrderReadyForDelivery, sendOrderToKitchen,
   type Order, type StaffMember,
 } from '@/lib/api';
-import { localizeStatus } from '@/components/orders/OrderDetailDrawer';
+import { localizeStatus } from '@/lib/orders/status-presentation';
 import type { RouteLayer, CourierMarker } from '@/components/delivery/DeliveryMap';
 import {
   AlertDialog,
