@@ -19,16 +19,14 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useIsMobile } from '@/components/ui/use-mobile';
-import { itemTotalValue, orderQtyValue, productionBoxes, showsUnits } from '@/lib/production';
+import { fmtBoxes, needsBoxDetail, showsUnits, type Portioner } from '@/lib/production';
 import { reorder } from '@/lib/production-column-order';
 
 interface Props {
   sheet: ProductionSheetResponse;
   onRowClick: (orderId: number) => void;
-  /** menu_item_id -> available portion sizes (grams) from the article's variants. */
-  availablePortions?: Record<number, number[]>;
-  /** Page-wide box size (grams) to repack every weighed column by; null = Auto. */
-  boxSize?: number | null;
+  /** The restaurant's container rule, applied to every number on this grid. */
+  portioner: Portioner;
   /** Weighed columns displayed as ordered container counts (2 pots) instead of
    *  grams (1 000). Fed by the page's portions/units display preference. */
   unitDisplayIds?: Set<number>;
@@ -61,7 +59,11 @@ function fmtTotal(item: ProductionSheetItem): string {
 }
 /** Render a weighed provenance quantity with its packaging breakdown so that
  *  e.g. 2×250 g doesn't read as a single 500 g portion. Falls back to a plain
- *  "<qty> g" when there's no breakdown or it's just a single 1×N container. */
+ *  "<qty> g" when there's no breakdown or it's just a single 1×N container.
+ *
+ *  `portions` is deliberately dropped while the sheet repacks: the cell already
+ *  prints the boxes to fill, and a tooltip listing the pots as ordered next to
+ *  it would put two different container counts for one client on screen. */
 function fmtProvQty(qty: number, measure: 'weight' | 'unit', portions?: ProductionSheetPortion[]): string {
   if (measure !== 'weight') return String(qty);
   const isTrivial =
@@ -97,8 +99,7 @@ const CELL_BORDER = 'shadow-[inset_0_0_0_1px_var(--brand-500)]';
 export function ProductionMatrix({
   sheet,
   onRowClick,
-  availablePortions,
-  boxSize,
+  portioner,
   unitDisplayIds,
   onToggleItemDisplay,
   sticky = false,
@@ -369,12 +370,7 @@ export function ProductionMatrix({
           {cats.flatMap((cat) =>
             cat.item_ids.map((id) => {
               const item = itemsById.get(id)!;
-              const boxes = productionBoxes(
-                sheet.orders,
-                item,
-                boxSize,
-                availablePortions?.[id] ?? [],
-              );
+              const boxes = portioner.columnBoxes(sheet.orders, item);
               return (
                 <DataTableHeadCell
                   key={`tt-${id}`}
@@ -385,11 +381,13 @@ export function ProductionMatrix({
                   {/* Total is intentionally not flagged for combos: a column total can mix
                       combo and non-combo items, so the dotted flag belongs on cells only. */}
                   <span className="text-base font-extrabold tabular-nums normal-case">
-                    {showUnits(id) ? `${itemTotalValue(item, unitDisplayIds)} u.` : fmtTotal(item)}
+                    {showUnits(id)
+                      ? `${portioner.totalValue(sheet.orders, item, unitDisplayIds)} u.`
+                      : fmtTotal(item)}
                   </span>
                   {boxes.length > 0 && (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
-                      {boxes.map((b) => `${b.count}×${b.portion}`).join(' · ')}
+                      {fmtBoxes(boxes)}
                     </span>
                   )}
                 </DataTableHeadCell>
@@ -451,9 +449,15 @@ export function ProductionMatrix({
                 {cats.flatMap((cat) =>
                   cat.item_ids.map((id) => {
                     const item = itemsById.get(id)!;
-                    const v = orderQtyValue(o, item, unitDisplayIds);
+                    const v = portioner.qtyValue(o, item, unitDisplayIds);
                     const measure = showUnits(id) ? 'unit' : item.measure;
                     const prov = o.provenance?.[String(id)];
+                    // The containers behind this client's number. Printed under
+                    // it whenever it isn't a single box: a 500 g cell made of
+                    // two 250 g pots used to look exactly like one 500 g pot,
+                    // which is what made the column recap above read as wrong.
+                    const boxes = portioner.cellBoxes(o, item);
+                    const packed = portioner.portioning.mode === 'packed';
                     const rowActive = hoverRow === o.order_id;
                     const colActive = hoverCol === id;
                     return (
@@ -497,12 +501,17 @@ export function ProductionMatrix({
                             <TooltipContent>
                               {prov.combos.map((c) => (
                                 <span key={c.name} className="block">
-                                  {fmtProvQty(c.qty, item.measure, c.portions)} {item.name} ({c.name})
+                                  {fmtProvQty(c.qty, item.measure, packed ? undefined : c.portions)}{' '}
+                                  {item.name} ({c.name})
                                 </span>
                               ))}
                               {prov.standalone > 0 && (
                                 <span className="block opacity-80">
-                                  {fmtProvQty(prov.standalone, item.measure, prov.standalone_portions)}{' '}
+                                  {fmtProvQty(
+                                    prov.standalone,
+                                    item.measure,
+                                    packed ? undefined : prov.standalone_portions,
+                                  )}{' '}
                                   {item.name} ({t('productionIndividual')})
                                 </span>
                               )}
@@ -510,6 +519,11 @@ export function ProductionMatrix({
                           </Tooltip>
                         ) : (
                           cellVal(v, measure)
+                        )}
+                        {needsBoxDetail(boxes) && (
+                          <span className="block mt-0.5 text-[10px] font-medium leading-tight text-[var(--fg-muted)]">
+                            {fmtBoxes(boxes)}
+                          </span>
                         )}
                       </DataTableCell>
                     );

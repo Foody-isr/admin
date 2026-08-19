@@ -4637,12 +4637,26 @@ export interface ProductionColumnOrderConfig {
   categories: number[];
   items: Record<number, number[]>;
 }
+/** How the sheet turns a client's grams into containers.
+ *  - `ordered`: the containers actually ordered — three 250 g pots read 3×250.
+ *  - `packed`: the fewest containers for the same weight — 1×500 + 1×250.
+ *  Restaurant-wide, saved on the restaurant (managers/owners only). */
+export type ProductionPortioningMode = 'ordered' | 'packed';
+export interface ProductionPortioning {
+  mode: ProductionPortioningMode;
+  /** Packed mode only: largest box allowed, in grams. Absent/0 = the article's
+   *  own largest portion. */
+  max_box?: number;
+}
 export interface ProductionSheetResponse {
   date: string;
   categories: ProductionSheetCategory[];
   items: ProductionSheetItem[];
   orders: ProductionSheetOrder[];
   column_order?: ProductionColumnOrderConfig | null;
+  /** The restaurant's saved container rule; null when none is saved, which the
+   *  sheet reads as `ordered`. */
+  portioning?: ProductionPortioning | null;
 }
 export interface ProductionDay {
   date: string;
@@ -4664,6 +4678,7 @@ export async function fetchProductionSheet(
     items: data.items ?? [],
     orders: data.orders ?? [],
     column_order: data.column_order ?? null,
+    portioning: data.portioning ?? null,
   };
 }
 
@@ -4677,6 +4692,20 @@ export async function saveProductionColumnOrder(
     `/api/v1/orders/production-config?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'PUT', body: JSON.stringify(config) },
+  );
+}
+
+/** Persist the restaurant's default container rule (managers/owners only — the
+ *  server enforces SettingsEdit). Same endpoint as the column layout, which
+ *  merges per key, so saving the rule leaves the saved layout untouched. */
+export async function saveProductionPortioning(
+  restaurantId: number,
+  portioning: ProductionPortioning,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/orders/production-config?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify({ portioning }) },
   );
 }
 

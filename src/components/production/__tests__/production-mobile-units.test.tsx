@@ -4,6 +4,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LocaleProvider } from "@/lib/i18n";
 import { ProductionToPrepare } from "../ProductionToPrepare";
+import { DEFAULT_PORTIONING, makePortioner } from "@/lib/production";
 import type { ProductionSheetResponse } from "@/lib/api";
 
 // The phone cook-list used to read `item.total` directly, so an article flipped
@@ -44,7 +45,11 @@ function render(unitDisplayIds?: Set<number>): string {
     React.createElement(
       LocaleProvider,
       null,
-      React.createElement(ProductionToPrepare, { sheet: sheet(), unitDisplayIds }),
+      React.createElement(ProductionToPrepare, {
+        sheet: sheet(),
+        portioner: makePortioner(DEFAULT_PORTIONING, {}),
+        unitDisplayIds,
+      }),
     ),
   );
 }

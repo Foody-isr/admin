@@ -9,7 +9,7 @@ import {
   ProductionSheetItem,
 } from '@/lib/api';
 import { Checkbox } from '@/components/ui/checkbox';
-import { orderQtyValue, showsUnits } from '@/lib/production';
+import { showsUnits, type Portioner } from '@/lib/production';
 import { ProductionToPrepare } from './ProductionToPrepare';
 
 type MobileView = 'clients' | 'items' | 'status';
@@ -23,11 +23,10 @@ interface Props {
   doneIds: Set<number>;
   /** Flip an order's done state. */
   onToggleDone: (orderId: number) => void;
-  /** Portion sizes per article + the page-wide box size, for the Items cook-list
-   *  — the Affichage popover is reachable on a phone too, so its choice has to
-   *  reach the chips here exactly as it reaches the desktop matrix header. */
-  availablePortions?: Record<number, number[]>;
-  boxSize?: number | null;
+  /** The restaurant's container rule — the Affichage popover is reachable on a
+   *  phone too, so its choice has to reach the chips here exactly as it reaches
+   *  the desktop matrix header. */
+  portioner: Portioner;
   /** Weighed articles shown as ordered container counts instead of grams. The
    *  Affichage popover holding that choice is reachable on a phone, so it has to
    *  land here too — otherwise the toggle looks inert on the phone while the
@@ -56,9 +55,10 @@ function OrderBadge({ order }: { order: ProductionSheetOrder }) {
 function fmtQty(
   order: ProductionSheetOrder,
   item: ProductionSheetItem,
+  portioner: Portioner,
   unitDisplayIds: Set<number> | undefined,
 ): string {
-  const value = orderQtyValue(order, item, unitDisplayIds);
+  const value = portioner.qtyValue(order, item, unitDisplayIds);
   if (showsUnits(item, unitDisplayIds)) return `${value} u.`;
   return item.measure === 'weight' ? `${value.toLocaleString()} g` : String(value);
 }
@@ -74,8 +74,7 @@ export function ProductionMobile({
   onRowClick,
   doneIds,
   onToggleDone,
-  availablePortions,
-  boxSize,
+  portioner,
   unitDisplayIds,
 }: Props) {
   const { t } = useI18n();
@@ -112,16 +111,12 @@ export function ProductionMobile({
           onRowClick={onRowClick}
           doneIds={doneIds}
           onToggleDone={onToggleDone}
+          portioner={portioner}
           unitDisplayIds={unitDisplayIds}
         />
       )}
       {view === 'items' && (
-        <ProductionToPrepare
-          sheet={sheet}
-          availablePortions={availablePortions}
-          boxSize={boxSize}
-          unitDisplayIds={unitDisplayIds}
-        />
+        <ProductionToPrepare sheet={sheet} portioner={portioner} unitDisplayIds={unitDisplayIds} />
       )}
       {view === 'status' && (
         <StatusView
@@ -129,6 +124,7 @@ export function ProductionMobile({
           onRowClick={onRowClick}
           doneIds={doneIds}
           onToggleDone={onToggleDone}
+          portioner={portioner}
         />
       )}
     </div>
@@ -136,7 +132,14 @@ export function ProductionMobile({
 }
 
 /** One expandable card per client: tick done, tap to reveal that order's lines. */
-function ClientsView({ sheet, onRowClick, doneIds, onToggleDone, unitDisplayIds }: Props) {
+function ClientsView({
+  sheet,
+  onRowClick,
+  doneIds,
+  onToggleDone,
+  portioner,
+  unitDisplayIds,
+}: Props) {
   const { t } = useI18n();
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -205,7 +208,7 @@ function ClientsView({ sheet, onRowClick, doneIds, onToggleDone, unitDisplayIds 
                   >
                     <span className="min-w-0 truncate">{item.name}</span>
                     <span className="shrink-0 font-semibold tabular-nums text-[var(--brand-500)]">
-                      {fmtQty(o, item, unitDisplayIds)}
+                      {fmtQty(o, item, portioner, unitDisplayIds)}
                     </span>
                   </div>
                 ))}
