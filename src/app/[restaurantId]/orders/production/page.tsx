@@ -28,10 +28,15 @@ import {
   ProductionSheetOrder,
   ProductionDay,
 } from '@/lib/api';
-import { itemPortionGrams, fmtPortionGrams } from '@/lib/production';
+import { itemPortionGrams, fmtPortionGrams, makePortioner } from '@/lib/production';
 import { useProductionColumnOrder } from '@/lib/production-column-order';
 import { useProductionDone } from '@/lib/production-done';
 import { useProductionDisplay, type ProductionDisplayMode } from '@/lib/production-display';
+import {
+  useProductionPortioning,
+  portioningOptionValue,
+  portioningFromOption,
+} from '@/lib/production-portioning';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
@@ -57,11 +62,9 @@ export default function ProductionPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer'>('none');
-  // Box-packing control (client-only, filter-like): the available portion sizes
-  // per article (from its variants) and a single, page-wide box size the user
-  // picked to divide every weighed column by. Nothing is persisted.
+  // Portion sizes each article is sold in (from its variants), used both to
+  // offer box caps and to know what the packed rule may repack into.
   const [portionsByItem, setPortionsByItem] = useState<Record<number, number[]>>({});
-  const [boxSize, setBoxSize] = useState<number | null>(null);
   // Portions (grams) vs units (container counts) display for weighed columns:
   // page-wide default + per-article overrides, persisted per restaurant.
   const display = useProductionDisplay(restaurantId);
@@ -74,6 +77,10 @@ export default function ProductionPage() {
   // staff/devices — seeded from the layout the server returns with the sheet.
   const { applyOrder, setCategoryOrder, setItemOrder, reset: resetColumns, hasCustomOrder } =
     useProductionColumnOrder(restaurantId, sheet?.column_order);
+  // Restaurant-wide container rule (ordered pots vs fewest boxes), seeded from
+  // the rule the server returns with the sheet. Anyone may try another one for
+  // their session; only managers/owners can save it as the default.
+  const portioning = useProductionPortioning(restaurantId, sheet?.portioning);
 
   // Shared "done" set for the active restaurant + day, synced live across
   // tablets — seeded from the sheet's per-order prepared flags.
@@ -173,6 +180,22 @@ export default function ProductionPage() {
     for (const gs of Object.values(availablePortions)) for (const g of gs) set.add(g);
     return Array.from(set).sort((a, b) => a - b);
   }, [availablePortions]);
+
+  // Portioning only means something for columns measured by weight; a day with
+  // none is all plain counts, and the control would offer a choice with nothing
+  // to apply it to.
+  const hasWeighedItems = useMemo(
+    () => (sheet?.items ?? []).some((it) => it.measure === 'weight'),
+    [sheet],
+  );
+
+  // The active container rule, bound to the article portions it may pack into.
+  // One object reaches every production surface, so the matrix header, the
+  // cells under it and the phone cook-list cannot portion the day differently.
+  const portioner = useMemo(
+    () => makePortioner(portioning.value, availablePortions),
+    [portioning.value, availablePortions],
+  );
 
   // Day-level production KPIs (reflect the whole day, independent of search).
   const kpi = useMemo(() => {
@@ -299,24 +322,40 @@ export default function ProductionPage() {
           </div>
           <p className="text-fs-xs text-[var(--fg-subtle)]">{t('productionDisplayHint')}</p>
         </div>
-        {allPortions.length > 0 && (
+        {hasWeighedItems && (
           <div className="flex flex-col gap-2">
             <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-              {t('productionBoxSize')}
+              {t('productionPortioning')}
             </span>
             <select
-              aria-label={t('productionBoxSize')}
-              value={boxSize ?? ''}
-              onChange={(e) => setBoxSize(e.target.value ? Number(e.target.value) : null)}
+              aria-label={t('productionPortioning')}
+              value={portioningOptionValue(portioning.value)}
+              onChange={(e) => portioning.set(portioningFromOption(e.target.value))}
               className="h-10 w-full rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] text-fs-sm px-3 focus:outline-none focus:border-[var(--brand-500)] transition-colors"
             >
-              <option value="">{t('productionBoxAuto')}</option>
+              <option value="ordered">{t('productionPortioningOrdered')}</option>
+              <option value="packed">{t('productionPortioningPacked')}</option>
+              {/* Cap the repack at a size the kitchen actually stocks. */}
               {allPortions.map((g) => (
-                <option key={g} value={g}>
-                  {fmtPortionGrams(g)}
+                <option key={g} value={`packed:${g}`}>
+                  {`${t('productionPortioningPacked')} · ${t('productionPortioningMax')} ${fmtPortionGrams(g)}`}
                 </option>
               ))}
             </select>
+            <p className="text-fs-xs text-[var(--fg-subtle)]">{t('productionPortioningHint')}</p>
+            {/* Only managers/owners set the restaurant default (server enforces
+                SettingsEdit); everyone else keeps the choice for their session. */}
+            {canEditLayout && (
+              <button
+                onClick={portioning.saveAsDefault}
+                disabled={portioning.isDefault || portioning.saving}
+                className="h-9 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] text-fs-sm font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] disabled:opacity-50 disabled:hover:bg-[var(--surface)] transition-colors"
+              >
+                {portioning.isDefault
+                  ? t('productionPortioningIsDefault')
+                  : t('productionPortioningSaveDefault')}
+              </button>
+            )}
           </div>
         )}
       </PopoverContent>
@@ -464,8 +503,7 @@ export default function ProductionPage() {
                 key={cat.id}
                 sheet={cs}
                 onRowClick={handleRowClick}
-                availablePortions={availablePortions}
-                boxSize={boxSize}
+                portioner={portioner}
                 unitDisplayIds={unitDisplayIds}
                 onToggleItemDisplay={display.toggleItem}
                 doneIds={doneIds}
@@ -492,8 +530,7 @@ export default function ProductionPage() {
                 <ProductionMatrix
                   sheet={cs}
                   onRowClick={handleRowClick}
-                  availablePortions={availablePortions}
-                  boxSize={boxSize}
+                  portioner={portioner}
                   unitDisplayIds={unitDisplayIds}
                   onToggleItemDisplay={display.toggleItem}
                   doneIds={doneIds}
@@ -509,8 +546,7 @@ export default function ProductionPage() {
             onRowClick={handleRowClick}
             doneIds={doneIds}
             onToggleDone={toggleDone}
-            availablePortions={availablePortions}
-            boxSize={boxSize}
+            portioner={portioner}
             unitDisplayIds={unitDisplayIds}
           />
         ) : (
@@ -518,8 +554,7 @@ export default function ProductionPage() {
             <ProductionMatrix
               sheet={orderedSheet}
               onRowClick={handleRowClick}
-              availablePortions={availablePortions}
-              boxSize={boxSize}
+              portioner={portioner}
               unitDisplayIds={unitDisplayIds}
               onToggleItemDisplay={display.toggleItem}
               // The main table pins its header + caps height so only the grid
