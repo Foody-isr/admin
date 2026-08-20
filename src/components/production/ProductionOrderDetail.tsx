@@ -15,6 +15,7 @@ import {
   acceptOrder, rejectOrder, updateOrderStatus, updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   Order,
+  type CheckoutConfig,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
@@ -51,6 +52,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
   const [restaurantInfo, setRestaurantInfo] = useState<PrintTicketRestaurant>({});
   const [restaurantLocale, setRestaurantLocale] = useState<string>('');
   const [customFieldLabels, setCustomFieldLabels] = useState<Record<string, string>>({});
+  const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
   useEffect(() => {
     if (!restaurantId) return;
     getRestaurant(restaurantId)
@@ -60,7 +62,10 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
       })
       .catch(() => {});
     getWebsiteConfig(restaurantId)
-      .then((cfg) => setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config)))
+      .then((cfg) => {
+        setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config));
+        setCheckoutConfig(cfg.checkout_config ?? null);
+      })
       .catch(() => {});
   }, [restaurantId]);
 
@@ -150,6 +155,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         restaurantInfo={restaurantInfo}
         restaurantDefaultLocale={restaurantLocale}
         customFieldLabels={customFieldLabels}
+        checkoutConfig={checkoutConfig}
       />
 
       <EditOrderDrawer

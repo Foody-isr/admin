@@ -24,7 +24,7 @@ import { localizeOrderType } from '@/lib/orders/status-presentation';
 import { Section } from '@/components/ds';
 import { ContextBlock } from './primitives/ContextBlock';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
-import type { Order } from '@/lib/api';
+import type { CheckoutConfig, Order } from '@/lib/api';
 
 import { OrderDetailShell } from './OrderDetailShell';
 import { OrderDetailHead } from './OrderDetailHead';
@@ -78,13 +78,17 @@ export interface OrderDetailModalProps {
    *  WhatsApp recap when the order carries no customer_locale. */
   restaurantDefaultLocale?: string;
   customFieldLabels: Record<string, string>;
+  /** Raw checkout form. customFieldLabels is resolved in the STAFF's
+   *  language for the context column; the recap dialog needs the config
+   *  itself so it can label the same answers in the customer's. */
+  checkoutConfig?: CheckoutConfig | null;
 }
 
 export function OrderDetailModal({
   order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete,
   onOverride, onCorrectPayment, onCorrectPaymentMethod, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered, onTakePayment, onCloseOrder, onEdit, onConfirmWeights,
-  onEditCustomer, onToggleForceProduction, restaurantInfo, restaurantDefaultLocale, customFieldLabels,
+  onEditCustomer, onToggleForceProduction, restaurantInfo, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
 }: OrderDetailModalProps) {
   const { t, locale, direction } = useI18n();
 
@@ -305,6 +309,7 @@ export function OrderDetailModal({
         restaurantId={order.restaurant_id}
         restaurantName={restaurantInfo.name || ''}
         restaurantDefaultLocale={restaurantDefaultLocale}
+        checkoutConfig={checkoutConfig}
       />
     </>
   );

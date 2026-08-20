@@ -14,6 +14,7 @@ import {
   type ManualPaymentMethod,
   type OrderCustomerDetailsInput,
   type OrdersTableConfig,
+  type CheckoutConfig,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -194,10 +195,14 @@ export default function OrdersPage() {
   // Maps custom checkout-field ids → their human label so order custom_fields
   // (e.g. { code_immeuble: "A12" }) render as "Code Immeuble", not the raw id.
   const [customFieldLabels, setCustomFieldLabels] = useState<Record<string, string>>({});
+  const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
   useEffect(() => {
     if (!rid) return;
     getWebsiteConfig(rid)
-      .then((cfg) => setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config)))
+      .then((cfg) => {
+        setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config));
+        setCheckoutConfig(cfg.checkout_config ?? null);
+      })
       .catch(() => {});
   }, [rid]);
 
@@ -888,6 +893,7 @@ export default function OrdersPage() {
         restaurantInfo={restaurantInfo}
         restaurantDefaultLocale={restaurantLocale}
         customFieldLabels={customFieldLabels}
+        checkoutConfig={checkoutConfig}
       />
 
       {/* Edit order items */}

@@ -780,3 +780,140 @@ test("lien_suivi carries its own leading blank line and vanishes without a URL",
   assert.equal(withUrl.blocks.lien_suivi, "\nSuivre votre commande : https://example.com/r/1");
   assert.equal(withoutUrl.blocks.lien_suivi, "");
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom checkout fields.
+//
+// The gap this closes: answers to the owner's custom checkout fields appeared
+// on NO customer-facing surface. A customer who mistyped their building code
+// had no way to notice — the value only ever showed up in the admin's customer
+// card, which the customer never sees.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CHECKOUT_CONFIG = {
+  delivery: {
+    require_auth: false,
+    fields: [
+      {
+        id: "code_immeuble",
+        kind: "custom" as const,
+        enabled: true,
+        required: false,
+        label: { fr: "Code immeuble", he: "קוד כניסה", en: "Building code" },
+      },
+      {
+        id: "etage_ascenseur",
+        kind: "custom" as const,
+        enabled: true,
+        required: false,
+        label: { fr: "Ascenseur", he: "מעלית", en: "Lift" },
+      },
+    ],
+  },
+  pickup: null,
+};
+
+function orderWithCustomFields(fields: Record<string, string | number | boolean>): Order {
+  return baseOrder({
+    order_type: "delivery",
+    custom_fields: fields,
+  });
+}
+
+test("custom-field answers reach the customer, labelled from the checkout form", () => {
+  const ctx = buildRecapContext({
+    order: orderWithCustomFields({ code_immeuble: "4417B", etage_ascenseur: true }),
+    restaurantName: "Chez Foody",
+    locale: "fr",
+    checkoutConfig: CHECKOUT_CONFIG as never,
+  });
+  assert.equal(ctx.blocks.infos_client, "Code immeuble : 4417B\nAscenseur : ✓");
+});
+
+test("labels are read in the CUSTOMER's language, not the staff's", () => {
+  // The recap dialog lets staff switch language; the labels must follow the
+  // message, or a Hebrew customer receives French field names.
+  const order = orderWithCustomFields({ code_immeuble: "4417B" });
+  const he = buildRecapContext({
+    order, restaurantName: "Chez Foody", locale: "he", checkoutConfig: CHECKOUT_CONFIG as never,
+  });
+  const en = buildRecapContext({
+    order, restaurantName: "Chez Foody", locale: "en", checkoutConfig: CHECKOUT_CONFIG as never,
+  });
+  assert.equal(he.blocks.infos_client, "קוד כניסה : 4417B");
+  assert.equal(en.blocks.infos_client, "Building code : 4417B");
+});
+
+test("empty, false and null answers are dropped, not rendered as blanks", () => {
+  const ctx = buildRecapContext({
+    order: orderWithCustomFields({ code_immeuble: "", etage_ascenseur: false }),
+    restaurantName: "Chez Foody",
+    locale: "fr",
+    checkoutConfig: CHECKOUT_CONFIG as never,
+  });
+  assert.equal(ctx.blocks.infos_client, "", "no answer means the whole line must vanish");
+});
+
+test("a field the checkout form no longer declares still renders, humanized", () => {
+  // Owners delete fields; historical orders keep their answers. Showing the
+  // humanized id beats dropping the customer's own input.
+  //
+  // humanizeFieldId title-cases every word, so "code_immeuble" comes out
+  // "Code Immeuble" — not idiomatic French, but this is a last-resort fallback
+  // for a field the owner removed, and the helper is shared with the admin's
+  // customer card. Pinned rather than fixed here.
+  const ctx = buildRecapContext({
+    order: orderWithCustomFields({ code_immeuble: "4417B" }),
+    restaurantName: "Chez Foody",
+    locale: "fr",
+    checkoutConfig: { delivery: { require_auth: false, fields: [] }, pickup: null } as never,
+  });
+  assert.equal(ctx.blocks.infos_client, "Code Immeuble : 4417B");
+});
+
+test("no checkout config means no block, exactly as before this feature", () => {
+  const ctx = buildRecapContext({
+    order: orderWithCustomFields({ code_immeuble: "4417B" }),
+    restaurantName: "Chez Foody",
+    locale: "fr",
+  });
+  assert.equal(ctx.blocks.infos_client, "");
+});
+
+test("infos_client is declared for every order, so its line can collapse", () => {
+  // render.ts's contract: an OMITTED key renders in place and never removes
+  // its line; a key present with "" declares the concept does not apply and
+  // lets the line vanish. A pickup order with no custom fields must get the
+  // latter, or customers see a bare "ℹ️".
+  for (const type of ["delivery", "pickup", "dine_in"] as const) {
+    const ctx = buildRecapContext({
+      order: baseOrder({ order_type: type }),
+      restaurantName: "Chez Foody",
+      locale: "fr",
+      checkoutConfig: CHECKOUT_CONFIG as never,
+    });
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(ctx.blocks, "infos_client"),
+      `${type}: infos_client must be declared even when empty`,
+    );
+  }
+});
+
+test("the bare info line disappears when the customer answered nothing", () => {
+  const def = findTemplate("order_recap")!;
+  for (const locale of RECAP_LOCALES) {
+    const msg = buildOrderRecap({
+      order: baseOrder({ order_type: "pickup" }),
+      restaurantName: "Chez Foody",
+      locale,
+      checkoutConfig: CHECKOUT_CONFIG as never,
+    });
+    assert.ok(!msg.includes("ℹ️"), `${locale}: a bare info marker leaked into the message`);
+    assert.deepEqual(missingFromContext(def.defaults[locale], def, buildRecapContext({
+      order: baseOrder({ order_type: "pickup" }),
+      restaurantName: "Chez Foody",
+      locale,
+      checkoutConfig: CHECKOUT_CONFIG as never,
+    })), []);
+  }
+});
