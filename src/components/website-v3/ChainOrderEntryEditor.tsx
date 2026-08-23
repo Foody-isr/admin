@@ -26,6 +26,7 @@ const COPY_FIELDS: Array<{
   label: string;
   multiline?: boolean;
 }> = [
+  { key: "brandName", label: "chain_selector_brand_name" },
   { key: "eyebrow", label: "chain_selector_eyebrow" },
   { key: "title", label: "chain_selector_title", multiline: true },
   { key: "subtitle", label: "chain_selector_subtitle", multiline: true },
@@ -127,6 +128,15 @@ export function ChainOrderEntryEditor({
         title={t("chain_selector_appearance_title")}
         description={t("chain_selector_appearance_desc")}
       >
+        <div data-field-id="page.appearance_overrides.chain_order_entry.logo_url">
+          <SectionImageUploader
+            restaurantId={restaurantId}
+            currentUrl={selector.logo_url ?? ""}
+            onUploaded={(url) => updateSelector({ logo_url: url })}
+            onRemove={() => updateSelector({ logo_url: "" })}
+            label={t("chain_selector_logo")}
+          />
+        </div>
         <SectionImageUploader
           restaurantId={restaurantId}
           currentUrl={appearance.cover_url ?? ""}
@@ -257,6 +267,7 @@ export function ChainOrderEntryEditor({
 
 const DEFAULT_COPY: Record<Locale, Required<ChainOrderEntryLocaleCopy>> = {
   fr: {
+    brandName: "Nom de l’enseigne",
     eyebrow: "Choisissez votre boulangerie",
     title: "Où souhaitez-vous commander ?",
     subtitle: "Chaque succursale prépare et reçoit ses propres commandes.",
@@ -268,6 +279,7 @@ const DEFAULT_COPY: Record<Locale, Required<ChainOrderEntryLocaleCopy>> = {
     orderHere: "Commander ici",
   },
   en: {
+    brandName: "Brand name",
     eyebrow: "Choose your bakery",
     title: "Where would you like to order?",
     subtitle: "Each branch prepares and receives its own orders.",
@@ -279,6 +291,7 @@ const DEFAULT_COPY: Record<Locale, Required<ChainOrderEntryLocaleCopy>> = {
     orderHere: "Order here",
   },
   he: {
+    brandName: "שם המותג",
     eyebrow: "בחרו את הסניף שלכם",
     title: "מאיזה סניף תרצו להזמין?",
     subtitle: "כל סניף מכין ומקבל את ההזמנות שלו.",

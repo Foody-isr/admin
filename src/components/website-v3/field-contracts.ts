@@ -325,6 +325,8 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.accent": "#b42318",
   "page.appearance_overrides.headingFont": "Georgia",
   "page.appearance_overrides.bodyFont": "Inter",
+  "page.appearance_overrides.chain_order_entry.logo_url":
+    "http://localhost:3000/logo-icon.svg",
   "page.appearance_overrides.chain_order_entry.layout": "cards",
   "page.appearance_overrides.chain_order_entry.surface_color": "#fffaf0",
   "page.appearance_overrides.chain_order_entry.overlay_opacity": 42,
@@ -698,6 +700,13 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
     ["appearance_overrides", "bodyFont"],
     "body",
     "style",
+  ),
+  page(
+    "page.appearance_overrides.chain_order_entry.logo_url",
+    ["appearance_overrides", "chain_order_entry", "logo_url"],
+    "main",
+    "attribute",
+    ["order"],
   ),
   page(
     "page.appearance_overrides.chain_order_entry.layout",

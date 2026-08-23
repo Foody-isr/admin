@@ -29,6 +29,7 @@ export type OrderTypeSelectorOverride = NavbarCtaSurfaceStyle & {
 };
 
 export type ChainOrderEntryLocaleCopy = {
+  brandName?: string;
   eyebrow?: string;
   title?: string;
   subtitle?: string;
@@ -41,6 +42,7 @@ export type ChainOrderEntryLocaleCopy = {
 };
 
 export type ChainOrderEntryOverride = {
+  logo_url?: string;
   layout?: "list" | "cards";
   show_search?: boolean;
   show_near_me?: boolean;
