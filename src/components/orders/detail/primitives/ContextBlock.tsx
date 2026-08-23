@@ -4,8 +4,9 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * A block in the context column: an eyebrow and its body, separated from the
- * next by a rule rather than boxed in a card.
+ * A block in the context column — and, since the two-column rewrite, in the
+ * appendix at the foot of the ticket: an eyebrow and its body, separated from
+ * the next by a rule rather than boxed in a card.
  *
  * The old right column stacked six `Section` cards — customer, address, courier,
  * total, invoice, notes — in a 340px lane, so the eye met six borders and six

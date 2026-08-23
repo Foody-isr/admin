@@ -1,9 +1,15 @@
 'use client';
 
 import { Skeleton } from '@/components/ds';
+import {
+  DETAIL_BODY_GRID,
+  DETAIL_MAIN_TRACK,
+  DETAIL_CONTEXT_TRACK,
+  DETAIL_RIBBON_BAND,
+} from './layout';
 
 /**
- * Loading placeholder for the three zones.
+ * Loading placeholder for the takeover body.
  *
  * The order detail had none. `isLoading` only disabled the footer buttons, and
  * the production page went further: with its order still loading it rendered a
@@ -11,28 +17,39 @@ import { Skeleton } from '@/components/ds';
  * nothing at all.
  *
  * The blocks are sized to the real content's boxes so nothing jumps when the
- * order lands.
+ * order lands. The geometry comes from layout.ts rather than being copied:
+ * it WAS copied, the two drifted, and the swap jumped.
+ *
+ * The scroll classes are deliberately not shared — this replaces the body while
+ * loading and has nothing to scroll, so it takes the grid template but
+ * overflow-hidden.
  */
 export function DetailSkeleton() {
   return (
-    <div className="flex-1 min-h-0 flex flex-col md:grid md:[grid-template-columns:minmax(0,1fr)_320px] lg:[grid-template-columns:288px_minmax(0,1fr)_360px] xl:[grid-template-columns:300px_minmax(0,1fr)_384px]">
-      {/* Spine */}
-      <aside className="hidden lg:flex lg:flex-col gap-[var(--s-6)] border-e border-[var(--line)] px-[var(--s-5)] py-[var(--s-5)]">
-        <div className="flex flex-col gap-[var(--s-4)]">
+    <>
+      {/* The ribbon is permanent chrome now, so it has to exist here too or the
+          content swap shifts everything down by the band's height. */}
+      <div className={DETAIL_RIBBON_BAND}>
+        <div
+          className="mx-auto w-full max-w-[960px] grid"
+          style={{ gridTemplateColumns: 'repeat(5, minmax(0,1fr))' }}
+        >
           {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex items-start gap-[var(--s-3)]">
-              <Skeleton className="w-7 h-7 rounded-full shrink-0" />
-              <div className="flex flex-col gap-1.5 pt-1 flex-1">
-                <Skeleton className="h-3.5 w-24" />
+            <div key={i} className="flex flex-col items-center">
+              <Skeleton className="w-7 h-7 rounded-full mb-2" />
+              {/* Same reserved two-line label box as HorizontalStepper. */}
+              <div className="min-h-[2.4em] flex items-start justify-center">
                 <Skeleton className="h-3 w-14" />
               </div>
+              <Skeleton className="h-2.5 w-10 mt-0.5" />
             </div>
           ))}
         </div>
-      </aside>
+      </div>
 
+      <div className={`${DETAIL_BODY_GRID} overflow-hidden`}>
       {/* Centre — the ticket's own grid, so the money lane is already in place */}
-      <main className="min-w-0 bg-[var(--surface)] px-[var(--s-4)] md:px-[var(--s-6)] xl:px-[var(--s-8)] py-[var(--s-5)]">
+      <main className={DETAIL_MAIN_TRACK}>
         <div className="flex items-center justify-between pb-[var(--s-4)]">
           <Skeleton className="h-3 w-16" />
           <Skeleton className="h-3 w-28" />
@@ -51,7 +68,7 @@ export function DetailSkeleton() {
       </main>
 
       {/* Context */}
-      <aside className="min-w-0 bg-[var(--surface)] md:border-s border-[var(--line)] px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-5)]">
+      <aside className={DETAIL_CONTEXT_TRACK}>
         <div className="flex items-center gap-[var(--s-3)]">
           <Skeleton className="w-12 h-12 rounded-full shrink-0" />
           <div className="flex flex-col gap-2 flex-1">
@@ -72,6 +89,7 @@ export function DetailSkeleton() {
           <Skeleton className="h-6 w-24" />
         </div>
       </aside>
-    </div>
+      </div>
+    </>
   );
 }

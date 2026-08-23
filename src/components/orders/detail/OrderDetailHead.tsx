@@ -91,7 +91,8 @@ export function OrderDetailHead({
             </>
           )}
           {/* The scheduled date is deliberately not here: it gets the dedicated
-              ScheduledBanner in the spine, where it cannot truncate. */}
+              ScheduledBanner at the head of the ticket, where it cannot
+              truncate. */}
         </span>
       </div>
     </div>

@@ -3,12 +3,12 @@
 // Activity trail: order timestamps, discount audit and audit_events, merged and
 // sorted.
 //
-// The audit fetch used to live here. It moved up to useOrderAudit for two
-// reasons. The layout mounts this component twice — in the spine at large
-// widths, in the context column below them — and a self-fetching component
-// would issue the request twice; with events arriving as props it is pure.
-// And the old code did `.catch(() => setAuditEvents([]))`, which made a server
-// error indistinguishable from "this order has no history".
+// The audit fetch used to live here; it moved up to useOrderAudit. The original
+// reason — the layout mounted this component twice, once per column — went away
+// with the two-column rewrite, but the second reason stands and is the better
+// one: the old `.catch(() => setAuditEvents([]))` made a server error
+// indistinguishable from "this order has no history". Events arrive as props,
+// the component is pure, and a real failure can say so.
 
 import { Fragment } from 'react';
 import type { AuditEvent, Order } from '@/lib/api';

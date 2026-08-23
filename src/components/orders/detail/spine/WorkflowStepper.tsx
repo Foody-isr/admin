@@ -15,6 +15,10 @@ import { formatTime } from '@/lib/orders/order-time';
  * (out_for_delivery collapsed into "Prête"), and a renamed or added stage never
  * appeared here at all.
  *
+ * Rendered as a permanent horizontal band under the head. It used to have a
+ * vertical variant for a left rail; that rail is gone, and with it the second
+ * scrollbar it forced on the screen.
+ *
  * The workflow is fetched inside this component, behind a module-level cache,
  * so none of the three hosts needed rewiring. A missing workflow, an empty one
  * or a 403 all fall back silently to the server's own default template — never
@@ -64,48 +68,6 @@ function connectorColor(stage: StepperStage, next: StepperStage | undefined): st
   return stage.state === 'done' ? 'var(--brand-500)' : 'var(--line)';
 }
 
-function VerticalStepper({ stages }: { stages: StepperStage[] }) {
-  return (
-    <ol className="flex flex-col">
-      {stages.map((stage, i) => {
-        const next = stages[i + 1];
-        return (
-          <li
-            key={stage.key}
-            className="relative flex items-start gap-[var(--s-3)] pb-[var(--s-4)] last:pb-0"
-          >
-            {next && (
-              <span
-                aria-hidden
-                className="absolute top-7 bottom-0 start-[13px] w-[2px]"
-                style={{ background: connectorColor(stage, next) }}
-              />
-            )}
-            <StepNode state={stage.state} />
-            <div className="min-w-0 flex-1 pt-1">
-              <div
-                className={`text-fs-sm font-medium leading-tight ${
-                  stage.state === 'pending' ? 'text-[var(--fg-subtle)]' : 'text-[var(--fg)]'
-                }`}
-              >
-                {stage.label}
-              </div>
-              {stage.note && (
-                <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{stage.note}</div>
-              )}
-              {stage.at && (
-                <div className="num text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-                  {formatTime(stage.at)}
-                </div>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
 function HorizontalStepper({ stages }: { stages: StepperStage[] }) {
   return (
     <div
@@ -140,6 +102,15 @@ function HorizontalStepper({ stages }: { stages: StepperStage[] }) {
                 {formatTime(stage.at)}
               </div>
             )}
+            {/* buildStepperStages hangs the acceptance here rather than
+                inventing a stage the owner never configured. Only stage 0 ever
+                carries one, so only that cell grows; the timestamps stay on one
+                axis because the note sits below them. */}
+            {stage.note && (
+              <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5 leading-tight">
+                {stage.note}
+              </div>
+            )}
           </div>
         );
       })}
@@ -149,12 +120,9 @@ function HorizontalStepper({ stages }: { stages: StepperStage[] }) {
 
 export function WorkflowStepper({
   order,
-  orientation = 'vertical',
   t,
 }: {
   order: Order;
-  /** 'vertical' for the spine, 'horizontal' for the ribbon below lg. */
-  orientation?: 'vertical' | 'horizontal';
   t: (k: string) => string;
 }) {
   const workflows = useOrderWorkflows(order.restaurant_id);
@@ -172,9 +140,5 @@ export function WorkflowStepper({
 
   if (stages.length === 0) return null;
 
-  return orientation === 'vertical' ? (
-    <VerticalStepper stages={stages} />
-  ) : (
-    <HorizontalStepper stages={stages} />
-  );
+  return <HorizontalStepper stages={stages} />;
 }

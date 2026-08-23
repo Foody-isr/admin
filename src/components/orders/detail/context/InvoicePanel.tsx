@@ -8,7 +8,7 @@ import {
   CheckIcon, ChevronDownIcon, DownloadIcon, FileTextIcon,
   LinkIcon, MailIcon, MessageCircleIcon, SendIcon,
 } from 'lucide-react';
-import { Button, Section } from '@/components/ds';
+import { Button } from '@/components/ds';
 import { getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf, type Order } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { buildWhatsAppUrl } from '@/lib/receipt-share';

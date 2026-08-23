@@ -21,7 +21,6 @@ import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
 import { statusStageKind } from '@/lib/orders/workflow-stepper';
 import { localizeOrderType } from '@/lib/orders/status-presentation';
-import { Section } from '@/components/ds';
 import { ContextBlock } from './primitives/ContextBlock';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import type { CheckoutConfig, Order } from '@/lib/api';
@@ -199,15 +198,12 @@ export function OrderDetailModal({
     markDelivered: onMarkDelivered,
   };
 
-  const activity = (
-    <Section title={t('activity') || 'Activité'}>
-      <ActivityTimeline
-        order={order}
-        auditEvents={audit.events}
-        auditFailed={audit.status === 'error'}
-        t={t}
-      />
-    </Section>
+  // Hoisted out of the JSX: it was a four-line inline expression inside the
+  // context column and now decides whether an appendix block exists at all.
+  const hasInvoice = Boolean(
+    order.external_metadata?.document_number ||
+      (Array.isArray(order.external_metadata?.supplementary_invoices) &&
+        (order.external_metadata.supplementary_invoices as unknown[]).length > 0),
   );
 
   return (
@@ -217,35 +213,37 @@ export function OrderDetailModal({
         onOpenChange={(v) => { if (!v) onClose(); }}
         title={t('orderNumber').replace('{id}', String(order.id))}
         head={<OrderDetailHead order={order} tone={tone} isActive={isActive} />}
-        ribbon={<WorkflowStepper order={order} orientation="horizontal" t={t} />}
-        spine={
-          <>
-            {caps.isScheduled && order.scheduled_for && (
-              <ScheduledBanner
-                iso={order.scheduled_for}
-                windowStart={order.scheduled_pickup_window_start}
-                windowEnd={order.scheduled_pickup_window_end}
-                orderType={order.order_type}
-                t={t}
-              />
-            )}
-            <CancellationCallout order={order} t={t} />
-            <Section title={t('progress') || 'Progression'}>
-              <WorkflowStepper order={order} orientation="vertical" t={t} />
-            </Section>
-            {activity}
-          </>
-        }
+        ribbon={<WorkflowStepper order={order} t={t} />}
         center={
-          <TicketItems
+          <>
+            {/* Alerts head the ticket, and TicketItems opens with its own
+                settlement banners, so the whole alarm stack stays contiguous. */}
+            {caps.isScheduled && order.scheduled_for && (
+              <div className="mb-[var(--s-4)]">
+                <ScheduledBanner
+                  iso={order.scheduled_for}
+                  windowStart={order.scheduled_pickup_window_start}
+                  windowEnd={order.scheduled_pickup_window_end}
+                  orderType={order.order_type}
+                  t={t}
+                />
+              </div>
+            )}
+            {caps.isCancelled && (
+              <div className="mb-[var(--s-4)]">
+                <CancellationCallout order={order} t={t} />
+              </div>
+            )}
+            <TicketItems
             order={order}
             categoryGroups={categoryGroups}
             comboGroups={comboGroups}
             displayedLineCount={displayedLineCount}
             totalUnits={totalUnits}
-            onConfirmWeights={caps.canConfirmWeights ? onConfirmWeights : undefined}
-            t={t}
-          />
+              onConfirmWeights={caps.canConfirmWeights ? onConfirmWeights : undefined}
+              t={t}
+            />
+          </>
         }
         context={
           <div className="flex flex-col">
@@ -266,19 +264,35 @@ export function OrderDetailModal({
               totalsLine={totalsLine}
               t={t}
             />
-            {(order.external_metadata?.document_number ||
-              (Array.isArray(order.external_metadata?.supplementary_invoices) &&
-                (order.external_metadata.supplementary_invoices as unknown[]).length > 0)) ? (
+          </div>
+        }
+        reference={
+          // The appendix. One --line-strong rule marks the seam between the
+          // ticket and the reference material; ContextBlock's own
+          // first:border-t-0 keeps it the only rule there.
+          //
+          // Order: the two read-only records first, then notes — the only
+          // editable block, ending in its composer, so the one thing you might
+          // DO down here sits closest to the command bar.
+          <div className="border-t border-[var(--line-strong)] pt-[var(--s-5)]">
+            <ContextBlock label={t('activity') || 'Activité'}>
+              <ActivityTimeline
+                order={order}
+                auditEvents={audit.events}
+                auditFailed={audit.status === 'error'}
+                t={t}
+              />
+            </ContextBlock>
+            {hasInvoice && (
               <ContextBlock label={t('invoiceHeading') || 'Invoice'}>
                 <InvoiceSection order={order} />
               </ContextBlock>
-            ) : null}
+            )}
             <ContextBlock label={t('orderNotesHeading') || 'Notes internes'}>
               <OrderNotesSection order={order} t={t} direction={direction} />
             </ContextBlock>
           </div>
         }
-        contextOverflow={activity}
         footer={
           <CommandBar
             order={order}

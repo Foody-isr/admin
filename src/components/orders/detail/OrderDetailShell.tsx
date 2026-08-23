@@ -4,16 +4,32 @@ import * as React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
 import { DetailSkeleton } from './primitives/DetailSkeleton';
+import {
+  DETAIL_BODY_GRID,
+  DETAIL_MAIN_TRACK,
+  DETAIL_CONTEXT_TRACK,
+  DETAIL_REFERENCE_TRACK,
+  DETAIL_RIBBON_BAND,
+} from './primitives/layout';
 
 /**
- * The order detail's full-screen takeover: head, optional ribbon, three body
- * zones, command bar.
+ * The order detail's full-screen takeover: head, progression ribbon, a
+ * two-column body, command bar.
+ *
+ * ONE scroll region. It started as three columns that each scrolled on their
+ * own, which meant reading a single order took a scroll on the left AND a
+ * scroll on the right, with nothing to say content was hidden in a column you
+ * were not touching. Independent scrollports belong to independent workspaces —
+ * mail folders / list / message, files / editor / outline. Three facets of one
+ * record get one scroll, which is what Shopify, Stripe and Linear all do on a
+ * record detail. The geometry lives in primitives/layout.ts.
  *
  * Why a new component rather than a wider ds/FullScreenEditor: that primitive
  * has nine callers and a fixed shape — centred title, one 280px start rail, a
- * Save button. This surface needs a start-anchored order number, no Save, a
- * three-cluster command bar and TWO rails. Widening it under nine callers would
- * be changing a shared primitive to serve one screen.
+ * Save button. This surface needs a start-anchored order number, no Save and a
+ * three-cluster command bar. Widening it under nine callers would be changing a
+ * shared primitive to serve one screen. (FullScreenEditor has this same
+ * two-scroller problem; fixing it there is its own piece of work.)
  *
  * The inset geometry below is copied from FullScreenEditor verbatim, comment
  * included, because it is already proven correct in both directions.
@@ -25,17 +41,19 @@ export interface OrderDetailShellProps {
   head: React.ReactNode;
   /** Accessible title for the dialog. Visually the head renders its own. */
   title: string;
-  /** Stepper promoted above the columns below the lg breakpoint. */
+  /** Progression, as permanent chrome under the head at every width. */
   ribbon?: React.ReactNode;
-  /** Start rail: the order's life. Hidden below lg — the ribbon covers it. */
-  spine?: React.ReactNode;
-  /** Centre column: what was ordered. */
+  /** Main column: what was ordered. */
   center: React.ReactNode;
-  /** End column: money, customer, delivery. */
+  /** End column: money, customer, delivery — what stays legible beside the
+   *  ticket. */
   context: React.ReactNode;
-  /** Rendered at the bottom of the context column below lg, where the spine is
-   *  gone. Pass the activity trail here so it stays reachable on a laptop. */
-  contextOverflow?: React.ReactNode;
+  /** The appendix at the foot of the main column: activity, invoice, notes.
+   *  Consulted rather than monitored, so it earns no permanent space.
+   *  A grid SIBLING, not a tail inside `center`: nesting it would push the
+   *  customer and the total below it on a phone, burying the two things staff
+   *  open an order on a phone to see. */
+  reference?: React.ReactNode;
   /** Swap the three zones for a skeleton while the order loads. */
   loading?: boolean;
   footer?: React.ReactNode;
@@ -48,10 +66,9 @@ export function OrderDetailShell({
   head,
   title,
   ribbon,
-  spine,
   center,
   context,
-  contextOverflow,
+  reference,
   loading,
   footer,
   className,
@@ -104,63 +121,26 @@ export function OrderDetailShell({
           ) : (
           <>
           {ribbon && (
-            <div className="lg:hidden shrink-0 border-b border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] py-[var(--s-3)]">
-              {ribbon}
+            <div className={DETAIL_RIBBON_BAND}>
+              {/* Capped: buildStepperStages returns as few as two stages on an
+                  order cancelled early, and two nodes 800px apart joined by a
+                  hairline read as a loading bar, not a progression. */}
+              <div className="mx-auto w-full max-w-[960px]">{ribbon}</div>
             </div>
           )}
 
           {/*
-            Three zones. CSS Grid lays its tracks start→end, so in Hebrew the
-            spine moves to the right and the context column to the left with no
-            extra code — the mirror is free.
-
-            Every track carries min-h-0: without it the tracks refuse to shrink
-            and the whole modal scrolls instead of each column.
+            Two columns, one scroll. CSS Grid lays its tracks start→end, so in
+            Hebrew the context column moves to the left and the appendix sits
+            under the ticket on the right, with no extra code — the mirror is
+            free. See primitives/layout.ts for why each class is there.
           */}
-          <div
-            className={cn(
-              'flex-1 min-h-0 flex flex-col',
-              'overflow-y-auto md:overflow-hidden',
-              'md:grid md:[grid-template-columns:minmax(0,1fr)_320px]',
-              'lg:[grid-template-columns:288px_minmax(0,1fr)_360px]',
-              'xl:[grid-template-columns:300px_minmax(0,1fr)_384px]',
-            )}
-          >
-            {spine && (
-              <aside
-                className={cn(
-                  'hidden lg:flex lg:flex-col min-h-0 overflow-y-auto',
-                  'bg-[var(--bg)] border-e border-[var(--line)]',
-                  'px-[var(--s-5)] py-[var(--s-5)] gap-[var(--s-6)]',
-                )}
-              >
-                {spine}
-              </aside>
-            )}
+          <div className={DETAIL_BODY_GRID}>
+            <main className={DETAIL_MAIN_TRACK}>{center}</main>
 
-            <main
-              className={cn(
-                'min-w-0 md:min-h-0 md:overflow-y-auto bg-[var(--surface)]',
-                'px-[var(--s-4)] md:px-[var(--s-6)] xl:px-[var(--s-8)] py-[var(--s-5)]',
-              )}
-            >
-              {center}
-            </main>
+            <aside className={DETAIL_CONTEXT_TRACK}>{context}</aside>
 
-            <aside
-              className={cn(
-                'min-w-0 md:min-h-0 md:overflow-y-auto',
-                'bg-[var(--surface)] md:border-s border-[var(--line)]',
-                'px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-5)]',
-              )}
-            >
-              {context}
-              {contextOverflow && (
-                <div className="lg:hidden mt-[var(--s-6)] pt-[var(--s-6)] border-t border-[var(--line)]">
-                  {contextOverflow}
-                </div>
-              )}
-            </aside>
+            {reference && <section className={DETAIL_REFERENCE_TRACK}>{reference}</section>}
           </div>
           </>
           )}
