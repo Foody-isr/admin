@@ -80,9 +80,11 @@ export interface OrderDetailModalProps {
    *  WhatsApp recap when the order carries no customer_locale. */
   restaurantDefaultLocale?: string;
   customFieldLabels: Record<string, string>;
-  /** Raw checkout form. customFieldLabels is resolved in the STAFF's
-   *  language for the context column; the recap dialog needs the config
-   *  itself so it can label the same answers in the customer's. */
+  /** Raw checkout form. customFieldLabels arrives already flattened to
+   *  id→label, resolved WITHOUT a locale — so the context column shows the
+   *  owner's own label (the builder only ever writes `fr`), whatever language
+   *  the staff member is in. The recap dialog needs the config itself so it
+   *  can resolve the same answers in the CUSTOMER's language instead. */
   checkoutConfig?: CheckoutConfig | null;
 }
 
