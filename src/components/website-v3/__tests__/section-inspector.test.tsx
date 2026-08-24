@@ -101,8 +101,31 @@ test("feature cards content exposes every card field and add action", () => {
   assert.doesNotMatch(markup, /structure composée/);
 });
 
+test("feature cards appearance exposes button colors and shape", () => {
+  const markup = renderSection(
+    {
+      section_type: "feature_cards",
+      settings: {
+        button_bg_color: "#7c2d12",
+        button_text_color: "#fef3c7",
+        button_border_color: "#f59e0b",
+        button_shape: "pill",
+      },
+    },
+    "appearance",
+  );
+
+  assert.match(markup, /Boutons des cartes/);
+  assert.match(markup, /section\.settings\.button_bg_color/);
+  assert.match(markup, /section\.settings\.button_text_color/);
+  assert.match(markup, /section\.settings\.button_border_color/);
+  assert.match(markup, /section\.settings\.button_shape/);
+  assert.match(markup, /value="pill" selected=""/);
+});
+
 function renderSection(
   overrides: Partial<DraftSectionPayload>,
+  tab: "content" | "appearance" | "settings" = "content",
 ): string {
   const section: DraftSectionPayload = {
     tmp_id: "section-test",
@@ -121,7 +144,7 @@ function renderSection(
     React.createElement(SectionInspector, {
       restaurantId: 24,
       section,
-      tab: "content",
+      tab,
       onChange: () => undefined,
     }),
   );

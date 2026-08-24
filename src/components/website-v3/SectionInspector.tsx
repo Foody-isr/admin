@@ -10,6 +10,7 @@ import {
   controlClass,
 } from "./controls";
 import { SectionContentEditors } from "./SectionContentEditors";
+import { FeatureCardsAppearanceEditor } from "./FeatureCardsAppearanceEditor";
 import { MenuHighlightsAppearanceEditor } from "./MenuHighlightsAppearanceEditor";
 
 export function SectionInspector({
@@ -122,6 +123,12 @@ export function SectionInspector({
         </InspectorGroup>
         {section.section_type === "menu_highlights" ? (
           <MenuHighlightsAppearanceEditor
+            value={section.settings}
+            onChange={onChange}
+          />
+        ) : null}
+        {section.section_type === "feature_cards" ? (
+          <FeatureCardsAppearanceEditor
             value={section.settings}
             onChange={onChange}
           />

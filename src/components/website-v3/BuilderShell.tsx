@@ -24,7 +24,7 @@ export function BuilderShell({
   device,
   publicUrl,
   publishedAt,
-  canPublish,
+  publishBlockedReason,
   busy,
   onDeviceChange,
   onDiscard,
@@ -40,7 +40,10 @@ export function BuilderShell({
   device: PreviewDevice;
   publicUrl: string | null;
   publishedAt?: string | null;
-  canPublish: boolean;
+  /** Why publishing would refuse right now, or null when it would go through.
+   *  The button stays enabled either way — clicking it surfaces the reason and
+   *  jumps to whatever needs fixing. */
+  publishBlockedReason: string | null;
   busy: boolean;
   onDeviceChange: (device: PreviewDevice) => void;
   onDiscard: () => void;
@@ -163,12 +166,25 @@ export function BuilderShell({
           <button
             type="button"
             onClick={onPublish}
-            disabled={busy || !canPublish}
-            className="flex h-9 items-center gap-2 rounded-xl bg-[#d7ff4f] px-4 text-xs font-bold text-[#172000] shadow-[0_8px_24px_rgba(215,255,79,0.14)] transition hover:bg-[#e2ff78] disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={busy}
+            title={publishBlockedReason ?? undefined}
+            aria-describedby={
+              publishBlockedReason ? "publish-blocked-reason" : undefined
+            }
+            className={`flex h-9 items-center gap-2 rounded-xl px-4 text-xs font-bold shadow-[0_8px_24px_rgba(215,255,79,0.14)] transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              publishBlockedReason
+                ? "bg-[#d7ff4f]/40 text-[#172000]/70 hover:bg-[#d7ff4f]/60"
+                : "bg-[#d7ff4f] text-[#172000] hover:bg-[#e2ff78]"
+            }`}
           >
             <Send className="h-3.5 w-3.5" />
             Publier
           </button>
+          {publishBlockedReason ? (
+            <span id="publish-blocked-reason" className="sr-only">
+              {publishBlockedReason}
+            </span>
+          ) : null}
         </div>
       </header>
 

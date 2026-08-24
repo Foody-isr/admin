@@ -33,8 +33,8 @@ import {
   type AutosaveStatus,
 } from "@/lib/website-v3/autosave";
 import {
-  hasCompletePreviewCoverage,
   recordPreviewAcknowledgement,
+  stalePreviewDevices,
   type PreviewAcknowledgement,
   type PreviewAcknowledgements,
   type PreviewExpectedRevisions,
@@ -80,6 +80,18 @@ import { useI18n } from "@/lib/i18n";
 const WEB_ORIGIN =
   process.env.NEXT_PUBLIC_WEB_URL || "https://dev-app.foody-pos.co.il";
 const EMPTY_CATALOG: ThemeCatalog = { themes: [], typography_pairings: [] };
+
+const PREVIEW_DEVICE_LABELS: Record<PreviewDevice, string> = {
+  desktop: "l’aperçu ordinateur",
+  mobile: "l’aperçu mobile",
+};
+
+/** "l’aperçu mobile" / "l’aperçu ordinateur et l’aperçu mobile". */
+function describePreviewDevices(devices: PreviewDevice[]): string {
+  return devices
+    .map((device) => PREVIEW_DEVICE_LABELS[device])
+    .join(" et ");
+}
 
 type LoadedBuilder = {
   draft: DraftResponse;
@@ -368,12 +380,21 @@ function DesktopWebsiteV3Builder({
   const surface = effectiveSurface(activePageType, requestedSurface, showBranchSelector);
   const activePreviewKey = activePage ? pageKey(activePage) : "";
   const currentAcknowledgement = acknowledgements[device];
-  const previewCovered = hasCompletePreviewCoverage(
+  const stalePreviews = stalePreviewDevices(
     acknowledgements,
     expectedPreviewRevisions,
     contentRevision,
     activePreviewKey,
   );
+  const previewCovered = stalePreviews.length === 0;
+  // Why Publish would refuse right now. The button stays clickable and says so:
+  // a disabled button explains nothing, and the field errors below live in the
+  // inspector of one page and one tab, which is very often not the one on screen.
+  const publishBlockedReason = allErrors.length > 0
+    ? `Corrigez les champs signalés avant de publier : ${allErrors[0].message}`
+    : previewCovered
+      ? null
+      : `Vérifiez la dernière version sur ${describePreviewDevices(stalePreviews)} avant de publier.`;
 
   useEffect(() => {
     if (
@@ -785,8 +806,12 @@ function DesktopWebsiteV3Builder({
       return;
     }
     if (!previewCovered) {
+      // Same courtesy as focusError: put the thing that needs checking on screen.
+      changeDevice(stalePreviews[0]);
       setGlobalError(
-        "Vérifiez la dernière version sur les aperçus ordinateur et mobile avant de publier.",
+        `Vérifiez la dernière version sur ${describePreviewDevices(
+          stalePreviews,
+        )} avant de publier.`,
       );
       return;
     }
@@ -923,7 +948,7 @@ function DesktopWebsiteV3Builder({
         device={device}
         publicUrl={publicUrl}
         publishedAt={loaded.draft.published_at}
-        canPublish={previewCovered && allErrors.length === 0}
+        publishBlockedReason={publishBlockedReason}
         busy={busy}
         onDeviceChange={changeDevice}
         onDiscard={discard}

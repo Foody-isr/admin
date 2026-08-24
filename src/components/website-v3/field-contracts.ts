@@ -388,6 +388,10 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.card_muted": "#64748b",
   "section.settings.price_color": "#b42318",
   "section.settings.accent_color": "#315fce",
+  "section.settings.button_bg_color": "#7c2d12",
+  "section.settings.button_text_color": "#fef3c7",
+  "section.settings.button_border_color": "#f59e0b",
+  "section.settings.button_shape": "pill",
   "section.settings.bg_image": "http://localhost:3000/logo-icon.svg",
   "section.settings.bg_overlay": true,
 };
@@ -508,20 +512,28 @@ function editorFor(
     "section.settings.price_color",
     "section.settings.accent_color",
   ].includes(id);
+  const featureCards = [
+    "section.settings.button_bg_color",
+    "section.settings.button_text_color",
+    "section.settings.button_border_color",
+    "section.settings.button_shape",
+  ].includes(id);
   const appearance = id === "section.layout" || id.startsWith("section.settings.");
   return {
     kind: action,
     scope,
     tab: appearance ? "Apparence" : id === "section.is_visible" || id === "section.page_id" ? "Réglages" : "Contenu",
-    pageTitle: hero || scrolling || menuHighlights ? "Home" : "About",
+    pageTitle: hero || scrolling || menuHighlights || featureCards ? "Home" : "About",
     sectionLabel: hero
       ? "Hero banner"
       : scrolling
         ? "Scrolling text"
         : menuHighlights
           ? "Menu highlights"
+          : featureCards
+            ? "Feature cards"
           : "Text and image",
-    publicSlug: hero || scrolling || menuHighlights ? "" : "about",
+    publicSlug: hero || scrolling || menuHighlights || featureCards ? "" : "about",
     commit: "change",
     prerequisite: id === "section.settings.custom_bg" || id === "section.settings.custom_text"
       ? { id: "section.settings.color_style", value: "custom" }
@@ -884,6 +896,10 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.card_muted", ["settings", "card_muted"], "menu_highlights", "color"),
   section("section.settings.price_color", ["settings", "price_color"], "menu_highlights", "color"),
   section("section.settings.accent_color", ["settings", "accent_color"], "menu_highlights", "color"),
+  section("section.settings.button_bg_color", ["settings", "button_bg_color"], "feature_cards", "color"),
+  section("section.settings.button_text_color", ["settings", "button_text_color"], "feature_cards", "color"),
+  section("section.settings.button_border_color", ["settings", "button_border_color"], "feature_cards", "color"),
+  section("section.settings.button_shape", ["settings", "button_shape"], "feature_cards", "style"),
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
   action("section.create", "section", ["sections"]),
