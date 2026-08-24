@@ -36,6 +36,7 @@ import { ActivityTimeline } from './spine/ActivityTimeline';
 import { useOrderAudit } from '@/lib/orders/use-order-audit';
 import { useOrderNotes } from '@/lib/orders/use-order-notes';
 import { buildActivityEvents } from '@/lib/orders/activity-events';
+import { splitCustomFieldAnswers } from '@/lib/orders/checkout-fields';
 import { TicketItems } from './center/TicketItems';
 import { CustomerPanel } from './context/CustomerPanel';
 import { DeliveryPanel } from './context/DeliveryPanel';
@@ -234,6 +235,13 @@ export function OrderDetailModal({
   // recognises exactly two audit actions and drops the rest.
   const activityEvents = buildActivityEvents(order, audit.events, t);
 
+  // Decided once for both panels. A hand-rolled "Code immeuble" is a fact
+  // about the address, not about the customer, and used to render four rows
+  // above the address it describes. Split here rather than in each panel: two
+  // components each applying half a predicate is how an answer ends up shown
+  // twice, or nowhere.
+  const customFields = splitCustomFieldAnswers(order, customFieldLabels);
+
   return (
     <>
       <OrderDetailShell
@@ -279,11 +287,11 @@ export function OrderDetailModal({
               order={order}
               canManage={canManage}
               onEditCustomer={onEditCustomer}
-              customFieldLabels={customFieldLabels}
+              customFields={customFields.customer}
               customerInitials={customerInitials}
               t={t}
             />
-            <DeliveryPanel order={order} t={t} />
+            <DeliveryPanel order={order} customFields={customFields.address} t={t} />
             <MoneyPanel
               order={order}
               subtotal={subtotal}

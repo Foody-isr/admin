@@ -17,6 +17,7 @@ import { MapPinIcon, PhoneIcon, TruckIcon, ArrowUpRightIcon } from 'lucide-react
 import { Badge } from '@/components/ds';
 import type { Order } from '@/lib/api';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
+import type { CustomFieldAnswer } from '@/lib/orders/checkout-fields';
 import { formatTime } from '@/lib/orders/order-time';
 import { ContextBlock, ContextRow } from '../primitives/ContextBlock';
 
@@ -41,7 +42,21 @@ function TourBadge({ order, t }: { order: Order; t: (k: string) => string }) {
   );
 }
 
-export function DeliveryPanel({ order, t }: { order: Order; t: (k: string) => string }) {
+export function DeliveryPanel({
+  order,
+  customFields,
+  t,
+}: {
+  order: Order;
+  /** Custom checkout answers that describe WHERE the order goes, e.g. a
+   *  hand-rolled "Code immeuble" the owner built instead of using the built-in
+   *  delivery_entry_code. The built-in equivalents are already inside
+   *  formatDeliveryAddress's line2; these render beneath it, labelled, because
+   *  they are the same kind of fact and staff read them off in one glance.
+   *  Chosen by splitCustomFieldAnswers, which decides once for both panels. */
+  customFields: CustomFieldAnswer[];
+  t: (k: string) => string;
+}) {
   if (order.order_type !== 'delivery') return null;
 
   const addr = formatDeliveryAddress(
@@ -61,7 +76,9 @@ export function DeliveryPanel({ order, t }: { order: Order; t: (k: string) => st
   // Nothing here is actionable — assignment happens on the dispatcher — so an
   // empty courier block was pure furniture.
   const hasCourierInfo = Boolean(order.courier_name || order.tour?.name);
-  const hasAddressBlock = Boolean(addr || notes);
+  // customFields is in the gate, not just the body: an order whose building
+  // code is the ONLY address detail typed would otherwise lose it entirely.
+  const hasAddressBlock = Boolean(addr || notes || customFields.length > 0);
 
   // The shortcut to the dispatcher used to hang off the courier block's
   // heading, so closing that block would have quietly removed it from every
@@ -91,6 +108,12 @@ export function DeliveryPanel({ order, t }: { order: Order; t: (k: string) => st
                 </div>
               </div>
             )}
+            {/* Sits directly under the street/floor/apartment lines, which is
+                where the same fact would appear had the owner used the
+                built-in field: same block, same glance. */}
+            {customFields.map((f) => (
+              <ContextRow key={f.id} label={f.label}>{f.value}</ContextRow>
+            ))}
             {notes && <ContextRow label={t('deliveryNotes')}>{notes}</ContextRow>}
           </div>
         </ContextBlock>

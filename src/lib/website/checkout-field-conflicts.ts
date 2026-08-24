@@ -66,6 +66,53 @@ export function normalizeFieldName(s: string): string {
     .replace(/[\s\-_'’.,:;/\\()[\]{}"«»]+/g, '');
 }
 
+/**
+ * The built-in fields that describe WHERE the order goes, as opposed to who
+ * placed it. A subset of BUILTIN_DELIVERY_FIELDS: that catalogue also carries
+ * customer_name and customer_phone, which belong with the customer.
+ *
+ * Used twice — to warn an owner in the checkout editor, and to decide which
+ * answers the order screen files under the address.
+ */
+export const DELIVERY_ADDRESS_BUILTIN_IDS: ReadonlyArray<string> = [
+  'delivery_address',
+  'delivery_city',
+  'delivery_floor',
+  'delivery_apt',
+  'delivery_entry_code',
+  'delivery_notes',
+];
+
+/**
+ * The built-in one of these names stands for, or null.
+ *
+ * Exact normalised equality against the platform's OWN labels in en/fr/he plus
+ * the built-in id. Deliberately not a keyword rule: "Code promo" does not match
+ * "Code immeuble", and nothing tries to guess that "Digicode" means the same
+ * thing. A miss is a non-event; a false positive files someone's real field
+ * under the wrong heading.
+ */
+export function matchBuiltinByName(
+  names: ReadonlyArray<string | undefined>,
+  builtinIds: ReadonlyArray<string>,
+): string | null {
+  const candidates = names.map((s) => normalizeFieldName(s ?? '')).filter(Boolean);
+  if (candidates.length === 0) return null;
+
+  for (const builtinId of builtinIds) {
+    const known = [
+      builtinId,
+      BUILTIN_LABELS[builtinId]?.fr,
+      BUILTIN_LABELS[builtinId]?.en,
+      BUILTIN_LABELS[builtinId]?.he,
+    ]
+      .map((s) => normalizeFieldName(s ?? ''))
+      .filter(Boolean);
+    if (candidates.some((c) => known.indexOf(c) !== -1)) return builtinId;
+  }
+  return null;
+}
+
 export type FieldConflict =
   /** Two fields in this form carry the same id. The later one wins in the
    *  submitted payload, silently. */
@@ -109,23 +156,12 @@ export function detectFieldConflict(
     return { kind: 'reserved_id', builtinId: field.id, builtinAlreadyInForm: inForm(field.id) };
   }
 
-  const candidates = [field.label?.fr, field.label?.en, field.label?.he, field.id]
-    .map((s) => normalizeFieldName(s ?? ''))
-    .filter(Boolean);
-  if (candidates.length === 0) return null;
-
-  for (const builtinId of builtinIds) {
-    const names = [
-      builtinId,
-      BUILTIN_LABELS[builtinId]?.fr,
-      BUILTIN_LABELS[builtinId]?.en,
-      BUILTIN_LABELS[builtinId]?.he,
-    ]
-      .map((s) => normalizeFieldName(s ?? ''))
-      .filter(Boolean);
-    if (candidates.some((c) => names.indexOf(c) !== -1)) {
-      return { kind: 'shadows_builtin', builtinId, builtinAlreadyInForm: inForm(builtinId) };
-    }
+  const builtinId = matchBuiltinByName(
+    [field.label?.fr, field.label?.en, field.label?.he, field.id],
+    builtinIds,
+  );
+  if (builtinId) {
+    return { kind: 'shadows_builtin', builtinId, builtinAlreadyInForm: inForm(builtinId) };
   }
 
   return null;

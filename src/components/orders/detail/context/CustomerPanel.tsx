@@ -9,7 +9,7 @@
 import { EditIcon, GlobeIcon, PhoneIcon } from 'lucide-react';
 import type { Order } from '@/lib/api';
 import { localizeOrderType, localizeSource } from '@/lib/orders/status-presentation';
-import { humanizeFieldId } from '@/lib/orders/checkout-fields';
+import type { CustomFieldAnswer } from '@/lib/orders/checkout-fields';
 import { ContextBlock, ContextRow } from '../primitives/ContextBlock';
 import { CustomerHistoryStrip } from './CustomerHistoryStrip';
 
@@ -17,14 +17,17 @@ export function CustomerPanel({
   order,
   canManage,
   onEditCustomer,
-  customFieldLabels,
+  customFields,
   customerInitials,
   t,
 }: {
   order: Order;
   canManage: boolean;
   onEditCustomer?: () => void;
-  customFieldLabels: Record<string, string>;
+  /** The answers that describe the CUSTOMER. The ones that describe where the
+   *  order goes are rendered by DeliveryPanel instead — see
+   *  splitCustomFieldAnswers, which decides once for both panels. */
+  customFields: CustomFieldAnswer[];
   customerInitials: string;
   t: (k: string) => string;
 }) {
@@ -88,17 +91,12 @@ export function CustomerPanel({
           </ContextRow>
         )}
 
-        {/* Answers to the owner's custom checkout fields (e.g. "Code
-            immeuble"). Labels resolved from the checkout config; empty and
-            false answers are already dropped server-side. */}
-        {order.custom_fields &&
-          Object.entries(order.custom_fields)
-            .filter(([, v]) => v !== '' && v !== false && v != null)
-            .map(([id, v]) => (
-              <ContextRow key={id} label={customFieldLabels[id] || humanizeFieldId(id)}>
-                {typeof v === 'boolean' ? '✓' : String(v)}
-              </ContextRow>
-            ))}
+        {/* Answers to the owner's custom checkout fields, minus the ones that
+            describe the address — a hand-rolled "Code immeuble" used to render
+            here, four rows above the address it belongs to. */}
+        {customFields.map((f) => (
+          <ContextRow key={f.id} label={f.label}>{f.value}</ContextRow>
+        ))}
       </div>
     </ContextBlock>
   );
