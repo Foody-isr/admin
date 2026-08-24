@@ -75,6 +75,18 @@ export const DETAIL_REFERENCE_TRACK =
   'min-w-0 md:col-start-1 md:row-start-2 bg-[var(--surface)] ' +
   'px-[var(--s-4)] md:px-[var(--s-6)] xl:px-[var(--s-8)] pb-[var(--s-6)]';
 
+/**
+ * A section heading on the ticket — HairlineRule's own box.
+ *
+ * Shared because DetailSkeleton has to reserve exactly this row: the ticket
+ * used to open with a separate eyebrow line above the first rule, and folding
+ * that line's content into the rule removed ~44px. A skeleton that still
+ * reserved both would put the swap back, which is the drift this module exists
+ * to prevent.
+ */
+export const TICKET_RULE_ROW =
+  'flex items-center gap-[var(--s-3)] pt-[var(--s-5)] pb-[var(--s-2)] first:pt-0';
+
 /** Progression band under the head. Chrome: outside the scroll region. */
 export const DETAIL_RIBBON_BAND =
   'shrink-0 border-b border-[var(--line)] bg-[var(--surface)] ' +

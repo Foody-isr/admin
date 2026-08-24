@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { TICKET_RULE_ROW } from './layout';
 
 /**
  * A category heading on the ticket: label, rule, count.
@@ -19,17 +20,14 @@ export function HairlineRule({
   className,
 }: {
   label: string;
-  /** Right-hand figure, e.g. how many lines this section holds. */
+  /** Right-hand figure: how many lines this section holds, or — when the ticket
+   *  is a single section — its whole summary, since there is nothing else for
+   *  that number to be confused with. */
   count?: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        'flex items-center gap-[var(--s-3)] pt-[var(--s-5)] pb-[var(--s-2)] first:pt-0',
-        className,
-      )}
-    >
+    <div className={cn(TICKET_RULE_ROW, className)}>
       <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--fg-subtle)] whitespace-nowrap">
         {label}
       </span>

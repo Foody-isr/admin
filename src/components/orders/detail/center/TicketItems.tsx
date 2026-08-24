@@ -86,6 +86,22 @@ export function TicketItems({
     (i) => i.pricing_mode === 'by_weight' && typeof i.actual_weight_grams !== 'number',
   ).length;
 
+  // The ticket used to open with an eyebrow row — "ARTICLES" on the left, the
+  // summary on the right — directly above a rule that already said the same
+  // thing on the left and carried a number on the right. Two rows, ~44px, one
+  // duplicated heading. displayedLineCount is by definition the sum of the
+  // per-section counts, so nothing is lost by folding it in; totalUnits is the
+  // one figure not already on screen, which is why the summary survives at all.
+  const isLoneSection = categoryGroups.length + (comboGroups.length > 0 ? 1 : 0) === 1;
+  const summary = (
+    // text-fs-xs, not the rule's own 10px: this is a written-out checksum, and
+    // Hebrew at 10px is not a thing you read, it is a thing you squint at.
+    <span className="text-fs-xs">
+      {displayedLineCount} {displayedLineCount === 1 ? t('item') : t('items')} ·{' '}
+      {totalUnits} {totalUnits === 1 ? t('unit') || 'unité' : t('units') || 'unités'}
+    </span>
+  );
+
   return (
     <>
       {/* A card hold is open until staff enter the measured weights. Previously
@@ -117,16 +133,6 @@ export function TicketItems({
         />
       )}
 
-      <div className="flex items-baseline justify-between gap-[var(--s-3)] pb-[var(--s-2)]">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--fg-subtle)]">
-          {t('items')}
-        </span>
-        <span className="num text-fs-xs text-[var(--fg-subtle)]">
-          {displayedLineCount} {displayedLineCount === 1 ? t('item') : t('items')} ·{' '}
-          {totalUnits} {totalUnits === 1 ? t('unit') || 'unité' : t('units') || 'unités'}
-        </span>
-      </div>
-
       {isEmpty ? (
         <EmptyState
           size="compact"
@@ -135,9 +141,17 @@ export function TicketItems({
         />
       ) : (
         <>
+          {/* On a ticket with more than one section the summary gets its own
+              opening rule: hung off "ENTRÉES" it would read as the total for
+              that course. */}
+          {!isLoneSection && <HairlineRule label={t('items')} count={summary} />}
+
           {categoryGroups.map((group) => (
             <Fragment key={group.key}>
-              <HairlineRule label={group.label} count={group.items.length} />
+              <HairlineRule
+                label={group.label}
+                count={isLoneSection ? summary : group.items.length}
+              />
               {group.items.map((item, i) => (
                 <TicketLineRow
                   key={item.id}
@@ -154,7 +168,7 @@ export function TicketItems({
             <>
               <HairlineRule
                 label={(t('combos') || 'Combos').toUpperCase()}
-                count={comboGroups.length}
+                count={isLoneSection ? summary : comboGroups.length}
               />
               {comboGroups.map((combo, gi) => {
                 const totalPicks = combo.items.reduce((s, i) => s + i.quantity, 0);

@@ -56,11 +56,31 @@ export function DeliveryPanel({ order, t }: { order: Order; t: (k: string) => st
   );
   const notes = order.delivery_notes?.trim();
   const dialable = (order.courier_phone || '').replace(/[^\d+]/g, '');
+  // Most delivery orders have neither, and the block then spent ~80px of a
+  // screen staff should not have to scroll on the word "Aucun coursier".
+  // Nothing here is actionable — assignment happens on the dispatcher — so an
+  // empty courier block was pure furniture.
+  const hasCourierInfo = Boolean(order.courier_name || order.tour?.name);
+  const hasAddressBlock = Boolean(addr || notes);
+
+  // The shortcut to the dispatcher used to hang off the courier block's
+  // heading, so closing that block would have quietly removed it from every
+  // order without a driver — precisely the orders you open it to fix. It moves
+  // to the address heading, which always renders on a delivery, for 0px.
+  const openDeliveries = (
+    <Link
+      href={`/${order.restaurant_id}/orders/deliveries`}
+      className="inline-flex items-center gap-1 text-fs-xs text-[var(--fg-subtle)] hover:text-[var(--brand-500)] transition-colors"
+    >
+      {t('openDeliveries')}
+      <ArrowUpRightIcon className="w-3 h-3" />
+    </Link>
+  );
 
   return (
     <>
-      {(addr || notes) && (
-        <ContextBlock label={t('deliveryAddress')}>
+      {hasAddressBlock && (
+        <ContextBlock label={t('deliveryAddress')} aside={openDeliveries}>
           <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
             {addr && (
               <div className="flex items-start gap-1.5">
@@ -76,17 +96,13 @@ export function DeliveryPanel({ order, t }: { order: Order; t: (k: string) => st
         </ContextBlock>
       )}
 
+      {/* Rendered when it has something to say — or when the address block did
+          not render, so a delivery order always keeps one heading, and with it
+          the link to the dispatcher. */}
+      {(hasCourierInfo || !hasAddressBlock) && (
       <ContextBlock
         label={t('courier')}
-        aside={
-          <Link
-            href={`/${order.restaurant_id}/orders/deliveries`}
-            className="inline-flex items-center gap-1 text-fs-xs text-[var(--fg-subtle)] hover:text-[var(--brand-500)] transition-colors"
-          >
-            {t('openDeliveries')}
-            <ArrowUpRightIcon className="w-3 h-3" />
-          </Link>
-        }
+        aside={hasAddressBlock ? undefined : openDeliveries}
       >
         {order.courier_name ? (
           <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
@@ -110,11 +126,14 @@ export function DeliveryPanel({ order, t }: { order: Order; t: (k: string) => st
           </div>
         ) : (
           <div className="flex flex-col gap-[var(--s-2)]">
+            {/* Still reached: an order already on a tour but with no driver
+                assigned needs "Aucun coursier" beside its tour badge. */}
             <div className="text-fs-sm text-[var(--fg-subtle)]">{t('courierNone')}</div>
             <TourBadge order={order} t={t} />
           </div>
         )}
       </ContextBlock>
+      )}
     </>
   );
 }

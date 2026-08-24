@@ -6,6 +6,7 @@ import {
   DETAIL_MAIN_TRACK,
   DETAIL_CONTEXT_TRACK,
   DETAIL_RIBBON_BAND,
+  TICKET_RULE_ROW,
 } from './layout';
 
 /**
@@ -50,11 +51,14 @@ export function DetailSkeleton() {
       <div className={`${DETAIL_BODY_GRID} overflow-hidden`}>
       {/* Centre — the ticket's own grid, so the money lane is already in place */}
       <main className={DETAIL_MAIN_TRACK}>
-        <div className="flex items-center justify-between pb-[var(--s-4)]">
+        {/* One row, exactly HairlineRule's: label, rule, summary. The ticket
+            used to open with a separate eyebrow line above this; the skeleton
+            has to lose it too or the swap jumps by its height. */}
+        <div className={TICKET_RULE_ROW}>
           <Skeleton className="h-3 w-16" />
+          <span aria-hidden className="flex-1 h-px bg-[var(--line)] dark:bg-[var(--line-strong)]" />
           <Skeleton className="h-3 w-28" />
         </div>
-        <Skeleton className="h-3 w-full mb-[var(--s-4)]" />
         {[0, 1, 2, 3, 4].map((i) => (
           <div
             key={i}

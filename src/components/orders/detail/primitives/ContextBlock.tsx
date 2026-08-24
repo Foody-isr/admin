@@ -13,6 +13,24 @@ import { cn } from '@/lib/utils';
  * shadows before reaching any content. In a column this narrow the cards were
  * doing no grouping work the headings did not already do.
  */
+/**
+ * The block's chrome, shared with DisclosureBlock.
+ *
+ * Exported as a string rather than added to this component as a `collapsible`
+ * mode, because the two cannot share a heading row: `aside` already carries an
+ * interactive <Link> in DeliveryPanel, and a collapsible heading row IS a
+ * <button> — nesting the two is invalid HTML and a real keyboard bug. Five of
+ * the six ContextBlock callers will never collapse, so a branch here would be
+ * paid for by everyone and used by one. The decor is the only common part, and
+ * decor shares fine as a string.
+ */
+export const CONTEXT_BLOCK_SHELL =
+  'py-[var(--s-4)] first:pt-0 border-t border-[var(--line)] first:border-t-0';
+
+/** The block's eyebrow. Same reason. */
+export const CONTEXT_BLOCK_EYEBROW =
+  'text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--fg-subtle)]';
+
 export function ContextBlock({
   label,
   aside,
@@ -26,19 +44,10 @@ export function ContextBlock({
   className?: string;
 }) {
   return (
-    <section
-      className={cn(
-        'py-[var(--s-4)] first:pt-0 border-t border-[var(--line)] first:border-t-0',
-        className,
-      )}
-    >
+    <section className={cn(CONTEXT_BLOCK_SHELL, className)}>
       {(label || aside) && (
         <div className="flex items-baseline justify-between gap-[var(--s-3)] mb-[var(--s-3)]">
-          {label && (
-            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--fg-subtle)]">
-              {label}
-            </span>
-          )}
+          {label && <span className={CONTEXT_BLOCK_EYEBROW}>{label}</span>}
           {aside}
         </div>
       )}

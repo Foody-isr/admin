@@ -15,13 +15,14 @@
 // on* callback props the host supplies.
 
 import { useEffect, useState } from 'react';
+import { AlertTriangleIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { groupOrder } from '@/lib/orders/group-order';
 import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
 import { statusStageKind } from '@/lib/orders/workflow-stepper';
 import { localizeOrderType } from '@/lib/orders/status-presentation';
-import { ContextBlock } from './primitives/ContextBlock';
+import { DisclosureBlock } from './primitives/DisclosureBlock';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import type { CheckoutConfig, Order } from '@/lib/api';
 
@@ -33,11 +34,13 @@ import { ScheduledBanner } from './spine/ScheduledCallout';
 import { CancellationCallout } from './spine/CancellationCallout';
 import { ActivityTimeline } from './spine/ActivityTimeline';
 import { useOrderAudit } from '@/lib/orders/use-order-audit';
+import { useOrderNotes } from '@/lib/orders/use-order-notes';
+import { buildActivityEvents } from '@/lib/orders/activity-events';
 import { TicketItems } from './center/TicketItems';
 import { CustomerPanel } from './context/CustomerPanel';
 import { DeliveryPanel } from './context/DeliveryPanel';
 import { MoneyPanel } from './context/MoneyPanel';
-import { InvoiceSection } from './context/InvoicePanel';
+import { InvoiceSection, countOrderInvoices } from './context/InvoicePanel';
 import { OrderNotesSection } from './context/NotesPanel';
 
 export interface OrderDetailModalProps {
@@ -83,6 +86,23 @@ export interface OrderDetailModalProps {
   checkoutConfig?: CheckoutConfig | null;
 }
 
+/** "Still counting." Silent to assistive tech: the count beside it is already
+ *  live and will simply grow. */
+function PendingMark() {
+  return <span aria-hidden className="text-[10px] leading-none text-[var(--fg-subtle)]">…</span>;
+}
+
+/** The count could not be established. The reason is announced on the FOLDED
+ *  heading, not left inside a body nobody has opened. */
+function FailedMark({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center text-[var(--warning-500)]">
+      <AlertTriangleIcon aria-hidden className="w-3 h-3" />
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
 export function OrderDetailModal({
   order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete,
   onOverride, onCorrectPayment, onCorrectPaymentMethod, onSendToKitchen, onMarkReady, onMarkServed,
@@ -97,9 +117,13 @@ export function OrderDetailModal({
     setRecapOpen(false);
   }, [order?.id]);
 
-  // Lifted out of ActivityTimeline: the trail mounts twice (spine at lg+,
-  // context column below), and one fetch must serve both.
+  // Both appendix fetches live up here, above the collapse. The blocks at the
+  // foot of the ticket are folded by default and their bodies UNMOUNT when
+  // closed — so anything that fetched inside them could never tell the closed
+  // heading how much is inside, and a fold without a count is exactly the "did
+  // I miss something?" this screen exists to remove.
   const audit = useOrderAudit(order?.restaurant_id, order?.id);
+  const notes = useOrderNotes(order?.restaurant_id, order?.id);
 
   if (!order) {
     // The production page hands down order=null while it fetches, and used to
@@ -198,13 +222,15 @@ export function OrderDetailModal({
     markDelivered: onMarkDelivered,
   };
 
-  // Hoisted out of the JSX: it was a four-line inline expression inside the
-  // context column and now decides whether an appendix block exists at all.
-  const hasInvoice = Boolean(
-    order.external_metadata?.document_number ||
-      (Array.isArray(order.external_metadata?.supplementary_invoices) &&
-        (order.external_metadata.supplementary_invoices as unknown[]).length > 0),
-  );
+  // Decides whether the invoice block exists at all, and labels it when it
+  // does. Both come from external_metadata, so neither costs a fetch — the
+  // section's own getOrderInvoice is now deferred until someone opens it.
+  const invoiceCount = countOrderInvoices(order);
+
+  // Built here rather than inside the timeline: the folded heading has to say
+  // how many rows are inside. `audit.events` is NOT that number — the builder
+  // recognises exactly two audit actions and drops the rest.
+  const activityEvents = buildActivityEvents(order, audit.events, t);
 
   return (
     <>
@@ -267,30 +293,89 @@ export function OrderDetailModal({
           </div>
         }
         reference={
-          // The appendix. One --line-strong rule marks the seam between the
-          // ticket and the reference material; ContextBlock's own
-          // first:border-t-0 keeps it the only rule there.
+          // The appendix: reference material, consulted rather than monitored.
+          // One --line-strong rule marks the seam with the ticket; each block's
+          // own first:border-t-0 keeps it the only rule there.
+          //
+          // Everything here folds, and every heading carries a count, because
+          // the three blocks together held ~394px of a screen staff should be
+          // able to read without scrolling — 207px of it spent saying "no
+          // notes". Folding is only safe BECAUSE of the counts: a closed block
+          // always states how much is inside, so nothing can be missed by not
+          // looking.
           //
           // Order: the two read-only records first, then notes — the only
-          // editable block, ending in its composer, so the one thing you might
-          // DO down here sits closest to the command bar.
+          // editable block, so the one thing you might DO down here sits
+          // closest to the command bar.
+          //
+          // Every key is `${block}-${order.id}`: the reused modal instance swaps
+          // the order underneath, and without a remount the auto-open latch and
+          // the open/closed state would carry across. Keyed on the ID and never
+          // the object — the board hands down a new reference on every
+          // WebSocket event, which would fold up a block mid-read.
           <div className="border-t border-[var(--line-strong)] pt-[var(--s-5)]">
-            <ContextBlock label={t('activity') || 'Activité'}>
+            <DisclosureBlock
+              key={`activity-${order.id}`}
+              label={t('activity') || 'Activité'}
+              count={activityEvents.length}
+              // While the audit is in flight the count is the lifecycle-only
+              // trail, so it can only rise (4 → 5). It never reads 0, because
+              // created_at always yields a row. The ellipsis makes "4 …" read
+              // as "at least four" rather than as a settled figure.
+              mark={
+                audit.status === 'loading' ? (
+                  <PendingMark />
+                ) : audit.status === 'error' ? (
+                  <FailedMark label={t('activityLoadError')} />
+                ) : null
+              }
+            >
               <ActivityTimeline
-                order={order}
-                auditEvents={audit.events}
+                events={activityEvents}
                 auditFailed={audit.status === 'error'}
                 t={t}
               />
-            </ContextBlock>
-            {hasInvoice && (
-              <ContextBlock label={t('invoiceHeading') || 'Invoice'}>
+            </DisclosureBlock>
+
+            {invoiceCount > 0 && (
+              <DisclosureBlock
+                key={`invoice-${order.id}`}
+                label={t('invoiceHeading') || 'Invoice'}
+                count={invoiceCount}
+              >
                 <InvoiceSection order={order} />
-              </ContextBlock>
+              </DisclosureBlock>
             )}
-            <ContextBlock label={t('orderNotesHeading') || 'Notes internes'}>
-              <OrderNotesSection order={order} t={t} direction={direction} />
-            </ContextBlock>
+
+            <DisclosureBlock
+              key={`notes-${order.id}`}
+              label={t('orderNotesHeading') || 'Notes internes'}
+              // Withheld unless the list is KNOWN. status 'error' carries an
+              // empty array, and "NOTES INTERNES 0" over a folded block would
+              // be a confident lie about an order that may well have notes.
+              count={notes.status === 'ready' ? notes.notes.length : undefined}
+              mark={
+                notes.status === 'loading' ? (
+                  <PendingMark />
+                ) : notes.status === 'error' ? (
+                  <FailedMark label={t('orderNotesLoadError')} />
+                ) : null
+              }
+              // Notes open themselves the moment there turn out to be any — an
+              // unread note is the one thing in this appendix that is genuinely
+              // about right now. A failed load opens too, so the error is on
+              // screen rather than buried in an unmounted body.
+              openWhen={notes.status === 'error' || notes.notes.length > 0}
+            >
+              <OrderNotesSection
+                notes={notes.notes}
+                status={notes.status}
+                onAdd={notes.add}
+                onRemove={notes.remove}
+                t={t}
+                direction={direction}
+              />
+            </DisclosureBlock>
           </div>
         }
         footer={

@@ -32,6 +32,40 @@ interface SupplementaryInvoice {
   amount: number;
 }
 
+// Parse supplementary_invoices safely — the field is typed as unknown in
+// external_metadata. The server serializes `number` as a JSON string (Go string
+// via datatypes.JSONMap), so we must accept string | number and coerce. We keep
+// only entries whose `number` coerces to a positive integer (valid Summit document
+// number); non-numeric UIDs (e.g. PayPlus transaction IDs) are dropped, which is
+// correct — PayPlus orders have no downloadable invoice UI anyway.
+function parseSupplements(order: Order): SupplementaryInvoice[] {
+  const raw = order.external_metadata?.supplementary_invoices;
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown[]).flatMap((s) => {
+    if (typeof s !== 'object' || s === null) return [];
+    const row = s as Record<string, unknown>;
+    const docNum = Number(row.number);
+    const amount = Number(row.amount);
+    if (!Number.isInteger(docNum) || docNum <= 0) return [];
+    if (!Number.isFinite(amount)) return [];
+    return [{ number: docNum, amount }];
+  });
+}
+
+/**
+ * How many fiscal documents this order carries, from external_metadata alone —
+ * no fetch, so it is safe to call for the appendix heading's count before the
+ * block is ever opened. Zero means the block should not exist.
+ *
+ * This is the same parse the section itself uses, deliberately: the caller used
+ * to test `supplementary_invoices.length > 0` on the raw array, which counted
+ * PayPlus transaction UIDs the section then dropped — an "Invoice" heading over
+ * an empty body.
+ */
+export function countOrderInvoices(order: Order): number {
+  return (order.external_metadata?.document_number ? 1 : 0) + parseSupplements(order).length;
+}
+
 // A lightweight row for a single supplement invoice — its own PDF busy/error
 // state so multiple rows are independently interactive.
 function SupplementInvoiceRow({
@@ -101,25 +135,7 @@ export function InvoiceSection({ order }: { order: Order }) {
   const [pdfBusy, setPdfBusy] = useState<false | 'view' | 'download'>(false);
   const [pdfError, setPdfError] = useState(false);
 
-  // Parse supplementary_invoices safely — the field is typed as unknown in
-  // external_metadata. The server serializes `number` as a JSON string (Go string
-  // via datatypes.JSONMap), so we must accept string | number and coerce. We keep
-  // only entries whose `number` coerces to a positive integer (valid Summit document
-  // number); non-numeric UIDs (e.g. PayPlus transaction IDs) are dropped, which is
-  // correct — PayPlus orders have no downloadable invoice UI anyway.
-  const supplements: SupplementaryInvoice[] = Array.isArray(
-    order.external_metadata?.supplementary_invoices,
-  )
-    ? (order.external_metadata.supplementary_invoices as unknown[]).flatMap((s) => {
-        if (typeof s !== 'object' || s === null) return [];
-        const raw = s as Record<string, unknown>;
-        const docNum = Number(raw.number);
-        const amount = Number(raw.amount);
-        if (!Number.isInteger(docNum) || docNum <= 0) return [];
-        if (!Number.isFinite(amount)) return [];
-        return [{ number: docNum, amount }];
-      })
-    : [];
+  const supplements = parseSupplements(order);
 
   useEffect(() => {
     if (!hasPrimary) return;

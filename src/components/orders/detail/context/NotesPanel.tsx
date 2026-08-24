@@ -1,73 +1,77 @@
 'use client';
 
-// Internal staff notes. Moved verbatim from OrderDetailDrawer.tsx (1112-1236);
-// still self-fetching, which A4 revisits alongside the activity timeline.
+// Internal staff notes: the list, and the composer. Staff-only, never shown to
+// the customer.
+//
+// Driven entirely by props. It used to fetch its own notes, which stopped being
+// possible when the block became collapsible: the closed heading has to say how
+// many notes there are, and this body does not exist while the block is closed.
+// The fetch lives in use-order-notes.ts — moving it back down here would kill
+// the count silently. That is the reason for the prop drilling; please leave it.
+//
+// The composer is two-step. An always-open <Textarea> cost 128px of a screen
+// the whole redesign is trying to stop staff from scrolling, on every order,
+// whether or not anyone was writing. A button costs 28px and opens the same
+// field.
 
-import { useEffect, useState } from 'react';
-import { Trash2Icon } from 'lucide-react';
+import { useState } from 'react';
+import { Trash2Icon, PlusIcon } from 'lucide-react';
 import { Button, Textarea } from '@/components/ds';
-import { getOrderNotes, addOrderNote, deleteOrderNote, type Order, type OrderNote } from '@/lib/api';
+import type { OrderNote } from '@/lib/api';
 
-// ─── Internal order notes ─────────────────────────────────────────────────────
-// Self-contained: fetches its own notes for the order and handles add/delete via
-// the API, so every host that renders the drawer gets notes with no extra wiring.
-// Staff-only and never shown to the customer.
 export function OrderNotesSection({
-  order, t, direction,
+  notes,
+  status,
+  onAdd,
+  onRemove,
+  t,
+  direction,
 }: {
-  order: Order;
+  notes: OrderNote[];
+  status: 'loading' | 'ready' | 'error';
+  /** Resolves false on failure. */
+  onAdd: (body: string) => Promise<boolean>;
+  /** Optimistic, with rollback. Resolves false on failure. */
+  onRemove: (noteId: number) => Promise<boolean>;
   t: (k: string) => string;
   direction: 'ltr' | 'rtl';
 }) {
-  const restaurantId = order.restaurant_id;
-  const [notes, setNotes] = useState<OrderNote[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [composing, setComposing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    setError(null);
-    getOrderNotes(restaurantId, order.id)
-      .then((rows) => { if (alive) setNotes(rows); })
-      .catch(() => { if (alive) setError(t('orderNotesLoadError') || 'Could not load notes'); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [restaurantId, order.id, t]);
 
   async function submit() {
     const body = draft.trim();
     if (!body || saving) return;
     setSaving(true);
     setError(null);
-    try {
-      const note = await addOrderNote(restaurantId, order.id, body);
-      setNotes((prev) => [note, ...prev]);
+    const ok = await onAdd(body);
+    setSaving(false);
+    if (ok) {
       setDraft('');
-    } catch {
+      setComposing(false);
+    } else {
       setError(t('orderNotesSaveError') || 'Could not add note');
-    } finally {
-      setSaving(false);
     }
   }
 
   async function remove(noteId: number) {
-    const prev = notes;
-    setNotes((rows) => rows.filter((n) => n.id !== noteId)); // optimistic
-    try {
-      await deleteOrderNote(restaurantId, order.id, noteId);
-    } catch {
-      setNotes(prev); // rollback
-      setError(t('orderNotesDeleteError') || 'Could not delete note');
-    }
+    setError(null);
+    const ok = await onRemove(noteId);
+    if (!ok) setError(t('orderNotesDeleteError') || 'Could not delete note');
   }
 
   return (
     <div className="flex flex-col gap-[var(--s-3)]">
-      {loading ? (
+      {status === 'loading' ? (
         <div className="text-fs-sm text-[var(--fg-subtle)]">{t('loading') || '…'}</div>
+      ) : status === 'error' ? (
+        // Never "no notes": an empty list under a failed fetch means we don't
+        // know, and the heading withholds its count for the same reason.
+        <div className="text-fs-sm text-[var(--danger-500)]">
+          {t('orderNotesLoadError') || 'Could not load notes'}
+        </div>
       ) : notes.length === 0 ? (
         <div className="text-fs-sm text-[var(--fg-subtle)]">{t('orderNotesEmpty') || 'Aucune note'}</div>
       ) : (
@@ -79,11 +83,11 @@ export function OrderNotesSection({
             >
               <div className="flex items-start justify-between gap-[var(--s-2)]">
                 <div className="text-fs-xs text-[var(--fg-subtle)]">
-                  {[n.author_name, formatNoteTime(n.created_at, t)].filter(Boolean).join(' · ')}
+                  {[n.author_name, formatNoteTime(n.created_at)].filter(Boolean).join(' · ')}
                 </div>
                 <button
                   type="button"
-                  onClick={() => remove(n.id)}
+                  onClick={() => void remove(n.id)}
                   aria-label={t('delete') || 'Supprimer'}
                   className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--danger-500)] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                 >
@@ -96,32 +100,56 @@ export function OrderNotesSection({
         </ul>
       )}
 
-      <div className="flex flex-col gap-[var(--s-2)]">
-        <Textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={t('orderNotesPlaceholder') || 'Ajouter une note…'}
-          rows={2}
-          dir={direction}
-          maxLength={2000}
-          onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); void submit(); }
-          }}
-        />
-        <div className="flex items-center justify-between gap-[var(--s-2)]">
-          <span className="text-fs-xs text-[var(--danger-500)]">{error || ''}</span>
-          <Button variant="primary" size="sm" onClick={() => void submit()} disabled={!draft.trim() || saving}>
-            {saving ? (t('saving') || '…') : (t('orderNotesAdd') || 'Ajouter')}
+      {composing ? (
+        <div className="flex flex-col gap-[var(--s-2)]">
+          {/* maxLength and the ⌘/Ctrl+Enter shortcut stay on the view: the first
+              is an input constraint that also blocks a paste, the second is a
+              keyboard affordance. Neither is the hook's business. */}
+          <Textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={t('orderNotesPlaceholder') || 'Ajouter une note…'}
+            rows={2}
+            dir={direction}
+            maxLength={2000}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); void submit(); }
+              if (e.key === 'Escape' && !draft.trim()) setComposing(false);
+            }}
+          />
+          <div className="flex items-center justify-end gap-[var(--s-2)]">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setDraft(''); setComposing(false); setError(null); }}
+              disabled={saving}
+            >
+              {t('cancel')}
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => void submit()} disabled={!draft.trim() || saving}>
+              {saving ? (t('saving') || '…') : (t('orderNotesAdd') || 'Ajouter')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <Button variant="secondary" size="sm" onClick={() => setComposing(true)}>
+            <PlusIcon /> {t('addNote')}
           </Button>
         </div>
-      </div>
+      )}
+
+      {/* Rendered only when there is something to say — an always-present empty
+          line reserved height on every order for a message almost none get. */}
+      {error && <div className="text-fs-xs text-[var(--danger-500)]">{error}</div>}
     </div>
   );
 }
 
 // formatNoteTime renders a note's timestamp compactly using the browser locale;
-// falls back to the raw ISO string if it can't be parsed.
-function formatNoteTime(iso: string, _t: (k: string) => string): string {
+// falls back to an empty string if it can't be parsed.
+function formatNoteTime(iso: string): string {
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '';
