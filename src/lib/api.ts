@@ -4742,16 +4742,22 @@ export async function setOrderPrepared(
 // Pin (force=true) or unpin an order onto the production sheet, overriding the
 // normal scheduled + paid/trusted gates. Server enforces KitchenManage. Backs
 // the "Ajouter au plan de production" override in the order overflow menu.
+//
+// Pinning a CANCELLED order also restores it server-side (the sheet, the
+// delivery export and the tours all exclude dead statuses), so the response
+// carries the updated order: its status moved, and an optimistic patch of
+// force_production alone would leave the drawer showing "Annulée".
 export async function setOrderForceProduction(
   restaurantId: number,
   orderId: number,
   force: boolean,
-): Promise<void> {
-  await apiFetch<void>(
+): Promise<Order | null> {
+  const data = await apiFetch<{ force_production: boolean; order?: Order }>(
     `/api/v1/orders/${orderId}/force-production?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'POST', body: JSON.stringify({ force }) },
   );
+  return data?.order ?? null;
 }
 
 export async function fetchProductionDays(restaurantId: number): Promise<ProductionDay[]> {
