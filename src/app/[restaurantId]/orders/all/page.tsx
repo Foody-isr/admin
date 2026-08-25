@@ -393,10 +393,17 @@ export default function OrdersPage() {
   // "Ajouter au plan de production" toggle from the order overflow menu. Pins
   // (force=true) or unpins the order onto the production sheet, overriding the
   // scheduled/paid gates. Optimistic; refetches on failure to resync.
+  // Pinning a CANCELLED order restores it server-side, so the optimistic patch
+  // (force_production only) is not the whole change: merge the order the server
+  // sends back, which carries the new status and the cleared cancellation
+  // reason. Without it the drawer keeps showing "Annulée" until a refetch.
   const handleToggleForceProduction = async (orderId: number, force: boolean) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, force_production: force } : o)));
     try {
-      await setOrderForceProduction(rid, orderId, force);
+      const updated = await setOrderForceProduction(rid, orderId, force);
+      if (updated) {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updated } : o)));
+      }
     } catch {
       await fetchOrders();
     }

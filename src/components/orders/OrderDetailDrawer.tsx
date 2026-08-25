@@ -537,10 +537,19 @@ export function OrderDetailDrawer({
   // it. Only meaningful once something has actually been settled.
   const canCorrectPaymentMethod =
     !!canOverride && !isCancelled && !providerSettled && order.payment_status === 'paid';
+  // Dead statuses, mirroring the server's common.DeadOrderStatuses. The
+  // production sheet, the delivery export and the tours all exclude these.
+  const isDeadStatus = ['rejected', 'cancelled', 'refunded'].includes(order.status);
   // "Ajouter au plan de production" override. Any manager can pin an order onto
-  // the production sheet; hidden on dead (rejected/cancelled) orders since the
-  // sheet excludes them regardless. Reversible — the label flips to "Retirer".
-  const canForceProduction = canManage && !isCancelled && !!onToggleForceProduction;
+  // the production sheet — a cancelled one included. It used to be hidden there
+  // on the grounds that the sheet excludes dead orders anyway, which left staff
+  // with no way at all to produce an order the abandonment sweeper had cancelled
+  // while the customer was confirming it by phone: the ⋯ menu offered nothing
+  // but "delete". Pinning a dead order now restores it server-side (see
+  // SetOrderForceProduction), which is why the label says so. Reversible — it
+  // flips to "Retirer", and un-pinning never re-cancels.
+  const canForceProduction = canManage && !!onToggleForceProduction;
+  const forceProductionRevives = isDeadStatus && !order.force_production;
   // Items can be edited while the order is still in progress (not cancelled or
   // already served/delivered/rejected).
   const canEditOrder = !isCancelled && !isTerminal;
@@ -672,6 +681,7 @@ export function OrderDetailDrawer({
                 canCorrectPaymentMethod={canCorrectPaymentMethod && !!onCorrectPaymentMethod}
                 canForceProduction={canForceProduction}
                 forceProductionActive={!!order.force_production}
+                forceProductionRevives={forceProductionRevives}
                 canCancel={canCancelOrder}
                 canDelete={!!(canDelete && onDelete)}
                 onCorrect={onOverride}
@@ -2172,7 +2182,7 @@ function SendToCustomerMenu({
 
 function OrderOverflowMenu({
   canCorrect, canCorrectPayment, canCorrectPaymentMethod, canForceProduction, forceProductionActive,
-  canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
+  forceProductionRevives, canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
   onToggleForceProduction, onCancel, onDelete, disabled,
 }: {
   canCorrect?: boolean;
@@ -2180,6 +2190,8 @@ function OrderOverflowMenu({
   canCorrectPaymentMethod?: boolean;
   canForceProduction?: boolean;
   forceProductionActive?: boolean;
+  /** The order is cancelled: pinning it will restore it first. Say so. */
+  forceProductionRevives?: boolean;
   canCancel: boolean;
   canDelete: boolean;
   onCorrect?: () => void;
@@ -2258,7 +2270,9 @@ function OrderOverflowMenu({
               <ClipboardListIcon className="size-4" />{' '}
               {forceProductionActive
                 ? (t('removeFromProduction') || 'Retirer du plan de production')
-                : (t('addToProduction') || 'Ajouter au plan de production')}
+                : forceProductionRevives
+                  ? (t('restoreAndAddToProduction') || 'Réactiver et ajouter au plan de production')
+                  : (t('addToProduction') || 'Ajouter au plan de production')}
             </button>
           )}
           {((canCorrect && onCorrect) || (canCorrectPayment && onCorrectPayment) || (canCorrectPaymentMethod && onCorrectPaymentMethod) || (canForceProduction && onToggleForceProduction)) && (canCancel || canDelete) && (
