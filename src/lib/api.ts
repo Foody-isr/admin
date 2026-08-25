@@ -8686,7 +8686,7 @@ export interface CateringLibraryItem {
   description: string;
   image_url: string;
   is_active: boolean;
-  translations?: Record<string, Record<string, string>>;
+  translations?: TranslationMap;
 }
 
 export interface CateringCatalogItem {
@@ -8797,8 +8797,37 @@ export async function listCateringItems(restaurantId: number, serviceId: number)
 
 /** Restaurant-global article library projected for the catering formula composer. */
 export async function listCateringArticleLibrary(restaurantId: number): Promise<CateringLibraryItem[]> {
-  const res = await apiFetch<{ items: CateringLibraryItem[] }>('/api/v1/catering/article-library', restaurantId);
-  return res.items ?? [];
+  const fromItemCategories = async (): Promise<CateringLibraryItem[]> => {
+    const categories = await getAllCategories(restaurantId);
+    return categories.flatMap((category) => (category.items ?? []).map((item) => ({
+      id: item.id,
+      category_id: category.id,
+      category_name: category.name,
+      name: item.name,
+      description: item.description,
+      image_url: item.image_url,
+      is_active: item.is_active,
+      translations: item.translations,
+    })));
+  };
+
+  try {
+    const res = await apiFetch<{ items: CateringLibraryItem[] }>('/api/v1/catering/article-library', restaurantId);
+    const items = res.items ?? [];
+    // The category endpoint is the long-standing source used by the article
+    // library screen. Falling back on an unexpected empty projection keeps the
+    // composer usable during rolling API deployments and legacy-data upgrades.
+    return items.length > 0 ? items : fromItemCategories();
+  } catch (error) {
+    // The catering-scoped projection was introduced after the existing menu
+    // library endpoints. During a rolling deploy Admin can reach the new UI
+    // before that route exists on the API, so use the established category
+    // endpoint until the server catches up. Other errors stay visible.
+    if (error instanceof ApiError && error.status === 404) {
+      return fromItemCategories();
+    }
+    throw error;
+  }
 }
 
 /** Create a catalog item under a service. */
