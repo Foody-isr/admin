@@ -8638,6 +8638,57 @@ export async function refundCateringDeposit(restaurantId: number, id: number, bo
 /** A per-person price break: from `min_guests` guests, the rate is `price`/person. */
 export interface CateringPriceTier { min_guests: number; price: number }
 
+export interface CateringChoiceItem {
+  id: number;
+  choice_group_id: number;
+  menu_item_id: number;
+  price_delta: number;
+  default_quantity: number;
+  sort_order: number;
+  menu_item: MenuItem;
+}
+
+export interface CateringChoiceGroup {
+  id: number;
+  restaurant_id: number;
+  catalog_item_id: number;
+  name: string;
+  description: string;
+  translations?: Record<string, Record<string, string>>;
+  min_selections: number;
+  max_selections: number;
+  max_per_item: number;
+  sort_order: number;
+  items: CateringChoiceItem[];
+}
+
+export interface CateringChoiceItemInput {
+  menu_item_id: number;
+  price_delta: number;
+  default_quantity: number;
+}
+
+export interface CateringChoiceGroupInput {
+  name: string;
+  description?: string;
+  translations?: Record<string, Record<string, string>>;
+  min_selections: number;
+  max_selections: number;
+  max_per_item: number;
+  items: CateringChoiceItemInput[];
+}
+
+export interface CateringLibraryItem {
+  id: number;
+  category_id: number;
+  category_name: string;
+  name: string;
+  description: string;
+  image_url: string;
+  is_active: boolean;
+  translations?: Record<string, Record<string, string>>;
+}
+
 export interface CateringCatalogItem {
   id: number;
   restaurant_id: number;
@@ -8658,6 +8709,7 @@ export interface CateringCatalogItem {
   lead_time_days: number;
   is_active: boolean;
   sort_order: number;
+  choice_groups?: CateringChoiceGroup[];
 }
 
 export interface CateringCatalogItemInput {
@@ -8673,6 +8725,7 @@ export interface CateringCatalogItemInput {
   min_guests?: number;
   is_active?: boolean;
   sort_order?: number;
+  choice_groups?: CateringChoiceGroupInput[];
 }
 
 export interface CateringCatalogGroup {
@@ -8739,6 +8792,12 @@ export interface CateringOptionInput {
 /** List catalog items for a catering service. */
 export async function listCateringItems(restaurantId: number, serviceId: number): Promise<CateringCatalogItem[]> {
   const res = await apiFetch<{ items: CateringCatalogItem[] }>(`/api/v1/catering/services/${serviceId}/items`, restaurantId);
+  return res.items ?? [];
+}
+
+/** Restaurant-global article library projected for the catering formula composer. */
+export async function listCateringArticleLibrary(restaurantId: number): Promise<CateringLibraryItem[]> {
+  const res = await apiFetch<{ items: CateringLibraryItem[] }>('/api/v1/catering/article-library', restaurantId);
   return res.items ?? [];
 }
 

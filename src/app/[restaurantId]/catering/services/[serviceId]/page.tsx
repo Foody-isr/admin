@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon, ChevronUpIcon, ChevronDownIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
@@ -12,6 +12,11 @@ import {
 import { PageHead, Button, Tabs, TabsList, Tab, TabsContent } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { CateringLocaleFields } from '@/components/catering/CateringLocaleFields';
+import CateringFormulaComposer, {
+  newChoiceGroupDraft,
+  toChoiceGroupInputs,
+  type CateringChoiceGroupDraft,
+} from '@/components/catering/CateringFormulaComposer';
 import { type Locale } from '@/components/i18n/LocaleTabs';
 import {
   listCateringServices, listCateringItems, createCateringItem, updateCateringItem, archiveCateringItem, reorderCateringItems,
@@ -400,8 +405,30 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
   const [uploading, setUploading] = useState(false);
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
+  const [formTab, setFormTab] = useState<'details' | 'composition'>('details');
+  const [choiceGroups, setChoiceGroups] = useState<CateringChoiceGroupDraft[]>(() =>
+    (editing?.choice_groups ?? []).map((group, index) => ({
+      ...newChoiceGroupDraft(index, group.name),
+      description: group.description ?? '',
+      translations: group.translations ?? {},
+      min_selections: group.min_selections,
+      max_selections: group.max_selections,
+      max_per_item: group.max_per_item,
+      items: (group.items ?? []).map((item) => ({
+        menu_item_id: item.menu_item_id,
+        price_delta: item.price_delta,
+        default_quantity: item.default_quantity,
+      })),
+    })),
+  );
 
   const priceLabel = itemPriceLabel(pricingModel, t);
+  const compositionValid = useMemo(() => choiceGroups.every((group) => {
+    const defaults = group.items.reduce((sum, item) => sum + item.default_quantity, 0);
+    const capacity = group.max_per_item === 0 ? Number.POSITIVE_INFINITY : group.items.length * group.max_per_item;
+    return group.name.trim().length > 0 && group.items.length > 0 && group.min_selections >= 0 &&
+      group.max_selections >= Math.max(1, group.min_selections) && capacity >= group.min_selections && defaults <= group.max_selections;
+  }), [choiceGroups]);
 
   const handleImage = async (file: File) => {
     setUploading(true);
@@ -414,6 +441,10 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
 
   const handleSave = async () => {
     if (!name.trim()) return;
+    if (!compositionValid) {
+      setFormTab('composition');
+      return;
+    }
     setSaving(true);
     try {
       const body: CateringCatalogItemInput = {
@@ -425,6 +456,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
         image_url: imageUrl,
         translations,
         is_active: isActive,
+        choice_groups: toChoiceGroupInputs(choiceGroups),
         ...(pricingModel === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
         ...(pricingModel === 'per_person'
           ? {
@@ -448,8 +480,18 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
   };
 
   return (
-    <Modal title={editing ? t('catering_edit_item') : t('catering_new_item')} onClose={onClose}>
+    <Modal title={editing ? t('catering_edit_item') : t('catering_new_item')} onClose={onClose} size="3xl">
       <div className="space-y-4">
+        <div className="flex rounded-xl bg-[var(--surface-subtle)] p-1">
+          <button type="button" onClick={() => setFormTab('details')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${formTab === 'details' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary'}`}>
+            {t('catering_formula_details_tab')}
+          </button>
+          <button type="button" onClick={() => setFormTab('composition')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${formTab === 'composition' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary'}`}>
+            {t('catering_formula_composition')} {choiceGroups.length > 0 && <span className="ms-1 rounded-full bg-brand-500/10 px-2 py-0.5 text-xs text-brand-600">{choiceGroups.length}</span>}
+          </button>
+        </div>
+
+        {formTab === 'details' && <div className="space-y-4">
         <CateringLocaleFields
           sourceLocale={sourceLocale}
           name={name}
@@ -575,10 +617,16 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           <span className="text-sm text-fg-secondary">{t('catering_field_active')}</span>
         </label>
+        </div>}
 
+        {formTab === 'composition' && (
+          <CateringFormulaComposer restaurantId={restaurantId} groups={choiceGroups} onChange={setChoiceGroups} />
+        )}
+
+        {!compositionValid && <p className="text-sm text-red-500">{t('catering_choice_invalid')}</p>}
         <div className="flex justify-end gap-2 mt-4">
           <button className="btn-secondary" onClick={onClose}>{t('catering_cancel')}</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving || !name.trim()}>
+          <button className="btn-primary" onClick={handleSave} disabled={saving || !name.trim() || !compositionValid}>
             {t('catering_save')}
           </button>
         </div>
