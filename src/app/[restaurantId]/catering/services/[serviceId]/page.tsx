@@ -25,6 +25,7 @@ import {
   uploadSectionImage, getRestaurant,
   type CateringService, type CateringPricingModel,
   type CateringCatalogItem, type CateringCatalogItemInput,
+  type CateringIncludedItemInput,
   type CateringCatalogGroup,
   type CateringOption, type CateringOptionInput, type CateringOptionPriceMode,
 } from '@/lib/api';
@@ -421,6 +422,12 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
       })),
     })),
   );
+  const [includedItems, setIncludedItems] = useState<CateringIncludedItemInput[]>(() =>
+    (editing?.included_items ?? []).map((item) => ({
+      ...(item.menu_item_id ? { menu_item_id: item.menu_item_id } : { name: item.name }),
+      description: item.description ?? '',
+    })),
+  );
 
   const priceLabel = itemPriceLabel(pricingModel, t);
   const compositionValid = useMemo(() => choiceGroups.every((group) => {
@@ -428,7 +435,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
     const capacity = group.max_per_item === 0 ? Number.POSITIVE_INFINITY : group.items.length * group.max_per_item;
     return group.name.trim().length > 0 && group.items.length > 0 && group.min_selections >= 0 &&
       group.max_selections >= Math.max(1, group.min_selections) && capacity >= group.min_selections && defaults <= group.max_selections;
-  }), [choiceGroups]);
+  }), [choiceGroups]) && includedItems.every((item) => Boolean(item.menu_item_id || item.name?.trim()));
 
   const handleImage = async (file: File) => {
     setUploading(true);
@@ -457,6 +464,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
         translations,
         is_active: isActive,
         choice_groups: toChoiceGroupInputs(choiceGroups),
+        included_items: includedItems,
         ...(pricingModel === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
         ...(pricingModel === 'per_person'
           ? {
@@ -479,19 +487,39 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
     }
   };
 
+  const modalFooter = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-h-5">
+        {!compositionValid && <p className="text-sm text-red-500">{t('catering_choice_invalid')}</p>}
+      </div>
+      <div className="flex justify-end gap-2">
+        <button className="btn-secondary" onClick={onClose}>{t('catering_cancel')}</button>
+        <button className="btn-primary" onClick={handleSave} disabled={saving || !name.trim() || !compositionValid}>
+          {t('catering_save')}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <Modal title={editing ? t('catering_edit_item') : t('catering_new_item')} onClose={onClose} size="3xl">
-      <div className="space-y-4">
-        <div className="flex rounded-xl bg-[var(--surface-subtle)] p-1">
+    <Modal
+      title={editing ? t('catering_edit_item') : t('catering_new_item')}
+      onClose={onClose}
+      size="5xl"
+      bodyClassName="!overflow-hidden !p-0"
+      footer={modalFooter}
+    >
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="mx-4 mt-4 flex shrink-0 rounded-xl bg-[var(--surface-subtle)] p-1 sm:mx-6">
           <button type="button" onClick={() => setFormTab('details')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${formTab === 'details' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary'}`}>
             {t('catering_formula_details_tab')}
           </button>
           <button type="button" onClick={() => setFormTab('composition')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${formTab === 'composition' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary'}`}>
-            {t('catering_formula_composition')} {choiceGroups.length > 0 && <span className="ms-1 rounded-full bg-brand-500/10 px-2 py-0.5 text-xs text-brand-600">{choiceGroups.length}</span>}
+            {t('catering_formula_composition')} {(choiceGroups.length + includedItems.length) > 0 && <span className="ms-1 rounded-full bg-brand-500/10 px-2 py-0.5 text-xs text-brand-600">{choiceGroups.length + includedItems.length}</span>}
           </button>
         </div>
 
-        {formTab === 'details' && <div className="space-y-4">
+        {formTab === 'details' && <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
         <CateringLocaleFields
           sourceLocale={sourceLocale}
           name={name}
@@ -620,16 +648,16 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
         </div>}
 
         {formTab === 'composition' && (
-          <CateringFormulaComposer restaurantId={restaurantId} groups={choiceGroups} onChange={setChoiceGroups} />
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:overflow-hidden sm:p-6">
+            <CateringFormulaComposer
+              restaurantId={restaurantId}
+              groups={choiceGroups}
+              onChange={setChoiceGroups}
+              includedItems={includedItems}
+              onIncludedItemsChange={setIncludedItems}
+            />
+          </div>
         )}
-
-        {!compositionValid && <p className="text-sm text-red-500">{t('catering_choice_invalid')}</p>}
-        <div className="flex justify-end gap-2 mt-4">
-          <button className="btn-secondary" onClick={onClose}>{t('catering_cancel')}</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving || !name.trim() || !compositionValid}>
-            {t('catering_save')}
-          </button>
-        </div>
       </div>
     </Modal>
   );

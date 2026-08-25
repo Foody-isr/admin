@@ -8678,6 +8678,23 @@ export interface CateringChoiceGroupInput {
   items: CateringChoiceItemInput[];
 }
 
+export interface CateringIncludedItem {
+  id: number;
+  restaurant_id: number;
+  catalog_item_id: number;
+  menu_item_id?: number;
+  name: string;
+  description: string;
+  sort_order: number;
+  menu_item?: MenuItem;
+}
+
+export interface CateringIncludedItemInput {
+  menu_item_id?: number;
+  name?: string;
+  description?: string;
+}
+
 export interface CateringLibraryItem {
   id: number;
   category_id: number;
@@ -8710,6 +8727,7 @@ export interface CateringCatalogItem {
   is_active: boolean;
   sort_order: number;
   choice_groups?: CateringChoiceGroup[];
+  included_items?: CateringIncludedItem[];
 }
 
 export interface CateringCatalogItemInput {
@@ -8726,6 +8744,7 @@ export interface CateringCatalogItemInput {
   is_active?: boolean;
   sort_order?: number;
   choice_groups?: CateringChoiceGroupInput[];
+  included_items?: CateringIncludedItemInput[];
 }
 
 export interface CateringCatalogGroup {

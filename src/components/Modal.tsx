@@ -2,7 +2,7 @@
 
 import { XIcon } from 'lucide-react';
 
-type ModalSize = 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+type ModalSize = 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '5xl';
 
 const SIZE_CLASS: Record<ModalSize, string> = {
   md: 'max-w-md',
@@ -10,6 +10,7 @@ const SIZE_CLASS: Record<ModalSize, string> = {
   xl: 'max-w-xl',
   '2xl': 'max-w-2xl',
   '3xl': 'max-w-3xl',
+  '5xl': 'max-w-6xl h-[90vh]',
 };
 
 export default function Modal({
@@ -18,6 +19,7 @@ export default function Modal({
   icon,
   children,
   footer,
+  bodyClassName = '',
   onClose,
   size = 'md',
 }: {
@@ -26,6 +28,7 @@ export default function Modal({
   icon?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  bodyClassName?: string;
   onClose: () => void;
   size?: ModalSize;
 }) {
@@ -62,7 +65,7 @@ export default function Modal({
             <XIcon className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6 overflow-y-auto">{children}</div>
+        <div className={`min-h-0 flex-1 p-6 overflow-y-auto ${bodyClassName}`}>{children}</div>
         {footer && (
           <div
             className="px-6 py-4 border-t shrink-0"
