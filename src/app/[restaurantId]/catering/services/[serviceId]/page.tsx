@@ -13,6 +13,7 @@ import { PageHead, Button, Tabs, TabsList, Tab, TabsContent } from '@/components
 import Modal from '@/components/Modal';
 import { CateringLocaleFields } from '@/components/catering/CateringLocaleFields';
 import CateringItemGalleryEditor from '@/components/catering/CateringItemGalleryEditor';
+import CateringFlowEditor from '@/components/catering/CateringFlowEditor';
 import CateringFormulaComposer, {
   newChoiceGroupDraft,
   newIncludedSectionDraft,
@@ -59,7 +60,7 @@ export default function CateringServiceCatalogPage() {
   const [service, setService] = useState<CateringService | undefined>(undefined);
   const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'items' | 'options'>('items');
+  const [tab, setTab] = useState<'items' | 'journey' | 'options'>('items');
 
   useEffect(() => {
     let active = true;
@@ -102,9 +103,10 @@ export default function CateringServiceCatalogPage() {
         desc={service ? t(PRICING_KEYS[service.pricing_model]) : undefined}
       />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'items' | 'options')}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'items' | 'journey' | 'options')}>
         <TabsList>
           <Tab value="items">{t('catering_items_tab')}</Tab>
+          <Tab value="journey">{t('catering_flow_tab')}</Tab>
           <Tab value="options">{t('catering_options_tab')}</Tab>
         </TabsList>
 
@@ -112,6 +114,10 @@ export default function CateringServiceCatalogPage() {
           {service && (
             <ItemsTab restaurantId={rid} serviceId={sid} pricingModel={service.pricing_model} canEdit={canEdit} sourceLocale={sourceLocale} />
           )}
+        </TabsContent>
+
+        <TabsContent value="journey">
+          {service && <CateringFlowEditor restaurantId={rid} service={service} canEdit={canEdit} onSaved={setService} />}
         </TabsContent>
 
         <TabsContent value="options">

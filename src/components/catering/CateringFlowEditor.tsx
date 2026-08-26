@@ -1,0 +1,281 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { Button } from '@/components/ds';
+import { useI18n } from '@/lib/i18n';
+import {
+  updateCateringServiceFlow,
+  type CateringFlowConfig,
+  type CateringFlowOption,
+  type CateringFlowPriceMode,
+  type CateringFlowStep,
+  type CateringFlowStepKind,
+  type CateringService,
+} from '@/lib/api';
+
+const STEP_KINDS: CateringFlowStepKind[] = ['guest_count', 'schedule', 'single_choice', 'multi_choice', 'quantity'];
+const PRICE_MODES: CateringFlowPriceMode[] = ['fixed', 'per_guest', 'per_session', 'per_guest_session', 'per_unit'];
+
+function nextId(prefix: string, used: string[]): string {
+  let index = used.length + 1;
+  let candidate = `${prefix}_${index}`;
+  while (used.includes(candidate)) candidate = `${prefix}_${++index}`;
+  return candidate;
+}
+
+function createStep(kind: CateringFlowStepKind, used: string[]): CateringFlowStep {
+  const id = nextId(kind, used);
+  const base = { id, kind, title: '', description: '', required: true } as CateringFlowStep;
+  if (kind === 'schedule') {
+    return { ...base, schedule: { mode: 'custom', min_sessions: 1, max_sessions: 4, allow_same_day: true, slots: [] } };
+  }
+  if (kind === 'single_choice' || kind === 'multi_choice' || kind === 'quantity') {
+    return { ...base, options: [{ id: 'option_1', label: '', price: 0, price_mode: kind === 'quantity' ? 'per_unit' : 'fixed' }] };
+  }
+  return base;
+}
+
+function starterFlow(t: (key: string) => string): CateringFlowConfig {
+  return {
+    version: 1,
+    enabled: true,
+    catalog_pricing_per_session: false,
+    steps: [
+      { id: 'guests', kind: 'guest_count', title: t('catering_flow_starter_guests'), description: t('catering_flow_starter_guests_hint'), required: true },
+      { id: 'schedule', kind: 'schedule', title: t('catering_flow_starter_schedule'), description: t('catering_flow_starter_schedule_hint'), required: true, schedule: { mode: 'custom', min_sessions: 1, max_sessions: 4, allow_same_day: true, slots: [] } },
+      { id: 'fulfilment', kind: 'single_choice', title: t('catering_flow_starter_fulfilment'), required: true, options: [
+        { id: 'delivery', label: t('catering_flow_starter_delivery'), price: 0, price_mode: 'fixed' },
+        { id: 'onsite', label: t('catering_flow_starter_onsite'), price: 0, price_mode: 'fixed' },
+      ] },
+    ],
+  };
+}
+
+function normalizedFlow(raw: CateringService['flow_config']): CateringFlowConfig {
+  if (raw && 'version' in raw && raw.version === 1) return structuredClone(raw as CateringFlowConfig);
+  return { version: 1, enabled: false, catalog_pricing_per_session: false, steps: [] };
+}
+
+function stepValid(step: CateringFlowStep): boolean {
+  if (!step.title.trim()) return false;
+  if (step.kind === 'schedule') {
+    const schedule = step.schedule;
+    if (!schedule || schedule.min_sessions < 0 || schedule.max_sessions < Math.max(1, schedule.min_sessions)) return false;
+    if (schedule.mode === 'predefined' && (!schedule.slots?.length || schedule.slots.some((slot) => !slot.label.trim()))) return false;
+  }
+  if (step.kind === 'single_choice' || step.kind === 'multi_choice' || step.kind === 'quantity') {
+    if (!step.options?.length || step.options.some((option) => !option.label.trim())) return false;
+  }
+  return true;
+}
+
+function flowValid(flow: CateringFlowConfig): boolean {
+  if (!flow.enabled) return true;
+  if (flow.steps.length === 0 || new Set(flow.steps.map((step) => step.id)).size !== flow.steps.length) return false;
+  return flow.steps.every((step, index) => {
+    if (!stepValid(step)) return false;
+    if (!step.condition) return true;
+    const source = flow.steps.slice(0, index).find((candidate) => candidate.id === step.condition?.step_id);
+    return Boolean(source?.options?.some((option) => option.id === step.condition?.option_id));
+  });
+}
+
+export default function CateringFlowEditor({ restaurantId, service, canEdit, onSaved }: {
+  restaurantId: number;
+  service: CateringService;
+  canEdit: boolean;
+  onSaved: (service: CateringService) => void;
+}) {
+  const { t } = useI18n();
+  const [flow, setFlow] = useState<CateringFlowConfig>(() => normalizedFlow(service.flow_config));
+  const [newKind, setNewKind] = useState<CateringFlowStepKind>('single_choice');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const valid = useMemo(() => flowValid(flow), [flow]);
+
+  const updateStep = (index: number, next: CateringFlowStep) => {
+    setSaved(false);
+    setFlow((current) => ({ ...current, steps: current.steps.map((step, i) => i === index ? next : step) }));
+  };
+  const moveStep = (index: number, delta: -1 | 1) => {
+    const target = index + delta;
+    if (target < 0 || target >= flow.steps.length) return;
+    const steps = [...flow.steps];
+    [steps[index], steps[target]] = [steps[target], steps[index]];
+    setSaved(false);
+    setFlow({ ...flow, steps });
+  };
+  const removeStep = (index: number) => {
+    const removed = flow.steps[index];
+    setSaved(false);
+    setFlow({ ...flow, steps: flow.steps.filter((_, i) => i !== index).map((step) => step.condition?.step_id === removed.id ? { ...step, condition: undefined } : step) });
+  };
+  const save = async () => {
+    if (!valid) return;
+    setSaving(true);
+    try {
+      const updated = await updateCateringServiceFlow(restaurantId, service.id, flow);
+      onSaved(updated);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)]">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--divider)] p-5">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-600">{t('catering_flow_eyebrow')}</p>
+            <h2 className="mt-1 text-xl font-semibold text-fg-primary">{t('catering_flow_title')}</h2>
+            <p className="mt-1 text-sm leading-6 text-fg-secondary">{t('catering_flow_hint')}</p>
+          </div>
+          <label className="flex cursor-pointer items-center gap-3 rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-semibold text-fg-primary">
+            <input type="checkbox" checked={flow.enabled} disabled={!canEdit} onChange={(e) => { setSaved(false); setFlow({ ...flow, enabled: e.target.checked }); }} />
+            {t('catering_flow_enabled')}
+          </label>
+        </div>
+
+        {flow.steps.length === 0 ? (
+          <div className="grid place-items-center px-5 py-14 text-center">
+            <div className="max-w-md">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-brand-500/10 text-xl text-brand-600">1→2→3</div>
+              <h3 className="mt-4 font-semibold text-fg-primary">{t('catering_flow_empty_title')}</h3>
+              <p className="mt-1 text-sm text-fg-secondary">{t('catering_flow_empty_hint')}</p>
+              {canEdit && <Button className="mt-5" variant="primary" size="md" onClick={() => setFlow(starterFlow(t))}>{t('catering_flow_starter')}</Button>}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 bg-[var(--surface-subtle)] p-4 sm:p-5">
+            {flow.steps.map((step, index) => (
+              <StepCard
+                key={step.id}
+                step={step}
+                index={index}
+                priorSteps={flow.steps.slice(0, index)}
+                canEdit={canEdit}
+                onChange={(next) => updateStep(index, next)}
+                onMove={(delta) => moveStep(index, delta)}
+                onRemove={() => removeStep(index)}
+                first={index === 0}
+                last={index === flow.steps.length - 1}
+              />
+            ))}
+          </div>
+        )}
+
+        {canEdit && flow.steps.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--divider)] p-4 sm:p-5">
+            <div className="flex flex-wrap gap-2">
+              <select className="input !w-auto" value={newKind} onChange={(e) => setNewKind(e.target.value as CateringFlowStepKind)}>
+                {STEP_KINDS.map((kind) => <option key={kind} value={kind}>{t(`catering_flow_kind_${kind}`)}</option>)}
+              </select>
+              <Button variant="secondary" size="md" onClick={() => { setSaved(false); setFlow({ ...flow, steps: [...flow.steps, createStep(newKind, flow.steps.map((step) => step.id))] }); }}>
+                <PlusIcon />{t('catering_flow_add_step')}
+              </Button>
+            </div>
+            <div className="flex items-center gap-3">
+              {!valid && <span className="text-sm text-red-500">{t('catering_flow_invalid')}</span>}
+              {saved && <span className="text-sm text-emerald-600">{t('catering_flow_saved')}</span>}
+              <Button variant="primary" size="md" disabled={saving || !valid} onClick={save}>{saving ? t('saving') : t('catering_flow_publish')}</Button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {flow.enabled && flow.steps.length > 0 && (
+        <label className="flex items-start gap-3 rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-4">
+          <input className="mt-1" type="checkbox" checked={Boolean(flow.catalog_pricing_per_session)} disabled={!canEdit} onChange={(e) => { setSaved(false); setFlow({ ...flow, catalog_pricing_per_session: e.target.checked }); }} />
+          <span><span className="block text-sm font-semibold text-fg-primary">{t('catering_flow_catalog_per_session')}</span><span className="mt-1 block text-sm text-fg-secondary">{t('catering_flow_catalog_per_session_hint')}</span></span>
+        </label>
+      )}
+    </div>
+  );
+}
+
+function StepCard({ step, index, priorSteps, canEdit, onChange, onMove, onRemove, first, last }: {
+  step: CateringFlowStep;
+  index: number;
+  priorSteps: CateringFlowStep[];
+  canEdit: boolean;
+  onChange: (step: CateringFlowStep) => void;
+  onMove: (delta: -1 | 1) => void;
+  onRemove: () => void;
+  first: boolean;
+  last: boolean;
+}) {
+  const { t } = useI18n();
+  const conditionalSources = priorSteps.filter((candidate) => candidate.options?.length);
+  const selectedSource = conditionalSources.find((candidate) => candidate.id === step.condition?.step_id);
+  return (
+    <article className={`rounded-xl border bg-[var(--surface)] ${stepValid(step) ? 'border-[var(--divider)]' : 'border-red-400'}`}>
+      <div className="flex items-center gap-3 border-b border-[var(--divider)] px-4 py-3">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-500 text-sm font-bold text-white">{index + 1}</span>
+        <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-fg-primary">{step.title || t('catering_flow_untitled')}</p><p className="text-xs text-fg-tertiary">{t(`catering_flow_kind_${step.kind}`)}</p></div>
+        {canEdit && <div className="flex items-center"><button className="rounded p-1.5 text-fg-secondary hover:bg-[var(--surface-subtle)] disabled:opacity-25" disabled={first} onClick={() => onMove(-1)}><ArrowUpIcon className="h-4 w-4" /></button><button className="rounded p-1.5 text-fg-secondary hover:bg-[var(--surface-subtle)] disabled:opacity-25" disabled={last} onClick={() => onMove(1)}><ArrowDownIcon className="h-4 w-4" /></button><button className="rounded p-1.5 text-fg-secondary hover:bg-red-500/10 hover:text-red-500" onClick={onRemove}><Trash2Icon className="h-4 w-4" /></button></div>}
+      </div>
+      <div className="grid gap-4 p-4 lg:grid-cols-2">
+        <Field label={t('catering_flow_question')}><input className="input" value={step.title} disabled={!canEdit} onChange={(e) => onChange({ ...step, title: e.target.value })} /></Field>
+        <Field label={t('catering_flow_help')}><input className="input" value={step.description ?? ''} disabled={!canEdit} onChange={(e) => onChange({ ...step, description: e.target.value })} /></Field>
+        <label className="flex items-center gap-2 text-sm text-fg-primary"><input type="checkbox" checked={step.required} disabled={!canEdit} onChange={(e) => onChange({ ...step, required: e.target.checked })} />{t('catering_flow_required')}</label>
+        <Field label={t('catering_flow_condition')}>
+          <select className="input" disabled={!canEdit || conditionalSources.length === 0} value={step.condition ? `${step.condition.step_id}:${step.condition.option_id}` : ''} onChange={(e) => { const [stepId, optionId] = e.target.value.split(':'); onChange({ ...step, condition: stepId ? { step_id: stepId, option_id: optionId, operator: 'equals' } : undefined }); }}>
+            <option value="">{t('catering_flow_always')}</option>
+            {conditionalSources.flatMap((source) => (source.options ?? []).map((option) => <option key={`${source.id}:${option.id}`} value={`${source.id}:${option.id}`}>{source.title || source.id} → {option.label || option.id}</option>))}
+          </select>
+          {step.condition && !selectedSource && <p className="mt-1 text-xs text-red-500">{t('catering_flow_condition_broken')}</p>}
+        </Field>
+      </div>
+      {step.kind === 'schedule' && step.schedule && <ScheduleEditor step={step} canEdit={canEdit} onChange={onChange} />}
+      {(step.kind === 'single_choice' || step.kind === 'multi_choice' || step.kind === 'quantity') && <OptionsEditor step={step} canEdit={canEdit} onChange={onChange} />}
+    </article>
+  );
+}
+
+function ScheduleEditor({ step, canEdit, onChange }: { step: CateringFlowStep; canEdit: boolean; onChange: (step: CateringFlowStep) => void }) {
+  const { t } = useI18n();
+  const schedule = step.schedule!;
+  const update = (next: typeof schedule) => onChange({ ...step, schedule: next });
+  return <div className="space-y-4 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+    <div className="grid gap-3 sm:grid-cols-3">
+      <Field label={t('catering_flow_schedule_mode')}><select className="input" disabled={!canEdit} value={schedule.mode} onChange={(e) => update({ ...schedule, mode: e.target.value as 'custom' | 'predefined' })}><option value="custom">{t('catering_flow_schedule_custom')}</option><option value="predefined">{t('catering_flow_schedule_predefined')}</option></select></Field>
+      <Field label={t('catering_flow_min_sessions')}><input className="input" type="number" min={0} max={31} disabled={!canEdit} value={schedule.min_sessions} onChange={(e) => update({ ...schedule, min_sessions: Number(e.target.value) })} /></Field>
+      <Field label={t('catering_flow_max_sessions')}><input className="input" type="number" min={1} max={31} disabled={!canEdit} value={schedule.max_sessions} onChange={(e) => update({ ...schedule, max_sessions: Number(e.target.value) })} /></Field>
+    </div>
+    <label className="flex items-center gap-2 text-sm text-fg-primary"><input type="checkbox" checked={schedule.allow_same_day} disabled={!canEdit} onChange={(e) => update({ ...schedule, allow_same_day: e.target.checked })} />{t('catering_flow_same_day')}</label>
+    {schedule.mode === 'predefined' && <div className="space-y-2">
+      {(schedule.slots ?? []).map((slot, index) => <div key={slot.id} className="grid gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3 sm:grid-cols-[1fr_110px_120px_120px_auto]">
+        <input className="input" placeholder={t('catering_flow_slot_label')} disabled={!canEdit} value={slot.label} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, label: e.target.value } : item) })} />
+        <input className="input" aria-label={t('catering_flow_day_offset')} type="number" min={0} max={365} disabled={!canEdit} value={slot.day_offset} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, day_offset: Number(e.target.value) } : item) })} />
+        <input className="input" aria-label={t('catering_flow_start')} type="time" disabled={!canEdit} value={slot.start_time ?? ''} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, start_time: e.target.value } : item) })} />
+        <input className="input" aria-label={t('catering_flow_end')} type="time" disabled={!canEdit} value={slot.end_time ?? ''} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, end_time: e.target.value } : item) })} />
+        {canEdit && <button className="rounded p-2 text-fg-secondary hover:bg-red-500/10 hover:text-red-500" onClick={() => update({ ...schedule, slots: schedule.slots!.filter((_, i) => i !== index) })}><Trash2Icon className="h-4 w-4" /></button>}
+      </div>)}
+      {canEdit && <Button variant="secondary" size="sm" onClick={() => { const slots = schedule.slots ?? []; update({ ...schedule, slots: [...slots, { id: nextId('session', slots.map((slot) => slot.id)), label: '', day_offset: slots.length, start_time: '', end_time: '' }] }); }}><PlusIcon />{t('catering_flow_add_slot')}</Button>}
+      <p className="text-xs text-fg-tertiary">{t('catering_flow_day_offset_hint')}</p>
+    </div>}
+  </div>;
+}
+
+function OptionsEditor({ step, canEdit, onChange }: { step: CateringFlowStep; canEdit: boolean; onChange: (step: CateringFlowStep) => void }) {
+  const { t } = useI18n();
+  const options = step.options ?? [];
+  const updateOption = (index: number, patch: Partial<CateringFlowOption>) => onChange({ ...step, options: options.map((option, i) => i === index ? { ...option, ...patch } : option) });
+  return <div className="space-y-2 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+    <div className="hidden grid-cols-[1.4fr_1.6fr_110px_170px_auto] gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-fg-tertiary sm:grid"><span>{t('catering_flow_option')}</span><span>{t('catering_flow_option_help')}</span><span>{t('catering_flow_price')}</span><span>{t('catering_flow_price_mode')}</span><span /></div>
+    {options.map((option, index) => <div key={option.id} className="grid gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3 sm:grid-cols-[1.4fr_1.6fr_110px_170px_auto]">
+      <input className="input" placeholder={t('catering_flow_option')} disabled={!canEdit} value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} />
+      <input className="input" placeholder={t('catering_flow_option_help')} disabled={!canEdit} value={option.description ?? ''} onChange={(e) => updateOption(index, { description: e.target.value })} />
+      <input className="input" type="number" min={0} step="0.01" disabled={!canEdit} value={option.price ?? 0} onChange={(e) => updateOption(index, { price: Number(e.target.value) })} />
+      <select className="input" disabled={!canEdit} value={option.price_mode ?? (step.kind === 'quantity' ? 'per_unit' : 'fixed')} onChange={(e) => updateOption(index, { price_mode: e.target.value as CateringFlowPriceMode })}>{PRICE_MODES.map((mode) => <option key={mode} value={mode}>{t(`catering_flow_price_${mode}`)}</option>)}</select>
+      {canEdit && <button className="rounded p-2 text-fg-secondary hover:bg-red-500/10 hover:text-red-500" onClick={() => onChange({ ...step, options: options.filter((_, i) => i !== index) })}><Trash2Icon className="h-4 w-4" /></button>}
+    </div>)}
+    {canEdit && <Button variant="secondary" size="sm" onClick={() => onChange({ ...step, options: [...options, { id: nextId('option', options.map((option) => option.id)), label: '', price: 0, price_mode: step.kind === 'quantity' ? 'per_unit' : 'fixed' }] })}><PlusIcon />{t('catering_flow_add_option')}</Button>}
+  </div>;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block"><span className="mb-1 block text-xs font-semibold text-fg-secondary">{label}</span>{children}</label>;
+}

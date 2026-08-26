@@ -8438,6 +8438,53 @@ export async function checkDeliverable(
 // ---- Catering ----
 export type CateringPricingModel = 'per_unit' | 'per_person' | 'custom_quote';
 
+export type CateringFlowStepKind = 'guest_count' | 'schedule' | 'single_choice' | 'multi_choice' | 'quantity';
+export type CateringFlowPriceMode = 'fixed' | 'per_guest' | 'per_session' | 'per_guest_session' | 'per_unit';
+
+export interface CateringFlowOption {
+  id: string;
+  label: string;
+  description?: string;
+  price?: number;
+  price_mode?: CateringFlowPriceMode;
+  translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringScheduleSlot {
+  id: string;
+  label: string;
+  description?: string;
+  day_offset: number;
+  start_time?: string;
+  end_time?: string;
+  translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringFlowStep {
+  id: string;
+  kind: CateringFlowStepKind;
+  title: string;
+  description?: string;
+  required: boolean;
+  condition?: { step_id: string; operator: 'equals' | 'contains'; option_id: string };
+  options?: CateringFlowOption[];
+  schedule?: {
+    mode: 'custom' | 'predefined';
+    min_sessions: number;
+    max_sessions: number;
+    allow_same_day: boolean;
+    slots?: CateringScheduleSlot[];
+  };
+  translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringFlowConfig {
+  version: 1;
+  enabled: boolean;
+  catalog_pricing_per_session?: boolean;
+  steps: CateringFlowStep[];
+}
+
 export interface CateringService {
   id: number;
   restaurant_id: number;
@@ -8451,6 +8498,7 @@ export interface CateringService {
   selection_mode?: '' | 'single' | 'multiple';
   is_active: boolean;
   display_order: number;
+  flow_config?: CateringFlowConfig | Record<string, never>;
 }
 
 export interface CateringServiceInput {
@@ -8497,6 +8545,14 @@ export async function createCateringService(restaurantId: number, body: Catering
 /** Update a catering service. */
 export async function updateCateringService(restaurantId: number, id: number, body: CateringServiceInput): Promise<CateringService> {
   return apiFetch<CateringService>(`/api/v1/catering/services/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Validate and publish a service's progressive customer journey. */
+export async function updateCateringServiceFlow(restaurantId: number, id: number, flowConfig: CateringFlowConfig): Promise<CateringService> {
+  return apiFetch<CateringService>(`/api/v1/catering/services/${id}/flow`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ flow_config: flowConfig }),
+  });
 }
 
 /** Archive (soft-delete) a catering service. */
