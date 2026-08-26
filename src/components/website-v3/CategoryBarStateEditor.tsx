@@ -8,6 +8,14 @@ export type CategoryBarPalette = {
   text?: string;
   accent?: string;
   divider?: string;
+  activeBg?: string;
+  activeText?: string;
+  searchBg?: string;
+  searchText?: string;
+  iconBg?: string;
+  icon?: string;
+  cartBg?: string;
+  cartText?: string;
 };
 
 type SectionColors = Record<string, unknown> & {
@@ -94,6 +102,62 @@ function PaletteEditor({
         value={value.divider ?? ""}
         fallback="#e5e7eb"
         onChange={(next) => onChange("divider", next)}
+      />
+      <ColorField
+        fieldId={`${prefix}.activeBg`}
+        label={t("websiteV3CategoryBarActiveBackground")}
+        value={value.activeBg ?? ""}
+        fallback="#111827"
+        onChange={(next) => onChange("activeBg", next)}
+      />
+      <ColorField
+        fieldId={`${prefix}.activeText`}
+        label={t("websiteV3CategoryBarActiveText")}
+        value={value.activeText ?? ""}
+        fallback="#ffffff"
+        onChange={(next) => onChange("activeText", next)}
+      />
+      <ColorField
+        fieldId={`${prefix}.searchBg`}
+        label={t("websiteV3CategoryBarSearchBackground")}
+        value={value.searchBg ?? ""}
+        fallback="#f1f5f9"
+        onChange={(next) => onChange("searchBg", next)}
+      />
+      <ColorField
+        fieldId={`${prefix}.searchText`}
+        label={t("websiteV3CategoryBarSearchText")}
+        value={value.searchText ?? ""}
+        fallback="#111827"
+        onChange={(next) => onChange("searchText", next)}
+      />
+      <ColorField
+        fieldId={`${prefix}.iconBg`}
+        label={t("websiteV3CategoryBarIconBackground")}
+        value={value.iconBg ?? ""}
+        fallback="#111827"
+        onChange={(next) => onChange("iconBg", next)}
+      />
+      <ColorField
+        fieldId={`${prefix}.icon`}
+        label={t("websiteV3CategoryBarIcon")}
+        value={value.icon ?? ""}
+        fallback="#ffffff"
+        onChange={(next) => onChange("icon", next)}
+      />
+      <ColorField
+        fieldId={`${prefix}.cartBg`}
+        label={t("websiteV3CategoryBarCartBackground")}
+        value={value.cartBg ?? ""}
+        fallback="#111827"
+        onChange={(next) => onChange("cartBg", next)}
+      />
+      <ColorField
+        fieldId={`${prefix}.cartText`}
+        label={t("websiteV3CategoryBarCartText")}
+        value={value.cartText ?? ""}
+        fallback="#ffffff"
+        onChange={(next) => onChange("cartText", next)}
       />
     </fieldset>
   );

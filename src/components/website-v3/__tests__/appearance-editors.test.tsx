@@ -193,6 +193,23 @@ test("category bar editor exposes one consistent palette", () => {
     markup,
     /page\.appearance_overrides\.section_colors\.categoryBar\.bg/,
   );
+  for (const field of [
+    "activeBg",
+    "activeText",
+    "searchBg",
+    "searchText",
+    "iconBg",
+    "icon",
+    "cartBg",
+    "cartText",
+  ]) {
+    assert.match(
+      markup,
+      new RegExp(
+        `page\\.appearance_overrides\\.section_colors\\.categoryBar\\.${field}`,
+      ),
+    );
+  }
   assert.doesNotMatch(markup, /categoryBarSticky/);
 });
 

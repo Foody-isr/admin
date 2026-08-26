@@ -313,15 +313,6 @@ export function SiteInspector({
             <option value="right">Droite</option>
           </select>
         </InspectorField>
-        <RangeField
-          fieldId="site.logo_size"
-          label="Taille dans la barre"
-          value={number(config.logo_size, 40)}
-          min={24}
-          max={96}
-          suffix="px"
-          onChange={(value) => onChange(["logo_size"], value)}
-        />
         <ToggleField
           fieldId="site.hide_navbar_name"
           label="Masquer le nom du restaurant"
@@ -346,6 +337,15 @@ export function SiteInspector({
           placeholder="Ou collez l’URL du logo alternatif"
         />
         </> : null}
+        <RangeField
+          fieldId="site.logo_size"
+          label="Taille du logo dans les barres"
+          value={number(config.logo_size, 48)}
+          min={28}
+          max={72}
+          suffix="px"
+          onChange={(value) => onChange(["logo_size"], value)}
+        />
         <RangeField
           fieldId="site.hero_logo_size"
           label="Taille sur la couverture"
@@ -601,15 +601,14 @@ export function SiteInspector({
             </div>
           </div>
         ) : null}
-        {(contentNav.desktop === "compact" || shoppingNav.desktop === "compact") ? (
-          <div className="space-y-3 border-t border-slate-100 pt-4">
-            <p className="text-xs font-semibold text-slate-700">Navigation compacte · ordinateur</p>
-            <InspectorField label="Position du menu hamburger"><select className={controlClass} value={string(compactNavigation.hamburger_position) || "left"} onChange={(event) => updateNavigationExtension("compact_navigation", { hamburger_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
-            <InspectorField label="Position du compte et des actions"><select className={controlClass} value={string(compactNavigation.actions_position) || "right"} onChange={(event) => updateNavigationExtension("compact_navigation", { actions_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
-            <ColorField fieldId="site.compact-navigation.icon" label="Couleur des icônes" value={string(compactNavigation.icon_color)} fallback="#111111" onChange={(value) => updateNavigationExtension("compact_navigation", { icon_color: value })} />
-            <ColorField fieldId="site.compact-navigation.button-background" label="Fond des boutons" value={string(compactNavigation.button_background_color)} fallback="#ffffff" onChange={(value) => updateNavigationExtension("compact_navigation", { button_background_color: value })} />
-          </div>
-        ) : null}
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <p className="text-xs font-semibold text-slate-700">Navigation compacte · ordinateur</p>
+          <p className="text-[11px] leading-4 text-slate-500">Ces couleurs s’appliquent aussi au bouton menu des pages de commande.</p>
+          <InspectorField label="Position du menu hamburger"><select className={controlClass} value={string(compactNavigation.hamburger_position) || "left"} onChange={(event) => updateNavigationExtension("compact_navigation", { hamburger_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
+          <InspectorField label="Position des actions"><select className={controlClass} value={string(compactNavigation.actions_position) || "right"} onChange={(event) => updateNavigationExtension("compact_navigation", { actions_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
+          <ColorField fieldId="site.compact-navigation.icon" label="Couleur des icônes" value={string(compactNavigation.icon_color)} fallback="#111111" onChange={(value) => updateNavigationExtension("compact_navigation", { icon_color: value })} />
+          <ColorField fieldId="site.compact-navigation.button-background" label="Fond des boutons" value={string(compactNavigation.button_background_color)} fallback="#ffffff" onChange={(value) => updateNavigationExtension("compact_navigation", { button_background_color: value })} />
+        </div>
         <div className="border-t border-slate-100 pt-4">
           <NavigationCtaEditor
             value={record(config.navbar_cta)}

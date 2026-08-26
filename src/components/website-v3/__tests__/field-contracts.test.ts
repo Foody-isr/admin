@@ -289,7 +289,20 @@ function task4FieldPaths(): Map<string, readonly (string | number)[]> {
   ]) {
     paths.set(`site.footer.settings.${field}`, ["settings", field]);
   }
-  for (const field of ["bg", "text", "accent", "divider"]) {
+  for (const field of [
+    "bg",
+    "text",
+    "accent",
+    "divider",
+    "activeBg",
+    "activeText",
+    "searchBg",
+    "searchText",
+    "iconBg",
+    "icon",
+    "cartBg",
+    "cartText",
+  ]) {
     paths.set(
       `page.appearance_overrides.section_colors.categoryBar.${field}`,
       ["appearance_overrides", "section_colors", "categoryBar", field],
