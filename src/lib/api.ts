@@ -8747,6 +8747,7 @@ export interface CateringCatalogItem {
   service_id: number;
   group_id?: number;
   name: string;
+  slug: string;
   /** Short marketing intro shown under the title (1-2 sentences), distinct from
    *  the itemized `description`. Translatable via the translations map. */
   overview: string;
