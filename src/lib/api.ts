@@ -8714,6 +8714,22 @@ export interface CateringIncludedSectionInput {
   items: CateringIncludedItemInput[];
 }
 
+export interface CateringCatalogItemImage {
+  id: number;
+  restaurant_id: number;
+  catalog_item_id: number;
+  image_url: string;
+  alt_text: string;
+  translations?: Record<string, Record<string, string>>;
+  sort_order: number;
+}
+
+export interface CateringCatalogItemImageInput {
+  image_url: string;
+  alt_text?: string;
+  translations?: Record<string, Record<string, string>>;
+}
+
 export interface CateringLibraryItem {
   id: number;
   category_id: number;
@@ -8746,6 +8762,7 @@ export interface CateringCatalogItem {
   is_active: boolean;
   sort_order: number;
   choice_groups?: CateringChoiceGroup[];
+  gallery_images?: CateringCatalogItemImage[];
   included_sections?: CateringIncludedSection[];
   included_items?: CateringIncludedItem[];
 }
@@ -8764,6 +8781,7 @@ export interface CateringCatalogItemInput {
   is_active?: boolean;
   sort_order?: number;
   choice_groups?: CateringChoiceGroupInput[];
+  gallery_images?: CateringCatalogItemImageInput[];
   included_sections?: CateringIncludedSectionInput[];
   included_items?: CateringIncludedItemInput[];
 }

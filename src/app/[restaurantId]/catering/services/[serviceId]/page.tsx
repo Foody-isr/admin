@@ -12,6 +12,7 @@ import {
 import { PageHead, Button, Tabs, TabsList, Tab, TabsContent } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { CateringLocaleFields } from '@/components/catering/CateringLocaleFields';
+import CateringItemGalleryEditor from '@/components/catering/CateringItemGalleryEditor';
 import CateringFormulaComposer, {
   newChoiceGroupDraft,
   newIncludedSectionDraft,
@@ -29,6 +30,7 @@ import {
   type CateringService, type CateringPricingModel,
   type CateringCatalogItem, type CateringCatalogItemInput,
   type CateringIncludedItemInput,
+  type CateringCatalogItemImageInput,
   type CateringCatalogGroup,
   type CateringOption, type CateringOptionInput, type CateringOptionPriceMode,
 } from '@/lib/api';
@@ -405,6 +407,13 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
     () => (editing?.price_tiers ?? []).map((t) => ({ min_guests: String(t.min_guests), price: String(t.price) })),
   );
   const [imageUrl, setImageUrl] = useState(editing?.image_url ?? '');
+  const [galleryImages, setGalleryImages] = useState<CateringCatalogItemImageInput[]>(() =>
+    (editing?.gallery_images ?? []).map((image) => ({
+      image_url: image.image_url,
+      alt_text: image.alt_text ?? '',
+      translations: image.translations ?? {},
+    })),
+  );
   const [groupId, setGroupId] = useState(editing?.group_id ? String(editing.group_id) : '');
   const [uploading, setUploading] = useState(false);
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
@@ -477,6 +486,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
         description,
         base_price: Number(basePrice) || 0,
         image_url: imageUrl,
+        gallery_images: galleryImages,
         translations,
         is_active: isActive,
         choice_groups: toChoiceGroupInputs(choiceGroups),
@@ -584,6 +594,13 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
             )}
           </div>
         </div>
+
+        <CateringItemGalleryEditor
+          restaurantId={restaurantId}
+          coverUrl={imageUrl}
+          images={galleryImages}
+          onChange={setGalleryImages}
+        />
 
         <div>
           <label className="block text-sm font-medium text-fg-secondary mb-1">{priceLabel}</label>
