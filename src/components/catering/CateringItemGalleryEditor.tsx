@@ -25,9 +25,20 @@ type Props = {
   coverUrl: string;
   images: CateringCatalogItemImageInput[];
   onChange: (images: CateringCatalogItemImageInput[]) => void;
+  onUploadingChange?: (uploading: boolean) => void;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  onRetrySave?: () => void;
 };
 
-export default function CateringItemGalleryEditor({ restaurantId, coverUrl, images, onChange }: Props) {
+export default function CateringItemGalleryEditor({
+  restaurantId,
+  coverUrl,
+  images,
+  onChange,
+  onUploadingChange,
+  saveStatus = 'idle',
+  onRetrySave,
+}: Props) {
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -39,6 +50,7 @@ export default function CateringItemGalleryEditor({ restaurantId, coverUrl, imag
     if (!files?.length || remaining === 0) return;
     const selected = Array.from(files).slice(0, remaining);
     setUploading(true);
+    onUploadingChange?.(true);
     setError(files.length > remaining ? t('catering_gallery_limit_error').replace('{n}', String(CATERING_GALLERY_LIMIT)) : null);
     setProgress({ current: 0, total: selected.length });
     const uploaded: CateringCatalogItemImageInput[] = [];
@@ -53,6 +65,7 @@ export default function CateringItemGalleryEditor({ restaurantId, coverUrl, imag
       setError(uploadError instanceof Error ? uploadError.message : t('catering_gallery_upload_error'));
     } finally {
       setUploading(false);
+      onUploadingChange?.(false);
       setProgress({ current: 0, total: 0 });
       if (inputRef.current) inputRef.current.value = '';
     }
@@ -67,9 +80,30 @@ export default function CateringItemGalleryEditor({ restaurantId, coverUrl, imag
             {coverUrl ? t('catering_gallery_hint_with_cover') : t('catering_gallery_hint')}
           </p>
         </div>
-        <span className="rounded-full bg-[var(--surface)] px-2.5 py-1 text-xs font-semibold text-fg-tertiary">
-          {images.length}/{CATERING_GALLERY_LIMIT}
-        </span>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {saveStatus !== 'idle' && (
+            <span
+              role="status"
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                saveStatus === 'error'
+                  ? 'bg-red-500/10 text-red-600'
+                  : saveStatus === 'saved'
+                    ? 'bg-emerald-500/10 text-emerald-600'
+                    : 'bg-amber-500/10 text-amber-700'
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${saveStatus === 'error' ? 'bg-red-500' : saveStatus === 'saved' ? 'bg-emerald-500' : 'animate-pulse bg-amber-500'}`} />
+              {saveStatus === 'saving'
+                ? t('catering_gallery_saving')
+                : saveStatus === 'saved'
+                  ? t('catering_gallery_saved')
+                  : t('catering_gallery_save_error')}
+            </span>
+          )}
+          <span className="rounded-full bg-[var(--surface)] px-2.5 py-1 text-xs font-semibold text-fg-tertiary">
+            {images.length}/{CATERING_GALLERY_LIMIT}
+          </span>
+        </div>
       </div>
 
       {images.length > 0 ? (
@@ -116,6 +150,11 @@ export default function CateringItemGalleryEditor({ restaurantId, coverUrl, imag
           : t('catering_gallery_add')}
       </button>
       {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      {saveStatus === 'error' && onRetrySave && (
+        <button type="button" onClick={onRetrySave} className="mt-2 text-xs font-semibold text-red-600 underline decoration-red-500/40 underline-offset-2 hover:text-red-700">
+          {t('catering_gallery_retry_save')}
+        </button>
+      )}
       <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={(event) => upload(event.target.files)} />
     </section>
   );

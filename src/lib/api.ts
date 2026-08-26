@@ -8899,6 +8899,19 @@ export async function updateCateringItem(restaurantId: number, id: number, body:
   return apiFetch<CateringCatalogItem>(`/api/v1/catering/items/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
 }
 
+/** Replace only a formula's ordered detail gallery. This endpoint is safe for
+ * autosave because it never commits the other draft fields in the edit modal. */
+export async function updateCateringItemGallery(
+  restaurantId: number,
+  id: number,
+  galleryImages: CateringCatalogItemImageInput[],
+): Promise<CateringCatalogItem> {
+  return apiFetch<CateringCatalogItem>(`/api/v1/catering/items/${id}/gallery`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ gallery_images: galleryImages }),
+  });
+}
+
 /** Archive (soft-delete) a catalog item. */
 export async function archiveCateringItem(restaurantId: number, id: number): Promise<void> {
   await apiFetch(`/api/v1/catering/items/${id}`, restaurantId, { method: 'DELETE' });

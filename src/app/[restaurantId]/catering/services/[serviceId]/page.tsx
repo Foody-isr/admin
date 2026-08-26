@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon, ChevronUpIcon, ChevronDownIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
@@ -23,7 +23,7 @@ import CateringFormulaComposer, {
 } from '@/components/catering/CateringFormulaComposer';
 import { type Locale } from '@/components/i18n/LocaleTabs';
 import {
-  listCateringServices, listCateringItems, createCateringItem, updateCateringItem, archiveCateringItem, reorderCateringItems,
+  listCateringServices, listCateringItems, createCateringItem, updateCateringItem, updateCateringItemGallery, archiveCateringItem, reorderCateringItems,
   listCateringGroups, createCateringGroup, updateCateringGroup, archiveCateringGroup,
   listCateringOptions, createCateringOption, updateCateringOption, archiveCateringOption,
   uploadSectionImage, getRestaurant,
@@ -178,6 +178,10 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
     }
   };
 
+  const handleGallerySaved = useCallback((updated: CateringCatalogItem) => {
+    setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
+  }, []);
+
   const priceLabel = itemPriceLabel(pricingModel, t);
   const minLabel = pricingModel === 'per_unit' ? t('catering_item_min_qty') : t('catering_item_min_guests');
 
@@ -323,6 +327,7 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
           editing={editModal.editing}
           onClose={() => setEditModal({ open: false })}
           onSaved={() => { setEditModal({ open: false }); reload(); }}
+          onGallerySaved={handleGallerySaved}
         />
       )}
 
@@ -384,7 +389,7 @@ function GroupEditModal({ restaurantId, serviceId, editing, onClose, onSaved }: 
   );
 }
 
-function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, groups, editing, onClose, onSaved }: {
+function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, groups, editing, onClose, onSaved, onGallerySaved }: {
   restaurantId: number;
   serviceId: number;
   pricingModel: CateringPricingModel;
@@ -393,6 +398,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
   editing?: CateringCatalogItem;
   onClose: () => void;
   onSaved: () => void;
+  onGallerySaved: (item: CateringCatalogItem) => void;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
@@ -414,6 +420,13 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
       translations: image.translations ?? {},
     })),
   );
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const [gallerySaveStatus, setGallerySaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(editing ? 'saved' : 'idle');
+  const [galleryRetryToken, setGalleryRetryToken] = useState(0);
+  const [closeAfterGallerySave, setCloseAfterGallerySave] = useState(false);
+  const galleryAutosaveReadyRef = useRef(false);
+  const gallerySaveRevisionRef = useRef(0);
+  const gallerySaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [groupId, setGroupId] = useState(editing?.group_id ? String(editing.group_id) : '');
   const [uploading, setUploading] = useState(false);
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
@@ -451,6 +464,53 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
       })),
     })),
   );
+
+  const handleGalleryImagesChange = useCallback((next: CateringCatalogItemImageInput[]) => {
+    setGalleryImages(next);
+    if (editing) setGallerySaveStatus('saving');
+  }, [editing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    if (!galleryAutosaveReadyRef.current) {
+      galleryAutosaveReadyRef.current = true;
+      return;
+    }
+
+    const revision = ++gallerySaveRevisionRef.current;
+    const snapshot = galleryImages.map((image) => ({
+      ...image,
+      translations: image.translations ? { ...image.translations } : undefined,
+    }));
+    setGallerySaveStatus('saving');
+    const timer = window.setTimeout(() => {
+      gallerySaveQueueRef.current = gallerySaveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          const updated = await updateCateringItemGallery(restaurantId, editing.id, snapshot);
+          if (gallerySaveRevisionRef.current !== revision) return;
+          onGallerySaved(updated);
+          setGallerySaveStatus('saved');
+        })
+        .catch(() => {
+          if (gallerySaveRevisionRef.current === revision) setGallerySaveStatus('error');
+        });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [editing, galleryImages, galleryRetryToken, onGallerySaved, restaurantId]);
+
+  useEffect(() => {
+    if (closeAfterGallerySave && !galleryUploading && gallerySaveStatus === 'saved') onClose();
+  }, [closeAfterGallerySave, gallerySaveStatus, galleryUploading, onClose]);
+
+  const requestClose = useCallback(() => {
+    if (editing && (galleryUploading || gallerySaveStatus === 'saving')) {
+      setCloseAfterGallerySave(true);
+      return;
+    }
+    if (editing && gallerySaveStatus === 'error' && !confirm(t('discardUnsavedChanges'))) return;
+    onClose();
+  }, [editing, gallerySaveStatus, galleryUploading, onClose, t]);
 
   const priceLabel = itemPriceLabel(pricingModel, t);
   const compositionValid = useMemo(() => choiceGroups.every((group) => {
@@ -520,8 +580,8 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
         {!compositionValid && <p className="text-sm text-red-500">{t('catering_choice_invalid')}</p>}
       </div>
       <div className="flex justify-end gap-2">
-        <button className="btn-secondary" onClick={onClose}>{t('catering_cancel')}</button>
-        <button className="btn-primary" onClick={handleSave} disabled={saving || !name.trim() || !compositionValid}>
+        <button className="btn-secondary" onClick={requestClose}>{t('catering_cancel')}</button>
+        <button className="btn-primary" onClick={handleSave} disabled={saving || galleryUploading || gallerySaveStatus === 'saving' || !name.trim() || !compositionValid}>
           {t('catering_save')}
         </button>
       </div>
@@ -531,7 +591,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
   return (
     <Modal
       title={editing ? t('catering_edit_item') : t('catering_new_item')}
-      onClose={onClose}
+      onClose={requestClose}
       size="5xl"
       bodyClassName="!overflow-hidden !p-0"
       footer={modalFooter}
@@ -599,7 +659,10 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
           restaurantId={restaurantId}
           coverUrl={imageUrl}
           images={galleryImages}
-          onChange={setGalleryImages}
+          onChange={handleGalleryImagesChange}
+          onUploadingChange={setGalleryUploading}
+          saveStatus={gallerySaveStatus}
+          onRetrySave={editing ? () => setGalleryRetryToken((current) => current + 1) : undefined}
         />
 
         <div>
