@@ -178,7 +178,7 @@ test("footer exposes content and appearance fields in their tabs", () => {
   assert.match(appearanceMarkup, /site\.footer\.settings\.custom_divider/);
 });
 
-test("category bar editor exposes normal and customized sticky palettes", () => {
+test("category bar editor exposes one consistent palette", () => {
   const markup = render(
     React.createElement(CategoryBarStateEditor, {
       value: {
@@ -193,14 +193,7 @@ test("category bar editor exposes normal and customized sticky palettes", () => 
     markup,
     /page\.appearance_overrides\.section_colors\.categoryBar\.bg/,
   );
-  assert.match(
-    markup,
-    /page\.appearance_overrides\.section_colors\.categoryBarSticky\.bg/,
-  );
-  assert.match(
-    markup,
-    /page\.appearance_overrides\.section_colors\.categoryBarSticky\.divider/,
-  );
+  assert.doesNotMatch(markup, /categoryBarSticky/);
 });
 
 test("menu highlights editor exposes section and card palette fields", () => {

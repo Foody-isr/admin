@@ -216,15 +216,6 @@ test("component appearance fields map to exact normalized draft paths", () => {
     )?.editor.prerequisite,
     { id: "page.appearance_overrides.navbar_cta", value: true },
   );
-  assert.deepEqual(
-    contracts.get(
-      "page.appearance_overrides.section_colors.categoryBarSticky.bg",
-    )?.editor.prerequisite,
-    {
-      id: "page.appearance_overrides.section_colors.categoryBarSticky",
-      value: true,
-    },
-  );
   assert.equal(
     contracts.get(
       "page.appearance_overrides.section_colors.categoryBar.bg",
@@ -298,18 +289,12 @@ function task4FieldPaths(): Map<string, readonly (string | number)[]> {
   ]) {
     paths.set(`site.footer.settings.${field}`, ["settings", field]);
   }
-  for (const state of ["categoryBar", "categoryBarSticky"]) {
-    for (const field of ["bg", "text", "accent", "divider"]) {
-      paths.set(
-        `page.appearance_overrides.section_colors.${state}.${field}`,
-        ["appearance_overrides", "section_colors", state, field],
-      );
-    }
+  for (const field of ["bg", "text", "accent", "divider"]) {
+    paths.set(
+      `page.appearance_overrides.section_colors.categoryBar.${field}`,
+      ["appearance_overrides", "section_colors", "categoryBar", field],
+    );
   }
-  paths.set(
-    "page.appearance_overrides.section_colors.categoryBarSticky",
-    ["appearance_overrides", "section_colors", "categoryBarSticky"],
-  );
   for (const field of [
     "custom_bg",
     "custom_text",

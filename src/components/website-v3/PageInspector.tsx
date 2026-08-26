@@ -457,6 +457,14 @@ export function PageInspector({
         title="Navigation et pied de page"
         description="La disposition choisit les éléments affichés. Le fond et le comportement règlent uniquement l’apparence de cette page."
       >
+        {page.type === "order" ? (
+          <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
+            La navigation de commande est standardisée pour rester claire sur
+            tous les restaurants. Personnalisez son identité avec le thème, la
+            typographie et la palette de la barre des catégories.
+          </div>
+        ) : (
+          <>
         <InspectorField label="Disposition ordinateur">
           <select
             value={appearance.navigation_mode ?? "inherit"}
@@ -602,6 +610,8 @@ export function PageInspector({
             }}
           />
         </div>
+          </>
+        )}
         <InspectorField label="Pied de page">
           <select
             value={appearance.footer_mode ?? "inherit"}

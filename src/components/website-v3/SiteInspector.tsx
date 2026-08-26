@@ -529,7 +529,14 @@ export function SiteInspector({
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
-        <InspectorField label="Commande et traiteur · ordinateur">
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
+          Les pages de commande utilisent désormais une navigation dédiée et
+          identique pour tous les restaurants&nbsp;: contrôles compacts sur
+          ordinateur, barre du bas sur mobile, puis barre des catégories au
+          défilement. Les réglages ci-dessous concernent le traiteur et les
+          autres pages boutique.
+        </div>
+        <InspectorField label="Traiteur et pages boutique · ordinateur">
           <select
             value={string(shoppingNav.desktop) || "compact"}
             onChange={(event) =>
@@ -543,7 +550,7 @@ export function SiteInspector({
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
-        <InspectorField label="Commande et traiteur · mobile">
+        <InspectorField label="Traiteur et pages boutique · mobile">
           <select
             value={string(shoppingNav.mobile) || "hidden"}
             onChange={(event) =>
@@ -565,7 +572,7 @@ export function SiteInspector({
         />
         <ToggleField
           fieldId={"site.nav-layout.shopping.bottom-bar"}
-          label="Barre mobile de la boutique"
+          label="Barre mobile du traiteur et des pages boutique"
           description="Conserve un accès à la navigation lorsque la barre du haut est masquée."
           checked={boolean(shoppingNav.bottom_bar, true)}
           onChange={(value) =>

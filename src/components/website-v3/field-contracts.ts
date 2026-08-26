@@ -356,10 +356,6 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.section_colors.categoryBar.text": "#111827",
   "page.appearance_overrides.section_colors.categoryBar.accent": "#315fce",
   "page.appearance_overrides.section_colors.categoryBar.divider": "#e5e7eb",
-  "page.appearance_overrides.section_colors.categoryBarSticky.bg": "#111827",
-  "page.appearance_overrides.section_colors.categoryBarSticky.text": "#ffffff",
-  "page.appearance_overrides.section_colors.categoryBarSticky.accent": "#d6ff3f",
-  "page.appearance_overrides.section_colors.categoryBarSticky.divider": "#334155",
   "page.settings.menu_ids": [0],
   "page.settings.service_ids": [0],
   "section.is_visible": true,
@@ -462,9 +458,6 @@ function editorFor(
     const pageCtaState = id.startsWith(
       "page.appearance_overrides.navbar_cta.",
     );
-    const stickyCategoryState = id.startsWith(
-      "page.appearance_overrides.section_colors.categoryBarSticky.",
-    );
     return {
       kind: action,
       scope,
@@ -490,12 +483,7 @@ function editorFor(
       commit: "change",
       prerequisite: pageCtaState
         ? { id: "page.appearance_overrides.navbar_cta", value: true }
-        : stickyCategoryState
-          ? {
-              id: "page.appearance_overrides.section_colors.categoryBarSticky",
-              value: true,
-            }
-          : undefined,
+        : undefined,
     };
   }
 
@@ -841,11 +829,6 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   page("page.appearance_overrides.section_colors.categoryBar.text", ["appearance_overrides", "section_colors", "categoryBar", "text"], "order", "color", ["order"]),
   page("page.appearance_overrides.section_colors.categoryBar.accent", ["appearance_overrides", "section_colors", "categoryBar", "accent"], "order", "color", ["order"]),
   page("page.appearance_overrides.section_colors.categoryBar.divider", ["appearance_overrides", "section_colors", "categoryBar", "divider"], "order", "color", ["order"]),
-  action("page.appearance_overrides.section_colors.categoryBarSticky", "page", ["appearance_overrides", "section_colors", "categoryBarSticky"]),
-  page("page.appearance_overrides.section_colors.categoryBarSticky.bg", ["appearance_overrides", "section_colors", "categoryBarSticky", "bg"], "order", "color", ["order"]),
-  page("page.appearance_overrides.section_colors.categoryBarSticky.text", ["appearance_overrides", "section_colors", "categoryBarSticky", "text"], "order", "color", ["order"]),
-  page("page.appearance_overrides.section_colors.categoryBarSticky.accent", ["appearance_overrides", "section_colors", "categoryBarSticky", "accent"], "order", "color", ["order"]),
-  page("page.appearance_overrides.section_colors.categoryBarSticky.divider", ["appearance_overrides", "section_colors", "categoryBarSticky", "divider"], "order", "color", ["order"]),
   page(
     "page.settings.menu_ids",
     ["settings", "menu_ids"],

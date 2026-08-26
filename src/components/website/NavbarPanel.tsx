@@ -139,7 +139,9 @@ export function NavbarPanel({ config, onUpdate, restaurantId }: {
   return (
     <div className="space-y-5">
       <p className="text-[11px] leading-relaxed text-fg-secondary">
-        La barre de navigation est <strong>partagée par toutes les pages</strong> du site : accueil, commande, traiteur et pages personnalisées.
+        La barre de navigation est partagée par les pages éditoriales. La page
+        de commande utilise une navigation dédiée, identique pour tous les
+        restaurants, tout en conservant les couleurs et polices de la marque.
       </p>
 
       {sec('Composition par type de page',
@@ -148,7 +150,7 @@ export function NavbarPanel({ config, onUpdate, restaurantId }: {
             Choisissez l&apos;affichage de la navigation, séparément sur <strong>ordinateur</strong> et <strong>mobile</strong>. Complète = barre avec logo, liens et bouton ; Compacte = menu et bouton flottants, sans barre ni logo ; Masquée = aucune navigation en haut.
           </p>
           {groupBlock('content', 'Pages de contenu', 'Accueil et pages de contenu')}
-          {groupBlock('shopping', 'Pages boutique', 'Commande, traiteur, pages boutique')}
+          {groupBlock('shopping', 'Autres pages boutique', 'Traiteur et pages boutique personnalisées')}
         </div>,
       )}
 
