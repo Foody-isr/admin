@@ -14,8 +14,11 @@ import Modal from '@/components/Modal';
 import { CateringLocaleFields } from '@/components/catering/CateringLocaleFields';
 import CateringFormulaComposer, {
   newChoiceGroupDraft,
+  newIncludedSectionDraft,
   toChoiceGroupInputs,
+  toIncludedSectionInputs,
   type CateringChoiceGroupDraft,
+  type CateringIncludedSectionDraft,
 } from '@/components/catering/CateringFormulaComposer';
 import { type Locale } from '@/components/i18n/LocaleTabs';
 import {
@@ -423,9 +426,20 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
     })),
   );
   const [includedItems, setIncludedItems] = useState<CateringIncludedItemInput[]>(() =>
-    (editing?.included_items ?? []).map((item) => ({
+    (editing?.included_items ?? []).filter((item) => !item.section_id).map((item) => ({
       ...(item.menu_item_id ? { menu_item_id: item.menu_item_id } : { name: item.name }),
       description: item.description ?? '',
+    })),
+  );
+  const [includedSections, setIncludedSections] = useState<CateringIncludedSectionDraft[]>(() =>
+    (editing?.included_sections ?? []).map((section, index) => ({
+      ...newIncludedSectionDraft(index, section.name),
+      description: section.description ?? '',
+      translations: section.translations ?? {},
+      items: (section.items ?? []).map((item) => ({
+        ...(item.menu_item_id ? { menu_item_id: item.menu_item_id } : { name: item.name }),
+        description: item.description ?? '',
+      })),
     })),
   );
 
@@ -435,7 +449,9 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
     const capacity = group.max_per_item === 0 ? Number.POSITIVE_INFINITY : group.items.length * group.max_per_item;
     return group.name.trim().length > 0 && group.items.length > 0 && group.min_selections >= 0 &&
       group.max_selections >= Math.max(1, group.min_selections) && capacity >= group.min_selections && defaults <= group.max_selections;
-  }), [choiceGroups]) && includedItems.every((item) => Boolean(item.menu_item_id || item.name?.trim()));
+  }) && includedItems.every((item) => Boolean(item.menu_item_id || item.name?.trim())) &&
+    includedSections.every((section) => section.name.trim().length > 0 && section.items.every((item) => Boolean(item.menu_item_id || item.name?.trim()))),
+  [choiceGroups, includedItems, includedSections]);
 
   const handleImage = async (file: File) => {
     setUploading(true);
@@ -464,6 +480,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
         translations,
         is_active: isActive,
         choice_groups: toChoiceGroupInputs(choiceGroups),
+        included_sections: toIncludedSectionInputs(includedSections),
         included_items: includedItems,
         ...(pricingModel === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
         ...(pricingModel === 'per_person'
@@ -515,7 +532,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
             {t('catering_formula_details_tab')}
           </button>
           <button type="button" onClick={() => setFormTab('composition')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${formTab === 'composition' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary'}`}>
-            {t('catering_formula_composition')} {(choiceGroups.length + includedItems.length) > 0 && <span className="ms-1 rounded-full bg-brand-500/10 px-2 py-0.5 text-xs text-brand-600">{choiceGroups.length + includedItems.length}</span>}
+            {t('catering_formula_composition')} {(choiceGroups.length + includedSections.length + includedItems.length) > 0 && <span className="ms-1 rounded-full bg-brand-500/10 px-2 py-0.5 text-xs text-brand-600">{choiceGroups.length + includedSections.length + includedItems.length}</span>}
           </button>
         </div>
 
@@ -655,6 +672,8 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, gr
               onChange={setChoiceGroups}
               includedItems={includedItems}
               onIncludedItemsChange={setIncludedItems}
+              includedSections={includedSections}
+              onIncludedSectionsChange={setIncludedSections}
             />
           </div>
         )}

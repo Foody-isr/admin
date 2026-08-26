@@ -8682,6 +8682,7 @@ export interface CateringIncludedItem {
   id: number;
   restaurant_id: number;
   catalog_item_id: number;
+  section_id?: number;
   menu_item_id?: number;
   name: string;
   description: string;
@@ -8693,6 +8694,24 @@ export interface CateringIncludedItemInput {
   menu_item_id?: number;
   name?: string;
   description?: string;
+}
+
+export interface CateringIncludedSection {
+  id: number;
+  restaurant_id: number;
+  catalog_item_id: number;
+  name: string;
+  description: string;
+  translations?: Record<string, Record<string, string>>;
+  sort_order: number;
+  items: CateringIncludedItem[];
+}
+
+export interface CateringIncludedSectionInput {
+  name: string;
+  description?: string;
+  translations?: Record<string, Record<string, string>>;
+  items: CateringIncludedItemInput[];
 }
 
 export interface CateringLibraryItem {
@@ -8727,6 +8746,7 @@ export interface CateringCatalogItem {
   is_active: boolean;
   sort_order: number;
   choice_groups?: CateringChoiceGroup[];
+  included_sections?: CateringIncludedSection[];
   included_items?: CateringIncludedItem[];
 }
 
@@ -8744,6 +8764,7 @@ export interface CateringCatalogItemInput {
   is_active?: boolean;
   sort_order?: number;
   choice_groups?: CateringChoiceGroupInput[];
+  included_sections?: CateringIncludedSectionInput[];
   included_items?: CateringIncludedItemInput[];
 }
 

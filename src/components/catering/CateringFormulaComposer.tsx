@@ -8,6 +8,7 @@ import {
   listCateringArticleLibrary,
   type CateringChoiceGroupInput,
   type CateringIncludedItemInput,
+  type CateringIncludedSectionInput,
   type CateringLibraryItem,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -16,6 +17,7 @@ import { Button } from '@/components/ds';
 const INCLUDED_KEY = '__included__';
 
 export type CateringChoiceGroupDraft = CateringChoiceGroupInput & { key: string };
+export type CateringIncludedSectionDraft = CateringIncludedSectionInput & { key: string };
 
 export function newChoiceGroupDraft(index: number, name = ''): CateringChoiceGroupDraft {
   return {
@@ -33,12 +35,27 @@ export function toChoiceGroupInputs(groups: CateringChoiceGroupDraft[]): Caterin
   return groups.map(({ key: _key, ...group }) => group);
 }
 
+export function newIncludedSectionDraft(index: number, name = ''): CateringIncludedSectionDraft {
+  return {
+    key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `included-section-${Date.now()}-${index}`,
+    name,
+    description: '',
+    items: [],
+  };
+}
+
+export function toIncludedSectionInputs(sections: CateringIncludedSectionDraft[]): CateringIncludedSectionInput[] {
+  return sections.map(({ key: _key, ...section }) => section);
+}
+
 type Props = {
   restaurantId: number;
   groups: CateringChoiceGroupDraft[];
   onChange: (next: CateringChoiceGroupDraft[]) => void;
   includedItems: CateringIncludedItemInput[];
   onIncludedItemsChange: (next: CateringIncludedItemInput[]) => void;
+  includedSections: CateringIncludedSectionDraft[];
+  onIncludedSectionsChange: (next: CateringIncludedSectionDraft[]) => void;
 };
 
 export default function CateringFormulaComposer({
@@ -47,6 +64,8 @@ export default function CateringFormulaComposer({
   onChange,
   includedItems,
   onIncludedItemsChange,
+  includedSections,
+  onIncludedSectionsChange,
 }: Props) {
   const { t } = useI18n();
   const [library, setLibrary] = useState<CateringLibraryItem[]>([]);
@@ -55,7 +74,7 @@ export default function CateringFormulaComposer({
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [search, setSearch] = useState('');
   const [manualName, setManualName] = useState('');
-  const [activeKey, setActiveKey] = useState(INCLUDED_KEY);
+  const [activeKey, setActiveKey] = useState(includedSections[0]?.key ?? INCLUDED_KEY);
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -77,7 +96,8 @@ export default function CateringFormulaComposer({
     return () => { live = false; };
   }, [restaurantId, loadAttempt, t]);
 
-  const isIncluded = activeKey === INCLUDED_KEY;
+  const activeSection = includedSections.find((section) => section.key === activeKey) ?? null;
+  const isIncluded = activeKey === INCLUDED_KEY || activeSection !== null;
   const active = groups.find((group) => group.key === activeKey) ?? null;
   const itemsById = useMemo(() => new Map(library.map((item) => [item.id, item])), [library]);
   const categories = useMemo(() => {
@@ -99,9 +119,18 @@ export default function CateringFormulaComposer({
   }, [categories, library, search]);
   const selectedIds = useMemo(() => new Set(
     isIncluded
-      ? includedItems.flatMap((item) => item.menu_item_id ? [item.menu_item_id] : [])
+      ? [...includedItems, ...includedSections.flatMap((section) => section.items)].flatMap((item) => item.menu_item_id ? [item.menu_item_id] : [])
       : (active?.items ?? []).map((item) => item.menu_item_id),
-  ), [active?.items, includedItems, isIncluded]);
+  ), [active?.items, includedItems, includedSections, isIncluded]);
+
+  const activeIncludedItems = activeSection?.items ?? includedItems;
+  const setActiveIncludedItems = (items: CateringIncludedItemInput[]) => {
+    if (activeSection) {
+      onIncludedSectionsChange(includedSections.map((section) => section.key === activeSection.key ? { ...section, items } : section));
+    } else {
+      onIncludedItemsChange(items);
+    }
+  };
 
   const updateActive = (patch: Partial<CateringChoiceGroupDraft>) => {
     if (active) onChange(groups.map((group) => group.key === active.key ? { ...group, ...patch } : group));
@@ -110,6 +139,30 @@ export default function CateringFormulaComposer({
     const next = newChoiceGroupDraft(groups.length, t('catering_choice_group_default_name'));
     onChange([...groups, next]);
     setActiveKey(next.key);
+  };
+  const addIncludedSection = (name = t('catering_included_section_default_name'), items: CateringIncludedItemInput[] = []) => {
+    const next = { ...newIncludedSectionDraft(includedSections.length, name), items };
+    onIncludedSectionsChange([...includedSections, next]);
+    setActiveKey(next.key);
+  };
+  const updateActiveSection = (patch: Partial<CateringIncludedSectionDraft>) => {
+    if (activeSection) onIncludedSectionsChange(includedSections.map((section) => section.key === activeSection.key ? { ...section, ...patch } : section));
+  };
+  const moveIncludedSection = (direction: -1 | 1) => {
+    if (!activeSection) return;
+    const index = includedSections.findIndex((section) => section.key === activeSection.key);
+    const target = index + direction;
+    if (target < 0 || target >= includedSections.length) return;
+    const next = [...includedSections];
+    [next[index], next[target]] = [next[target], next[index]];
+    onIncludedSectionsChange(next);
+  };
+  const removeIncludedSection = () => {
+    if (!activeSection) return;
+    const index = includedSections.findIndex((section) => section.key === activeSection.key);
+    const next = includedSections.filter((section) => section.key !== activeSection.key);
+    onIncludedSectionsChange(next);
+    setActiveKey(next[Math.min(index, next.length - 1)]?.key ?? INCLUDED_KEY);
   };
   const moveGroup = (direction: -1 | 1) => {
     if (!active) return;
@@ -131,14 +184,14 @@ export default function CateringFormulaComposer({
   const addLinkedItem = (menuItemId: number) => {
     if (selectedIds.has(menuItemId)) return;
     if (isIncluded) {
-      onIncludedItemsChange([...includedItems, { menu_item_id: menuItemId, description: '' }]);
+      setActiveIncludedItems([...activeIncludedItems, { menu_item_id: menuItemId, description: '' }]);
     } else if (active) {
       updateActive({ items: [...active.items, { menu_item_id: menuItemId, price_delta: 0, default_quantity: 0 }] });
     }
   };
   const removeLinkedItem = (menuItemId: number) => {
     if (isIncluded) {
-      onIncludedItemsChange(includedItems.filter((item) => item.menu_item_id !== menuItemId));
+      setActiveIncludedItems(activeIncludedItems.filter((item) => item.menu_item_id !== menuItemId));
     } else if (active) {
       updateActive({ items: active.items.filter((item) => item.menu_item_id !== menuItemId) });
     }
@@ -148,7 +201,9 @@ export default function CateringFormulaComposer({
     const additions = items.filter((item) => item.is_active && !selectedIds.has(item.id));
     if (!additions.length) return;
     if (isIncluded) {
-      onIncludedItemsChange([...includedItems, ...additions.map((item) => ({ menu_item_id: item.id, description: '' }))]);
+      const rows = additions.map((item) => ({ menu_item_id: item.id, description: '' }));
+      if (activeSection) setActiveIncludedItems([...activeIncludedItems, ...rows]);
+      else addIncludedSection(items[0]?.category_name ?? t('catering_included_section_default_name'), rows);
     } else if (active) {
       updateActive({ items: [...active.items, ...additions.map((item) => ({ menu_item_id: item.id, price_delta: 0, default_quantity: 0 }))] });
     }
@@ -156,7 +211,7 @@ export default function CateringFormulaComposer({
   const addManualItem = () => {
     const name = manualName.trim();
     if (!name) return;
-    onIncludedItemsChange([...includedItems, { name, description: '' }]);
+    setActiveIncludedItems([...activeIncludedItems, { name, description: '' }]);
     setManualName('');
   };
 
@@ -195,15 +250,25 @@ export default function CateringFormulaComposer({
           <h4 className="font-semibold text-fg-primary">{t('catering_formula_composition')}</h4>
           <p className="mt-0.5 max-w-2xl text-xs text-fg-secondary">{t('catering_formula_composition_hint')}</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={addGroup}><Plus />{t('catering_choice_add_group')}</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={() => addIncludedSection()}><FolderPlus />{t('catering_included_add_section')}</Button>
+          <Button variant="secondary" size="sm" onClick={addGroup}><Plus />{t('catering_choice_add_group')}</Button>
+        </div>
       </div>
 
       <div className="flex shrink-0 gap-2 overflow-x-auto pb-1">
         <button type="button" onClick={() => setActiveKey(INCLUDED_KEY)} className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-start transition ${isIncluded ? 'border-brand-500 bg-brand-500/10 text-brand-700' : 'border-[var(--divider)] bg-[var(--surface)] text-fg-secondary hover:border-brand-500/50'}`}>
           <span className="grid h-6 w-6 place-items-center rounded-md bg-[var(--surface-subtle)]"><PackageCheck className="h-3.5 w-3.5" /></span>
-          <span className="text-sm font-semibold">{t('catering_included_title')}</span>
+          <span className="text-sm font-semibold">{t('catering_included_unsectioned_title')}</span>
           <span className="rounded-full bg-[var(--surface-subtle)] px-2 py-0.5 text-xs text-fg-tertiary">{includedItems.length}</span>
         </button>
+        {includedSections.map((section) => (
+          <button key={section.key} type="button" onClick={() => setActiveKey(section.key)} className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-start transition ${activeSection?.key === section.key ? 'border-brand-500 bg-brand-500/10 text-brand-700' : 'border-[var(--divider)] bg-[var(--surface)] text-fg-secondary hover:border-brand-500/50'}`}>
+            <span className="grid h-6 w-6 place-items-center rounded-md bg-[var(--surface-subtle)]"><FolderPlus className="h-3.5 w-3.5" /></span>
+            <span className="max-w-[10rem] truncate text-sm font-semibold">{section.name || t('catering_included_section_unnamed')}</span>
+            <span className="rounded-full bg-[var(--surface-subtle)] px-2 py-0.5 text-xs text-fg-tertiary">{section.items.length}</span>
+          </button>
+        ))}
         {groups.map((group, index) => (
           <button key={group.key} type="button" onClick={() => setActiveKey(group.key)} className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-start transition ${active?.key === group.key ? 'border-brand-500 bg-brand-500/10 text-brand-700' : 'border-[var(--divider)] bg-[var(--surface)] text-fg-secondary hover:border-brand-500/50'}`}>
             <span className="grid h-6 w-6 place-items-center rounded-md bg-[var(--surface-subtle)] text-xs font-bold">{index + 1}</span>
@@ -253,6 +318,7 @@ export default function CateringFormulaComposer({
                 })}
                 onAddCategory={addCategory}
                 onToggleItem={toggleItem}
+                importAsSection={isIncluded && !activeSection}
                 t={t}
               />
             ))}
@@ -262,13 +328,19 @@ export default function CateringFormulaComposer({
         <div className="min-w-0 overflow-y-auto rounded-xl border border-[var(--divider)] bg-[var(--surface)]">
           {isIncluded ? (
             <IncludedPanel
-              items={includedItems}
+              items={activeIncludedItems}
               libraryById={itemsById}
               categoryById={categoryById}
               manualName={manualName}
               onManualName={setManualName}
               onAddManual={addManualItem}
-              onChange={onIncludedItemsChange}
+              onChange={setActiveIncludedItems}
+              section={activeSection}
+              onSectionChange={updateActiveSection}
+              onMoveSection={moveIncludedSection}
+              onRemoveSection={removeIncludedSection}
+              sectionIndex={activeSection ? includedSections.findIndex((section) => section.key === activeSection.key) : -1}
+              sectionCount={includedSections.length}
               t={t}
             />
           ) : active ? (
@@ -332,7 +404,7 @@ function ArticleIdentity({ item, categoryName, fallback }: { item?: CateringLibr
   </div>;
 }
 
-function IncludedPanel({ items, libraryById, categoryById, manualName, onManualName, onAddManual, onChange, t }: {
+function IncludedPanel({ items, libraryById, categoryById, manualName, onManualName, onAddManual, onChange, section, onSectionChange, onMoveSection, onRemoveSection, sectionIndex, sectionCount, t }: {
   items: CateringIncludedItemInput[];
   libraryById: Map<number, CateringLibraryItem>;
   categoryById: Map<number, string>;
@@ -340,11 +412,37 @@ function IncludedPanel({ items, libraryById, categoryById, manualName, onManualN
   onManualName: (value: string) => void;
   onAddManual: () => void;
   onChange: (items: CateringIncludedItemInput[]) => void;
+  section: CateringIncludedSectionDraft | null;
+  onSectionChange: (patch: Partial<CateringIncludedSectionDraft>) => void;
+  onMoveSection: (direction: -1 | 1) => void;
+  onRemoveSection: () => void;
+  sectionIndex: number;
+  sectionCount: number;
   t: (key: string) => string;
 }) {
   return <section>
     <div className="sticky top-0 z-10 border-b border-[var(--divider)] bg-[var(--surface)] p-4">
-      <div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-600"><PackageCheck className="h-5 w-5" /></span><div><h5 className="font-semibold text-fg-primary">{t('catering_included_title')}</h5><p className="mt-0.5 text-xs leading-relaxed text-fg-secondary">{t('catering_included_hint')}</p></div></div>
+      {section ? (
+        <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-600"><FolderPlus className="h-5 w-5" /></span>
+              <div className="min-w-0 flex-1 space-y-2">
+                <input className="input font-semibold" value={section.name} onChange={(event) => onSectionChange({ name: event.target.value })} placeholder={t('catering_included_section_name')} />
+                <input className="input" value={section.description ?? ''} onChange={(event) => onSectionChange({ description: event.target.value })} placeholder={t('catering_included_section_description')} />
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button type="button" disabled={sectionIndex <= 0} aria-label={t('catering_move_up')} onClick={() => onMoveSection(-1)} className="rounded-lg p-2 text-fg-secondary disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
+              <button type="button" disabled={sectionIndex < 0 || sectionIndex >= sectionCount - 1} aria-label={t('catering_move_down')} onClick={() => onMoveSection(1)} className="rounded-lg p-2 text-fg-secondary disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
+              <button type="button" aria-label={t('catering_included_remove_section')} onClick={onRemoveSection} className="rounded-lg p-2 text-red-500 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-fg-secondary">{t('catering_included_section_hint')}</p>
+        </div>
+      ) : (
+        <div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-600"><PackageCheck className="h-5 w-5" /></span><div><h5 className="font-semibold text-fg-primary">{t('catering_included_unsectioned_title')}</h5><p className="mt-0.5 text-xs leading-relaxed text-fg-secondary">{t('catering_included_unsectioned_hint')}</p></div></div>
+      )}
       <div className="mt-3 flex gap-2">
         <input className="input" value={manualName} onChange={(event) => onManualName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); onAddManual(); } }} placeholder={t('catering_included_manual_placeholder')} />
         <Button variant="secondary" size="sm" onClick={onAddManual} disabled={!manualName.trim()}><Plus />{t('catering_included_manual_add')}</Button>
@@ -355,8 +453,10 @@ function IncludedPanel({ items, libraryById, categoryById, manualName, onManualN
       {items.length === 0 ? <p className="rounded-lg border border-dashed border-[var(--divider)] p-6 text-center text-sm text-fg-secondary">{t('catering_included_empty')}</p> : (
         <div className="overflow-hidden rounded-lg border border-[var(--divider)]">{items.map((included, index) => {
           const item = included.menu_item_id ? libraryById.get(included.menu_item_id) : undefined;
-          return <div key={included.menu_item_id ? `linked-${included.menu_item_id}` : `manual-${index}`} className="flex items-center gap-3 border-b border-[var(--divider)] p-3 last:border-b-0">
+          return <div key={included.menu_item_id ? `linked-${included.menu_item_id}` : `manual-${index}`} className="flex items-center gap-2 border-b border-[var(--divider)] p-3 last:border-b-0">
             {included.menu_item_id ? <div className="min-w-0 flex-1"><ArticleIdentity item={item} categoryName={item ? categoryById.get(item.category_id) : ''} fallback={`#${included.menu_item_id}`} /></div> : <div className="min-w-0 flex-1"><input className="input h-9" value={included.name ?? ''} onChange={(event) => onChange(items.map((row, rowIndex) => rowIndex === index ? { ...row, name: event.target.value } : row))} /></div>}
+            <button type="button" disabled={index === 0} aria-label={t('catering_move_up')} onClick={() => { const next = [...items]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; onChange(next); }} className="rounded-lg p-2 text-fg-secondary disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
+            <button type="button" disabled={index === items.length - 1} aria-label={t('catering_move_down')} onClick={() => { const next = [...items]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; onChange(next); }} className="rounded-lg p-2 text-fg-secondary disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
             <button type="button" aria-label={t('catering_remove_image')} onClick={() => onChange(items.filter((_, rowIndex) => rowIndex !== index))} className="rounded-lg p-2 text-red-500 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /></button>
           </div>;
         })}</div>
@@ -365,7 +465,7 @@ function IncludedPanel({ items, libraryById, categoryById, manualName, onManualN
   </section>;
 }
 
-function LibraryCategory({ category, items, visibleItems, expanded, selectedIds, onToggleExpanded, onAddCategory, onToggleItem, t }: {
+function LibraryCategory({ category, items, visibleItems, expanded, selectedIds, onToggleExpanded, onAddCategory, onToggleItem, importAsSection, t }: {
   category: { id: number; name: string };
   items: CateringLibraryItem[];
   visibleItems: CateringLibraryItem[];
@@ -374,6 +474,7 @@ function LibraryCategory({ category, items, visibleItems, expanded, selectedIds,
   onToggleExpanded: () => void;
   onAddCategory: (items: CateringLibraryItem[]) => void;
   onToggleItem: (id: number) => void;
+  importAsSection: boolean;
   t: (key: string) => string;
 }) {
   const activeItems = items.filter((item) => item.is_active);
@@ -382,7 +483,7 @@ function LibraryCategory({ category, items, visibleItems, expanded, selectedIds,
   return <section className="overflow-hidden rounded-lg border border-[var(--divider)] bg-[var(--surface)]">
     <div className="flex items-center gap-2 border-s-2 border-s-brand-500 px-2.5 py-2">
       <button type="button" onClick={onToggleExpanded} className="flex min-w-0 flex-1 items-center gap-2 text-start">{expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}<span className="truncate text-sm font-semibold text-fg-primary">{category.name}</span><span className="text-xs text-fg-tertiary">{selectedCount}/{activeItems.length}</span></button>
-      <button type="button" disabled={imported || activeItems.length === 0} onClick={() => onAddCategory(items)} className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-500/10 disabled:text-fg-tertiary">{imported ? <Check className="h-3.5 w-3.5" /> : <FolderPlus className="h-3.5 w-3.5" />}{imported ? t('catering_choice_category_imported_short') : t('catering_choice_add_remaining').replace('{n}', String(activeItems.length - selectedCount))}</button>
+      <button type="button" disabled={imported || activeItems.length === 0} onClick={() => onAddCategory(items)} className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-semibold text-brand-600 hover:bg-brand-500/10 disabled:text-fg-tertiary">{imported ? <Check className="h-3.5 w-3.5" /> : <FolderPlus className="h-3.5 w-3.5" />}{imported ? t('catering_choice_category_imported_short') : importAsSection ? t('catering_included_import_section') : t('catering_choice_add_remaining').replace('{n}', String(activeItems.length - selectedCount))}</button>
     </div>
     {expanded && <div className="border-t border-[var(--divider)] p-1.5">{visibleItems.map((item) => {
       const selected = selectedIds.has(item.id);
