@@ -82,7 +82,7 @@ export function NavbarPanel({ config, onUpdate, restaurantId }: {
   } as const;
   const setLayout = (grp: 'content' | 'shopping', patch: Partial<{ desktop: string; mobile: string; bottom_bar: boolean }>) =>
     onUpdate({ nav_layout: { ...eff, [grp]: { ...eff[grp], ...patch } } } as Partial<WebsiteConfig>);
-  const MODE_OPTS = [['full', 'Complète'], ['compact', 'Compacte'], ['hidden', 'Masquée']] as const;
+  const MODE_OPTS = [['full', 'Complète'], ['slim', 'Fine sans logo'], ['compact', 'Compacte'], ['hidden', 'Masquée']] as const;
   const modeRow = (label: string, value: string, onSet: (v: string) => void) => (
     <div>
       <label className="block text-[11px] text-fg-secondary mb-1">{label}</label>

@@ -996,9 +996,9 @@ export interface WebsitePageMeta {
 }
 
 /** A single navbar composition mode for one device.
- *  full = logo + inline links + CTA; compact = floating hamburger + CTA;
- *  hidden = no top bar. */
-export type NavMode = 'full' | 'compact' | 'hidden';
+ *  full = logo + inline links + CTA; slim = a thinner bar with links + CTA and no logo;
+ *  compact = floating hamburger + CTA; hidden = no top bar. */
+export type NavMode = 'full' | 'slim' | 'compact' | 'hidden';
 export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
 /** Per-page-type navigation composition. content = landing + content pages;
  *  shopping = order, catering, and custom pages flagged shopping. */

@@ -470,6 +470,7 @@ export function PageInspector({
           >
             <option value="inherit">Hériter du site</option>
             <option value="full">Complète</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
             <option value="compact">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
@@ -487,6 +488,7 @@ export function PageInspector({
           >
             <option value="inherit">Hériter du site</option>
             <option value="full">Complète</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
             <option value="compact">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>

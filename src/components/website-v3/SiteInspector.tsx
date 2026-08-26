@@ -238,7 +238,16 @@ export function SiteInspector({
   };
   const bottomNavigation = record(navLayout.bottom_navigation);
   const compactNavigation = record(navLayout.compact_navigation);
-  const hasFullNavigation = [contentNav.desktop, contentNav.mobile, shoppingNav.desktop, shoppingNav.mobile].includes("full");
+  const navigationModes = [
+    contentNav.desktop,
+    contentNav.mobile,
+    shoppingNav.desktop,
+    shoppingNav.mobile,
+  ];
+  const hasFullNavigation = navigationModes.includes("full");
+  const hasLinkNavigation = navigationModes.some(
+    (mode) => mode === "full" || mode === "slim",
+  );
   const bottomItems = [
     ...pages.filter((page) => page.nav_visible).sort((a, b) => a.sort_order - b.sort_order)
       .map((page) => ({ key: page.slug, label: page.title })),
@@ -423,7 +432,7 @@ export function SiteInspector({
         title="Navigation"
         description="Composez une navigation lisible pour les pages contenu et commerce."
       >
-        {hasFullNavigation ? <><InspectorField label="Style">
+        {hasLinkNavigation ? <><InspectorField label="Style">
           <select
             data-field-id="site.navbar_style"
             value={navbarStyle}
@@ -493,6 +502,7 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète · liens visibles</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
             <option value="compact">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
@@ -514,6 +524,7 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
             <option value="compact">Compacte · sans barre ni logo</option>
             <option value="hidden">Masquée</option>
           </select>
@@ -527,6 +538,7 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète · liens visibles</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
             <option value="compact">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
@@ -540,6 +552,7 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
             <option value="compact">Compacte · sans barre ni logo</option>
             <option value="hidden">Masquée</option>
           </select>

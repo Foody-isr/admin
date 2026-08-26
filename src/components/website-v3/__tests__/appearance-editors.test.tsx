@@ -18,6 +18,7 @@ import { FooterEditor } from "../FooterEditor";
 import { MenuHighlightsAppearanceEditor } from "../MenuHighlightsAppearanceEditor";
 import { NavigationCtaEditor } from "../NavigationCtaEditor";
 import { PageInspector } from "../PageInspector";
+import { SiteInspector } from "../SiteInspector";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -74,6 +75,61 @@ test("page navigation CTA starts inherited and reveals sparse state controls", (
     customMarkup,
     /page\.appearance_overrides\.navbar_cta\.transparent\.variant/,
   );
+});
+
+test("site and page navigation editors expose the slim links-without-logo mode", () => {
+  const page: DraftPagePayload = {
+    tmp_id: "landing-page",
+    type: "landing",
+    slug: "home",
+    title: "Accueil",
+    sort_order: 0,
+    nav_visible: true,
+    is_homepage: true,
+    is_default: false,
+    seo: {},
+    appearance_overrides: {},
+    settings: {},
+  };
+  const siteMarkup = render(
+    React.createElement(SiteInspector, {
+      tab: "settings",
+      config: {},
+      restaurantId: 24,
+      pages: [page],
+      footer: null,
+      onChange: () => undefined,
+      onPageVisibilityChange: () => undefined,
+      onFooterChange: () => undefined,
+      onStoriesNavigationAvailabilityChange: () => undefined,
+      onRestaurantLogoUpload: async () => undefined,
+      onRestaurantLogoRemove: async () => undefined,
+    }),
+  );
+  const pageMarkup = render(
+    React.createElement(PageInspector, {
+      page,
+      tab: "settings",
+      surface: "page" as const,
+      onSurfaceChange: () => undefined,
+      restaurantId: 24,
+      restaurant: {} as Restaurant,
+      config: {},
+      onConfigChange: () => undefined,
+      catalog: themeCatalog(),
+      menus: [] as Menu[],
+      services: [] as CateringService[],
+      errors: [],
+      onChange: () => undefined,
+      onReplace: () => undefined,
+      onMakeDefault: () => undefined,
+      onMakeHomepage: () => undefined,
+    }),
+  );
+
+  assert.equal(siteMarkup.match(/<option value="slim">/g)?.length, 4);
+  assert.equal(pageMarkup.match(/<option value="slim">/g)?.length, 2);
+  assert.match(siteMarkup, /Fine · liens visibles sans logo/);
 });
 
 test("footer exposes content and appearance fields in their tabs", () => {
