@@ -18,7 +18,8 @@ export function callUrl(phone: string): string {
   return `tel:${phone.replace(/[\s-]/g, '')}`;
 }
 
-/** WhatsApp deep link (digits only). */
-export function whatsappUrl(phone: string): string {
-  return `https://wa.me/${phone.replace(/[^\d]/g, '')}`;
+/** WhatsApp deep link (digits only), optionally with a pre-filled message. */
+export function whatsappUrl(phone: string, message?: string): string {
+  const base = `https://wa.me/${phone.replace(/[^\d]/g, '')}`;
+  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }
