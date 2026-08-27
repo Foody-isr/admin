@@ -4338,14 +4338,13 @@ export async function updateOrderItem(
 }
 
 /** Removes a line from an order. The server recomputes the total and
- *  broadcasts `order.updated`. Mirrors `DELETE /api/v1/orders/:id/items/:itemId`. */
+ *  broadcasts `order.updated`. Mirrors `DELETE /api/v1/orders/items/:itemId`. */
 export async function removeOrderItem(
   restaurantId: number,
-  orderId: number,
   itemId: number,
 ): Promise<void> {
   return apiFetch<void>(
-    `/api/v1/orders/${orderId}/items/${itemId}?restaurant_id=${restaurantId}`,
+    `/api/v1/orders/items/${itemId}?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'DELETE' },
   );
