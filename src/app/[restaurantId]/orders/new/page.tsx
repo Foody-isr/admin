@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getMenu, listAllItems, createOrder, ApiError,
-  getBatchFulfillmentConfig, listGroupMemberships,
+  getStaffBatchFulfillmentConfig, listGroupMemberships,
   type Menu, type MenuItem, type PaymentStatus,
   type BatchFulfillmentConfigResponse, type MenuGroupMembership,
 } from '@/lib/api';
@@ -142,13 +142,14 @@ export default function NewOrderPage() {
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
   const [selectedCycleIndex, setSelectedCycleIndex] = useState(0);
   const [membershipsByGroup, setMembershipsByGroup] = useState<Map<number, MenuGroupMembership[]>>(new Map());
-  // Batch config loaded unconditionally so the checkout drawer has it regardless
-  // of whether the active carte is rotating. This is independent of the rotating
-  // carte batchConfig above (which drives item filtering and may be null).
+  // The internal order flow deliberately uses the staff config: unlike the
+  // public config, it also exposes the current in-production série after its
+  // ordering cutoff. This lets an admin add a late manual order to that série.
+  // It remains independent of the rotating carte batchConfig below.
   const [fulfillmentBatchConfig, setFulfillmentBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
   useEffect(() => {
     let cancelled = false;
-    getBatchFulfillmentConfig(restaurantId)
+    getStaffBatchFulfillmentConfig(restaurantId)
       .then((cfg) => { if (!cancelled) setFulfillmentBatchConfig(cfg); })
       .catch(() => { if (!cancelled) setFulfillmentBatchConfig(null); });
     return () => { cancelled = true; };
@@ -286,8 +287,10 @@ export default function NewOrderPage() {
     selectedCycle?.fulfillment_days?.[0]?.date ??
     (selectedCycle?.cutoff_at ? selectedCycle.cutoff_at.slice(0, 10) : null);
 
-  // When the active carte rotates, load its batch cycles + per-group memberships
-  // so items can be filtered to the selected week. Mirrors the carte detail page.
+  // When the active carte rotates, load its staff-visible batch cycles + per-group
+  // memberships so items can be filtered to the selected week. The same closed
+  // current série offered at checkout must be selectable here too, otherwise the
+  // operator would browse next week's composition while ordering for this week.
   useEffect(() => {
     if (!activeMenu?.is_weekly_rotating) {
       setBatchConfig(null);
@@ -298,7 +301,7 @@ export default function NewOrderPage() {
     (async () => {
       const groupList = activeMenu.groups ?? [];
       const [config, ...memberships] = await Promise.all([
-        getBatchFulfillmentConfig(restaurantId).catch(() => null),
+        getStaffBatchFulfillmentConfig(restaurantId).catch(() => null),
         ...groupList.map((g) => listGroupMemberships(restaurantId, g.id).catch(() => [] as MenuGroupMembership[])),
       ]);
       if (cancelled) return;
