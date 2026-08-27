@@ -564,14 +564,14 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       // 1) Soft-deleted regular lines.
       for (const line of lines) {
         if (line.removed && line.orderItemId) {
-          await removeOrderItem(restaurantId, order.id, line.orderItemId);
+          await removeOrderItem(restaurantId, line.orderItemId);
         }
       }
       // 2) Removed combos — drop every child line in the group.
       for (const combo of combos) {
         if (removedCombos.has(combo.group)) {
           for (const it of combo.items) {
-            await removeOrderItem(restaurantId, order.id, it.id);
+            await removeOrderItem(restaurantId, it.id);
           }
         }
       }
