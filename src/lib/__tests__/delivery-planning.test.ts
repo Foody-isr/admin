@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildDeliveryEtaMessage, deliveryEtaWindow } from '@/lib/delivery-planning';
+import { buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow } from '@/lib/delivery-planning';
 
 test('deliveryEtaWindow anchors cumulative ETA to the planned departure', () => {
   const window = deliveryEtaWindow(
@@ -11,6 +11,7 @@ test('deliveryEtaWindow anchors cumulative ETA to the planned departure', () => 
   assert.ok(window);
   assert.equal(window.startAt.toISOString(), '2026-08-27T18:55:00.000Z');
   assert.equal(window.endAt.toISOString(), '2026-08-27T19:10:00.000Z');
+  assert.ok(window.day);
 });
 
 test('deliveryEtaWindow prefers the actual start and rejects missing anchors', () => {
@@ -40,4 +41,19 @@ test('buildDeliveryEtaMessage fills customer, order and ETA window', () => {
   );
   assert.match(message, /^Hi Naomi, order #1583: /);
   assert.doesNotMatch(message, /\{(?:name|order|start|end)\}/);
+});
+
+test('buildDeliveryEtaLabel includes the localized day and time range', () => {
+  const window = deliveryEtaWindow(
+    { planned_departure_at: '2026-08-27T18:00:00.000Z' },
+    { eta_seconds: 600 },
+    'fr',
+  );
+  assert.ok(window);
+  const label = buildDeliveryEtaLabel(
+    'Arrivée prévue : {day}, entre {start} et {end}',
+    window,
+  );
+  assert.match(label, /^Arrivée prévue : .+, entre .+ et .+$/);
+  assert.doesNotMatch(label, /\{(?:day|start|end)\}/);
 });

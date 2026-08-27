@@ -10,7 +10,14 @@ import {
   type DeliveryRoute, type RouteStop,
 } from '@/lib/delivery';
 import type { Order } from '@/lib/api';
-import { navUrl, callUrl } from '@/lib/delivery-links';
+import { navUrl, callUrl, whatsappUrl } from '@/lib/delivery-links';
+import { formatDeliveryAddress } from '@/lib/delivery-address';
+import {
+  buildDeliveryEtaLabel,
+  buildDeliveryEtaMessage,
+  deliveryEtaWindow,
+  type DeliveryEtaWindow,
+} from '@/lib/delivery-planning';
 import { useLocationReporter } from '@/lib/useLocationReporter';
 import {
   Badge,
@@ -34,7 +41,12 @@ import {
   ZapIcon,
   AlertCircleIcon,
   MapPinIcon,
+  MapIcon,
+  Maximize2Icon,
+  Minimize2Icon,
   PackageIcon,
+  UserRoundIcon,
+  MessageCircleIcon,
 } from 'lucide-react';
 
 // ── Dynamic import: Leaflet crashes on SSR ────────────────────────────────────
@@ -58,6 +70,28 @@ function stopStatusTone(status: RouteStop['status']): 'success' | 'info' | 'neut
   if (status === 'delivered') return 'success';
   if (status === 'arrived') return 'info';
   return 'neutral';
+}
+
+function stopAddress(stop: RouteStop, t: (k: string) => string) {
+  return formatDeliveryAddress({
+    address: stop.address,
+    city: stop.city,
+    floor: stop.delivery_floor,
+    apt: stop.delivery_apt,
+    entryCode: stop.delivery_entry_code,
+  }, t);
+}
+
+function stopWhatsappMessage(
+  stop: RouteStop,
+  etaWindow: DeliveryEtaWindow | null,
+  t: (k: string) => string,
+): string {
+  return buildDeliveryEtaMessage(
+    t(etaWindow ? 'deliveryEtaWhatsappTemplate' : 'deliveryEtaWhatsappTemplateNoTime'),
+    stop,
+    etaWindow,
+  );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -106,132 +140,93 @@ function NoStopsCard({ t }: { t: (k: string) => string }) {
 /** Hero card for the currently active stop. */
 function CurrentStopCard({
   stop,
-  busy,
-  onArrived,
-  onDelivered,
+  etaWindow,
   t,
 }: {
   stop: RouteStop;
-  busy: boolean;
-  onArrived: (s: RouteStop) => void;
-  onDelivered: (s: RouteStop) => void;
+  etaWindow: DeliveryEtaWindow | null;
   t: (k: string) => string;
 }) {
   const isArrived = stop.status === 'arrived';
+  const address = stopAddress(stop, t);
+  const deliveryNotes = stop.delivery_notes?.trim();
+  const expectedArrival = etaWindow
+    ? buildDeliveryEtaLabel(t('deliveryExpectedArrival'), etaWindow)
+    : null;
 
   return (
-    <Card className="overflow-hidden">
-      {/* Accent bar — brand when pending, info when arrived */}
-      <div
-        className="h-1 w-full"
-        style={{ background: isArrived ? 'var(--info-500)' : 'var(--brand-500)' }}
-      />
-      <CardBody className="flex flex-col gap-[var(--s-4)]">
-        {/* Stop number + status */}
-        <div className="flex items-start justify-between gap-[var(--s-3)]">
-          <div className="flex items-center gap-[var(--s-2)]">
-            <span
-              className="flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-fs-sm shrink-0"
-              style={{ background: 'var(--brand-500)' }}
-            >
-              {stop.sequence}
-            </span>
-            <div className="min-w-0">
-              <p className="text-fs-md font-semibold text-[var(--fg)] leading-tight truncate">
-                {stop.customer_name}
-              </p>
-              {stop.eta_seconds > 0 && (
-                <p className="text-fs-xs text-[var(--fg-muted)]">{formatEta(stop.eta_seconds, t)}</p>
-              )}
-            </div>
-          </div>
-          <Badge tone={stopStatusTone(stop.status)} dot>
-            {t(stop.status === 'arrived' ? 'stopStatusArrived' : 'stopStatusPending')}
-          </Badge>
-        </div>
+    <div
+      className="relative flex items-stretch border-b border-[var(--line)]"
+      style={{ background: 'color-mix(in oklab, var(--brand-500) 4%, var(--surface))' }}
+      aria-current="step"
+    >
+      <div className="relative flex w-[76px] shrink-0 flex-col items-center px-2 py-5 text-center">
+        <span className="num text-fs-lg font-semibold text-[var(--brand-600)]">
+          {String(stop.sequence).padStart(2, '0')}
+        </span>
+        {etaWindow && (
+          <span className="num mt-2 text-[11px] font-medium leading-tight text-[var(--fg-muted)]">
+            {etaWindow.start}<br />{etaWindow.end}
+          </span>
+        )}
+        <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-500)]" />
+      </div>
 
-        {/* Address */}
-        <div className="flex items-start gap-[var(--s-2)]">
-          <MapPinIcon className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--fg-muted)' }} />
+      <div className="min-w-0 flex-1 py-5 pe-4">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-fs-sm text-[var(--fg)] leading-snug">{stop.address}</p>
-            {stop.city && (
-              <p className="text-fs-xs text-[var(--fg-muted)]">{stop.city}</p>
-            )}
-            {stop.needs_geocode && (
-              <p className="flex items-center gap-1 text-fs-xs mt-1" style={{ color: 'var(--warning-500)' }}>
-                <AlertCircleIcon className="w-3 h-3 shrink-0" />
-                {t('addressNeedsAttention')}
-              </p>
+            <p className="text-fs-xl font-semibold leading-snug text-[var(--fg)]">
+              {address?.line1 || stop.customer_name}
+            </p>
+            {address?.line2 && (
+              <p className="mt-1 text-fs-xs font-medium text-[var(--fg-muted)]">{address.line2}</p>
             )}
           </div>
+          <span className="num shrink-0 rounded-r-md bg-[var(--surface-2)] px-2.5 py-1.5 text-fs-xs font-semibold text-[var(--brand-600)]">
+            #{stop.order_id}
+          </span>
         </div>
 
-        {/* Amount */}
-        {stop.total_amount > 0 && (
-          <p className="text-fs-sm text-[var(--fg-muted)]">
-            ₪{stop.total_amount.toFixed(0)}
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-fs-sm text-[var(--fg-muted)]">
+          <span className="inline-flex items-center gap-1.5">
+            <UserRoundIcon className="h-3.5 w-3.5" />
+            {stop.customer_name}
+          </span>
+          {stop.customer_phone && <span className="num" dir="ltr">{stop.customer_phone}</span>}
+          {stop.total_amount > 0 && <span className="num">₪{stop.total_amount.toFixed(0)}</span>}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge tone={stopStatusTone(stop.status)} dot>
+            {t(isArrived ? 'stopStatusArrived' : 'stopStatusPending')}
+          </Badge>
+          {expectedArrival && (
+            <span className="text-fs-xs font-medium leading-snug text-[var(--info-500)]">{expectedArrival}</span>
+          )}
+        </div>
+
+        {stop.needs_geocode && (
+          <p className="mt-2 flex items-center gap-1 text-fs-xs text-[var(--warning-500)]">
+            <AlertCircleIcon className="h-3 w-3 shrink-0" />
+            {t('addressNeedsAttention')}
           </p>
         )}
 
-        {/* Primary actions */}
-        <div className="flex flex-col gap-[var(--s-2)]">
-          {/* Navigate + Call in a row */}
-          <div className="flex gap-[var(--s-2)]">
-            <a
-              href={navUrl(stop)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1"
-            >
-              <Button variant="primary" size="lg" className="w-full justify-center">
-                <NavigationIcon />
-                {t('navigate')}
-              </Button>
-            </a>
-            {stop.customer_phone && (
-              <a href={callUrl(stop.customer_phone)}>
-                <Button variant="secondary" size="lg" icon aria-label={t('callCustomer')}>
-                  <PhoneIcon />
-                </Button>
-              </a>
-            )}
+        {deliveryNotes && (
+          <div className="mt-3 rounded-r-md border-s-2 border-[var(--brand-300)] bg-[var(--surface-2)] px-3 py-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--fg-subtle)]">{t('deliveryNotes')}</p>
+            <p className="mt-0.5 whitespace-pre-wrap break-words text-fs-sm text-[var(--fg)]">{deliveryNotes}</p>
           </div>
-
-          {/* Arrived → Delivered progression */}
-          {!isArrived ? (
-            <Button
-              variant="secondary"
-              size="md"
-              className="w-full justify-center"
-              disabled={busy}
-              onClick={() => onArrived(stop)}
-            >
-              <CheckIcon />
-              {t('markArrived')}
-            </Button>
-          ) : (
-            <Button
-              variant="primary"
-              size="lg"
-              className="w-full justify-center"
-              disabled={busy}
-              onClick={() => onDelivered(stop)}
-              style={{ background: 'var(--success-500)' }}
-            >
-              <CheckCircle2Icon />
-              {t('markDelivered')}
-            </Button>
-          )}
-        </div>
-      </CardBody>
-    </Card>
+        )}
+      </div>
+    </div>
   );
 }
 
 /** Single row in the upcoming stops list. */
 function StopRow({
   stop,
+  etaWindow,
   index,
   total,
   busy,
@@ -240,6 +235,7 @@ function StopRow({
   t,
 }: {
   stop: RouteStop;
+  etaWindow: DeliveryEtaWindow | null;
   index: number;
   total: number;
   busy: boolean;
@@ -250,74 +246,96 @@ function StopRow({
   const isDelivered = stop.status === 'delivered';
   const isFirst = index === 0;
   const isLast = index === total - 1;
+  const address = stopAddress(stop, t);
+  const deliveryNotes = stop.delivery_notes?.trim();
+  const expectedArrival = etaWindow
+    ? buildDeliveryEtaLabel(t('deliveryExpectedArrival'), etaWindow)
+    : null;
 
   return (
     <div
-      className="flex items-center gap-[var(--s-3)] py-[var(--s-3)] px-[var(--s-4)]"
+      className="relative flex items-stretch"
       style={{
         opacity: isDelivered ? 0.5 : 1,
         borderBottom: index < total - 1 ? '1px solid var(--line)' : 'none',
       }}
     >
-      {/* Sequence number */}
-      <span
-        className="flex items-center justify-center w-7 h-7 rounded-full text-fs-xs font-bold shrink-0"
-        style={{
-          background: isDelivered ? 'var(--surface-2)' : 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-          color: isDelivered ? 'var(--fg-subtle)' : 'var(--brand-500)',
-        }}
-      >
-        {isDelivered ? <CheckIcon className="w-3.5 h-3.5" /> : stop.sequence}
-      </span>
-
-      {/* Address info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-fs-sm font-medium text-[var(--fg)] truncate leading-tight">
-          {stop.customer_name}
-        </p>
-        <p className="text-fs-xs text-[var(--fg-muted)] truncate">{stop.address}</p>
-        {stop.eta_seconds > 0 && (
-          <p className="text-fs-xs" style={{ color: 'var(--fg-subtle)' }}>
-            {formatEta(stop.eta_seconds, t)}
-          </p>
+      <div className="relative flex w-[76px] shrink-0 flex-col items-center px-2 py-5 text-center">
+        <span className="num text-fs-md font-medium text-[var(--fg-muted)]">
+          {isDelivered ? <CheckIcon className="h-4 w-4" /> : String(stop.sequence).padStart(2, '0')}
+        </span>
+        {etaWindow && (
+          <span className="num mt-2 text-[11px] leading-tight text-[var(--fg-subtle)]">
+            {etaWindow.start}<br />{etaWindow.end}
+          </span>
+        )}
+        {index < total - 1 && (
+          <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-300)]" />
         )}
       </div>
 
-      {/* Navigate shortcut for upcoming stops */}
-      {!isDelivered && (
-        <a
-          href={navUrl(stop)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0"
-        >
-          <Button variant="ghost" size="sm" icon aria-label={t('navigate')}>
-            <NavigationIcon />
-          </Button>
-        </a>
-      )}
-
-      {/* Reorder controls */}
-      {!isDelivered && (
-        <div className="flex flex-col gap-0.5 shrink-0">
-          <button
-            onClick={onMoveUp}
-            disabled={busy || isFirst}
-            aria-label={t('moveUp')}
-            className="flex items-center justify-center w-6 h-5 rounded text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)] disabled:opacity-25 disabled:pointer-events-none transition-colors"
-          >
-            <ChevronUpIcon className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={onMoveDown}
-            disabled={busy || isLast}
-            aria-label={t('moveDown')}
-            className="flex items-center justify-center w-6 h-5 rounded text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)] disabled:opacity-25 disabled:pointer-events-none transition-colors"
-          >
-            <ChevronDownIcon className="w-3.5 h-3.5" />
-          </button>
+      <div className="min-w-0 flex-1 py-5 pe-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-fs-lg font-semibold leading-snug text-[var(--fg)]">
+              {address?.line1 || stop.customer_name}
+            </p>
+          </div>
+          <span className="num shrink-0 rounded-r-md bg-[var(--surface-2)] px-2.5 py-1.5 text-fs-xs font-semibold text-[var(--fg-muted)]">
+            #{stop.order_id}
+          </span>
         </div>
-      )}
+        {address?.line2 && (
+          <p className="mt-1 text-fs-xs font-medium text-[var(--fg-muted)]">{address.line2}</p>
+        )}
+        <p className="mt-2 inline-flex items-center gap-1.5 text-fs-sm text-[var(--fg-muted)]">
+          <UserRoundIcon className="h-3.5 w-3.5" />
+          {stop.customer_name}
+        </p>
+        {deliveryNotes && (
+          <p className="mt-1 line-clamp-2 text-fs-xs text-[var(--fg-subtle)]">
+            {t('deliveryNotes')}: {deliveryNotes}
+          </p>
+        )}
+        {expectedArrival ? (
+          <p className="mt-2 text-fs-xs font-medium leading-snug text-[var(--info-500)]">
+            {expectedArrival}
+          </p>
+        ) : stop.eta_seconds > 0 ? (
+          <p className="text-fs-xs" style={{ color: 'var(--fg-subtle)' }}>
+            {formatEta(stop.eta_seconds, t)}
+          </p>
+        ) : null}
+        {!isDelivered && (
+          <div className="mt-3 flex items-center gap-1">
+            <a href={navUrl(stop)} target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" size="sm">
+                <NavigationIcon />
+                {t('navigate')}
+              </Button>
+            </a>
+            {stop.customer_phone && (
+              <a
+                href={whatsappUrl(stop.customer_phone, stopWhatsappMessage(stop, etaWindow, t))}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('deliveryPlanWhatsApp')}
+                title={t('deliveryPlanWhatsApp')}
+              >
+                <Button variant="ghost" size="sm" icon>
+                  <MessageCircleIcon />
+                </Button>
+              </a>
+            )}
+            <Button variant="ghost" size="sm" icon onClick={onMoveUp} disabled={busy || isFirst} aria-label={t('moveUp')}>
+              <ChevronUpIcon />
+            </Button>
+            <Button variant="ghost" size="sm" icon onClick={onMoveDown} disabled={busy || isLast} aria-label={t('moveDown')}>
+              <ChevronDownIcon />
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -338,6 +356,15 @@ function AvailableOrderRow({
   onAdd: (o: Order) => void;
   t: (k: string) => string;
 }) {
+  const address = formatDeliveryAddress({
+    address: order.delivery_address,
+    city: order.delivery_city,
+    floor: order.delivery_floor,
+    apt: order.delivery_apt,
+    entryCode: order.delivery_entry_code,
+  }, t);
+  const deliveryNotes = order.delivery_notes?.trim();
+
   return (
     <div
       className="flex items-center gap-[var(--s-3)] py-[var(--s-3)] px-[var(--s-4)]"
@@ -348,11 +375,15 @@ function AvailableOrderRow({
         <p className="text-fs-sm font-medium text-[var(--fg)] truncate leading-tight">
           {order.customer_name}
         </p>
-        <p className="text-fs-xs text-[var(--fg-muted)] truncate mt-0.5">
-          {order.delivery_address
-            ? [order.delivery_address, order.delivery_city].filter(Boolean).join(', ')
-            : `#${order.id}`}
-        </p>
+        <p className="text-fs-xs text-[var(--fg-muted)] truncate mt-0.5">{address?.line1 || `#${order.id}`}</p>
+        {address?.line2 && (
+          <p className="text-fs-xs font-medium text-[var(--fg-muted)] truncate">{address.line2}</p>
+        )}
+        {deliveryNotes && (
+          <p className="text-fs-xs text-[var(--fg-subtle)] line-clamp-2 mt-0.5">
+            {t('deliveryNotes')}: {deliveryNotes}
+          </p>
+        )}
       </div>
 
       {/* Total */}
@@ -379,13 +410,14 @@ function AvailableOrderRow({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CourierItineraryView({ rid }: { rid: number }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { lastEvent } = useWs();
   const [route, setRoute] = useState<DeliveryRoute | null>(null);
   const [tab, setTab] = useState<Tab>('assigned');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [available, setAvailable] = useState<Order[]>([]);
+  const [mapExpanded, setMapExpanded] = useState(false);
   const prevEvent = useRef(lastEvent);
   const { denied: locationDenied } = useLocationReporter(rid, route?.status === 'active');
 
@@ -482,11 +514,6 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
       await loadAvailable();
     });
 
-  // Upcoming = stops after the current one (or all when no current stop)
-  const upcomingStops = currentStop
-    ? stops.filter((s) => s.id !== currentStop.id)
-    : stops;
-
   // ── Loading / Error ────────────────────────────────────────────────────────
   if (!route) {
     if (error) {
@@ -526,7 +553,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
     : route.status;
 
   return (
-    <div className="flex flex-col gap-[var(--s-4)] pb-[var(--s-8)]">
+    <div className="flex flex-col gap-[var(--s-4)] pb-28">
       {/* ── Inline error banner ─────────────────────────────────────────── */}
       {error && (
         <div
@@ -600,11 +627,33 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
         {/* ── Assigned tab ─────────────────────────────────────────────── */}
         <TabsContent value="assigned">
           <div className="flex flex-col gap-[var(--s-4)]">
-            {/* Map — ~40vh, no SSR, Leaflet requires client-only */}
+            {/* Compact route overview. The timeline remains the primary surface. */}
             {stops.length > 0 && (
-              <div className="rounded-lg overflow-hidden border border-[var(--line)] shadow-1" style={{ height: '40vh' }}>
-                <DeliveryMap stops={stops} className="h-full w-full" />
-              </div>
+              <Card className="overflow-hidden">
+                <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-fs-sm font-semibold text-[var(--fg)]">
+                      {formatEta(route.est_duration_s, t) || '—'} · {stops.length} {t('deliveryPlanStops')}
+                    </p>
+                    <p className="text-[11px] text-[var(--fg-subtle)]">
+                      {delivered}/{stops.length} · {routeStatusLabel}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMapExpanded((current) => !current)}
+                    aria-expanded={mapExpanded}
+                  >
+                    <MapIcon />
+                    {t(mapExpanded ? 'deliveryMapCollapse' : 'deliveryMapExpand')}
+                    {mapExpanded ? <Minimize2Icon /> : <Maximize2Icon />}
+                  </Button>
+                </div>
+                <div className={`transition-[height] duration-slow ease-out ${mapExpanded ? 'h-[42vh] min-h-[320px]' : 'h-44 sm:h-52'}`}>
+                  <DeliveryMap stops={stops} className="h-full w-full" />
+                </div>
+              </Card>
             )}
 
             {/* Progress bar */}
@@ -612,50 +661,32 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
               <RouteProgress delivered={delivered} total={stops.length} />
             )}
 
-            {/* Start button (draft state) */}
-            {route.status === 'draft' && stops.length > 0 && (
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full justify-center"
-                disabled={busy}
-                onClick={onStart}
-              >
-                <RouteIcon />
-                {t('startRoute')}
-              </Button>
-            )}
-
-            {/* Current-stop hero card */}
-            {currentStop ? (
-              <CurrentStopCard
-                stop={currentStop}
-                busy={busy}
-                onArrived={onArrived}
-                onDelivered={onDelivered}
-                t={t}
-              />
-            ) : stops.length === 0 ? (
+            {stops.length === 0 ? (
               <NoStopsCard t={t} />
-            ) : null}
-
-            {/* Upcoming stops list */}
-            {upcomingStops.length > 0 && (
-              <Card>
-                <div>
-                  {upcomingStops.map((s, i) => (
-                    <StopRow
-                      key={s.id}
-                      stop={s}
-                      index={i}
-                      total={upcomingStops.length}
-                      busy={busy}
-                      onMoveUp={() => move(s, -1)}
-                      onMoveDown={() => move(s, 1)}
+            ) : (
+              <Card className="overflow-hidden">
+                {stops.map((stop, index) => (
+                  stop.id === currentStop?.id ? (
+                    <CurrentStopCard
+                      key={stop.id}
+                      stop={stop}
+                      etaWindow={deliveryEtaWindow(route, stop, locale)}
                       t={t}
                     />
-                  ))}
-                </div>
+                  ) : (
+                    <StopRow
+                      key={stop.id}
+                      stop={stop}
+                      etaWindow={deliveryEtaWindow(route, stop, locale)}
+                      index={index}
+                      total={stops.length}
+                      busy={busy}
+                      onMoveUp={() => move(stop, -1)}
+                      onMoveDown={() => move(stop, 1)}
+                      t={t}
+                    />
+                  )
+                ))}
               </Card>
             )}
           </div>
@@ -690,6 +721,69 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
           )}
         </TabsContent>
       </Tabs>
+
+      {tab === 'assigned' && route.status === 'draft' && stops.length > 0 && (
+        <div
+          className="sticky bottom-3 z-[450] rounded-r-xl border border-[var(--line-strong)] p-3 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),env(safe-area-inset-bottom))]"
+          style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
+        >
+          <Button variant="primary" size="lg" className="w-full justify-center" disabled={busy} onClick={onStart}>
+            <RouteIcon />
+            {t('startRoute')}
+          </Button>
+        </div>
+      )}
+
+      {tab === 'assigned' && route.status === 'active' && currentStop && (
+        <div
+          className="sticky bottom-3 z-[450] flex gap-2 rounded-r-xl border border-[var(--line-strong)] p-3 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),env(safe-area-inset-bottom))]"
+          style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
+        >
+          <Button asChild variant="secondary" size="lg" className="flex-1">
+            <a href={navUrl(currentStop)} target="_blank" rel="noopener noreferrer">
+              <NavigationIcon />
+              {t('navigate')}
+            </a>
+          </Button>
+          {currentStop.customer_phone && (
+            <Button asChild variant="secondary" size="lg" icon aria-label={t('deliveryPlanWhatsApp')}>
+              <a
+                href={whatsappUrl(currentStop.customer_phone, stopWhatsappMessage(
+                  currentStop,
+                  deliveryEtaWindow(route, currentStop, locale),
+                  t,
+                ))}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <MessageCircleIcon />
+              </a>
+            </Button>
+          )}
+          {currentStop.customer_phone && (
+            <Button asChild variant="secondary" size="lg" icon aria-label={t('callCustomer')}>
+              <a href={callUrl(currentStop.customer_phone)}><PhoneIcon /></a>
+            </Button>
+          )}
+          {currentStop.status === 'arrived' ? (
+            <Button
+              variant="primary"
+              size="lg"
+              className="flex-1 bg-[var(--success-500)] hover:brightness-95"
+              disabled={busy}
+              onClick={() => onDelivered(currentStop)}
+            >
+              <CheckCircle2Icon />
+              {t('markDelivered')}
+            </Button>
+          ) : (
+            <Button variant="primary" size="lg" className="flex-1" disabled={busy} onClick={() => onArrived(currentStop)}>
+              <CheckIcon />
+              {t('markArrived')}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
