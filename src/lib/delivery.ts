@@ -13,6 +13,10 @@ export interface RouteStop {
   customer_phone: string;
   address: string;
   city: string;
+  delivery_floor?: string;
+  delivery_apt?: string;
+  delivery_entry_code?: string;
+  delivery_notes?: string;
   lat?: number | null;
   lng?: number | null;
   distance_from_prev_m: number;

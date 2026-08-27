@@ -16,6 +16,7 @@ import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { whatsappUrl } from '@/lib/delivery-links';
 import {
+  buildDeliveryEtaLabel,
   buildDeliveryEtaMessage,
   deliveryEtaWindow,
   type DeliveryEtaWindow,
@@ -220,39 +221,72 @@ function RouteRibbon({
           </div>
         )}
 
-        <div className="relative">
-          <div className="absolute bottom-4 left-[13px] top-4 w-px opacity-30" style={{ background: color }} />
-          <div className="flex flex-col gap-1">
-            {ordered.map((stop) => {
+        <div className="overflow-hidden rounded-r-lg border border-[var(--line)]">
+          <div className="flex flex-col">
+            {ordered.map((stop, index) => {
               const window = deliveryEtaWindow(route, stop, locale);
+              const expectedArrival = window
+                ? buildDeliveryEtaLabel(t('deliveryExpectedArrival'), window)
+                : null;
+              const address = formatDeliveryAddress({
+                address: stop.address,
+                city: stop.city,
+                floor: stop.delivery_floor,
+                apt: stop.delivery_apt,
+                entryCode: stop.delivery_entry_code,
+              }, t);
+              const deliveryNotes = stop.delivery_notes?.trim();
               const isSelected = selectedStopId === stop.id;
               const message = deliveryMessage(t, stop, window);
               return (
                 <div
                   key={stop.id}
-                  className={`relative flex items-center gap-2 rounded-r-md border p-2 transition-colors ${
+                  className={`relative flex items-stretch transition-colors ${index < ordered.length - 1 ? 'border-b border-[var(--line)]' : ''} ${
                     isSelected
-                      ? 'border-[var(--brand-500)] bg-[var(--brand-50)]'
-                      : 'border-transparent hover:bg-[var(--surface-2)]'
+                      ? 'bg-[var(--brand-50)]'
+                      : 'hover:bg-[var(--surface-2)]'
                   }`}
                 >
                   <button
                     type="button"
                     onClick={() => onSelectStop(stop.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none"
+                    className="flex min-w-0 flex-1 items-stretch text-left focus-visible:outline-none focus-visible:shadow-ring"
                   >
-                    <span
-                      className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white shadow-sm"
-                      style={{ background: color }}
-                    >
-                      {stop.sequence}
+                    <span className="relative flex w-14 shrink-0 flex-col items-center px-1 py-3 text-center">
+                      <span className="num text-fs-xs font-semibold" style={{ color }}>
+                        {String(stop.sequence).padStart(2, '0')}
+                      </span>
+                      {window && (
+                        <span className="num mt-1.5 text-[10px] leading-tight text-[var(--fg-subtle)]">
+                          {window.start}<br />{window.end}
+                        </span>
+                      )}
+                      {index < ordered.length - 1 && (
+                        <span className="absolute bottom-0 top-[58px] w-0.5 rounded-full opacity-60" style={{ background: color }} />
+                      )}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-fs-xs font-semibold text-[var(--fg)]">{stop.customer_name}</span>
-                      <span className="block truncate text-[11px] text-[var(--fg-subtle)]">{stop.address}</span>
+
+                    <span className="min-w-0 flex-1 py-3 pe-2">
+                      <span className="block text-fs-sm font-semibold leading-snug text-[var(--fg)]">
+                        {address?.line1 || stop.customer_name}
+                      </span>
+                      {address?.line2 && (
+                        <span className="mt-0.5 block text-[11px] font-medium text-[var(--fg-muted)]">{address.line2}</span>
+                      )}
+                      <span className="mt-1 block truncate text-fs-xs text-[var(--fg-muted)]">{stop.customer_name}</span>
+                      {deliveryNotes && (
+                        <span className="mt-0.5 block line-clamp-1 text-[11px] text-[var(--fg-subtle)]">
+                          {t('deliveryNotes')}: {deliveryNotes}
+                        </span>
+                      )}
+                      {expectedArrival && (
+                        <span className="mt-1 block text-[11px] font-medium leading-snug text-[var(--info-500)]">
+                          {expectedArrival}
+                        </span>
+                      )}
                     </span>
-                    <span className="shrink-0 rounded-full bg-[var(--surface)] px-2 py-1 text-[11px] font-semibold tabular-nums text-[var(--fg-muted)]">
-                      {window?.label ?? formatDuration(stop.eta_seconds, t) ?? '—'}
+                    <span className="num me-2 mt-3 h-fit shrink-0 rounded-r-md bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-[var(--fg-muted)] shadow-1">
+                      #{stop.order_id}
                     </span>
                   </button>
                   {stop.customer_phone && (
@@ -260,7 +294,7 @@ function RouteRibbon({
                       href={whatsappUrl(stop.customer_phone, message)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-r-md text-[#1FA855] transition-colors hover:bg-[#1FA855]/10 focus-visible:outline-none focus-visible:shadow-ring"
+                      className="me-2 mt-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-r-md text-[#1FA855] transition-colors hover:bg-[#1FA855]/10 focus-visible:outline-none focus-visible:shadow-ring"
                       aria-label={t('deliveryPlanWhatsApp')}
                       title={t('deliveryPlanWhatsApp')}
                     >
@@ -558,6 +592,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
   const selectedWindow = selectedEntry ? deliveryEtaWindow(selectedEntry.route, selectedEntry.stop, locale) : null;
   const selectedMessage = selectedEntry ? deliveryMessage(t, selectedEntry.stop, selectedWindow) : '';
+  const selectedAddress = selectedEntry ? formatDeliveryAddress({
+    address: selectedEntry.stop.address,
+    city: selectedEntry.stop.city,
+    floor: selectedEntry.stop.delivery_floor,
+    apt: selectedEntry.stop.delivery_apt,
+    entryCode: selectedEntry.stop.delivery_entry_code,
+  }, t) : null;
   const movableRoutes = selectedEntry
     ? routes.filter((route) => route.id !== selectedEntry.route.id && route.status === 'draft')
     : [];
@@ -792,15 +833,28 @@ export default function DispatcherView({ rid }: { rid: number }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-fs-md font-semibold text-[var(--fg)]">{selectedEntry.stop.customer_name}</p>
-                    {selectedWindow && <Badge tone="info">{selectedWindow.label}</Badge>}
                   </div>
-                  <p className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
-                    {[selectedEntry.stop.address, selectedEntry.stop.city].filter(Boolean).join(', ')}
-                  </p>
+                  {selectedAddress && (
+                    <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
+                      <p>{selectedAddress.line1}</p>
+                      {selectedAddress.line2 && <p className="font-medium">{selectedAddress.line2}</p>}
+                    </div>
+                  )}
+                  {selectedWindow && (
+                    <p className="mt-1 text-fs-xs font-medium leading-snug text-[var(--info-500)]">
+                      {buildDeliveryEtaLabel(t('deliveryExpectedArrival'), selectedWindow)}
+                    </p>
+                  )}
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-[var(--fg-subtle)]">
                     <UserIcon className="h-3 w-3" />
                     {courierById.get(selectedEntry.route.courier_id)?.full_name ?? `#${selectedEntry.route.courier_id}`}
                   </p>
+                  {selectedEntry.stop.delivery_notes?.trim() && (
+                    <div className="mt-2 rounded-r-md border-s-2 border-[var(--brand-300)] bg-[var(--surface-2)] px-2.5 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fg-subtle)]">{t('deliveryNotes')}</p>
+                      <p className="mt-0.5 whitespace-pre-wrap text-fs-xs text-[var(--fg)]">{selectedEntry.stop.delivery_notes.trim()}</p>
+                    </div>
+                  )}
                 </div>
                 <button type="button" onClick={() => setSelectedStopId(null)} className="text-[var(--fg-subtle)] hover:text-[var(--fg)]" aria-label={t('close')}>✕</button>
               </div>
