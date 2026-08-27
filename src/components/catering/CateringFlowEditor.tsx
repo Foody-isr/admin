@@ -8,6 +8,7 @@ import {
   updateCateringServiceFlow,
   type CateringFlowConfig,
   type CateringFlowOption,
+  type CateringFlowPriceEffect,
   type CateringFlowPriceMode,
   type CateringFlowStep,
   type CateringFlowStepKind,
@@ -61,7 +62,9 @@ function stepValid(step: CateringFlowStep): boolean {
   if (!step.title.trim()) return false;
   if (step.kind === 'schedule') {
     const schedule = step.schedule;
-    if (!schedule || schedule.min_sessions < 0 || schedule.max_sessions < Math.max(1, schedule.min_sessions)) return false;
+    if (!schedule) return false;
+    if (schedule.mode === 'single') return schedule.min_sessions === 0 && schedule.max_sessions === 1;
+    if (schedule.min_sessions < 0 || schedule.max_sessions < Math.max(1, schedule.min_sessions)) return false;
     if (schedule.mode === 'predefined' && (!schedule.slots?.length || schedule.slots.some((slot) => !slot.label.trim()))) return false;
   }
   if (step.kind === 'single_choice' || step.kind === 'multi_choice' || step.kind === 'quantity') {
@@ -70,11 +73,15 @@ function stepValid(step: CateringFlowStep): boolean {
   return true;
 }
 
-function flowValid(flow: CateringFlowConfig): boolean {
+function flowValid(flow: CateringFlowConfig, pricingModel: CateringService['pricing_model']): boolean {
   if (!flow.enabled) return true;
   if (flow.steps.length === 0 || new Set(flow.steps.map((step) => step.id)).size !== flow.steps.length) return false;
+  const catalogRateSteps = flow.steps.filter((step) => step.options?.some((option) => option.price_effect === 'replace_catalog_per_guest'));
+  if (catalogRateSteps.length > 1) return false;
   return flow.steps.every((step, index) => {
     if (!stepValid(step)) return false;
+    if (step.options?.some((option) => option.price_effect === 'replace_catalog_per_guest'
+      && (pricingModel !== 'per_person' || step.kind !== 'single_choice' || option.price_mode !== 'per_guest'))) return false;
     if (!step.condition) return true;
     const source = flow.steps.slice(0, index).find((candidate) => candidate.id === step.condition?.step_id);
     return Boolean(source?.options?.some((option) => option.id === step.condition?.option_id));
@@ -92,7 +99,7 @@ export default function CateringFlowEditor({ restaurantId, service, canEdit, onS
   const [newKind, setNewKind] = useState<CateringFlowStepKind>('single_choice');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const valid = useMemo(() => flowValid(flow), [flow]);
+  const valid = useMemo(() => flowValid(flow, service.pricing_model), [flow, service.pricing_model]);
 
   const updateStep = (index: number, next: CateringFlowStep) => {
     setSaved(false);
@@ -156,6 +163,7 @@ export default function CateringFlowEditor({ restaurantId, service, canEdit, onS
                 index={index}
                 priorSteps={flow.steps.slice(0, index)}
                 canEdit={canEdit}
+                pricingModel={service.pricing_model}
                 onChange={(next) => updateStep(index, next)}
                 onMove={(delta) => moveStep(index, delta)}
                 onRemove={() => removeStep(index)}
@@ -195,11 +203,12 @@ export default function CateringFlowEditor({ restaurantId, service, canEdit, onS
   );
 }
 
-function StepCard({ step, index, priorSteps, canEdit, onChange, onMove, onRemove, first, last }: {
+function StepCard({ step, index, priorSteps, canEdit, pricingModel, onChange, onMove, onRemove, first, last }: {
   step: CateringFlowStep;
   index: number;
   priorSteps: CateringFlowStep[];
   canEdit: boolean;
+  pricingModel: CateringService['pricing_model'];
   onChange: (step: CateringFlowStep) => void;
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
@@ -229,7 +238,7 @@ function StepCard({ step, index, priorSteps, canEdit, onChange, onMove, onRemove
         </Field>
       </div>
       {step.kind === 'schedule' && step.schedule && <ScheduleEditor step={step} canEdit={canEdit} onChange={onChange} />}
-      {(step.kind === 'single_choice' || step.kind === 'multi_choice' || step.kind === 'quantity') && <OptionsEditor step={step} canEdit={canEdit} onChange={onChange} />}
+      {(step.kind === 'single_choice' || step.kind === 'multi_choice' || step.kind === 'quantity') && <OptionsEditor step={step} canEdit={canEdit} allowCatalogRate={pricingModel === 'per_person' && step.kind === 'single_choice'} onChange={onChange} />}
     </article>
   );
 }
@@ -239,12 +248,19 @@ function ScheduleEditor({ step, canEdit, onChange }: { step: CateringFlowStep; c
   const schedule = step.schedule!;
   const update = (next: typeof schedule) => onChange({ ...step, schedule: next });
   return <div className="space-y-4 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
-    <div className="grid gap-3 sm:grid-cols-3">
-      <Field label={t('catering_flow_schedule_mode')}><select className="input" disabled={!canEdit} value={schedule.mode} onChange={(e) => update({ ...schedule, mode: e.target.value as 'custom' | 'predefined' })}><option value="custom">{t('catering_flow_schedule_custom')}</option><option value="predefined">{t('catering_flow_schedule_predefined')}</option></select></Field>
-      <Field label={t('catering_flow_min_sessions')}><input className="input" type="number" min={0} max={31} disabled={!canEdit} value={schedule.min_sessions} onChange={(e) => update({ ...schedule, min_sessions: Number(e.target.value) })} /></Field>
-      <Field label={t('catering_flow_max_sessions')}><input className="input" type="number" min={1} max={31} disabled={!canEdit} value={schedule.max_sessions} onChange={(e) => update({ ...schedule, max_sessions: Number(e.target.value) })} /></Field>
+    <div className={`grid gap-3 ${schedule.mode === 'single' ? '' : 'sm:grid-cols-3'}`}>
+      <Field label={t('catering_flow_schedule_mode')}><select className="input" disabled={!canEdit} value={schedule.mode} onChange={(e) => {
+        const mode = e.target.value as 'single' | 'custom' | 'predefined';
+        update(mode === 'single'
+          ? { ...schedule, mode, min_sessions: 0, max_sessions: 1, allow_same_day: false, slots: [] }
+          : { ...schedule, mode, min_sessions: Math.max(1, schedule.min_sessions), max_sessions: Math.max(1, schedule.max_sessions) });
+      }}><option value="single">{t('catering_flow_schedule_single')}</option><option value="custom">{t('catering_flow_schedule_custom')}</option><option value="predefined">{t('catering_flow_schedule_predefined')}</option></select></Field>
+      {schedule.mode !== 'single' && <Field label={t('catering_flow_min_sessions')}><input className="input" type="number" min={0} max={31} disabled={!canEdit} value={schedule.min_sessions} onChange={(e) => update({ ...schedule, min_sessions: Number(e.target.value) })} /></Field>}
+      {schedule.mode !== 'single' && <Field label={t('catering_flow_max_sessions')}><input className="input" type="number" min={1} max={31} disabled={!canEdit} value={schedule.max_sessions} onChange={(e) => update({ ...schedule, max_sessions: Number(e.target.value) })} /></Field>}
     </div>
-    <label className="flex items-center gap-2 text-sm text-fg-primary"><input type="checkbox" checked={schedule.allow_same_day} disabled={!canEdit} onChange={(e) => update({ ...schedule, allow_same_day: e.target.checked })} />{t('catering_flow_same_day')}</label>
+    {schedule.mode === 'single'
+      ? <p className="rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-3 py-2 text-sm text-fg-secondary">{t('catering_flow_schedule_single_hint')}</p>
+      : <label className="flex items-center gap-2 text-sm text-fg-primary"><input type="checkbox" checked={schedule.allow_same_day} disabled={!canEdit} onChange={(e) => update({ ...schedule, allow_same_day: e.target.checked })} />{t('catering_flow_same_day')}</label>}
     {schedule.mode === 'predefined' && <div className="space-y-2">
       {(schedule.slots ?? []).map((slot, index) => <div key={slot.id} className="grid gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3 sm:grid-cols-[1fr_110px_120px_120px_auto]">
         <input className="input" placeholder={t('catering_flow_slot_label')} disabled={!canEdit} value={slot.label} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, label: e.target.value } : item) })} />
@@ -259,19 +275,31 @@ function ScheduleEditor({ step, canEdit, onChange }: { step: CateringFlowStep; c
   </div>;
 }
 
-function OptionsEditor({ step, canEdit, onChange }: { step: CateringFlowStep; canEdit: boolean; onChange: (step: CateringFlowStep) => void }) {
+function OptionsEditor({ step, canEdit, allowCatalogRate, onChange }: { step: CateringFlowStep; canEdit: boolean; allowCatalogRate: boolean; onChange: (step: CateringFlowStep) => void }) {
   const { t } = useI18n();
   const options = step.options ?? [];
   const updateOption = (index: number, patch: Partial<CateringFlowOption>) => onChange({ ...step, options: options.map((option, i) => i === index ? { ...option, ...patch } : option) });
   return <div className="space-y-2 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
-    <div className="hidden grid-cols-[1.4fr_1.6fr_110px_170px_auto] gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-fg-tertiary sm:grid"><span>{t('catering_flow_option')}</span><span>{t('catering_flow_option_help')}</span><span>{t('catering_flow_price')}</span><span>{t('catering_flow_price_mode')}</span><span /></div>
-    {options.map((option, index) => <div key={option.id} className="grid gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3 sm:grid-cols-[1.4fr_1.6fr_110px_170px_auto]">
-      <input className="input" placeholder={t('catering_flow_option')} disabled={!canEdit} value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} />
-      <input className="input" placeholder={t('catering_flow_option_help')} disabled={!canEdit} value={option.description ?? ''} onChange={(e) => updateOption(index, { description: e.target.value })} />
-      <input className="input" type="number" min={0} step="0.01" disabled={!canEdit} value={option.price ?? 0} onChange={(e) => updateOption(index, { price: Number(e.target.value) })} />
-      <select className="input" disabled={!canEdit} value={option.price_mode ?? (step.kind === 'quantity' ? 'per_unit' : 'fixed')} onChange={(e) => updateOption(index, { price_mode: e.target.value as CateringFlowPriceMode })}>{PRICE_MODES.map((mode) => <option key={mode} value={mode}>{t(`catering_flow_price_${mode}`)}</option>)}</select>
-      {canEdit && <button className="rounded p-2 text-fg-secondary hover:bg-red-500/10 hover:text-red-500" onClick={() => onChange({ ...step, options: options.filter((_, i) => i !== index) })}><Trash2Icon className="h-4 w-4" /></button>}
-    </div>)}
+    {options.map((option, index) => {
+      const effect = option.price_effect ?? 'add';
+      return <div key={option.id} className="space-y-3 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3">
+        <div className="grid gap-2 sm:grid-cols-[1.2fr_1.6fr_auto]">
+          <Field label={t('catering_flow_option')}><input className="input" placeholder={t('catering_flow_option')} disabled={!canEdit} value={option.label} onChange={(e) => updateOption(index, { label: e.target.value })} /></Field>
+          <Field label={t('catering_flow_option_help')}><input className="input" placeholder={t('catering_flow_option_help')} disabled={!canEdit} value={option.description ?? ''} onChange={(e) => updateOption(index, { description: e.target.value })} /></Field>
+          {canEdit && <button className="self-end rounded p-3 text-fg-secondary hover:bg-red-500/10 hover:text-red-500" aria-label={t('delete')} onClick={() => onChange({ ...step, options: options.filter((_, i) => i !== index) })}><Trash2Icon className="h-4 w-4" /></button>}
+        </div>
+        <div className="grid gap-2 rounded-lg bg-[var(--surface-subtle)] p-3 sm:grid-cols-3">
+          <Field label={t('catering_flow_price_effect')}><select className="input" disabled={!canEdit} value={effect} onChange={(e) => {
+            const priceEffect = e.target.value as CateringFlowPriceEffect;
+            updateOption(index, { price_effect: priceEffect, ...(priceEffect === 'replace_catalog_per_guest' ? { price_mode: 'per_guest' as const } : {}) });
+          }}><option value="add">{t('catering_flow_price_effect_add')}</option><option value="replace_catalog_per_guest" disabled={!allowCatalogRate}>{t('catering_flow_price_effect_catalog_rate')}</option></select></Field>
+          <Field label={effect === 'replace_catalog_per_guest' ? t('catering_flow_catalog_guest_rate') : t('catering_flow_price')}><input className="input" type="number" min={0} step="0.01" disabled={!canEdit} value={option.price ?? 0} onChange={(e) => updateOption(index, { price: Number(e.target.value) })} /></Field>
+          {effect === 'replace_catalog_per_guest'
+            ? <Field label={t('catering_flow_price_mode')}><div className="input flex items-center text-sm text-fg-secondary">{t('catering_flow_price_per_guest')}</div></Field>
+            : <Field label={t('catering_flow_price_mode')}><select className="input" disabled={!canEdit} value={option.price_mode ?? (step.kind === 'quantity' ? 'per_unit' : 'fixed')} onChange={(e) => updateOption(index, { price_mode: e.target.value as CateringFlowPriceMode })}>{PRICE_MODES.map((mode) => <option key={mode} value={mode}>{t(`catering_flow_price_${mode}`)}</option>)}</select></Field>}
+        </div>
+      </div>;
+    })}
     {canEdit && <Button variant="secondary" size="sm" onClick={() => onChange({ ...step, options: [...options, { id: nextId('option', options.map((option) => option.id)), label: '', price: 0, price_mode: step.kind === 'quantity' ? 'per_unit' : 'fixed' }] })}><PlusIcon />{t('catering_flow_add_option')}</Button>}
   </div>;
 }

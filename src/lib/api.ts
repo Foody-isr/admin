@@ -8440,6 +8440,7 @@ export type CateringPricingModel = 'per_unit' | 'per_person' | 'custom_quote';
 
 export type CateringFlowStepKind = 'guest_count' | 'schedule' | 'single_choice' | 'multi_choice' | 'quantity';
 export type CateringFlowPriceMode = 'fixed' | 'per_guest' | 'per_session' | 'per_guest_session' | 'per_unit';
+export type CateringFlowPriceEffect = 'add' | 'replace_catalog_per_guest';
 
 export interface CateringFlowOption {
   id: string;
@@ -8447,6 +8448,7 @@ export interface CateringFlowOption {
   description?: string;
   price?: number;
   price_mode?: CateringFlowPriceMode;
+  price_effect?: CateringFlowPriceEffect;
   translations?: Record<string, Record<string, string>>;
 }
 
@@ -8469,7 +8471,7 @@ export interface CateringFlowStep {
   condition?: { step_id: string; operator: 'equals' | 'contains'; option_id: string };
   options?: CateringFlowOption[];
   schedule?: {
-    mode: 'custom' | 'predefined';
+    mode: 'single' | 'custom' | 'predefined';
     min_sessions: number;
     max_sessions: number;
     allow_same_day: boolean;
