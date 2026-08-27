@@ -8458,12 +8458,24 @@ export interface CateringScheduleSlot {
   day_offset: number;
   start_time?: string;
   end_time?: string;
+  catalog_per_guest_rate?: number;
   translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringSessionPricingRule {
+  id: string;
+  label: string;
+  /** JavaScript/Go weekday: Sunday = 0, Saturday = 6. Omitted means every day. */
+  weekday?: number;
+  start_time_from?: string;
+  start_time_until?: string;
+  catalog_per_guest_rate: number;
 }
 
 export interface CateringFlowStep {
   id: string;
   kind: CateringFlowStepKind;
+  scope?: 'booking' | 'session';
   title: string;
   description?: string;
   required: boolean;
@@ -8475,12 +8487,13 @@ export interface CateringFlowStep {
     max_sessions: number;
     allow_same_day: boolean;
     slots?: CateringScheduleSlot[];
+    pricing_rules?: CateringSessionPricingRule[];
   };
   translations?: Record<string, Record<string, string>>;
 }
 
 export interface CateringFlowConfig {
-  version: 1;
+  version: 1 | 2;
   enabled: boolean;
   catalog_pricing_per_session?: boolean;
   steps: CateringFlowStep[];
