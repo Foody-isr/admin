@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import type { RouteStop } from '@/lib/delivery';
 
 export interface RouteLayer {
+  routeId?: number;
   courierId: number;
   color: string;
   stops: RouteStop[];
@@ -129,7 +130,7 @@ export default function DeliveryMap({
           if (restaurant) line.push([restaurant.lat, restaurant.lng]);
           seq.forEach((s) => line.push([s.lat as number, s.lng as number]));
           return (
-            <Fragment key={layer.courierId}>
+            <Fragment key={layer.routeId ?? layer.courierId}>
               {line.length > 1 && (
                 <Polyline positions={line} pathOptions={{ color: layer.color, opacity: dim ? 0.2 : 0.7, dashArray: '6 8' }} />
               )}

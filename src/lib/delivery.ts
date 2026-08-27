@@ -36,6 +36,8 @@ export interface DeliveryRoute {
   courier_id: number;
   date: string; // YYYY-MM-DD
   status: DeliveryRouteStatus;
+  planned_departure_at?: string | null;
+  started_at?: string | null;
   total_distance_m: number;
   est_duration_s: number;
   stops: RouteStop[];
@@ -103,6 +105,16 @@ export async function removeStop(restaurantId: number, routeId: number, stopId: 
   return data.route;
 }
 
+/** Manager action: return one pending stop to the unplanned delivery pool. */
+export async function unassignRouteStop(restaurantId: number, routeId: number, stopId: number): Promise<DeliveryRoute> {
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/unassign?${q(restaurantId)}`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
+  return data.route;
+}
+
 export async function reorderStops(restaurantId: number, routeId: number, stopIds: number[]): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
     `/api/v1/delivery/routes/${routeId}/stops/reorder?${q(restaurantId)}`, restaurantId,
@@ -127,6 +139,63 @@ export async function buildRoute(
   const data = await apiFetch<{ route: DeliveryRoute }>(
     `/api/v1/delivery/routes?${q(restaurantId)}`, restaurantId,
     { method: 'POST', body: JSON.stringify({ courier_id: courierId, order_ids: orderIds }) },
+  );
+  return data.route;
+}
+
+export async function planDeliveryRoutes(
+  restaurantId: number,
+  courierIds: number[],
+  orderIds: number[],
+  plannedDepartureAt: string,
+): Promise<DeliveryRoute[]> {
+  const data = await apiFetch<{ routes: DeliveryRoute[] }>(
+    `/api/v1/delivery/routes/plan?${q(restaurantId)}`, restaurantId,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        courier_ids: courierIds,
+        order_ids: orderIds,
+        planned_departure_at: plannedDepartureAt,
+      }),
+    },
+  );
+  return data.routes ?? [];
+}
+
+export async function transferRouteStop(
+  restaurantId: number,
+  routeId: number,
+  stopId: number,
+  targetRouteId: number,
+): Promise<DeliveryRoute[]> {
+  const data = await apiFetch<{ routes: DeliveryRoute[] }>(
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/transfer?${q(restaurantId)}`,
+    restaurantId,
+    { method: 'PATCH', body: JSON.stringify({ target_route_id: targetRouteId }) },
+  );
+  return data.routes ?? [];
+}
+
+export async function changeRouteCourier(
+  restaurantId: number,
+  routeId: number,
+  courierId: number,
+): Promise<DeliveryRoute> {
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}/courier?${q(restaurantId)}`,
+    restaurantId,
+    { method: 'PATCH', body: JSON.stringify({ courier_id: courierId }) },
+  );
+  return data.route;
+}
+
+/** Dissolve a draft route and return all its deliveries to the planning pool. */
+export async function cancelDeliveryRoute(restaurantId: number, routeId: number): Promise<DeliveryRoute> {
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}?${q(restaurantId)}`,
+    restaurantId,
+    { method: 'DELETE' },
   );
   return data.route;
 }
