@@ -2,19 +2,22 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon, ChevronUpIcon, ChevronDownIcon } from 'lucide-react';
+import {
+  PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon, ChevronUpIcon, ChevronDownIcon,
+  CheckCircle2Icon, CircleIcon, ListChecksIcon, SlidersHorizontalIcon, UtensilsIcon,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
   DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell,
   DataTableBody, DataTableRow, DataTableCell,
 } from '@/components/data-table';
-import { PageHead, Button, Tabs, TabsList, Tab, TabsContent } from '@/components/ds';
+import { PageHead, Button } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { CateringLocaleFields } from '@/components/catering/CateringLocaleFields';
 import CateringItemGalleryEditor from '@/components/catering/CateringItemGalleryEditor';
 import CateringFlowEditor from '@/components/catering/CateringFlowEditor';
-import CateringPricingEditor from '@/components/catering/CateringPricingEditor';
+import CateringPricingEditor, { CateringPricingSimulator } from '@/components/catering/CateringPricingEditor';
 import CateringFormulaComposer, {
   newChoiceGroupDraft,
   newIncludedSectionDraft,
@@ -30,6 +33,7 @@ import {
   listCateringOptions, createCateringOption, updateCateringOption, archiveCateringOption,
   uploadSectionImage, getRestaurant,
   type CateringService, type CateringPricingModel,
+  type CateringFlowConfig,
   type CateringCatalogItem, type CateringCatalogItemInput,
   type CateringIncludedItemInput,
   type CateringCatalogItemImageInput,
@@ -59,9 +63,11 @@ export default function CateringServiceCatalogPage() {
   const canEdit = hasAnyPermission('catering.manage');
 
   const [service, setService] = useState<CateringService | undefined>(undefined);
+  const [pricingDraft, setPricingDraft] = useState<CateringFlowConfig | undefined>(undefined);
   const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'items' | 'journey' | 'pricing' | 'options'>('items');
+  const [activeSection, setActiveSection] = useState<WorkspaceSectionId>('journey');
+  const [catalogRevision, setCatalogRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -69,7 +75,9 @@ export default function CateringServiceCatalogPage() {
     Promise.all([listCateringServices(rid), getRestaurant(rid)])
       .then(([services, restaurant]) => {
         if (!active) return;
-        setService(services.find((s) => s.id === sid));
+        const nextService = services.find((s) => s.id === sid);
+        setService(nextService);
+        setPricingDraft(flowConfigOf(nextService?.flow_config));
         const loc = restaurant.default_locale;
         if (loc === 'en' || loc === 'he' || loc === 'fr') setSourceLocale(loc);
       })
@@ -80,6 +88,32 @@ export default function CateringServiceCatalogPage() {
       active = false;
     };
   }, [rid, sid]);
+
+  useEffect(() => {
+    const sections = WORKSPACE_SECTIONS
+      .map(({ id }) => document.getElementById(`catering-workspace-${id}`))
+      .filter((section): section is HTMLElement => section !== null);
+    if (!sections.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible) setActiveSection(visible.target.id.replace('catering-workspace-', '') as WorkspaceSectionId);
+    }, { rootMargin: '-20% 0px -65% 0px', threshold: [0, 0.1, 0.4] });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [loading]);
+
+  const saveService = useCallback((updated: CateringService) => {
+    setService(updated);
+    setPricingDraft(flowConfigOf(updated.flow_config));
+  }, []);
+
+  const scrollToSection = useCallback((id: WorkspaceSectionId) => {
+    setActiveSection(id);
+    document.getElementById(`catering-workspace-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+  const catalogChanged = useCallback(() => setCatalogRevision((current) => current + 1), []);
 
   if (loading) {
     return (
@@ -104,43 +138,197 @@ export default function CateringServiceCatalogPage() {
         desc={service ? t(PRICING_KEYS[service.pricing_model]) : undefined}
       />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'items' | 'journey' | 'pricing' | 'options')}>
-        <TabsList>
-          <Tab value="items">{t('catering_items_tab')}</Tab>
-          <Tab value="journey">{t('catering_flow_tab')}</Tab>
-          <Tab value="pricing">{t('catering_pricing_tab')}</Tab>
-          <Tab value="options">{t('catering_options_tab')}</Tab>
-        </TabsList>
+      {service && (
+        <>
+          <JourneyMap
+            flow={pricingDraft ?? flowConfigOf(service.flow_config)}
+            onOpenJourney={() => scrollToSection('journey')}
+            onOpenFormulas={() => scrollToSection('formulas')}
+          />
 
-        <TabsContent value="items">
-          {service && (
-            <ItemsTab restaurantId={rid} serviceId={sid} pricingModel={service.pricing_model} dynamicItemIds={new Set(service.flow_config && 'version' in service.flow_config ? service.flow_config.pricing?.rules?.map((rule) => rule.catalog_item_id) ?? [] : [])} canEdit={canEdit} sourceLocale={sourceLocale} />
-          )}
-        </TabsContent>
+          <div className="grid items-start gap-5 xl:grid-cols-[190px_minmax(0,1fr)_300px]">
+            <WorkspaceNav active={activeSection} onSelect={scrollToSection} />
 
-        <TabsContent value="journey">
-          {service && <CateringFlowEditor restaurantId={rid} service={service} canEdit={canEdit} onSaved={setService} />}
-        </TabsContent>
+            <main className="order-3 min-w-0 space-y-10 xl:order-2">
+              <WorkspaceSection
+                id="journey"
+                icon={<ListChecksIcon />}
+                eyebrow={t('catering_workspace_journey_eyebrow')}
+                title={t('catering_workspace_journey_title')}
+                description={t('catering_workspace_journey_hint')}
+              >
+                <CateringFlowEditor restaurantId={rid} service={service} canEdit={canEdit} onSaved={saveService} />
+              </WorkspaceSection>
 
-        <TabsContent value="pricing">
-          {service && <CateringPricingEditor restaurantId={rid} service={service} canEdit={canEdit} onSaved={setService} />}
-        </TabsContent>
+              <WorkspaceSection
+                id="formulas"
+                icon={<UtensilsIcon />}
+                eyebrow={t('catering_workspace_formulas_eyebrow')}
+                title={t('catering_workspace_formulas_title')}
+                description={t('catering_workspace_formulas_hint')}
+              >
+                <div className="space-y-6">
+                  <ItemsTab
+                    restaurantId={rid}
+                    serviceId={sid}
+                    pricingModel={service.pricing_model}
+                    dynamicItemIds={new Set((pricingDraft?.pricing?.rules ?? []).map((rule) => rule.catalog_item_id))}
+                    canEdit={canEdit}
+                    sourceLocale={sourceLocale}
+                    onCatalogChanged={catalogChanged}
+                  />
+                  <div className="border-t border-[var(--divider)] pt-6">
+                    <CateringPricingEditor
+                      restaurantId={rid}
+                      service={service}
+                      canEdit={canEdit}
+                      onSaved={saveService}
+                      onDraftChange={setPricingDraft}
+                      showSimulator={false}
+                      refreshKey={catalogRevision}
+                    />
+                  </div>
+                </div>
+              </WorkspaceSection>
 
-        <TabsContent value="options">
-          <OptionsTab restaurantId={rid} serviceId={sid} canEdit={canEdit} />
-        </TabsContent>
-      </Tabs>
+              <WorkspaceSection
+                id="options"
+                icon={<SlidersHorizontalIcon />}
+                eyebrow={t('catering_workspace_options_eyebrow')}
+                title={t('catering_workspace_options_title')}
+                description={t('catering_workspace_options_hint')}
+              >
+                <OptionsTab restaurantId={rid} serviceId={sid} canEdit={canEdit} />
+              </WorkspaceSection>
+            </main>
+
+            <aside className="order-2 xl:order-3 xl:sticky xl:top-[calc(var(--topbar-h)+var(--s-4))]">
+              <CateringPricingSimulator
+                restaurantId={rid}
+                service={service}
+                flow={pricingDraft}
+                compact
+                refreshKey={catalogRevision}
+              />
+            </aside>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function ItemsTab({ restaurantId, serviceId, pricingModel, dynamicItemIds, canEdit, sourceLocale }: {
+type WorkspaceSectionId = 'journey' | 'formulas' | 'options';
+
+const WORKSPACE_SECTIONS: { id: WorkspaceSectionId; icon: typeof ListChecksIcon; labelKey: string }[] = [
+  { id: 'journey', icon: ListChecksIcon, labelKey: 'catering_workspace_nav_journey' },
+  { id: 'formulas', icon: UtensilsIcon, labelKey: 'catering_workspace_nav_formulas' },
+  { id: 'options', icon: SlidersHorizontalIcon, labelKey: 'catering_workspace_nav_options' },
+];
+
+function flowConfigOf(raw?: CateringService['flow_config']): CateringFlowConfig | undefined {
+  return raw && 'version' in raw ? raw as CateringFlowConfig : undefined;
+}
+
+function WorkspaceNav({ active, onSelect }: { active: WorkspaceSectionId; onSelect: (id: WorkspaceSectionId) => void }) {
+  const { t } = useI18n();
+  return (
+    <nav aria-label={t('catering_workspace_nav_label')} className="order-1 z-10 flex gap-2 overflow-x-auto rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-2 shadow-sm xl:sticky xl:top-[calc(var(--topbar-h)+var(--s-4))] xl:block xl:space-y-1">
+      <p className="hidden px-3 pb-2 pt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-fg-tertiary xl:block">{t('catering_workspace_summary')}</p>
+      {WORKSPACE_SECTIONS.map(({ id, icon: Icon, labelKey }) => {
+        const selected = active === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            aria-current={selected ? 'step' : undefined}
+            onClick={() => onSelect(id)}
+            className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-medium transition xl:w-full ${selected ? 'bg-brand-500/10 text-brand-700' : 'text-fg-secondary hover:bg-[var(--surface-subtle)] hover:text-fg-primary'}`}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            <span>{t(labelKey)}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function JourneyMap({ flow, onOpenJourney, onOpenFormulas }: {
+  flow?: CateringFlowConfig;
+  onOpenJourney: () => void;
+  onOpenFormulas: () => void;
+}) {
+  const { t } = useI18n();
+  const steps = flow?.steps ?? [];
+  const visibleSteps = steps.slice(0, 5);
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)]">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--divider)] px-5 py-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-600">{t('catering_workspace_eyebrow')}</p>
+          <h2 className="mt-1 text-lg font-semibold text-fg-primary">{t('catering_workspace_title')}</h2>
+          <p className="mt-1 text-sm text-fg-secondary">{t('catering_workspace_hint')}</p>
+        </div>
+        <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${flow?.enabled ? 'bg-emerald-500/10 text-emerald-700' : 'bg-amber-500/10 text-amber-700'}`}>
+          {flow?.enabled ? <CheckCircle2Icon className="h-4 w-4" /> : <CircleIcon className="h-4 w-4" />}
+          {flow?.enabled ? t('catering_workspace_active') : t('catering_workspace_inactive')}
+        </span>
+      </div>
+
+      <div className="overflow-x-auto px-5 py-5">
+        <div className="flex min-w-max items-center">
+          {visibleSteps.map((step, index) => (
+            <div key={step.id} className="flex items-center">
+              <button type="button" onClick={onOpenJourney} className="group flex w-40 items-center gap-3 rounded-xl p-2 text-start transition hover:bg-[var(--surface-subtle)]">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-brand-500 bg-[var(--surface)] text-sm font-bold text-brand-700 shadow-[0_0_0_4px_var(--surface)]">{index + 1}</span>
+                <span className="min-w-0"><strong className="block truncate text-sm text-fg-primary">{step.title}</strong><span className="block truncate text-xs text-fg-tertiary">{t(`catering_workspace_step_${step.kind}`)}</span></span>
+              </button>
+              <span className="h-0.5 w-8 bg-brand-500/45" aria-hidden="true" />
+            </div>
+          ))}
+          <button type="button" onClick={onOpenFormulas} className="group flex w-44 items-center gap-3 rounded-xl p-2 text-start transition hover:bg-[var(--surface-subtle)]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-500 text-sm font-bold text-white shadow-[0_0_0_4px_var(--surface)]">{visibleSteps.length + 1}</span>
+            <span><strong className="block text-sm text-fg-primary">{t('catering_workspace_formula_choice')}</strong><span className="block text-xs text-fg-tertiary">{t('catering_workspace_formula_choice_hint')}</span></span>
+          </button>
+        </div>
+        {steps.length > visibleSteps.length && <p className="mt-3 text-xs text-fg-tertiary">{t('catering_workspace_more_steps').replace('{n}', String(steps.length - visibleSteps.length))}</p>}
+      </div>
+    </section>
+  );
+}
+
+function WorkspaceSection({ id, icon, eyebrow, title, description, children }: {
+  id: WorkspaceSectionId;
+  icon: React.ReactNode;
+  eyebrow: string;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={`catering-workspace-${id}`} className="scroll-mt-24">
+      <header className="mb-4 flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-500/10 text-brand-700 [&>svg]:h-5 [&>svg]:w-5">{icon}</span>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-600">{eyebrow}</p>
+          <h2 className="mt-0.5 text-xl font-semibold text-fg-primary">{title}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-fg-secondary">{description}</p>
+        </div>
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function ItemsTab({ restaurantId, serviceId, pricingModel, dynamicItemIds, canEdit, sourceLocale, onCatalogChanged }: {
   restaurantId: number;
   serviceId: number;
   pricingModel: CateringPricingModel;
   dynamicItemIds: Set<number>;
   canEdit: boolean;
   sourceLocale: Locale;
+  onCatalogChanged: () => void;
 }) {
   const { t } = useI18n();
   const [items, setItems] = useState<CateringCatalogItem[]>([]);
@@ -168,7 +356,8 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, dynamicItemIds, canEd
   const handleArchive = async (item: CateringCatalogItem) => {
     if (!confirm(t('catering_item_archive_confirm'))) return;
     await archiveCateringItem(restaurantId, item.id);
-    reload();
+    await reload();
+    onCatalogChanged();
   };
 
   const handleArchiveGroup = async (group: CateringCatalogGroup) => {
@@ -341,7 +530,7 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, dynamicItemIds, canEd
           groups={groups}
           editing={editModal.editing}
           onClose={() => setEditModal({ open: false })}
-          onSaved={() => { setEditModal({ open: false }); reload(); }}
+          onSaved={() => { setEditModal({ open: false }); reload(); onCatalogChanged(); }}
           onGallerySaved={handleGallerySaved}
         />
       )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { CalculatorIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from 'lucide-react';
+import { CalculatorIcon, ChevronDownIcon, EyeIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -41,17 +41,134 @@ function ruleMatches(rule: CateringPricingRule, context: Record<string, string>)
   });
 }
 
+export function resolveCateringPricingPreview(
+  rules: CateringPricingRule[],
+  item: CateringCatalogItem | undefined,
+  context: Record<string, string>,
+): { matchingSpecific: CateringPricingRule[]; matched?: CateringPricingRule; rate?: number } {
+  const itemRules = rules.filter((rule) => rule.catalog_item_id === item?.id);
+  const matchingSpecific = itemRules.filter((rule) => (rule.conditions?.length ?? 0) > 0 && ruleMatches(rule, context));
+  const fallback = itemRules.find((rule) => !rule.conditions?.length);
+  const matched = matchingSpecific.length === 1 ? matchingSpecific[0] : matchingSpecific.length === 0 ? fallback : undefined;
+  return { matchingSpecific, matched, rate: matched?.catalog_per_guest_rate ?? item?.base_price };
+}
+
 function nextRuleId(rules: CateringPricingRule[]): string {
   let index = rules.length + 1;
   while (rules.some((rule) => rule.id === `price_${index}`)) index += 1;
   return `price_${index}`;
 }
 
-export default function CateringPricingEditor({ restaurantId, service, canEdit, onSaved }: {
+export function CateringPricingSimulator({ restaurantId, service, flow, compact = false, refreshKey = 0 }: {
+  restaurantId: number;
+  service: CateringService;
+  flow?: CateringFlowConfig;
+  compact?: boolean;
+  refreshKey?: number;
+}) {
+  const { t } = useI18n();
+  const [items, setItems] = useState<CateringCatalogItem[]>([]);
+  const [selectedItemId, setSelectedItemId] = useState(0);
+  const [guests, setGuests] = useState(30);
+  const [weekday, setWeekday] = useState('5');
+  const [slotId, setSlotId] = useState('');
+  const [startTime, setStartTime] = useState('19:00');
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    listCateringItems(restaurantId, service.id).then((next) => {
+      setItems(next);
+      setSelectedItemId((current) => next.some((item) => item.id === current) ? current : next[0]?.id ?? 0);
+    });
+  }, [refreshKey, restaurantId, service.id]);
+
+  const resolvedFlow = flow ?? normalizeFlow(service.flow_config);
+  const rules = resolvedFlow.pricing?.rules ?? [];
+  const choiceSteps = resolvedFlow.steps.filter((step) => step.kind === 'single_choice' && step.options?.length);
+  const schedule = resolvedFlow.steps.find((step) => step.kind === 'schedule')?.schedule;
+  const simulatorContext = {
+    guest_count: String(guests),
+    weekday,
+    session_id: slotId,
+    start_time: startTime,
+    ...Object.fromEntries(Object.entries(answers).map(([key, value]) => [`answer:${key}`, value])),
+  };
+  const selectedItem = items.find((item) => item.id === selectedItemId);
+  const { matchingSpecific, matched, rate: simulatedRate } = resolveCateringPricingPreview(rules, selectedItem, simulatorContext);
+
+  return (
+    <section aria-label={t('catering_pricing_simulator')} className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
+      <header className="flex items-start gap-3 border-b border-[var(--divider)] p-4">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-700"><EyeIcon className="h-5 w-5" /></span>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-600">{t('catering_workspace_preview_eyebrow')}</p>
+          <h2 className="mt-0.5 font-semibold text-fg-primary">{t('catering_workspace_preview_title')}</h2>
+          <p className="mt-1 text-xs leading-5 text-fg-tertiary">{t('catering_workspace_preview_hint')}</p>
+        </div>
+      </header>
+
+      <div className="space-y-3 p-4">
+        <Field label={t('catering_pricing_formula')}>
+          <select className="input" value={selectedItemId} onChange={(event) => setSelectedItemId(Number(event.target.value))}>
+            {items.length === 0 && <option value={0}>{t('catering_empty_items')}</option>}
+            {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </Field>
+        <Field label={t('catering_pricing_guests')}>
+          <input className="input" type="number" min={1} value={guests} onChange={(event) => setGuests(Math.max(1, Number(event.target.value)))} />
+        </Field>
+        {choiceSteps.map((step) => (
+          <Field key={step.id} label={step.title}>
+            <select className="input" value={answers[step.id] ?? ''} onChange={(event) => setAnswers({ ...answers, [step.id]: event.target.value })}>
+              <option value="">{t('catering_pricing_any')}</option>
+              {step.options?.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+          </Field>
+        ))}
+
+        <details className="group rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)]" {...(!compact ? { open: true } : {})}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-fg-secondary">
+            {t('catering_workspace_preview_context')}
+            <ChevronDownIcon className="h-4 w-4 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="space-y-3 border-t border-[var(--divider)] p-3">
+            <Field label={t('catering_pricing_day')}>
+              <select className="input" value={weekday} onChange={(event) => setWeekday(event.target.value)}>{WEEKDAYS.map((day, index) => <option key={day} value={index}>{t(`catering_flow_weekday_${day}`)}</option>)}</select>
+            </Field>
+            {(schedule?.slots?.length ?? 0) > 0 && <Field label={t('catering_pricing_session')}>
+              <select className="input" value={slotId} onChange={(event) => setSlotId(event.target.value)}><option value="">{t('catering_pricing_any')}</option>{schedule?.slots?.map((slot) => <option key={slot.id} value={slot.id}>{slot.label}</option>)}</select>
+            </Field>}
+            <Field label={t('catering_pricing_time')}>
+              <input className="input" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+            </Field>
+          </div>
+        </details>
+      </div>
+
+      <div className={`relative overflow-hidden p-5 text-white ${matchingSpecific.length > 1 ? 'bg-red-600' : 'bg-neutral-950'}`}>
+        <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-brand-500/25" />
+        <p className="relative text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">{t('catering_pricing_result')}</p>
+        <div className="relative mt-3 flex items-end justify-between gap-3">
+          <div><strong className="text-3xl">{simulatedRate === undefined ? '—' : `₪${simulatedRate.toLocaleString()}`}</strong><p className="text-xs text-white/55">{t('catering_pricing_per_guest')}</p></div>
+          <div className="text-end"><p className="text-xs text-white/55">{t('catering_pricing_total')}</p><strong className="text-lg">{simulatedRate === undefined ? '—' : `₪${(simulatedRate * guests).toLocaleString()}`}</strong></div>
+        </div>
+        <p className="relative mt-4 flex items-start gap-2 border-t border-white/15 pt-3 text-xs leading-5 text-white/70">
+          <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-400" />
+          {matchingSpecific.length > 1 ? t('catering_pricing_conflict') : matched ? `${t('catering_pricing_rule_applied')} ${matched.label}` : t('catering_pricing_legacy_fallback')}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+export default function CateringPricingEditor({ restaurantId, service, canEdit, onSaved, onDraftChange, showSimulator = true, refreshKey = 0 }: {
   restaurantId: number;
   service: CateringService;
   canEdit: boolean;
   onSaved: (service: CateringService) => void;
+  onDraftChange?: (flow: CateringFlowConfig) => void;
+  showSimulator?: boolean;
+  refreshKey?: number;
 }) {
   const { t } = useI18n();
   const [items, setItems] = useState<CateringCatalogItem[]>([]);
@@ -71,11 +188,15 @@ export default function CateringPricingEditor({ restaurantId, service, canEdit, 
       setItems(next);
       setSelectedItemId((current) => current || next[0]?.id || 0);
     });
-  }, [restaurantId, service.id]);
+  }, [refreshKey, restaurantId, service.id]);
 
   useEffect(() => {
     setFlow(normalizeFlow(service.flow_config));
   }, [service.flow_config]);
+
+  useEffect(() => {
+    onDraftChange?.(flow);
+  }, [flow, onDraftChange]);
 
   const rules = flow.pricing?.rules ?? [];
   const choiceSteps = useMemo(() => flow.steps.filter((step) => step.kind === 'single_choice' && step.options?.length), [flow.steps]);
@@ -88,11 +209,8 @@ export default function CateringPricingEditor({ restaurantId, service, canEdit, 
     start_time: startTime,
     ...Object.fromEntries(Object.entries(answers).map(([key, value]) => [`answer:${key}`, value])),
   }), [answers, guests, slotId, startTime, weekday]);
-  const matchingSpecific = selectedRules.filter((rule) => (rule.conditions?.length ?? 0) > 0 && ruleMatches(rule, simulatorContext));
-  const fallback = selectedRules.find((rule) => !rule.conditions?.length);
-  const matched = matchingSpecific.length === 1 ? matchingSpecific[0] : matchingSpecific.length === 0 ? fallback : undefined;
   const selectedItem = items.find((item) => item.id === selectedItemId);
-  const simulatedRate = matched?.catalog_per_guest_rate ?? selectedItem?.base_price;
+  const { matchingSpecific, matched, rate: simulatedRate } = resolveCateringPricingPreview(rules, selectedItem, simulatorContext);
 
   const updateRule = (id: string, patch: Partial<CateringPricingRule>) => {
     setSaved(false);
@@ -139,7 +257,7 @@ export default function CateringPricingEditor({ restaurantId, service, canEdit, 
   }
 
   return <div className="space-y-5">
-    <section className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)]">
+    {showSimulator && <section className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)]">
       <div className="border-b border-[var(--divider)] p-5">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-600">{t('catering_pricing_eyebrow')}</p>
         <h2 className="mt-1 text-xl font-semibold text-fg-primary">{t('catering_pricing_title')}</h2>
@@ -173,7 +291,7 @@ export default function CateringPricingEditor({ restaurantId, service, canEdit, 
           </div>
         </div>
       </div>
-    </section>
+    </section>}
 
     <section className="rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
