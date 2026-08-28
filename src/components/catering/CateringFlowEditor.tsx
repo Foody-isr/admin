@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
@@ -39,7 +39,7 @@ function createStep(kind: CateringFlowStepKind, used: string[]): CateringFlowSte
 
 function starterFlow(t: (key: string) => string): CateringFlowConfig {
   return {
-    version: 2,
+    version: 3,
     enabled: true,
     catalog_pricing_per_session: false,
     steps: [
@@ -54,16 +54,16 @@ function starterFlow(t: (key: string) => string): CateringFlowConfig {
 }
 
 function normalizedFlow(raw: CateringService['flow_config']): CateringFlowConfig {
-  if (raw && 'version' in raw && (raw.version === 1 || raw.version === 2)) {
+  if (raw && 'version' in raw && (raw.version === 1 || raw.version === 2 || raw.version === 3)) {
     const normalized = structuredClone(raw as CateringFlowConfig);
     return {
       ...normalized,
-      version: 2,
+      version: 3,
       catalog_pricing_per_session: false,
       steps: normalized.steps.map((step) => ({ ...step, scope: step.kind === 'schedule' ? 'booking' : step.scope ?? 'booking' })),
     };
   }
-  return { version: 2, enabled: false, catalog_pricing_per_session: false, steps: [] };
+  return { version: 3, enabled: false, catalog_pricing_per_session: false, steps: [] };
 }
 
 function stepValid(step: CateringFlowStep): boolean {
@@ -116,6 +116,11 @@ export default function CateringFlowEditor({ restaurantId, service, canEdit, onS
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const valid = useMemo(() => flowValid(flow, service.pricing_model), [flow, service.pricing_model]);
+  const centralPricingActive = (flow.pricing?.rules?.length ?? 0) > 0;
+
+  useEffect(() => {
+    setFlow(normalizedFlow(service.flow_config));
+  }, [service.flow_config]);
 
   const updateStep = (index: number, next: CateringFlowStep) => {
     setSaved(false);
@@ -180,6 +185,7 @@ export default function CateringFlowEditor({ restaurantId, service, canEdit, onS
                 priorSteps={flow.steps.slice(0, index)}
                 canEdit={canEdit}
                 pricingModel={service.pricing_model}
+                centralPricingActive={centralPricingActive}
                 onChange={(next) => updateStep(index, next)}
                 onMove={(delta) => moveStep(index, delta)}
                 onRemove={() => removeStep(index)}
@@ -214,12 +220,13 @@ export default function CateringFlowEditor({ restaurantId, service, canEdit, onS
   );
 }
 
-function StepCard({ step, index, priorSteps, canEdit, pricingModel, onChange, onMove, onRemove, first, last }: {
+function StepCard({ step, index, priorSteps, canEdit, pricingModel, centralPricingActive, onChange, onMove, onRemove, first, last }: {
   step: CateringFlowStep;
   index: number;
   priorSteps: CateringFlowStep[];
   canEdit: boolean;
   pricingModel: CateringService['pricing_model'];
+  centralPricingActive: boolean;
   onChange: (step: CateringFlowStep) => void;
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
@@ -255,13 +262,13 @@ function StepCard({ step, index, priorSteps, canEdit, pricingModel, onChange, on
           {step.condition && !selectedSource && <p className="mt-1 text-xs text-red-500">{t('catering_flow_condition_broken')}</p>}
         </Field>
       </div>
-      {step.kind === 'schedule' && step.schedule && <ScheduleEditor step={step} canEdit={canEdit} pricingModel={pricingModel} onChange={onChange} />}
-      {(step.kind === 'single_choice' || step.kind === 'multi_choice' || step.kind === 'quantity') && <OptionsEditor step={step} canEdit={canEdit} allowCatalogRate={pricingModel === 'per_person' && step.kind === 'single_choice'} onChange={onChange} />}
+      {step.kind === 'schedule' && step.schedule && <ScheduleEditor step={step} canEdit={canEdit} pricingModel={pricingModel} centralPricingActive={centralPricingActive} onChange={onChange} />}
+      {(step.kind === 'single_choice' || step.kind === 'multi_choice' || step.kind === 'quantity') && <OptionsEditor step={step} canEdit={canEdit} allowCatalogRate={!centralPricingActive && pricingModel === 'per_person' && step.kind === 'single_choice'} onChange={onChange} />}
     </article>
   );
 }
 
-function ScheduleEditor({ step, canEdit, pricingModel, onChange }: { step: CateringFlowStep; canEdit: boolean; pricingModel: CateringService['pricing_model']; onChange: (step: CateringFlowStep) => void }) {
+function ScheduleEditor({ step, canEdit, pricingModel, centralPricingActive, onChange }: { step: CateringFlowStep; canEdit: boolean; pricingModel: CateringService['pricing_model']; centralPricingActive: boolean; onChange: (step: CateringFlowStep) => void }) {
   const { t } = useI18n();
   const schedule = step.schedule!;
   const update = (next: typeof schedule) => onChange({ ...step, schedule: next });
@@ -280,19 +287,19 @@ function ScheduleEditor({ step, canEdit, pricingModel, onChange }: { step: Cater
       ? <p className="rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-3 py-2 text-sm text-fg-secondary">{t('catering_flow_schedule_single_hint')}</p>
       : <label className="flex items-center gap-2 text-sm text-fg-primary"><input type="checkbox" checked={schedule.allow_same_day} disabled={!canEdit} onChange={(e) => update({ ...schedule, allow_same_day: e.target.checked })} />{t('catering_flow_same_day')}</label>}
     {schedule.mode === 'predefined' && <div className="space-y-2">
-      {(schedule.slots ?? []).map((slot, index) => <div key={slot.id} className="grid gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3 sm:grid-cols-[1fr_100px_110px_110px_150px_auto]">
+      {(schedule.slots ?? []).map((slot, index) => <div key={slot.id} className={`grid gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3 ${centralPricingActive ? 'sm:grid-cols-[1fr_100px_110px_110px_auto]' : 'sm:grid-cols-[1fr_100px_110px_110px_150px_auto]'}`}>
         <input className="input" placeholder={t('catering_flow_slot_label')} disabled={!canEdit} value={slot.label} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, label: e.target.value } : item) })} />
         <input className="input" aria-label={t('catering_flow_day_offset')} type="number" min={0} max={365} disabled={!canEdit} value={slot.day_offset} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, day_offset: Number(e.target.value) } : item) })} />
         <input className="input" aria-label={t('catering_flow_start')} type="time" disabled={!canEdit} value={slot.start_time ?? ''} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, start_time: e.target.value } : item) })} />
         <input className="input" aria-label={t('catering_flow_end')} type="time" disabled={!canEdit} value={slot.end_time ?? ''} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, end_time: e.target.value } : item) })} />
-        <input className="input" aria-label={t('catering_flow_slot_guest_rate')} type="number" min={0} step="0.01" disabled={!canEdit || pricingModel !== 'per_person'} placeholder={t('catering_flow_slot_guest_rate')} value={slot.catalog_per_guest_rate ?? ''} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, catalog_per_guest_rate: e.target.value === '' ? undefined : Number(e.target.value) } : item) })} />
+        {!centralPricingActive && <input className="input" aria-label={t('catering_flow_slot_guest_rate')} type="number" min={0} step="0.01" disabled={!canEdit || pricingModel !== 'per_person'} placeholder={t('catering_flow_slot_guest_rate')} value={slot.catalog_per_guest_rate ?? ''} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, catalog_per_guest_rate: e.target.value === '' ? undefined : Number(e.target.value) } : item) })} />}
         {canEdit && <button className="rounded p-2 text-fg-secondary hover:bg-red-500/10 hover:text-red-500" onClick={() => update({ ...schedule, slots: schedule.slots!.filter((_, i) => i !== index) })}><Trash2Icon className="h-4 w-4" /></button>}
       </div>)}
       {canEdit && <Button variant="secondary" size="sm" onClick={() => { const slots = schedule.slots ?? []; update({ ...schedule, slots: [...slots, { id: nextId('session', slots.map((slot) => slot.id)), label: '', day_offset: slots.length, start_time: '', end_time: '' }] }); }}><PlusIcon />{t('catering_flow_add_slot')}</Button>}
       <p className="text-xs text-fg-tertiary">{t('catering_flow_day_offset_hint')}</p>
-      {pricingModel === 'per_person' && <p className="text-xs text-fg-tertiary">{t('catering_flow_slot_guest_rate_hint')}</p>}
+      {!centralPricingActive && pricingModel === 'per_person' && <p className="text-xs text-fg-tertiary">{t('catering_flow_slot_guest_rate_hint')}</p>}
     </div>}
-    {schedule.mode !== 'single' && pricingModel === 'per_person' && <div className="space-y-3 rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-4">
+    {!centralPricingActive && schedule.mode !== 'single' && pricingModel === 'per_person' && <div className="space-y-3 rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-4">
       <div>
         <h4 className="text-sm font-semibold text-fg-primary">{t('catering_flow_pricing_rules')}</h4>
         <p className="mt-1 text-xs text-fg-tertiary">{t('catering_flow_pricing_rules_hint')}</p>

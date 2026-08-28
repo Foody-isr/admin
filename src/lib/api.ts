@@ -8472,6 +8472,26 @@ export interface CateringSessionPricingRule {
   catalog_per_guest_rate: number;
 }
 
+export type CateringPricingFactor = 'guest_count' | 'session_id' | 'weekday' | 'start_time' | `answer:${string}`;
+export type CateringPricingOperator = 'equals' | 'one_of' | 'between';
+
+export interface CateringPricingCondition {
+  factor: CateringPricingFactor;
+  operator: CateringPricingOperator;
+  value?: string;
+  values?: string[];
+  min_value?: string;
+  max_value?: string;
+}
+
+export interface CateringPricingRule {
+  id: string;
+  label: string;
+  catalog_item_id: number;
+  conditions?: CateringPricingCondition[];
+  catalog_per_guest_rate: number;
+}
+
 export interface CateringFlowStep {
   id: string;
   kind: CateringFlowStepKind;
@@ -8493,10 +8513,11 @@ export interface CateringFlowStep {
 }
 
 export interface CateringFlowConfig {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   enabled: boolean;
   catalog_pricing_per_session?: boolean;
   steps: CateringFlowStep[];
+  pricing?: { rules?: CateringPricingRule[] };
 }
 
 export interface CateringService {

@@ -14,6 +14,7 @@ import Modal from '@/components/Modal';
 import { CateringLocaleFields } from '@/components/catering/CateringLocaleFields';
 import CateringItemGalleryEditor from '@/components/catering/CateringItemGalleryEditor';
 import CateringFlowEditor from '@/components/catering/CateringFlowEditor';
+import CateringPricingEditor from '@/components/catering/CateringPricingEditor';
 import CateringFormulaComposer, {
   newChoiceGroupDraft,
   newIncludedSectionDraft,
@@ -60,7 +61,7 @@ export default function CateringServiceCatalogPage() {
   const [service, setService] = useState<CateringService | undefined>(undefined);
   const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'items' | 'journey' | 'options'>('items');
+  const [tab, setTab] = useState<'items' | 'journey' | 'pricing' | 'options'>('items');
 
   useEffect(() => {
     let active = true;
@@ -103,21 +104,26 @@ export default function CateringServiceCatalogPage() {
         desc={service ? t(PRICING_KEYS[service.pricing_model]) : undefined}
       />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'items' | 'journey' | 'options')}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'items' | 'journey' | 'pricing' | 'options')}>
         <TabsList>
           <Tab value="items">{t('catering_items_tab')}</Tab>
           <Tab value="journey">{t('catering_flow_tab')}</Tab>
+          <Tab value="pricing">{t('catering_pricing_tab')}</Tab>
           <Tab value="options">{t('catering_options_tab')}</Tab>
         </TabsList>
 
         <TabsContent value="items">
           {service && (
-            <ItemsTab restaurantId={rid} serviceId={sid} pricingModel={service.pricing_model} canEdit={canEdit} sourceLocale={sourceLocale} />
+            <ItemsTab restaurantId={rid} serviceId={sid} pricingModel={service.pricing_model} dynamicItemIds={new Set(service.flow_config && 'version' in service.flow_config ? service.flow_config.pricing?.rules?.map((rule) => rule.catalog_item_id) ?? [] : [])} canEdit={canEdit} sourceLocale={sourceLocale} />
           )}
         </TabsContent>
 
         <TabsContent value="journey">
           {service && <CateringFlowEditor restaurantId={rid} service={service} canEdit={canEdit} onSaved={setService} />}
+        </TabsContent>
+
+        <TabsContent value="pricing">
+          {service && <CateringPricingEditor restaurantId={rid} service={service} canEdit={canEdit} onSaved={setService} />}
         </TabsContent>
 
         <TabsContent value="options">
@@ -128,10 +134,11 @@ export default function CateringServiceCatalogPage() {
   );
 }
 
-function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale }: {
+function ItemsTab({ restaurantId, serviceId, pricingModel, dynamicItemIds, canEdit, sourceLocale }: {
   restaurantId: number;
   serviceId: number;
   pricingModel: CateringPricingModel;
+  dynamicItemIds: Set<number>;
   canEdit: boolean;
   sourceLocale: Locale;
 }) {
@@ -271,7 +278,9 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
                   {groups.find((group) => group.id === item.group_id)?.name ?? t('catering_group_ungrouped')}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={priceLabel}>
-                  {`₪${item.base_price.toFixed(2)}`}
+                  {dynamicItemIds.has(item.id)
+                    ? <span className="inline-flex rounded-full bg-brand-500/10 px-2.5 py-1 text-xs font-semibold text-brand-600">{t('catering_pricing_dynamic')}</span>
+                    : `₪${item.base_price.toFixed(2)}`}
                 </DataTableCell>
                 {pricingModel !== 'custom_quote' && (
                   <DataTableCell align="right" mobileLabel={minLabel}>
