@@ -589,7 +589,6 @@ function DesktopWebsiteV3Builder({
     slug: string;
     type: DraftPagePayload["type"];
     menuIds: number[];
-    serviceIds: number[];
     isDefault: boolean;
   }) => {
     if (!state || busyRef.current) return;
@@ -617,7 +616,7 @@ function DesktopWebsiteV3Builder({
           ? {
               ...base,
               type: "catering",
-              settings: { service_ids: input.serviceIds },
+              settings: { service_ids: [] },
             }
           : input.type === "landing"
             ? { ...base, type: "landing", settings: {}, is_default: false }

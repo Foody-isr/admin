@@ -3,7 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, ChevronUp, FolderPlus, ListChecks, PackageCheck, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Check, ChevronDown, ChevronRight, ChevronUp, FolderPlus, ListChecks, Maximize2, Minimize2, PackageCheck, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import {
   listCateringArticleLibrary,
   type CateringChoiceGroupInput,
@@ -76,6 +77,21 @@ export default function CateringFormulaComposer({
   const [manualName, setManualName] = useState('');
   const [activeKey, setActiveKey] = useState(includedSections[0]?.key ?? INCLUDED_KEY);
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [expanded]);
 
   useEffect(() => {
     let live = true;
@@ -120,7 +136,7 @@ export default function CateringFormulaComposer({
   const selectedIds = useMemo(() => new Set(
     isIncluded
       ? [...includedItems, ...includedSections.flatMap((section) => section.items)].flatMap((item) => item.menu_item_id ? [item.menu_item_id] : [])
-      : (active?.items ?? []).map((item) => item.menu_item_id),
+      : (active?.items ?? []).flatMap((item) => item.menu_item_id ? [item.menu_item_id] : []),
   ), [active?.items, includedItems, includedSections, isIncluded]);
 
   const activeIncludedItems = activeSection?.items ?? includedItems;
@@ -211,7 +227,11 @@ export default function CateringFormulaComposer({
   const addManualItem = () => {
     const name = manualName.trim();
     if (!name) return;
-    setActiveIncludedItems([...activeIncludedItems, { name, description: '' }]);
+    if (isIncluded) {
+      setActiveIncludedItems([...activeIncludedItems, { name, description: '' }]);
+    } else if (active) {
+      updateActive({ items: [...active.items, { name, description: '', price_delta: 0, default_quantity: 0 }] });
+    }
     setManualName('');
   };
 
@@ -233,17 +253,17 @@ export default function CateringFormulaComposer({
     });
     updateActive({ max_selections: max, min_selections: Math.min(active.min_selections, max), items });
   };
-  const setChefDefault = (menuItemId: number, checked: boolean) => {
+  const setChefDefault = (itemIndex: number, checked: boolean) => {
     if (!active) return;
-    updateActive({ items: active.items.map((item) => ({
+    updateActive({ items: active.items.map((item, index) => ({
       ...item,
-      default_quantity: item.menu_item_id === menuItemId
+      default_quantity: index === itemIndex
         ? (checked ? 1 : 0)
         : (checked && active.max_selections === 1 ? 0 : item.default_quantity),
     })) });
   };
 
-  return (
+  const content = (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div>
@@ -251,6 +271,10 @@ export default function CateringFormulaComposer({
           <p className="mt-0.5 max-w-2xl text-xs text-fg-secondary">{t('catering_formula_composition_hint')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setExpanded((value) => !value)}>
+            {expanded ? <Minimize2 /> : <Maximize2 />}
+            {expanded ? t('catering_formula_collapse') : t('catering_formula_expand')}
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => addIncludedSection()}><FolderPlus />{t('catering_included_add_section')}</Button>
           <Button variant="secondary" size="sm" onClick={addGroup}><Plus />{t('catering_choice_add_group')}</Button>
         </div>
@@ -372,17 +396,31 @@ export default function CateringFormulaComposer({
                   <div><h5 className="font-semibold text-fg-primary">{t('catering_choice_available_articles')} <span className="ms-1 text-sm font-normal text-fg-tertiary">({active.items.length})</span></h5><p className="mt-0.5 text-xs text-fg-secondary">{t('catering_choice_selected_articles_hint')}</p></div>
                   <span className="rounded-full bg-brand-500/10 px-2.5 py-1 text-xs font-semibold text-brand-700">{t('catering_choice_defaults_count').replace('{count}', String(defaultCount)).replace('{max}', String(active.max_selections))}</span>
                 </div>
-                {active.items.length === 0 ? <p className="mt-3 rounded-lg border border-dashed border-[var(--divider)] p-5 text-center text-sm text-fg-secondary">{t('catering_choice_pick_from_library')}</p> : (
+                <div className="mt-3 rounded-lg border border-dashed border-brand-500/35 bg-brand-500/5 p-3">
+                  <p className="text-xs font-semibold text-fg-primary">{t('catering_choice_manual_title')}</p>
+                  <div className="mt-2 flex gap-2">
+                    <input className="input h-9" value={manualName} onChange={(event) => setManualName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addManualItem(); } }} placeholder={t('catering_choice_manual_placeholder')} />
+                    <Button variant="secondary" size="sm" onClick={addManualItem} disabled={!manualName.trim()}><Plus />{t('catering_choice_manual_add')}</Button>
+                  </div>
+                </div>
+                {active.items.length === 0 ? <p className="mt-3 rounded-lg border border-dashed border-[var(--divider)] p-5 text-center text-sm text-fg-secondary">{t('catering_choice_pick_or_create')}</p> : (
                   <div className="mt-3 overflow-hidden rounded-lg border border-[var(--divider)]">
                     {active.items.map((choice, index) => {
-                      const item = itemsById.get(choice.menu_item_id);
+                      const item = choice.menu_item_id ? itemsById.get(choice.menu_item_id) : undefined;
                       const defaultLimitReached = defaultCount >= active.max_selections && choice.default_quantity === 0;
                       return (
-                        <div key={choice.menu_item_id} className="grid items-center gap-3 border-b border-[var(--divider)] p-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_2.5rem]">
-                          <ArticleIdentity item={item} categoryName={item ? categoryById.get(item.category_id) : ''} fallback={`#${choice.menu_item_id}`} />
+                        <div key={choice.menu_item_id ? `linked-${choice.menu_item_id}` : `manual-${index}`} className="grid items-center gap-3 border-b border-[var(--divider)] p-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_2.5rem]">
+                          {choice.menu_item_id ? (
+                            <ArticleIdentity item={item} categoryName={item ? categoryById.get(item.category_id) : ''} fallback={`#${choice.menu_item_id}`} />
+                          ) : (
+                            <div className="min-w-0 space-y-1">
+                              <input className="input h-9 font-medium" value={choice.name ?? ''} onChange={(event) => updateActive({ items: active.items.map((row, rowIndex) => rowIndex === index ? { ...row, name: event.target.value } : row) })} aria-label={t('catering_choice_manual_name')} />
+                              <input className="input h-8 text-xs" value={choice.description ?? ''} onChange={(event) => updateActive({ items: active.items.map((row, rowIndex) => rowIndex === index ? { ...row, description: event.target.value } : row) })} placeholder={t('catering_choice_manual_description')} />
+                            </div>
+                          )}
                           <input type="number" step="0.01" aria-label={t('catering_choice_surcharge')} className="h-9 w-full rounded-md border border-[var(--divider)] bg-[var(--surface)] px-2 text-sm" value={choice.price_delta} onChange={(event) => updateActive({ items: active.items.map((row, rowIndex) => rowIndex === index ? { ...row, price_delta: Number(event.target.value) || 0 } : row) })} />
-                          <label className="flex items-center gap-2 text-xs text-fg-secondary"><input type="checkbox" disabled={defaultLimitReached} checked={choice.default_quantity > 0} onChange={(event) => setChefDefault(choice.menu_item_id, event.target.checked)} /><span className="sm:hidden">{t('catering_choice_chef_default')}</span></label>
-                          <button type="button" aria-label={t('catering_remove_image')} onClick={() => removeLinkedItem(choice.menu_item_id)} className="rounded-lg p-2 text-red-500 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /></button>
+                          <label className="flex items-center gap-2 text-xs text-fg-secondary"><input type="checkbox" disabled={defaultLimitReached} checked={choice.default_quantity > 0} onChange={(event) => setChefDefault(index, event.target.checked)} /><span className="sm:hidden">{t('catering_choice_chef_default')}</span></label>
+                          <button type="button" aria-label={t('catering_remove_image')} onClick={() => updateActive({ items: active.items.filter((_, rowIndex) => rowIndex !== index) })} className="rounded-lg p-2 text-red-500 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /></button>
                         </div>
                       );
                     })}
@@ -395,6 +433,16 @@ export default function CateringFormulaComposer({
       </div>
     </div>
   );
+
+  if (expanded && typeof document !== 'undefined') {
+    return createPortal(
+      <div role="dialog" aria-modal="true" aria-label={t('catering_formula_composition')} className="fixed inset-0 z-[80] bg-[var(--surface)] p-4 sm:p-6">
+        {content}
+      </div>,
+      document.body,
+    );
+  }
+  return content;
 }
 
 function ArticleIdentity({ item, categoryName, fallback }: { item?: CateringLibraryItem; categoryName?: string; fallback: string }) {

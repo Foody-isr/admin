@@ -347,7 +347,11 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
       min_selections: group.min_selections,
       max_selections: group.max_selections,
       max_per_item: group.max_per_item,
-      items: (group.items ?? []).map((item) => ({ menu_item_id: item.menu_item_id, price_delta: item.price_delta, default_quantity: item.default_quantity })),
+      items: (group.items ?? []).map((item) => ({
+        ...(item.menu_item_id ? { menu_item_id: item.menu_item_id } : { name: item.name, description: item.description ?? '' }),
+        price_delta: item.price_delta,
+        default_quantity: item.default_quantity,
+      })),
     })),
   );
   const [includedItems, setIncludedItems] = useState<CateringIncludedItemInput[]>(
@@ -376,7 +380,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
   const compositionValid = useMemo(() => choiceGroups.every((group) => {
     const defaults = group.items.reduce((sum, item) => sum + item.default_quantity, 0);
     const capacity = group.max_per_item === 0 ? Number.POSITIVE_INFINITY : group.items.length * group.max_per_item;
-    return group.name.trim().length > 0 && group.items.length > 0 && group.min_selections >= 0 &&
+    return group.name.trim().length > 0 && group.items.length > 0 && group.items.every((item) => Boolean(item.menu_item_id || item.name?.trim())) && group.min_selections >= 0 &&
       group.max_selections >= Math.max(1, group.min_selections) && capacity >= group.min_selections && defaults <= group.max_selections;
   }) && includedItems.every((item) => Boolean(item.menu_item_id || item.name?.trim())) &&
     includedSections.every((section) => section.name.trim().length > 0 && section.items.every((item) => Boolean(item.menu_item_id || item.name?.trim()))),
@@ -499,9 +503,12 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
             descLabel={t('catering_offer_conditions')}
             descHint={t('catering_offer_conditions_hint')}
           />
-          <label className="mt-4 flex items-center gap-2 text-sm font-medium text-fg-primary">
-            <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-            {t('catering_offer_visible')}
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-brand-500/25 bg-brand-500/5 p-4">
+            <input type="checkbox" className="mt-1" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
+            <span>
+              <span className="block font-semibold text-fg-primary">{t('catering_offer_visible')}</span>
+              <span className="mt-1 block text-sm leading-5 text-fg-secondary">{t('catering_offer_visible_hint')}</span>
+            </span>
           </label>
         </EditorAccordion>
 

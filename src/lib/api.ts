@@ -8751,11 +8751,13 @@ export interface CateringPriceTier { min_guests: number; price: number }
 export interface CateringChoiceItem {
   id: number;
   choice_group_id: number;
-  menu_item_id: number;
+  menu_item_id?: number;
+  name: string;
+  description: string;
   price_delta: number;
   default_quantity: number;
   sort_order: number;
-  menu_item: MenuItem;
+  menu_item?: MenuItem;
 }
 
 export interface CateringChoiceGroup {
@@ -8773,7 +8775,9 @@ export interface CateringChoiceGroup {
 }
 
 export interface CateringChoiceItemInput {
-  menu_item_id: number;
+  menu_item_id?: number;
+  name?: string;
+  description?: string;
   price_delta: number;
   default_quantity: number;
 }

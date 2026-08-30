@@ -1,49 +1,36 @@
 "use client";
 
-import type { CateringService, Menu } from "@/lib/api";
+import type { Menu } from "@/lib/api";
 import type { DraftPagePayload } from "@/lib/website-v3/types";
 
 export function CommerceSelector({
   page,
   menus,
-  services,
   error,
   onChange,
 }: {
-  page: Extract<DraftPagePayload, { type: "order" | "catering" }>;
+  page: Extract<DraftPagePayload, { type: "order" }>;
   menus: Menu[];
-  services: CateringService[];
   error?: string;
   onChange: (ids: number[]) => void;
 }) {
-  const isOrder = page.type === "order";
-  const options = isOrder
-    ? menus
-        .filter((menu) => menu.web_enabled)
-        .map((menu) => ({ id: menu.id, label: menu.name }))
-    : services
-        .filter((service) => service.is_active)
-        .map((service) => ({ id: service.id, label: service.name }));
-  const selected =
-    page.type === "order"
-      ? page.settings.menu_ids
-      : page.settings.service_ids;
-  const fieldId = isOrder
-    ? "page.settings.menu_ids"
-    : "page.settings.service_ids";
+  const options = menus
+    .filter((menu) => menu.web_enabled)
+    .map((menu) => ({ id: menu.id, label: menu.name }));
+  const selected = page.settings.menu_ids;
   const availableIds = new Set(options.map((option) => option.id));
   const brokenIds = selected.filter((id) => !availableIds.has(id));
 
   return (
     <fieldset
-      data-field-id={fieldId}
+      data-field-id="page.settings.menu_ids"
       tabIndex={-1}
       className={`rounded-2xl border p-3 ${
         error ? "border-red-300 bg-red-50/40" : "border-slate-200"
       }`}
     >
       <legend className="px-1 text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
-        {isOrder ? "Cartes associées" : "Prestations associées"}
+        Cartes associées
       </legend>
       <div className="mt-1 space-y-1">
         {brokenIds.map((id) => (
@@ -60,16 +47,13 @@ export function CommerceSelector({
               className="h-4 w-4 rounded border-red-300 text-red-600"
             />
             <span className="font-medium">
-              {isOrder ? "Carte" : "Prestation"} indisponible #{id} — décochez
-              pour retirer
+              Carte indisponible #{id} — décochez pour retirer
             </span>
           </label>
         ))}
         {options.length === 0 ? (
           <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
-            {isOrder
-              ? "Aucune carte activée pour le web."
-              : "Aucune prestation traiteur active."}
+            Aucune carte activée pour le web.
           </p>
         ) : (
           options.map((option) => (

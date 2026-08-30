@@ -250,10 +250,15 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
             </label>
           )}
         </section>
-        <label className="flex items-center gap-2 text-sm font-medium text-fg-primary">
-          <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-          {t('catering_offer_group_visible')}
-        </label>
+        <section className="rounded-xl border border-brand-500/25 bg-brand-500/5 p-4">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input type="checkbox" className="mt-1" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
+            <span>
+              <span className="block font-semibold text-fg-primary">{t('catering_offer_group_visible')}</span>
+              <span className="mt-1 block text-sm leading-5 text-fg-secondary">{t('catering_offer_group_visible_hint')}</span>
+            </span>
+          </label>
+        </section>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" size="md" onClick={onClose}>{t('catering_cancel')}</Button>
           <Button variant="primary" size="md" disabled={saving || !name.trim()} onClick={handleSave}>{saving ? t('catering_offer_saving') : t('catering_offer_group_save')}</Button>

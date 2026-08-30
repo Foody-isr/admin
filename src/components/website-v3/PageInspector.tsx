@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import type {
   CateringService,
   CheckoutConfig,
@@ -331,8 +333,7 @@ export function PageInspector({
   const setType = (nextType: WebsitePageType) => {
     if (nextType === page.type) return;
     const removesAssociations =
-      (page.type === "order" && page.settings.menu_ids.length > 0) ||
-      (page.type === "catering" && page.settings.service_ids.length > 0);
+      page.type === "order" && page.settings.menu_ids.length > 0;
     if (
       removesAssociations &&
       !window.confirm(
@@ -411,25 +412,27 @@ export function PageInspector({
       {shows("page.commerce") &&
       (page.type === "order" || page.type === "catering") ? (
         <InspectorGroup groupId="page.commerce" title="Commerce">
-          <CommerceSelector
-            page={page}
-            menus={menus}
-            services={services}
-            error={errorFor(
-              page.type === "order"
-                ? "page.settings.menu_ids"
-                : "page.settings.service_ids",
-            )}
-            onChange={(ids) =>
-              onChange(
-                [
-                  "settings",
-                  page.type === "order" ? "menu_ids" : "service_ids",
-                ],
-                ids,
-              )
-            }
-          />
+          {page.type === "order" ? (
+            <CommerceSelector
+              page={page}
+              menus={menus}
+              error={errorFor("page.settings.menu_ids")}
+              onChange={(ids) => onChange(["settings", "menu_ids"], ids)}
+            />
+          ) : (
+            <div className="rounded-2xl border border-brand-500/25 bg-brand-500/5 p-4">
+              <p className="text-sm font-semibold text-fg-primary">{t("websiteV3CateringVisibilityTitle")}</p>
+              <p className="mt-1 text-sm leading-5 text-fg-secondary">
+                {t("websiteV3CateringVisibilityDescription").replace("{n}", String(services.filter((service) => service.is_active).length))}
+              </p>
+              <Link
+                href={`/${restaurantId}/catering/services`}
+                className="mt-3 inline-flex rounded-lg border border-brand-500/30 bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-brand-600 transition hover:border-brand-500 hover:bg-brand-500/10"
+              >
+                {t("websiteV3CateringVisibilityAction")}
+              </Link>
+            </div>
+          )}
           <ToggleField
             fieldId="page.is_default"
             label={t(
