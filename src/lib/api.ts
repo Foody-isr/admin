@@ -8531,6 +8531,8 @@ export interface CateringService {
   /** How many articles a customer may pick: 'single', 'multiple', or '' = auto
    *  (per_person → one formula, per_unit → several items). */
   selection_mode?: '' | 'single' | 'multiple';
+  allow_extra_sessions: boolean;
+  max_sessions: number;
   is_active: boolean;
   display_order: number;
   flow_config?: CateringFlowConfig | Record<string, never>;
@@ -8542,6 +8544,8 @@ export interface CateringServiceInput {
   pricing_model: CateringPricingModel;
   quote_mode?: 'auto' | 'review';
   selection_mode?: '' | 'single' | 'multiple';
+  allow_extra_sessions?: boolean;
+  max_sessions?: number;
   is_active?: boolean;
   display_order?: number;
 }

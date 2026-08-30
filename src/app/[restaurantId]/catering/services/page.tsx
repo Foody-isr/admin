@@ -167,6 +167,8 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
   const [name, setName] = useState(editing?.name ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [selectionMode, setSelectionMode] = useState<'single' | 'multiple'>(editing?.selection_mode === 'single' ? 'single' : 'multiple');
+  const [allowExtraSessions, setAllowExtraSessions] = useState(editing?.allow_extra_sessions ?? false);
+  const [maxSessions, setMaxSessions] = useState(Math.max(2, editing?.max_sessions ?? 3));
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
@@ -180,6 +182,8 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
         pricing_model: editing?.pricing_model ?? 'per_person' as const,
         quote_mode: editing?.quote_mode ?? 'review' as const,
         selection_mode: selectionMode,
+        allow_extra_sessions: allowExtraSessions,
+        max_sessions: maxSessions,
         is_active: isActive,
         display_order: editing?.display_order ?? 0,
       };
@@ -223,6 +227,29 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
             })}
           </div>
         </fieldset>
+        <section className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input type="checkbox" className="mt-1" checked={allowExtraSessions} onChange={(event) => setAllowExtraSessions(event.target.checked)} />
+            <span>
+              <span className="block font-semibold text-fg-primary">{t('catering_offer_group_extra_sessions_title')}</span>
+              <span className="mt-1 block text-sm leading-5 text-fg-secondary">{t('catering_offer_group_extra_sessions_hint')}</span>
+            </span>
+          </label>
+          {allowExtraSessions && (
+            <label className="mt-4 block border-t border-[var(--divider)] pt-4">
+              <span className="text-sm font-medium text-fg-secondary">{t('catering_offer_group_max_sessions')}</span>
+              <input
+                type="number"
+                min={2}
+                max={10}
+                className="input mt-1 max-w-40"
+                value={maxSessions}
+                onChange={(event) => setMaxSessions(Math.min(10, Math.max(2, Number(event.target.value) || 2)))}
+              />
+              <span className="mt-1 block text-xs text-fg-tertiary">{t('catering_offer_group_max_sessions_hint')}</span>
+            </label>
+          )}
+        </section>
         <label className="flex items-center gap-2 text-sm font-medium text-fg-primary">
           <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
           {t('catering_offer_group_visible')}
