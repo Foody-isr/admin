@@ -8906,6 +8906,7 @@ export interface CateringCatalogItem {
   gallery_images?: CateringCatalogItemImage[];
   included_sections?: CateringIncludedSection[];
   included_items?: CateringIncludedItem[];
+  options?: CateringOption[];
 }
 
 export interface CateringCatalogItemInput {
@@ -8927,6 +8928,7 @@ export interface CateringCatalogItemInput {
   gallery_images?: CateringCatalogItemImageInput[];
   included_sections?: CateringIncludedSectionInput[];
   included_items?: CateringIncludedItemInput[];
+  options?: CateringOptionInput[];
 }
 
 export interface CateringCatalogGroup {
@@ -8967,12 +8969,13 @@ export async function archiveCateringGroup(restaurantId: number, id: number): Pr
   await apiFetch(`/api/v1/catering/groups/${id}`, restaurantId, { method: 'DELETE' });
 }
 
-export type CateringOptionPriceMode = 'fixed' | 'per_person';
+export type CateringOptionPriceMode = 'fixed' | 'per_person' | 'per_unit';
 
 export interface CateringOption {
   id: number;
   restaurant_id: number;
   service_id: number;
+  catalog_item_id?: number;
   name: string;
   description: string;
   price: number;
@@ -8986,6 +8989,7 @@ export interface CateringOptionInput {
   description?: string;
   price: number;
   price_mode: CateringOptionPriceMode;
+  catalog_item_id?: number;
   is_active?: boolean;
   sort_order?: number;
 }

@@ -15,6 +15,7 @@ import {
   PackageOpenIcon,
   PencilIcon,
   PlusIcon,
+  SlidersHorizontalIcon,
   TrashIcon,
   TruckIcon,
   UsersIcon,
@@ -59,10 +60,25 @@ import {
   type CateringIncludedItemInput,
   type CateringPricingModel,
   type CateringOfferServiceMode,
+  type CateringOptionInput,
+  type CateringOptionPriceMode,
   type CateringService,
 } from '@/lib/api';
 
-type EditorSection = 'identity' | 'availability' | 'modes' | 'pricing' | 'menu' | 'photos';
+type EditorSection = 'identity' | 'availability' | 'modes' | 'pricing' | 'options' | 'menu' | 'photos';
+
+type OfferOptionDraft = Omit<CateringOptionInput, 'price'> & { key: string; price: string };
+
+function newOfferOption(index: number): OfferOptionDraft {
+  return {
+    key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `option-${Date.now()}-${index}`,
+    name: '',
+    description: '',
+    price: '',
+    price_mode: 'fixed',
+    is_active: true,
+  };
+}
 
 const WEEKDAYS = [
   'catering_flow_weekday_sunday',
@@ -371,6 +387,16 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
       })),
     })),
   );
+  const [options, setOptions] = useState<OfferOptionDraft[]>(
+    () => (editing?.options ?? []).map((option, index) => ({
+      ...newOfferOption(index),
+      name: option.name,
+      description: option.description ?? '',
+      price: String(option.price),
+      price_mode: option.price_mode,
+      is_active: option.is_active,
+    })),
+  );
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [uploading, setUploading] = useState(false);
   const [galleryUploading, setGalleryUploading] = useState(false);
@@ -386,6 +412,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
     includedSections.every((section) => section.name.trim().length > 0 && section.items.every((item) => Boolean(item.menu_item_id || item.name?.trim()))),
   [choiceGroups, includedItems, includedSections]);
   const serviceModesValid = serviceModes.every((mode) => mode.name.trim().length > 0 && (mode.price.trim() === '' || Number(mode.price) >= 0));
+  const optionsValid = options.every((option) => option.name.trim().length > 0 && option.price.trim() !== '' && Number(option.price) >= 0);
 
   const handleCover = async (file: File) => {
     setUploading(true);
@@ -407,6 +434,10 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
     }
     if (!serviceModesValid) {
       setOpenSection('modes');
+      return;
+    }
+    if (!optionsValid) {
+      setOpenSection('options');
       return;
     }
     setSaving(true);
@@ -432,6 +463,13 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
         choice_groups: toChoiceGroupInputs(choiceGroups),
         included_sections: toIncludedSectionInputs(includedSections),
         included_items: includedItems,
+        options: options.map(({ key: _key, ...option }, index) => ({
+          ...option,
+          name: option.name.trim(),
+          description: option.description?.trim(),
+          price: Number(option.price) || 0,
+          sort_order: index,
+        })),
         min_guests: Number(minGuests) || 0,
         ...(service.pricing_model === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
         ...(service.pricing_model === 'per_person' ? {
@@ -468,7 +506,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
       <div>{saveError && <p className="text-sm text-red-500">{saveError}</p>}</div>
       <div className="flex gap-2">
         <Button variant="secondary" size="md" onClick={onClose}>{t('catering_cancel')}</Button>
-        <Button variant="primary" size="md" disabled={saving || uploading || galleryUploading || !name.trim() || !serviceModesValid} onClick={handleSave}>
+        <Button variant="primary" size="md" disabled={saving || uploading || galleryUploading || !name.trim() || !serviceModesValid || !optionsValid} onClick={handleSave}>
           {saving ? t('catering_offer_saving') : t('catering_offer_save')}
         </Button>
       </div>
@@ -680,6 +718,71 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
               </div>
               <button type="button" onClick={() => setTiers((current) => [...current, { min_guests: '', price: '' }])} className="mt-3 text-sm font-semibold text-brand-600 hover:text-brand-700">+ {t('catering_item_tier_add')}</button>
             </details>
+          )}
+        </EditorAccordion>
+
+        <EditorAccordion
+          id="options"
+          open={openSection === 'options'}
+          onOpen={setOpenSection}
+          icon={<SlidersHorizontalIcon />}
+          title={t('catering_offer_section_options')}
+          summary={options.length ? t('catering_offer_options_count').replace('{n}', String(options.length)) : t('catering_offer_section_options_hint')}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-3xl">
+              <h4 className="font-semibold text-fg-primary">{t('catering_offer_options_title')}</h4>
+              <p className="mt-1 text-sm leading-6 text-fg-secondary">{t('catering_offer_options_hint')}</p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => setOptions((current) => [...current, newOfferOption(current.length)])}>
+              <PlusIcon /> {t('catering_offer_option_add')}
+            </Button>
+          </div>
+
+          {!optionsValid && <p className="mt-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">{t('catering_offer_options_invalid')}</p>}
+          {options.length === 0 ? (
+            <div className="mt-4 rounded-xl border border-dashed border-[var(--divider)] bg-[var(--surface-subtle)] px-5 py-7 text-center">
+              <p className="font-medium text-fg-primary">{t('catering_offer_options_empty')}</p>
+              <p className="mt-1 text-sm text-fg-secondary">{t('catering_offer_options_empty_hint')}</p>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {options.map((option, index) => (
+                <div key={option.key} className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+                  <div className="grid gap-3 lg:grid-cols-[1fr_1.35fr_12rem_10rem_auto]">
+                    <div>
+                      <label className="block text-xs font-semibold text-fg-secondary">{t('catering_offer_option_name')}</label>
+                      <input className="input mt-1" value={option.name} placeholder={t('catering_offer_option_name_example')} onChange={(event) => setOptions((current) => current.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, name: event.target.value } : candidate))} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-fg-secondary">{t('catering_offer_option_description')}</label>
+                      <input className="input mt-1" value={option.description ?? ''} placeholder={t('catering_offer_option_description_example')} onChange={(event) => setOptions((current) => current.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, description: event.target.value } : candidate))} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-fg-secondary">{t('catering_option_mode')}</label>
+                      <select className="input mt-1" value={option.price_mode} onChange={(event) => setOptions((current) => current.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, price_mode: event.target.value as CateringOptionPriceMode } : candidate))}>
+                        <option value="fixed">{t('catering_option_mode_fixed')}</option>
+                        <option value="per_unit">{t('catering_option_mode_per_unit')}</option>
+                        <option value="per_person">{t('catering_option_mode_per_person')}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-fg-secondary">{t('catering_option_price')}</label>
+                      <div className="relative mt-1">
+                        <span className="pointer-events-none absolute inset-y-0 start-3 flex items-center text-sm font-semibold text-fg-tertiary">₪</span>
+                        <input type="number" min={0} step="0.01" className="input !ps-8" value={option.price} onChange={(event) => setOptions((current) => current.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, price: event.target.value } : candidate))} />
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setOptions((current) => current.filter((_, candidateIndex) => candidateIndex !== index))} aria-label={t('catering_offer_option_remove')} className="mt-5 self-center rounded-lg p-2 text-fg-secondary hover:bg-red-500/10 hover:text-red-500">
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-fg-tertiary">
+                    {option.price_mode === 'fixed' ? t('catering_offer_option_fixed_hint') : option.price_mode === 'per_unit' ? t('catering_offer_option_unit_hint') : t('catering_offer_option_guest_hint')}
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
         </EditorAccordion>
 
