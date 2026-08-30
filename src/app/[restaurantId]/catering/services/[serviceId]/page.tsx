@@ -62,7 +62,7 @@ import {
   type CateringService,
 } from '@/lib/api';
 
-type EditorSection = 'identity' | 'modes' | 'pricing' | 'menu' | 'photos';
+type EditorSection = 'identity' | 'availability' | 'modes' | 'pricing' | 'menu' | 'photos';
 
 const WEEKDAYS = [
   'catering_flow_weekday_sunday',
@@ -238,6 +238,9 @@ export default function CateringOfferGroupPage() {
                       {rates.length > 0 && (
                         <span className="inline-flex items-center gap-1"><CalendarDaysIcon className="h-3.5 w-3.5" />{t('catering_offer_rate_count').replace('{n}', String(rates.length))}</span>
                       )}
+                      {(item.available_weekdays?.length ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1"><CalendarDaysIcon className="h-3.5 w-3.5" />{item.available_weekdays!.map((weekday) => t(WEEKDAYS[weekday])).join(', ')}</span>
+                      )}
                       {contentCount > 0 && (
                         <span className="inline-flex items-center gap-1"><UtensilsCrossedIcon className="h-3.5 w-3.5" />{t('catering_offer_content_ready')}</span>
                       )}
@@ -331,6 +334,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
     description: mode.description ?? '',
     price: mode.price === undefined ? '' : String(mode.price),
   })));
+  const [availableWeekdays, setAvailableWeekdays] = useState<number[]>(editing?.available_weekdays ?? []);
   const [imageUrl, setImageUrl] = useState(editing?.image_url ?? '');
   const [galleryImages, setGalleryImages] = useState<CateringCatalogItemImageInput[]>(
     () => (editing?.gallery_images ?? []).map((image) => ({ image_url: image.image_url, alt_text: image.alt_text, translations: image.translations })),
@@ -416,6 +420,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
           ...(mode.price.trim() === '' ? {} : { price: Number(mode.price) || 0 }),
           translations: mode.translations,
         })),
+        available_weekdays: availableWeekdays,
         image_url: imageUrl,
         gallery_images: galleryImages,
         translations,
@@ -498,6 +503,37 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
             <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
             {t('catering_offer_visible')}
           </label>
+        </EditorAccordion>
+
+        <EditorAccordion
+          id="availability"
+          open={openSection === 'availability'}
+          onOpen={setOpenSection}
+          icon={<CalendarDaysIcon />}
+          title={t('catering_offer_section_availability')}
+          summary={availableWeekdays.length === 0 ? t('catering_offer_availability_every_day') : availableWeekdays.map((weekday) => t(WEEKDAYS[weekday])).join(', ')}
+        >
+          <div>
+            <h4 className="font-semibold text-fg-primary">{t('catering_offer_availability_title')}</h4>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-fg-secondary">{t('catering_offer_availability_hint')}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+              {WEEKDAYS.map((key, weekday) => {
+                const active = availableWeekdays.includes(weekday);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setAvailableWeekdays((current) => active ? current.filter((value) => value !== weekday) : [...current, weekday].sort())}
+                    className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${active ? 'border-brand-500 bg-brand-500/10 text-brand-700 ring-1 ring-brand-500' : 'border-[var(--divider)] bg-[var(--surface-subtle)] text-fg-secondary hover:border-brand-400'}`}
+                  >
+                    {t(key)}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-xs text-fg-tertiary">{availableWeekdays.length === 0 ? t('catering_offer_availability_empty_hint') : t('catering_offer_availability_search_hint')}</p>
+          </div>
         </EditorAccordion>
 
         <EditorAccordion id="modes" open={openSection === 'modes'} onOpen={setOpenSection} icon={<TruckIcon />} title={t('catering_offer_section_modes')} summary={serviceModes.length === 0 ? t('catering_offer_modes_none_summary') : serviceModes.length === 1 ? serviceModes[0].name : t('catering_offer_modes_count').replace('{n}', String(serviceModes.length))}>

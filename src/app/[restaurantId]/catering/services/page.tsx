@@ -166,6 +166,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
+  const [selectionMode, setSelectionMode] = useState<'single' | 'multiple'>(editing?.selection_mode === 'single' ? 'single' : 'multiple');
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
@@ -178,7 +179,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
         description,
         pricing_model: editing?.pricing_model ?? 'per_person' as const,
         quote_mode: editing?.quote_mode ?? 'review' as const,
-        selection_mode: editing?.selection_mode ?? 'single' as const,
+        selection_mode: selectionMode,
         is_active: isActive,
         display_order: editing?.display_order ?? 0,
       };
@@ -201,6 +202,27 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
           <label className="block text-sm font-medium text-fg-secondary">{t('catering_offer_group_description')}</label>
           <textarea rows={3} className="input mt-1" value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t('catering_offer_group_description_example')} />
         </div>
+        <fieldset>
+          <legend className="text-sm font-medium text-fg-secondary">{t('catering_offer_group_selection_title')}</legend>
+          <p className="mt-1 text-sm text-fg-tertiary">{t('catering_offer_group_selection_hint')}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(['multiple', 'single'] as const).map((mode) => {
+              const active = selectionMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setSelectionMode(mode)}
+                  className={`rounded-xl border p-4 text-start transition ${active ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500' : 'border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand-400'}`}
+                >
+                  <span className="font-semibold text-fg-primary">{t(mode === 'multiple' ? 'catering_offer_group_selection_multiple' : 'catering_offer_group_selection_single')}</span>
+                  <span className="mt-1 block text-sm leading-5 text-fg-secondary">{t(mode === 'multiple' ? 'catering_offer_group_selection_multiple_hint' : 'catering_offer_group_selection_single_hint')}</span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
         <label className="flex items-center gap-2 text-sm font-medium text-fg-primary">
           <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
           {t('catering_offer_group_visible')}

@@ -8870,6 +8870,8 @@ export interface CateringCatalogItem {
   image_url: string;
   base_price: number;
   service_modes?: CateringOfferServiceMode[];
+  /** Sunday=0 … Saturday=6. Empty means every day. */
+  available_weekdays?: number[];
   price_tiers?: CateringPriceTier[] | null;
   translations?: Record<string, Record<string, string>>;
   min_quantity: number;
@@ -8892,6 +8894,7 @@ export interface CateringCatalogItemInput {
   image_url?: string;
   base_price: number;
   service_modes?: CateringOfferServiceMode[];
+  available_weekdays?: number[];
   price_tiers?: CateringPriceTier[];
   translations?: Record<string, Record<string, string>>;
   min_quantity?: number;
