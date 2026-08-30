@@ -8472,7 +8472,7 @@ export interface CateringSessionPricingRule {
   catalog_per_guest_rate: number;
 }
 
-export type CateringPricingFactor = 'guest_count' | 'session_id' | 'weekday' | 'start_time' | `answer:${string}`;
+export type CateringPricingFactor = 'guest_count' | 'session_id' | 'weekday' | 'start_time' | 'service_mode' | `answer:${string}`;
 export type CateringPricingOperator = 'equals' | 'one_of' | 'between';
 
 export interface CateringPricingCondition {
@@ -8836,6 +8836,15 @@ export interface CateringCatalogItemImageInput {
   translations?: Record<string, Record<string, string>>;
 }
 
+export interface CateringOfferServiceMode {
+  id: string;
+  name: string;
+  description?: string;
+  /** When omitted, the offer's base price applies. Zero remains valid. */
+  price?: number;
+  translations?: Record<string, Record<string, string>>;
+}
+
 export interface CateringLibraryItem {
   id: number;
   category_id: number;
@@ -8860,6 +8869,7 @@ export interface CateringCatalogItem {
   description: string;
   image_url: string;
   base_price: number;
+  service_modes?: CateringOfferServiceMode[];
   price_tiers?: CateringPriceTier[] | null;
   translations?: Record<string, Record<string, string>>;
   min_quantity: number;
@@ -8881,6 +8891,7 @@ export interface CateringCatalogItemInput {
   description?: string;
   image_url?: string;
   base_price: number;
+  service_modes?: CateringOfferServiceMode[];
   price_tiers?: CateringPriceTier[];
   translations?: Record<string, Record<string, string>>;
   min_quantity?: number;
