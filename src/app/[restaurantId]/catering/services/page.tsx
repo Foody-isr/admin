@@ -166,6 +166,8 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
+  const [quoteMode, setQuoteMode] = useState<'auto' | 'review'>(editing?.quote_mode ?? 'review');
+  const [depositPct, setDepositPct] = useState(String(editing?.deposit_pct ?? 0));
   const [selectionMode, setSelectionMode] = useState<'single' | 'multiple'>(editing?.selection_mode === 'single' ? 'single' : 'multiple');
   const [allowExtraSessions, setAllowExtraSessions] = useState(editing?.allow_extra_sessions ?? false);
   const [maxSessions, setMaxSessions] = useState(Math.max(2, editing?.max_sessions ?? 3));
@@ -174,16 +176,19 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
 
   const handleSave = async () => {
     if (!name.trim()) return;
+    const parsedDepositPct = Number(depositPct);
+    if (!Number.isFinite(parsedDepositPct) || parsedDepositPct < 0 || parsedDepositPct > 100) return;
     setSaving(true);
     try {
       const body = {
         name: name.trim(),
         description,
         pricing_model: editing?.pricing_model ?? 'per_person' as const,
-        quote_mode: editing?.quote_mode ?? 'review' as const,
+        quote_mode: quoteMode,
         selection_mode: selectionMode,
         allow_extra_sessions: allowExtraSessions,
         max_sessions: maxSessions,
+        deposit_pct: parsedDepositPct,
         is_active: isActive,
         display_order: editing?.display_order ?? 0,
       };
@@ -205,6 +210,46 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
         <div>
           <label className="block text-sm font-medium text-fg-secondary">{t('catering_offer_group_description')}</label>
           <textarea rows={3} className="input mt-1" value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t('catering_offer_group_description_example')} />
+        </div>
+        <fieldset>
+          <legend className="block text-sm font-medium text-fg-secondary">{t('catering_service_quote_mode')}</legend>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {(['review', 'auto'] as const).map((mode) => (
+              <label
+                key={mode}
+                className={`cursor-pointer rounded-xl border p-3 text-sm transition ${quoteMode === mode ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-[var(--divider)] text-fg-secondary hover:border-brand-500/50'}`}
+              >
+                <input
+                  type="radio"
+                  name="quote-mode"
+                  value={mode}
+                  checked={quoteMode === mode}
+                  onChange={() => setQuoteMode(mode)}
+                  className="me-2"
+                />
+                <span className="font-semibold">{t(mode === 'auto' ? 'catering_quote_mode_auto' : 'catering_quote_mode_review')}</span>
+                <span className="mt-1 block ps-5 text-xs font-normal text-fg-tertiary">
+                  {t(mode === 'auto' ? 'catering_quote_mode_auto_hint' : 'catering_quote_mode_review_hint')}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary">{t('catering_field_deposit_pct')}</label>
+          <div className="relative mt-1 max-w-40">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              className="input pe-9"
+              value={depositPct}
+              onChange={(event) => setDepositPct(event.target.value)}
+            />
+            <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-fg-tertiary">%</span>
+          </div>
+          <p className="mt-1 text-xs text-fg-tertiary">{t('catering_deposit_pct_hint')}</p>
         </div>
         <fieldset>
           <legend className="text-sm font-medium text-fg-secondary">{t('catering_offer_group_selection_title')}</legend>
@@ -261,7 +306,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
         </section>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" size="md" onClick={onClose}>{t('catering_cancel')}</Button>
-          <Button variant="primary" size="md" disabled={saving || !name.trim()} onClick={handleSave}>{saving ? t('catering_offer_saving') : t('catering_offer_group_save')}</Button>
+          <Button variant="primary" size="md" disabled={saving || !name.trim() || !Number.isFinite(Number(depositPct)) || Number(depositPct) < 0 || Number(depositPct) > 100} onClick={handleSave}>{saving ? t('catering_offer_saving') : t('catering_offer_group_save')}</Button>
         </div>
       </div>
     </Modal>

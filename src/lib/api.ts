@@ -8533,6 +8533,8 @@ export interface CateringService {
   selection_mode?: '' | 'single' | 'multiple';
   allow_extra_sessions: boolean;
   max_sessions: number;
+  /** Share of the quote total collected up front, 0-100. 0 disables deposits. */
+  deposit_pct: number;
   is_active: boolean;
   display_order: number;
   flow_config?: CateringFlowConfig | Record<string, never>;
@@ -8546,6 +8548,7 @@ export interface CateringServiceInput {
   selection_mode?: '' | 'single' | 'multiple';
   allow_extra_sessions?: boolean;
   max_sessions?: number;
+  deposit_pct?: number;
   is_active?: boolean;
   display_order?: number;
 }
@@ -8704,6 +8707,9 @@ export interface CateringQuote {
   /** Non-empty when a second successful charge landed on an already-paid quote (customer charged twice) and needs refunding. */
   deposit_overcharge_txn_uid: string;
   deposit_refund_txn_uid: string;
+  /** True when the refund was made in the provider's console and only recorded
+   *  here, so deposit_refund_txn_uid holds a reference Foody never issued. */
+  deposit_refund_external: boolean;
   deposit_refunded_amount: number;
   deposit_refunded_at: string | null;
   overcharge_refund_txn_uid: string;
@@ -8715,7 +8721,15 @@ export interface CateringQuoteReviewInput { total?: number; note?: string }
 /** Which charge a refund targets: the primary deposit, or a recorded duplicate charge. */
 export type CateringRefundTarget = 'deposit' | 'overcharge';
 
-export interface CateringDepositRefundInput { amount: number; target: CateringRefundTarget }
+export interface CateringDepositRefundInput {
+  amount: number;
+  target: CateringRefundTarget;
+  /** True when staff already refunded in the provider's own console and are only
+   *  recording it here. Foody then calls no payment provider. */
+  external?: boolean;
+  /** Provider-side evidence of an external refund. Required when `external`. */
+  reference?: string;
+}
 
 /** List catering quotes, optionally filtered by status. */
 export async function listCateringQuotes(restaurantId: number, status?: CateringQuoteStatus): Promise<CateringQuote[]> {

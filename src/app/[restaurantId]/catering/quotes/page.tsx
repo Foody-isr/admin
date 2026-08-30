@@ -233,15 +233,27 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
   const [refundAmount, setRefundAmount] = useState(quote.deposit_amount ? quote.deposit_amount.toFixed(2) : '');
   const [refunding, setRefunding] = useState(false);
   const [refundError, setRefundError] = useState('');
+  // Some providers cannot be refunded through their API at all (Summit's
+  // entry-level plan cannot save the payment method its credit call needs), so
+  // staff refund in the provider console and record it here.
+  const [refundExternal, setRefundExternal] = useState(false);
+  const [refundReference, setRefundReference] = useState('');
 
   const handleRefund = async () => {
     const amount = Number(refundAmount);
     if (!(amount > 0)) { setRefundError(t('catering_refund_amount_invalid')); return; }
+    const reference = refundReference.trim();
+    if (refundExternal && !reference) { setRefundError(t('catering_refund_reference_required')); return; }
     if (!confirm(t('catering_refund_confirm'))) return;
     setRefunding(true);
     setRefundError('');
     try {
-      await refundCateringDeposit(restaurantId, quote.id, { amount, target: refundTarget });
+      await refundCateringDeposit(restaurantId, quote.id, {
+        amount,
+        target: refundTarget,
+        external: refundExternal,
+        reference: refundExternal ? reference : undefined,
+      });
       onReviewed();
     } catch (e) {
       setRefundError(e instanceof Error ? e.message : t('catering_refund_failed'));
@@ -359,6 +371,9 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
             {quote.deposit_refunded_at && (
               <span className="text-fg-secondary">{` · ${new Date(quote.deposit_refunded_at).toLocaleDateString()}`}</span>
             )}
+            {quote.deposit_refund_external && (
+              <span className="text-fg-secondary">{` · ${t('catering_refund_external_badge')}`}</span>
+            )}
           </div>
         )}
 
@@ -401,11 +416,37 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
               />
             </div>
 
+            <div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={refundExternal}
+                  onChange={(e) => setRefundExternal(e.target.checked)}
+                />
+                <span className="text-sm text-fg-secondary">{t('catering_refund_external')}</span>
+              </label>
+              <p className="mt-1 text-xs text-fg-tertiary">{t('catering_refund_external_hint')}</p>
+            </div>
+
+            {refundExternal && (
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">
+                  {t('catering_refund_reference')}
+                </label>
+                <input
+                  className="input"
+                  value={refundReference}
+                  onChange={(e) => setRefundReference(e.target.value)}
+                  placeholder={t('catering_refund_reference_placeholder')}
+                />
+              </div>
+            )}
+
             {refundError && <p className="text-sm text-red-600 dark:text-red-400">{refundError}</p>}
 
             <div className="flex justify-end">
               <button className="btn-secondary" onClick={handleRefund} disabled={refunding}>
-                {t('catering_refund_action')}
+                {refundExternal ? t('catering_refund_record_action') : t('catering_refund_action')}
               </button>
             </div>
           </div>
