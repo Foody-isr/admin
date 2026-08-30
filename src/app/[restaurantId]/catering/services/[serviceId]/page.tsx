@@ -428,9 +428,9 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
         choice_groups: toChoiceGroupInputs(choiceGroups),
         included_sections: toIncludedSectionInputs(includedSections),
         included_items: includedItems,
+        min_guests: Number(minGuests) || 0,
         ...(service.pricing_model === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
         ...(service.pricing_model === 'per_person' ? {
-          min_guests: Number(minGuests) || 0,
           price_tiers: tiers
             .filter((tier) => tier.min_guests.trim() && tier.price.trim())
             .map((tier) => ({ min_guests: Number(tier.min_guests) || 0, price: Number(tier.price) || 0 }))
@@ -592,19 +592,33 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
             <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
               <p className="font-medium text-fg-primary">{t('catering_offer_custom_quote_title')}</p>
               <p className="mt-1 text-sm text-fg-secondary">{t('catering_offer_custom_quote_hint')}</p>
-              <label className="mt-4 block text-sm font-medium text-fg-secondary">{t('catering_offer_starting_price')}</label>
-              <input type="number" min={0} step="0.01" className="input mt-1 max-w-xs" value={basePrice} onChange={(event) => setBasePrice(event.target.value)} />
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-fg-secondary">{t('catering_offer_starting_price')}</label>
+                  <input type="number" min={0} step="0.01" className="input mt-1" value={basePrice} onChange={(event) => setBasePrice(event.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-fg-secondary">{t('catering_offer_min_guests')}</label>
+                  <input type="number" min={0} step="1" className="input mt-1" value={minGuests} onChange={(event) => setMinGuests(event.target.value)} />
+                  <p className="mt-1.5 text-xs text-fg-secondary">{t('catering_offer_min_guests_hint')}</p>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className={`grid gap-4 ${service.pricing_model === 'per_unit' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
               <div>
                 <label className="block text-sm font-medium text-fg-secondary">{service.pricing_model === 'per_person' ? t('catering_offer_base_price_guest') : t('catering_offer_base_price_unit')}</label>
                 <input type="number" min={0} step="0.01" className="input mt-1" value={basePrice} onChange={(event) => setBasePrice(event.target.value)} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-fg-secondary">{service.pricing_model === 'per_person' ? t('catering_offer_min_guests') : t('catering_offer_min_quantity')}</label>
-                <input type="number" min={0} step="1" className="input mt-1" value={service.pricing_model === 'per_person' ? minGuests : minQuantity} onChange={(event) => service.pricing_model === 'per_person' ? setMinGuests(event.target.value) : setMinQuantity(event.target.value)} />
+                <label className="block text-sm font-medium text-fg-secondary">{t('catering_offer_min_guests')}</label>
+                <input type="number" min={0} step="1" className="input mt-1" value={minGuests} onChange={(event) => setMinGuests(event.target.value)} />
+                <p className="mt-1.5 text-xs text-fg-secondary">{t('catering_offer_min_guests_hint')}</p>
               </div>
+              {service.pricing_model === 'per_unit' && <div>
+                <label className="block text-sm font-medium text-fg-secondary">{t('catering_offer_min_quantity')}</label>
+                <input type="number" min={0} step="1" className="input mt-1" value={minQuantity} onChange={(event) => setMinQuantity(event.target.value)} />
+              </div>}
             </div>
           )}
 
