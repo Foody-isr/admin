@@ -1,6 +1,7 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
+import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
@@ -27,6 +28,7 @@ export function OrderDetailHead({
   displayedLineCount,
   totalUnits,
   total,
+  actions,
 }: {
   order: Order;
   /** Semantic tone for the status word and dot. */
@@ -34,6 +36,8 @@ export function OrderDetailHead({
   displayedLineCount: number;
   totalUnits: number;
   total: number;
+  /** Record-level management actions, kept apart from workflow buttons. */
+  actions?: ReactNode;
 }) {
   const { t } = useI18n();
 
@@ -90,16 +94,24 @@ export function OrderDetailHead({
           </span>
         </div>
 
-        <div className="ms-auto hidden lg:flex items-center gap-[var(--s-3)] shrink-0 text-fs-xs text-[var(--fg-muted)]">
-          <span>
-            <span className="font-semibold text-[var(--fg)] tabular-nums">{displayedLineCount}</span>{' '}
-            {displayedLineCount === 1 ? t('item') : t('items')}
-            <span className="mx-1.5 opacity-40">·</span>
-            <span className="font-semibold text-[var(--fg)] tabular-nums">{totalUnits}</span>{' '}
-            {totalUnits === 1 ? t('unit') : t('units')}
-          </span>
-          <span aria-hidden className="h-5 w-px bg-[var(--line)]" />
-          <Money value={total} className="text-fs-lg font-semibold text-[var(--fg)]" />
+        <div className="ms-auto flex items-center gap-[var(--s-3)] shrink-0">
+          <div className="hidden lg:flex items-center gap-[var(--s-3)] text-fs-xs text-[var(--fg-muted)]">
+            <span>
+              <span className="font-semibold text-[var(--fg)] tabular-nums">{displayedLineCount}</span>{' '}
+              {displayedLineCount === 1 ? t('item') : t('items')}
+              <span className="mx-1.5 opacity-40">·</span>
+              <span className="font-semibold text-[var(--fg)] tabular-nums">{totalUnits}</span>{' '}
+              {totalUnits === 1 ? t('unit') : t('units')}
+            </span>
+            <span aria-hidden className="h-5 w-px bg-[var(--line)]" />
+            <Money value={total} className="text-fs-lg font-semibold text-[var(--fg)]" />
+          </div>
+          {actions && (
+            <>
+              <span aria-hidden className="hidden lg:block h-5 w-px bg-[var(--line)]" />
+              {actions}
+            </>
+          )}
         </div>
       </div>
     </div>

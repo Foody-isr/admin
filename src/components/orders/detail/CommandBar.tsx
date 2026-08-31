@@ -8,14 +8,15 @@ import type { TicketKind } from '@/lib/print-ticket';
 import type { OrderCapabilities, PrimaryAction } from '@/lib/orders/order-actions';
 import { PrintTicketMenu } from './menus/PrintTicketMenu';
 import { SendToCustomerMenu } from './menus/SendToCustomerMenu';
-import { OrderOverflowMenu } from './menus/OrderOverflowMenu';
 
 /**
  * The command bar.
  *
  * Start cluster: quiet utilities that are always available (edit, print, send).
- * End cluster: a contextual secondary, the overflow, and ONE dominant primary —
- * the order's next step. That single-primary rule is the whole point of the bar:
+ * End cluster: contextual secondary actions and ONE dominant primary — the
+ * order's next step. Record-level corrections and destructive actions live in
+ * the head overflow, so they never interrupt this workflow sequence. That
+ * single-primary rule is the whole point of the bar:
  * whatever else is on screen, there is exactly one obvious thing to do next.
  *
  * Mobile stacks the end cluster with the primary on top (col-reverse) and every
@@ -32,20 +33,13 @@ export interface CommandBarProps {
   onConfirmWeights?: () => void;
   onTakePayment: () => void;
   onCloseOrder: () => void;
-  onOverride?: () => void;
-  onCorrectPayment?: () => void;
-  onCorrectPaymentMethod?: () => void;
-  onToggleForceProduction?: () => void;
-  onReject: () => void;
-  onDelete?: () => void;
   onPrimary: (action: PrimaryAction) => void;
 }
 
 export function CommandBar({
   order, caps, canManage, isLoading,
   onEdit, onPrint, onSendConfirmation, onConfirmWeights, onTakePayment, onCloseOrder,
-  onOverride, onCorrectPayment, onCorrectPaymentMethod, onToggleForceProduction,
-  onReject, onDelete, onPrimary,
+  onPrimary,
 }: CommandBarProps) {
   const { t } = useI18n();
 
@@ -78,7 +72,7 @@ export function CommandBar({
         <SendToCustomerMenu order={order} onSendConfirmation={onSendConfirmation} />
       </div>
 
-      {/* End — contextual secondary · overflow · single primary */}
+      {/* End — contextual secondary · single primary */}
       <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:flex-nowrap md:items-center">
         {canManage && caps.canConfirmWeights && onConfirmWeights && (
           <Button
@@ -124,25 +118,6 @@ export function CommandBar({
           >
             <CheckCircle2Icon /> {t('closeOrder')}
           </Button>
-        )}
-
-        {canManage && caps.hasOverflow && (
-          <OrderOverflowMenu
-            canCorrect={caps.canCorrectStatus && !!onOverride}
-            canCorrectPayment={caps.canCorrectPayment && !!onCorrectPayment}
-            canCorrectPaymentMethod={caps.canCorrectPaymentMethod && !!onCorrectPaymentMethod}
-            canForceProduction={caps.canForceProduction}
-            forceProductionActive={!!order.force_production}
-            canCancel={caps.canCancelOrder}
-            canDelete={caps.canDelete}
-            onCorrect={onOverride}
-            onCorrectPayment={onCorrectPayment}
-            onCorrectPaymentMethod={onCorrectPaymentMethod}
-            onToggleForceProduction={onToggleForceProduction}
-            onCancel={onReject}
-            onDelete={onDelete}
-            disabled={isLoading}
-          />
         )}
 
         {canManage && caps.primary && (

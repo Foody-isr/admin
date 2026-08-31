@@ -54,8 +54,8 @@ function parseSupplements(order: Order): SupplementaryInvoice[] {
 
 /**
  * How many fiscal documents this order carries, from external_metadata alone —
- * no fetch, so it is safe to call for the appendix heading's count before the
- * block is ever opened. Zero means the block should not exist.
+ * no fetch, so it is safe to call for the reference tab's count before the tab
+ * is ever opened. Zero means the tab should not exist.
  *
  * This is the same parse the section itself uses, deliberately: the caller used
  * to test `supplementary_invoices.length > 0` on the raw array, which counted

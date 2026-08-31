@@ -3,10 +3,9 @@
 // Draws the activity trail. Nothing else.
 //
 // The audit fetch moved up to useOrderAudit; the trail itself now moves up to
-// buildActivityEvents (lib/orders/activity-events.ts), because the block is
-// collapsible and its heading has to say how many rows are inside before any of
-// them render. What is left here is the drawing: the day separators, the
-// connector line, the dots.
+// buildActivityEvents (lib/orders/activity-events.ts), because the activity tab
+// has to say how many rows exist before its panel renders. What is left here is
+// the drawing: the day separators, the connector line, the dots.
 
 import { Fragment } from 'react';
 import type { ActivityEvent } from '@/lib/orders/activity-events';

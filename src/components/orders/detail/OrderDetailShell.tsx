@@ -8,7 +8,6 @@ import {
   DETAIL_BODY_GRID,
   DETAIL_MAIN_TRACK,
   DETAIL_CONTEXT_TRACK,
-  DETAIL_REFERENCE_TRACK,
   DETAIL_RIBBON_BAND,
 } from './primitives/layout';
 
@@ -48,12 +47,6 @@ export interface OrderDetailShellProps {
   /** End column: money, customer, delivery — what stays legible beside the
    *  ticket. */
   context: React.ReactNode;
-  /** The appendix at the foot of the main column: activity, invoice, notes.
-   *  Consulted rather than monitored, so it earns no permanent space.
-   *  A grid SIBLING, not a tail inside `center`: nesting it would push the
-   *  customer and the total below it on a phone, burying the two things staff
-   *  open an order on a phone to see. */
-  reference?: React.ReactNode;
   /** Swap the three zones for a skeleton while the order loads. */
   loading?: boolean;
   footer?: React.ReactNode;
@@ -68,7 +61,6 @@ export function OrderDetailShell({
   ribbon,
   center,
   context,
-  reference,
   loading,
   footer,
   className,
@@ -132,9 +124,8 @@ export function OrderDetailShell({
 
           {/*
             Two columns, one scroll. CSS Grid lays its tracks start→end, so in
-            Hebrew the context column moves to the left and the appendix sits
-            under the ticket on the right, with no extra code — the mirror is
-            free. See primitives/layout.ts for why each class is there.
+            Hebrew the context column moves to the left with no extra code —
+            the mirror is free. See primitives/layout.ts for the geometry.
           */}
           <div className={DETAIL_BODY_GRID}>
             <main className={DETAIL_MAIN_TRACK}>{center}</main>
@@ -142,8 +133,6 @@ export function OrderDetailShell({
             <aside className={DETAIL_CONTEXT_TRACK}>
               <div className="md:sticky md:top-[var(--s-4)]">{context}</div>
             </aside>
-
-            {reference && <section className={DETAIL_REFERENCE_TRACK}>{reference}</section>}
           </div>
           </>
           )}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { OrderDetailModal } from '@/components/orders/detail/OrderDetailModal';
 import { Button, Chip, ConfirmDialog } from '@/components/ds';
+import { useTheme } from '@/lib/theme-context';
 import {
   PREVIEW_ORDERS,
   PREVIEW_RESTAURANT,
@@ -23,6 +24,7 @@ import {
  * itself worth seeing: it shows how each one degrades.
  */
 export function OrderDetailPreview() {
+  const { theme, toggleTheme } = useTheme();
   const [key, setKey] = useState<PreviewKey>('delivery');
   const [open, setOpen] = useState(true);
   // Mirrors how the real hosts wire the irreversible actions, so the preview
@@ -57,6 +59,9 @@ export function OrderDetailPreview() {
         ))}
         <Button variant="secondary" size="md" onClick={() => setOpen(true)} className="ms-[var(--s-4)]">
           Ouvrir
+        </Button>
+        <Button variant="secondary" size="md" onClick={toggleTheme}>
+          {theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
         </Button>
       </div>
 

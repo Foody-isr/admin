@@ -3,11 +3,10 @@
 // Internal staff notes: the list, and the composer. Staff-only, never shown to
 // the customer.
 //
-// Driven entirely by props. It used to fetch its own notes, which stopped being
-// possible when the block became collapsible: the closed heading has to say how
-// many notes there are, and this body does not exist while the block is closed.
-// The fetch lives in use-order-notes.ts — moving it back down here would kill
-// the count silently. That is the reason for the prop drilling; please leave it.
+// Driven entirely by props. The sibling tabs must show the note count even when
+// this panel is inactive and unmounted, so the fetch lives in
+// use-order-notes.ts. Moving it back down here would make the count depend on
+// opening the tab and refetch on remount.
 //
 // The composer is two-step. An always-open <Textarea> cost 128px of a screen
 // the whole redesign is trying to stop staff from scrolling, on every order,

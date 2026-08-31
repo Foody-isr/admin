@@ -5,16 +5,10 @@ import { getOrderNotes, addOrderNote, deleteOrderNote, type OrderNote } from '@/
 
 // Internal staff notes for one order, lifted out of OrderNotesSection.
 //
-// This is a PREREQUISITE of the collapsible appendix, not tidying that happened
-// to travel with it. The notes block is now collapsed by default and its body
-// UNMOUNTS when closed — a hidden-but-mounted <textarea> is still reachable by
-// Tab and by find-in-page, which is the same class of failure as scrolling past
-// something. With the fetch inside the component, unmounting would mean the
-// heading could never say how many notes there are, and a count is the only
-// thing that makes collapsing safe.
-//
-// So: the fetch lives up here, above the collapse, and the panel is driven by
-// props. If you ever move it back down, the count dies silently.
+// The reference tabs always show the note count, even while another tab is
+// active and the note body is unmounted. The fetch therefore lives above the
+// tab panel and the panel is driven by props. Moving it back down would make
+// the count depend on opening the tab and start a new request on every remount.
 //
 // Two further differences from the effect it replaces:
 //

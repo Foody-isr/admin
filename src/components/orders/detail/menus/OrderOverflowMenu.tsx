@@ -61,14 +61,16 @@ export function OrderOverflowMenu({
         <Button
           variant="ghost"
           size="md"
+          icon
           disabled={disabled}
           aria-label={t('moreActions') || 'More'}
-          className="h-11 flex-1 md:flex-none justify-center"
+          title={t('moreActions') || 'More'}
+          className="h-10 w-10 flex-none justify-center"
         >
           <MoreHorizontalIcon />
         </Button>
       </MenuTrigger>
-      <MenuContent side="top" align="end" className="order-detail-menu">
+      <MenuContent side="bottom" align="end" className="order-detail-menu">
         {hasManagement && <MenuLabel>{t('manage')}</MenuLabel>}
         {canCorrect && onCorrect && (
           <MenuItem onSelect={onCorrect}>

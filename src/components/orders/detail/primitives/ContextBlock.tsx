@@ -4,9 +4,8 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * A block in the context column — and, since the two-column rewrite, in the
- * appendix at the foot of the ticket: an eyebrow and its body, separated from
- * the next by a rule rather than boxed in a card.
+ * A block in the context column: an eyebrow and its body, separated from the
+ * next by a rule rather than boxed in a card.
  *
  * The old right column stacked six `Section` cards — customer, address, courier,
  * total, invoice, notes — in a 340px lane, so the eye met six borders and six
@@ -14,15 +13,10 @@ import { cn } from '@/lib/utils';
  * doing no grouping work the headings did not already do.
  */
 /**
- * The block's chrome, shared with DisclosureBlock.
+ * The block's chrome for customer, delivery and money sections.
  *
- * Exported as a string rather than added to this component as a `collapsible`
- * mode, because the two cannot share a heading row: `aside` already carries an
- * interactive <Link> in DeliveryPanel, and a collapsible heading row IS a
- * <button> — nesting the two is invalid HTML and a real keyboard bug. Five of
- * the six ContextBlock callers will never collapse, so a branch here would be
- * paid for by everyone and used by one. The decor is the only common part, and
- * decor shares fine as a string.
+ * Exported so adjacent context primitives can align their own chrome with the
+ * same narrow-column rhythm without wrapping interactive headings in buttons.
  */
 export const CONTEXT_BLOCK_SHELL =
   'py-[var(--s-3)] first:pt-0 border-t border-[var(--line)] first:border-t-0';

@@ -52,28 +52,13 @@ export const DETAIL_MAIN_TRACK =
 /**
  * Customer, delivery, money — what has to stay legible next to the ticket.
  *
- * `md:row-span-2` is load-bearing. Without it, auto-placement drops the
- * reference track at row 2 / column 1, this column ends with row 1, and cell
- * (2,2) becomes an unpainted hole showing --bg through the middle of a
- * --surface panel, with the border-s divider stopping half way down.
- *
  * `border-t md:border-t-0`: on a phone the customer block otherwise runs
  * straight out of the last ticket line with nothing between them.
  */
 export const DETAIL_CONTEXT_TRACK =
-  'min-w-0 md:col-start-2 md:row-start-1 md:row-span-2 bg-[var(--surface)] ' +
+  'min-w-0 md:col-start-2 md:row-start-1 bg-[var(--surface)] ' +
   'border-t md:border-t-0 md:border-s border-[var(--line)] ' +
   'px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-4)]';
-
-/**
- * The appendix: activity, invoice, notes. Consulted, not monitored, so it sits
- * at the foot of the document rather than holding permanent screen space.
- * No border here — the caller supplies a single --line-strong rule so there is
- * exactly one division at the seam, at every width.
- */
-export const DETAIL_REFERENCE_TRACK =
-  'min-w-0 md:col-start-1 md:row-start-2 bg-[var(--surface)] ' +
-  'px-[var(--s-4)] md:px-[var(--s-5)] xl:px-[var(--s-6)] pb-[var(--s-5)]';
 
 /**
  * A section heading on the ticket — HairlineRule's own box.

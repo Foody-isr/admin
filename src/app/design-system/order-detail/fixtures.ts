@@ -40,6 +40,7 @@ const deliveryReady: Order = {
   id: 1543,
   order_type: 'delivery',
   status: 'ready_for_delivery',
+  external_metadata: { document_number: 908711 },
   total_amount: 525,
   delivery_fee: 20,
   delivery_address: "Ma'on 5",

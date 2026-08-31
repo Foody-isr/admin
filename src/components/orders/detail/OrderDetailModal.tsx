@@ -1,38 +1,36 @@
 'use client';
 
-// The canonical order-detail view: a full-screen takeover with three zones.
+// The canonical order-detail view: a full-screen takeover with two columns.
 //
 // Replaces the 1060px right-side drawer, which put money, customer, delivery,
-// invoice, notes and activity in one 340px column and left the item list
-// competing with all of it. The three zones split the order along the three
-// questions staff actually ask:
+// invoice, notes and activity as six independent blocks in one 340px column
+// and left the item list competing with all of it. The current layout splits
+// the order along the questions staff actually ask:
 //
-//   spine   — where is this order in its life, and what has happened to it
-//   centre  — what was ordered
-//   context — money, who ordered, where it goes
+//   ribbon  — where is this order in its life
+//   ticket  — what was ordered
+//   context — money, who ordered, where it goes, and consulted records in tabs
 //
 // Purely presentational, exactly as before: every mutation is delegated to the
 // on* callback props the host supplies.
 
 import { useEffect, useState } from 'react';
-import { AlertTriangleIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { groupOrder } from '@/lib/orders/group-order';
 import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
 import { statusStageKind } from '@/lib/orders/workflow-stepper';
 import { localizeOrderType } from '@/lib/orders/status-presentation';
-import { DisclosureBlock } from './primitives/DisclosureBlock';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import type { CheckoutConfig, Order } from '@/lib/api';
 
 import { OrderDetailShell } from './OrderDetailShell';
 import { OrderDetailHead } from './OrderDetailHead';
 import { CommandBar } from './CommandBar';
+import { OrderOverflowMenu } from './menus/OrderOverflowMenu';
 import { WorkflowStepper } from './spine/WorkflowStepper';
 import { ScheduledBanner } from './spine/ScheduledCallout';
 import { CancellationCallout } from './spine/CancellationCallout';
-import { ActivityTimeline } from './spine/ActivityTimeline';
 import { useOrderAudit } from '@/lib/orders/use-order-audit';
 import { useOrderNotes } from '@/lib/orders/use-order-notes';
 import { buildActivityEvents } from '@/lib/orders/activity-events';
@@ -41,8 +39,8 @@ import { TicketItems } from './center/TicketItems';
 import { CustomerPanel } from './context/CustomerPanel';
 import { DeliveryPanel } from './context/DeliveryPanel';
 import { MoneyPanel } from './context/MoneyPanel';
-import { InvoiceSection, countOrderInvoices } from './context/InvoicePanel';
-import { OrderNotesSection } from './context/NotesPanel';
+import { countOrderInvoices } from './context/InvoicePanel';
+import { OrderReferenceTabs } from './context/OrderReferenceTabs';
 
 export interface OrderDetailModalProps {
   order: Order | null;
@@ -89,23 +87,6 @@ export interface OrderDetailModalProps {
   checkoutConfig?: CheckoutConfig | null;
 }
 
-/** "Still counting." Silent to assistive tech: the count beside it is already
- *  live and will simply grow. */
-function PendingMark() {
-  return <span aria-hidden className="text-[10px] leading-none text-[var(--fg-subtle)]">…</span>;
-}
-
-/** The count could not be established. The reason is announced on the FOLDED
- *  heading, not left inside a body nobody has opened. */
-function FailedMark({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center text-[var(--warning-500)]">
-      <AlertTriangleIcon aria-hidden className="w-3 h-3" />
-      <span className="sr-only">{label}</span>
-    </span>
-  );
-}
-
 export function OrderDetailModal({
   order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete,
   onOverride, onCorrectPayment, onCorrectPaymentMethod, onSendToKitchen, onMarkReady, onMarkServed,
@@ -120,11 +101,9 @@ export function OrderDetailModal({
     setRecapOpen(false);
   }, [order?.id]);
 
-  // Both appendix fetches live up here, above the collapse. The blocks at the
-  // foot of the ticket are folded by default and their bodies UNMOUNT when
-  // closed — so anything that fetched inside them could never tell the closed
-  // heading how much is inside, and a fold without a count is exactly the "did
-  // I miss something?" this screen exists to remove.
+  // Both reference fetches live above their tabs. Their counts and warning
+  // marks remain visible even while another tab is active, and changing tabs
+  // never starts a duplicate request.
   const audit = useOrderAudit(order?.restaurant_id, order?.id);
   const notes = useOrderNotes(order?.restaurant_id, order?.id);
 
@@ -255,6 +234,24 @@ export function OrderDetailModal({
             displayedLineCount={displayedLineCount}
             totalUnits={totalUnits}
             total={totalsLine}
+            actions={canManage && caps.hasOverflow ? (
+              <OrderOverflowMenu
+                canCorrect={caps.canCorrectStatus && !!onOverride}
+                canCorrectPayment={caps.canCorrectPayment && !!onCorrectPayment}
+                canCorrectPaymentMethod={caps.canCorrectPaymentMethod && !!onCorrectPaymentMethod}
+                canForceProduction={caps.canForceProduction}
+                forceProductionActive={!!order.force_production}
+                canCancel={caps.canCancelOrder}
+                canDelete={caps.canDelete}
+                onCorrect={onOverride}
+                onCorrectPayment={onCorrectPayment}
+                onCorrectPaymentMethod={onCorrectPaymentMethod}
+                onToggleForceProduction={onToggleForceProduction}
+                onCancel={onReject}
+                onDelete={onDelete}
+                disabled={isLoading}
+              />
+            ) : undefined}
           />
         }
         ribbon={<WorkflowStepper order={order} t={t} />}
@@ -308,92 +305,16 @@ export function OrderDetailModal({
               totalsLine={totalsLine}
               t={t}
             />
-          </div>
-        }
-        reference={
-          // The appendix: reference material, consulted rather than monitored.
-          // One --line-strong rule marks the seam with the ticket; each block's
-          // own first:border-t-0 keeps it the only rule there.
-          //
-          // Everything here folds, and every heading carries a count, because
-          // the three blocks together held ~394px of a screen staff should be
-          // able to read without scrolling — 207px of it spent saying "no
-          // notes". Folding is only safe BECAUSE of the counts: a closed block
-          // always states how much is inside, so nothing can be missed by not
-          // looking.
-          //
-          // Order: the two read-only records first, then notes — the only
-          // editable block, so the one thing you might DO down here sits
-          // closest to the command bar.
-          //
-          // Every key is `${block}-${order.id}`: the reused modal instance swaps
-          // the order underneath, and without a remount the auto-open latch and
-          // the open/closed state would carry across. Keyed on the ID and never
-          // the object — the board hands down a new reference on every
-          // WebSocket event, which would fold up a block mid-read.
-          <div className="border-t border-[var(--line-strong)] pt-[var(--s-5)]">
-            <DisclosureBlock
-              key={`activity-${order.id}`}
-              label={t('activity') || 'Activité'}
-              count={activityEvents.length}
-              // While the audit is in flight the count is the lifecycle-only
-              // trail, so it can only rise (4 → 5). It never reads 0, because
-              // created_at always yields a row. The ellipsis makes "4 …" read
-              // as "at least four" rather than as a settled figure.
-              mark={
-                audit.status === 'loading' ? (
-                  <PendingMark />
-                ) : audit.status === 'error' ? (
-                  <FailedMark label={t('activityLoadError')} />
-                ) : null
-              }
-            >
-              <ActivityTimeline
-                events={activityEvents}
-                auditFailed={audit.status === 'error'}
-                t={t}
-              />
-            </DisclosureBlock>
-
-            {invoiceCount > 0 && (
-              <DisclosureBlock
-                key={`invoice-${order.id}`}
-                label={t('invoiceHeading') || 'Invoice'}
-                count={invoiceCount}
-              >
-                <InvoiceSection order={order} />
-              </DisclosureBlock>
-            )}
-
-            <DisclosureBlock
-              key={`notes-${order.id}`}
-              label={t('orderNotesHeading') || 'Notes internes'}
-              // Withheld unless the list is KNOWN. status 'error' carries an
-              // empty array, and "NOTES INTERNES 0" over a folded block would
-              // be a confident lie about an order that may well have notes.
-              count={notes.status === 'ready' ? notes.notes.length : undefined}
-              mark={
-                notes.status === 'loading' ? (
-                  <PendingMark />
-                ) : notes.status === 'error' ? (
-                  <FailedMark label={t('orderNotesLoadError')} />
-                ) : null
-              }
-              // Notes open themselves the moment there turn out to be any — an
-              // unread note is the one thing in this appendix that is genuinely
-              // about right now. A failed load opens too, so the error is on
-              // screen rather than buried in an unmounted body.
-              openWhen={notes.status === 'error' || notes.notes.length > 0}
-            >
-              <OrderNotesSection
-                notes={notes.notes}
-                status={notes.status}
-                onAdd={notes.add}
-                onRemove={notes.remove}
-                t={t}
-                direction={direction}
-              />
-            </DisclosureBlock>
+            <OrderReferenceTabs
+              key={order.id}
+              order={order}
+              activityEvents={activityEvents}
+              audit={audit}
+              invoiceCount={invoiceCount}
+              notes={notes}
+              t={t}
+              direction={direction}
+            />
           </div>
         }
         footer={
@@ -408,12 +329,6 @@ export function OrderDetailModal({
             onConfirmWeights={onConfirmWeights}
             onTakePayment={onTakePayment}
             onCloseOrder={onCloseOrder}
-            onOverride={onOverride}
-            onCorrectPayment={onCorrectPayment}
-            onCorrectPaymentMethod={onCorrectPaymentMethod}
-            onToggleForceProduction={onToggleForceProduction}
-            onReject={onReject}
-            onDelete={onDelete}
             onPrimary={(action) => PRIMARY_HANDLER[action]()}
           />
         }
