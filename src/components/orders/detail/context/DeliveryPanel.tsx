@@ -97,14 +97,24 @@ export function DeliveryPanel({
   return (
     <>
       {hasAddressBlock && (
-        <ContextBlock label={t('deliveryAddress')} aside={openDeliveries}>
-          <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
+        <ContextBlock
+          label={(
+            <span className="inline-flex items-center gap-1.5">
+              <MapPinIcon className="size-3.5" />
+              {t('deliveryAddress')}
+            </span>
+          )}
+          aside={openDeliveries}
+        >
+          <div className="flex flex-col gap-[var(--s-3)] text-fs-sm">
             {addr && (
-              <div className="flex items-start gap-1.5">
-                <MapPinIcon className="w-3.5 h-3.5 text-[var(--fg-muted)] mt-0.5 shrink-0" />
+              <div className="flex items-start gap-[var(--s-3)] rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)]">
+                <span className="grid size-7 shrink-0 place-items-center rounded-r-sm bg-[var(--surface)] text-[var(--brand-500)] shadow-1">
+                  <MapPinIcon className="size-3.5" />
+                </span>
                 <div className="flex flex-col leading-tight min-w-0">
-                  <span>{addr.line1}</span>
-                  {addr.line2 && <span className="text-[var(--fg-subtle)]">{addr.line2}</span>}
+                  <span className="font-medium leading-snug">{addr.line1}</span>
+                  {addr.line2 && <span className="mt-1 text-[var(--fg-muted)]">{addr.line2}</span>}
                 </div>
               </div>
             )}
@@ -124,7 +134,12 @@ export function DeliveryPanel({
           the link to the dispatcher. */}
       {(hasCourierInfo || !hasAddressBlock) && (
       <ContextBlock
-        label={t('courier')}
+        label={(
+          <span className="inline-flex items-center gap-1.5">
+            <TruckIcon className="size-3.5" />
+            {t('courier')}
+          </span>
+        )}
         aside={hasAddressBlock ? undefined : openDeliveries}
       >
         {order.courier_name ? (

@@ -76,6 +76,7 @@ export function OrderDetailShell({
           )}
         />
         <Dialog.Content
+          aria-describedby={undefined}
           className={cn(
             // Edge-to-edge fullscreen on mobile, inset modal at md+ via
             // symmetric left/right insets so centering is direction-agnostic.

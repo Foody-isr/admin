@@ -56,9 +56,9 @@ export const DETAIL_MAIN_TRACK =
  * straight out of the last ticket line with nothing between them.
  */
 export const DETAIL_CONTEXT_TRACK =
-  'min-w-0 md:col-start-2 md:row-start-1 bg-[var(--surface)] ' +
+  'min-w-0 md:col-start-2 md:row-start-1 bg-[var(--bg)] ' +
   'border-t md:border-t-0 md:border-s border-[var(--line)] ' +
-  'px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-3)]';
+  'px-[var(--s-3)] md:px-[var(--s-4)] 2xl:px-[var(--s-5)] py-[var(--s-3)]';
 
 /**
  * A section heading on the ticket — HairlineRule's own box.

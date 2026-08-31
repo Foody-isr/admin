@@ -6,7 +6,7 @@
 // not call the customer from the order, only read the number), and the history
 // strip turns a bare number into a known regular.
 
-import { EditIcon, GlobeIcon, PhoneIcon } from 'lucide-react';
+import { EditIcon, GlobeIcon, PhoneIcon, ShoppingBagIcon, UserRoundIcon } from 'lucide-react';
 import type { Order } from '@/lib/api';
 import { localizeOrderType, localizeSource } from '@/lib/orders/status-presentation';
 import type { CustomFieldAnswer } from '@/lib/orders/checkout-fields';
@@ -34,30 +34,36 @@ export function CustomerPanel({
   const dialable = (order.customer_phone || '').replace(/[^\d+]/g, '');
 
   return (
-    <ContextBlock>
+    <ContextBlock
+      label={(
+        <span className="inline-flex items-center gap-1.5">
+          <UserRoundIcon className="size-3.5" />
+          {t('customer')}
+        </span>
+      )}
+      aside={canManage && onEditCustomer ? (
+        <button
+          type="button"
+          onClick={onEditCustomer}
+          title={t('editCustomer')}
+          aria-label={t('editCustomer')}
+          className="inline-flex size-7 items-center justify-center rounded-r-sm border border-[var(--line)] text-[var(--fg-muted)] transition-colors hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
+        >
+          <EditIcon className="size-3.5" />
+        </button>
+      ) : undefined}
+    >
       <div className="flex items-center gap-[var(--s-3)]">
         <div
-          className="w-10 h-10 rounded-full grid place-items-center text-white font-semibold tracking-tight shrink-0"
+          className="size-12 rounded-r-lg grid place-items-center text-white font-semibold tracking-tight shrink-0 shadow-1 ring-1 ring-inset ring-white/20"
           style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}
         >
           {customerInitials}
         </div>
         <div className="min-w-0">
-          {canManage && onEditCustomer ? (
-            <button
-              type="button"
-              onClick={onEditCustomer}
-              title={t('editCustomer')}
-              className="group flex items-center gap-1.5 text-[20px] leading-[26px] font-bold tracking-[-0.015em] truncate max-w-full text-start hover:text-[var(--brand-500)] transition-colors"
-            >
-              <span className="truncate">{order.customer_name || t('guestCustomer') || 'Client'}</span>
-              <EditIcon className="w-3.5 h-3.5 shrink-0 text-[var(--fg-subtle)] opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-          ) : (
-            <div className="text-[20px] leading-[26px] font-bold tracking-[-0.015em] truncate">
-              {order.customer_name || t('guestCustomer') || 'Client'}
-            </div>
-          )}
+          <div className="text-[20px] leading-[26px] font-bold tracking-[-0.015em] truncate">
+            {order.customer_name || t('guestCustomer') || 'Client'}
+          </div>
 
           {order.customer_phone && (
             // dir="ltr": a phone number is not text and must not mirror.
@@ -66,7 +72,7 @@ export function CustomerPanel({
             <a
               href={`tel:${dialable}`}
               dir="ltr"
-              className="mt-0.5 inline-flex items-center gap-1.5 num text-fs-xs text-[var(--fg-subtle)] hover:text-[var(--brand-500)] transition-colors text-start"
+              className="mt-1 -ms-1.5 inline-flex min-h-7 items-center gap-1.5 rounded-r-sm px-1.5 num text-fs-xs text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--brand-500)] focus-visible:outline-none focus-visible:shadow-ring text-start"
             >
               <PhoneIcon className="w-3 h-3 shrink-0" />
               {order.customer_phone}
@@ -77,27 +83,43 @@ export function CustomerPanel({
 
       <CustomerHistoryStrip restaurantId={order.restaurant_id} phone={order.customer_phone} t={t} />
 
-      <div className="flex flex-col gap-[6px] mt-[var(--s-3)]">
-        <ContextRow label={t('type')}>{localizeOrderType(order.order_type, t)}</ContextRow>
-        <ContextRow label={t('source')}>
-          <span className="inline-flex items-center gap-1.5">
-            <GlobeIcon className="w-3 h-3 text-[var(--fg-muted)]" />
-            {localizeSource(order.order_source, t)}
+      <div className="mt-[var(--s-3)] grid grid-cols-2 gap-x-[var(--s-5)] gap-y-[var(--s-3)] border-t border-[var(--line)] pt-[var(--s-3)]">
+        <div className="min-w-0">
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">
+            {t('type')}
           </span>
-        </ContextRow>
+          <span className="mt-1 flex items-center gap-1.5 text-fs-sm font-medium">
+            <ShoppingBagIcon className="size-3.5 shrink-0 text-[var(--brand-500)]" />
+            <span className="truncate">{localizeOrderType(order.order_type, t)}</span>
+          </span>
+        </div>
+        <div className="min-w-0">
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">
+            {t('source')}
+          </span>
+          <span className="mt-1 flex items-center gap-1.5 text-fs-sm font-medium">
+            <GlobeIcon className="size-3.5 shrink-0 text-[var(--brand-500)]" />
+            <span className="truncate">{localizeSource(order.order_source, t)}</span>
+          </span>
+        </div>
         {order.table_number && (
-          <ContextRow label="Table">
-            <span className="num">{order.table_number}</span>
-          </ContextRow>
+          <div className="min-w-0">
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">Table</span>
+            <span className="mt-1 block text-fs-sm font-medium num">{order.table_number}</span>
+          </div>
         )}
+      </div>
 
+      {customFields.length > 0 && (
+        <div className="flex flex-col gap-[6px] mt-[var(--s-3)] border-t border-[var(--line)] pt-[var(--s-3)]">
         {/* Answers to the owner's custom checkout fields, minus the ones that
             describe the address — a hand-rolled "Code immeuble" used to render
             here, four rows above the address it belongs to. */}
         {customFields.map((f) => (
           <ContextRow key={f.id} label={f.label}>{f.value}</ContextRow>
         ))}
-      </div>
+        </div>
+      )}
     </ContextBlock>
   );
 }

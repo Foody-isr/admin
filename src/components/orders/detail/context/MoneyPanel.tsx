@@ -8,15 +8,15 @@
 // eight useState hooks sitting in a component that never read them, so the
 // modal is that much thinner and nothing else can touch them.
 //
-// A5 rewrites this into the ledger + double-rule treatment and surfaces
-// hold_amount / captured_amount, which the payload carries and nothing renders.
+// The amount leads like the top of a receipt, while the ledger and exceptional
+// payment states stay directly underneath. It also surfaces hold_amount /
+// captured_amount, which the payload carries and nothing else renders.
 
 import { useEffect, useState } from 'react';
 import {
-  AlertTriangleIcon, CheckIcon, CopyIcon, LinkIcon, MessageCircleIcon, RotateCcwIcon,
+  AlertTriangleIcon, CheckIcon, CopyIcon, LinkIcon, MessageCircleIcon, ReceiptTextIcon, RotateCcwIcon,
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ds';
-import { ContextBlock } from '../primitives/ContextBlock';
 import { Money } from '../primitives/Money';
 import { CashTag } from '@/components/orders/CashTag';
 import { initOrderPaymentLink, collectOrderBalance, type Order } from '@/lib/api';
@@ -138,11 +138,49 @@ export function MoneyPanel({
   const chargedAmount = Number(meta[ORDER_META_PAID_AMOUNT]);
   const hasChargedAmount = editedAfterPayment && Number.isFinite(chargedAmount);
   const paymentDrift = hasChargedAmount ? totalsLine - chargedAmount : 0;
+  const paymentAccent = order.payment_status === 'paid'
+    ? 'var(--success-500)'
+    : order.payment_status === 'refunded'
+      ? 'var(--fg-muted)'
+      : 'var(--warning-500)';
 
   return (
-    <>
-      <ContextBlock label={t('total') || 'Total'}>
-        <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
+    <section
+      aria-labelledby={`order-${order.id}-payment-summary`}
+      className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1"
+      style={{ borderInlineStart: `3px solid ${paymentAccent}` }}
+    >
+      <div
+        className="border-b border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)]"
+        style={{ background: `color-mix(in oklab, ${paymentAccent} 7%, var(--surface))` }}
+      >
+        <div className="flex items-start justify-between gap-[var(--s-4)]">
+          <div className="min-w-0">
+            <span
+              id={`order-${order.id}-payment-summary`}
+              className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--fg-muted)]"
+            >
+              <ReceiptTextIcon className="size-3.5" />
+              {t('total') || 'Total'}
+            </span>
+            <div className="mt-1">
+              <Money
+                value={totalsLine}
+                className="text-[28px] leading-[32px] font-bold tracking-[-0.02em]"
+              />
+            </div>
+          </div>
+          <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'} dot className="mt-0.5">
+            {(() => {
+              const tv = t(order.payment_status);
+              return tv === order.payment_status ? order.payment_status : tv;
+            })()}
+          </Badge>
+        </div>
+        <CashTag order={order} variant="full" className="mt-[var(--s-2)] bg-[var(--surface)]" />
+      </div>
+
+      <div className="flex flex-col gap-[var(--s-2)] px-[var(--s-4)] py-[var(--s-3)] text-fs-sm">
           {/*
             The ledger. A two-column baseline grid rather than a stack of
             flex rows, so every figure lands on one axis and the decimal
@@ -191,31 +229,6 @@ export function MoneyPanel({
               </>
             )}
 
-            {/* The receipt's double rule: one line, a gap, another line. On a
-                printed till roll this is what announces "totals follow", and it
-                does the same job here that a heavier single rule cannot. */}
-            <div
-              aria-hidden
-              className="col-span-2 my-[var(--s-2)] h-[3px] border-y border-[var(--line-strong)]"
-            />
-
-            <span className="text-fs-sm font-semibold uppercase tracking-[0.08em]">
-              {t('total')}
-            </span>
-            <Money
-              value={totalsLine}
-              className="text-end text-[26px] leading-[30px] font-bold tracking-[-0.015em]"
-            />
-          </div>
-
-          <div className="flex items-center justify-between mt-[var(--s-2)] gap-2">
-            <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'} dot>
-              {(() => {
-                const tv = t(order.payment_status);
-                return tv === order.payment_status ? order.payment_status : tv;
-              })()}
-            </Badge>
-            <CashTag order={order} variant="full" />
           </div>
 
           {/* Reference for a payment taken outside Foody (card slip, provider
@@ -444,7 +457,6 @@ export function MoneyPanel({
             </div>
           )}
         </div>
-      </ContextBlock>
-    </>
+    </section>
   );
 }

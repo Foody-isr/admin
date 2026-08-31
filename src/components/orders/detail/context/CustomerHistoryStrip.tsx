@@ -33,7 +33,7 @@ export function CustomerHistoryStrip({
   if (state.status === 'loading') {
     // Same height as the loaded strip, so nothing shifts underneath it.
     return (
-      <div className="flex items-center gap-[var(--s-3)] mt-[var(--s-2)]">
+      <div className="mt-[var(--s-2)] flex items-center gap-[var(--s-3)] rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-3)] py-[var(--s-2)]">
         <Skeleton className="h-4 w-20" />
         <Skeleton className="h-4 w-16" />
         <Skeleton className="h-4 w-24" />
@@ -46,7 +46,7 @@ export function CustomerHistoryStrip({
   // A first-timer's "1 commande" says nothing. That they are new says a lot.
   if (orderCount <= 1) {
     return (
-      <div className="mt-[var(--s-2)]">
+      <div className="mt-[var(--s-2)] rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-3)] py-[var(--s-2)]">
         <Badge tone="brand">{t('customerNew')}</Badge>
       </div>
     );
@@ -63,7 +63,7 @@ export function CustomerHistoryStrip({
     : null;
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-[var(--s-3)] gap-y-1 mt-[var(--s-2)] text-fs-xs text-[var(--fg-muted)]">
+    <div className="mt-[var(--s-2)] flex flex-wrap items-baseline gap-x-[var(--s-3)] gap-y-1 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-xs text-[var(--fg-muted)]">
       <span>
         <span className="num text-[var(--fg)] font-medium">{orderCount}</span>{' '}
         {t('customerOrdersCount')}

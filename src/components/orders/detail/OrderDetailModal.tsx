@@ -287,16 +287,18 @@ export function OrderDetailModal({
           </>
         }
         context={
-          <div className="flex flex-col">
-            <CustomerPanel
-              order={order}
-              canManage={canManage}
-              onEditCustomer={onEditCustomer}
-              customFields={customFields.customer}
-              customerInitials={customerInitials}
-              t={t}
-            />
-            <DeliveryPanel order={order} customFields={customFields.address} t={t} />
+          <div className="flex flex-col gap-[var(--s-3)]">
+            <div className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] shadow-1">
+              <CustomerPanel
+                order={order}
+                canManage={canManage}
+                onEditCustomer={onEditCustomer}
+                customFields={customFields.customer}
+                customerInitials={customerInitials}
+                t={t}
+              />
+              <DeliveryPanel order={order} customFields={customFields.address} t={t} />
+            </div>
             <MoneyPanel
               order={order}
               subtotal={subtotal}
