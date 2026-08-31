@@ -105,6 +105,10 @@ export type DraftAppearanceOverrides = {
   hero_logo_size?: number;
   cover_url?: string;
   background_color?: string;
+  category_navigation?: {
+    mode?: "auto" | "horizontal" | "sidebar";
+    side?: "start" | "end";
+  } | null;
   cover_focal_x?: number;
   cover_focal_y?: number;
   category_banner_style?: string;

@@ -13,6 +13,7 @@ import type {
 import type { DraftPagePayload } from "@/lib/website-v3/types";
 import { ThemesPanel } from "@/components/website-menu/ThemesPanel";
 import { CategoryBarStateEditor } from "../CategoryBarStateEditor";
+import { CategoryNavigationEditor } from "../CategoryNavigationEditor";
 import { FIELD_CONTRACTS } from "../field-contracts";
 import { FooterEditor } from "../FooterEditor";
 import { MenuHighlightsAppearanceEditor } from "../MenuHighlightsAppearanceEditor";
@@ -211,6 +212,29 @@ test("category bar editor exposes one consistent palette", () => {
     );
   }
   assert.doesNotMatch(markup, /categoryBarSticky/);
+});
+
+test("category navigation editor exposes responsive layouts and logical sides", () => {
+  const automaticMarkup = render(
+    React.createElement(CategoryNavigationEditor, {
+      value: { mode: "auto", side: "start" },
+      onChange: () => undefined,
+    }),
+  );
+
+  assert.match(automaticMarkup, /<option value="auto" selected="">/);
+  assert.match(automaticMarkup, /<option value="horizontal">/);
+  assert.match(automaticMarkup, /<option value="sidebar">/);
+  assert.match(automaticMarkup, /<option value="start" selected="">/);
+  assert.match(automaticMarkup, /<option value="end">/);
+
+  const horizontalMarkup = render(
+    React.createElement(CategoryNavigationEditor, {
+      value: { mode: "horizontal", side: "end" },
+      onChange: () => undefined,
+    }),
+  );
+  assert.doesNotMatch(horizontalMarkup, /<option value="start"/);
 });
 
 test("menu highlights editor exposes section and card palette fields", () => {

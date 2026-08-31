@@ -38,6 +38,7 @@ import type {
 } from "@/lib/website-v3/types";
 import { ColorField, InspectorField, InspectorGroup, ToggleField, controlClass } from "./controls";
 import { CategoryBarStateEditor } from "./CategoryBarStateEditor";
+import { CategoryNavigationEditor } from "./CategoryNavigationEditor";
 import { CheckoutSettingsEditor } from "./CheckoutSettingsEditor";
 import { CommerceSelector } from "./CommerceSelector";
 import { NavigationCtaEditor } from "./NavigationCtaEditor";
@@ -306,6 +307,15 @@ export function PageInspector({
             title={t("websiteV3CategoryBarTitle")}
             description={t("websiteV3CategoryBarDescription")}
           >
+            <CategoryNavigationEditor
+              value={appearance.category_navigation}
+              onChange={(value) =>
+                onChange(
+                  ["appearance_overrides", "category_navigation"],
+                  value,
+                )
+              }
+            />
             <CategoryBarStateEditor
               value={record(appearance.section_colors)}
               onChange={(value) =>
