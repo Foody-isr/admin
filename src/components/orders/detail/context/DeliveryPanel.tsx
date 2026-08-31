@@ -10,10 +10,9 @@
 //
 // Deliberately read-only. Assignment stays on the deliveries dispatcher, which
 // assigns whole tours; a per-order assign here would be a second, weaker source
-// of truth for the same decision. There is a link instead.
+// of truth for the same decision.
 
-import Link from 'next/link';
-import { MapPinIcon, PhoneIcon, TruckIcon, ArrowUpRightIcon } from 'lucide-react';
+import { MapPinIcon, PhoneIcon, TruckIcon } from 'lucide-react';
 import { Badge } from '@/components/ds';
 import type { Order } from '@/lib/api';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -80,35 +79,13 @@ export function DeliveryPanel({
   // code is the ONLY address detail typed would otherwise lose it entirely.
   const hasAddressBlock = Boolean(addr || notes || customFields.length > 0);
 
-  // The shortcut to the dispatcher used to hang off the courier block's
-  // heading, so closing that block would have quietly removed it from every
-  // order without a driver — precisely the orders you open it to fix. It moves
-  // to the address heading, which always renders on a delivery, for 0px.
-  const openDeliveries = (
-    <Link
-      href={`/${order.restaurant_id}/orders/deliveries`}
-      className="inline-flex items-center gap-1 text-fs-xs text-[var(--fg-subtle)] hover:text-[var(--brand-500)] transition-colors"
-    >
-      {t('openDeliveries')}
-      <ArrowUpRightIcon className="w-3 h-3" />
-    </Link>
-  );
-
   return (
     <>
       {hasAddressBlock && (
-        <ContextBlock
-          label={(
-            <span className="inline-flex items-center gap-1.5">
-              <MapPinIcon className="size-3.5" />
-              {t('deliveryAddress')}
-            </span>
-          )}
-          aside={openDeliveries}
-        >
-          <div className="flex flex-col gap-[var(--s-3)] text-fs-sm">
+        <ContextBlock label={t('deliveryAddress')}>
+          <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)] text-fs-sm">
             {addr && (
-              <div className="flex items-start gap-[var(--s-3)] rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)]">
+              <div className="flex items-start gap-[var(--s-3)]">
                 <span className="grid size-7 shrink-0 place-items-center rounded-r-sm bg-[var(--surface)] text-[var(--brand-500)] shadow-1">
                   <MapPinIcon className="size-3.5" />
                 </span>
@@ -118,59 +95,58 @@ export function DeliveryPanel({
                 </div>
               </div>
             )}
-            {/* Sits directly under the street/floor/apartment lines, which is
-                where the same fact would appear had the owner used the
-                built-in field: same block, same glance. */}
-            {customFields.map((f) => (
-              <ContextRow key={f.id} label={f.label}>{f.value}</ContextRow>
-            ))}
-            {notes && <ContextRow label={t('deliveryNotes')}>{notes}</ContextRow>}
+            {(customFields.length > 0 || notes) && (
+              <div className={`${addr ? 'mt-[var(--s-3)] border-t border-[var(--line)] pt-[var(--s-3)]' : ''} flex flex-col gap-[var(--s-2)]`}>
+                {customFields.map((f) => (
+                  <ContextRow key={f.id} label={f.label}>{f.value}</ContextRow>
+                ))}
+                {notes && <ContextRow label={t('deliveryNotes')}>{notes}</ContextRow>}
+              </div>
+            )}
           </div>
         </ContextBlock>
       )}
 
       {/* Rendered when it has something to say — or when the address block did
-          not render, so a delivery order always keeps one heading, and with it
-          the link to the dispatcher. */}
+          not render, so a delivery order always keeps one fulfillment heading. */}
       {(hasCourierInfo || !hasAddressBlock) && (
-      <ContextBlock
-        label={(
-          <span className="inline-flex items-center gap-1.5">
-            <TruckIcon className="size-3.5" />
-            {t('courier')}
-          </span>
-        )}
-        aside={hasAddressBlock ? undefined : openDeliveries}
-      >
-        {order.courier_name ? (
-          <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
-            <div className="font-medium">{order.courier_name}</div>
-            {order.courier_phone && (
-              <a
-                href={`tel:${dialable}`}
-                dir="ltr"
-                className="inline-flex items-center gap-1.5 num text-fs-xs text-[var(--fg-subtle)] hover:text-[var(--brand-500)] transition-colors text-start w-fit"
-              >
-                <PhoneIcon className="w-3 h-3 shrink-0" />
-                {order.courier_phone}
-              </a>
-            )}
-            {order.courier_assigned_at && (
-              <ContextRow label={t('courierAssignedAt')}>
-                <span className="num">{formatTime(order.courier_assigned_at)}</span>
-              </ContextRow>
-            )}
-            <TourBadge order={order} t={t} />
-          </div>
-        ) : (
-          <div className="flex flex-col gap-[var(--s-2)]">
-            {/* Still reached: an order already on a tour but with no driver
-                assigned needs "Aucun coursier" beside its tour badge. */}
-            <div className="text-fs-sm text-[var(--fg-subtle)]">{t('courierNone')}</div>
-            <TourBadge order={order} t={t} />
-          </div>
-        )}
-      </ContextBlock>
+        <ContextBlock
+          label={(
+            <span className="inline-flex items-center gap-1.5">
+              <TruckIcon className="size-3.5" />
+              {t('courier')}
+            </span>
+          )}
+        >
+          {order.courier_name ? (
+            <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
+              <div className="font-medium">{order.courier_name}</div>
+              {order.courier_phone && (
+                <a
+                  href={`tel:${dialable}`}
+                  dir="ltr"
+                  className="inline-flex items-center gap-1.5 num text-fs-xs text-[var(--fg-subtle)] hover:text-[var(--brand-500)] transition-colors text-start w-fit"
+                >
+                  <PhoneIcon className="w-3 h-3 shrink-0" />
+                  {order.courier_phone}
+                </a>
+              )}
+              {order.courier_assigned_at && (
+                <ContextRow label={t('courierAssignedAt')}>
+                  <span className="num">{formatTime(order.courier_assigned_at)}</span>
+                </ContextRow>
+              )}
+              <TourBadge order={order} t={t} />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[var(--s-2)]">
+              {/* Still reached: an order already on a tour but with no driver
+                  assigned needs "Aucun coursier" beside its tour badge. */}
+              <div className="text-fs-sm text-[var(--fg-subtle)]">{t('courierNone')}</div>
+              <TourBadge order={order} t={t} />
+            </div>
+          )}
+        </ContextBlock>
       )}
     </>
   );

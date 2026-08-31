@@ -138,22 +138,13 @@ export function MoneyPanel({
   const chargedAmount = Number(meta[ORDER_META_PAID_AMOUNT]);
   const hasChargedAmount = editedAfterPayment && Number.isFinite(chargedAmount);
   const paymentDrift = hasChargedAmount ? totalsLine - chargedAmount : 0;
-  const paymentAccent = order.payment_status === 'paid'
-    ? 'var(--success-500)'
-    : order.payment_status === 'refunded'
-      ? 'var(--fg-muted)'
-      : 'var(--warning-500)';
 
   return (
     <section
       aria-labelledby={`order-${order.id}-payment-summary`}
       className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1"
-      style={{ borderInlineStart: `3px solid ${paymentAccent}` }}
     >
-      <div
-        className="border-b border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)]"
-        style={{ background: `color-mix(in oklab, ${paymentAccent} 7%, var(--surface))` }}
-      >
+      <div className="border-b border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-4)] py-[var(--s-3)]">
         <div className="flex items-start justify-between gap-[var(--s-4)]">
           <div className="min-w-0">
             <span
