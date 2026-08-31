@@ -884,6 +884,8 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.content.headline", ["content", "headline"], "[data-website-section] h1", "text"),
   section("section.content.subheadline", ["content", "subheadline"], "[data-website-section] p", "text"),
   section("section.content.title", ["content", "title"], "[data-website-section] h2", "text"),
+  section("section.content.order_title", ["content", "order_title"], "feature_cards", "text"),
+  section("section.content.show_order_title", ["content", "show_order_title"], "feature_cards", "visible"),
   section("section.content.body", ["content", "body"], "[data-website-section] p", "text"),
   section("section.content.text", ["content", "text"], "[data-website-section]", "text"),
   section("section.content.cta_text", ["content", "cta_text"], "[data-website-section] a", "text"),

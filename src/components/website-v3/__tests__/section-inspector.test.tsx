@@ -82,6 +82,8 @@ test("feature cards content exposes every card field and add action", () => {
   const markup = renderSection({
     section_type: "feature_cards",
     content: {
+      order_title: "Mamie, c’est aussi…",
+      show_order_title: true,
       cards: [
         {
           image_url: "https://cdn.example.com/card.jpg",
@@ -93,6 +95,10 @@ test("feature cards content exposes every card field and add action", () => {
     },
   });
 
+  assert.match(markup, /Titre sur la page Commander/);
+  assert.match(markup, /Mamie, c’est aussi…/);
+  assert.match(markup, /section\.content\.show_order_title/);
+  assert.match(markup, /Afficher le titre/);
   assert.match(markup, /Carte 1/);
   assert.match(markup, /Nos plateaux/);
   assert.match(markup, /Pour vos événements/);

@@ -9,7 +9,7 @@ import {
 } from "@/components/website/SectionEditors";
 import { uploadSectionImage, uploadSectionVideo } from "@/lib/api";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
-import { InspectorField, controlClass } from "./controls";
+import { InspectorField, ToggleField, controlClass } from "./controls";
 
 type SectionContentEditorsProps = {
   restaurantId: number;
@@ -69,7 +69,13 @@ export function SectionContentEditors({
       return (
         <FeatureCardsEditor
           restaurantId={restaurantId}
+          orderTitle={text(section.content.order_title)}
+          showOrderTitle={section.content.show_order_title !== false}
           cards={recordList(section.content.cards)}
+          onOrderTitleChange={(value) => updateContent("order_title", value)}
+          onShowOrderTitleChange={(value) =>
+            updateContent("show_order_title", value)
+          }
           onChange={(cards) => updateContent("cards", cards)}
         />
       );
@@ -460,11 +466,19 @@ function GalleryEditor({
 
 function FeatureCardsEditor({
   restaurantId,
+  orderTitle,
+  showOrderTitle,
   cards,
+  onOrderTitleChange,
+  onShowOrderTitleChange,
   onChange,
 }: {
   restaurantId: number;
+  orderTitle: string;
+  showOrderTitle: boolean;
   cards: Array<Record<string, unknown>>;
+  onOrderTitleChange: (value: string) => void;
+  onShowOrderTitleChange: (value: boolean) => void;
   onChange: (cards: Array<Record<string, unknown>>) => void;
 }) {
   function updateCard(index: number, key: string, value: unknown) {
@@ -477,6 +491,25 @@ function FeatureCardsEditor({
 
   return (
     <div className="space-y-4">
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <TextField
+          fieldId="section.content.order_title"
+          label="Titre sur la page Commander"
+          value={orderTitle}
+          onChange={onOrderTitleChange}
+          placeholder="Automatique : nom de l’enseigne, c’est aussi…"
+        />
+        <p className="text-[11px] leading-4 text-slate-500">
+          Laissez ce champ vide pour conserver le titre automatique.
+        </p>
+        <ToggleField
+          fieldId="section.content.show_order_title"
+          label="Afficher le titre"
+          description="Désactivez cette option pour afficher uniquement les cartes."
+          checked={showOrderTitle}
+          onChange={onShowOrderTitleChange}
+        />
+      </div>
       {cards.map((card, index) => (
         <div
           key={index}
