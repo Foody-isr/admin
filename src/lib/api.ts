@@ -15,6 +15,7 @@ import {
   browserSupportsWebAuthn,
   platformAuthenticatorIsAvailable,
 } from '@simplewebauthn/browser';
+import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'foody_restaurant_token';
@@ -3751,7 +3752,7 @@ export interface MenuExtraction {
   categories: ExtractedCategory[];
 }
 
-export async function importMenuAI(restaurantId: number, file: File): Promise<MenuExtraction> {
+export async function importMenuAI(restaurantId: number, file: File): Promise<RichExtraction> {
   const token = getToken();
   const formData = new FormData();
   formData.append('file', file);
@@ -3769,7 +3770,7 @@ export async function importMenuAI(restaurantId: number, file: File): Promise<Me
     throw new Error(body.error || body.message || `Import failed (${res.status})`);
   }
   const data = await res.json();
-  return data.extraction;
+  return normalizeRichExtraction(data.extraction);
 }
 
 // ─── Wolt menu import (rich) ─────────────────────────────────────────────────
@@ -3805,6 +3806,9 @@ export interface RichItem {
   name: string;
   description: string;
   price: number;
+  pricing_mode?: 'standard' | 'by_weight';
+  price_per_kg?: number;
+  estimated_weight_grams?: number;
   image_url?: string;
   option_sets?: RichOptionSet[];
   modifier_sets?: RichModifierSet[];
@@ -3827,10 +3831,11 @@ export interface RichExtraction {
  * rendered headless and read by AI. Both return the same RichExtraction shape.
  */
 export async function importMenuFromURL(restaurantId: number, url: string): Promise<RichExtraction> {
-  return apiFetch<RichExtraction>(
+  const result = await apiFetch<unknown>(
     `/api/v1/menu/import/url?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify({ url }) }
   );
+  return normalizeRichExtraction(result);
 }
 
 export interface ConfirmMenuImportOptions {
