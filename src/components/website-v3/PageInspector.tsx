@@ -492,7 +492,8 @@ export function PageInspector({
             <option value="inherit">Hériter du site</option>
             <option value="full">Complète</option>
             <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · flottante sans logo</option>
+            <option value="compact">Compacte · flottante avec logo</option>
+            <option value="compact_no_logo">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -510,8 +511,34 @@ export function PageInspector({
             <option value="inherit">Hériter du site</option>
             <option value="full">Complète</option>
             <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · flottante sans logo</option>
+            <option value="compact">Compacte · flottante avec logo</option>
+            <option value="compact_no_logo">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
+          </select>
+        </InspectorField>
+        <InspectorField label="Position du logo">
+          <select
+            data-field-id="page.appearance_overrides.navbar_logo_position"
+            value={appearance.navbar_logo_position ?? "inherit"}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === "inherit") {
+                const { navbar_logo_position: _position, ...nextAppearance } =
+                  appearance;
+                onChange(["appearance_overrides"], nextAppearance);
+                return;
+              }
+              onChange(
+                ["appearance_overrides", "navbar_logo_position"],
+                value,
+              );
+            }}
+            className={controlClass}
+          >
+            <option value="inherit">{t("websiteV3InheritSite")}</option>
+            <option value="left">Gauche</option>
+            <option value="center">Centre</option>
+            <option value="right">Droite</option>
           </select>
         </InspectorField>
         <InspectorField label={t("hideNavbarName")}>

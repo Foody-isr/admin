@@ -244,7 +244,9 @@ export function SiteInspector({
     shoppingNav.desktop,
     shoppingNav.mobile,
   ];
-  const hasFullNavigation = navigationModes.includes("full");
+  const hasLogoNavigation = navigationModes.some(
+    (mode) => mode === "full" || mode === "compact",
+  );
   const hasLinkNavigation = navigationModes.some(
     (mode) => mode === "full" || mode === "slim",
   );
@@ -299,7 +301,7 @@ export function SiteInspector({
           onUpload={onRestaurantLogoUpload}
           onRemove={onRestaurantLogoRemove}
         />
-        {hasFullNavigation ? <><InspectorField label="Position dans la barre">
+        {hasLogoNavigation ? <><InspectorField label="Position du logo dans la barre">
           <select
             data-field-id="site.navbar_logo_position"
             value={string(config.navbar_logo_position) || "left"}
@@ -503,7 +505,8 @@ export function SiteInspector({
           >
             <option value="full">Complète · liens visibles</option>
             <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · flottante sans logo</option>
+            <option value="compact">Compacte · flottante avec logo</option>
+            <option value="compact_no_logo">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -517,7 +520,7 @@ export function SiteInspector({
                 { mobile: event.target.value },
                 {
                   navbar_hamburger:
-                    event.target.value === "compact" ? "mobile" : "off",
+                    event.target.value === "compact" || event.target.value === "compact_no_logo" ? "mobile" : "off",
                 },
               )
             }
@@ -525,7 +528,8 @@ export function SiteInspector({
           >
             <option value="full">Complète</option>
             <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · sans barre ni logo</option>
+            <option value="compact">Compacte · avec logo</option>
+            <option value="compact_no_logo">Compacte · sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -546,7 +550,8 @@ export function SiteInspector({
           >
             <option value="full">Complète · liens visibles</option>
             <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · flottante sans logo</option>
+            <option value="compact">Compacte · flottante avec logo</option>
+            <option value="compact_no_logo">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -560,7 +565,8 @@ export function SiteInspector({
           >
             <option value="full">Complète</option>
             <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · sans barre ni logo</option>
+            <option value="compact">Compacte · avec logo</option>
+            <option value="compact_no_logo">Compacte · sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>

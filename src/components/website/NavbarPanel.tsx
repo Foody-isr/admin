@@ -82,11 +82,11 @@ export function NavbarPanel({ config, onUpdate, restaurantId }: {
   } as const;
   const setLayout = (grp: 'content' | 'shopping', patch: Partial<{ desktop: string; mobile: string; bottom_bar: boolean }>) =>
     onUpdate({ nav_layout: { ...eff, [grp]: { ...eff[grp], ...patch } } } as Partial<WebsiteConfig>);
-  const MODE_OPTS = [['full', 'Complète'], ['slim', 'Fine sans logo'], ['compact', 'Compacte'], ['hidden', 'Masquée']] as const;
+  const MODE_OPTS = [['full', 'Complète'], ['slim', 'Fine sans logo'], ['compact', 'Compacte avec logo'], ['compact_no_logo', 'Compacte sans logo'], ['hidden', 'Masquée']] as const;
   const modeRow = (label: string, value: string, onSet: (v: string) => void) => (
     <div>
       <label className="block text-[11px] text-fg-secondary mb-1">{label}</label>
-      <div className="flex gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5">
         {MODE_OPTS.map(([v, l]) => (
           <button key={v} onClick={() => onSet(v)}
             className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${value === v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
@@ -147,7 +147,7 @@ export function NavbarPanel({ config, onUpdate, restaurantId }: {
       {sec('Composition par type de page',
         <div className="space-y-2">
           <p className="text-[10px] text-fg-secondary leading-tight">
-            Choisissez l&apos;affichage de la navigation, séparément sur <strong>ordinateur</strong> et <strong>mobile</strong>. Complète = barre avec logo, liens et bouton ; Compacte = menu et bouton flottants, sans barre ni logo ; Masquée = aucune navigation en haut.
+            Choisissez l&apos;affichage de la navigation, séparément sur <strong>ordinateur</strong> et <strong>mobile</strong>. Complète = barre avec logo, liens et bouton ; Compacte avec logo = menu, marque et bouton flottants ; Compacte sans logo = contrôles seuls ; Masquée = aucune navigation en haut.
           </p>
           {groupBlock('content', 'Pages de contenu', 'Accueil et pages de contenu')}
           {groupBlock('shopping', 'Autres pages boutique', 'Traiteur et pages boutique personnalisées')}

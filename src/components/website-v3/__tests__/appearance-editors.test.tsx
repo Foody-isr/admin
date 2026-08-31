@@ -130,7 +130,11 @@ test("site and page navigation editors expose the slim links-without-logo mode",
 
   assert.equal(siteMarkup.match(/<option value="slim">/g)?.length, 4);
   assert.equal(pageMarkup.match(/<option value="slim">/g)?.length, 2);
+  assert.equal(siteMarkup.match(/<option value="compact_no_logo">/g)?.length, 4);
+  assert.equal(pageMarkup.match(/<option value="compact_no_logo">/g)?.length, 2);
   assert.match(siteMarkup, /Fine · liens visibles sans logo/);
+  assert.match(siteMarkup, /Compacte · flottante avec logo/);
+  assert.match(pageMarkup, /Position du logo/);
 });
 
 test("footer exposes content and appearance fields in their tabs", () => {

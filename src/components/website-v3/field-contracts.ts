@@ -317,6 +317,7 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.nav_visible": false,
   "page.is_default": true,
   "page.appearance_overrides.hide_navbar_name": true,
+  "page.appearance_overrides.navbar_logo_position": "right",
   "page.seo.title": "Website V3 SEO title",
   "page.seo.description": "Website V3 SEO description",
   "page.seo.share_image_url": "http://localhost:3000/logo-icon.svg",
@@ -473,6 +474,7 @@ function editorFor(
         chainSelectorSetting ? "Réglages" :
         id.startsWith("page.appearance_overrides.navbar_cta") ? "Réglages" :
         id === "page.appearance_overrides.hide_navbar_name" ? "Réglages" :
+        id === "page.appearance_overrides.navbar_logo_position" ? "Réglages" :
         id.startsWith("page.appearance_overrides.") ? "Apparence" : "Réglages",
       pageTitle: orderPage ? "Brunch Order" : catering ? "Office Catering" :
         defaultPage ? "Dinner Order" : "About",
@@ -655,6 +657,12 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
     ["appearance_overrides", "hide_navbar_name"],
     "nav",
     "visible",
+  ),
+  page(
+    "page.appearance_overrides.navbar_logo_position",
+    ["appearance_overrides", "navbar_logo_position"],
+    "nav",
+    "value",
   ),
   pageMetadata("page.seo.title", ["seo", "title"], {
     selector: "title",
