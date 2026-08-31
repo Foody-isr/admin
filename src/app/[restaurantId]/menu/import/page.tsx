@@ -447,7 +447,14 @@ export default function MenuImportPage() {
                             {t('importAddonsBadge').replace('{count}', String(modCount))}
                           </span>
                         )}
-                        <span className="text-fg-secondary whitespace-nowrap">₪{item.price.toFixed(2)}</span>
+                        <span
+                          className="text-fg-secondary whitespace-nowrap"
+                          title={item.pricing_mode === 'by_weight' ? t('pricePerKgLabel') : undefined}
+                        >
+                          {item.pricing_mode === 'by_weight'
+                            ? `₪${(item.price_per_kg ?? 0).toFixed(2)}/kg`
+                            : `₪${item.price.toFixed(2)}`}
+                        </span>
                       </div>
                     );
                   })}
