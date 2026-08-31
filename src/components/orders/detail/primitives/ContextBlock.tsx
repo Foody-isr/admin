@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
  * same narrow-column rhythm without wrapping interactive headings in buttons.
  */
 export const CONTEXT_BLOCK_SHELL =
-  'py-[var(--s-3)] first:pt-0 border-t border-[var(--line)] first:border-t-0';
+  'py-[var(--s-2)] first:pt-0 border-t border-[var(--line)] first:border-t-0';
 
 /** The block's eyebrow. Same reason. */
 export const CONTEXT_BLOCK_EYEBROW =

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { AlertTriangleIcon } from 'lucide-react';
-import { Button, Tab, Tabs, TabsContent, TabsList } from '@/components/ds';
+import { Drawer } from '@/components/ds';
 import type { Order } from '@/lib/api';
 import type { ActivityEvent } from '@/lib/orders/activity-events';
 import type { OrderAuditState } from '@/lib/orders/use-order-audit';
@@ -11,9 +11,9 @@ import { ActivityTimeline } from '../spine/ActivityTimeline';
 import { InvoiceSection } from './InvoicePanel';
 import { OrderNotesSection } from './NotesPanel';
 
-type ReferenceTab = 'activity' | 'invoice' | 'notes';
+type ReferenceView = 'activity' | 'invoice' | 'notes';
 
-function TabCount({ children }: { children: ReactNode }) {
+function Count({ children }: { children: ReactNode }) {
   return (
     <span className="tabular-nums text-[10px] leading-none text-[var(--fg-subtle)]">
       {children}
@@ -31,9 +31,9 @@ function FailedMark({ label }: { label: string }) {
 }
 
 /**
- * The order's consulted records, using the otherwise empty space below the
- * total. Only one record is visible at a time, so a long audit trail or note
- * composer never pushes the ticket down merely by existing.
+ * Compact record shortcuts. Their full content is deliberately portalled into
+ * a Drawer: activity, invoices and notes can never contribute to the order
+ * grid's height, so the main surface only scrolls when the ticket itself grows.
  */
 export function OrderReferenceTabs({
   order,
@@ -52,93 +52,72 @@ export function OrderReferenceTabs({
   t: (key: string) => string;
   direction: 'ltr' | 'rtl';
 }) {
-  const [active, setActive] = useState<ReferenceTab>('activity');
-  const [showAllActivity, setShowAllActivity] = useState(false);
-  const userSelected = useRef(false);
+  const [openView, setOpenView] = useState<ReferenceView | null>(null);
+  const columns = invoiceCount > 0 ? 'grid-cols-3' : 'grid-cols-2';
+  const title = openView === 'invoice'
+    ? t('invoiceHeading') || 'Facture'
+    : openView === 'notes'
+      ? t('orderNotesHeading') || 'Notes internes'
+      : t('activity') || 'Activité';
 
-  // Notes arrive after the first paint. Surface an existing note once, unless
-  // the reader has already chosen another tab; async data must not steal their
-  // current context.
-  useEffect(() => {
-    if (notes.status === 'ready' && notes.notes.length > 0 && !userSelected.current) {
-      setActive('notes');
-    }
-  }, [notes.status, notes.notes.length]);
-
-  const visibleEvents = showAllActivity ? activityEvents : activityEvents.slice(-4);
+  const shortcutClass =
+    'flex h-10 min-w-0 items-center justify-center gap-1.5 border-b-2 border-transparent px-1 ' +
+    'text-fs-xs font-semibold text-[var(--fg-muted)] transition-colors ' +
+    'hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] ' +
+    'focus-visible:outline-none focus-visible:shadow-ring rounded-r-sm';
 
   return (
-    <section className="mt-[var(--s-4)] border-t border-[var(--line-strong)] pt-[var(--s-2)]">
-      <Tabs
-        value={active}
-        onValueChange={(value) => {
-          userSelected.current = true;
-          setActive(value as ReferenceTab);
-        }}
-        variant="underline"
-        className="gap-[var(--s-3)]"
-      >
-        <TabsList aria-label={t('details')} className="w-full gap-0">
-          <Tab
-            value="activity"
-            className="min-w-0 flex-1 justify-center gap-1.5 px-1 text-fs-xs data-[state=active]:text-[var(--brand-500)]"
-          >
+    <>
+      <section className="mt-[var(--s-2)] border-t border-[var(--line-strong)] pt-1">
+        <div
+          role="group"
+          aria-label={t('details')}
+          className={`grid ${columns} border-b border-[var(--line)]`}
+        >
+          <button type="button" onClick={() => setOpenView('activity')} className={shortcutClass}>
             <span className="truncate">{t('activity') || 'Activité'}</span>
-            <TabCount>{activityEvents.length}</TabCount>
+            <Count>{activityEvents.length}</Count>
             {audit.status === 'loading' && (
               <span aria-hidden className="text-[10px] leading-none text-[var(--fg-subtle)]">…</span>
             )}
             {audit.status === 'error' && <FailedMark label={t('activityLoadError')} />}
-          </Tab>
+          </button>
 
           {invoiceCount > 0 && (
-            <Tab
-              value="invoice"
-              className="min-w-0 flex-1 justify-center gap-1.5 px-1 text-fs-xs data-[state=active]:text-[var(--brand-500)]"
-            >
+            <button type="button" onClick={() => setOpenView('invoice')} className={shortcutClass}>
               <span className="truncate">{t('invoiceHeading') || 'Facture'}</span>
-              <TabCount>{invoiceCount}</TabCount>
-            </Tab>
+              <Count>{invoiceCount}</Count>
+            </button>
           )}
 
-          <Tab
-            value="notes"
-            className="min-w-0 flex-1 justify-center gap-1.5 px-1 text-fs-xs data-[state=active]:text-[var(--brand-500)]"
-          >
+          <button type="button" onClick={() => setOpenView('notes')} className={shortcutClass}>
             <span className="truncate">{t('orderNotesHeading') || 'Notes'}</span>
-            {notes.status === 'ready' && <TabCount>{notes.notes.length}</TabCount>}
+            {notes.status === 'ready' && <Count>{notes.notes.length}</Count>}
             {notes.status === 'loading' && (
               <span aria-hidden className="text-[10px] leading-none text-[var(--fg-subtle)]">…</span>
             )}
             {notes.status === 'error' && <FailedMark label={t('orderNotesLoadError')} />}
-          </Tab>
-        </TabsList>
+          </button>
+        </div>
+      </section>
 
-        <TabsContent value="activity" className="pb-[var(--s-2)]">
+      <Drawer
+        open={openView !== null}
+        onOpenChange={(open) => { if (!open) setOpenView(null); }}
+        title={title}
+        subtitle={t('orderNumber').replace('{id}', String(order.id))}
+        width={480}
+        className="order-detail-surface max-w-[100vw] sm:max-w-[95vw]"
+      >
+        {openView === 'activity' && (
           <ActivityTimeline
-            events={visibleEvents}
+            events={activityEvents}
             auditFailed={audit.status === 'error'}
             t={t}
           />
-          {!showAllActivity && activityEvents.length > visibleEvents.length && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAllActivity(true)}
-              className="mt-[var(--s-2)] px-0 text-[var(--brand-500)] hover:bg-transparent"
-            >
-              {t('seeAll') || 'Voir tous'}
-            </Button>
-          )}
-        </TabsContent>
-
-        {invoiceCount > 0 && (
-          <TabsContent value="invoice" className="pb-[var(--s-2)]">
-            <InvoiceSection order={order} />
-          </TabsContent>
         )}
-
-        <TabsContent value="notes" className="pb-[var(--s-2)]">
+        {openView === 'invoice' && <InvoiceSection order={order} />}
+        {openView === 'notes' && (
           <OrderNotesSection
             notes={notes.notes}
             status={notes.status}
@@ -147,8 +126,8 @@ export function OrderReferenceTabs({
             t={t}
             direction={direction}
           />
-        </TabsContent>
-      </Tabs>
-    </section>
+        )}
+      </Drawer>
+    </>
   );
 }

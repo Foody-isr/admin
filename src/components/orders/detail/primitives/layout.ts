@@ -58,7 +58,7 @@ export const DETAIL_MAIN_TRACK =
 export const DETAIL_CONTEXT_TRACK =
   'min-w-0 md:col-start-2 md:row-start-1 bg-[var(--surface)] ' +
   'border-t md:border-t-0 md:border-s border-[var(--line)] ' +
-  'px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-4)]';
+  'px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-3)]';
 
 /**
  * A section heading on the ticket — HairlineRule's own box.
