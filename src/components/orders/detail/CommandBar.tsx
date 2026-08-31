@@ -69,7 +69,7 @@ export function CommandBar({
             variant="secondary"
             size="md"
             onClick={onEdit}
-            className="flex-1 md:flex-none justify-center"
+            className="h-11 flex-1 md:flex-none justify-center font-semibold"
           >
             <EditIcon /> {t('edit') || 'Modifier'}
           </Button>
@@ -90,7 +90,7 @@ export function CommandBar({
               color: 'var(--brand-500)',
               borderColor: 'color-mix(in oklab, var(--brand-500) 45%, var(--line-strong))',
             }}
-            className="flex-1 md:flex-none justify-center"
+            className="h-11 flex-1 md:flex-none justify-center font-semibold"
           >
             <ScaleIcon /> {t('confirmWeights') || 'Confirm weights'}
           </Button>
@@ -108,7 +108,7 @@ export function CommandBar({
               color: 'var(--success-500)',
               borderColor: 'color-mix(in oklab, var(--success-500) 45%, var(--line-strong))',
             }}
-            className="flex-1 md:flex-none justify-center"
+            className="h-11 flex-1 md:flex-none justify-center font-semibold"
           >
             <CreditCardIcon /> {t('takePayment')}
           </Button>
@@ -120,7 +120,7 @@ export function CommandBar({
             size="md"
             onClick={onCloseOrder}
             disabled={isLoading}
-            className="flex-1 md:flex-none justify-center"
+            className="h-11 flex-1 md:flex-none justify-center font-semibold"
           >
             <CheckCircle2Icon /> {t('closeOrder')}
           </Button>
@@ -151,7 +151,7 @@ export function CommandBar({
             size="md"
             onClick={() => onPrimary(caps.primary!)}
             disabled={isLoading}
-            className="flex-1 md:flex-none justify-center"
+            className="h-11 flex-1 md:flex-none justify-center font-semibold text-[#1c1d1f]"
           >
             {PRIMARY_LABEL[caps.primary]}
           </Button>

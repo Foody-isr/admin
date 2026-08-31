@@ -36,40 +36,40 @@ export function ScheduledBanner({
     : formatScheduledTimeOnly(iso);
   return (
     <div
-      className="flex items-center gap-[var(--s-4)] rounded-r-lg p-[var(--s-4)]"
+      className="flex items-center gap-[var(--s-3)] rounded-r-lg p-[var(--s-3)]"
       style={{
-        background: 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))',
-        border: '1px solid color-mix(in oklab, var(--brand-500) 28%, var(--line))',
+        background: 'color-mix(in oklab, var(--info-500) 8%, var(--surface))',
+        border: '1px solid color-mix(in oklab, var(--info-500) 28%, var(--line))',
       }}
     >
       <div
-        className="w-11 h-11 rounded-r-md grid place-items-center shrink-0"
+        className="w-9 h-9 rounded-r-md grid place-items-center shrink-0"
         style={{
-          background: 'color-mix(in oklab, var(--brand-500) 18%, transparent)',
-          color: 'var(--brand-500)',
+          background: 'color-mix(in oklab, var(--info-500) 16%, transparent)',
+          color: 'var(--info-500)',
         }}
       >
-        <ClockIcon className="w-5 h-5" />
+        <ClockIcon className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-[var(--s-2)] text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--brand-500)]">
+        <div className="flex items-center gap-[var(--s-2)] text-[11px] leading-4 uppercase tracking-[.06em] font-semibold text-[var(--info-500)]">
           <span className="truncate">{t('scheduledForLabel') || 'Scheduled for'}</span>
           {rel && (
             <span
               className="inline-flex items-center px-1.5 h-[18px] rounded-r-sm text-[10px] tracking-[.04em] shrink-0"
               style={{
-                background: 'color-mix(in oklab, var(--brand-500) 16%, transparent)',
-                color: 'var(--brand-500)',
+                background: 'color-mix(in oklab, var(--info-500) 16%, transparent)',
+                color: 'var(--info-500)',
               }}
             >
               {rel}
             </span>
           )}
         </div>
-        <div className="text-fs-lg sm:text-fs-xl font-semibold tracking-tight text-[var(--fg)] mt-0.5 break-words">
+        <div className="text-fs-lg font-semibold tracking-tight text-[var(--fg)] break-words">
           {formatScheduledDateLong(iso)}
         </div>
-        <div className="text-fs-sm tabular-nums text-[var(--fg-muted)] mt-0.5">
+        <div className="text-fs-xs tabular-nums text-[var(--fg-muted)]">
           {timeText}
         </div>
       </div>

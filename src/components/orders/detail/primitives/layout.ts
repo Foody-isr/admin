@@ -47,7 +47,7 @@ export const DETAIL_BODY_GRID =
  */
 export const DETAIL_MAIN_TRACK =
   'min-w-0 md:col-start-1 md:row-start-1 bg-[var(--surface)] ' +
-  'px-[var(--s-4)] md:px-[var(--s-6)] xl:px-[var(--s-8)] py-[var(--s-5)]';
+  'px-[var(--s-4)] md:px-[var(--s-5)] xl:px-[var(--s-6)] py-[var(--s-4)]';
 
 /**
  * Customer, delivery, money — what has to stay legible next to the ticket.
@@ -63,7 +63,7 @@ export const DETAIL_MAIN_TRACK =
 export const DETAIL_CONTEXT_TRACK =
   'min-w-0 md:col-start-2 md:row-start-1 md:row-span-2 bg-[var(--surface)] ' +
   'border-t md:border-t-0 md:border-s border-[var(--line)] ' +
-  'px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-5)]';
+  'px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-4)]';
 
 /**
  * The appendix: activity, invoice, notes. Consulted, not monitored, so it sits
@@ -73,7 +73,7 @@ export const DETAIL_CONTEXT_TRACK =
  */
 export const DETAIL_REFERENCE_TRACK =
   'min-w-0 md:col-start-1 md:row-start-2 bg-[var(--surface)] ' +
-  'px-[var(--s-4)] md:px-[var(--s-6)] xl:px-[var(--s-8)] pb-[var(--s-6)]';
+  'px-[var(--s-4)] md:px-[var(--s-5)] xl:px-[var(--s-6)] pb-[var(--s-5)]';
 
 /**
  * A section heading on the ticket — HairlineRule's own box.
@@ -85,9 +85,9 @@ export const DETAIL_REFERENCE_TRACK =
  * to prevent.
  */
 export const TICKET_RULE_ROW =
-  'flex items-center gap-[var(--s-3)] pt-[var(--s-5)] pb-[var(--s-2)] first:pt-0';
+  'flex items-center gap-[var(--s-3)] pt-[var(--s-3)] pb-[var(--s-1)] first:pt-0';
 
 /** Progression band under the head. Chrome: outside the scroll region. */
 export const DETAIL_RIBBON_BAND =
   'shrink-0 border-b border-[var(--line)] bg-[var(--surface)] ' +
-  'px-[var(--s-4)] md:px-[var(--s-6)] py-[var(--s-3)]';
+  'px-[var(--s-4)] md:px-[var(--s-6)] py-[var(--s-2)]';

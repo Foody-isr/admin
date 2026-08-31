@@ -2,7 +2,12 @@
 
 import { CheckIcon, XIcon } from 'lucide-react';
 import type { Order } from '@/lib/api';
-import { buildStepperStages, type StepperStage, type StepState } from '@/lib/orders/workflow-stepper';
+import {
+  buildStepperStages,
+  statusStageKind,
+  type StepperStage,
+  type StepState,
+} from '@/lib/orders/workflow-stepper';
 import { useOrderWorkflows, pickWorkflow } from '@/lib/orders/use-order-workflows';
 import { formatTime } from '@/lib/orders/order-time';
 
@@ -25,50 +30,44 @@ import { formatTime } from '@/lib/orders/order-time';
  * an error, never a spinner on the most important element on the screen.
  */
 
-function StepNode({ state }: { state: StepState }) {
+function StepNode({ state, activeColor }: { state: StepState; activeColor: string }) {
   const done = state === 'done';
   const active = state === 'current';
   const cancelled = state === 'cancelled';
+  const completed = active && activeColor === 'var(--success-500)';
 
   return (
     <div
-      className="w-7 h-7 rounded-full grid place-items-center relative z-[1] shrink-0"
+      className="w-6 h-6 rounded-full grid place-items-center relative z-[1] shrink-0"
       style={{
         background: cancelled
           ? 'var(--danger-500)'
           : active
-            ? 'var(--brand-500)'
+            ? activeColor
             : done
               ? 'var(--success-500)'
               : 'var(--surface-3)',
         color: done || active || cancelled ? '#fff' : 'var(--fg-muted)',
         boxShadow: active
-          ? '0 0 0 4px color-mix(in oklab, var(--brand-500) 22%, transparent)'
+          ? `0 0 0 4px color-mix(in oklab, ${activeColor} 22%, transparent)`
           : undefined,
       }}
     >
       {cancelled ? (
         <XIcon className="w-3.5 h-3.5" />
-      ) : done ? (
+      ) : done || completed ? (
         <CheckIcon className="w-3.5 h-3.5" />
       ) : null}
-      {active && (
-        <span
-          aria-hidden
-          className="absolute inset-0 rounded-full opacity-50 motion-safe:animate-ping"
-          style={{ background: 'var(--brand-500)' }}
-        />
-      )}
     </div>
   );
 }
 
 function connectorColor(stage: StepperStage, next: StepperStage | undefined): string {
   if (!next) return 'transparent';
-  return stage.state === 'done' ? 'var(--brand-500)' : 'var(--line)';
+  return stage.state === 'done' ? 'var(--success-500)' : 'var(--line)';
 }
 
-function HorizontalStepper({ stages }: { stages: StepperStage[] }) {
+function HorizontalStepper({ stages, activeColor }: { stages: StepperStage[]; activeColor: string }) {
   return (
     <div
       className="grid relative"
@@ -81,33 +80,24 @@ function HorizontalStepper({ stages }: { stages: StepperStage[] }) {
             {next && (
               <span
                 aria-hidden
-                className="absolute top-[14px] start-1/2 end-[-50%] h-[2px]"
+                className="absolute top-[12px] start-1/2 end-[-50%] h-[2px]"
                 style={{ background: connectorColor(stage, next) }}
               />
             )}
-            <div className="mx-auto mb-2 w-7">
-              <StepNode state={stage.state} />
+            <div className="mx-auto mb-1 w-6">
+              <StepNode state={stage.state} activeColor={activeColor} />
             </div>
-            {/* A constant two-line box so a wrapping label does not push this
-                step's timestamp out of line with its neighbours'. */}
             <div
-              className={`text-fs-xs font-medium leading-tight min-h-[2.4em] flex items-start justify-center px-0.5 ${
+              className={`text-fs-xs font-semibold leading-tight min-h-[1.2em] flex items-start justify-center px-0.5 ${
                 stage.state === 'pending' ? 'text-[var(--fg-muted)]' : 'text-[var(--fg)]'
               }`}
             >
               {stage.label}
             </div>
-            {stage.at && (
-              <div className="num text-[10px] text-[var(--fg-subtle)] mt-0.5">
-                {formatTime(stage.at)}
-              </div>
-            )}
-            {/* buildStepperStages hangs the acceptance here rather than
-                inventing a stage the owner never configured. Only stage 0 ever
-                carries one, so only that cell grows; the timestamps stay on one
-                axis because the note sits below them. */}
-            {stage.note && (
-              <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5 leading-tight">
+            {(stage.at || stage.note) && (
+              <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5 leading-tight truncate px-1">
+                {stage.at && <span className="num">{formatTime(stage.at)}</span>}
+                {stage.at && stage.note && <span className="mx-1 opacity-40">·</span>}
                 {stage.note}
               </div>
             )}
@@ -140,5 +130,11 @@ export function WorkflowStepper({
 
   if (stages.length === 0) return null;
 
-  return <HorizontalStepper stages={stages} />;
+  const activeColor = order.status === 'scheduled'
+    ? 'var(--info-500)'
+    : statusStageKind(order.status) === 'completed'
+      ? 'var(--success-500)'
+      : 'var(--brand-500)';
+
+  return <HorizontalStepper stages={stages} activeColor={activeColor} />;
 }

@@ -37,7 +37,7 @@ export function CustomerPanel({
     <ContextBlock>
       <div className="flex items-center gap-[var(--s-3)]">
         <div
-          className="w-12 h-12 rounded-full grid place-items-center text-white font-semibold tracking-tight shrink-0"
+          className="w-10 h-10 rounded-full grid place-items-center text-white font-semibold tracking-tight shrink-0"
           style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}
         >
           {customerInitials}
@@ -48,13 +48,13 @@ export function CustomerPanel({
               type="button"
               onClick={onEditCustomer}
               title={t('editCustomer')}
-              className="group flex items-center gap-1.5 font-display text-fs-xl truncate max-w-full text-start hover:text-[var(--brand-500)] transition-colors"
+              className="group flex items-center gap-1.5 text-[20px] leading-[26px] font-bold tracking-[-0.015em] truncate max-w-full text-start hover:text-[var(--brand-500)] transition-colors"
             >
               <span className="truncate">{order.customer_name || t('guestCustomer') || 'Client'}</span>
               <EditIcon className="w-3.5 h-3.5 shrink-0 text-[var(--fg-subtle)] opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           ) : (
-            <div className="font-display text-fs-xl truncate">
+            <div className="text-[20px] leading-[26px] font-bold tracking-[-0.015em] truncate">
               {order.customer_name || t('guestCustomer') || 'Client'}
             </div>
           )}
@@ -77,7 +77,7 @@ export function CustomerPanel({
 
       <CustomerHistoryStrip restaurantId={order.restaurant_id} phone={order.customer_phone} t={t} />
 
-      <div className="flex flex-col gap-[var(--s-2)] mt-[var(--s-4)]">
+      <div className="flex flex-col gap-[6px] mt-[var(--s-3)]">
         <ContextRow label={t('type')}>{localizeOrderType(order.order_type, t)}</ContextRow>
         <ContextRow label={t('source')}>
           <span className="inline-flex items-center gap-1.5">

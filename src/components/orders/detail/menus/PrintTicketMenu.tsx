@@ -19,13 +19,13 @@ export function PrintTicketMenu({ onSelect }: { onSelect: (kind: TicketKind) => 
   return (
     <Menu>
       <MenuTrigger asChild>
-        <Button variant="secondary" size="md" className="flex-1 md:flex-none justify-center">
+        <Button variant="secondary" size="md" className="h-11 flex-1 md:flex-none justify-center font-semibold">
           <PrinterIcon /> {t('printReceipt') || 'Imprimer ticket'}
           <ChevronDownIcon className="w-3.5 h-3.5" />
         </Button>
       </MenuTrigger>
       {/* The command bar sits at the bottom of the takeover, so open upward. */}
-      <MenuContent side="top" align="start" className="min-w-[200px]">
+      <MenuContent side="top" align="start" className="order-detail-menu min-w-[200px]">
         <MenuItem onSelect={() => onSelect('receipt')}>
           {t('printCustomerReceipt') || 'Reçu client'}
         </MenuItem>

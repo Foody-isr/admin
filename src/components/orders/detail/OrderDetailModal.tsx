@@ -160,14 +160,14 @@ export function OrderDetailModal({
 
   // The head's tone follows where the order sits in the pipeline, via the same
   // status→kind mapping the stepper uses, so the dot and the rail can never
-  // disagree. "in_progress" pulses because it is the state staff act on.
+  // disagree. Scheduled is informational blue, live work is orange, and a
+  // terminal order is green in both the head and the progression rail.
   const stageKind = statusStageKind(order.status);
-  const isActive = stageKind === 'in_progress';
   const tone: 'warning' | 'success' | 'info' | 'danger' =
     caps.isCancelled ? 'danger'
-    : isActive ? 'warning'
+    : caps.isScheduled ? 'info'
     : stageKind === 'completed' ? 'success'
-    : 'info';
+    : 'warning';
 
   // Category groups, combo groups and reconciled totals all come from the
   // shared groupOrder() — the same math the printed ticket and the WhatsApp
@@ -248,14 +248,22 @@ export function OrderDetailModal({
         open
         onOpenChange={(v) => { if (!v) onClose(); }}
         title={t('orderNumber').replace('{id}', String(order.id))}
-        head={<OrderDetailHead order={order} tone={tone} isActive={isActive} />}
+        head={
+          <OrderDetailHead
+            order={order}
+            tone={tone}
+            displayedLineCount={displayedLineCount}
+            totalUnits={totalUnits}
+            total={totalsLine}
+          />
+        }
         ribbon={<WorkflowStepper order={order} t={t} />}
         center={
           <>
             {/* Alerts head the ticket, and TicketItems opens with its own
                 settlement banners, so the whole alarm stack stays contiguous. */}
             {caps.isScheduled && order.scheduled_for && (
-              <div className="mb-[var(--s-4)]">
+              <div className="mb-[var(--s-3)]">
                 <ScheduledBanner
                   iso={order.scheduled_for}
                   windowStart={order.scheduled_pickup_window_start}
@@ -266,7 +274,7 @@ export function OrderDetailModal({
               </div>
             )}
             {caps.isCancelled && (
-              <div className="mb-[var(--s-4)]">
+              <div className="mb-[var(--s-3)]">
                 <CancellationCallout order={order} t={t} />
               </div>
             )}

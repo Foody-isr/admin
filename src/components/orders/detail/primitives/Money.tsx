@@ -12,9 +12,10 @@ import { formatMoney, type FormatMoneyOptions } from '@/lib/format-money';
  * reorders into "35.00₪" or worse once a sign is involved. The order detail is
  * used daily in Hebrew, so every figure gets an explicit direction.
  *
- * `.num` — mono + tabular-nums, from globals.css. The centre column's money
- * lane is a fixed 92px and only reads as a lane if every glyph is the same
- * width, so the decimal points stack down the page.
+ * `.tabular` — tabular figures in the order detail's Heebo face. The centre
+ * column's money lane is a fixed 92px and only reads as a lane if every glyph
+ * is the same width, so the decimal points stack down the page without making
+ * every price look like machine output.
  */
 export function Money({
   value,
@@ -25,7 +26,7 @@ export function Money({
   className?: string;
 } & FormatMoneyOptions) {
   return (
-    <span dir="ltr" className={cn('num', className)}>
+    <span dir="ltr" className={cn('tabular', className)}>
       {formatMoney(value, opts)}
     </span>
   );

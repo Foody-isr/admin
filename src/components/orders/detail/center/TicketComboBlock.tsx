@@ -44,7 +44,7 @@ export function TicketComboBlock({
 
   return (
     <div
-      className={`py-[var(--s-2)] ${
+      className={`py-[6px] ${
         showRule ? 'border-t border-[color-mix(in_oklab,var(--line)_55%,transparent)]' : ''
       }`}
     >
@@ -52,7 +52,7 @@ export function TicketComboBlock({
         <span className="num text-fs-sm text-end text-[var(--fg-subtle)]">1×</span>
 
         <span className="min-w-0 flex items-center gap-2 flex-wrap">
-          <span className="text-fs-md font-medium tracking-[-0.006em] text-[var(--fg)]">
+          <span className="text-[15px] leading-[21px] font-semibold tracking-[-0.006em] text-[var(--fg)]">
             {comboName}
           </span>
           <span
@@ -67,7 +67,7 @@ export function TicketComboBlock({
           {showUnpaidChip && <Badge tone="warning">{t('notPaidChip')}</Badge>}
         </span>
 
-        <Money value={comboTotal} className="text-fs-sm text-end text-[var(--fg)]" />
+        <Money value={comboTotal} className="text-[15px] leading-[21px] font-medium text-end text-[var(--fg)]" />
       </div>
 
       {/* Picks — indented into the name column, against a guide rail. */}

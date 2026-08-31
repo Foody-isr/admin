@@ -12,7 +12,7 @@ import { Money } from '../primitives/Money';
  *
  *   28px  quantity, in the margin, right-aligned
  *   1fr   what it is
- *   92px  what it costs, right-aligned — fits ₪1,234.00 at 13px mono
+ *   92px  what it costs, right-aligned — fits ₪1,234.00 at 15px tabular sans
  *
  * Modifiers, weights and notes are SIBLING rows of this same grid rather than
  * nested markup, each emitting an empty quantity cell, its label, and either a
@@ -162,7 +162,7 @@ export function TicketLineRow({
 
   return (
     <div
-      className={`${TICKET_GRID} py-[var(--s-2)] ${
+      className={`${TICKET_GRID} py-[6px] ${
         showRule ? 'border-t border-[color-mix(in_oklab,var(--line)_55%,transparent)]' : ''
       }`}
     >
@@ -177,7 +177,7 @@ export function TicketLineRow({
       </span>
 
       <span className="min-w-0 flex items-center gap-2 flex-wrap">
-        <span className="text-fs-md font-medium tracking-[-0.006em] text-[var(--fg)]">
+        <span className="text-[15px] leading-[21px] font-semibold tracking-[-0.006em] text-[var(--fg)]">
           {item.name}
         </span>
         {variantText && (
@@ -194,7 +194,7 @@ export function TicketLineRow({
         {showUnpaidChip && <Badge tone="warning">{t('notPaidChip')}</Badge>}
       </span>
 
-      <Money value={item.price * item.quantity} className="text-fs-sm text-end text-[var(--fg)]" />
+      <Money value={item.price * item.quantity} className="text-[15px] leading-[21px] font-medium text-end text-[var(--fg)]" />
 
       <ModifierRows item={item} />
       <WeightRow item={item} />

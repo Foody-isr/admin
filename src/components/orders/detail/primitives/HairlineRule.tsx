@@ -28,7 +28,7 @@ export function HairlineRule({
 }) {
   return (
     <div className={cn(TICKET_RULE_ROW, className)}>
-      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--fg-subtle)] whitespace-nowrap">
+      <span className="text-[11px] leading-4 font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)] whitespace-nowrap">
         {label}
       </span>
       {/*
@@ -41,7 +41,7 @@ export function HairlineRule({
         className="flex-1 h-px bg-[var(--line)] dark:bg-[var(--line-strong)]"
       />
       {count != null && (
-        <span className="num text-[10px] text-[var(--fg-subtle)] shrink-0">{count}</span>
+        <span className="text-[11px] leading-4 tabular-nums text-[var(--fg-subtle)] shrink-0">{count}</span>
       )}
     </div>
   );

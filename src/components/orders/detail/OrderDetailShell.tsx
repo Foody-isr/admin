@@ -97,6 +97,7 @@ export function OrderDetailShell({
             '2xl:left-[max(24px,calc((100vw-1680px)/2))]',
             '2xl:right-[max(24px,calc((100vw-1680px)/2))]',
             'flex flex-col overflow-hidden min-h-0',
+            'order-detail-surface',
             'bg-[var(--bg)] text-[var(--fg)]',
             'md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3',
             'focus:outline-none',
@@ -138,7 +139,9 @@ export function OrderDetailShell({
           <div className={DETAIL_BODY_GRID}>
             <main className={DETAIL_MAIN_TRACK}>{center}</main>
 
-            <aside className={DETAIL_CONTEXT_TRACK}>{context}</aside>
+            <aside className={DETAIL_CONTEXT_TRACK}>
+              <div className="md:sticky md:top-[var(--s-4)]">{context}</div>
+            </aside>
 
             {reference && <section className={DETAIL_REFERENCE_TRACK}>{reference}</section>}
           </div>

@@ -15,7 +15,15 @@ import {
   MoreHorizontalIcon, RotateCcwIcon, BanknoteIcon, CreditCardIcon,
   ClipboardListIcon, XIcon, Trash2Icon,
 } from 'lucide-react';
-import { Button, Menu, MenuTrigger, MenuContent, MenuItem, MenuSeparator } from '@/components/ds';
+import {
+  Button,
+  Menu,
+  MenuTrigger,
+  MenuContent,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+} from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 
 export function OrderOverflowMenu({
@@ -40,11 +48,12 @@ export function OrderOverflowMenu({
 }) {
   const { t } = useI18n();
 
-  const hasCorrections =
+  const hasManagement =
     (canCorrect && !!onCorrect) ||
     (canCorrectPayment && !!onCorrectPayment) ||
-    (canCorrectPaymentMethod && !!onCorrectPaymentMethod) ||
-    (canForceProduction && !!onToggleForceProduction);
+    (canCorrectPaymentMethod && !!onCorrectPaymentMethod);
+  const hasProduction = canForceProduction && !!onToggleForceProduction;
+  const hasDanger = canCancel || (canDelete && !!onDelete);
 
   return (
     <Menu>
@@ -54,12 +63,13 @@ export function OrderOverflowMenu({
           size="md"
           disabled={disabled}
           aria-label={t('moreActions') || 'More'}
-          className="flex-1 md:flex-none justify-center"
+          className="h-11 flex-1 md:flex-none justify-center"
         >
           <MoreHorizontalIcon />
         </Button>
       </MenuTrigger>
-      <MenuContent side="top" align="end">
+      <MenuContent side="top" align="end" className="order-detail-menu">
+        {hasManagement && <MenuLabel>{t('manage')}</MenuLabel>}
         {canCorrect && onCorrect && (
           <MenuItem onSelect={onCorrect}>
             <RotateCcwIcon /> {t('correctStatus') || 'Corriger le statut'}
@@ -75,6 +85,9 @@ export function OrderOverflowMenu({
             <CreditCardIcon /> {t('correctPaymentMethod')}
           </MenuItem>
         )}
+
+        {hasManagement && hasProduction && <MenuSeparator />}
+        {hasProduction && <MenuLabel>{t('productionTitle')}</MenuLabel>}
         {canForceProduction && onToggleForceProduction && (
           <MenuItem onSelect={onToggleForceProduction}>
             <ClipboardListIcon />
@@ -84,7 +97,8 @@ export function OrderOverflowMenu({
           </MenuItem>
         )}
 
-        {hasCorrections && (canCancel || canDelete) && <MenuSeparator />}
+        {(hasManagement || hasProduction) && hasDanger && <MenuSeparator />}
+        {hasDanger && <MenuLabel>{t('dangerZone')}</MenuLabel>}
 
         {canCancel && (
           <MenuItem danger onSelect={onCancel}>

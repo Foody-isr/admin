@@ -204,7 +204,7 @@ export function MoneyPanel({
             </span>
             <Money
               value={totalsLine}
-              className="text-end text-fs-2xl font-semibold tracking-[-0.01em]"
+              className="text-end text-[26px] leading-[30px] font-bold tracking-[-0.015em]"
             />
           </div>
 

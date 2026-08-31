@@ -25,11 +25,11 @@ import { cn } from '@/lib/utils';
  * decor shares fine as a string.
  */
 export const CONTEXT_BLOCK_SHELL =
-  'py-[var(--s-4)] first:pt-0 border-t border-[var(--line)] first:border-t-0';
+  'py-[var(--s-3)] first:pt-0 border-t border-[var(--line)] first:border-t-0';
 
 /** The block's eyebrow. Same reason. */
 export const CONTEXT_BLOCK_EYEBROW =
-  'text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--fg-subtle)]';
+  'text-[11px] leading-4 font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]';
 
 export function ContextBlock({
   label,
@@ -46,7 +46,7 @@ export function ContextBlock({
   return (
     <section className={cn(CONTEXT_BLOCK_SHELL, className)}>
       {(label || aside) && (
-        <div className="flex items-baseline justify-between gap-[var(--s-3)] mb-[var(--s-3)]">
+        <div className="flex items-baseline justify-between gap-[var(--s-3)] mb-[var(--s-2)]">
           {label && <span className={CONTEXT_BLOCK_EYEBROW}>{label}</span>}
           {aside}
         </div>
@@ -67,7 +67,7 @@ export function ContextRow({
   className?: string;
 }) {
   return (
-    <div className={cn('flex items-start justify-between gap-[var(--s-3)] text-fs-sm', className)}>
+    <div className={cn('flex items-start justify-between gap-[var(--s-3)] text-fs-sm leading-5', className)}>
       <span className="text-[var(--fg-subtle)] shrink-0">{label}</span>
       <span className="text-end break-words min-w-0">{children}</span>
     </div>
