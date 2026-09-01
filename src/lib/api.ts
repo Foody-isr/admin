@@ -909,12 +909,10 @@ export interface WebsiteConfig {
   /** Custom pages beyond home + menu. Each renders at /r/<slug>/<page.slug> and shows in the nav. */
   pages?: WebsitePageMeta[] | null;
   landing_enabled: boolean;
-  /** Whether the customer Stories/Reels page + bottom-nav tab is shown. */
+  /** Whether the customer Stories/Reels page is shown. */
   stories_enabled?: boolean;
   /** Whether public navigation shows the guest order-history destination. */
   show_orders_link?: boolean;
-  /** Comma-separated order of the mobile bottom-nav page tabs ("menu","stories"). First = default landing tab. */
-  nav_order?: string;
   checkout_config?: CheckoutConfig | null;
   order_page_info?: OrderPageInfo | null;
   order_type_selector?: OrderTypeSelectorConfig | null;
@@ -1016,18 +1014,9 @@ export interface WebsitePageMeta {
  *  compact = floating hamburger + CTA + logo; compact_no_logo = the same task bar without branding;
  *  hidden = no top bar. */
 export type NavMode = 'full' | 'slim' | 'compact' | 'compact_no_logo' | 'hidden';
-export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
+export type NavLayoutSide = { desktop: NavMode; mobile: NavMode };
 /** Per-page-type navigation composition. content = landing + content pages;
  *  shopping = order, catering, and custom pages flagged shopping. */
-export type NavigationIcon = 'home' | 'menu' | 'grid' | 'play' | 'bag' | 'user' | 'page';
-export type BottomNavigationStyle = {
-  order?: string[];
-  icons?: Record<string, NavigationIcon>;
-  background_color?: string;
-  button_background_color?: string;
-  text_color?: string;
-  active_text_color?: string;
-};
 export type CompactNavigationStyle = {
   hamburger_position?: 'left' | 'right';
   actions_position?: 'left' | 'right';
@@ -1037,7 +1026,6 @@ export type CompactNavigationStyle = {
 export type NavLayout = {
   content: NavLayoutSide;
   shopping: NavLayoutSide;
-  bottom_navigation?: BottomNavigationStyle;
   compact_navigation?: CompactNavigationStyle;
 };
 

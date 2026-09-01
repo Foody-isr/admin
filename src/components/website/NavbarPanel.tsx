@@ -72,15 +72,13 @@ export function NavbarPanel({ config, onUpdate, restaurantId }: {
     content: {
       desktop: navLayout?.content?.desktop ?? legacyContentDesktop,
       mobile: navLayout?.content?.mobile ?? 'compact',
-      bottom_bar: navLayout?.content?.bottom_bar ?? false,
     },
     shopping: {
       desktop: navLayout?.shopping?.desktop ?? 'compact',
-      mobile: navLayout?.shopping?.mobile ?? 'hidden',
-      bottom_bar: navLayout?.shopping?.bottom_bar ?? true,
+      mobile: navLayout?.shopping?.mobile ?? 'compact',
     },
   } as const;
-  const setLayout = (grp: 'content' | 'shopping', patch: Partial<{ desktop: string; mobile: string; bottom_bar: boolean }>) =>
+  const setLayout = (grp: 'content' | 'shopping', patch: Partial<{ desktop: string; mobile: string }>) =>
     onUpdate({ nav_layout: { ...eff, [grp]: { ...eff[grp], ...patch } } } as Partial<WebsiteConfig>);
   const MODE_OPTS = [['full', 'Complète'], ['slim', 'Fine sans logo'], ['compact', 'Compacte avec logo'], ['compact_no_logo', 'Compacte sans logo'], ['hidden', 'Masquée']] as const;
   const modeRow = (label: string, value: string, onSet: (v: string) => void) => (
@@ -104,10 +102,6 @@ export function NavbarPanel({ config, onUpdate, restaurantId }: {
       </div>
       {modeRow('Ordinateur', eff[grp].desktop, (v) => setLayout(grp, { desktop: v }))}
       {modeRow('Mobile', eff[grp].mobile, (v) => setLayout(grp, { mobile: v }))}
-      <label className="flex items-center gap-2 text-xs text-fg-primary">
-        <input type="checkbox" checked={eff[grp].bottom_bar} onChange={(e) => setLayout(grp, { bottom_bar: e.target.checked })} className="accent-brand-500" />
-        Barre du bas sur mobile
-      </label>
       {eff[grp].desktop === 'hidden' && (
         <p className="text-[10px] text-amber-600">Aucune barre en haut sur ordinateur pour ce type de page.</p>
       )}
@@ -151,32 +145,6 @@ export function NavbarPanel({ config, onUpdate, restaurantId }: {
           </p>
           {groupBlock('content', 'Pages de contenu', 'Accueil et pages de contenu')}
           {groupBlock('shopping', 'Autres pages boutique', 'Traiteur et pages boutique personnalisées')}
-        </div>,
-      )}
-
-      {sec('Barre du bas (mobile)',
-        <div className="space-y-2">
-          <p className="text-[10px] text-fg-secondary leading-tight">
-            La barre du bas s&apos;affiche sur mobile pour les types de page activés ci-dessus. Onglets&nbsp;: Menu, Traiteur, Stories, Compte.
-          </p>
-          {config.stories_enabled ? (
-            <div>
-              <label className="block text-xs text-fg-primary mb-1">Onglet par défaut</label>
-              <div className="flex gap-1.5">
-                {([['menu', 'Menu'], ['stories', 'Stories']] as const).map(([v, l]) => {
-                  const first = (config.nav_order || 'menu').split(',')[0] === v;
-                  return (
-                    <button key={v} onClick={() => onUpdate({ nav_order: v === 'menu' ? 'menu,stories' : 'stories,menu' })}
-                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${first ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
-                      {l}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <p className="text-[10px] text-fg-tertiary">Activez les Stories (page Reels) pour réordonner les onglets.</p>
-          )}
         </div>,
       )}
 
