@@ -78,7 +78,7 @@ import { websiteManagementMode } from "@/lib/website-v3/chain-mode";
 import { useI18n } from "@/lib/i18n";
 
 const WEB_ORIGIN =
-  process.env.NEXT_PUBLIC_WEB_URL || "https://dev-app.foody-pos.co.il";
+  process.env.NEXT_PUBLIC_WEB_URL || "https://app.foody-pos.co.il";
 const EMPTY_CATALOG: ThemeCatalog = { themes: [], typography_pairings: [] };
 
 const PREVIEW_DEVICE_LABELS: Record<PreviewDevice, string> = {
