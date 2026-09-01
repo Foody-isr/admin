@@ -1,6 +1,6 @@
 'use client';
 
-import { EditIcon, ScaleIcon, CreditCardIcon, CheckCircle2Icon } from 'lucide-react';
+import { EditIcon, ScaleIcon, CreditCardIcon, CheckCircle2Icon, MessageCircleIcon } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
@@ -30,6 +30,7 @@ export interface CommandBarProps {
   onEdit: () => void;
   onPrint: (kind: TicketKind) => void;
   onSendConfirmation: () => void;
+  onSendDeliveryReminder?: () => void;
   onConfirmWeights?: () => void;
   onTakePayment: () => void;
   onCloseOrder: () => void;
@@ -38,7 +39,7 @@ export interface CommandBarProps {
 
 export function CommandBar({
   order, caps, canManage, isLoading,
-  onEdit, onPrint, onSendConfirmation, onConfirmWeights, onTakePayment, onCloseOrder,
+  onEdit, onPrint, onSendConfirmation, onSendDeliveryReminder, onConfirmWeights, onTakePayment, onCloseOrder,
   onPrimary,
 }: CommandBarProps) {
   const { t } = useI18n();
@@ -74,6 +75,23 @@ export function CommandBar({
 
       {/* End — contextual secondary · single primary */}
       <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:flex-nowrap md:items-center">
+        {canManage && onSendDeliveryReminder && (
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={onSendDeliveryReminder}
+            disabled={isLoading}
+            className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
+            style={{
+              color: 'var(--brand-600)',
+              borderColor: 'color-mix(in oklab, var(--brand-500) 45%, var(--line-strong))',
+              background: 'color-mix(in oklab, var(--brand-500) 8%, transparent)',
+            }}
+          >
+            <MessageCircleIcon /> {t('sendDeliveryReminder') || 'Envoyer les infos de livraison'}
+          </Button>
+        )}
+
         {canManage && caps.canConfirmWeights && onConfirmWeights && (
           <Button
             variant="secondary"

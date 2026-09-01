@@ -2015,7 +2015,18 @@ export interface OrderWorkflow {
   id: number;
   order_type: WorkflowOrderType;
   template_source: string; // full | simple | custom
+  accept_sends_to_kitchen?: boolean;
+  accept_adds_to_production?: boolean;
+  accept_prompts_whatsapp?: boolean;
+  delivery_reminder_enabled?: boolean;
   stages: WorkflowStage[];
+}
+
+export interface WorkflowGuidedActions {
+  accept_sends_to_kitchen: boolean;
+  accept_adds_to_production: boolean;
+  accept_prompts_whatsapp: boolean;
+  delivery_reminder_enabled: boolean;
 }
 
 /** GET /api/v1/order-workflows — one pipeline per order type (seeded on first read). */
@@ -2028,11 +2039,12 @@ export async function getOrderWorkflows(restaurantId: number): Promise<OrderWork
 export async function updateOrderWorkflow(
   restaurantId: number,
   orderType: WorkflowOrderType,
-  stages: WorkflowStage[]
+  stages: WorkflowStage[],
+  actions: WorkflowGuidedActions,
 ): Promise<OrderWorkflow> {
   return apiFetch<OrderWorkflow>(`/api/v1/order-workflows/${orderType}`, restaurantId, {
     method: 'PUT',
-    body: JSON.stringify({ stages }),
+    body: JSON.stringify({ stages, actions }),
   });
 }
 
@@ -3943,8 +3955,13 @@ export async function getOrder(restaurantId: number, orderId: number): Promise<O
   return data.order;
 }
 
-export async function acceptOrder(restaurantId: number, orderId: number): Promise<void> {
-  await apiFetch<void>(`/api/v1/orders/${orderId}/accept?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST' });
+export interface AcceptOrderResult {
+  order: Order;
+  follow_up: { whatsapp_recap: boolean };
+}
+
+export async function acceptOrder(restaurantId: number, orderId: number): Promise<AcceptOrderResult> {
+  return apiFetch<AcceptOrderResult>(`/api/v1/orders/${orderId}/accept?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST' });
 }
 
 export async function rejectOrder(
