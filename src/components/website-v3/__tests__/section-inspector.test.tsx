@@ -165,7 +165,12 @@ test("order discovery appearance and placement are fully editable", () => {
     {
       section_type: "order_discovery",
       page: "commander",
-      settings: { insert_after_items: 9 },
+      settings: {
+        placement_mode: "between_groups",
+        placement_group_id: "42",
+        placement_edge: "before",
+        insert_after_items: 9,
+      },
     },
     "settings",
   );
@@ -176,7 +181,11 @@ test("order discovery appearance and placement are fully editable", () => {
   assert.match(appearanceMarkup, /section\.settings\.panel_bg_color_end/);
   assert.match(appearanceMarkup, /section\.settings\.mobile_overlay_opacity/);
   assert.match(settingsMarkup, /Placement dans le menu/);
-  assert.match(settingsMarkup, /value="9"/);
+  assert.match(settingsMarkup, /section\.settings\.placement_mode/);
+  assert.match(settingsMarkup, /section\.settings\.placement_group_id/);
+  assert.match(settingsMarkup, /section\.settings\.placement_edge/);
+  assert.match(settingsMarkup, /Salades/);
+  assert.match(settingsMarkup, /Poissons/);
 });
 
 test("feature cards appearance exposes button colors and shape", () => {
@@ -223,6 +232,10 @@ function renderSection(
       restaurantId: 24,
       section,
       tab,
+      placementGroups: [
+        { id: "17", name: "Salades" },
+        { id: "42", name: "Poissons" },
+      ],
       onChange: () => undefined,
     }),
   );

@@ -74,6 +74,8 @@ export function getDefaultContent(sectionType: string): Record<string, any> {
 export function getDefaultSettings(sectionType: string): Record<string, any> {
   if (sectionType !== 'order_discovery') return {};
   return {
+    placement_mode: 'inside_group',
+    placement_edge: 'after',
     insert_after_items: 6,
     image_position: 'left',
     card_height: 'regular',

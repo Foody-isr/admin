@@ -224,6 +224,7 @@ export function Inspector({
           restaurantId={restaurantId}
           section={section}
           tab={tab}
+          placementGroups={orderPlacementGroups(page, menus)}
           onChange={(path, value) =>
             onSectionChange(stableSectionKey(section), path, value)
           }
@@ -266,6 +267,38 @@ export function Inspector({
 
 function stablePageKey(page: DraftPagePayload): string {
   return page.id !== undefined ? String(page.id) : page.tmp_id ?? "";
+}
+
+function orderPlacementGroups(
+  page: DraftPagePayload | null,
+  menus: Menu[],
+): Array<{ id: string; name: string }> {
+  if (page?.type !== "order") return [];
+  const configuredMenuIds = Array.isArray(page.settings?.menu_ids)
+    ? new Set(
+        page.settings.menu_ids
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id)),
+      )
+    : new Set<number>();
+  const selectedMenus = menus
+    .filter(
+      (menu) =>
+        menu.web_enabled &&
+        (configuredMenuIds.size === 0 || configuredMenuIds.has(menu.id)),
+    )
+    .sort((left, right) => left.sort_order - right.sort_order);
+  const showMenuName = selectedMenus.length > 1;
+
+  return selectedMenus.flatMap((menu) =>
+    (menu.groups ?? menu.categories ?? [])
+      .filter((group) => group.web_enabled && !group.is_hidden)
+      .sort((left, right) => left.sort_order - right.sort_order)
+      .map((group) => ({
+        id: String(group.id),
+        name: showMenuName ? `${group.name} — ${menu.name}` : group.name,
+      })),
+  );
 }
 
 function stableSectionKey(section: DraftSectionPayload): string {

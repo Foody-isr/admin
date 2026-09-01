@@ -429,6 +429,9 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.section_bg_color": "#fff7ed",
   "section.settings.show_dividers": false,
   "section.settings.divider_color": "#fed7aa",
+  "section.settings.placement_mode": "between_groups",
+  "section.settings.placement_group_id": "42",
+  "section.settings.placement_edge": "before",
   "section.settings.insert_after_items": 9,
   "section.settings.bg_image": "http://localhost:3000/logo-icon.svg",
   "section.settings.bg_overlay": true,
@@ -563,8 +566,14 @@ function editorFor(
     id === "section.settings.section_bg_color" ||
     id === "section.settings.show_dividers" ||
     id === "section.settings.divider_color" ||
+    id.startsWith("section.settings.placement_") ||
     id === "section.settings.insert_after_items";
-  const appearance = id === "section.layout" || id.startsWith("section.settings.");
+  const discoveryPlacement =
+    id.startsWith("section.settings.placement_") ||
+    id === "section.settings.insert_after_items";
+  const appearance =
+    id === "section.layout" ||
+    (id.startsWith("section.settings.") && !discoveryPlacement);
   return {
     kind: action,
     scope,
@@ -983,6 +992,9 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   orderSection("section.settings.section_bg_color", ["settings", "section_bg_color"], "order_discovery", "color"),
   orderSection("section.settings.show_dividers", ["settings", "show_dividers"], "order_discovery", "visible"),
   orderSection("section.settings.divider_color", ["settings", "divider_color"], "order_discovery", "color"),
+  orderSection("section.settings.placement_mode", ["settings", "placement_mode"], "order_discovery", "value"),
+  orderSection("section.settings.placement_group_id", ["settings", "placement_group_id"], "order_discovery", "value"),
+  orderSection("section.settings.placement_edge", ["settings", "placement_edge"], "order_discovery", "value"),
   orderSection("section.settings.insert_after_items", ["settings", "insert_after_items"], "order_discovery", "value"),
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
