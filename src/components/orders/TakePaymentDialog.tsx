@@ -25,12 +25,17 @@ interface TakePaymentDialogProps {
   discountAmount?: number;
   /** Human-readable label suffix, e.g. the discount code. */
   discountLabel?: string;
+  /** False when the restaurant is online-payment-only: cash is not offered at
+   *  all, rather than offered and rejected. See `online_payment_only` in
+   *  RestaurantSettings for why one cash order is not a small matter. */
+  allowCash?: boolean;
 }
 
 type Stage = 'method' | 'cash_input' | 'cash_change' | 'card_input';
 
 export function TakePaymentDialog({
   open, onOpenChange, totalAmount, onConfirm, discountAmount, discountLabel,
+  allowCash = true,
 }: TakePaymentDialogProps) {
   const { t } = useI18n();
   const [stage, setStage] = useState<Stage>('method');
@@ -140,6 +145,7 @@ export function TakePaymentDialog({
               submitting={submitting}
               onCash={handleSelectCash}
               onCard={handleSelectCard}
+              allowCash={allowCash}
               onCancel={close}
               discountAmount={discountAmount}
               discountLabel={discountLabel}
@@ -196,7 +202,7 @@ export function TakePaymentDialog({
 // ─── Stage 1: Method picker ────────────────────────────────────────────
 
 function MethodStage({
-  total, submitting, onCash, onCard, onCancel, discountAmount, discountLabel,
+  total, submitting, onCash, onCard, onCancel, discountAmount, discountLabel, allowCash,
 }: {
   total: number;
   submitting: boolean;
@@ -205,6 +211,7 @@ function MethodStage({
   onCancel: () => void;
   discountAmount?: number;
   discountLabel?: string;
+  allowCash: boolean;
 }) {
   const { money } = useCurrency();
   const { t } = useI18n();
@@ -260,14 +267,16 @@ function MethodStage({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-[var(--s-3)]">
-        <MethodTile
-          icon={<BanknoteIcon className="w-7 h-7" />}
-          label={t('cash')}
-          onClick={onCash}
-          disabled={submitting}
-          tone="success"
-        />
+      <div className={`grid gap-[var(--s-3)] ${allowCash ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {allowCash && (
+          <MethodTile
+            icon={<BanknoteIcon className="w-7 h-7" />}
+            label={t('cash')}
+            onClick={onCash}
+            disabled={submitting}
+            tone="success"
+          />
+        )}
         <MethodTile
           icon={<CreditCardIcon className="w-7 h-7" />}
           label={t('creditCard')}

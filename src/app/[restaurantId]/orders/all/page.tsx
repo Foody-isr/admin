@@ -202,11 +202,17 @@ export default function OrdersPage() {
   // disponibilité, surfaced here so staff can pause mid-service without leaving
   // the order board.
   const [paused, setPaused] = useState(false);
+  // Cash is not offered at all on an online-payment-only restaurant, in the
+  // staff dialogs as much as on the guest checkout.
+  const [allowCash, setAllowCash] = useState(true);
   const [pauseSaving, setPauseSaving] = useState(false);
   useEffect(() => {
     if (!rid) return;
     getRestaurantSettings(rid)
-      .then((s) => setPaused(s.orders_paused ?? false))
+      .then((s) => {
+        setPaused(s.orders_paused ?? false);
+        setAllowCash(!(s.online_payment_only ?? false));
+      })
       .catch(() => {});
   }, [rid]);
 
@@ -905,6 +911,7 @@ export default function OrdersPage() {
 
       {/* Take Payment dialog */}
       <TakePaymentDialog
+        allowCash={allowCash}
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
         totalAmount={selectedOrder?.total_amount ?? 0}
@@ -951,6 +958,7 @@ export default function OrdersPage() {
         const target = orders.find((o) => o.id === paymentMethodOrderId);
         return (
           <CorrectPaymentMethodDialog
+            allowCash={allowCash}
             open={paymentMethodOrderId !== null}
             currentMethod={target ? settledPaymentMethod(target) : undefined}
             currentReference={target ? paymentReference(target) : undefined}

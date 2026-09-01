@@ -20,6 +20,10 @@ interface CorrectPaymentMethodDialogProps {
     reference: string,
     note: string,
   ) => Promise<void> | void;
+  /** False when the restaurant is online-payment-only: cash is not offered at
+   *  all, rather than offered and rejected. See `online_payment_only` in
+   *  RestaurantSettings for why one cash order is not a small matter. */
+  allowCash?: boolean;
 }
 
 const OPTIONS: { method: ManualPaymentMethod; labelKey: string; Icon: typeof BanknoteIcon }[] = [
@@ -44,8 +48,10 @@ export function CorrectPaymentMethodDialog({
   currentMethod,
   currentReference,
   onConfirm,
+  allowCash = true,
 }: CorrectPaymentMethodDialogProps) {
   const { t } = useI18n();
+  const options = allowCash ? OPTIONS : OPTIONS.filter((o) => o.method !== 'cash');
   const [method, setMethod] = useState<ManualPaymentMethod | null>(null);
   const [reference, setReference] = useState('');
   const [note, setNote] = useState('');
@@ -110,7 +116,7 @@ export function CorrectPaymentMethodDialog({
             </div>
 
             <div className="flex flex-col gap-[var(--s-2)]">
-              {OPTIONS.map((opt) => {
+              {options.map((opt) => {
                 const selected = method === opt.method;
                 const isCurrent = currentMethod === opt.method;
                 return (

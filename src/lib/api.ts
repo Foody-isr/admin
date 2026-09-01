@@ -173,6 +173,21 @@ export interface RestaurantSettings {
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
+  /**
+   * Refuse every payment that does not go through a payment provider — no
+   * cash, no cheque, no staff-recorded settlement.
+   *
+   * This exists for restaurants that rely on the French administrative
+   * tolerance exempting distance sellers from the secured cash-register
+   * obligation: it holds only while every payment is intermediated by a bank
+   * (card or transfer). One cash order voids it for the whole business, so
+   * the restriction has to live in configuration rather than in a habit.
+   *
+   * The guest app and this admin both honour it, but neither is the guard
+   * that matters: the server must reject a non-provider settlement for such
+   * a restaurant, since a client can always be bypassed.
+   */
+  online_payment_only?: boolean;
   // Stock management
   // Auto-deactivate a menu item when its linked ingredients reach 0.
   auto_disable_soldout?: boolean;
