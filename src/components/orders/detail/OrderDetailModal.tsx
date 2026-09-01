@@ -9,7 +9,8 @@
 //
 //   ribbon  — where is this order in its life
 //   ticket  — what was ordered
-//   context — money, who ordered, where it goes, and consulted records in tabs
+//   context — money, who ordered, and where it goes
+//   references — activity in the head menu, notes docked below the ticket
 //
 // Purely presentational, exactly as before: every mutation is delegated to the
 // on* callback props the host supplies.
@@ -43,7 +44,11 @@ import { CustomerPanel } from './context/CustomerPanel';
 import { DeliveryPanel } from './context/DeliveryPanel';
 import { MoneyPanel } from './context/MoneyPanel';
 import { countOrderInvoices } from './context/InvoicePanel';
-import { OrderReferenceTabs } from './context/OrderReferenceTabs';
+import {
+  OrderNotesDock,
+  OrderReferenceDrawer,
+  type OrderReferenceView,
+} from './context/OrderReferences';
 
 export interface OrderDetailModalProps {
   order: Order | null;
@@ -101,15 +106,16 @@ export function OrderDetailModal({
   // WhatsApp order-confirmation recap ("Envoyer au client → Confirmation").
   const [recapOpen, setRecapOpen] = useState(false);
   const [deliveryReminderOpen, setDeliveryReminderOpen] = useState(false);
+  const [referenceView, setReferenceView] = useState<OrderReferenceView | null>(null);
   const workflows = useOrderWorkflows(order?.restaurant_id);
   useEffect(() => {
     setRecapOpen(false);
     setDeliveryReminderOpen(false);
+    setReferenceView(null);
   }, [order?.id]);
 
-  // Both reference fetches live above their tabs. Their counts and warning
-  // marks remain visible even while another tab is active, and changing tabs
-  // never starts a duplicate request.
+  // Reference fetches live above their drawers so the closed menu and dock can
+  // show counts and warnings without mounting the full content.
   const audit = useOrderAudit(order?.restaurant_id, order?.id);
   const notes = useOrderNotes(order?.restaurant_id, order?.id);
 
@@ -257,8 +263,14 @@ export function OrderDetailModal({
             displayedLineCount={displayedLineCount}
             totalUnits={totalUnits}
             total={totalsLine}
-            actions={canManage && caps.hasOverflow ? (
+            actions={(
               <OrderOverflowMenu
+                activityCount={activityEvents.length}
+                activityPending={audit.status === 'loading'}
+                activityFailed={audit.status === 'error'}
+                onViewActivity={() => setReferenceView('activity')}
+                invoiceCount={invoiceCount}
+                onViewInvoice={invoiceCount > 0 ? () => setReferenceView('invoice') : undefined}
                 canCorrect={caps.canCorrectStatus && !!onOverride}
                 canCorrectPayment={caps.canCorrectPayment && !!onCorrectPayment}
                 canCorrectPaymentMethod={caps.canCorrectPaymentMethod && !!onCorrectPaymentMethod}
@@ -275,7 +287,7 @@ export function OrderDetailModal({
                 onDelete={onDelete}
                 disabled={isLoading}
               />
-            ) : undefined}
+            )}
           />
         }
         ribbon={<WorkflowStepper order={order} t={t} />}
@@ -311,8 +323,8 @@ export function OrderDetailModal({
           </>
         }
         context={
-          <div className="flex flex-col gap-[var(--s-3)]">
-            <div className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-2)] shadow-1">
+          <div className="order-detail-context-stack flex flex-col gap-[var(--s-3)]">
+            <div className="order-detail-service overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-2)] shadow-1">
               <CustomerPanel
                 order={order}
                 canManage={canManage}
@@ -331,17 +343,14 @@ export function OrderDetailModal({
               totalsLine={totalsLine}
               t={t}
             />
-            <OrderReferenceTabs
-              key={order.id}
-              order={order}
-              activityEvents={activityEvents}
-              audit={audit}
-              invoiceCount={invoiceCount}
-              notes={notes}
-              t={t}
-              direction={direction}
-            />
           </div>
+        }
+        notesDock={
+          <OrderNotesDock
+            notes={notes}
+            onOpen={() => setReferenceView('notes')}
+            t={t}
+          />
         }
         footer={
           <CommandBar
@@ -359,6 +368,17 @@ export function OrderDetailModal({
             onPrimary={(action) => { void handlePrimary(action); }}
           />
         }
+      />
+
+      <OrderReferenceDrawer
+        view={referenceView}
+        onOpenChange={(open) => { if (!open) setReferenceView(null); }}
+        order={order}
+        activityEvents={activityEvents}
+        audit={audit}
+        notes={notes}
+        t={t}
+        direction={direction}
       />
 
       <WhatsAppRecapDialog

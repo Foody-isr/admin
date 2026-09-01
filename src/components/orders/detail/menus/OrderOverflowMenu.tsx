@@ -1,19 +1,15 @@
 'use client';
 
-// Rare and destructive actions: the after-the-fact corrections, the production
-// override, cancel and delete. Deliberately behind an overflow rather than on
-// the command bar — none of them is a step in an order's normal life.
+// Record references plus rare and destructive actions. Activity and invoices
+// live here so they never add height to the fixed order workspace.
 //
 // Rebuilt on ds/Menu, same reasons as the other two. Radix gives the danger
 // group a real separator and roving keyboard focus.
 //
-// The caller renders this only when capabilities.hasOverflow is true, so the
-// button never opens an empty menu on the production page, whose reduced prop
-// set supplies none of these handlers.
-
 import {
   MoreHorizontalIcon, RotateCcwIcon, BanknoteIcon, CreditCardIcon,
-  ClipboardListIcon, XIcon, Trash2Icon,
+  ClipboardListIcon, XIcon, Trash2Icon, HistoryIcon, FileTextIcon,
+  AlertTriangleIcon,
 } from 'lucide-react';
 import {
   Button,
@@ -27,10 +23,18 @@ import {
 import { useI18n } from '@/lib/i18n';
 
 export function OrderOverflowMenu({
+  activityCount, activityPending, activityFailed, onViewActivity,
+  invoiceCount, onViewInvoice,
   canCorrect, canCorrectPayment, canCorrectPaymentMethod, canForceProduction, forceProductionActive,
   forceProductionRevives, canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
   onToggleForceProduction, onCancel, onDelete, disabled,
 }: {
+  activityCount?: number;
+  activityPending?: boolean;
+  activityFailed?: boolean;
+  onViewActivity?: () => void;
+  invoiceCount?: number;
+  onViewInvoice?: () => void;
   canCorrect?: boolean;
   canCorrectPayment?: boolean;
   canCorrectPaymentMethod?: boolean;
@@ -56,6 +60,8 @@ export function OrderOverflowMenu({
     (canCorrectPaymentMethod && !!onCorrectPaymentMethod);
   const hasProduction = canForceProduction && !!onToggleForceProduction;
   const hasDanger = canCancel || (canDelete && !!onDelete);
+  const hasReferences = !!onViewActivity || (!!invoiceCount && !!onViewInvoice);
+  const hasActions = hasManagement || hasProduction || hasDanger;
 
   return (
     <Menu>
@@ -73,6 +79,30 @@ export function OrderOverflowMenu({
         </Button>
       </MenuTrigger>
       <MenuContent side="bottom" align="end" className="order-detail-menu">
+        {hasReferences && <MenuLabel>{t('details')}</MenuLabel>}
+        {onViewActivity && (
+          <MenuItem onSelect={onViewActivity}>
+            <HistoryIcon />
+            <span className="flex-1">{t('activity') || 'Activité'}</span>
+            {activityCount != null && (
+              <span className="tabular-nums text-fs-xs text-[var(--fg-subtle)]">
+                {activityCount}{activityPending ? '…' : ''}
+              </span>
+            )}
+            {activityFailed && (
+              <AlertTriangleIcon aria-label={t('activityLoadError')} className="text-[var(--warning-500)]" />
+            )}
+          </MenuItem>
+        )}
+        {!!invoiceCount && onViewInvoice && (
+          <MenuItem onSelect={onViewInvoice}>
+            <FileTextIcon />
+            <span className="flex-1">{t('invoiceHeading') || 'Facture'}</span>
+            <span className="tabular-nums text-fs-xs text-[var(--fg-subtle)]">{invoiceCount}</span>
+          </MenuItem>
+        )}
+
+        {hasReferences && hasActions && <MenuSeparator />}
         {hasManagement && <MenuLabel>{t('manage')}</MenuLabel>}
         {canCorrect && onCorrect && (
           <MenuItem onSelect={onCorrect}>

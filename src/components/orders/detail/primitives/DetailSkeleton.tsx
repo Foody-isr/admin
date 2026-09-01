@@ -3,6 +3,7 @@
 import { Skeleton } from '@/components/ds';
 import {
   DETAIL_BODY_GRID,
+  DETAIL_TICKET_COLUMN,
   DETAIL_MAIN_TRACK,
   DETAIL_CONTEXT_TRACK,
   DETAIL_RIBBON_BAND,
@@ -50,6 +51,7 @@ export function DetailSkeleton() {
 
       <div className={`${DETAIL_BODY_GRID} overflow-hidden`}>
       {/* Centre — the ticket's own grid, so the money lane is already in place */}
+      <div className={DETAIL_TICKET_COLUMN}>
       <main className={DETAIL_MAIN_TRACK}>
         {/* One row, exactly HairlineRule's: label, rule, summary. The ticket
             used to open with a separate eyebrow line above this; the skeleton
@@ -70,6 +72,7 @@ export function DetailSkeleton() {
           </div>
         ))}
       </main>
+      </div>
 
       {/* Context */}
       <aside className={DETAIL_CONTEXT_TRACK}>
