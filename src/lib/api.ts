@@ -7662,13 +7662,24 @@ export type CsvImportCategoryInput = {
   items: string[];
 };
 
+export type CsvImportLibraryItemInput = {
+  name: string;
+  price?: number;
+  image_url?: string;
+};
+
+export type CsvImportLibraryCategoryInput = {
+  name: string;
+  items: CsvImportLibraryItemInput[];
+};
+
 export type CsvImportStockInput = {
   default_unit?: StockUnit;
   categories: CsvImportCategoryInput[];
 };
 
 export type CsvImportLibraryInput = {
-  categories: CsvImportCategoryInput[];
+  categories: CsvImportLibraryCategoryInput[];
 };
 
 export type CsvImportSkipped = {
@@ -7692,6 +7703,15 @@ export type CsvImportLibraryCreated = {
   id: number;
   name: string;
   category_id: number;
+  price: number;
+  image_url?: string;
+};
+
+export type CsvImportImageFailure = {
+  item_id: number;
+  name: string;
+  source_url: string;
+  reason: string;
 };
 
 export type CsvImportLibraryCategory = {
@@ -7703,6 +7723,7 @@ export type CsvImportLibraryResult = {
   created: CsvImportLibraryCreated[];
   skipped: CsvImportSkipped[];
   categories_created: CsvImportLibraryCategory[];
+  image_failures: CsvImportImageFailure[];
 };
 
 export async function importStockCsv(
