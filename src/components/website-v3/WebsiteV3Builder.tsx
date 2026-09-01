@@ -78,10 +78,9 @@ import { PageRail, type RailSelection } from "./PageRail";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { BranchWebsitePresence } from "./BranchWebsitePresence";
 import { websiteManagementMode } from "@/lib/website-v3/chain-mode";
+import { resolveWebsiteV3PreviewOrigin } from "@/lib/website-v3/preview-origin";
 import { useI18n } from "@/lib/i18n";
 
-const WEB_ORIGIN =
-  process.env.NEXT_PUBLIC_WEB_URL || "https://app.foody-pos.co.il";
 const EMPTY_CATALOG: ThemeCatalog = { themes: [], typography_pairings: [] };
 
 const PREVIEW_DEVICE_LABELS: Record<PreviewDevice, string> = {
@@ -925,8 +924,12 @@ function DesktopWebsiteV3Builder({
     );
   }
 
+  const webOrigin = resolveWebsiteV3PreviewOrigin(
+    process.env.NEXT_PUBLIC_WEB_URL,
+    typeof window === "undefined" ? undefined : window.location.origin,
+  );
   const publicUrl = publicURLForPage({
-    webOrigin: WEB_ORIGIN,
+    webOrigin,
     restaurantSlug: loaded.restaurant.slug || String(restaurantId),
     page: activePage,
   });
@@ -1039,7 +1042,7 @@ function DesktopWebsiteV3Builder({
         }
         preview={
           <PreviewCanvas
-            webOrigin={WEB_ORIGIN}
+            webOrigin={webOrigin}
             restaurantSlug={loaded.restaurant.slug}
             restaurantId={restaurantId}
             state={withWebsiteV3PreviewNavigationState(
