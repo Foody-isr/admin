@@ -537,6 +537,12 @@ function FeatureCardsEditor({
             onRemove={() => updateCard(index, "image_url", "")}
           />
           <TextField
+            label="Accroche (desktop)"
+            value={text(card.eyebrow)}
+            onChange={(value) => updateCard(index, "eyebrow", value)}
+            placeholder="Pour vos événements"
+          />
+          <TextField
             label="Titre"
             value={text(card.title)}
             onChange={(value) => updateCard(index, "title", value)}
@@ -559,7 +565,13 @@ function FeatureCardsEditor({
         onClick={() =>
           onChange([
             ...cards,
-            { image_url: "", title: "", subtitle: "", link: "" },
+            {
+              image_url: "",
+              eyebrow: "",
+              title: "",
+              subtitle: "",
+              link: "",
+            },
           ])
         }
         className="w-full rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-sm font-semibold text-slate-600 hover:border-[#315fce] hover:text-[#315fce]"

@@ -87,6 +87,7 @@ test("feature cards content exposes every card field and add action", () => {
       cards: [
         {
           image_url: "https://cdn.example.com/card.jpg",
+          eyebrow: "Pour vos événements",
           title: "Nos plateaux",
           subtitle: "Pour vos événements",
           link: "/catering",
@@ -100,6 +101,8 @@ test("feature cards content exposes every card field and add action", () => {
   assert.match(markup, /section\.content\.show_order_title/);
   assert.match(markup, /Afficher le titre/);
   assert.match(markup, /Carte 1/);
+  assert.match(markup, /Accroche \(desktop\)/);
+  assert.match(markup, /Pour vos événements/);
   assert.match(markup, /Nos plateaux/);
   assert.match(markup, /Pour vos événements/);
   assert.match(markup, /\/catering/);
