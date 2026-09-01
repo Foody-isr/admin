@@ -64,7 +64,7 @@ export default function CsvImportModal({
     let willSkip = 0;
     for (const cat of parsed.categories) {
       for (const item of cat.items) {
-        const key = rowKey(cat.name, item);
+        const key = rowKey(cat.name, item.name);
         const checked = selection.get(key) ?? !existingItemKeys.has(key);
         if (!checked) {
           if (existingItemKeys.has(key)) willSkip++;
@@ -98,7 +98,7 @@ export default function CsvImportModal({
       const initial: SelectionMap = new Map();
       for (const cat of result.categories) {
         for (const item of cat.items) {
-          const key = rowKey(cat.name, item);
+          const key = rowKey(cat.name, item.name);
           initial.set(key, !existingItemKeys.has(key));
         }
       }
@@ -122,7 +122,7 @@ export default function CsvImportModal({
       const filtered = parsed.categories
         .map((c) => ({
           name: c.name,
-          items: c.items.filter((it) => selection.get(rowKey(c.name, it))),
+          items: c.items.filter((it) => selection.get(rowKey(c.name, it.name))),
         }))
         .filter((c) => c.items.length > 0);
 
@@ -136,10 +136,18 @@ export default function CsvImportModal({
       if (mode === 'stock') {
         result = await importStockCsv(restaurantId, {
           default_unit: defaultUnit,
-          categories: filtered,
+          categories: filtered.map((category) => ({
+            name: category.name,
+            items: category.items.map((item) => item.name),
+          })),
         });
       } else {
         result = await importMenuItemsCsv(restaurantId, { categories: filtered });
+      }
+      if (mode === 'library' && 'image_failures' in result && result.image_failures.length > 0) {
+        window.alert(
+          t('csvImportImageFailures').replace('{n}', String(result.image_failures.length)),
+        );
       }
       onImported(result);
       onClose();
@@ -184,7 +192,9 @@ export default function CsvImportModal({
         <div className="p-6 overflow-y-auto">
           {step === 'input' && (
             <div className="space-y-5">
-              <p className="text-sm text-fg-secondary">{t('csvImportStep1')}</p>
+              <p className="text-sm text-fg-secondary">
+                {t(mode === 'stock' ? 'csvImportStockStep1' : 'csvImportStep1')}
+              </p>
 
               <div
                 className="rounded-card p-6 flex flex-col items-center gap-3"
@@ -219,7 +229,9 @@ export default function CsvImportModal({
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="LEGUMES,POISSON,Fromage..."
+                  placeholder={mode === 'library'
+                    ? 'category,name,price,image_url\nDesserts,Tarte,32,https://…'
+                    : 'LEGUMES,POISSON,Fromage...'}
                   rows={8}
                   className="w-full rounded-md border px-3 py-2 text-sm font-mono"
                   style={{
@@ -319,7 +331,7 @@ export default function CsvImportModal({
                       </div>
                       <ul className="divide-y" style={{ borderColor: 'var(--divider)' }}>
                         {cat.items.map((item) => {
-                          const key = rowKey(cat.name, item);
+                          const key = rowKey(cat.name, item.name);
                           const checked = selection.get(key) ?? false;
                           const isDup = existingItemKeys.has(key);
                           return (
@@ -332,10 +344,23 @@ export default function CsvImportModal({
                               <input
                                 type="checkbox"
                                 checked={checked}
-                                onChange={() => toggle(cat.name, item)}
+                                onChange={() => toggle(cat.name, item.name)}
                                 disabled={step === 'submitting'}
                               />
-                              <span className={isDup ? 'line-through' : ''}>{item}</span>
+                              {item.image_url && (
+                                // The source host is arbitrary CSV input, so next/image
+                                // cannot safely predeclare it in remotePatterns.
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={item.image_url}
+                                  alt=""
+                                  className="h-9 w-9 rounded object-cover"
+                                />
+                              )}
+                              <span className={isDup ? 'line-through' : ''}>{item.name}</span>
+                              {item.price !== undefined && (
+                                <span className="text-xs text-fg-secondary">{item.price}</span>
+                              )}
                               {isDup && (
                                 <span className="ml-auto text-xs text-amber-700">
                                   {t('csvImportDuplicate')}
