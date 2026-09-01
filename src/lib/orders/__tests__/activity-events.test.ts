@@ -92,6 +92,27 @@ test("the reason note is appended to a recorded change", () => {
   assert.ok(labels(events).includes("activitySerieMoved (client absent)"));
 });
 
+test("manual status and payment corrections stored on the order become rows", () => {
+  const events = buildActivityEvents(
+    makeOrder({
+      external_metadata: {
+        status_overrides: [{
+          from: "accepted", to: "in_kitchen", note: "kitchen confirmed",
+          role: "manager", at: "2026-08-14T09:20:00Z",
+        }],
+        payment_status_overrides: [{
+          from: "unpaid", to: "paid", role: "owner", at: "2026-08-14T09:25:00Z",
+        }],
+      },
+    } as Partial<Order>),
+    [],
+    echoT,
+  );
+
+  assert.ok(labels(events).includes("activityStatusCorrected (kitchen confirmed)"));
+  assert.ok(labels(events).includes("activityPaymentCorrected"));
+});
+
 // ─── The loading transient ───────────────────────────────────────────────────
 
 test("undefined and [] audit events give the same trail, and it is never empty", () => {

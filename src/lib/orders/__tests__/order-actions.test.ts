@@ -220,6 +220,18 @@ test("delete needs both the owner permission and the handler", () => {
   assert.equal(deriveOrderCapabilities(order, OWNER, { ...ALL_HANDLERS, onDelete: false }).canDelete, false);
 });
 
+test("dead orders can be restored by forcing them onto the production plan", () => {
+  for (const status of ["rejected", "cancelled", "refunded"]) {
+    const caps = deriveOrderCapabilities(
+      makeOrder({ status }),
+      { canManage: true },
+      { onToggleForceProduction: true },
+    );
+    assert.equal(caps.canForceProduction, true, `${status}: restore action missing`);
+    assert.equal(caps.hasOverflow, true, `${status}: restore menu missing`);
+  }
+});
+
 // ─── The production page's reduced prop set ──────────────────────────────────
 
 test("the production page never gets an overflow button, for any status", () => {

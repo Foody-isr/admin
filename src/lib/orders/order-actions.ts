@@ -136,10 +136,10 @@ export function deriveOrderCapabilities(
   const canCorrectPaymentMethod =
     !!perms.canOverride && !isCancelled && !providerSettled && order.payment_status === 'paid';
 
-  // Any manager can pin an order onto the production sheet. Hidden on dead
-  // orders since the sheet excludes them regardless. Reversible.
+  // Any manager can pin an order onto the production sheet, including a dead
+  // order. The server restores a dead order when it is pinned.
   const canForceProduction =
-    perms.canManage && !isCancelled && !!handlers.onToggleForceProduction;
+    perms.canManage && !!handlers.onToggleForceProduction;
 
   const canDelete = !!perms.canDelete && !!handlers.onDelete;
 

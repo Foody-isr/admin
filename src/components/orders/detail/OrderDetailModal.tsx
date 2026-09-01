@@ -213,6 +213,8 @@ export function OrderDetailModal({
   // how many rows are inside. `audit.events` is NOT that number — the builder
   // recognises exactly two audit actions and drops the rest.
   const activityEvents = buildActivityEvents(order, audit.events, t);
+  const forceProductionRevives =
+    ['rejected', 'cancelled', 'refunded'].includes(order.status) && !order.force_production;
 
   // Decided once for both panels. A hand-rolled "Code immeuble" is a fact
   // about the address, not about the customer, and used to render four rows
@@ -241,6 +243,7 @@ export function OrderDetailModal({
                 canCorrectPaymentMethod={caps.canCorrectPaymentMethod && !!onCorrectPaymentMethod}
                 canForceProduction={caps.canForceProduction}
                 forceProductionActive={!!order.force_production}
+                forceProductionRevives={forceProductionRevives}
                 canCancel={caps.canCancelOrder}
                 canDelete={caps.canDelete}
                 onCorrect={onOverride}

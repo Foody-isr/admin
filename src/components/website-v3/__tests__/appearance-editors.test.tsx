@@ -241,6 +241,29 @@ test("category navigation editor exposes responsive layouts and logical sides", 
   assert.doesNotMatch(horizontalMarkup, /<option value="start"/);
 });
 
+test("category navigation editor exposes responsive layouts and logical sides", () => {
+  const automaticMarkup = render(
+    React.createElement(CategoryNavigationEditor, {
+      value: { mode: "auto", side: "start" },
+      onChange: () => undefined,
+    }),
+  );
+
+  assert.match(automaticMarkup, /<option value="auto" selected="">/);
+  assert.match(automaticMarkup, /<option value="horizontal">/);
+  assert.match(automaticMarkup, /<option value="sidebar">/);
+  assert.match(automaticMarkup, /<option value="start" selected="">/);
+  assert.match(automaticMarkup, /<option value="end">/);
+
+  const horizontalMarkup = render(
+    React.createElement(CategoryNavigationEditor, {
+      value: { mode: "horizontal", side: "end" },
+      onChange: () => undefined,
+    }),
+  );
+  assert.doesNotMatch(horizontalMarkup, /<option value="start"/);
+});
+
 test("menu highlights editor exposes section and card palette fields", () => {
   const markup = render(
     React.createElement(MenuHighlightsAppearanceEditor, {

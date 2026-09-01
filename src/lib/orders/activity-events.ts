@@ -41,6 +41,50 @@ type DiscountAuditEntry = {
   at: string;
 };
 
+// Manual status/payment corrections written to external_metadata by the
+// server. Both server-side entry types share this shape.
+type OverrideEntry = {
+  from: string;
+  to: string;
+  note?: string;
+  user_id?: number;
+  role?: string;
+  at: string;
+};
+
+const PAYMENT_STATUS_KEY: Record<string, string> = {
+  paid: 'paid',
+  pending: 'pending',
+  unpaid: 'unpaid',
+  refunded: 'refunded',
+};
+
+function localizeStatus(status: string, t: (k: string) => string): string {
+  const value = t(status);
+  return value === status ? status.replace(/_/g, ' ') : value;
+}
+
+function localizePaymentStatus(status: string, t: (k: string) => string): string {
+  const key = PAYMENT_STATUS_KEY[status];
+  if (!key) return status.replace(/_/g, ' ');
+  const value = t(key);
+  return value === key ? status.replace(/_/g, ' ') : value;
+}
+
+function overrideActor(entry: OverrideEntry, t: (k: string) => string): string {
+  if (entry.role) {
+    const key = `roleName_${entry.role}`;
+    const label = t(key);
+    return label === key ? entry.role : label;
+  }
+  return t('activityAuditUnknownActor') || 'staff';
+}
+
+function readOverrides(order: Order, key: string): OverrideEntry[] {
+  const raw = (order.external_metadata ?? {})[key];
+  return Array.isArray(raw) ? (raw as OverrideEntry[]) : [];
+}
+
 // Builds the "Discount applied · …" label from whichever detail is available:
 // a coupon code, a percentage/fixed value, or the resolved ₪ amount, plus the
 // staff reason when present.
@@ -114,6 +158,22 @@ export function buildActivityEvents(
       label: `${t('scheduledForLabel') || 'Scheduled for'} ${formatScheduledFor(order.scheduled_for)}`,
       future: true,
     });
+  }
+
+  for (const entry of readOverrides(order, 'status_overrides')) {
+    const base = (t('activityStatusCorrected') || 'Status corrected from {from} to {to} by {who}')
+      .replace('{from}', localizeStatus(entry.from, t))
+      .replace('{to}', localizeStatus(entry.to, t))
+      .replace('{who}', overrideActor(entry, t));
+    events.push({ at: entry.at, label: entry.note ? `${base} (${entry.note})` : base });
+  }
+
+  for (const entry of readOverrides(order, 'payment_status_overrides')) {
+    const base = (t('activityPaymentCorrected') || 'Payment corrected from {from} to {to} by {who}')
+      .replace('{from}', localizePaymentStatus(entry.from, t))
+      .replace('{to}', localizePaymentStatus(entry.to, t))
+      .replace('{who}', overrideActor(entry, t));
+    events.push({ at: entry.at, label: entry.note ? `${base} (${entry.note})` : base });
   }
 
   // Recorded staff changes. The label names the person, the move and the reason:

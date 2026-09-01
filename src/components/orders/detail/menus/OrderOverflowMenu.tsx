@@ -28,7 +28,7 @@ import { useI18n } from '@/lib/i18n';
 
 export function OrderOverflowMenu({
   canCorrect, canCorrectPayment, canCorrectPaymentMethod, canForceProduction, forceProductionActive,
-  canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
+  forceProductionRevives, canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
   onToggleForceProduction, onCancel, onDelete, disabled,
 }: {
   canCorrect?: boolean;
@@ -36,6 +36,8 @@ export function OrderOverflowMenu({
   canCorrectPaymentMethod?: boolean;
   canForceProduction?: boolean;
   forceProductionActive?: boolean;
+  /** Pinning this dead order restores it before adding it to production. */
+  forceProductionRevives?: boolean;
   canCancel: boolean;
   canDelete: boolean;
   onCorrect?: () => void;
@@ -95,7 +97,9 @@ export function OrderOverflowMenu({
             <ClipboardListIcon />
             {forceProductionActive
               ? t('removeFromProduction') || 'Retirer du plan de production'
-              : t('addToProduction') || 'Ajouter au plan de production'}
+              : forceProductionRevives
+                ? t('restoreAndAddToProduction') || 'Réactiver et ajouter au plan de production'
+                : t('addToProduction') || 'Ajouter au plan de production'}
           </MenuItem>
         )}
 
