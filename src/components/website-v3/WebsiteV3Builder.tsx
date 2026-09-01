@@ -73,7 +73,7 @@ import { PageRail, type RailSelection } from "./PageRail";
 import { PreviewCanvas } from "./PreviewCanvas";
 
 const WEB_ORIGIN =
-  process.env.NEXT_PUBLIC_WEB_URL || "https://dev-app.foody-pos.co.il";
+  process.env.NEXT_PUBLIC_WEB_URL || "https://app.foody-pos.co.il";
 const EMPTY_CATALOG: ThemeCatalog = { themes: [], typography_pairings: [] };
 
 type LoadedBuilder = {

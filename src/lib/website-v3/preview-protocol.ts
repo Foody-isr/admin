@@ -1,9 +1,14 @@
-import type { DraftStatePayload } from "@/lib/website-v3/types";
+import type {
+  DraftPagePayload,
+  DraftStatePayload,
+} from "@/lib/website-v3/types";
 
 export const WEBSITE_V3_STATE = "foody.website-v3.state" as const;
 export const WEBSITE_V3_APPLIED = "foody.website-v3.applied" as const;
 export const WEBSITE_V3_READY = "foody.website-v3.ready" as const;
 export const WEBSITE_V3_NAVIGATE = "foody.website-v3.navigate" as const;
+export const LEGACY_WEBSITE_READY = "foody-editor-ready" as const;
+export const LEGACY_WEBSITE_STATE = "foody-draft-state" as const;
 
 export type WebsiteV3StateMessage = {
   type: typeof WEBSITE_V3_STATE;
@@ -30,6 +35,11 @@ export type WebsiteV3ReadyMessage = {
 export type WebsiteV3NavigateMessage = {
   type: typeof WEBSITE_V3_NAVIGATE;
   pageKey: string;
+};
+
+export type LegacyWebsiteStateMessage = {
+  type: typeof LEGACY_WEBSITE_STATE;
+  state: DraftStatePayload;
 };
 
 /** Injects eligibility into a preview copy, hiding Stories while it is unknown. */
@@ -109,6 +119,29 @@ export function isWebsiteV3NavigateMessage(
     data.type === WEBSITE_V3_NAVIGATE &&
     isNonEmptyString(data.pageKey)
   );
+}
+
+/** Recognizes the one-field readiness signal emitted by pre-V3 storefronts. */
+export function isLegacyWebsiteReadyMessage(data: unknown): boolean {
+  return hasExactKeys(data, ["type"]) && data.type === LEGACY_WEBSITE_READY;
+}
+
+/** Builds the draft envelope understood by the pre-V3 landing renderer. */
+export function legacyWebsiteStateMessage(
+  state: DraftStatePayload,
+): LegacyWebsiteStateMessage {
+  return { type: LEGACY_WEBSITE_STATE, state };
+}
+
+/**
+ * The legacy renderer can truthfully preview only the landing-page surface.
+ * Other page types must keep waiting for a real Website V3 acknowledgement.
+ */
+export function canAcknowledgeLegacyWebsitePreview(
+  pageType: DraftPagePayload["type"],
+  surface: "page" | "checkout" | "branches",
+): boolean {
+  return pageType === "landing" && surface === "page";
 }
 
 function isDraftStatePayload(value: unknown): value is DraftStatePayload {

@@ -10,9 +10,12 @@ import {
   Trash2,
 } from "lucide-react";
 import {
+  canAcknowledgeLegacyWebsitePreview,
+  isLegacyWebsiteReadyMessage,
   isWebsiteV3AppliedMessage,
   isWebsiteV3NavigateMessage,
   isWebsiteV3ReadyMessage,
+  legacyWebsiteStateMessage,
   WEBSITE_V3_STATE,
   type WebsiteV3StateMessage,
 } from "@/lib/website-v3/preview-protocol";
@@ -78,6 +81,7 @@ export function PreviewCanvas({
   const frameRef = useRef<HTMLIFrameElement>(null);
   const desktopPreviewContainerRef = useRef<HTMLDivElement>(null);
   const readyRef = useRef(false);
+  const protocolRef = useRef<"v3" | "legacy" | null>(null);
   const [desktopLayout, setDesktopLayout] = useState(() =>
     resolveDesktopPreviewLayout(DESKTOP_PREVIEW_WIDTH, 820),
   );
@@ -126,7 +130,28 @@ export function PreviewCanvas({
         });
         return;
       }
+      if (isLegacyWebsiteReadyMessage(event.data)) {
+        const latest = latestRef.current;
+        if (protocolRef.current === "v3") return;
+        protocolRef.current = "legacy";
+        readyRef.current = true;
+        postLegacyLatest(
+          frameRef.current?.contentWindow,
+          targetOrigin,
+          latest.state,
+        );
+        if (canAcknowledgeLegacyWebsitePreview(latest.activePage.type, surface)) {
+          onAcknowledged({
+            revision: latest.revision,
+            contentRevision: latest.contentRevision,
+            activePageKey: pageKey(latest.activePage),
+            device: latest.device,
+          });
+        }
+        return;
+      }
       if (isWebsiteV3ReadyMessage(event.data)) {
+        protocolRef.current = "v3";
         readyRef.current = true;
         postLatest(frameRef.current?.contentWindow, targetOrigin, restaurantId, latestRef.current);
         return;
@@ -149,11 +174,21 @@ export function PreviewCanvas({
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [onAcknowledged, onNavigatePage, restaurantId, targetOrigin]);
+  }, [onAcknowledged, onNavigatePage, restaurantId, surface, targetOrigin]);
 
   useEffect(() => {
     if (!readyRef.current) return;
-    if (surface === "checkout") {
+    if (protocolRef.current === "legacy") {
+      postLegacyLatest(frameRef.current?.contentWindow, targetOrigin, state);
+      if (canAcknowledgeLegacyWebsitePreview(activePage.type, surface)) {
+        onAcknowledged({
+          revision,
+          contentRevision,
+          activePageKey: pageKey(activePage),
+          device,
+        });
+      }
+    } else if (surface === "checkout") {
       postCheckoutLatest(frameRef.current?.contentWindow, targetOrigin, latestRef.current);
     } else {
       postLatest(frameRef.current?.contentWindow, targetOrigin, restaurantId, latestRef.current);
@@ -167,12 +202,14 @@ export function PreviewCanvas({
     state,
     targetOrigin,
     surface,
+    onAcknowledged,
   ]);
 
   // Stays local: readyRef tracks THIS iframe's handshake, and `source` already
   // derives from `surface`, so a surface change always invalidates it.
   useEffect(() => {
     readyRef.current = false;
+    protocolRef.current = null;
   }, [surface, source]);
 
   useEffect(() => {
@@ -422,6 +459,15 @@ function postCheckoutLatest(
     activePageKey: pageKey(latest.activePage),
     device: latest.device,
   }, targetOrigin);
+}
+
+function postLegacyLatest(
+  target: Window | null | undefined,
+  targetOrigin: string,
+  state: DraftStatePayload,
+) {
+  if (!target) return;
+  target.postMessage(legacyWebsiteStateMessage(state), targetOrigin);
 }
 
 function belongsToPage(
