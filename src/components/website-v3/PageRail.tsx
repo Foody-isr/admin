@@ -65,13 +65,13 @@ export function PageRail({
           <Sparkles className="h-4 w-4" />
         </span>
         <span>
-          <span className="block text-sm font-semibold">Identité du site</span>
+          <span className="block text-sm font-semibold">Éléments partagés</span>
           <span
             className={`mt-0.5 block text-[11px] ${
               selection.kind === "site" ? "text-slate-400" : "text-slate-500"
             }`}
           >
-            Marque, navigation, commerce
+            Logos, navigation, pied de page
           </span>
         </span>
       </button>

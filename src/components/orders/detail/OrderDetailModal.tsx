@@ -22,7 +22,10 @@ import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-
 import { statusStageKind } from '@/lib/orders/workflow-stepper';
 import { localizeOrderType } from '@/lib/orders/status-presentation';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
-import type { CheckoutConfig, Order } from '@/lib/api';
+import { WhatsAppDeliveryReminderDialog } from '@/components/orders/WhatsAppDeliveryReminderDialog';
+import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
+import { isDeliveryReminderDue } from '@/lib/orders/delivery-reminder';
+import { pickWorkflow, useOrderWorkflows } from '@/lib/orders/use-order-workflows';
 
 import { OrderDetailShell } from './OrderDetailShell';
 import { OrderDetailHead } from './OrderDetailHead';
@@ -49,7 +52,7 @@ export interface OrderDetailModalProps {
   canOverride?: boolean;
   isLoading: boolean;
   onClose: () => void;
-  onAccept: () => void;
+  onAccept: () => void | Promise<AcceptOrderResult | undefined>;
   onReject: () => void;
   onDelete?: () => void;
   onOverride?: () => void;
@@ -97,8 +100,11 @@ export function OrderDetailModal({
 
   // WhatsApp order-confirmation recap ("Envoyer au client → Confirmation").
   const [recapOpen, setRecapOpen] = useState(false);
+  const [deliveryReminderOpen, setDeliveryReminderOpen] = useState(false);
+  const workflows = useOrderWorkflows(order?.restaurant_id);
   useEffect(() => {
     setRecapOpen(false);
+    setDeliveryReminderOpen(false);
   }, [order?.id]);
 
   // Both reference fetches live above their tabs. Their counts and warning
@@ -136,6 +142,12 @@ export function OrderDetailModal({
       onDelete: !!onDelete,
     },
   );
+  const workflow = pickWorkflow(workflows, order.order_type);
+  const showDeliveryReminder =
+    !!workflow?.delivery_reminder_enabled &&
+    isDeliveryReminderDue(order) &&
+    !caps.isCancelled &&
+    !caps.isTerminal;
 
   // The head's tone follows where the order sits in the pipeline, via the same
   // status→kind mapping the stepper uses, so the dot and the rail can never
@@ -196,12 +208,21 @@ export function OrderDetailModal({
   };
 
   const PRIMARY_HANDLER: Record<PrimaryAction, () => void> = {
-    accept: onAccept,
+    accept: () => { void onAccept(); },
     sendToKitchen: onSendToKitchen,
     markReady: onMarkReady,
     markServed: onMarkServed,
     markOutForDelivery: onOutForDelivery,
     markDelivered: onMarkDelivered,
+  };
+
+  const handlePrimary = async (action: PrimaryAction) => {
+    if (action === 'accept') {
+      const result = await onAccept();
+      if (result?.follow_up.whatsapp_recap) setRecapOpen(true);
+      return;
+    }
+    PRIMARY_HANDLER[action]();
   };
 
   // Decides whether the invoice block exists at all, and labels it when it
@@ -331,10 +352,11 @@ export function OrderDetailModal({
             onEdit={onEdit}
             onPrint={handlePrint}
             onSendConfirmation={() => setRecapOpen(true)}
+            onSendDeliveryReminder={showDeliveryReminder ? () => setDeliveryReminderOpen(true) : undefined}
             onConfirmWeights={onConfirmWeights}
             onTakePayment={onTakePayment}
             onCloseOrder={onCloseOrder}
-            onPrimary={(action) => PRIMARY_HANDLER[action]()}
+            onPrimary={(action) => { void handlePrimary(action); }}
           />
         }
       />
@@ -347,6 +369,13 @@ export function OrderDetailModal({
         restaurantName={restaurantInfo.name || ''}
         restaurantDefaultLocale={restaurantDefaultLocale}
         checkoutConfig={checkoutConfig}
+      />
+      <WhatsAppDeliveryReminderDialog
+        open={deliveryReminderOpen}
+        onOpenChange={setDeliveryReminderOpen}
+        order={order}
+        restaurantName={restaurantInfo.name || ''}
+        restaurantDefaultLocale={restaurantDefaultLocale}
       />
     </>
   );

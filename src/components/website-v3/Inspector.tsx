@@ -110,7 +110,7 @@ export function Inspector({
 
   const title =
     selection.kind === "site"
-      ? "Identité du site"
+      ? "Éléments partagés"
       : section
         ? section.section_type.replace(/_/g, " ")
         : page?.title || "Page";

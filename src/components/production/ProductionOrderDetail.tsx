@@ -93,7 +93,17 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
     refetch();
   };
 
-  const handleAccept = () => order && run(() => acceptOrder(restaurantId, order.id));
+  const handleAccept = async () => {
+    if (!order) return;
+    setActionLoading(true);
+    try {
+      const result = await acceptOrder(restaurantId, order.id);
+      setOrder(result.order);
+      return result;
+    } finally {
+      setActionLoading(false);
+    }
+  };
   // Cancellation now requires a reason, collected in CancelOrderDialog.
   const handleReject = () => order && setCancelOpen(true);
   const handleCancelConfirm = (reasonCode: string, note: string) => {
