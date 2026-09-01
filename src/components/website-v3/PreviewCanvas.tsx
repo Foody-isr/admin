@@ -115,6 +115,10 @@ export function PreviewCanvas({
   const sections = state.sections
     .filter((section) => belongsToPage(section, activePage))
     .sort((a, b) => a.sort_order - b.sort_order);
+  const componentGroups = componentGroupsForPage(
+    activePage.type,
+    sections,
+  );
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -298,7 +302,7 @@ export function PreviewCanvas({
                   </p>
                 </div>
                 <div className="max-h-[430px] space-y-4 overflow-y-auto p-3">
-                  {COMPONENT_GROUPS.map((group) => (
+                  {componentGroups.map((group) => (
                     <div key={group.label}>
                       <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
                         {group.label}
@@ -356,7 +360,7 @@ export function PreviewCanvas({
                   onClick={() => onSelectSection(key)}
                   className="px-2.5 py-1.5 text-[11px] font-medium text-slate-200"
                 >
-                  {humanize(section.section_type)}
+                  {sectionTypeLabel(section.section_type)}
                 </button>
                 {active ? (
                   <span className="flex border-l border-white/10 px-1">
@@ -529,7 +533,42 @@ function humanize(value: string): string {
     .replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
-const COMPONENT_GROUPS = [
+function sectionTypeLabel(value: string): string {
+  return value === "order_discovery"
+    ? "Découverte & publicité"
+    : humanize(value);
+}
+
+type ComponentDefinition = {
+  type: string;
+  label: string;
+  description: string;
+  pageTypes?: readonly DraftPagePayload["type"][];
+  singleInstance?: boolean;
+};
+
+type ComponentGroup = {
+  label: string;
+  items: readonly ComponentDefinition[];
+};
+
+/** Filters the component library by page capability and one-per-page rules. */
+export function componentGroupsForPage(
+  pageType: DraftPagePayload["type"],
+  sections: DraftSectionPayload[],
+): ComponentGroup[] {
+  const existingTypes = new Set(sections.map((section) => section.section_type));
+  return COMPONENT_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) =>
+        (!item.pageTypes || item.pageTypes.includes(pageType)) &&
+        (!item.singleInstance || !existingTypes.has(item.type)),
+    ),
+  })).filter((group) => group.items.length > 0);
+}
+
+const COMPONENT_GROUPS: readonly ComponentGroup[] = [
   {
     label: "Mise en page",
     items: [
@@ -583,6 +622,13 @@ const COMPONENT_GROUPS = [
   {
     label: "Conversion",
     items: [
+      {
+        type: "order_discovery",
+        label: "Découverte & publicité",
+        description: "Présente vos autres services directement dans le menu.",
+        pageTypes: ["order"],
+        singleInstance: true,
+      },
       {
         type: "promo_banner",
         label: "Bannière promotionnelle",

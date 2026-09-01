@@ -26,7 +26,10 @@ import {
   type ThemeCatalog,
   type ChainOverview,
 } from "@/lib/api";
-import { getDefaultContent } from "@/components/website/SectionEditors";
+import {
+  getDefaultContent,
+  getDefaultSettings,
+} from "@/components/website/SectionEditors";
 import {
   createSerializedAutosave,
   AutosaveSuspendedError,
@@ -681,7 +684,7 @@ function DesktopWebsiteV3Builder({
       is_visible: true,
       layout: "default",
       content: getDefaultContent(type),
-      settings: {},
+      settings: getDefaultSettings(type),
     };
     setLocalState({ ...state, sections: [...state.sections, section] });
     setSelection({

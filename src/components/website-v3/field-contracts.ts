@@ -107,6 +107,20 @@ function section(
   });
 }
 
+function orderSection(
+  id: string,
+  path: readonly (string | number)[],
+  _selector: string,
+  _assertion: string,
+): FieldContract {
+  return contract({
+    id,
+    scope: "section",
+    statePath: path,
+    pageTypes: ["order"],
+  });
+}
+
 function footer(
   id: string,
   path: readonly (string | number)[],
@@ -374,6 +388,9 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.content.headline": "Connected hero headline",
   "section.content.subheadline": "Connected hero subheadline",
   "section.content.title": "Connected section title",
+  "section.content.heading_eyebrow": "Connected discovery eyebrow",
+  "section.content.heading": "Connected discovery heading",
+  "section.content.show_heading": false,
   "section.content.body": "Connected section body",
   "section.content.text": "Connected scrolling text",
   "section.content.cta_text": "Connected CTA",
@@ -397,6 +414,22 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.button_text_color": "#fef3c7",
   "section.settings.button_border_color": "#f59e0b",
   "section.settings.button_shape": "pill",
+  "section.settings.image_position": "alternate",
+  "section.settings.card_height": "tall",
+  "section.settings.card_radius": "soft",
+  "section.settings.heading_eyebrow_color": "#6b7280",
+  "section.settings.heading_color": "#111827",
+  "section.settings.panel_style": "gradient",
+  "section.settings.panel_bg_color": "#5f241a",
+  "section.settings.panel_bg_color_end": "#8f4432",
+  "section.settings.panel_text_color": "#ffffff",
+  "section.settings.panel_muted_color": "#f5d8cf",
+  "section.settings.mobile_text_color": "#ffffff",
+  "section.settings.mobile_overlay_opacity": 0.8,
+  "section.settings.section_bg_color": "#fff7ed",
+  "section.settings.show_dividers": false,
+  "section.settings.divider_color": "#fed7aa",
+  "section.settings.insert_after_items": 9,
   "section.settings.bg_image": "http://localhost:3000/logo-icon.svg",
   "section.settings.bg_overlay": true,
 };
@@ -419,7 +452,8 @@ function editorFor(
     };
   }
   if (id.startsWith("site.") || id.startsWith("section.content.custom_") ||
-      id.startsWith("section.content.show_") || id === "section.content.social_links") {
+      (id.startsWith("section.content.show_") && id !== "section.content.show_heading") ||
+      id === "section.content.social_links") {
     const appearance = [
       "site.theme_id", "site.pairing_id", "site.brand_color",
       "site.hero_name_font", "site.typography", "site.layout_default",
@@ -516,12 +550,30 @@ function editorFor(
     "section.settings.button_border_color",
     "section.settings.button_shape",
   ].includes(id);
+  const orderDiscovery =
+    id === "section.content.heading_eyebrow" ||
+    id === "section.content.heading" ||
+    id === "section.content.show_heading" ||
+    id.startsWith("section.settings.image_position") ||
+    id.startsWith("section.settings.card_height") ||
+    id.startsWith("section.settings.card_radius") ||
+    id.startsWith("section.settings.heading_") ||
+    id.startsWith("section.settings.panel_") ||
+    id.startsWith("section.settings.mobile_") ||
+    id === "section.settings.section_bg_color" ||
+    id === "section.settings.show_dividers" ||
+    id === "section.settings.divider_color" ||
+    id === "section.settings.insert_after_items";
   const appearance = id === "section.layout" || id.startsWith("section.settings.");
   return {
     kind: action,
     scope,
     tab: appearance ? "Apparence" : id === "section.is_visible" || id === "section.page_id" ? "Réglages" : "Contenu",
-    pageTitle: hero || scrolling || menuHighlights || featureCards ? "Home" : "About",
+    pageTitle: orderDiscovery
+      ? "Dinner Order"
+      : hero || scrolling || menuHighlights || featureCards
+        ? "Home"
+        : "About",
     sectionLabel: hero
       ? "Hero banner"
       : scrolling
@@ -530,8 +582,14 @@ function editorFor(
           ? "Menu highlights"
           : featureCards
             ? "Feature cards"
-          : "Text and image",
-    publicSlug: hero || scrolling || menuHighlights || featureCards ? "" : "about",
+            : orderDiscovery
+              ? "Order discovery"
+              : "Text and image",
+    publicSlug: orderDiscovery
+      ? "dinner-order"
+      : hero || scrolling || menuHighlights || featureCards
+        ? ""
+        : "about",
     commit: "change",
     prerequisite: id === "section.settings.custom_bg" || id === "section.settings.custom_text"
       ? { id: "section.settings.color_style", value: "custom" }
@@ -884,8 +942,9 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.content.headline", ["content", "headline"], "[data-website-section] h1", "text"),
   section("section.content.subheadline", ["content", "subheadline"], "[data-website-section] p", "text"),
   section("section.content.title", ["content", "title"], "[data-website-section] h2", "text"),
-  section("section.content.order_title", ["content", "order_title"], "feature_cards", "text"),
-  section("section.content.show_order_title", ["content", "show_order_title"], "feature_cards", "visible"),
+  orderSection("section.content.heading_eyebrow", ["content", "heading_eyebrow"], "order_discovery", "text"),
+  orderSection("section.content.heading", ["content", "heading"], "order_discovery", "text"),
+  orderSection("section.content.show_heading", ["content", "show_heading"], "order_discovery", "visible"),
   section("section.content.body", ["content", "body"], "[data-website-section] p", "text"),
   section("section.content.text", ["content", "text"], "[data-website-section]", "text"),
   section("section.content.cta_text", ["content", "cta_text"], "[data-website-section] a", "text"),
@@ -909,6 +968,22 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.button_text_color", ["settings", "button_text_color"], "feature_cards", "color"),
   section("section.settings.button_border_color", ["settings", "button_border_color"], "feature_cards", "color"),
   section("section.settings.button_shape", ["settings", "button_shape"], "feature_cards", "style"),
+  orderSection("section.settings.image_position", ["settings", "image_position"], "order_discovery", "style"),
+  orderSection("section.settings.card_height", ["settings", "card_height"], "order_discovery", "style"),
+  orderSection("section.settings.card_radius", ["settings", "card_radius"], "order_discovery", "style"),
+  orderSection("section.settings.heading_eyebrow_color", ["settings", "heading_eyebrow_color"], "order_discovery", "color"),
+  orderSection("section.settings.heading_color", ["settings", "heading_color"], "order_discovery", "color"),
+  orderSection("section.settings.panel_style", ["settings", "panel_style"], "order_discovery", "style"),
+  orderSection("section.settings.panel_bg_color", ["settings", "panel_bg_color"], "order_discovery", "color"),
+  orderSection("section.settings.panel_bg_color_end", ["settings", "panel_bg_color_end"], "order_discovery", "color"),
+  orderSection("section.settings.panel_text_color", ["settings", "panel_text_color"], "order_discovery", "color"),
+  orderSection("section.settings.panel_muted_color", ["settings", "panel_muted_color"], "order_discovery", "color"),
+  orderSection("section.settings.mobile_text_color", ["settings", "mobile_text_color"], "order_discovery", "color"),
+  orderSection("section.settings.mobile_overlay_opacity", ["settings", "mobile_overlay_opacity"], "order_discovery", "style"),
+  orderSection("section.settings.section_bg_color", ["settings", "section_bg_color"], "order_discovery", "color"),
+  orderSection("section.settings.show_dividers", ["settings", "show_dividers"], "order_discovery", "visible"),
+  orderSection("section.settings.divider_color", ["settings", "divider_color"], "order_discovery", "color"),
+  orderSection("section.settings.insert_after_items", ["settings", "insert_after_items"], "order_discovery", "value"),
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
   action("section.create", "section", ["sections"]),

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PreviewCanvas } from "../PreviewCanvas";
+import { PreviewCanvas, componentGroupsForPage } from "../PreviewCanvas";
+import type { DraftSectionPayload } from "@/lib/website-v3/types";
 
 test("preview iframe uses one stable landing bootstrap route for every draft page", () => {
   Object.assign(globalThis, { React });
@@ -108,6 +109,38 @@ test("content pages expose a discoverable component library", () => {
   assert.match(markup, /Galerie/);
   assert.match(markup, /aria-label="Texte \+ image"/);
   assert.doesNotMatch(markup, /<select[^>]+Ajouter une section/);
+});
+
+test("discovery advertising is available once and only on order pages", () => {
+  const availableForOrder = componentGroupsForPage("order", []);
+  const availableForLanding = componentGroupsForPage("landing", []);
+  const existing: DraftSectionPayload = {
+    tmp_id: "discovery-test",
+    section_type: "order_discovery",
+    page: "commander",
+    page_tmp_id: "order-page",
+    sort_order: 0,
+    is_visible: true,
+    layout: "default",
+    content: {},
+    settings: {},
+  };
+
+  assert.ok(
+    availableForOrder.some((group) =>
+      group.items.some((item) => item.type === "order_discovery"),
+    ),
+  );
+  assert.ok(
+    availableForLanding.every((group) =>
+      group.items.every((item) => item.type !== "order_discovery"),
+    ),
+  );
+  assert.ok(
+    componentGroupsForPage("order", [existing]).every((group) =>
+      group.items.every((item) => item.type !== "order_discovery"),
+    ),
+  );
 });
 
 test("order pages expose an explicit checkout preview surface", () => {
