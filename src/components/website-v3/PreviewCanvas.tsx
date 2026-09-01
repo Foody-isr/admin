@@ -285,7 +285,7 @@ export function PreviewCanvas({
           </div>
         ) : null}
         <div className="ml-auto flex items-center gap-1.5">
-          {surface === "page" && (activePage.type === "landing" || activePage.type === "content") ? (
+          {surface === "page" && componentGroups.length > 0 ? (
             <details className="group relative">
               <summary
                 data-field-id="section.create"
@@ -558,11 +558,14 @@ export function componentGroupsForPage(
   sections: DraftSectionPayload[],
 ): ComponentGroup[] {
   const existingTypes = new Set(sections.map((section) => section.section_type));
+  const isEditorialPage = pageType === "landing" || pageType === "content";
   return COMPONENT_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter(
       (item) =>
-        (!item.pageTypes || item.pageTypes.includes(pageType)) &&
+        (item.pageTypes
+          ? item.pageTypes.includes(pageType)
+          : isEditorialPage) &&
         (!item.singleInstance || !existingTypes.has(item.type)),
     ),
   })).filter((group) => group.items.length > 0);

@@ -158,14 +158,16 @@ export function PageInspector({
           description={
             page.type === "landing" || page.type === "content"
               ? "Sélectionnez une section dans l’aperçu ou ajoutez-en depuis le canvas."
-              : "Les pages commerce utilisent les cartes et prestations associées."
+              : page.type === "order"
+                ? "Ajoutez une section Découverte & publicité depuis l’aperçu pour présenter vos autres services."
+                : "Les pages traiteur utilisent les prestations associées."
           }
         >
           <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
             {page.type === "landing" || page.type === "content"
               ? "Les blocs de contenu suivent cette page dans l’aperçu, y compris avant publication."
               : page.type === "order"
-                ? "Le contenu de commande est alimenté par les cartes sélectionnées dans Réglages."
+                ? "Cette section est propre à la page Commander : elle ne reprend jamais automatiquement les cartes de l’accueil."
                 : "Le contenu traiteur est alimenté par les prestations sélectionnées dans Réglages."}
           </p>
         </InspectorGroup>

@@ -114,6 +114,7 @@ test("content pages expose a discoverable component library", () => {
 test("discovery advertising is available once and only on order pages", () => {
   const availableForOrder = componentGroupsForPage("order", []);
   const availableForLanding = componentGroupsForPage("landing", []);
+  const availableForCatering = componentGroupsForPage("catering", []);
   const existing: DraftSectionPayload = {
     tmp_id: "discovery-test",
     section_type: "order_discovery",
@@ -136,6 +137,7 @@ test("discovery advertising is available once and only on order pages", () => {
       group.items.every((item) => item.type !== "order_discovery"),
     ),
   );
+  assert.equal(availableForCatering.length, 0);
   assert.ok(
     componentGroupsForPage("order", [existing]).every((group) =>
       group.items.every((item) => item.type !== "order_discovery"),
@@ -192,6 +194,10 @@ test("order pages expose an explicit checkout preview surface", () => {
 
   assert.match(markup, />Page<\/button>/);
   assert.match(markup, />Checkout<\/button>/);
+  assert.match(markup, /Ajouter un composant/);
+  assert.match(markup, /Découverte &amp; publicité/);
+  assert.doesNotMatch(markup, /Hero banner/);
+  assert.doesNotMatch(markup, /Galerie/);
   // The surface is owned by the builder now, so the page surface must still
   // resolve to the restaurant root and never to the checkout route.
   assert.match(
@@ -253,6 +259,7 @@ test("the checkout surface points the iframe at the checkout route", () => {
     /src="https:\/\/dev-app\.foody-pos\.co\.il\/order\/checkout\?restaurantId=moulin-doree&amp;orderType=delivery&amp;preview=1&amp;pageSlug=commander"/,
   );
   assert.match(markup, /title="Aperçu du checkout"/);
+  assert.doesNotMatch(markup, /Ajouter un composant/);
 });
 
 // Locks the lift itself: the surface must not regrow local state in the
