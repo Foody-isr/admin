@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { FileTextIcon, UploadIcon, XIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import {
   importStockCsv, importMenuItemsCsv,
@@ -42,6 +43,7 @@ export default function CsvImportModal({
   mode, restaurantId, onClose, onImported, existingCategories, existingItemKeys,
 }: Props) {
   const { t } = useI18n();
+  const router = useRouter();
   const [step, setStep] = useState<'input' | 'review' | 'submitting'>('input');
   const [error, setError] = useState('');
   const [text, setText] = useState('');
@@ -142,15 +144,22 @@ export default function CsvImportModal({
           })),
         });
       } else {
-        result = await importMenuItemsCsv(restaurantId, { categories: filtered });
+        result = await importMenuItemsCsv(restaurantId, {
+          categories: filtered,
+          carte_name: t('importCarteNameDefault'),
+        });
       }
       if (mode === 'library' && 'image_failures' in result && result.image_failures.length > 0) {
         window.alert(
           t('csvImportImageFailures').replace('{n}', String(result.image_failures.length)),
         );
       }
+      const carteId = mode === 'library' && 'carte_id' in result ? result.carte_id : undefined;
       onImported(result);
       onClose();
+      if (carteId) {
+        router.push(`/${restaurantId}/menu/menus/${carteId}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setStep('review');
