@@ -137,6 +137,14 @@ test("the checkout surface offers no cart, category bar, cover or mode selector"
   assert.match(markup, /checkout_text_colors\.heading/);
 });
 
+test("the catering builder delegates offer visibility to the catering catalog", () => {
+  const markup = renderInspector("catering", "settings", "page");
+
+  assert.match(markup, /Catering visibility is managed in Catering/);
+  assert.doesNotMatch(markup, /Prestations associées/);
+  assert.match(markup, /\/24\/catering\/services/);
+});
+
 test("the page surface offers no checkout colours but keeps the cart", () => {
   const markup = renderInspector("order", "appearance", "page");
 

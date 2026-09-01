@@ -238,7 +238,18 @@ export function SiteInspector({
   };
   const bottomNavigation = record(navLayout.bottom_navigation);
   const compactNavigation = record(navLayout.compact_navigation);
-  const hasFullNavigation = [contentNav.desktop, contentNav.mobile, shoppingNav.desktop, shoppingNav.mobile].includes("full");
+  const navigationModes = [
+    contentNav.desktop,
+    contentNav.mobile,
+    shoppingNav.desktop,
+    shoppingNav.mobile,
+  ];
+  const hasLogoNavigation = navigationModes.some(
+    (mode) => mode === "full" || mode === "compact",
+  );
+  const hasLinkNavigation = navigationModes.some(
+    (mode) => mode === "full" || mode === "slim",
+  );
   const bottomItems = [
     ...pages.filter((page) => page.nav_visible).sort((a, b) => a.sort_order - b.sort_order)
       .map((page) => ({ key: page.slug, label: page.title })),
@@ -290,7 +301,7 @@ export function SiteInspector({
           onUpload={onRestaurantLogoUpload}
           onRemove={onRestaurantLogoRemove}
         />
-        {hasFullNavigation ? <><InspectorField label="Position dans la barre">
+        {hasLogoNavigation ? <><InspectorField label="Position du logo dans la barre">
           <select
             data-field-id="site.navbar_logo_position"
             value={string(config.navbar_logo_position) || "left"}
@@ -304,15 +315,6 @@ export function SiteInspector({
             <option value="right">Droite</option>
           </select>
         </InspectorField>
-        <RangeField
-          fieldId="site.logo_size"
-          label="Taille dans la barre"
-          value={number(config.logo_size, 40)}
-          min={24}
-          max={96}
-          suffix="px"
-          onChange={(value) => onChange(["logo_size"], value)}
-        />
         <ToggleField
           fieldId="site.hide_navbar_name"
           label="Masquer le nom du restaurant"
@@ -337,6 +339,15 @@ export function SiteInspector({
           placeholder="Ou collez l’URL du logo alternatif"
         />
         </> : null}
+        <RangeField
+          fieldId="site.logo_size"
+          label="Taille du logo dans les barres"
+          value={number(config.logo_size, 48)}
+          min={28}
+          max={72}
+          suffix="px"
+          onChange={(value) => onChange(["logo_size"], value)}
+        />
         <RangeField
           fieldId="site.hero_logo_size"
           label="Taille sur la couverture"
@@ -423,7 +434,7 @@ export function SiteInspector({
         title="Navigation"
         description="Composez une navigation lisible pour les pages contenu et commerce."
       >
-        {hasFullNavigation ? <><InspectorField label="Style">
+        {hasLinkNavigation ? <><InspectorField label="Style">
           <select
             data-field-id="site.navbar_style"
             value={navbarStyle}
@@ -493,7 +504,9 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète · liens visibles</option>
-            <option value="compact">Compacte · flottante sans logo</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
+            <option value="compact">Compacte · flottante avec logo</option>
+            <option value="compact_no_logo">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -507,18 +520,27 @@ export function SiteInspector({
                 { mobile: event.target.value },
                 {
                   navbar_hamburger:
-                    event.target.value === "compact" ? "mobile" : "off",
+                    event.target.value === "compact" || event.target.value === "compact_no_logo" ? "mobile" : "off",
                 },
               )
             }
             className={controlClass}
           >
             <option value="full">Complète</option>
-            <option value="compact">Compacte · sans barre ni logo</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
+            <option value="compact">Compacte · avec logo</option>
+            <option value="compact_no_logo">Compacte · sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
-        <InspectorField label="Commande et traiteur · ordinateur">
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
+          Les pages de commande utilisent désormais une navigation dédiée et
+          identique pour tous les restaurants&nbsp;: contrôles compacts sur
+          ordinateur, barre du bas sur mobile, puis barre des catégories au
+          défilement. Les réglages ci-dessous concernent le traiteur et les
+          autres pages boutique.
+        </div>
+        <InspectorField label="Traiteur et pages boutique · ordinateur">
           <select
             value={string(shoppingNav.desktop) || "compact"}
             onChange={(event) =>
@@ -527,11 +549,13 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète · liens visibles</option>
-            <option value="compact">Compacte · flottante sans logo</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
+            <option value="compact">Compacte · flottante avec logo</option>
+            <option value="compact_no_logo">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
-        <InspectorField label="Commande et traiteur · mobile">
+        <InspectorField label="Traiteur et pages boutique · mobile">
           <select
             value={string(shoppingNav.mobile) || "hidden"}
             onChange={(event) =>
@@ -540,7 +564,9 @@ export function SiteInspector({
             className={controlClass}
           >
             <option value="full">Complète</option>
-            <option value="compact">Compacte · sans barre ni logo</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
+            <option value="compact">Compacte · avec logo</option>
+            <option value="compact_no_logo">Compacte · sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -552,7 +578,7 @@ export function SiteInspector({
         />
         <ToggleField
           fieldId={"site.nav-layout.shopping.bottom-bar"}
-          label="Barre mobile de la boutique"
+          label="Barre mobile du traiteur et des pages boutique"
           description="Conserve un accès à la navigation lorsque la barre du haut est masquée."
           checked={boolean(shoppingNav.bottom_bar, true)}
           onChange={(value) =>
@@ -581,15 +607,14 @@ export function SiteInspector({
             </div>
           </div>
         ) : null}
-        {(contentNav.desktop === "compact" || shoppingNav.desktop === "compact") ? (
-          <div className="space-y-3 border-t border-slate-100 pt-4">
-            <p className="text-xs font-semibold text-slate-700">Navigation compacte · ordinateur</p>
-            <InspectorField label="Position du menu hamburger"><select className={controlClass} value={string(compactNavigation.hamburger_position) || "left"} onChange={(event) => updateNavigationExtension("compact_navigation", { hamburger_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
-            <InspectorField label="Position du compte et des actions"><select className={controlClass} value={string(compactNavigation.actions_position) || "right"} onChange={(event) => updateNavigationExtension("compact_navigation", { actions_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
-            <ColorField fieldId="site.compact-navigation.icon" label="Couleur des icônes" value={string(compactNavigation.icon_color)} fallback="#111111" onChange={(value) => updateNavigationExtension("compact_navigation", { icon_color: value })} />
-            <ColorField fieldId="site.compact-navigation.button-background" label="Fond des boutons" value={string(compactNavigation.button_background_color)} fallback="#ffffff" onChange={(value) => updateNavigationExtension("compact_navigation", { button_background_color: value })} />
-          </div>
-        ) : null}
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <p className="text-xs font-semibold text-slate-700">Navigation compacte · ordinateur</p>
+          <p className="text-[11px] leading-4 text-slate-500">Ces couleurs s’appliquent aussi au bouton menu des pages de commande.</p>
+          <InspectorField label="Position du menu hamburger"><select className={controlClass} value={string(compactNavigation.hamburger_position) || "left"} onChange={(event) => updateNavigationExtension("compact_navigation", { hamburger_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
+          <InspectorField label="Position des actions"><select className={controlClass} value={string(compactNavigation.actions_position) || "right"} onChange={(event) => updateNavigationExtension("compact_navigation", { actions_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
+          <ColorField fieldId="site.compact-navigation.icon" label="Couleur des icônes" value={string(compactNavigation.icon_color)} fallback="#111111" onChange={(value) => updateNavigationExtension("compact_navigation", { icon_color: value })} />
+          <ColorField fieldId="site.compact-navigation.button-background" label="Fond des boutons" value={string(compactNavigation.button_background_color)} fallback="#ffffff" onChange={(value) => updateNavigationExtension("compact_navigation", { button_background_color: value })} />
+        </div>
         <div className="border-t border-slate-100 pt-4">
           <NavigationCtaEditor
             value={record(config.navbar_cta)}

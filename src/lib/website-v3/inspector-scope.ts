@@ -24,7 +24,7 @@
 import type { WebsitePageType } from "./types";
 
 /** The preview surface an inspector group applies to. */
-export type InspectorSurface = "page" | "checkout";
+export type InspectorSurface = "branches" | "page" | "checkout";
 
 /** The three inspector tabs. Re-exported by components/website-v3/Inspector. */
 export type InspectorTab = "content" | "appearance" | "settings";
@@ -128,8 +128,12 @@ const SCOPES_BY_ID: ReadonlyMap<InspectorGroupId, InspectorGroupScope> = new Map
 /** Surfaces a page type can present. Only order pages have a checkout. */
 export function surfacesForPageType(
   type: WebsitePageType,
+  includeBranchSelector = false,
 ): readonly InspectorSurface[] {
-  return type === "order" ? (["page", "checkout"] as const) : PAGE_ONLY;
+  if (type !== "order") return PAGE_ONLY;
+  return includeBranchSelector
+    ? (["branches", "page", "checkout"] as const)
+    : (["page", "checkout"] as const);
 }
 
 /** Clamps a requested surface to one the page type actually has.
@@ -140,9 +144,12 @@ export function surfacesForPageType(
 export function effectiveSurface(
   type: WebsitePageType | undefined,
   requested: InspectorSurface,
+  includeBranchSelector = false,
 ): InspectorSurface {
   if (!type) return "page";
-  return surfacesForPageType(type).includes(requested) ? requested : "page";
+  return surfacesForPageType(type, includeBranchSelector).includes(requested)
+    ? requested
+    : "page";
 }
 
 /** Throws on an unregistered id: a typo must fail loudly, not hide a group. */

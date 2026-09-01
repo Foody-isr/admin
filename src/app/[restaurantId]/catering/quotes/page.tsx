@@ -61,11 +61,30 @@ interface QuoteConfigOption {
   line_total?: number;
 }
 
+interface QuoteConfigSession {
+  id?: string;
+  label?: string;
+  date?: string;
+  start_time?: string;
+  end_time?: string;
+}
+
+interface QuoteConfigFlowSelection {
+  step_id?: string;
+  step_title?: string;
+  option_id?: string;
+  label?: string;
+  quantity?: number;
+  line_total?: number;
+}
+
 interface QuoteConfig {
   guests?: number;
   event_date?: string;
   items?: QuoteConfigLine[];
   options?: QuoteConfigOption[];
+  sessions?: QuoteConfigSession[];
+  flow_prices?: QuoteConfigFlowSelection[];
 }
 
 function formatEventDate(eventDate: string | undefined | null): string {
@@ -82,6 +101,8 @@ function parseConfig(config: unknown): QuoteConfig {
     event_date: typeof c.event_date === 'string' ? c.event_date : undefined,
     items: Array.isArray(c.items) ? (c.items as QuoteConfigLine[]) : undefined,
     options: Array.isArray(c.options) ? (c.options as QuoteConfigOption[]) : undefined,
+    sessions: Array.isArray(c.sessions) ? (c.sessions as QuoteConfigSession[]) : undefined,
+    flow_prices: Array.isArray(c.flow_prices) ? (c.flow_prices as QuoteConfigFlowSelection[]) : undefined,
   };
 }
 
@@ -212,15 +233,27 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
   const [refundAmount, setRefundAmount] = useState(quote.deposit_amount ? quote.deposit_amount.toFixed(2) : '');
   const [refunding, setRefunding] = useState(false);
   const [refundError, setRefundError] = useState('');
+  // Some providers cannot be refunded through their API at all (Summit's
+  // entry-level plan cannot save the payment method its credit call needs), so
+  // staff refund in the provider console and record it here.
+  const [refundExternal, setRefundExternal] = useState(false);
+  const [refundReference, setRefundReference] = useState('');
 
   const handleRefund = async () => {
     const amount = Number(refundAmount);
     if (!(amount > 0)) { setRefundError(t('catering_refund_amount_invalid')); return; }
+    const reference = refundReference.trim();
+    if (refundExternal && !reference) { setRefundError(t('catering_refund_reference_required')); return; }
     if (!confirm(t('catering_refund_confirm'))) return;
     setRefunding(true);
     setRefundError('');
     try {
-      await refundCateringDeposit(restaurantId, quote.id, { amount, target: refundTarget });
+      await refundCateringDeposit(restaurantId, quote.id, {
+        amount,
+        target: refundTarget,
+        external: refundExternal,
+        reference: refundExternal ? reference : undefined,
+      });
       onReviewed();
     } catch (e) {
       setRefundError(e instanceof Error ? e.message : t('catering_refund_failed'));
@@ -263,6 +296,32 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
             <div className="text-fg-primary font-medium">{formatEventDate(config.event_date ?? quote.event_date)}</div>
           </div>
         </div>
+
+        {config.sessions && config.sessions.length > 0 && (
+          <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-secondary">{t('catering_quote_sessions')}</p>
+            <div className="space-y-2">
+              {config.sessions.map((session, index) => (
+                <div key={session.id ?? index} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-medium text-fg-primary">{session.label || `${t('catering_quote_session')} ${index + 1}`}</span>
+                  <span className="text-fg-secondary">{formatEventDate(session.date)}{session.start_time ? ` · ${session.start_time}${session.end_time ? `–${session.end_time}` : ''}` : ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {config.flow_prices && config.flow_prices.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-fg-secondary">{t('catering_quote_journey_choices')}</p>
+            {config.flow_prices.map((selection, index) => (
+              <div key={`${selection.step_id ?? 'flow'}-${selection.option_id ?? index}`} className="flex items-start justify-between gap-4 text-sm">
+                <span><span className="text-fg-secondary">{selection.step_title}: </span><span className="font-medium text-fg-primary">{selection.quantity && selection.quantity > 1 ? `${selection.quantity} × ` : ''}{selection.label}</span></span>
+                <span className="shrink-0 text-fg-secondary">{selection.line_total ? `₪${selection.line_total.toFixed(2)}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {config.items && config.items.length > 0 && (
           <div className="space-y-1">
@@ -312,6 +371,9 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
             {quote.deposit_refunded_at && (
               <span className="text-fg-secondary">{` · ${new Date(quote.deposit_refunded_at).toLocaleDateString()}`}</span>
             )}
+            {quote.deposit_refund_external && (
+              <span className="text-fg-secondary">{` · ${t('catering_refund_external_badge')}`}</span>
+            )}
           </div>
         )}
 
@@ -354,11 +416,37 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
               />
             </div>
 
+            <div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={refundExternal}
+                  onChange={(e) => setRefundExternal(e.target.checked)}
+                />
+                <span className="text-sm text-fg-secondary">{t('catering_refund_external')}</span>
+              </label>
+              <p className="mt-1 text-xs text-fg-tertiary">{t('catering_refund_external_hint')}</p>
+            </div>
+
+            {refundExternal && (
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">
+                  {t('catering_refund_reference')}
+                </label>
+                <input
+                  className="input"
+                  value={refundReference}
+                  onChange={(e) => setRefundReference(e.target.value)}
+                  placeholder={t('catering_refund_reference_placeholder')}
+                />
+              </div>
+            )}
+
             {refundError && <p className="text-sm text-red-600 dark:text-red-400">{refundError}</p>}
 
             <div className="flex justify-end">
               <button className="btn-secondary" onClick={handleRefund} disabled={refunding}>
-                {t('catering_refund_action')}
+                {refundExternal ? t('catering_refund_record_action') : t('catering_refund_action')}
               </button>
             </div>
           </div>

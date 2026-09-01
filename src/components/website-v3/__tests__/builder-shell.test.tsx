@@ -7,6 +7,13 @@ import { publicURLForPage } from "@/lib/website-v3/url-model";
 
 Object.assign(globalThis, { React });
 
+/** The opening tag of the Publier button, so `disabled:` utility classes in the
+ *  className cannot be mistaken for the disabled attribute. */
+function publishButtonTag(markup: string): string {
+  const end = markup.indexOf(">", markup.lastIndexOf("<button", markup.indexOf("Publier")));
+  return markup.slice(markup.lastIndexOf("<button", markup.indexOf("Publier")), end + 1);
+}
+
 test("builder shell exposes a collapsible page rail", () => {
   const markup = renderToStaticMarkup(
     React.createElement(BuilderShell, {
@@ -16,7 +23,7 @@ test("builder shell exposes a collapsible page rail", () => {
       previewStatus: "synced",
       device: "desktop",
       publicUrl: null,
-      canPublish: true,
+      publishBlockedReason: null,
       busy: false,
       onDeviceChange: () => undefined,
       onDiscard: () => undefined,
@@ -29,6 +36,55 @@ test("builder shell exposes a collapsible page rail", () => {
 
   assert.match(markup, /Réduire le panneau des pages/);
   assert.match(markup, /grid-template-columns:240px/);
+});
+
+// A disabled Publish button is a dead end: the reason it refuses lives in the
+// inspector of one page and one tab, which is usually not the one on screen.
+test("builder shell keeps Publier clickable and states why it would refuse", () => {
+  const markup = renderToStaticMarkup(
+    React.createElement(BuilderShell, {
+      restaurantId: 24,
+      restaurantName: "Mamie",
+      status: "idle",
+      previewStatus: "synced",
+      device: "desktop",
+      publicUrl: null,
+      publishBlockedReason: "Vérifiez la dernière version sur l’aperçu mobile avant de publier.",
+      busy: false,
+      onDeviceChange: () => undefined,
+      onDiscard: () => undefined,
+      onPublish: () => undefined,
+      rail: null,
+      inspector: null,
+      preview: null,
+    }),
+  );
+
+  assert.doesNotMatch(publishButtonTag(markup), /disabled=""/);
+  assert.match(markup, /aperçu mobile avant de publier/);
+});
+
+test("builder shell disables Publier only while a lifecycle is running", () => {
+  const markup = renderToStaticMarkup(
+    React.createElement(BuilderShell, {
+      restaurantId: 24,
+      restaurantName: "Mamie",
+      status: "saving",
+      previewStatus: "synced",
+      device: "desktop",
+      publicUrl: null,
+      publishBlockedReason: null,
+      busy: true,
+      onDeviceChange: () => undefined,
+      onDiscard: () => undefined,
+      onPublish: () => undefined,
+      rail: null,
+      inspector: null,
+      preview: null,
+    }),
+  );
+
+  assert.match(publishButtonTag(markup), /disabled=""/);
 });
 
 test("builder shell opens every page at its public canonical address", () => {
@@ -65,7 +121,7 @@ test("builder shell opens every page at its public canonical address", () => {
         previewStatus: "synced",
         device: "desktop",
         publicUrl,
-        canPublish: true,
+        publishBlockedReason: null,
         busy: false,
         onDeviceChange: () => undefined,
         onDiscard: () => undefined,

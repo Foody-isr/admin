@@ -145,6 +145,11 @@ test("only commerce pages expose the commerce settings group", () => {
 
 test("only order pages have a checkout surface", () => {
   assert.deepEqual(surfacesForPageType("order"), ["page", "checkout"]);
+  assert.deepEqual(surfacesForPageType("order", true), [
+    "branches",
+    "page",
+    "checkout",
+  ]);
   for (const pageType of ["landing", "content", "catering"] as const) {
     assert.deepEqual(surfacesForPageType(pageType), ["page"], pageType);
   }
@@ -153,6 +158,8 @@ test("only order pages have a checkout surface", () => {
 test("a checkout surface requested on a non-order page clamps to page", () => {
   assert.equal(effectiveSurface("order", "checkout"), "checkout");
   assert.equal(effectiveSurface("order", "page"), "page");
+  assert.equal(effectiveSurface("order", "branches"), "page");
+  assert.equal(effectiveSurface("order", "branches", true), "branches");
   for (const pageType of ["landing", "content", "catering"] as const) {
     assert.equal(effectiveSurface(pageType, "checkout"), "page", pageType);
   }
@@ -310,7 +317,8 @@ test("page-type-only pages see exactly one surface's worth of groups", () => {
           surface: effectiveSurface(pageType, surface),
         }),
       );
-      for (const other of rest) assert.deepEqual(other, first, `${pageType}/${tab}`);
+      for (const other of rest)
+        assert.deepEqual(other, first, `${pageType}/${tab}`);
     }
   }
 });

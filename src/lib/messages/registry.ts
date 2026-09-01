@@ -41,7 +41,7 @@ export interface TemplateDefinition {
 const ORDER_RECAP: TemplateDefinition = {
   key: 'order_recap',
   tokens: ['restaurant', 'client', 'numero_commande', 'creneau'],
-  blocks: ['type_commande', 'articles', 'totaux', 'adresse', 'statut_paiement', 'salutation', 'lien_suivi'],
+  blocks: ['type_commande', 'articles', 'totaux', 'adresse', 'infos_client', 'statut_paiement', 'salutation', 'lien_suivi'],
   defaults: {
     fr: [
       '*{{restaurant}}*',
@@ -52,6 +52,7 @@ const ORDER_RECAP: TemplateDefinition = {
       '{{type_commande}}',
       '🗓️ {{creneau}}',
       '📍 {{adresse}}',
+      'ℹ️ {{infos_client}}',
       '',
       '*Votre commande*',
       '{{articles}}',
@@ -69,6 +70,7 @@ const ORDER_RECAP: TemplateDefinition = {
       '{{type_commande}}',
       '🗓️ {{creneau}}',
       '📍 {{adresse}}',
+      'ℹ️ {{infos_client}}',
       '',
       '*ההזמנה שלך*',
       '{{articles}}',
@@ -86,6 +88,7 @@ const ORDER_RECAP: TemplateDefinition = {
       '{{type_commande}}',
       '🗓️ {{creneau}}',
       '📍 {{adresse}}',
+      'ℹ️ {{infos_client}}',
       '',
       '*Your order*',
       '{{articles}}',

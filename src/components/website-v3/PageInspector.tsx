@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import type {
   CateringService,
   CheckoutConfig,
@@ -41,6 +43,7 @@ import { CheckoutSettingsEditor } from "./CheckoutSettingsEditor";
 import { CommerceSelector } from "./CommerceSelector";
 import { NavigationCtaEditor } from "./NavigationCtaEditor";
 import { ReadOnlyAddress } from "./PageAddress";
+import { ChainOrderEntryEditor } from "./ChainOrderEntryEditor";
 
 export function PageInspector({
   page,
@@ -118,6 +121,17 @@ export function PageInspector({
       ...patch,
     });
 
+  if (surface === "branches") {
+    return (
+      <ChainOrderEntryEditor
+        tab={tab}
+        restaurantId={restaurantId}
+        appearance={page.appearance_overrides}
+        onChange={onChange}
+      />
+    );
+  }
+
   if (tab === "content") {
     return (
       <>
@@ -144,14 +158,16 @@ export function PageInspector({
           description={
             page.type === "landing" || page.type === "content"
               ? "Sélectionnez une section dans l’aperçu ou ajoutez-en depuis le canvas."
-              : "Les pages commerce utilisent les cartes et prestations associées."
+              : page.type === "order"
+                ? "Ajoutez une section Découverte & publicité depuis l’aperçu pour présenter vos autres services."
+                : "Les pages traiteur utilisent les prestations associées."
           }
         >
           <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
             {page.type === "landing" || page.type === "content"
               ? "Les blocs de contenu suivent cette page dans l’aperçu, y compris avant publication."
               : page.type === "order"
-                ? "Le contenu de commande est alimenté par les cartes sélectionnées dans Réglages."
+                ? "Cette section est propre à la page Commander : elle ne reprend jamais automatiquement les cartes de l’accueil."
                 : "Le contenu traiteur est alimenté par les prestations sélectionnées dans Réglages."}
           </p>
         </InspectorGroup>
@@ -329,8 +345,7 @@ export function PageInspector({
   const setType = (nextType: WebsitePageType) => {
     if (nextType === page.type) return;
     const removesAssociations =
-      (page.type === "order" && page.settings.menu_ids.length > 0) ||
-      (page.type === "catering" && page.settings.service_ids.length > 0);
+      page.type === "order" && page.settings.menu_ids.length > 0;
     if (
       removesAssociations &&
       !window.confirm(
@@ -409,25 +424,27 @@ export function PageInspector({
       {shows("page.commerce") &&
       (page.type === "order" || page.type === "catering") ? (
         <InspectorGroup groupId="page.commerce" title="Commerce">
-          <CommerceSelector
-            page={page}
-            menus={menus}
-            services={services}
-            error={errorFor(
-              page.type === "order"
-                ? "page.settings.menu_ids"
-                : "page.settings.service_ids",
-            )}
-            onChange={(ids) =>
-              onChange(
-                [
-                  "settings",
-                  page.type === "order" ? "menu_ids" : "service_ids",
-                ],
-                ids,
-              )
-            }
-          />
+          {page.type === "order" ? (
+            <CommerceSelector
+              page={page}
+              menus={menus}
+              error={errorFor("page.settings.menu_ids")}
+              onChange={(ids) => onChange(["settings", "menu_ids"], ids)}
+            />
+          ) : (
+            <div className="rounded-2xl border border-brand-500/25 bg-brand-500/5 p-4">
+              <p className="text-sm font-semibold text-fg-primary">{t("websiteV3CateringVisibilityTitle")}</p>
+              <p className="mt-1 text-sm leading-5 text-fg-secondary">
+                {t("websiteV3CateringVisibilityDescription").replace("{n}", String(services.filter((service) => service.is_active).length))}
+              </p>
+              <Link
+                href={`/${restaurantId}/catering/services`}
+                className="mt-3 inline-flex rounded-lg border border-brand-500/30 bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-brand-600 transition hover:border-brand-500 hover:bg-brand-500/10"
+              >
+                {t("websiteV3CateringVisibilityAction")}
+              </Link>
+            </div>
+          )}
           <ToggleField
             fieldId="page.is_default"
             label={t(
@@ -455,6 +472,14 @@ export function PageInspector({
         title="Navigation et pied de page"
         description="La disposition choisit les éléments affichés. Le fond et le comportement règlent uniquement l’apparence de cette page."
       >
+        {page.type === "order" ? (
+          <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
+            La navigation de commande est standardisée pour rester claire sur
+            tous les restaurants. Personnalisez son identité avec le thème, la
+            typographie et la palette de la barre des catégories.
+          </div>
+        ) : (
+          <>
         <InspectorField label="Disposition ordinateur">
           <select
             value={appearance.navigation_mode ?? "inherit"}
@@ -468,7 +493,9 @@ export function PageInspector({
           >
             <option value="inherit">Hériter du site</option>
             <option value="full">Complète</option>
-            <option value="compact">Compacte · flottante sans logo</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
+            <option value="compact">Compacte · flottante avec logo</option>
+            <option value="compact_no_logo">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
           </select>
         </InspectorField>
@@ -485,8 +512,35 @@ export function PageInspector({
           >
             <option value="inherit">Hériter du site</option>
             <option value="full">Complète</option>
-            <option value="compact">Compacte · flottante sans logo</option>
+            <option value="slim">Fine · liens visibles sans logo</option>
+            <option value="compact">Compacte · flottante avec logo</option>
+            <option value="compact_no_logo">Compacte · flottante sans logo</option>
             <option value="hidden">Masquée</option>
+          </select>
+        </InspectorField>
+        <InspectorField label="Position du logo">
+          <select
+            data-field-id="page.appearance_overrides.navbar_logo_position"
+            value={appearance.navbar_logo_position ?? "inherit"}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === "inherit") {
+                const { navbar_logo_position: _position, ...nextAppearance } =
+                  appearance;
+                onChange(["appearance_overrides"], nextAppearance);
+                return;
+              }
+              onChange(
+                ["appearance_overrides", "navbar_logo_position"],
+                value,
+              );
+            }}
+            className={controlClass}
+          >
+            <option value="inherit">{t("websiteV3InheritSite")}</option>
+            <option value="left">Gauche</option>
+            <option value="center">Centre</option>
+            <option value="right">Droite</option>
           </select>
         </InspectorField>
         <InspectorField label={t("hideNavbarName")}>
@@ -598,6 +652,8 @@ export function PageInspector({
             }}
           />
         </div>
+          </>
+        )}
         <InspectorField label="Pied de page">
           <select
             value={appearance.footer_mode ?? "inherit"}

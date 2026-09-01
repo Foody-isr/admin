@@ -9,7 +9,7 @@ import {
 } from "@/components/website/SectionEditors";
 import { uploadSectionImage, uploadSectionVideo } from "@/lib/api";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
-import { InspectorField, controlClass } from "./controls";
+import { InspectorField, ToggleField, controlClass } from "./controls";
 
 type SectionContentEditorsProps = {
   restaurantId: number;
@@ -71,6 +71,14 @@ export function SectionContentEditors({
           restaurantId={restaurantId}
           cards={recordList(section.content.cards)}
           onChange={(cards) => updateContent("cards", cards)}
+        />
+      );
+    case "order_discovery":
+      return (
+        <OrderDiscoveryEditor
+          restaurantId={restaurantId}
+          content={section.content}
+          onChange={updateContent}
         />
       );
     case "about":
@@ -526,12 +534,227 @@ function FeatureCardsEditor({
         onClick={() =>
           onChange([
             ...cards,
-            { image_url: "", title: "", subtitle: "", link: "" },
+            {
+              image_url: "",
+              title: "",
+              subtitle: "",
+              link: "",
+            },
           ])
         }
         className="w-full rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-sm font-semibold text-slate-600 hover:border-[#315fce] hover:text-[#315fce]"
       >
         + Ajouter une carte
+      </button>
+    </div>
+  );
+}
+
+function OrderDiscoveryEditor({
+  restaurantId,
+  content,
+  onChange,
+}: {
+  restaurantId: number;
+  content: Record<string, unknown>;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const promotions = recordList(content.promotions);
+
+  function updatePromotion(index: number, key: string, value: unknown) {
+    onChange(
+      "promotions",
+      promotions.map((promotion, promotionIndex) =>
+        promotionIndex === index
+          ? { ...promotion, [key]: value }
+          : promotion,
+      ),
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <p className="text-[11px] leading-5 text-slate-500">
+          Ce titre appartient uniquement à cette page Commander. Les cartes de
+          la page d’accueil ne sont jamais reprises automatiquement.
+        </p>
+        <TextField
+          fieldId="section.content.heading_eyebrow"
+          label="Surtitre de la section"
+          value={text(content.heading_eyebrow)}
+          onChange={(value) => onChange("heading_eyebrow", value)}
+          placeholder="Au-delà du menu"
+        />
+        <TextField
+          fieldId="section.content.heading"
+          label="Titre de la section"
+          value={text(content.heading)}
+          onChange={(value) => onChange("heading", value)}
+          placeholder="Découvrez aussi"
+        />
+        <ToggleField
+          fieldId="section.content.show_heading"
+          label="Afficher le titre"
+          description="Masquez-le pour afficher uniquement les services."
+          checked={content.show_heading !== false}
+          onChange={(value) => onChange("show_heading", value)}
+        />
+      </div>
+
+      {promotions.map((promotion, index) => (
+        <div
+          key={index}
+          className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold text-slate-700">
+              Service {index + 1}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={() => onChange("promotions", move(promotions, index, index - 1))}
+                className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-500 disabled:opacity-30"
+              >
+                Monter
+              </button>
+              <button
+                type="button"
+                disabled={index === promotions.length - 1}
+                onClick={() => onChange("promotions", move(promotions, index, index + 1))}
+                className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-500 disabled:opacity-30"
+              >
+                Descendre
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onChange(
+                    "promotions",
+                    promotions.filter(
+                      (_, promotionIndex) => promotionIndex !== index,
+                    ),
+                  )
+                }
+                className="px-1 py-1 text-[11px] font-medium text-red-600"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+
+          <ImageUploadField
+            restaurantId={restaurantId}
+            label="Image du service"
+            currentUrl={text(promotion.image_url)}
+            onUploaded={(url) => updatePromotion(index, "image_url", url)}
+            onRemove={() => updatePromotion(index, "image_url", "")}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <InspectorField label="Point focal horizontal">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={number(promotion.image_focal_x, 50)}
+                onChange={(event) =>
+                  updatePromotion(index, "image_focal_x", Number(event.target.value))
+                }
+                className="w-full accent-[#315fce]"
+              />
+            </InspectorField>
+            <InspectorField label="Point focal vertical">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={number(promotion.image_focal_y, 50)}
+                onChange={(event) =>
+                  updatePromotion(index, "image_focal_y", Number(event.target.value))
+                }
+                className="w-full accent-[#315fce]"
+              />
+            </InspectorField>
+          </div>
+          <TextField
+            label="Description de l’image"
+            value={text(promotion.image_alt)}
+            onChange={(value) => updatePromotion(index, "image_alt", value)}
+            placeholder="Décrivez l’image pour l’accessibilité"
+          />
+          <TextField
+            label="Accroche"
+            value={text(promotion.eyebrow)}
+            onChange={(value) => updatePromotion(index, "eyebrow", value)}
+            placeholder="Pour vos événements"
+          />
+          <TextField
+            label="Titre"
+            value={text(promotion.title)}
+            onChange={(value) => updatePromotion(index, "title", value)}
+          />
+          <TextField
+            label="Description"
+            value={text(promotion.description)}
+            onChange={(value) => updatePromotion(index, "description", value)}
+            multiline
+          />
+          <TextField
+            label="Texte du bouton"
+            value={text(promotion.cta_label)}
+            onChange={(value) => updatePromotion(index, "cta_label", value)}
+            placeholder="Découvrir"
+          />
+          <TextField
+            label="Destination"
+            value={text(promotion.link)}
+            onChange={(value) => updatePromotion(index, "link", value)}
+            placeholder="/catering, /epicerie ou https://…"
+          />
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3">
+            <span className="text-sm font-medium text-slate-800">
+              Ouvrir dans un nouvel onglet
+            </span>
+            <input
+              type="checkbox"
+              checked={promotion.open_in_new_tab === true}
+              onChange={(event) =>
+                updatePromotion(
+                  index,
+                  "open_in_new_tab",
+                  event.target.checked,
+                )
+              }
+              className="h-4 w-4 rounded border-slate-300 text-[#315fce]"
+            />
+          </label>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={() =>
+          onChange("promotions", [
+            ...promotions,
+            {
+              image_url: "",
+              image_alt: "",
+              image_focal_x: 50,
+              image_focal_y: 50,
+              eyebrow: "",
+              title: "",
+              description: "",
+              cta_label: "Découvrir",
+              link: "",
+              open_in_new_tab: false,
+            },
+          ])
+        }
+        className="w-full rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-sm font-semibold text-slate-600 hover:border-[#315fce] hover:text-[#315fce]"
+      >
+        + Ajouter un service
       </button>
     </div>
   );

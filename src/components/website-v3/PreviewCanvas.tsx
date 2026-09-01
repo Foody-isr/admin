@@ -41,6 +41,7 @@ export function PreviewCanvas({
   activeSectionKey,
   device,
   surface,
+  showBranchSelector = false,
   onSurfaceChange,
   revision,
   contentRevision,
@@ -62,6 +63,7 @@ export function PreviewCanvas({
   /** Owned by the builder so the inspector can scope its fields to the surface
    *  on screen. Already clamped: only order pages ever receive "checkout". */
   surface: InspectorSurface;
+  showBranchSelector?: boolean;
   onSurfaceChange: (surface: InspectorSurface) => void;
   revision: number;
   contentRevision: number;
@@ -107,10 +109,16 @@ export function PreviewCanvas({
     ? `${targetOrigin}/order/checkout?restaurantId=${encodeURIComponent(
         restaurantSlug || String(restaurantId),
       )}&orderType=delivery&preview=1&pageSlug=${encodeURIComponent(activePage.slug)}`
-    : `${targetOrigin}${restaurantPath}?preview=1`;
+    : surface === "branches"
+      ? `${targetOrigin}${restaurantPath}/order?preview=1`
+      : `${targetOrigin}${restaurantPath}?preview=1`;
   const sections = state.sections
     .filter((section) => belongsToPage(section, activePage))
     .sort((a, b) => a.sort_order - b.sort_order);
+  const componentGroups = componentGroupsForPage(
+    activePage.type,
+    sections,
+  );
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -238,7 +246,7 @@ export function PreviewCanvas({
       key={source}
       ref={frameRef}
       src={source}
-      title={surface === "checkout" ? "Aperçu du checkout" : `Aperçu de ${activePage.title}`}
+      title={surface === "checkout" ? "Aperçu du checkout" : surface === "branches" ? "Aperçu du choix de succursale" : `Aperçu de ${activePage.title}`}
       className="h-full w-full bg-white"
     />
   );
@@ -252,7 +260,11 @@ export function PreviewCanvas({
         </span>
         {activePage.type === "order" ? (
           <div className="ml-2 flex rounded-lg border border-white/10 bg-white/5 p-0.5">
-            {(["page", "checkout"] as const).map((option) => (
+            {([
+              ...(showBranchSelector ? (["branches"] as const) : []),
+              "page",
+              "checkout",
+            ] as InspectorSurface[]).map((option) => (
               <button
                 key={option}
                 type="button"
@@ -263,13 +275,17 @@ export function PreviewCanvas({
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                {option === "page" ? "Page" : "Checkout"}
+                {option === "branches"
+                  ? "Succursales"
+                  : option === "page"
+                    ? "Page"
+                    : "Checkout"}
               </button>
             ))}
           </div>
         ) : null}
         <div className="ml-auto flex items-center gap-1.5">
-          {activePage.type === "landing" || activePage.type === "content" ? (
+          {surface === "page" && componentGroups.length > 0 ? (
             <details className="group relative">
               <summary
                 data-field-id="section.create"
@@ -286,7 +302,7 @@ export function PreviewCanvas({
                   </p>
                 </div>
                 <div className="max-h-[430px] space-y-4 overflow-y-auto p-3">
-                  {COMPONENT_GROUPS.map((group) => (
+                  {componentGroups.map((group) => (
                     <div key={group.label}>
                       <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
                         {group.label}
@@ -325,7 +341,7 @@ export function PreviewCanvas({
         </div>
       </div>
 
-      {sections.length > 0 ? (
+      {surface === "page" && sections.length > 0 ? (
         <div className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-white/10 bg-[#1f252e] px-3 py-2">
           {sections.map((section, index) => {
             const key = sectionKey(section);
@@ -344,7 +360,7 @@ export function PreviewCanvas({
                   onClick={() => onSelectSection(key)}
                   className="px-2.5 py-1.5 text-[11px] font-medium text-slate-200"
                 >
-                  {humanize(section.section_type)}
+                  {sectionTypeLabel(section.section_type)}
                 </button>
                 {active ? (
                   <span className="flex border-l border-white/10 px-1">
@@ -517,7 +533,45 @@ function humanize(value: string): string {
     .replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
-const COMPONENT_GROUPS = [
+function sectionTypeLabel(value: string): string {
+  return value === "order_discovery"
+    ? "Découverte & publicité"
+    : humanize(value);
+}
+
+type ComponentDefinition = {
+  type: string;
+  label: string;
+  description: string;
+  pageTypes?: readonly DraftPagePayload["type"][];
+  singleInstance?: boolean;
+};
+
+type ComponentGroup = {
+  label: string;
+  items: readonly ComponentDefinition[];
+};
+
+/** Filters the component library by page capability and one-per-page rules. */
+export function componentGroupsForPage(
+  pageType: DraftPagePayload["type"],
+  sections: DraftSectionPayload[],
+): ComponentGroup[] {
+  const existingTypes = new Set(sections.map((section) => section.section_type));
+  const isEditorialPage = pageType === "landing" || pageType === "content";
+  return COMPONENT_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) =>
+        (item.pageTypes
+          ? item.pageTypes.includes(pageType)
+          : isEditorialPage) &&
+        (!item.singleInstance || !existingTypes.has(item.type)),
+    ),
+  })).filter((group) => group.items.length > 0);
+}
+
+const COMPONENT_GROUPS: readonly ComponentGroup[] = [
   {
     label: "Mise en page",
     items: [
@@ -571,6 +625,13 @@ const COMPONENT_GROUPS = [
   {
     label: "Conversion",
     items: [
+      {
+        type: "order_discovery",
+        label: "Découverte & publicité",
+        description: "Présente vos autres services directement dans le menu.",
+        pageTypes: ["order"],
+        singleInstance: true,
+      },
       {
         type: "promo_banner",
         label: "Bannière promotionnelle",

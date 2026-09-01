@@ -37,6 +37,7 @@ export function Inspector({
   selection,
   tab,
   surface,
+  showBranchSelector = false,
   menus,
   services,
   catalog,
@@ -63,6 +64,7 @@ export function Inspector({
   /** The preview surface on screen. Scopes the page inspector's fields so it
    *  never offers a setting the visible surface does not render. */
   surface: InspectorSurface;
+  showBranchSelector?: boolean;
   menus: Menu[];
   services: CateringService[];
   catalog: ThemeCatalog;
@@ -117,6 +119,13 @@ export function Inspector({
   // (which resolves to the landing page) or for a section.
   const showSurfaceSwitcher =
     selection.kind === "page" && page?.type === "order";
+  const surfaceOptions: Array<{ value: InspectorSurface; label: string }> = [
+    ...(showBranchSelector
+      ? [{ value: "branches" as const, label: t("chain_selector_surface") }]
+      : []),
+    { value: "page", label: t("chain_selector_menu_surface") },
+    { value: "checkout", label: t("websiteV3SurfaceCheckout") },
+  ];
 
   return (
     <div className="min-h-full">
@@ -140,12 +149,7 @@ export function Inspector({
               aria-label={t("websiteV3SurfaceGroupLabel")}
               className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5"
             >
-              {(
-                [
-                  ["page", "websiteV3SurfacePage"],
-                  ["checkout", "websiteV3SurfaceCheckout"],
-                ] as const
-              ).map(([value, labelKey]) => (
+              {surfaceOptions.map(({ value, label }) => (
                 <button
                   key={value}
                   type="button"
@@ -158,7 +162,7 @@ export function Inspector({
                       : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
-                  {t(labelKey)}
+                  {label}
                 </button>
               ))}
             </div>

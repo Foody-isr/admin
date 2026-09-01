@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PreviewCanvas } from "../PreviewCanvas";
+import { PreviewCanvas, componentGroupsForPage } from "../PreviewCanvas";
+import type { DraftSectionPayload } from "@/lib/website-v3/types";
 
 test("preview iframe uses one stable landing bootstrap route for every draft page", () => {
   Object.assign(globalThis, { React });
@@ -110,6 +111,40 @@ test("content pages expose a discoverable component library", () => {
   assert.doesNotMatch(markup, /<select[^>]+Ajouter une section/);
 });
 
+test("discovery advertising is available once and only on order pages", () => {
+  const availableForOrder = componentGroupsForPage("order", []);
+  const availableForLanding = componentGroupsForPage("landing", []);
+  const availableForCatering = componentGroupsForPage("catering", []);
+  const existing: DraftSectionPayload = {
+    tmp_id: "discovery-test",
+    section_type: "order_discovery",
+    page: "commander",
+    page_tmp_id: "order-page",
+    sort_order: 0,
+    is_visible: true,
+    layout: "default",
+    content: {},
+    settings: {},
+  };
+
+  assert.ok(
+    availableForOrder.some((group) =>
+      group.items.some((item) => item.type === "order_discovery"),
+    ),
+  );
+  assert.ok(
+    availableForLanding.every((group) =>
+      group.items.every((item) => item.type !== "order_discovery"),
+    ),
+  );
+  assert.equal(availableForCatering.length, 0);
+  assert.ok(
+    componentGroupsForPage("order", [existing]).every((group) =>
+      group.items.every((item) => item.type !== "order_discovery"),
+    ),
+  );
+});
+
 test("order pages expose an explicit checkout preview surface", () => {
   Object.assign(globalThis, { React });
   const state = {
@@ -159,6 +194,10 @@ test("order pages expose an explicit checkout preview surface", () => {
 
   assert.match(markup, />Page<\/button>/);
   assert.match(markup, />Checkout<\/button>/);
+  assert.match(markup, /Ajouter un composant/);
+  assert.match(markup, /Découverte &amp; publicité/);
+  assert.doesNotMatch(markup, /Hero banner/);
+  assert.doesNotMatch(markup, /Galerie/);
   // The surface is owned by the builder now, so the page surface must still
   // resolve to the restaurant root and never to the checkout route.
   assert.match(
@@ -220,6 +259,7 @@ test("the checkout surface points the iframe at the checkout route", () => {
     /src="https:\/\/dev-app\.foody-pos\.co\.il\/order\/checkout\?restaurantId=moulin-doree&amp;orderType=delivery&amp;preview=1&amp;pageSlug=commander"/,
   );
   assert.match(markup, /title="Aperçu du checkout"/);
+  assert.doesNotMatch(markup, /Ajouter un composant/);
 });
 
 // Locks the lift itself: the surface must not regrow local state in the
@@ -248,7 +288,7 @@ test("the builder owns the surface and clamps it before rendering", async () => 
   assert.match(source, /const \[requestedSurface, setRequestedSurface\]/);
   assert.match(
     source,
-    /const surface = effectiveSurface\(activePageType, requestedSurface\)/,
+    /const surface = effectiveSurface\(activePageType, requestedSurface, showBranchSelector\)/,
   );
   // The clamp must sit above the loading/failure early returns, or the surface
   // is undefined for the first paint of every draft load.

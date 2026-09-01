@@ -12,25 +12,16 @@ import {
   ConfirmationConfig,
   legacyCheckoutForm,
 } from '@/lib/api';
+import {
+  detectFieldConflict,
+  asBuiltinField,
+  builtinLabel,
+  type FieldConflict,
+} from '@/lib/website/checkout-field-conflicts';
 import ConfirmationEditor from './ConfirmationEditor';
 
 type OrderTypeKey = 'delivery' | 'pickup';
 export type CheckoutSubTab = OrderTypeKey | 'confirmation';
-
-// Default label strings for built-in fields. Owners can override per-language.
-const BUILTIN_LABELS: Record<string, { en: string; fr: string; he: string }> = {
-  customer_first_name: { en: 'First name',     fr: 'Prénom',            he: 'שם פרטי' },
-  customer_name:    { en: 'Full name',         fr: 'Nom complet',       he: 'שם מלא' },
-  customer_phone:   { en: 'Phone number',      fr: 'Téléphone',         he: 'טלפון' },
-  delivery_address: { en: 'Delivery address',  fr: 'Adresse de livraison', he: 'כתובת למשלוח' },
-  delivery_city:    { en: 'City',              fr: 'Ville',             he: 'עיר' },
-  delivery_floor:   { en: 'Floor',             fr: 'Étage',             he: 'קומה' },
-  delivery_apt:     { en: 'Apartment / unit',  fr: 'Appartement',       he: 'דירה' },
-  delivery_entry_code: { en: 'Building code',  fr: 'Code immeuble',     he: 'קוד כניסה' },
-  delivery_notes:   { en: 'Delivery notes',    fr: 'Notes de livraison', he: 'הערות למשלוח' },
-  pickup_notes:     { en: 'Notes',             fr: 'Notes',             he: 'הערות' },
-  whatsapp_number:  { en: 'WhatsApp number',   fr: 'Numéro WhatsApp',   he: 'מספר וואטסאפ' },
-};
 
 const FIELD_TYPE_OPTIONS: Array<{ value: CheckoutFieldType; label: string }> = [
   { value: 'text',     label: 'Texte court' },
@@ -46,10 +37,6 @@ const OPERATOR_OPTIONS: Array<{ value: CheckoutVisibilityOperator; label: string
   { value: 'equals',    label: 'est égal à' },
   { value: 'one_of',    label: 'fait partie de' },
 ];
-
-function builtinLabel(id: string): string {
-  return BUILTIN_LABELS[id]?.fr ?? id;
-}
 
 function fieldDisplayLabel(field: CheckoutFieldConfig): string {
   if (field.label?.fr) return field.label.fr;
@@ -181,6 +168,15 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
     void fieldType;
   }, [form, writeForm]);
 
+  // Rewrite a custom field as the built-in it was imitating, in place, so it
+  // keeps its position in the form the owner arranged.
+  const replaceWithBuiltin = useCallback((idx: number, builtinId: string) => {
+    const next = form.fields.slice();
+    next[idx] = asBuiltinField(next[idx], builtinId);
+    writeForm({ ...form, fields: next });
+    setExpandedFieldId(builtinId);
+  }, [form, writeForm]);
+
   const enabledIdsBefore = useCallback((idx: number) => {
     return form.fields.slice(0, idx).filter((f) => f.enabled).map((f) => f.id);
   }, [form.fields]);
@@ -188,6 +184,14 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
   const builtinCatalogue = orderType === 'delivery' ? BUILTIN_DELIVERY_FIELDS : BUILTIN_PICKUP_FIELDS;
   const usedBuiltinIds = new Set(form.fields.filter((f) => f.kind === 'builtin').map((f) => f.id));
   const missingBuiltins = builtinCatalogue.filter((b) => !usedBuiltinIds.has(b.id));
+
+  // One conflict slot per field, positional rather than keyed by id — two
+  // fields sharing an id is itself one of the conflicts.
+  const builtinIds = useMemo(() => builtinCatalogue.map((b) => b.id), [builtinCatalogue]);
+  const conflicts = useMemo(
+    () => form.fields.map((f) => detectFieldConflict(f, form.fields, builtinIds)),
+    [form.fields, builtinIds],
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -277,9 +281,10 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
           <ul className="space-y-1.5">
             {form.fields.map((field, idx) => {
               const expanded = expandedFieldId === field.id;
+              const conflict = conflicts[idx];
               return (
                 <li
-                  key={field.id}
+                  key={`${field.id}-${idx}`}
                   className="rounded-lg border"
                   style={{ borderColor: 'var(--divider)', background: 'var(--surface)' }}
                 >
@@ -315,6 +320,14 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
                       {field.visible_when && (
                         <span className="ml-2 text-[10px] text-fg-secondary">conditionnel</span>
                       )}
+                      {/* Visible without expanding: nobody opens a field to
+                          find out something is wrong with it. */}
+                      {conflict && (
+                        <span className="ml-2 text-[10px] text-amber-600">
+                          <span aria-hidden>⚠</span>
+                          <span className="sr-only"> {conflictTitle(conflict)}</span>
+                        </span>
+                      )}
                     </button>
                     <Toggle
                       checked={field.enabled}
@@ -336,7 +349,10 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
                       field={field}
                       orderType={orderType}
                       earlierFieldIds={enabledIdsBefore(idx)}
+                      conflict={conflict}
                       onChange={(patch) => updateField(idx, patch)}
+                      onUseBuiltin={(builtinId) => replaceWithBuiltin(idx, builtinId)}
+                      onRemove={() => removeField(idx)}
                     />
                   )}
                 </li>
@@ -372,6 +388,80 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
           )}
         </p>
       </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Field conflicts ────────────────────────────────────────────────────
+//
+// The whole point is the ACTION. A warning the owner cannot act on is a
+// warning they learn to scroll past; every case below except the duplicate id
+// resolves in one click, and the duplicate id is fixed by typing.
+
+function conflictTitle(c: FieldConflict): string {
+  if (c.kind === 'duplicate_id') return 'Identifiant en double';
+  if (c.kind === 'reserved_id') return 'Identifiant réservé';
+  return c.builtinAlreadyInForm ? 'Ce champ fait doublon' : 'Un champ intégré fait déjà ça';
+}
+
+function ConflictCallout({
+  conflict, fieldId, onUseBuiltin, onRemove,
+}: {
+  conflict: FieldConflict;
+  fieldId: string;
+  onUseBuiltin: (builtinId: string) => void;
+  onRemove: () => void;
+}) {
+  const name = conflict.builtinId ? builtinLabel(conflict.builtinId) : '';
+
+  let body: string;
+  let action: { label: string; run: () => void } | null = null;
+
+  if (conflict.kind === 'duplicate_id') {
+    body = `Un autre champ porte déjà l'identifiant « ${fieldId} ». Une seule des deux réponses sera enregistrée. Renommez-en un.`;
+  } else if (conflict.kind === 'reserved_id') {
+    // This one already works — foodyweb routes by id, so the answer does reach
+    // the typed column. It is declared wrong, not wired wrong.
+    body = `« ${fieldId} » est l'identifiant du champ intégré ${name}. La réponse arrive au bon endroit, mais le champ est déclaré comme personnalisé.`;
+    action = conflict.builtinAlreadyInForm
+      ? { label: 'Supprimer ce champ', run: onRemove }
+      : { label: 'Convertir en champ intégré', run: () => onUseBuiltin(conflict.builtinId) };
+  } else if (conflict.builtinAlreadyInForm) {
+    body = `Le champ intégré ${name} est déjà dans ce formulaire. Le client verra la même question deux fois.`;
+    action = { label: 'Supprimer ce champ', run: onRemove };
+  } else {
+    // The case this guard was built for.
+    body = `${name} existe comme champ intégré. Lui seul alimente l'adresse de livraison, le répartiteur, la fiche client et le récap WhatsApp. Un champ personnalisé reste isolé dans la commande.`;
+    action = { label: 'Remplacer par le champ intégré', run: () => onUseBuiltin(conflict.builtinId) };
+  }
+
+  return (
+    <div
+      className="p-2.5 rounded-md space-y-2"
+      style={{
+        background: 'color-mix(in oklab, var(--warning-500) 10%, var(--surface))',
+        border: '1px solid color-mix(in oklab, var(--warning-500) 30%, var(--divider))',
+      }}
+    >
+      <p className="text-[12px] font-medium text-fg-primary">{conflictTitle(conflict)}</p>
+      <p className="text-[11px] text-fg-secondary leading-relaxed">{body}</p>
+      {action && (
+        <>
+          <button
+            type="button"
+            onClick={action.run}
+            className="text-[12px] px-2.5 py-1 rounded-md border text-fg-primary hover:bg-surface-subtle"
+            style={{ borderColor: 'var(--divider)', background: 'var(--surface)' }}
+          >
+            {action.label}
+          </button>
+          {/* Said out loud because it is the obvious wrong assumption: this
+              changes the form, not the orders already taken. */}
+          <p className="text-[10px] text-fg-secondary">
+            Les commandes déjà passées gardent l&apos;ancien champ.
+          </p>
+        </>
       )}
     </div>
   );
@@ -421,12 +511,17 @@ function Toggle({
 }
 
 function FieldEditor({
-  field, orderType, earlierFieldIds, onChange,
+  field, orderType, earlierFieldIds, conflict, onChange, onUseBuiltin, onRemove,
 }: {
   field: CheckoutFieldConfig;
   orderType: OrderTypeKey;
   earlierFieldIds: string[];
+  /** Set when this field duplicates or shadows another. See
+   *  lib/website/checkout-field-conflicts.ts for what each kind means. */
+  conflict: FieldConflict | null;
   onChange: (patch: Partial<CheckoutFieldConfig>) => void;
+  onUseBuiltin: (builtinId: string) => void;
+  onRemove: () => void;
 }) {
   const labelFr = field.label?.fr ?? '';
   const placeholderFr = field.placeholder?.fr ?? '';
@@ -436,6 +531,17 @@ function FieldEditor({
 
   return (
     <div className="px-3 pb-3 pt-1 space-y-3 border-t" style={{ borderColor: 'var(--divider)' }}>
+      {/* First thing in the panel: the owner opened this field, so this is the
+          moment they are thinking about it. */}
+      {conflict && (
+        <ConflictCallout
+          conflict={conflict}
+          fieldId={field.id}
+          onUseBuiltin={onUseBuiltin}
+          onRemove={onRemove}
+        />
+      )}
+
       <FormRow label="Libellé">
         <input
           type="text"

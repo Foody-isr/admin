@@ -193,6 +193,10 @@ function fakeContextFr(order: Order, restaurantName: string, receiptUrl: string 
       articles: articlesFr(order),
       totaux: totauxFr(order),
       adresse: "", // fixture never uses delivery; not what Findings 1/2 are about
+      // Declared, not omitted: an omitted key renders in place and leaves a
+      // bare "ℹ️" on the line, an empty one lets the line vanish. That is the
+      // whole point of missingFromContext, which flagged this fixture.
+      infos_client: "",
       statut_paiement: statutPaiementFr(order),
       salutation: salutationFr(order.customer_name),
       lien_suivi: lienSuiviFr(receiptUrl),

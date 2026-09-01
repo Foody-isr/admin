@@ -54,10 +54,34 @@ export function getDefaultContent(sectionType: string): Record<string, any> {
     case 'social_feed': return { links: [] };
     case 'action_buttons': return { buttons: [{ label: 'Order Now', action: 'view_menu', style: 'primary' }] };
     case 'feature_cards': return { cards: [{ image_url: '', title: '', subtitle: '', link: '' }] };
+    case 'order_discovery': return {
+      heading_eyebrow: 'Au-delà du menu',
+      heading: 'Découvrez aussi',
+      show_heading: true,
+      promotions: [{
+        image_url: '', image_alt: '', image_focal_x: 50, image_focal_y: 50,
+        eyebrow: '', title: '', description: '', cta_label: 'Découvrir',
+        link: '', open_in_new_tab: false,
+      }],
+    };
     case 'picnic_basket': return { title: 'Preparing Your Basket', subtitle: 'Scroll to fill your Shabbat basket with love', items: [], basket_image: '', completion_text: 'Ready for Shabbat! \u{1F56F}\u{FE0F}' };
     case 'footer': return { show_logo: true, show_description: true, show_address: true, show_phone: true, show_hours: true, custom_text: '', social_links: [] };
     default: return {};
   }
+}
+
+/** Visual and placement defaults for sections that need structured settings. */
+export function getDefaultSettings(sectionType: string): Record<string, any> {
+  if (sectionType !== 'order_discovery') return {};
+  return {
+    insert_after_items: 6,
+    image_position: 'left',
+    card_height: 'regular',
+    card_radius: 'rounded',
+    panel_style: 'gradient',
+    show_dividers: true,
+    mobile_overlay_opacity: 0.72,
+  };
 }
 
 export const LAYOUT_OPTIONS: Record<string, { value: string; labelKey: string }[]> = {

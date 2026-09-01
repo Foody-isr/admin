@@ -8,7 +8,8 @@ import {
   PAYMENT_TONE,
   localizeStatus,
   localizeOrderType,
-} from '@/components/orders/OrderDetailDrawer';
+} from '@/lib/orders/status-presentation';
+import { formatMoney } from '@/lib/format-money';
 import type { Order, OrdersTableConfig } from '@/lib/api';
 import {
   resolveColumns,
@@ -138,7 +139,7 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     defaultVisible: true,
     align: 'right',
     cellClassName: 'font-medium text-fg-primary',
-    render: (order) => <>₪{(order.total_amount ?? 0).toFixed(0)}</>,
+    render: (order) => <>{formatMoney(order.total_amount, { decimals: 0 })}</>,
   },
   // Delivery columns. Hidden by default: a restaurant that does not deliver
   // would otherwise inherit four permanently empty columns.

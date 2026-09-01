@@ -107,6 +107,20 @@ function section(
   });
 }
 
+function orderSection(
+  id: string,
+  path: readonly (string | number)[],
+  _selector: string,
+  _assertion: string,
+): FieldContract {
+  return contract({
+    id,
+    scope: "section",
+    statePath: path,
+    pageTypes: ["order"],
+  });
+}
+
 function footer(
   id: string,
   path: readonly (string | number)[],
@@ -317,6 +331,7 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.nav_visible": false,
   "page.is_default": true,
   "page.appearance_overrides.hide_navbar_name": true,
+  "page.appearance_overrides.navbar_logo_position": "right",
   "page.seo.title": "Website V3 SEO title",
   "page.seo.description": "Website V3 SEO description",
   "page.seo.share_image_url": "http://localhost:3000/logo-icon.svg",
@@ -325,6 +340,15 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.accent": "#b42318",
   "page.appearance_overrides.headingFont": "Georgia",
   "page.appearance_overrides.bodyFont": "Inter",
+  "page.appearance_overrides.chain_order_entry.logo_url":
+    "http://localhost:3000/logo-icon.svg",
+  "page.appearance_overrides.chain_order_entry.layout": "cards",
+  "page.appearance_overrides.chain_order_entry.surface_color": "#fffaf0",
+  "page.appearance_overrides.chain_order_entry.overlay_opacity": 42,
+  "page.appearance_overrides.chain_order_entry.show_search": false,
+  "page.appearance_overrides.chain_order_entry.show_near_me": false,
+  "page.appearance_overrides.chain_order_entry.show_branch_count": false,
+  "page.appearance_overrides.chain_order_entry.show_branch_numbers": false,
   "page.appearance_overrides.navbar_style": "overlay",
   "page.appearance_overrides.navbar_color": "#FAF1D2",
   "page.appearance_overrides.navbar_text_color": "#253265",
@@ -347,10 +371,14 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.section_colors.categoryBar.text": "#111827",
   "page.appearance_overrides.section_colors.categoryBar.accent": "#315fce",
   "page.appearance_overrides.section_colors.categoryBar.divider": "#e5e7eb",
-  "page.appearance_overrides.section_colors.categoryBarSticky.bg": "#111827",
-  "page.appearance_overrides.section_colors.categoryBarSticky.text": "#ffffff",
-  "page.appearance_overrides.section_colors.categoryBarSticky.accent": "#d6ff3f",
-  "page.appearance_overrides.section_colors.categoryBarSticky.divider": "#334155",
+  "page.appearance_overrides.section_colors.categoryBar.activeBg": "#111827",
+  "page.appearance_overrides.section_colors.categoryBar.activeText": "#ffffff",
+  "page.appearance_overrides.section_colors.categoryBar.searchBg": "#f1f5f9",
+  "page.appearance_overrides.section_colors.categoryBar.searchText": "#111827",
+  "page.appearance_overrides.section_colors.categoryBar.iconBg": "#111827",
+  "page.appearance_overrides.section_colors.categoryBar.icon": "#ffffff",
+  "page.appearance_overrides.section_colors.categoryBar.cartBg": "#111827",
+  "page.appearance_overrides.section_colors.categoryBar.cartText": "#ffffff",
   "page.settings.menu_ids": [0],
   "page.settings.service_ids": [0],
   "section.is_visible": true,
@@ -360,6 +388,9 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.content.headline": "Connected hero headline",
   "section.content.subheadline": "Connected hero subheadline",
   "section.content.title": "Connected section title",
+  "section.content.heading_eyebrow": "Connected discovery eyebrow",
+  "section.content.heading": "Connected discovery heading",
+  "section.content.show_heading": false,
   "section.content.body": "Connected section body",
   "section.content.text": "Connected scrolling text",
   "section.content.cta_text": "Connected CTA",
@@ -379,6 +410,26 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.card_muted": "#64748b",
   "section.settings.price_color": "#b42318",
   "section.settings.accent_color": "#315fce",
+  "section.settings.button_bg_color": "#7c2d12",
+  "section.settings.button_text_color": "#fef3c7",
+  "section.settings.button_border_color": "#f59e0b",
+  "section.settings.button_shape": "pill",
+  "section.settings.image_position": "alternate",
+  "section.settings.card_height": "tall",
+  "section.settings.card_radius": "soft",
+  "section.settings.heading_eyebrow_color": "#6b7280",
+  "section.settings.heading_color": "#111827",
+  "section.settings.panel_style": "gradient",
+  "section.settings.panel_bg_color": "#5f241a",
+  "section.settings.panel_bg_color_end": "#8f4432",
+  "section.settings.panel_text_color": "#ffffff",
+  "section.settings.panel_muted_color": "#f5d8cf",
+  "section.settings.mobile_text_color": "#ffffff",
+  "section.settings.mobile_overlay_opacity": 0.8,
+  "section.settings.section_bg_color": "#fff7ed",
+  "section.settings.show_dividers": false,
+  "section.settings.divider_color": "#fed7aa",
+  "section.settings.insert_after_items": 9,
   "section.settings.bg_image": "http://localhost:3000/logo-icon.svg",
   "section.settings.bg_overlay": true,
 };
@@ -401,7 +452,8 @@ function editorFor(
     };
   }
   if (id.startsWith("site.") || id.startsWith("section.content.custom_") ||
-      id.startsWith("section.content.show_") || id === "section.content.social_links") {
+      (id.startsWith("section.content.show_") && id !== "section.content.show_heading") ||
+      id === "section.content.social_links") {
     const appearance = [
       "site.theme_id", "site.pairing_id", "site.brand_color",
       "site.hero_name_font", "site.typography", "site.layout_default",
@@ -435,18 +487,28 @@ function editorFor(
       pageTypes.length === 1 &&
       pageTypes[0] === "order";
     const orderPage = order || categoryBar || orderOnly;
+    const chainSelector = id.startsWith(
+      "page.appearance_overrides.chain_order_entry.",
+    );
+    const chainSelectorSetting =
+      chainSelector &&
+      [
+        "show_search",
+        "show_near_me",
+        "show_branch_count",
+        "show_branch_numbers",
+      ].some((field) => id.endsWith(`.${field}`));
     const pageCtaState = id.startsWith(
       "page.appearance_overrides.navbar_cta.",
-    );
-    const stickyCategoryState = id.startsWith(
-      "page.appearance_overrides.section_colors.categoryBarSticky.",
     );
     return {
       kind: action,
       scope,
       tab: id === "page.title" ? "Contenu" :
+        chainSelectorSetting ? "Réglages" :
         id.startsWith("page.appearance_overrides.navbar_cta") ? "Réglages" :
         id === "page.appearance_overrides.hide_navbar_name" ? "Réglages" :
+        id === "page.appearance_overrides.navbar_logo_position" ? "Réglages" :
         id.startsWith("page.appearance_overrides.") ? "Apparence" : "Réglages",
       pageTitle: orderPage ? "Brunch Order" : catering ? "Office Catering" :
         defaultPage ? "Dinner Order" : "About",
@@ -455,7 +517,9 @@ function editorFor(
         id === "page.slug" ? String(FIELD_TEST_VALUES[id]) : "about",
       // The checkout text colours only render on the order page's checkout
       // surface, so a driver must switch surface before locating them.
-      surface: id.startsWith(
+      surface: chainSelector
+        ? "branches"
+        : id.startsWith(
         "page.appearance_overrides.checkout_text_colors.",
       )
         ? "checkout"
@@ -463,12 +527,7 @@ function editorFor(
       commit: "change",
       prerequisite: pageCtaState
         ? { id: "page.appearance_overrides.navbar_cta", value: true }
-        : stickyCategoryState
-          ? {
-              id: "page.appearance_overrides.section_colors.categoryBarSticky",
-              value: true,
-            }
-          : undefined,
+        : undefined,
     };
   }
 
@@ -485,20 +544,52 @@ function editorFor(
     "section.settings.price_color",
     "section.settings.accent_color",
   ].includes(id);
+  const featureCards = [
+    "section.settings.button_bg_color",
+    "section.settings.button_text_color",
+    "section.settings.button_border_color",
+    "section.settings.button_shape",
+  ].includes(id);
+  const orderDiscovery =
+    id === "section.content.heading_eyebrow" ||
+    id === "section.content.heading" ||
+    id === "section.content.show_heading" ||
+    id.startsWith("section.settings.image_position") ||
+    id.startsWith("section.settings.card_height") ||
+    id.startsWith("section.settings.card_radius") ||
+    id.startsWith("section.settings.heading_") ||
+    id.startsWith("section.settings.panel_") ||
+    id.startsWith("section.settings.mobile_") ||
+    id === "section.settings.section_bg_color" ||
+    id === "section.settings.show_dividers" ||
+    id === "section.settings.divider_color" ||
+    id === "section.settings.insert_after_items";
   const appearance = id === "section.layout" || id.startsWith("section.settings.");
   return {
     kind: action,
     scope,
     tab: appearance ? "Apparence" : id === "section.is_visible" || id === "section.page_id" ? "Réglages" : "Contenu",
-    pageTitle: hero || scrolling || menuHighlights ? "Home" : "About",
+    pageTitle: orderDiscovery
+      ? "Dinner Order"
+      : hero || scrolling || menuHighlights || featureCards
+        ? "Home"
+        : "About",
     sectionLabel: hero
       ? "Hero banner"
       : scrolling
         ? "Scrolling text"
         : menuHighlights
           ? "Menu highlights"
-          : "Text and image",
-    publicSlug: hero || scrolling || menuHighlights ? "" : "about",
+          : featureCards
+            ? "Feature cards"
+            : orderDiscovery
+              ? "Order discovery"
+              : "Text and image",
+    publicSlug: orderDiscovery
+      ? "dinner-order"
+      : hero || scrolling || menuHighlights || featureCards
+        ? ""
+        : "about",
     commit: "change",
     prerequisite: id === "section.settings.custom_bg" || id === "section.settings.custom_text"
       ? { id: "section.settings.color_style", value: "custom" }
@@ -625,6 +716,12 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
     "nav",
     "visible",
   ),
+  page(
+    "page.appearance_overrides.navbar_logo_position",
+    ["appearance_overrides", "navbar_logo_position"],
+    "nav",
+    "value",
+  ),
   pageMetadata("page.seo.title", ["seo", "title"], {
     selector: "title",
     assertion: "text",
@@ -677,6 +774,44 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
     ["appearance_overrides", "bodyFont"],
     "body",
     "style",
+  ),
+  page(
+    "page.appearance_overrides.chain_order_entry.logo_url",
+    ["appearance_overrides", "chain_order_entry", "logo_url"],
+    "main",
+    "attribute",
+    ["order"],
+  ),
+  page(
+    "page.appearance_overrides.chain_order_entry.layout",
+    ["appearance_overrides", "chain_order_entry", "layout"],
+    "main",
+    "attribute",
+    ["order"],
+  ),
+  page(
+    "page.appearance_overrides.chain_order_entry.surface_color",
+    ["appearance_overrides", "chain_order_entry", "surface_color"],
+    "main",
+    "attribute",
+    ["order"],
+  ),
+  page(
+    "page.appearance_overrides.chain_order_entry.overlay_opacity",
+    ["appearance_overrides", "chain_order_entry", "overlay_opacity"],
+    "main",
+    "attribute",
+    ["order"],
+  ),
+  ...(["show_search", "show_near_me", "show_branch_count", "show_branch_numbers"] as const).map(
+    (field) =>
+      page(
+        `page.appearance_overrides.chain_order_entry.${field}`,
+        ["appearance_overrides", "chain_order_entry", field],
+        "main",
+        "attribute",
+        ["order"],
+      ),
   ),
   ...(["categoryTitle", "itemName", "itemPrice", "itemDescription"] as const).map((role) =>
     page(
@@ -768,11 +903,14 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   page("page.appearance_overrides.section_colors.categoryBar.text", ["appearance_overrides", "section_colors", "categoryBar", "text"], "order", "color", ["order"]),
   page("page.appearance_overrides.section_colors.categoryBar.accent", ["appearance_overrides", "section_colors", "categoryBar", "accent"], "order", "color", ["order"]),
   page("page.appearance_overrides.section_colors.categoryBar.divider", ["appearance_overrides", "section_colors", "categoryBar", "divider"], "order", "color", ["order"]),
-  action("page.appearance_overrides.section_colors.categoryBarSticky", "page", ["appearance_overrides", "section_colors", "categoryBarSticky"]),
-  page("page.appearance_overrides.section_colors.categoryBarSticky.bg", ["appearance_overrides", "section_colors", "categoryBarSticky", "bg"], "order", "color", ["order"]),
-  page("page.appearance_overrides.section_colors.categoryBarSticky.text", ["appearance_overrides", "section_colors", "categoryBarSticky", "text"], "order", "color", ["order"]),
-  page("page.appearance_overrides.section_colors.categoryBarSticky.accent", ["appearance_overrides", "section_colors", "categoryBarSticky", "accent"], "order", "color", ["order"]),
-  page("page.appearance_overrides.section_colors.categoryBarSticky.divider", ["appearance_overrides", "section_colors", "categoryBarSticky", "divider"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.activeBg", ["appearance_overrides", "section_colors", "categoryBar", "activeBg"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.activeText", ["appearance_overrides", "section_colors", "categoryBar", "activeText"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.searchBg", ["appearance_overrides", "section_colors", "categoryBar", "searchBg"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.searchText", ["appearance_overrides", "section_colors", "categoryBar", "searchText"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.iconBg", ["appearance_overrides", "section_colors", "categoryBar", "iconBg"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.icon", ["appearance_overrides", "section_colors", "categoryBar", "icon"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.cartBg", ["appearance_overrides", "section_colors", "categoryBar", "cartBg"], "order", "color", ["order"]),
+  page("page.appearance_overrides.section_colors.categoryBar.cartText", ["appearance_overrides", "section_colors", "categoryBar", "cartText"], "order", "color", ["order"]),
   page(
     "page.settings.menu_ids",
     ["settings", "menu_ids"],
@@ -804,6 +942,9 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.content.headline", ["content", "headline"], "[data-website-section] h1", "text"),
   section("section.content.subheadline", ["content", "subheadline"], "[data-website-section] p", "text"),
   section("section.content.title", ["content", "title"], "[data-website-section] h2", "text"),
+  orderSection("section.content.heading_eyebrow", ["content", "heading_eyebrow"], "order_discovery", "text"),
+  orderSection("section.content.heading", ["content", "heading"], "order_discovery", "text"),
+  orderSection("section.content.show_heading", ["content", "show_heading"], "order_discovery", "visible"),
   section("section.content.body", ["content", "body"], "[data-website-section] p", "text"),
   section("section.content.text", ["content", "text"], "[data-website-section]", "text"),
   section("section.content.cta_text", ["content", "cta_text"], "[data-website-section] a", "text"),
@@ -823,6 +964,26 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.card_muted", ["settings", "card_muted"], "menu_highlights", "color"),
   section("section.settings.price_color", ["settings", "price_color"], "menu_highlights", "color"),
   section("section.settings.accent_color", ["settings", "accent_color"], "menu_highlights", "color"),
+  section("section.settings.button_bg_color", ["settings", "button_bg_color"], "feature_cards", "color"),
+  section("section.settings.button_text_color", ["settings", "button_text_color"], "feature_cards", "color"),
+  section("section.settings.button_border_color", ["settings", "button_border_color"], "feature_cards", "color"),
+  section("section.settings.button_shape", ["settings", "button_shape"], "feature_cards", "style"),
+  orderSection("section.settings.image_position", ["settings", "image_position"], "order_discovery", "style"),
+  orderSection("section.settings.card_height", ["settings", "card_height"], "order_discovery", "style"),
+  orderSection("section.settings.card_radius", ["settings", "card_radius"], "order_discovery", "style"),
+  orderSection("section.settings.heading_eyebrow_color", ["settings", "heading_eyebrow_color"], "order_discovery", "color"),
+  orderSection("section.settings.heading_color", ["settings", "heading_color"], "order_discovery", "color"),
+  orderSection("section.settings.panel_style", ["settings", "panel_style"], "order_discovery", "style"),
+  orderSection("section.settings.panel_bg_color", ["settings", "panel_bg_color"], "order_discovery", "color"),
+  orderSection("section.settings.panel_bg_color_end", ["settings", "panel_bg_color_end"], "order_discovery", "color"),
+  orderSection("section.settings.panel_text_color", ["settings", "panel_text_color"], "order_discovery", "color"),
+  orderSection("section.settings.panel_muted_color", ["settings", "panel_muted_color"], "order_discovery", "color"),
+  orderSection("section.settings.mobile_text_color", ["settings", "mobile_text_color"], "order_discovery", "color"),
+  orderSection("section.settings.mobile_overlay_opacity", ["settings", "mobile_overlay_opacity"], "order_discovery", "style"),
+  orderSection("section.settings.section_bg_color", ["settings", "section_bg_color"], "order_discovery", "color"),
+  orderSection("section.settings.show_dividers", ["settings", "show_dividers"], "order_discovery", "visible"),
+  orderSection("section.settings.divider_color", ["settings", "divider_color"], "order_discovery", "color"),
+  orderSection("section.settings.insert_after_items", ["settings", "insert_after_items"], "order_discovery", "value"),
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
   action("section.create", "section", ["sections"]),

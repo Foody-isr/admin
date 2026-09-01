@@ -229,7 +229,7 @@ function dualLegacyOrderDraft(): DraftStatePayload {
   });
 }
 
-test("publication validation blocks unavailable menu and service references", () => {
+test("publication validation blocks unavailable menus but catering visibility stays catalog-owned", () => {
   const errors = validateDraftForPublish(validState(), {
     menuIds: new Set([12]),
     serviceIds: new Set([22]),
@@ -237,10 +237,9 @@ test("publication validation blocks unavailable menu and service references", ()
 
   assert.deepEqual(
     errors.map((error) => error.fieldId),
-    ["page.settings.menu_ids", "page.settings.service_ids"],
+    ["page.settings.menu_ids"],
   );
   assert.match(errors[0].message, /11/);
-  assert.match(errors[1].message, /21/);
 });
 
 test("publication validation accepts references available to the public renderer", () => {
@@ -534,7 +533,7 @@ test("legacy builder reconciliation removes technical pages and repairs commerce
     ["home", "traiteur"],
   );
   assert.deepEqual(result.state.deleted_page_ids, [12]);
-  assert.deepEqual(result.state.pages[1].settings, { service_ids: [1, 2] });
+  assert.deepEqual(result.state.pages[1].settings, { service_ids: [] });
   assert.equal(result.state.pages[1].is_default, true);
   assert.equal(result.state.sections[0].page_id, undefined);
   assert.equal(result.state.sections[1].page, "traiteur");
