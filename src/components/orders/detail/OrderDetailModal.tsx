@@ -9,7 +9,8 @@
 //
 //   ribbon  — where is this order in its life
 //   ticket  — what was ordered
-//   context — money, who ordered, where it goes, and consulted records in tabs
+//   context — money, who ordered, and where it goes
+//   references — activity in the head menu, notes docked below the ticket
 //
 // Purely presentational, exactly as before: every mutation is delegated to the
 // on* callback props the host supplies.
@@ -22,7 +23,10 @@ import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-
 import { statusStageKind } from '@/lib/orders/workflow-stepper';
 import { localizeOrderType } from '@/lib/orders/status-presentation';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
-import type { CheckoutConfig, Order } from '@/lib/api';
+import { WhatsAppDeliveryReminderDialog } from '@/components/orders/WhatsAppDeliveryReminderDialog';
+import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
+import { isDeliveryReminderDue } from '@/lib/orders/delivery-reminder';
+import { pickWorkflow, useOrderWorkflows } from '@/lib/orders/use-order-workflows';
 
 import { OrderDetailShell } from './OrderDetailShell';
 import { OrderDetailHead } from './OrderDetailHead';
@@ -40,7 +44,11 @@ import { CustomerPanel } from './context/CustomerPanel';
 import { DeliveryPanel } from './context/DeliveryPanel';
 import { MoneyPanel } from './context/MoneyPanel';
 import { countOrderInvoices } from './context/InvoicePanel';
-import { OrderReferenceTabs } from './context/OrderReferenceTabs';
+import {
+  OrderNotesDock,
+  OrderReferenceDrawer,
+  type OrderReferenceView,
+} from './context/OrderReferences';
 
 export interface OrderDetailModalProps {
   order: Order | null;
@@ -49,7 +57,7 @@ export interface OrderDetailModalProps {
   canOverride?: boolean;
   isLoading: boolean;
   onClose: () => void;
-  onAccept: () => void;
+  onAccept: () => void | Promise<AcceptOrderResult | undefined>;
   onReject: () => void;
   onDelete?: () => void;
   onOverride?: () => void;
@@ -97,13 +105,17 @@ export function OrderDetailModal({
 
   // WhatsApp order-confirmation recap ("Envoyer au client → Confirmation").
   const [recapOpen, setRecapOpen] = useState(false);
+  const [deliveryReminderOpen, setDeliveryReminderOpen] = useState(false);
+  const [referenceView, setReferenceView] = useState<OrderReferenceView | null>(null);
+  const workflows = useOrderWorkflows(order?.restaurant_id);
   useEffect(() => {
     setRecapOpen(false);
+    setDeliveryReminderOpen(false);
+    setReferenceView(null);
   }, [order?.id]);
 
-  // Both reference fetches live above their tabs. Their counts and warning
-  // marks remain visible even while another tab is active, and changing tabs
-  // never starts a duplicate request.
+  // Reference fetches live above their drawers so the closed menu and dock can
+  // show counts and warnings without mounting the full content.
   const audit = useOrderAudit(order?.restaurant_id, order?.id);
   const notes = useOrderNotes(order?.restaurant_id, order?.id);
 
@@ -136,6 +148,12 @@ export function OrderDetailModal({
       onDelete: !!onDelete,
     },
   );
+  const workflow = pickWorkflow(workflows, order.order_type);
+  const showDeliveryReminder =
+    !!workflow?.delivery_reminder_enabled &&
+    isDeliveryReminderDue(order) &&
+    !caps.isCancelled &&
+    !caps.isTerminal;
 
   // The head's tone follows where the order sits in the pipeline, via the same
   // status→kind mapping the stepper uses, so the dot and the rail can never
@@ -196,12 +214,21 @@ export function OrderDetailModal({
   };
 
   const PRIMARY_HANDLER: Record<PrimaryAction, () => void> = {
-    accept: onAccept,
+    accept: () => { void onAccept(); },
     sendToKitchen: onSendToKitchen,
     markReady: onMarkReady,
     markServed: onMarkServed,
     markOutForDelivery: onOutForDelivery,
     markDelivered: onMarkDelivered,
+  };
+
+  const handlePrimary = async (action: PrimaryAction) => {
+    if (action === 'accept') {
+      const result = await onAccept();
+      if (result?.follow_up.whatsapp_recap) setRecapOpen(true);
+      return;
+    }
+    PRIMARY_HANDLER[action]();
   };
 
   // Decides whether the invoice block exists at all, and labels it when it
@@ -236,8 +263,14 @@ export function OrderDetailModal({
             displayedLineCount={displayedLineCount}
             totalUnits={totalUnits}
             total={totalsLine}
-            actions={canManage && caps.hasOverflow ? (
+            actions={(
               <OrderOverflowMenu
+                activityCount={activityEvents.length}
+                activityPending={audit.status === 'loading'}
+                activityFailed={audit.status === 'error'}
+                onViewActivity={() => setReferenceView('activity')}
+                invoiceCount={invoiceCount}
+                onViewInvoice={invoiceCount > 0 ? () => setReferenceView('invoice') : undefined}
                 canCorrect={caps.canCorrectStatus && !!onOverride}
                 canCorrectPayment={caps.canCorrectPayment && !!onCorrectPayment}
                 canCorrectPaymentMethod={caps.canCorrectPaymentMethod && !!onCorrectPaymentMethod}
@@ -254,7 +287,7 @@ export function OrderDetailModal({
                 onDelete={onDelete}
                 disabled={isLoading}
               />
-            ) : undefined}
+            )}
           />
         }
         ribbon={<WorkflowStepper order={order} t={t} />}
@@ -290,8 +323,8 @@ export function OrderDetailModal({
           </>
         }
         context={
-          <div className="flex flex-col gap-[var(--s-3)]">
-            <div className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-2)] shadow-1">
+          <div className="order-detail-context-stack flex flex-col gap-[var(--s-3)]">
+            <div className="order-detail-service overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-2)] shadow-1">
               <CustomerPanel
                 order={order}
                 canManage={canManage}
@@ -310,17 +343,14 @@ export function OrderDetailModal({
               totalsLine={totalsLine}
               t={t}
             />
-            <OrderReferenceTabs
-              key={order.id}
-              order={order}
-              activityEvents={activityEvents}
-              audit={audit}
-              invoiceCount={invoiceCount}
-              notes={notes}
-              t={t}
-              direction={direction}
-            />
           </div>
+        }
+        notesDock={
+          <OrderNotesDock
+            notes={notes}
+            onOpen={() => setReferenceView('notes')}
+            t={t}
+          />
         }
         footer={
           <CommandBar
@@ -331,12 +361,24 @@ export function OrderDetailModal({
             onEdit={onEdit}
             onPrint={handlePrint}
             onSendConfirmation={() => setRecapOpen(true)}
+            onSendDeliveryReminder={showDeliveryReminder ? () => setDeliveryReminderOpen(true) : undefined}
             onConfirmWeights={onConfirmWeights}
             onTakePayment={onTakePayment}
             onCloseOrder={onCloseOrder}
-            onPrimary={(action) => PRIMARY_HANDLER[action]()}
+            onPrimary={(action) => { void handlePrimary(action); }}
           />
         }
+      />
+
+      <OrderReferenceDrawer
+        view={referenceView}
+        onOpenChange={(open) => { if (!open) setReferenceView(null); }}
+        order={order}
+        activityEvents={activityEvents}
+        audit={audit}
+        notes={notes}
+        t={t}
+        direction={direction}
       />
 
       <WhatsAppRecapDialog
@@ -347,6 +389,13 @@ export function OrderDetailModal({
         restaurantName={restaurantInfo.name || ''}
         restaurantDefaultLocale={restaurantDefaultLocale}
         checkoutConfig={checkoutConfig}
+      />
+      <WhatsAppDeliveryReminderDialog
+        open={deliveryReminderOpen}
+        onOpenChange={setDeliveryReminderOpen}
+        order={order}
+        restaurantName={restaurantInfo.name || ''}
+        restaurantDefaultLocale={restaurantDefaultLocale}
       />
     </>
   );

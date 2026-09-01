@@ -132,7 +132,7 @@ test("the site selection offers no surface switcher", () => {
   const markup = render([page("order", "order-1")], { kind: "site" });
 
   assert.doesNotMatch(markup, /data-inspector-surface=/);
-  assert.match(markup, /Identité du site/);
+  assert.match(markup, /Éléments partagés/);
 });
 
 test("the three inspector tabs are still present alongside it", () => {

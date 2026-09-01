@@ -6,8 +6,10 @@ import { cn } from '@/lib/utils';
 import { DetailSkeleton } from './primitives/DetailSkeleton';
 import {
   DETAIL_BODY_GRID,
+  DETAIL_TICKET_COLUMN,
   DETAIL_MAIN_TRACK,
   DETAIL_CONTEXT_TRACK,
+  DETAIL_NOTES_DOCK,
   DETAIL_RIBBON_BAND,
 } from './primitives/layout';
 
@@ -15,13 +17,9 @@ import {
  * The order detail's full-screen takeover: head, progression ribbon, a
  * two-column body, command bar.
  *
- * ONE scroll region. It started as three columns that each scrolled on their
- * own, which meant reading a single order took a scroll on the left AND a
- * scroll on the right, with nothing to say content was hidden in a column you
- * were not touching. Independent scrollports belong to independent workspaces —
- * mail folders / list / message, files / editor / outline. Three facets of one
- * record get one scroll, which is what Shopify, Stripe and Linear all do on a
- * record detail. The geometry lives in primitives/layout.ts.
+ * On desktop only the ticket scrolls: progression, context, notes dock and
+ * commands remain visible around it. Mobile keeps one document scroll. The
+ * geometry lives in primitives/layout.ts.
  *
  * Why a new component rather than a wider ds/FullScreenEditor: that primitive
  * has nine callers and a fixed shape — centred title, one 280px start rail, a
@@ -44,6 +42,8 @@ export interface OrderDetailShellProps {
   ribbon?: React.ReactNode;
   /** Main column: what was ordered. */
   center: React.ReactNode;
+  /** Compact internal-notes shortcut fixed below the desktop ticket. */
+  notesDock?: React.ReactNode;
   /** End column: money, customer, delivery — what stays legible beside the
    *  ticket. */
   context: React.ReactNode;
@@ -60,6 +60,7 @@ export function OrderDetailShell({
   title,
   ribbon,
   center,
+  notesDock,
   context,
   loading,
   footer,
@@ -129,11 +130,12 @@ export function OrderDetailShell({
             the mirror is free. See primitives/layout.ts for the geometry.
           */}
           <div className={DETAIL_BODY_GRID}>
-            <main className={DETAIL_MAIN_TRACK}>{center}</main>
+            <div className={DETAIL_TICKET_COLUMN}>
+              <main className={DETAIL_MAIN_TRACK}>{center}</main>
+              {notesDock && <section className={DETAIL_NOTES_DOCK}>{notesDock}</section>}
+            </div>
 
-            <aside className={DETAIL_CONTEXT_TRACK}>
-              <div className="md:sticky md:top-[var(--s-4)]">{context}</div>
-            </aside>
+            <aside className={DETAIL_CONTEXT_TRACK}>{context}</aside>
           </div>
           </>
           )}

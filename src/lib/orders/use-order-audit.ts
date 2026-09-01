@@ -5,9 +5,8 @@ import { ApiError, getOrderAudit, type AuditEvent } from '@/lib/api';
 
 // The activity timeline's audit fetch, lifted out of the component.
 //
-// It lives above the reference tabs so the activity count remains visible when
-// another tab is active and opening the timeline never issues a new request.
-// With events arriving as props, the drawing component remains pure.
+// It lives above the drawer so the head menu can show the activity count before
+// the timeline mounts. Opening the timeline never issues a second request.
 //
 // The old code did `.catch(() => setAuditEvents([]))`, which made a
 // server error indistinguishable from "this order has no history". A 403 IS

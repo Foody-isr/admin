@@ -15,6 +15,7 @@ import {
   type OrderCustomerDetailsInput,
   type OrdersTableConfig,
   type CheckoutConfig,
+  type AcceptOrderResult,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -339,8 +340,25 @@ export default function OrdersPage() {
     }
   };
 
-  const handleAccept = (orderId: number) =>
-    runAction(orderId, () => acceptOrder(rid, orderId), 'accepted');
+  const handleAccept = async (orderId: number): Promise<AcceptOrderResult | undefined> => {
+    setActionLoading(orderId);
+    addProcessingGuard(orderId);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'accepted' } : o)));
+    try {
+      const result = await acceptOrder(rid, orderId);
+      // The configured one-click flow may have skipped straight to in_kitchen
+      // and pinned production. Apply the authoritative response immediately;
+      // the WebSocket broadcast remains the cross-screen sync mechanism.
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...result.order } : o)));
+      return result;
+    } catch {
+      await fetchOrders();
+      return undefined;
+    } finally {
+      setActionLoading(null);
+      removeProcessingGuard(orderId);
+    }
+  };
   // Cancellation now requires a reason, collected in CancelOrderDialog.
   const handleReject = (orderId: number) => setCancelOrderId(orderId);
   const handleCancelConfirm = (reasonCode: string, note: string) => {
@@ -878,7 +896,10 @@ export default function OrdersPage() {
         canOverride={canOverride}
         isLoading={selectedOrder != null && actionLoading === selectedOrder.id}
         onClose={() => setSelectedId(null)}
-        onAccept={() => selectedOrder && handleAccept(selectedOrder.id)}
+        onAccept={() => {
+          if (!selectedOrder) return;
+          return handleAccept(selectedOrder.id);
+        }}
         onReject={() => selectedOrder && handleReject(selectedOrder.id)}
         onDelete={() => selectedOrder && setPendingDelete(selectedOrder.id)}
         onOverride={() => selectedOrder && handleOverride(selectedOrder.id)}

@@ -18,14 +18,25 @@ export function SectionInspector({
   restaurantId,
   section,
   tab,
+  placementGroups = [],
   onChange,
 }: {
   restaurantId: number;
   section: DraftSectionPayload;
   tab: "content" | "appearance" | "settings";
+  placementGroups?: Array<{ id: string; name: string }>;
   onChange: (path: StatePath, value: unknown) => void;
 }) {
   const meta = SECTION_TYPE_META[section.section_type];
+  const configuredPlacementGroupId = stableId(
+    section.settings.placement_group_id,
+  );
+  const placementGroupIsAvailable = placementGroups.some(
+    (group) => group.id === configuredPlacementGroupId,
+  );
+  const placementGroupId = placementGroupIsAvailable
+    ? configuredPlacementGroupId
+    : "";
   if (tab === "content") {
     return (
       <InspectorGroup
@@ -159,27 +170,91 @@ export function SectionInspector({
       {section.section_type === "order_discovery" ? (
         <InspectorGroup
           title="Placement dans le menu"
-          description="Le bloc est inséré après ce nombre de produits dans la première catégorie."
+          description="Choisissez une catégorie précise. Si elle disparaît du menu, le bloc utilise temporairement la première catégorie visible."
         >
-          <InspectorField label="Afficher après">
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                max={50}
-                data-field-id="section.settings.insert_after_items"
-                value={numeric(section.settings.insert_after_items, 6)}
+          <InspectorField label="Type d’emplacement">
+            <select
+              data-field-id="section.settings.placement_mode"
+              value={string(section.settings.placement_mode) || "inside_group"}
+              onChange={(event) =>
+                onChange(["settings", "placement_mode"], event.target.value)
+              }
+              className={controlClass}
+            >
+              <option value="inside_group">Dans une catégorie</option>
+              <option value="between_groups">Entre les catégories</option>
+            </select>
+          </InspectorField>
+          <InspectorField label="Catégorie ciblée">
+            <select
+              data-field-id="section.settings.placement_group_id"
+              value={placementGroupId}
+              onChange={(event) =>
+                onChange(["settings", "placement_group_id"], event.target.value)
+              }
+              className={controlClass}
+              disabled={placementGroups.length === 0}
+            >
+              <option value="">
+                {placementGroups.length === 0
+                  ? "Aucune catégorie disponible"
+                  : "Première catégorie visible"}
+              </option>
+              {placementGroups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </InspectorField>
+          {configuredPlacementGroupId && !placementGroupIsAvailable ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+              La catégorie enregistrée n’est plus visible. La bannière est
+              temporairement placée dans la première catégorie disponible.
+            </p>
+          ) : null}
+          {(string(section.settings.placement_mode) || "inside_group") ===
+          "between_groups" ? (
+            <InspectorField label="Position relative">
+              <select
+                data-field-id="section.settings.placement_edge"
+                value={string(section.settings.placement_edge) || "after"}
                 onChange={(event) =>
-                  onChange(
-                    ["settings", "insert_after_items"],
-                    Math.min(50, Math.max(1, Number(event.target.value) || 1)),
-                  )
+                  onChange(["settings", "placement_edge"], event.target.value)
                 }
                 className={controlClass}
-              />
-              <span className="text-xs text-slate-500">produits</span>
-            </div>
-          </InspectorField>
+              >
+                <option value="before">Avant cette catégorie</option>
+                <option value="after">Après cette catégorie</option>
+              </select>
+            </InspectorField>
+          ) : (
+            <InspectorField
+              label="Afficher après"
+              hint="Le preview se met à jour immédiatement."
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  data-field-id="section.settings.insert_after_items"
+                  value={numeric(section.settings.insert_after_items, 6)}
+                  onChange={(event) =>
+                    onChange(
+                      ["settings", "insert_after_items"],
+                      Math.min(
+                        50,
+                        Math.max(1, Number(event.target.value) || 1),
+                      ),
+                    )
+                  }
+                  className={controlClass}
+                />
+                <span className="text-xs text-slate-500">produits</span>
+              </div>
+            </InspectorField>
+          )}
         </InspectorGroup>
       ) : null}
       <InspectorGroup title="Comportement">
@@ -210,6 +285,12 @@ function numeric(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value)
     ? value
     : fallback;
+}
+
+function stableId(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
 }
 
 function humanize(value: string): string {

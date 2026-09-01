@@ -1,74 +1,39 @@
-// The order detail's body geometry, in one place.
-//
-// This module exists because DetailSkeleton duplicated the shell's grid
-// template verbatim and the two drifted, so the skeleton→content swap jumped.
-// The shell imports the skeleton, so the skeleton cannot import from the shell;
-// a third module is the only way both can share the strings.
-//
-// Every export is a concatenation of COMPLETE literal class names. Tailwind's
-// scanner reads whole strings out of .ts files, so this is safe — but never
-// template-interpolate a breakpoint or a token into one, or the class silently
-// stops being generated.
+// The order detail's body geometry, shared by the loaded and skeleton states.
+// Keep every Tailwind class as a complete literal so the scanner can see it.
 
-/**
- * The single scroll container, and the two-column grid inside it.
- *
- * There is exactly ONE `overflow-y-auto` in the whole takeover and it lives on
- * the element carrying this class. The screen used to have three — spine,
- * centre and context each scrolled on its own — which meant staff had to scroll
- * the left column AND the right column to read one order, with nothing to say
- * there was more below in a column they were not touching. Three independent
- * scrollports suit three independent workspaces (mail folders / list / message);
- * one record gets one scroll.
- *
- * `min-h-0` is load-bearing: it lets this flex child shrink below its content
- * height so the overflow actually engages, instead of the content pushing the
- * command bar out of the frame.
- *
- * `md:items-stretch` is the CSS default and is written out on purpose. It is
- * exactly the declaration someone will replace with `items-start` when they try
- * to make the context column sticky — and that silently truncates the column's
- * full-height divider and surface, leaving raw --bg beside a long ticket. If
- * sticky is ever genuinely needed it must be a sticky CHILD inside a stretched
- * grid item, never the grid item itself.
- */
+/** Mobile is one natural document scroll. From `md` upward the grid is fixed,
+ * and the ticket owns the only scrollport. */
 export const DETAIL_BODY_GRID =
   'flex-1 min-h-0 overflow-y-auto overscroll-contain ' +
   'flex flex-col ' +
-  'md:grid md:items-stretch ' +
+  'md:grid md:items-stretch md:overflow-hidden md:overscroll-auto ' +
+  'md:[grid-template-rows:minmax(0,1fr)] ' +
   'md:[grid-template-columns:minmax(0,1fr)_320px] ' +
   'lg:[grid-template-columns:minmax(0,1fr)_360px] ' +
   'xl:[grid-template-columns:minmax(0,1fr)_384px] ' +
   '2xl:[grid-template-columns:minmax(0,1fr)_440px]';
 
-/**
- * The ticket. `min-w-0` is the only thing stopping a long item name from
- * blowing out the `minmax(0,1fr)` track.
- */
+/** Groups the scrollable item list and its fixed notes dock. */
+export const DETAIL_TICKET_COLUMN =
+  'min-w-0 md:min-h-0 md:col-start-1 md:row-start-1 flex flex-col bg-[var(--surface)]';
+
+/** The item list: the sole desktop scrollport. */
 export const DETAIL_MAIN_TRACK =
-  'min-w-0 md:col-start-1 md:row-start-1 bg-[var(--surface)] ' +
+  'min-w-0 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain bg-[var(--surface)] ' +
   'px-[var(--s-4)] md:px-[var(--s-5)] xl:px-[var(--s-6)] py-[var(--s-4)]';
 
-/**
- * Customer, delivery, money — what has to stay legible next to the ticket.
- *
- * `border-t md:border-t-0`: on a phone the customer block otherwise runs
- * straight out of the last ticket line with nothing between them.
- */
+/** Internal notes stay attached to the bottom of the ticket. */
+export const DETAIL_NOTES_DOCK =
+  'shrink-0 border-t border-[var(--line-strong)] bg-[var(--surface)] ' +
+  'px-[var(--s-4)] md:px-[var(--s-5)] xl:px-[var(--s-6)]';
+
+/** Customer, delivery and money remain fully visible beside the ticket. */
 export const DETAIL_CONTEXT_TRACK =
-  'min-w-0 md:col-start-2 md:row-start-1 bg-[var(--bg)] ' +
+  'order-detail-context min-w-0 md:col-start-2 md:row-start-1 bg-[var(--bg)] ' +
   'border-t md:border-t-0 md:border-s border-[var(--line)] ' +
   'px-[var(--s-3)] md:px-[var(--s-4)] 2xl:px-[var(--s-5)] py-[var(--s-3)]';
 
-/**
- * A section heading on the ticket — HairlineRule's own box.
- *
- * Shared because DetailSkeleton has to reserve exactly this row: the ticket
- * used to open with a separate eyebrow line above the first rule, and folding
- * that line's content into the rule removed ~44px. A skeleton that still
- * reserved both would put the swap back, which is the drift this module exists
- * to prevent.
- */
+/** HairlineRule's row, shared so the skeleton cannot drift from the ticket. */
 export const TICKET_RULE_ROW =
   'flex items-center gap-[var(--s-3)] pt-[var(--s-3)] pb-[var(--s-1)] first:pt-0';
 

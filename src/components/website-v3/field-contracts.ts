@@ -265,10 +265,6 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.cart_text_colors.stepperBorder": "#c4b5fd",
   "page.appearance_overrides.cart_text_colors.remove": "#b91c1c",
   "site.nav_layout": `{"logo":"left","links":"center","cta":"right"}`,
-  "site.bottom-navigation.background": "#f1f5f9",
-  "site.bottom-navigation.button-background": "#ffffff",
-  "site.bottom-navigation.text": "#475569",
-  "site.bottom-navigation.active-text": "#315fce",
   "site.compact-navigation.icon": "#111827",
   "site.compact-navigation.button-background": "#ffffff",
   "site.navbar_style": "overlay",
@@ -429,6 +425,9 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.section_bg_color": "#fff7ed",
   "section.settings.show_dividers": false,
   "section.settings.divider_color": "#fed7aa",
+  "section.settings.placement_mode": "between_groups",
+  "section.settings.placement_group_id": "42",
+  "section.settings.placement_edge": "before",
   "section.settings.insert_after_items": 9,
   "section.settings.bg_image": "http://localhost:3000/logo-icon.svg",
   "section.settings.bg_overlay": true,
@@ -563,8 +562,14 @@ function editorFor(
     id === "section.settings.section_bg_color" ||
     id === "section.settings.show_dividers" ||
     id === "section.settings.divider_color" ||
+    id.startsWith("section.settings.placement_") ||
     id === "section.settings.insert_after_items";
-  const appearance = id === "section.layout" || id.startsWith("section.settings.");
+  const discoveryPlacement =
+    id.startsWith("section.settings.placement_") ||
+    id === "section.settings.insert_after_items";
+  const appearance =
+    id === "section.layout" ||
+    (id.startsWith("section.settings.") && !discoveryPlacement);
   return {
     kind: action,
     scope,
@@ -656,10 +661,6 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   site("site.hide_hero_logo", ["hide_hero_logo"], "[data-website-v3-page]", "visible"),
   site("site.navbar_show_links", ["navbar_show_links"], "nav a", "visible"),
   site("site.navbar_hamburger", ["navbar_hamburger"], "nav", "visible"),
-  site("site.bottom-navigation.background", ["nav_layout", "bottom_navigation", "background_color"], "nav", "style"),
-  site("site.bottom-navigation.button-background", ["nav_layout", "bottom_navigation", "button_background_color"], "nav", "style"),
-  site("site.bottom-navigation.text", ["nav_layout", "bottom_navigation", "text_color"], "nav", "style"),
-  site("site.bottom-navigation.active-text", ["nav_layout", "bottom_navigation", "active_text_color"], "nav", "style"),
   site("site.compact-navigation.icon", ["nav_layout", "compact_navigation", "icon_color"], "nav", "style"),
   site("site.compact-navigation.button-background", ["nav_layout", "compact_navigation", "button_background_color"], "nav", "style"),
   site("site.navbar_cta.enabled", ["navbar_cta", "enabled"], "nav", "visible"),
@@ -983,6 +984,9 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   orderSection("section.settings.section_bg_color", ["settings", "section_bg_color"], "order_discovery", "color"),
   orderSection("section.settings.show_dividers", ["settings", "show_dividers"], "order_discovery", "visible"),
   orderSection("section.settings.divider_color", ["settings", "divider_color"], "order_discovery", "color"),
+  orderSection("section.settings.placement_mode", ["settings", "placement_mode"], "order_discovery", "value"),
+  orderSection("section.settings.placement_group_id", ["settings", "placement_group_id"], "order_discovery", "value"),
+  orderSection("section.settings.placement_edge", ["settings", "placement_edge"], "order_discovery", "value"),
   orderSection("section.settings.insert_after_items", ["settings", "insert_after_items"], "order_discovery", "value"),
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
