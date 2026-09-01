@@ -7691,6 +7691,8 @@ export type CsvImportStockInput = {
 
 export type CsvImportLibraryInput = {
   categories: CsvImportLibraryCategoryInput[];
+  /** Optional localized name for the automatically created carte. */
+  carte_name?: string;
 };
 
 export type CsvImportSkipped = {
@@ -7735,6 +7737,8 @@ export type CsvImportLibraryResult = {
   skipped: CsvImportSkipped[];
   categories_created: CsvImportLibraryCategory[];
   image_failures: CsvImportImageFailure[];
+  /** Created carte whose groups mirror the imported CSV categories. */
+  carte_id?: number;
 };
 
 export async function importStockCsv(
