@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PosDisplayTile } from '@/lib/posDisplay';
+import { useCurrency } from '@/lib/i18n';
 
 export interface PosTileRef {
   name: string;
@@ -41,6 +42,7 @@ export function PosTile({
   className,
   ...rest
 }: PosTileProps) {
+  const { money } = useCurrency();
   const isImage = tile.bg_type === 'image' && !!tile.image_url;
   const isGroup = tile.tile_type === 'group';
   const isStacked = tile.size === 'grand';
@@ -50,7 +52,7 @@ export function PosTile({
       ? `${refData.itemCount} article${refData.itemCount > 1 ? 's' : ''}`
       : null
     : refData.price != null
-      ? `₪${refData.price.toFixed(2)}`
+      ? money(refData.price)
       : null;
 
   return (

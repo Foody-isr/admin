@@ -9,7 +9,7 @@ import {
   ItemSalesInsight,
   ItemSalesListResult,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { clampWeekStartDay, getEffectiveWorkdays, isoDate, type WeekStartDay } from '@/lib/weeks';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
 import DateBasisToggle, { type DateBasis } from '@/components/DateBasisToggle';
@@ -61,6 +61,7 @@ function readStoredBasis(): DateBasis {
 }
 
 export default function SalesByItemPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -216,11 +217,11 @@ export default function SalesByItemPage() {
         <div className="grid grid-cols-3 gap-[var(--s-4)]">
           {[
             {
-              v: `₪${Math.round(data.total_revenue).toLocaleString()}`, l: t('totalRevenue'), c: 'var(--fg)', sub: t('revenueExclHint'),
+              v: money(Math.round(data.total_revenue), { decimals: 0, grouped: true }), l: t('totalRevenue'), c: 'var(--fg)', sub: t('revenueExclHint'),
               // Window-level combo contribution (already inside total_revenue) — the
               // amount the CA hint refers to, shown only when combos are present.
               combo: data.combo_quantity_total > 0
-                ? `${t('combo')} · ₪${Math.round(data.combo_revenue_total).toLocaleString()} · ${data.combo_quantity_total.toLocaleString()}`
+                ? `${t('combo')} · ${money(Math.round(data.combo_revenue_total), { decimals: 0, grouped: true })} · ${data.combo_quantity_total.toLocaleString()}`
                 : '',
             },
             { v: data.total_quantity.toLocaleString(), l: t('unitsSold'), c: 'var(--fg)', sub: '', combo: '' },
@@ -260,7 +261,7 @@ export default function SalesByItemPage() {
         if (data.delivery_total > 0) parts.push({ label: t('delivery'), value: data.delivery_total });
         if (data.combo_extras_total !== 0) parts.push({ label: t('comboExtras'), value: data.combo_extras_total });
         if (data.discount_total > 0) parts.push({ label: t('discounts'), value: -data.discount_total });
-        const money = (n: number) => `₪${Math.round(Math.abs(n)).toLocaleString()}`;
+        const absMoney = (n: number) => money(Math.round(Math.abs(n)), { decimals: 0, grouped: true });
         return (
           <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)] space-y-[var(--s-3)]">
             <div className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
@@ -273,13 +274,13 @@ export default function SalesByItemPage() {
                     <span className="text-[var(--fg-subtle)]">{p.value < 0 ? '−' : '+'}</span>
                   )}
                   <span className="text-[var(--fg-muted)]">{p.label}</span>
-                  <span className="font-medium text-[var(--fg)] tabular-nums">{money(p.value)}</span>
+                  <span className="font-medium text-[var(--fg)] tabular-nums">{absMoney(p.value)}</span>
                 </span>
               ))}
               <span className="text-[var(--fg-subtle)]">=</span>
               <span className="inline-flex items-baseline gap-[var(--s-2)]">
                 <span className="text-[var(--fg-muted)]">{t('grossRevenue')}</span>
-                <span className="font-semibold text-[var(--fg)] tabular-nums">{money(data.gross_revenue)}</span>
+                <span className="font-semibold text-[var(--fg)] tabular-nums">{absMoney(data.gross_revenue)}</span>
               </span>
             </div>
           </div>
@@ -387,8 +388,8 @@ export default function SalesByItemPage() {
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('category')} className="text-fg-secondary whitespace-nowrap">{it.category_name || '—'}</DataTableCell>
                     <DataTableCell align="right" mobileLabel={t('quantitySold')} className="text-fg-primary whitespace-nowrap">{it.quantity}</DataTableCell>
-                    <DataTableCell align="right" mobileLabel={t('revenue')} className="font-medium text-fg-primary whitespace-nowrap">₪{it.revenue.toFixed(0)}</DataTableCell>
-                    <DataTableCell align="right" mobileLabel={t('avgPrice')} className="text-fg-secondary whitespace-nowrap">₪{it.avg_price.toFixed(0)}</DataTableCell>
+                    <DataTableCell align="right" mobileLabel={t('revenue')} className="font-medium text-fg-primary whitespace-nowrap">{money(it.revenue, { decimals: 0 })}</DataTableCell>
+                    <DataTableCell align="right" mobileLabel={t('avgPrice')} className="text-fg-secondary whitespace-nowrap">{money(it.avg_price, { decimals: 0 })}</DataTableCell>
                     <DataTableCell align="right" mobileLabel={t('pctOfRevenue')} className="text-fg-secondary whitespace-nowrap">{it.pct_of_revenue.toFixed(1)}%</DataTableCell>
                   </DataTableRow>
                 ))}

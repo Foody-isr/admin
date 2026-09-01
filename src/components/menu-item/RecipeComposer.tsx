@@ -4,6 +4,8 @@ import * as React from 'react';
 import { ChevronRight, FlaskConical, Info, Package, Search, X } from 'lucide-react';
 import { Kbd } from '@/components/ds';
 import type { PrepItem, StockItem } from '@/lib/api';
+import type { MoneyFormatter } from '@/lib/currency';
+import { useCurrency } from '@/lib/i18n';
 
 // Brand colors for the brut/préparation split. Per BRUT_VS_PREPARATION.md:
 // brut = green (#10b981 light, #4ade80 dark); prép = purple (#7c3aed light, #a78bfa dark).
@@ -42,6 +44,7 @@ export function RecipeComposer({
   disabled,
   autoFocus,
 }: Props) {
+  const { money } = useCurrency();
   const [query, setQuery] = React.useState('');
   const [helpOpen, setHelpOpen] = React.useState(false);
   const helpRef = React.useRef<HTMLDivElement>(null);
@@ -175,7 +178,7 @@ export function RecipeComposer({
                   kind="brut"
                   primary={i === 0}
                   name={r.item.name}
-                  meta={stockMeta(r.item)}
+                  meta={stockMeta(r.item, money)}
                   onPick={() => onPickBrut(r.item)}
                 />
               ) : (
@@ -234,8 +237,8 @@ export function RecipeComposer({
 
 // ─── Helper formatters ─────────────────────────────────────────
 
-function stockMeta(s: StockItem): string {
-  const price = s.cost_per_unit > 0 ? `₪${s.cost_per_unit.toFixed(2)}/${s.unit}` : null;
+function stockMeta(s: StockItem, money: MoneyFormatter): string {
+  const price = s.cost_per_unit > 0 ? `${money(s.cost_per_unit)}/${s.unit}` : null;
   const stock = s.quantity > 0 ? 'Stock OK' : 'Stock vide';
   return [price, stock].filter(Boolean).join(' · ');
 }

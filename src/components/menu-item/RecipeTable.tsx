@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import RecipeUnitSelect from './RecipeUnitSelect';
 import {
@@ -168,6 +168,7 @@ export default function RecipeTable({
   onDelete,
   onAddClick,
 }: RecipeTableProps) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
@@ -638,7 +639,7 @@ export default function RecipeTable({
                           key={v.optionId}
                           className="px-[var(--s-3)] py-[var(--s-2)] text-end font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]"
                         >
-                          {total > 0 ? `${total.toFixed(2)} ₪` : '—'}
+                          {total > 0 ? money(total) : '—'}
                         </td>
                       );
                     })
@@ -646,7 +647,7 @@ export default function RecipeTable({
                     <td className="px-[var(--s-3)] py-[var(--s-2)] text-end font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
                       {(() => {
                         const v = totals.get('base') ?? 0;
-                        return v > 0 ? `${v.toFixed(2)} ₪` : '—';
+                        return v > 0 ? money(v) : '—';
                       })()}
                     </td>
                   )}

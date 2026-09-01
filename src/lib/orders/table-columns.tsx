@@ -10,6 +10,7 @@ import {
   localizeOrderType,
 } from '@/components/orders/OrderDetailDrawer';
 import type { Order, OrdersTableConfig } from '@/lib/api';
+import type { MoneyFormatter } from '@/lib/currency';
 import {
   resolveColumns,
   visibleColumns,
@@ -39,7 +40,7 @@ export interface OrderColumn extends ColumnSpec {
   /** Eligible to be the card heading when the table collapses to cards on
    *  mobile: rendered larger and without a leading label. */
   mobilePrimary?: boolean;
-  render: (order: Order, t: Translate) => ReactNode;
+  render: (order: Order, t: Translate, money: MoneyFormatter) => ReactNode;
 }
 
 /**
@@ -138,7 +139,7 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     defaultVisible: true,
     align: 'right',
     cellClassName: 'font-medium text-fg-primary',
-    render: (order) => <>₪{(order.total_amount ?? 0).toFixed(0)}</>,
+    render: (order, _t, money) => <>{money(order.total_amount ?? 0, { decimals: 0 })}</>,
   },
   // Delivery columns. Hidden by default: a restaurant that does not deliver
   // would otherwise inherit four permanently empty columns.

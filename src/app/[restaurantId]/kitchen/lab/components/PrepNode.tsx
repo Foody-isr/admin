@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { Component } from '../types';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { IngredientRow } from './IngredientRow';
 
 const UNITS = ['g', 'kg', 'ml', 'l'];
@@ -27,6 +27,7 @@ export function PrepNode({
   onRemove: () => void;
   canManage: boolean;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ings = c.ingredients ?? [];
@@ -129,7 +130,7 @@ export function PrepNode({
             flexShrink: 0,
           }}
         >
-          ₪{(c.line_cost ?? 0).toFixed(2)}
+          {money(c.line_cost ?? 0)}
         </span>
 
         {/* Remove button */}

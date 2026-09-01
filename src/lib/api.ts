@@ -81,6 +81,13 @@ export interface Restaurant {
   /** Source language the owner types in. en | he | fr. Falls back to 'en' if unset. */
   default_locale?: string;
   /**
+   * ISO 4217 code prices are denominated in, e.g. "ILS" or "EUR". Unset on
+   * restaurants created before Foody left Israel — `DEFAULT_CURRENCY` covers
+   * them. This is the display currency only; amounts are stored as plain
+   * numbers and are never converted between currencies.
+   */
+  currency?: string;
+  /**
    * First day of the week for weekly editors. 0=Sunday … 6=Saturday
    * (matches JS Date.getDay / Go time.Weekday). Default 1 (Monday);
    * Israeli restaurants typically use 0 (Sunday).

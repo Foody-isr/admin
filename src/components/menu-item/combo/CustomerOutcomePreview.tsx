@@ -7,7 +7,7 @@
 
 import { Info } from 'lucide-react';
 import type { MenuItem } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import type { ComboStepDraft } from './types';
 import { buildSampleCombos } from './pricing';
 
@@ -19,6 +19,7 @@ interface Props {
 }
 
 export default function CustomerOutcomePreview({ comboName, basePrice, steps, itemsById }: Props) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const samples = buildSampleCombos(
     comboName || t('typeCombo'),
@@ -54,7 +55,7 @@ export default function CustomerOutcomePreview({ comboName, basePrice, steps, it
           >
             <div className="flex items-baseline justify-between gap-[var(--s-2)] mb-1">
               <div className="text-fs-sm font-semibold text-[var(--fg)] truncate">{sample.label}</div>
-              <div className="text-fs-md font-bold text-[var(--fg)] tabular-nums shrink-0">₪{sample.price.toFixed(2)}</div>
+              <div className="text-fs-md font-bold text-[var(--fg)] tabular-nums shrink-0">{money(sample.price)}</div>
             </div>
             <div className="text-fs-xs text-[var(--fg-subtle)]">{sample.hint}</div>
           </div>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import {
   DataTable,
   DataTableHead,
@@ -22,9 +22,14 @@ import {
   AnalyticsRange,
 } from '@/lib/api';
 import { ArrowLeftIcon } from 'lucide-react';
+import type { MoneyFormatter } from '@/lib/currency';
 
-function formatCurrency(val: number): string {
-  return `₪${(val ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// A chain spans restaurants, so there is no single restaurant currency in
+// scope here: this falls back to `DEFAULT_CURRENCY` until the chain itself
+// carries one. Totals across restaurants on different currencies would be
+// meaningless anyway — that is a backend question, not a formatting one.
+function formatCurrency(val: number, money: MoneyFormatter): string {
+  return money(val ?? 0, { decimals: 0, grouped: true });
 }
 
 const RANGES: AnalyticsRange[] = ['today', 'week', 'month'];
@@ -41,6 +46,7 @@ interface BranchRow {
  * the top-bar branch switcher. Reports/dashboard only, by design.
  */
 export default function ChainDashboardPage() {
+  const { money } = useCurrency();
   const { chainId: chainParam } = useParams();
   const chainId = Number(chainParam);
   const router = useRouter();
@@ -144,9 +150,9 @@ export default function ChainDashboardPage() {
           <>
             {/* Merged KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <KpiCard label={t('total_revenue')} value={formatCurrency(cur?.total_revenue ?? 0)} />
+              <KpiCard label={t('total_revenue')} value={formatCurrency(cur?.total_revenue ?? 0, money)} />
               <KpiCard label={t('orders')} value={String(cur?.total_orders ?? 0)} />
-              <KpiCard label={t('avg_ticket')} value={formatCurrency(cur?.avg_ticket ?? 0)} />
+              <KpiCard label={t('avg_ticket')} value={formatCurrency(cur?.avg_ticket ?? 0, money)} />
               <KpiCard label={t('items_sold')} value={String(cur?.items_sold ?? 0)} />
             </div>
 
@@ -174,13 +180,13 @@ export default function ChainDashboardPage() {
                         {row.name}
                       </DataTableCell>
                       <DataTableCell mobileLabel={t('total_revenue')} className="text-fg-primary">
-                        {row.summary ? formatCurrency(row.summary.total_revenue) : ''}
+                        {row.summary ? formatCurrency(row.summary.total_revenue, money) : ''}
                       </DataTableCell>
                       <DataTableCell mobileLabel={t('orders')} className="text-fg-secondary">
                         {row.summary ? row.summary.total_orders : ''}
                       </DataTableCell>
                       <DataTableCell mobileLabel={t('avg_ticket')} className="text-fg-secondary">
-                        {row.summary ? formatCurrency(row.summary.avg_ticket) : ''}
+                        {row.summary ? formatCurrency(row.summary.avg_ticket, money) : ''}
                       </DataTableCell>
                     </DataTableRow>
                   ))}

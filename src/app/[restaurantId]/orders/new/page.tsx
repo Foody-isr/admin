@@ -18,7 +18,7 @@ import { rehydrateDraftLines, toDraftLines, type LineIssue } from '@/lib/orders/
 import {
   issueLabel, issueTone, issueCanBeAccepted, isSubmissionBlocked,
 } from '@/lib/orders/draftIssuePresentation';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
 import { BatchPicker } from '@/components/menu/BatchPicker';
@@ -83,6 +83,7 @@ function hasOptions(it: MenuItem): boolean {
 }
 
 export default function NewOrderPage() {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
@@ -799,7 +800,7 @@ export default function NewOrderPage() {
                               <span className="line-clamp-2 pe-6 text-fs-sm font-semibold leading-tight text-[var(--fg)]">{it.name}</span>
                               <div className="flex flex-wrap items-center gap-x-[var(--s-2)] gap-y-1">
                                 <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
-                                  ₪{it.price.toFixed(2)}
+                                  {money(it.price)}
                                 </span>
                                 {soldOut ? (
                                   <Badge tone="danger" className="h-[18px] px-1.5 text-[10px] uppercase tracking-wide">
@@ -882,7 +883,7 @@ export default function NewOrderPage() {
                             {l.comboSelections.map((s, i) => (
                               <li key={`${s.stepId}-${s.menuItemId}-${i}`} className="text-fs-xs text-[var(--fg-subtle)]">
                                 · {s.quantity > 1 ? `${s.quantity}× ` : ''}{s.menuItemName}
-                                {s.priceDelta > 0 ? ` (+₪${s.priceDelta.toFixed(2)})` : ''}
+                                {s.priceDelta > 0 ? ` (+${money(s.priceDelta)})` : ''}
                               </li>
                             ))}
                           </ul>
@@ -892,7 +893,7 @@ export default function NewOrderPage() {
                         )}
                         {l.notes && <p className="text-fs-xs italic text-[var(--fg-subtle)]">“{l.notes}”</p>}
                       </div>
-                      <span className="shrink-0 font-mono tabular-nums text-fs-sm font-semibold">₪{lineTotal(l).toFixed(2)}</span>
+                      <span className="shrink-0 font-mono tabular-nums text-fs-sm font-semibold">{money(lineTotal(l))}</span>
                     </div>
                     <div className="flex items-center gap-[var(--s-2)]">
                       <div className="inline-flex items-center overflow-hidden rounded-lg border border-[var(--line-strong)]">
@@ -904,7 +905,7 @@ export default function NewOrderPage() {
                           <PlusIcon className="size-4" />
                         </button>
                       </div>
-                      <span className="text-fs-xs text-[var(--fg-subtle)]">₪{lineUnitPrice(l).toFixed(2)}</span>
+                      <span className="text-fs-xs text-[var(--fg-subtle)]">{money(lineUnitPrice(l))}</span>
                       <button type="button" onClick={() => removeLine(l.uid)} aria-label={t('remove')} className="ms-auto flex size-8 items-center justify-center rounded-lg text-[var(--fg-subtle)] transition-colors hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]">
                         <Trash2Icon className="size-4" />
                       </button>
@@ -934,7 +935,7 @@ export default function NewOrderPage() {
           <div className="shrink-0 border-t border-[var(--line)] bg-[var(--surface)] p-[var(--s-4)]">
             <div className="mb-[var(--s-3)] flex items-end justify-between">
               <span className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('total')}</span>
-              <span className="font-mono tabular-nums text-fs-2xl font-bold">₪{subtotal.toFixed(2)}</span>
+              <span className="font-mono tabular-nums text-fs-2xl font-bold">{money(subtotal)}</span>
             </div>
             {canManage && (
               <>
@@ -955,7 +956,7 @@ export default function NewOrderPage() {
                       <CreditCardIcon />
                       {t('checkout')}
                     </span>
-                    <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
+                    <span className="font-mono tabular-nums">{money(subtotal)}</span>
                   </span>
                 </Button>
               </>

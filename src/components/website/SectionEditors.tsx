@@ -8,7 +8,7 @@
 // blocks. Kept dependency-free of page.tsx to avoid a circular import.
 
 import { useState, useEffect, useRef } from 'react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import {
   uploadSectionImage,
   getAllCategories,
@@ -350,6 +350,7 @@ export function MenuHighlightsEditor({ content, settings, updateContent, updateS
   updateSettings: (key: string, value: any) => void;
   restaurantId: number;
 }) {
+  const { money } = useCurrency();
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [search, setSearch] = useState('');
@@ -437,7 +438,7 @@ export function MenuHighlightsEditor({ content, settings, updateContent, updateS
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-fg-primary truncate">{item.name}</p>
-                  <p className="text-[10px] text-fg-secondary">{item.categoryName} · ₪{item.price}</p>
+                  <p className="text-[10px] text-fg-secondary">{item.categoryName} · {money(item.price)}</p>
                 </div>
                 <div className="flex items-center gap-0.5 flex-shrink-0">
                   <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="w-5 h-5 flex items-center justify-center rounded text-fg-secondary hover:bg-[var(--divider)] disabled:opacity-30" title="Move up">↑</button>
@@ -483,7 +484,7 @@ export function MenuHighlightsEditor({ content, settings, updateContent, updateS
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-fg-primary truncate">{item.name}</p>
-                      <p className="text-[10px] text-fg-secondary">{item.categoryName} · ₪{item.price}</p>
+                      <p className="text-[10px] text-fg-secondary">{item.categoryName} · {money(item.price)}</p>
                     </div>
                     <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${isSelected ? 'bg-brand-500 border-brand-500 text-white' : 'border-[var(--divider)]'}`}>
                       {isSelected && <span className="text-[10px]">✓</span>}

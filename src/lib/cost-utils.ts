@@ -203,7 +203,7 @@ export interface CostLineDetail {
   name: string;
   qty: number;
   qtyUnit: string;               // unit the qty is denominated in on the cost tab
-  unitCost: number;              // ₪ per sourceUnit, VAT-normalized
+  unitCost: number;              // price per sourceUnit, VAT-normalized
   sourceUnit: string;            // stock.unit or prep.unit
   lineCost: number;              // contribution to foodCost (VAT-normalized)
   isPrep: boolean;

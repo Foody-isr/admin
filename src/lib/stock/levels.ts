@@ -1,5 +1,6 @@
 import type { StockItem } from '@/lib/api';
 import { labelForRaw } from '@/components/stock/StockQuantityForm';
+import type { MoneyFormatter } from '@/lib/currency';
 
 /** Identity translator for callers that don't have an i18n context available.
  *  Returns the raw enum value unchanged (e.g. 'can' → 'can'). */
@@ -83,6 +84,7 @@ export function formatUnitPriceAtLevel(
   item: StockItem,
   level: Level,
   costPerBase: number,
+  money: MoneyFormatter,
   t: (k: string) => string = identityT,
 ): string {
   const pack = item.pack_size ?? 0;
@@ -94,25 +96,25 @@ export function formatUnitPriceAtLevel(
   if (!(costPerBase > 0)) return '—';
 
   if (level === 'L3') {
-    if (baseUnit === 'g') return `${(costPerBase * 1000).toFixed(2)} ₪ / kg`;
-    if (baseUnit === 'ml') return `${(costPerBase * 1000).toFixed(2)} ₪ / L`;
-    return `${costPerBase.toFixed(2)} ₪ / ${baseUnit}`;
+    if (baseUnit === 'g') return `${money(costPerBase * 1000)} / kg`;
+    if (baseUnit === 'ml') return `${money(costPerBase * 1000)} / L`;
+    return `${money(costPerBase)} / ${baseUnit}`;
   }
 
   if (level === 'L2') {
     const price = costPerBase * (content > 0 ? content : 1);
     const label = inner || baseUnit;
-    return `${price.toFixed(2)} ₪ / ${label}`;
+    return `${money(price)} / ${label}`;
   }
 
   // L1
   if (pack > 0 && content > 0) {
-    return `${(costPerBase * pack * content).toFixed(2)} ₪ / ${outer}`;
+    return `${money(costPerBase * pack * content)} / ${outer}`;
   }
   if (content > 0) {
-    return `${(costPerBase * content).toFixed(2)} ₪ / ${outer || baseUnit}`;
+    return `${money(costPerBase * content)} / ${outer || baseUnit}`;
   }
-  return `${costPerBase.toFixed(2)} ₪`;
+  return money(costPerBase);
 }
 
 export function loadLevel(rid: number, itemId: number): Level | null {

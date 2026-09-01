@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { Badge, Button } from '@/components/ds';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import {
   getCustomerDuplicates,
   dismissCustomerDuplicate,
@@ -33,6 +33,7 @@ interface DuplicateSuggestionsProps {
 const groupKey = (g: DuplicateGroup) => `${g.reason}|${g.value}`;
 
 export function DuplicateSuggestions({ restaurantId, onChanged }: DuplicateSuggestionsProps) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const [groups, setGroups] = useState<DuplicateGroup[]>([]);
   const [open, setOpen] = useState(false);
@@ -110,7 +111,7 @@ export function DuplicateSuggestions({ restaurantId, onChanged }: DuplicateSugge
                         {c.name || c.phone}
                       </span>
                       <span className="text-fs-xs text-[var(--fg-muted)]">
-                        {c.phone} · {c.order_count} {t('orders')} · ₪{c.total_spent.toFixed(0)}
+                        {c.phone} · {c.order_count} {t('orders')} · {money(c.total_spent, { decimals: 0 })}
                       </span>
                     </div>
                   ))}

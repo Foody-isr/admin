@@ -6,7 +6,7 @@
 
 import { AlertTriangle, GripVertical, HelpCircle, Pin, X } from 'lucide-react';
 import { useState } from 'react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import type { ComboOptionView } from './types';
 import { NumberInput } from '@/components/ui/NumberInput';
@@ -25,6 +25,7 @@ interface Props {
 }
 
 export default function OptionRow({ option, comboOnly, onUpchargeChange, onForceOffCarteToggle, onRemove, onSetDefault }: Props) {
+  const { money, symbol } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
@@ -91,7 +92,7 @@ export default function OptionRow({ option, comboOnly, onUpchargeChange, onForce
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditing(false); }}
             className="w-16 bg-transparent border-none outline-none text-end text-fs-sm tabular-nums text-[var(--brand-500)] font-semibold"
           />
-          <span className="text-fs-xs text-[var(--fg-muted)] ms-1">₪</span>
+          <span className="text-fs-xs text-[var(--fg-muted)] ms-1">{symbol}</span>
         </div>
       ) : (
         <button
@@ -104,7 +105,7 @@ export default function OptionRow({ option, comboOnly, onUpchargeChange, onForce
               : 'text-[var(--fg-muted)]'
           }`}
         >
-          {option.upcharge > 0 ? `+₪${option.upcharge.toFixed(2)}` : t('composeIncluded')}
+          {option.upcharge > 0 ? `+${money(option.upcharge)}` : t('composeIncluded')}
         </button>
       )}
 

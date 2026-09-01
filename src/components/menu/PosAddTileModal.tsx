@@ -9,6 +9,7 @@ import {
 } from '@/lib/posDisplay';
 import type { Menu, MenuItem } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
+import { useCurrency } from '@/lib/i18n';
 
 export interface PosAddTileModalProps {
   open: boolean;
@@ -56,6 +57,7 @@ export function PosAddTileModal({
   placedGroupIds,
   onAdd,
 }: PosAddTileModalProps) {
+  const { money } = useCurrency();
   const [search, setSearch] = React.useState('');
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
@@ -180,7 +182,7 @@ export function PosAddTileModal({
                   </span>
                   {it.price != null && (
                     <span className="text-fs-sm text-[var(--fg-subtle)] shrink-0">
-                      ₪{it.price.toFixed(2)}
+                      {money(it.price)}
                     </span>
                   )}
                 </button>

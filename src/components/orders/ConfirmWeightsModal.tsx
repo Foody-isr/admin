@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ScaleIcon, XIcon, AlertTriangleIcon, CheckIcon } from 'lucide-react';
 import { Button, NumberField } from '@/components/ds';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { confirmOrderWeights, type Order, type OrderItem } from '@/lib/api';
 
 interface ConfirmWeightsModalProps {
@@ -30,6 +30,7 @@ function byWeightLines(order: Order | null): OrderItem[] {
 export function ConfirmWeightsModal({
   open, onOpenChange, order, onConfirmed,
 }: ConfirmWeightsModalProps) {
+  const { money } = useCurrency();
   const { t } = useI18n();
 
   const lines = useMemo(() => byWeightLines(order), [order]);
@@ -144,7 +145,7 @@ export function ConfirmWeightsModal({
                         {line.name}
                       </span>
                       <span className="font-mono tabular-nums text-fs-sm font-semibold shrink-0">
-                        ₪{linePrice(line).toFixed(2)}
+                        {money(linePrice(line))}
                       </span>
                     </div>
                     <div className="flex items-center gap-[var(--s-3)]">
@@ -163,7 +164,7 @@ export function ConfirmWeightsModal({
                         </span>
                       </div>
                       <span className="text-fs-xs text-[var(--fg-subtle)] font-mono tabular-nums shrink-0">
-                        ₪{(line.price_per_kg ?? 0).toFixed(2)}/kg
+                        {money(line.price_per_kg ?? 0)}/kg
                       </span>
                     </div>
                   </div>
@@ -181,13 +182,13 @@ export function ConfirmWeightsModal({
                   className="font-mono tabular-nums text-fs-md font-semibold"
                   style={{ color: overHold ? 'var(--danger-500)' : 'var(--fg)' }}
                 >
-                  ₪{runningTotal.toFixed(2)}
+                  {money(runningTotal)}
                 </span>
               </div>
               {holdAmount > 0 && (
                 <div className="flex items-center justify-between px-[var(--s-3)] text-fs-xs text-[var(--fg-subtle)]">
                   <span>{t('confirmWeightsHoldAmount') || 'Authorized hold'}</span>
-                  <span className="font-mono tabular-nums">₪{holdAmount.toFixed(2)}</span>
+                  <span className="font-mono tabular-nums">{money(holdAmount)}</span>
                 </div>
               )}
               {overHold && (

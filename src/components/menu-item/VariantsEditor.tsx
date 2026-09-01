@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type {
@@ -139,6 +139,7 @@ export default function VariantsEditor({
   allOptionSets,
   itemBasePrice,
 }: Props) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
@@ -292,7 +293,7 @@ export default function VariantsEditor({
                 className="text-end"
                 title={
                   itemBasePrice > 0
-                    ? `Laisser à 0 pour utiliser le prix de base de l'article (₪${itemBasePrice.toFixed(2)}).`
+                    ? `Laisser à 0 pour utiliser le prix de base de l'article (${money(itemBasePrice)}).`
                     : undefined
                 }
               >

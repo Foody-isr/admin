@@ -1,6 +1,6 @@
 'use client';
 
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import type { DraftPayload, CostSummary } from '../types';
 
 /**
@@ -24,6 +24,7 @@ export function CostSummaryHeader({
   onSellingPriceChange: (price: number | undefined) => void;
   canManage: boolean;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const s = payload.cost_summary;
   const hasSellPrice = s.selling_price != null && s.selling_price > 0;
@@ -64,7 +65,7 @@ export function CostSummaryHeader({
           )}
           {s.suggested_min_price != null && (
             <span style={{ color: 'var(--fg-muted)', fontSize: 13 }}>
-              {t('labSuggestedMinPrice')} ₪{s.suggested_min_price.toFixed(0)}
+              {t('labSuggestedMinPrice')} {money(s.suggested_min_price, { decimals: 0 })}
             </span>
           )}
         </div>
@@ -75,7 +76,7 @@ export function CostSummaryHeader({
             <SellingPriceField value={s.selling_price} onChange={onSellingPriceChange} large />
           ) : (
             <span style={{ fontSize: 18, fontWeight: 600 }}>
-              ₪{(s.selling_price ?? 0).toFixed(2)}
+              {money(s.selling_price ?? 0)}
             </span>
           )}
         </div>
@@ -93,7 +94,7 @@ export function CostSummaryHeader({
       >
         <Stat
           label={t('labEstFoodCost')}
-          value={`₪${s.total_estimated_cost.toFixed(2)}`}
+          value={money(s.total_estimated_cost)}
         />
 
         {s.food_cost_pct != null && (
@@ -107,7 +108,7 @@ export function CostSummaryHeader({
         {s.target_food_cost != null && (
           <Stat
             label={`${t('labTargetLabel')} (≤${(s.target_pct * 100).toFixed(0)}%)`}
-            value={`₪${s.target_food_cost.toFixed(2)}`}
+            value={money(s.target_food_cost)}
           />
         )}
 
@@ -130,7 +131,7 @@ export function CostSummaryHeader({
         {/* Suggested min price — shown inline when price is set and not on target */}
         {s.suggested_min_price != null && s.verdict !== 'ok' && hasSellPrice && (
           <span style={{ color: 'var(--fg-muted)' }}>
-            {t('labSuggestedMinPrice')} ₪{s.suggested_min_price.toFixed(0)}
+            {t('labSuggestedMinPrice')} {money(s.suggested_min_price, { decimals: 0 })}
           </span>
         )}
       </div>
@@ -215,6 +216,7 @@ function SellingPriceField({
   onChange: (v: number | undefined) => void;
   large?: boolean;
 }) {
+  const { symbol } = useCurrency();
   return (
     <span
       style={{
@@ -224,7 +226,7 @@ function SellingPriceField({
         fontSize: large ? 18 : 14,
       }}
     >
-      <span>₪</span>
+      <span>{symbol}</span>
       <input
         type="number"
         min={0}

@@ -17,6 +17,7 @@
 
 import type { Order, OrderItem } from '@/lib/api';
 import { groupOrder } from '@/lib/orders/group-order';
+import { formatMoney } from '@/lib/currency';
 
 export type TicketKind = 'receipt' | 'kitchen';
 
@@ -50,6 +51,8 @@ export interface PrintTicketOptions {
   labels: PrintTicketLabels;
   locale?: string;
   dir?: 'ltr' | 'rtl';
+  /** Restaurant's ISO 4217 code. Defaults to the shekel when absent. */
+  currency?: string;
 }
 
 function esc(s: unknown): string {
@@ -60,8 +63,8 @@ function esc(s: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
-function money(n: number): string {
-  return '₪' + (n ?? 0).toFixed(2);
+function money(n: number, currency?: string): string {
+  return formatMoney(n, currency);
 }
 
 // ─── Item rendering helpers ──────────────────────────────────────────────────
@@ -90,7 +93,7 @@ function noteHtml(item: OrderItem): string {
 
 // ─── Receipt (with prices) ───────────────────────────────────────────────────
 
-function renderReceiptBody(order: Order, labels: PrintTicketLabels): string {
+function renderReceiptBody(order: Order, labels: PrintTicketLabels, currency?: string): string {
   const g = groupOrder(order, labels);
   const rows: string[] = [];
 
@@ -101,7 +104,7 @@ function renderReceiptBody(order: Order, labels: PrintTicketLabels): string {
       rows.push(
         `<div class="row"><span class="qty">${item.quantity}×</span>` +
           `<span class="name">${itemNameHtml(item)}${modifiersHtml(item, true)}${noteHtml(item)}</span>` +
-          `<span class="price">${money(line)}</span></div>`,
+          `<span class="price">${money(line, currency)}</span></div>`,
       );
     }
   }
@@ -111,7 +114,7 @@ function renderReceiptBody(order: Order, labels: PrintTicketLabels): string {
     rows.push(
       `<div class="row"><span class="qty"></span>` +
         `<span class="name">${esc(combo.name)}</span>` +
-        `<span class="price">${money(combo.price)}</span></div>`,
+        `<span class="price">${money(combo.price, currency)}</span></div>`,
     );
     for (const ci of combo.items) {
       const delta = ci.price * ci.quantity;
@@ -131,9 +134,9 @@ function renderReceiptBody(order: Order, labels: PrintTicketLabels): string {
   const breakdown =
     deliveryFee > 0
       ? `<div class="row"><span class="name">${esc(labels.subtotal)}</span>` +
-        `<span class="price">${money(g.total - deliveryFee)}</span></div>` +
+        `<span class="price">${money(g.total - deliveryFee, currency)}</span></div>` +
         `<div class="row"><span class="name">${esc(labels.deliveryFee)}</span>` +
-        `<span class="price">${money(deliveryFee)}</span></div>`
+        `<span class="price">${money(deliveryFee, currency)}</span></div>`
       : '';
 
   return (
@@ -141,7 +144,7 @@ function renderReceiptBody(order: Order, labels: PrintTicketLabels): string {
     `<div class="totals">` +
     breakdown +
     `<div class="row total"><span class="name">${esc(labels.total)}</span>` +
-    `<span class="price">${money(g.total)}</span></div>` +
+    `<span class="price">${money(g.total, currency)}</span></div>` +
     `</div>`
   );
 }
@@ -180,7 +183,7 @@ function renderKitchenBody(order: Order, labels: PrintTicketLabels): string {
 // ─── Document shell + print ──────────────────────────────────────────────────
 
 function buildDoc(opts: PrintTicketOptions): string {
-  const { order, kind, restaurant, labels, locale, dir = 'ltr' } = opts;
+  const { order, kind, restaurant, labels, locale, dir = 'ltr', currency } = opts;
   const isKitchen = kind === 'kitchen';
 
   const dateStr = (() => {
@@ -219,7 +222,7 @@ function buildDoc(opts: PrintTicketOptions): string {
     metaRows.push(`<div class="meta"><span>${esc(labels.phone)}</span><span>${esc(order.customer_phone)}</span></div>`);
   }
 
-  const body = isKitchen ? renderKitchenBody(order, labels) : renderReceiptBody(order, labels);
+  const body = isKitchen ? renderKitchenBody(order, labels) : renderReceiptBody(order, labels, currency);
 
   return `<!DOCTYPE html>
 <html dir="${dir}" lang="${esc(locale || 'en')}">

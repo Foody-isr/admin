@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getRestaurant, updateRestaurant, Restaurant } from '@/lib/api';
-import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
+import { useI18n, SUPPORTED_LOCALES, type Locale} from '@/lib/i18n';
 import { Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
+import { currencySymbol } from '@/lib/currency';
 
 const LOCALE_LABELS: Record<Locale, string> = {
   en: 'English',
@@ -32,7 +33,7 @@ interface PrefsForm {
 export default function SettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t, locale, setLocale } = useI18n();
+  const { t, locale, setLocale, setCurrency } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
 
@@ -69,6 +70,7 @@ export default function SettingsPage() {
           phone: r.phone ?? '',
         }));
         if (r.timezone) setPrefs((p) => ({ ...p, timezone: r.timezone }));
+        if (r.currency) setPrefs((p) => ({ ...p, currency: r.currency! }));
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -82,7 +84,12 @@ export default function SettingsPage() {
         address: info.address,
         phone: info.phone,
         timezone: prefs.timezone,
+        currency: prefs.currency,
       });
+      // Republish straight away: every price on screen is formatted from the
+      // context, so without this the admin keeps showing the old symbol until
+      // the next full load.
+      setCurrency(prefs.currency);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
@@ -198,9 +205,9 @@ export default function SettingsPage() {
               value={prefs.currency}
               onChange={(e) => setPrefs((p) => ({ ...p, currency: e.target.value }))}
             >
-              <option value="ILS">Shekel (₪)</option>
-              <option value="EUR">Euro (€)</option>
-              <option value="USD">US Dollar ($)</option>
+              <option value="ILS">Shekel ({currencySymbol('ILS')})</option>
+              <option value="EUR">Euro ({currencySymbol('EUR')})</option>
+              <option value="USD">US Dollar ({currencySymbol('USD')})</option>
             </Select>
           </Field>
           <Field grow label={t('numberFormat') || 'Format numérique'}>

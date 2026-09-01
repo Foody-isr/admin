@@ -14,7 +14,7 @@ import {
   SendIcon, MailIcon, FileTextIcon, DownloadIcon, MoreHorizontalIcon,
   RotateCcwIcon, ScaleIcon, BanknoteIcon, AlertTriangleIcon, ClipboardListIcon,
 } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { groupOrder } from '@/lib/orders/group-order';
 import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
@@ -35,6 +35,7 @@ import {
   type Order, type OrderItem, type OrderNote, type AuditEvent, type CheckoutConfig, type CheckoutFieldConfig,
 } from '@/lib/api';
 import { Badge, Button, Drawer, Section, Textarea } from '@/components/ds';
+import type { MoneyFormatter } from '@/lib/currency';
 
 export type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand';
 
@@ -321,6 +322,7 @@ export function OrderDetailDrawer({
   restaurantDefaultLocale?: string;
   customFieldLabels: Record<string, string>;
 }) {
+  const { money } = useCurrency();
   const { t, locale, direction } = useI18n();
 
   // Payment-link retrieval (for orders awaiting online payment). The link is
@@ -998,7 +1000,7 @@ export function OrderDetailDrawer({
             <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
               <div className="flex items-center justify-between">
                 <span className="text-[var(--fg-subtle)]">{t('subtotal') || 'Sous-total'}</span>
-                <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
+                <span className="font-mono tabular-nums">{money(subtotal)}</span>
               </div>
               {discountAmount > 0 && (
                 <div className="flex items-center justify-between">
@@ -1010,19 +1012,19 @@ export function OrderDetailDrawer({
                         ? ` · ${order.discount.reason}`
                         : ` ${t('manualDiscount')}`}
                   </span>
-                  <span className="font-mono tabular-nums">−₪{discountAmount.toFixed(2)}</span>
+                  <span className="font-mono tabular-nums">−{money(discountAmount)}</span>
                 </div>
               )}
               {deliveryFee > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--fg-subtle)]">{t('delivery_fee') || 'Frais de livraison'}</span>
-                  <span className="font-mono tabular-nums">₪{deliveryFee.toFixed(2)}</span>
+                  <span className="font-mono tabular-nums">{money(deliveryFee)}</span>
                 </div>
               )}
               <div className="h-px bg-[var(--line)] my-[var(--s-2)]" />
               <div className="flex items-center justify-between text-fs-lg font-semibold tracking-tight">
                 <span>{t('total')}</span>
-                <span className="font-mono tabular-nums">₪{totalsLine.toFixed(2)}</span>
+                <span className="font-mono tabular-nums">{money(totalsLine)}</span>
               </div>
               <div className="flex items-center justify-between mt-[var(--s-2)] gap-2">
                 <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'} dot>
@@ -1104,7 +1106,7 @@ export function OrderDetailDrawer({
                           <span className="text-[var(--fg-subtle)]">
                             {t('editedAfterPaymentCharged')}
                           </span>
-                          <span className="font-mono tabular-nums">₪{chargedAmount.toFixed(2)}</span>
+                          <span className="font-mono tabular-nums">{money(chargedAmount)}</span>
                         </div>
                         {paymentDrift > 0.005 && (
                           <div
@@ -1112,7 +1114,7 @@ export function OrderDetailDrawer({
                             style={{ color: 'var(--warning-500)' }}
                           >
                             <span>{t('editedAfterPaymentToCollect')}</span>
-                            <span className="font-mono tabular-nums">₪{paymentDrift.toFixed(2)}</span>
+                            <span className="font-mono tabular-nums">{money(paymentDrift)}</span>
                           </div>
                         )}
                         {paymentDrift < -0.005 && (
@@ -1122,7 +1124,7 @@ export function OrderDetailDrawer({
                           >
                             <span>{t('editedAfterPaymentToRefund')}</span>
                             <span className="font-mono tabular-nums">
-                              ₪{Math.abs(paymentDrift).toFixed(2)}
+                              {money(Math.abs(paymentDrift))}
                             </span>
                           </div>
                         )}
@@ -1155,7 +1157,7 @@ export function OrderDetailDrawer({
                                 color: 'var(--warning-600)',
                               }}
                             >
-                              ₪{order.balance_due!.toFixed(2)}
+                              {money(order.balance_due!)}
                             </span>
                           </div>
                           {unpaidCount > 0 && (
@@ -1278,7 +1280,7 @@ export function OrderDetailDrawer({
 
           {/* Activity */}
           <Section title={t('activity') || 'Activité'}>
-            <ActivityTimeline order={order} t={t} />
+            <ActivityTimeline order={order} t={t} money={money} />
           </Section>
         </div>
       </div>
@@ -1560,6 +1562,7 @@ function OrderLineRow({
   hasBalance: boolean;
   t: (k: string) => string;
 }) {
+  const { money } = useCurrency();
   const variantText = variantChipText(item);
   const hasMods = !!(item.modifiers && item.modifiers.length > 0);
   const showUnpaidChip = hasBalance && item.billed_at == null;
@@ -1611,11 +1614,11 @@ function OrderLineRow({
       </div>
       <div className="text-end">
         <div className="font-mono tabular-nums font-medium">
-          ₪{(item.price * item.quantity).toFixed(2)}
+          {money(item.price * item.quantity)}
         </div>
         {item.quantity > 1 && (
           <div className="font-mono tabular-nums text-fs-xs text-[var(--fg-subtle)]">
-            ₪{item.price.toFixed(2)} × {item.quantity}
+            {money(item.price)} × {item.quantity}
           </div>
         )}
       </div>
@@ -1644,6 +1647,7 @@ function ComboCard({
   hasBalance: boolean;
   t: (k: string) => string;
 }) {
+  const { money } = useCurrency();
   const showUnpaidChip = hasBalance && comboItems.some((ci) => ci.billed_at == null);
   return (
     <div>
@@ -1674,7 +1678,7 @@ function ComboCard({
           </div>
         </div>
         <div className="text-end font-mono tabular-nums font-medium">
-          ₪{comboTotal.toFixed(2)}
+          {money(comboTotal)}
         </div>
       </div>
 
@@ -1722,7 +1726,7 @@ function ComboCard({
                 )}
               </div>
               <div className="text-end font-mono tabular-nums text-[var(--fg-subtle)]">
-                {lineDelta > 0 ? `+₪${lineDelta.toFixed(2)}` : ''}
+                {lineDelta > 0 ? `+${money(lineDelta)}` : ''}
               </div>
             </div>
           );
@@ -1798,18 +1802,19 @@ function readOverrides(order: Order, key: string): OverrideEntry[] {
 function discountAppliedLabel(
   t: (k: string) => string,
   d: { type?: string; value?: number; amount?: number; reason?: string; code?: string },
+  money: MoneyFormatter,
 ): string {
   const applied = t('activityDiscountApplied') || 'Discount applied';
   let desc = '';
   if (d.code) desc = d.code;
   else if (d.type === 'percent' && d.value != null) desc = `−${d.value}%`;
-  else if (d.amount != null) desc = `−₪${d.amount.toFixed(2)}`;
-  else if (d.value != null) desc = `−₪${d.value.toFixed(2)}`;
+  else if (d.amount != null) desc = `−${money(d.amount)}`;
+  else if (d.value != null) desc = `−${money(d.value)}`;
   const head = desc ? `${applied} · ${desc}` : applied;
   return d.reason ? `${head} · ${d.reason}` : head;
 }
 
-function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string }) {
+function ActivityTimeline({ order, t, money }: { order: Order; t: (k: string) => string; money: MoneyFormatter }) {
   // Recorded staff changes live outside the order row, so they need their own
   // fetch. Self-fetching (like OrderNotesSection) keeps this reachable from all
   // three drawer hosts without threading props. A 403 — the caller lacks
@@ -1846,7 +1851,7 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
         label:
           a.action === 'removed'
             ? t('activityDiscountRemoved') || 'Discount removed'
-            : discountAppliedLabel(t, { type: a.type, value: a.value, reason: a.reason }),
+            : discountAppliedLabel(t, { type: a.type, value: a.value, reason: a.reason }, money),
       });
     }
   } else if ((order.discount_amount ?? 0) > 0) {
@@ -1856,7 +1861,7 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
         amount: order.discount_amount,
         reason: order.discount?.reason,
         code: order.discount?.code,
-      }),
+      }, money),
     });
   }
   if (order.scheduled_for) {
@@ -2330,6 +2335,7 @@ function SupplementInvoiceRow({
   order: Order;
   sup: SupplementaryInvoice;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const [pdfBusy, setPdfBusy] = useState<false | 'view' | 'download'>(false);
   const [pdfError, setPdfError] = useState(false);
@@ -2361,7 +2367,7 @@ function SupplementInvoiceRow({
   return (
     <div className="flex flex-col gap-[var(--s-2)] text-fs-sm border-t border-[var(--line)] pt-[var(--s-2)]">
       <div className="flex items-center justify-between">
-        <span className="font-medium">#{sup.number} · {sup.amount} ₪</span>
+        <span className="font-medium">#{sup.number} · {money(sup.amount)}</span>
         <span className="text-fs-xs text-[var(--fg-muted)]">{t('supplementInvoice') || 'complément'}</span>
       </div>
       <div className="flex flex-wrap items-center gap-[var(--s-2)]">

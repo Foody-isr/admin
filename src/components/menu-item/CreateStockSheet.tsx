@@ -6,6 +6,7 @@ import { Button, Input, Select, Field } from '@/components/ds';
 import { createStockItem, type StockItem, type StockUnit } from '@/lib/api';
 import { BRUT_COLOR } from './RecipeComposer';
 import { NumberInput } from '@/components/ui/NumberInput';
+import { useCurrency } from '@/lib/i18n';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 
@@ -29,6 +30,7 @@ export default function CreateStockSheet({
   onCreated,
   onCancel,
 }: Props) {
+  const { symbol } = useCurrency();
   const [name, setName] = React.useState(initialName);
   const [unit, setUnit] = React.useState<StockUnit>('kg');
   const [cost, setCost] = React.useState<number>(0);
@@ -140,7 +142,7 @@ export default function CreateStockSheet({
             </Field>
             <Field label={`Coût par ${unit}`}>
               <div className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-9 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
-                <span className="text-[var(--fg-subtle)] text-fs-sm">₪</span>
+                <span className="text-[var(--fg-subtle)] text-fs-sm">{symbol}</span>
                 <NumberInput
                   min={0}
                   value={cost}

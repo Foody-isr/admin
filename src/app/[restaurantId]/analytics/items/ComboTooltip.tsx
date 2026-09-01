@@ -2,12 +2,13 @@
 
 import * as React from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 
 const COMBO_COLOR = '#7c3aed';
 
-/** ₪ with 1 decimal under 10 (so small shares stay legible), rounded above. */
-function money(n: number): string {
+/** 1 decimal under 10 (so small shares stay legible), rounded above. Bare
+ *  number: the caller puts the currency symbol in front. */
+function compactAmount(n: number): string {
   return n >= 10 ? Math.round(n).toLocaleString() : n.toFixed(1);
 }
 
@@ -49,6 +50,7 @@ export function ComboTooltip({
   comboRevenue: number;
   children: React.ReactNode;
 }) {
+  const { money, symbol } = useCurrency();
   const { t } = useI18n();
   if (comboQty <= 0) return <>{children}</>;
 
@@ -75,15 +77,15 @@ export function ComboTooltip({
               {alaQty > 0 && (
                 <Row
                   label={t('alaCarteLabel')}
-                  calc={`${alaQty} × ₪${money(alaUnit)}`}
-                  amount={`₪${Math.round(alaRevenue).toLocaleString()}`}
+                  calc={`${alaQty} × ${symbol}${compactAmount(alaUnit)}`}
+                  amount={money(Math.round(alaRevenue), { decimals: 0, grouped: true })}
                 />
               )}
               <Row
                 dot
                 label={t('combo')}
-                calc={`${comboQty} × ≈ ₪${money(comboUnit)}`}
-                amount={`₪${Math.round(comboRevenue).toLocaleString()}`}
+                calc={`${comboQty} × ≈ ${symbol}${compactAmount(comboUnit)}`}
+                amount={money(Math.round(comboRevenue), { decimals: 0, grouped: true })}
               />
             </div>
             {alaQty > 0 && (
@@ -92,7 +94,7 @@ export function ComboTooltip({
                   strong
                   label={t('totalLabel')}
                   calc={`${quantity} ${units}`}
-                  amount={`₪${Math.round(revenue).toLocaleString()}`}
+                  amount={money(Math.round(revenue), { decimals: 0, grouped: true })}
                 />
               </div>
             )}

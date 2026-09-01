@@ -14,7 +14,7 @@ import {
   type Order,
   type DateBasis,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
 import DateBasisToggle from '@/components/DateBasisToggle';
 import SeriePicker from '@/components/SeriePicker';
@@ -30,6 +30,7 @@ import {
 import { Calendar, RefreshCw, DollarSign, Edit, Plus, Package } from 'lucide-react';
 import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
 import { InfoTip } from '@/components/help/InfoTip';
+import type { MoneyFormatter } from '@/lib/currency';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
@@ -129,8 +130,8 @@ function fmtDate(d = new Date(), locale = 'fr-FR') {
   return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-function fmtMoney(n: number) {
-  return `₪${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+function fmtMoney(n: number, money: MoneyFormatter) {
+  return money(n, { decimals: 0, grouped: true });
 }
 
 function pct(now: number, before: number) {
@@ -153,12 +154,12 @@ function seriesValue(metric: MetricKey, d: DaySummary): number {
   }
 }
 
-function formatMetric(metric: MetricKey, n: number): string {
+function formatMetric(metric: MetricKey, n: number, money: MoneyFormatter): string {
   switch (metric) {
     case 'revenue':
-      return fmtMoney(n);
+      return fmtMoney(n, money);
     case 'avgTicket':
-      return `₪${n.toFixed(1)}`;
+      return money(n, { decimals: 1 });
     default:
       return String(Math.round(n));
   }
@@ -189,6 +190,7 @@ function paymentColor(status: string): string {
 
 
 export default function DashboardPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
@@ -325,7 +327,7 @@ export default function DashboardPage() {
     {
       key: 'revenue',
       label: t('grossRevenue'),
-      value: fmtMoney(current?.total_revenue ?? 0),
+      value: fmtMoney(current?.total_revenue ?? 0, money),
       delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
     },
     {
@@ -340,7 +342,7 @@ export default function DashboardPage() {
     {
       key: 'avgTicket',
       label: t('avgTicket'),
-      value: `₪${(current?.avg_ticket ?? 0).toFixed(1)}`,
+      value: money(current?.avg_ticket ?? 0, { decimals: 1 }),
       delta: pct(current?.avg_ticket ?? 0, previous?.avg_ticket ?? 0),
     },
     {
@@ -469,7 +471,7 @@ export default function DashboardPage() {
           >
             <MetricChart
               data={activeChartData}
-              fmt={(n) => formatMetric(metric, n)}
+              fmt={(n) => formatMetric(metric, n, money)}
               emptyLabel={t('noSalesIn7Days')}
             />
           </Section>
@@ -543,7 +545,7 @@ export default function DashboardPage() {
                       <div className="h-full bg-[var(--brand-500)]" style={{ width: `${pctBar}%` }} />
                     </div>
                     <div className="font-mono tabular-nums text-fs-sm text-[var(--fg)] min-w-[70px] text-right">
-                      ₪{s.revenue.toFixed(2)}
+                      {money(s.revenue)}
                     </div>
                   </div>
                 );
@@ -584,7 +586,7 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-muted)] shrink-0">
-                    {fmtMoney(o.total_amount)}
+                    {fmtMoney(o.total_amount, money)}
                   </span>
                   <span className="text-fs-xs text-[var(--fg-subtle)] min-w-[40px] text-right shrink-0">
                     {relTime(o.created_at)}

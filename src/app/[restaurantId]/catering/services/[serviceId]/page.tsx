@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon, ChevronUpIcon, ChevronDownIcon } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
   DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell,
@@ -118,6 +118,7 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
   canEdit: boolean;
   sourceLocale: Locale;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const [items, setItems] = useState<CateringCatalogItem[]>([]);
   const [groups, setGroups] = useState<CateringCatalogGroup[]>([]);
@@ -250,7 +251,7 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
                   {groups.find((group) => group.id === item.group_id)?.name ?? t('catering_group_ungrouped')}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={priceLabel}>
-                  {`₪${item.base_price.toFixed(2)}`}
+                  {money(item.base_price)}
                 </DataTableCell>
                 {pricingModel !== 'custom_quote' && (
                   <DataTableCell align="right" mobileLabel={minLabel}>
@@ -592,6 +593,7 @@ function OptionsTab({ restaurantId, serviceId, canEdit }: {
   serviceId: number;
   canEdit: boolean;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const [options, setOptions] = useState<CateringOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -651,7 +653,7 @@ function OptionsTab({ restaurantId, serviceId, canEdit }: {
                   {option.name}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_option_price')}>
-                  {`₪${option.price.toFixed(2)}`}
+                  {money(option.price)}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_option_mode')}>
                   {option.price_mode === 'fixed' ? t('catering_option_mode_fixed') : t('catering_option_mode_per_person')}

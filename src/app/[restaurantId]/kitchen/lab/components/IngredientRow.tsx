@@ -1,7 +1,7 @@
 'use client';
 
 import type { Component } from '../types';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { EstimatedPriceBadge } from './EstimatedPriceBadge';
 
 const UNITS = ['g', 'kg', 'ml', 'l', 'piece', 'unit', 'tsp', 'tbsp', 'cup'];
@@ -25,6 +25,7 @@ export function IngredientRow({
   onRemove: () => void;
   canManage: boolean;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const isExisting = c.kind === 'stock_existing';
 
@@ -96,7 +97,7 @@ export function IngredientRow({
 
       {/* Line cost */}
       <span style={{ textAlign: 'right', fontWeight: 500, fontSize: 13 }}>
-        ₪{(c.line_cost ?? 0).toFixed(2)}
+        {money(c.line_cost ?? 0)}
       </span>
 
       {/* Optional target hint — shown when item costs more than its target */}
@@ -104,7 +105,7 @@ export function IngredientRow({
         {c.target_cost_per_unit != null &&
         c.cost_per_unit != null &&
         c.target_cost_per_unit < c.cost_per_unit
-          ? `${t('labTargetLeq')} ₪${c.target_cost_per_unit.toFixed(2)}/${c.unit}`
+          ? `${t('labTargetLeq')} ${money(c.target_cost_per_unit)}/${c.unit}`
           : null}
       </span>
 

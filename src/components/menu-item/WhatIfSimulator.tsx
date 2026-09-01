@@ -29,6 +29,7 @@ import {
 import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { usePermissions } from '@/lib/permissions-context';
+import { useCurrency } from '@/lib/i18n';
 
 // "Et si… ?" simulator card — Figma reference:
 //   foodyadmin/foody-os-handoff/design-reference/screens/item-editor.jsx (WhatIfSimulator).
@@ -38,7 +39,6 @@ import { usePermissions } from '@/lib/permissions-context';
 // profit cards). Apply persists in three places: variant price+portion (or
 // item.price+portion when no variant) and per-stock cost_per_unit.
 
-const CURRENCY = '₪';
 
 interface Props {
   rid: number;
@@ -107,6 +107,7 @@ export default function WhatIfSimulator({
   onApplied,
   t,
 }: Props) {
+  const { money, symbol } = useCurrency();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
   // ── Bases ────────────────────────────────────────────────────────────────
@@ -564,8 +565,8 @@ export default function WhatIfSimulator({
                 showCostsExVat ? (t('exVat') || 'HT') : (t('incVat') || 'TTC')
               }`}
               sub={t('simulatorPriceLeverHint') || 'Augmenter le prix de vente sans toucher la recette'}
-              valueLabel={`${CURRENCY}${simPrice.toFixed(2)}`}
-              baseLabel={priceChanged ? `${CURRENCY}${basePrice.toFixed(2)}` : null}
+              valueLabel={money(simPrice)}
+              baseLabel={priceChanged ? money(basePrice) : null}
               deltaPct={priceChanged ? priceDeltaPct : null}
               dirty={priceChanged}
               min={priceMin}
@@ -574,9 +575,9 @@ export default function WhatIfSimulator({
               value={simPrice}
               onChange={setSimPrice}
               ticks={[
-                { v: priceMin, l: `${CURRENCY}${priceMin.toFixed(0)}` },
-                { v: basePrice, l: `${CURRENCY}${basePrice.toFixed(0)} · ${t('simulatorBase') || 'base'}`, base: true },
-                { v: priceMax, l: `${CURRENCY}${priceMax.toFixed(0)}` },
+                { v: priceMin, l: money(priceMin, { decimals: 0 }) },
+                { v: basePrice, l: `${money(basePrice, { decimals: 0 })} · ${t('simulatorBase') || 'base'}`, base: true },
+                { v: priceMax, l: money(priceMax, { decimals: 0 }) },
               ]}
             />
           )}
@@ -621,7 +622,7 @@ export default function WhatIfSimulator({
                           <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5">
                             {t('base') || 'Base'} ·{' '}
                             <span className="tabular-nums">
-                              {CURRENCY}
+                              {symbol}
                               {row.baseUnitCost.toFixed(2)}
                               {row.unitSuffix}
                             </span>
@@ -633,7 +634,7 @@ export default function WhatIfSimulator({
                             border: `1px solid ${overridden ? 'var(--brand-500)' : 'var(--line)'}`,
                           }}
                         >
-                          <span className="text-fs-xs text-[var(--fg-subtle)]">{CURRENCY}</span>
+                          <span className="text-fs-xs text-[var(--fg-subtle)]">{symbol}</span>
                           <NumberInput
                             min={0}
                             value={overrideVal != null ? overrideVal : row.baseUnitCost}
@@ -697,7 +698,7 @@ export default function WhatIfSimulator({
                         <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5">
                           {t('preparation') || 'Préparation'} ·{' '}
                           <span className="tabular-nums">
-                            {CURRENCY}
+                            {symbol}
                             {row.baseUnitCost.toFixed(2)}
                             {row.unitSuffix}
                           </span>
@@ -707,7 +708,7 @@ export default function WhatIfSimulator({
                         className="text-fs-sm font-semibold tabular-nums whitespace-nowrap"
                         style={{ color: overridden ? 'var(--brand-500)' : 'var(--fg)' }}
                       >
-                        {CURRENCY}
+                        {symbol}
                         {liveUnitCost.toFixed(2)}
                         <span className="text-[10px] text-[var(--fg-subtle)] font-normal">
                           {row.unitSuffix}
@@ -857,16 +858,16 @@ export default function WhatIfSimulator({
           <div className="grid grid-cols-2 gap-[var(--s-3)] mt-[var(--s-5)]">
             <ResultCard
               label={t('simulatorMaterialCost') || 'Coût matière'}
-              value={`${CURRENCY}${simFoodCost.toFixed(2)}`}
-              base={dirty ? `${CURRENCY}${baseFoodCost.toFixed(2)}` : null}
+              value={money(simFoodCost)}
+              base={dirty ? money(baseFoodCost) : null}
               delta={dirty ? simFoodCost - baseFoodCost : null}
               inverse
             />
             <ResultCard
               label={t('grossProfit') || 'Marge brute'}
-              value={`${CURRENCY}${simMargin.toFixed(2)}`}
+              value={money(simMargin)}
               sub={`${simMarginPct.toFixed(1)}%`}
-              base={dirty ? `${CURRENCY}${baseMargin.toFixed(2)}` : null}
+              base={dirty ? money(baseMargin) : null}
               delta={dirty ? simMargin - baseMargin : null}
               accent="var(--success-500)"
             />
@@ -1107,6 +1108,7 @@ function Lever({
 function Delta({
   value, unit = '', inverse = false,
 }: { value: number; unit?: string; inverse?: boolean }) {
+  const { symbol } = useCurrency();
   if (!Number.isFinite(value) || Math.abs(value) < 0.001) return null;
   const isDown = value < 0;
   const good = inverse ? isDown : !isDown;
@@ -1121,9 +1123,9 @@ function Delta({
     >
       {isDown ? <ArrowDown className="w-2.5 h-2.5" /> : <ArrowUp className="w-2.5 h-2.5" />}
       {sign}
-      {unit === CURRENCY ? unit : ''}
+      {unit === symbol ? unit : ''}
       {abs.toFixed(decimals)}
-      {unit !== CURRENCY ? unit : ''}
+      {unit !== symbol ? unit : ''}
     </span>
   );
 }
@@ -1139,6 +1141,7 @@ function ResultCard({
   accent?: string;
   inverse?: boolean;
 }) {
+  const { symbol } = useCurrency();
   const dirty = base != null && delta != null;
   return (
     <div
@@ -1166,7 +1169,7 @@ function ResultCard({
           <span className="text-[10px] tabular-nums text-[var(--fg-subtle)] line-through">
             {base}
           </span>
-          <Delta value={delta!} unit={CURRENCY} inverse={inverse} />
+          <Delta value={delta!} unit={symbol} inverse={inverse} />
         </div>
       )}
     </div>

@@ -19,7 +19,7 @@ import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/li
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { type PrintTicketRestaurant } from '@/lib/print-ticket';
 import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
 import {
@@ -107,6 +107,7 @@ function defaultDateRange(): { from: Date; to: Date } {
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission, isOwner, roleName } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
@@ -824,7 +825,7 @@ export default function OrdersPage() {
                         mobilePrimary={col.isMobilePrimary}
                         mobileLabel={col.isMobilePrimary ? undefined : t(col.labelKey)}
                       >
-                        {col.render(order, t)}
+                        {col.render(order, t, money)}
                       </DataTableCell>
                     ))}
                   </DataTableRow>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Chip, Drawer, Field, Input, Textarea } from '@/components/ds';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
   ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon, TagIcon, XIcon,
@@ -148,6 +148,7 @@ export function NewOrderCheckoutDrawer({
   open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig, defaultDate,
   restaurantId, discountItems, onStateChange, initialState,
 }: NewOrderCheckoutDrawerProps) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManualDiscount = hasAnyPermission('orders.discount');
@@ -459,7 +460,7 @@ export function NewOrderCheckoutDrawer({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title={t('checkout')}
-      subtitle={`${itemCount} ${t('orderItems').toLowerCase()} · ₪${discountedTotal.toFixed(2)}`}
+      subtitle={`${itemCount} ${t('orderItems').toLowerCase()} · ${money(discountedTotal)}`}
       width={480}
       onSave={() =>
         onConfirm({
@@ -472,7 +473,7 @@ export function NewOrderCheckoutDrawer({
             : {}),
         })
       }
-      saveLabel={submitting ? `${t('creating')}…` : `${t('createOrder')} · ₪${discountedTotal.toFixed(2)}`}
+      saveLabel={submitting ? `${t('creating')}…` : `${t('createOrder')} · ${money(discountedTotal)}`}
       saveDisabled={!canConfirm}
     >
       <div className="flex flex-col gap-[var(--s-5)]">
@@ -615,10 +616,10 @@ export function NewOrderCheckoutDrawer({
                     ? `${t('discountLine')} (${appliedCoupon.code})`
                     : t('manualDiscount')}
                   {' '}
-                  <span className="font-mono tabular-nums">−₪{appliedAmount.toFixed(2)}</span>
+                  <span className="font-mono tabular-nums">−{money(appliedAmount)}</span>
                 </span>
                 <span className="font-mono tabular-nums text-fs-xs text-[var(--success-600)]">
-                  {t('total')}: ₪{discountedTotal.toFixed(2)}
+                  {t('total')}: {money(discountedTotal)}
                 </span>
               </div>
               <button

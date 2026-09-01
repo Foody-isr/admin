@@ -19,7 +19,7 @@ import { addDays, isoDate } from '@/lib/weeks';
 import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import { BatchPicker } from '@/components/menu/BatchPicker';
 import { AvailabilityPill, availabilityToggleTarget } from '@/components/menu/AvailabilityPill';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
   ArrowLeftIcon,
@@ -1396,6 +1396,7 @@ function ReplaceItemsModal({ t, itemsToReplace, allItems, allCats, groupItemIds,
   onClose: () => void;
   onDone: (replacements: { oldId: number; newId: number }[]) => void;
 }) {
+  const { money } = useCurrency();
   const [stepIndex, setStepIndex] = useState(0);
   // oldItemId -> chosen replacement itemId. Built up as the operator advances
   // through one step per item being replaced.
@@ -1565,7 +1566,7 @@ function ReplaceItemsModal({ t, itemsToReplace, allItems, allCats, groupItemIds,
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-base font-medium text-[var(--text-primary)] truncate">{item.name}</p>
-                <p className="text-sm text-[var(--text-secondary)]">{item.price?.toFixed(2)} ₪</p>
+                <p className="text-sm text-[var(--text-secondary)]">{money(item.price)}</p>
               </div>
               <input
                 type="radio"
@@ -1711,6 +1712,7 @@ function ItemRow({
   onItemDrop: (e: React.DragEvent<HTMLElement>) => void;
   onItemDragEnd: () => void;
 }) {
+  const { money } = useCurrency();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
   const [toggling, setToggling] = useState(false);
@@ -1835,7 +1837,7 @@ function ItemRow({
       <div className="flex items-center justify-between md:block gap-3">
         <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('price')}</span>
         <div className="text-sm font-semibold text-[var(--text-primary)] text-end">
-          {item.price?.toFixed(2)} ₪
+          {money(item.price)}
         </div>
       </div>
 

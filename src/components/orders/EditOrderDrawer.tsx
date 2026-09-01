@@ -29,7 +29,7 @@ import {
   type CreateOrderItemInput,
   type BatchFulfillmentConfigResponse,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { cn } from '@/lib/utils';
 import { itemSizeOptions } from '@/lib/item-options';
@@ -180,6 +180,7 @@ interface EditOrderDrawerProps {
 }
 
 export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }: EditOrderDrawerProps) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   // Manual ad-hoc discounts are gated on the same permission as the create flow.
@@ -668,7 +669,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
         subtitle={order ? t('orderNumber').replace('{id}', String(order.id)) : undefined}
         width={560}
         onSave={handleSave}
-        saveLabel={saving ? t('savingChanges') || 'Saving…' : `${t('saveChanges')} · ₪${Math.max(0, liveTotal - stagedDiscountAmount).toFixed(2)}`}
+        saveLabel={saving ? t('savingChanges') || 'Saving…' : `${t('saveChanges')} · ${money(Math.max(0, liveTotal - stagedDiscountAmount))}`}
         saveDisabled={saving || !isDirty}
       >
         <div className="flex flex-col gap-[var(--s-5)]">
@@ -750,7 +751,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                   />
                   {stagedDiscountAmount > 0 && (
                     <span className="font-mono text-fs-sm tabular-nums text-[var(--fg-subtle)]">
-                      −₪{stagedDiscountAmount.toFixed(2)}
+                      −{money(stagedDiscountAmount)}
                     </span>
                   )}
                   {currentManual && (
@@ -833,7 +834,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                               </span>
                             )}
                             <span className="ms-auto shrink-0 font-mono tabular-nums text-fs-xs text-[var(--fg-muted)]">
-                              ₪{it.price.toFixed(2)}
+                              {money(it.price)}
                             </span>
                           </button>
                           {match && (
@@ -980,7 +981,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                           line.removed && 'line-through text-[var(--fg-muted)]',
                         )}
                       >
-                        ₪{(line.unitPrice * line.quantity).toFixed(2)}
+                        {money(line.unitPrice * line.quantity)}
                       </span>
 
                       {/* Remove / restore */}
@@ -1075,7 +1076,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                         removed && 'line-through text-[var(--fg-muted)]',
                       )}
                     >
-                      ₪{price.toFixed(2)}
+                      {money(price)}
                     </span>
                     {!removed && (
                       <button

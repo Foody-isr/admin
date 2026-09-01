@@ -41,7 +41,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams();
-  const { direction, t } = useI18n();
+  const { direction, t, setCurrency } = useI18n();
   const restaurantId = Number(params.restaurantId);
   const isFullscreen =
     pathname.endsWith('/website') ||
@@ -82,7 +82,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
     setRestaurantLoading(true);
     setRestaurantError(false);
     getRestaurant(restaurantId)
-      .then((r) => { setRestaurant(r); setRestaurantError(false); })
+      .then((r) => { setRestaurant(r); setCurrency(r.currency); setRestaurantError(false); })
       .catch(() => setRestaurantError(true))
       .finally(() => setRestaurantLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
