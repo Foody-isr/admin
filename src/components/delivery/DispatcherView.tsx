@@ -319,6 +319,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const prevEvent = useRef(lastEvent);
   const initialPlanResolved = useRef(false);
   const [routes, setRoutes] = useState<DeliveryRoute[]>([]);
+  const [openRoutes, setOpenRoutes] = useState<DeliveryRoute[]>([]);
   const [livePositions, setLivePositions] = useState<Map<number, { lat: number; lng: number; updatedAt: number }>>(new Map());
   const [ready, setReady] = useState<Order[]>([]);
   const [couriers, setCouriers] = useState<StaffMember[]>([]);
@@ -361,6 +362,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         ...openRouteRows.flatMap((route) => route.stops.map((stop) => stop.order_id)),
       ]);
       const available = candidateRows.orders.filter((order) => !routedOrderIds.has(order.id));
+      let visibleRoutes = routeRows;
 
       if (!initialPlanResolved.current) {
         initialPlanResolved.current = true;
@@ -368,17 +370,18 @@ export default function DispatcherView({ rid }: { rid: number }) {
         const relatedOpenRoute = openRouteRows.find((route) =>
           route.stops.some((stop) => candidateOrderIds.has(stop.order_id)),
         );
-        if (routeRows.length === 0 && available.length === 0 && relatedOpenRoute) {
+        if (routeRows.length === 0 && relatedOpenRoute) {
           const recoveredDate = routePlanningDate(relatedOpenRoute);
           if (recoveredDate !== departure.slice(0, 10)) {
             setDeparture(departureValueForRoute(relatedOpenRoute, departure));
-            return;
+            visibleRoutes = openRouteRows.filter((route) => routePlanningDate(route) === recoveredDate);
           }
         }
       }
 
-      setRoutes(routeRows);
-      setReady(available);
+      setRoutes(visibleRoutes);
+      setOpenRoutes(openRouteRows);
+      setReady(candidateRows.orders);
       setCouriers(courierRows);
       setPicked((current) => {
         const availableIds = new Set(available.map((order) => order.id));
@@ -387,7 +390,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       });
       setPlannerCouriers((current) => {
         const activeCourierIds = new Set(
-          routeRows.filter((route) => route.status === 'active').map((route) => route.courier_id),
+          visibleRoutes.filter((route) => route.status === 'active').map((route) => route.courier_id),
         );
         const selectableCouriers = courierRows.filter((courier) => !activeCourierIds.has(courier.id));
         const valid = new Set(Array.from(current).filter((id) => selectableCouriers.some((courier) => courier.id === id)));
@@ -395,7 +398,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         return new Set(selectableCouriers.slice(0, Math.min(2, selectableCouriers.length)).map((courier) => courier.id));
       });
       const seed = new Map<number, { lat: number; lng: number; updatedAt: number }>();
-      routeRows.forEach((route) => {
+      visibleRoutes.forEach((route) => {
         if (!route.last_location) return;
         seed.set(route.courier_id, {
           lat: route.last_location.lat,
@@ -468,6 +471,19 @@ export default function DispatcherView({ rid }: { rid: number }) {
     return map;
   }, [couriers]);
 
+  const openRouteByOrderId = useMemo(() => {
+    const map = new Map<number, DeliveryRoute>();
+    openRoutes.forEach((route) => {
+      route.stops.forEach((stop) => map.set(stop.order_id, route));
+    });
+    return map;
+  }, [openRoutes]);
+
+  const unplannedOrders = useMemo(
+    () => ready.filter((order) => !openRouteByOrderId.has(order.id)),
+    [ready, openRouteByOrderId],
+  );
+
   const activeCourierIds = useMemo(
     () => new Set(routes.filter((route) => route.status === 'active').map((route) => route.courier_id)),
     [routes],
@@ -525,13 +541,14 @@ export default function DispatcherView({ rid }: { rid: number }) {
     return null;
   }, [routes, selectedStopId]);
 
-  const allPicked = ready.length > 0 && picked.size === ready.length;
+  const allPicked = unplannedOrders.length > 0 && picked.size === unplannedOrders.length;
   const toggleOrder = (id: number) => setPicked((current) => {
+    if (openRouteByOrderId.has(id)) return current;
     const next = new Set(current);
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
   });
-  const toggleAll = () => setPicked(allPicked ? new Set() : new Set(ready.map((order) => order.id)));
+  const toggleAll = () => setPicked(allPicked ? new Set() : new Set(unplannedOrders.map((order) => order.id)));
   const toggleCourier = (id: number) => setPlannerCouriers((current) => {
     const next = new Set(current);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -711,7 +728,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   {t('deliveryPlanStepOneHint').replace('{count}', String(picked.size))}
                 </p>
               </div>
-              <Badge tone={picked.size > 0 ? 'info' : 'neutral'}>{picked.size}/{ready.length}</Badge>
+              <Badge tone={picked.size > 0 ? 'info' : 'neutral'}>
+                {t('deliveryPlanAvailableCount')
+                  .replace('{selected}', String(picked.size))
+                  .replace('{available}', String(unplannedOrders.length))}
+              </Badge>
             </CardHeader>
             <CardBody className="pt-0">
               {ready.length === 0 ? (
@@ -730,6 +751,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                     </DataTableHead>
                     <DataTableBody>
                       {ready.map((order, index) => {
+                        const plannedRoute = openRouteByOrderId.get(order.id);
                         const address = formatDeliveryAddress({
                           address: order.delivery_address,
                           city: order.delivery_city,
@@ -737,10 +759,29 @@ export default function DispatcherView({ rid }: { rid: number }) {
                           apt: order.delivery_apt,
                           entryCode: order.delivery_entry_code,
                         }, t);
+                        const plannedDate = plannedRoute
+                          ? new Intl.DateTimeFormat(locale, { dateStyle: 'short' }).format(
+                            new Date(`${routePlanningDate(plannedRoute)}T12:00:00`),
+                          )
+                          : null;
+                        const plannedCourier = plannedRoute ? courierById.get(plannedRoute.courier_id) : null;
                         return (
-                          <DataTableRow key={order.id} index={index} onClick={() => toggleOrder(order.id)} className="cursor-pointer">
+                          <DataTableRow
+                            key={order.id}
+                            index={index}
+                            onClick={() => plannedRoute
+                              ? setDeparture(departureValueForRoute(plannedRoute, departure))
+                              : toggleOrder(order.id)}
+                            className="cursor-pointer"
+                            title={plannedRoute ? t('deliveryPlanOpenRoute') : undefined}
+                          >
                             <DataTableCell className="w-10 p-3">
-                              <Checkbox checked={picked.has(order.id)} onCheckedChange={() => toggleOrder(order.id)} onClick={(event) => event.stopPropagation()} />
+                              <Checkbox
+                                checked={picked.has(order.id)}
+                                disabled={Boolean(plannedRoute)}
+                                onCheckedChange={() => toggleOrder(order.id)}
+                                onClick={(event) => event.stopPropagation()}
+                              />
                             </DataTableCell>
                             <DataTableCell className="p-3">
                               <div className="text-fs-sm font-medium text-[var(--fg)]">{order.customer_name}</div>
@@ -748,9 +789,17 @@ export default function DispatcherView({ rid }: { rid: number }) {
                             </DataTableCell>
                             <DataTableCell className="p-3 text-fs-xs text-[var(--fg-muted)]">{address?.line1 || t('noAddress')}</DataTableCell>
                             <DataTableCell className="p-3">
-                              <Badge tone={order.status === 'ready_for_delivery' ? 'success' : 'warning'}>
-                                {localizeStatus(order.status, t)}
-                              </Badge>
+                              <div className="flex flex-wrap items-center gap-1">
+                                <Badge tone={order.status === 'ready_for_delivery' ? 'success' : 'warning'}>
+                                  {localizeStatus(order.status, t)}
+                                </Badge>
+                                {plannedRoute && <Badge tone="info">{t('deliveryPlanAlreadyPlanned')}</Badge>}
+                              </div>
+                              {plannedRoute && (
+                                <div className="mt-1 whitespace-nowrap text-[10px] font-medium text-[var(--info-500)]">
+                                  {plannedDate} · {plannedCourier?.full_name ?? `#${plannedRoute.courier_id}`}
+                                </div>
+                              )}
                             </DataTableCell>
                           </DataTableRow>
                         );

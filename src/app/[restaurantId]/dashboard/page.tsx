@@ -18,7 +18,6 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
-import DateBasisToggle from '@/components/DateBasisToggle';
 import SeriePicker from '@/components/SeriePicker';
 import { useOrderSeries, previousBlock, seriesInRange, type SerieRange } from '@/lib/series';
 import {
@@ -32,6 +31,8 @@ import {
 import {
   AlertTriangle,
   ArrowRight,
+  CalendarClock,
+  CalendarDays,
   CheckCircle,
   ChevronDown,
   DollarSign,
@@ -403,18 +404,20 @@ export default function DashboardPage() {
   }, [current, dateLocale]);
 
   // KPI definitions, driven by the period totals. Presentational only.
-  const metrics: { key: MetricKey; label: string; value: string; delta: number; hint?: string }[] = [
+  const metrics: { key: MetricKey; label: string; value: string; delta: number; hint?: string; accent: string }[] = [
     {
       key: 'revenue',
       label: t('grossRevenue'),
       value: fmtMoney(current?.total_revenue ?? 0, dateLocale),
       delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
+      accent: 'var(--brand-500)',
     },
     {
       key: 'orders',
       label: t('orders'),
       value: String(current?.total_orders ?? 0),
       delta: pct(current?.total_orders ?? 0, previous?.total_orders ?? 0),
+      accent: 'var(--cat-4)',
       // These KPIs reflect realized (paid) activity — the count deliberately
       // excludes unpaid/scheduled orders, so it can trail the Orders list.
       hint: t('paidOrdersOnly'),
@@ -424,12 +427,14 @@ export default function DashboardPage() {
       label: t('avgTicket'),
       value: fmtMoney(current?.avg_ticket ?? 0, dateLocale, 1),
       delta: pct(current?.avg_ticket ?? 0, previous?.avg_ticket ?? 0),
+      accent: 'var(--cat-5)',
     },
     {
       key: 'itemsSold',
       label: t('itemsSold'),
       value: String(current?.items_sold ?? 0),
       delta: pct(current?.items_sold ?? 0, previous?.items_sold ?? 0),
+      accent: 'var(--success-500)',
     },
   ];
 
@@ -483,9 +488,6 @@ export default function DashboardPage() {
     }));
   }, [serieMode, serieSel, serieList, dateLocale]);
 
-  // A single day or série is one bar (not useful) — reserve the comparison
-  // chart for windows where it can reveal a trend.
-  const showChart = serieMode ? serieChartData.length > 1 : chartData.length > 1;
   const activeChartData = serieMode ? serieChartData : chartData;
   const previousChartData = serieMode
     ? previousSerieChartData
@@ -539,24 +541,28 @@ export default function DashboardPage() {
         actions={
           <>
             <CreateActionsMenu restaurantId={rid} onNavigate={router.push} t={t} />
-            <DateBasisToggle value={basis} onChange={onChangeBasis} />
-            {serieMode ? (
-              <SeriePicker
-                series={serieList}
-                value={serieSel}
-                onChange={setSerieSel}
-                align="end"
-              />
-            ) : (
-              <DateRangePicker
-                value={dateRange}
-                onChange={onPickRange}
-                weekStartDay={wsd}
-                workdays={workdays}
-                restaurantId={rid}
-                align="right"
-              />
-            )}
+            <DashboardPeriodControl
+              basis={basis}
+              onChange={onChangeBasis}
+              t={t}
+              picker={serieMode ? (
+                <SeriePicker
+                  series={serieList}
+                  value={serieSel}
+                  onChange={setSerieSel}
+                  align="end"
+                />
+              ) : (
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={onPickRange}
+                  weekStartDay={wsd}
+                  workdays={workdays}
+                  restaurantId={rid}
+                  align="right"
+                />
+              )}
+            />
             <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
               <RefreshCw />
             </Button>
@@ -578,18 +584,18 @@ export default function DashboardPage() {
             metrics={metrics}
             showDelta={showDelta}
             comparisonLabel={vsLabel}
-            chart={showChart ? (
+            chart={(
               <MetricChart
                 data={activeChartData}
                 previousData={previousChartData}
                 currentLabel={t('dashboardCurrentPeriod')}
-              previousLabel={t('dashboardPreviousPeriod')}
-              averageLabel={t('dashboardAverage')}
-              peakLabel={t('dashboardPeak')}
+                previousLabel={t('dashboardPreviousPeriod')}
+                averageLabel={t('dashboardAverage')}
+                peakLabel={t('dashboardPeak')}
                 fmt={(n) => formatMetric(metric, n, dateLocale)}
                 emptyLabel={t('noSalesIn7Days')}
               />
-            ) : undefined}
+            )}
             channels={(
               <ChannelMix
                 data={channelData}
@@ -666,6 +672,7 @@ interface DashboardMetric {
   value: string;
   delta: number;
   hint?: string;
+  accent: string;
 }
 
 // Label with an optional ⓘ tooltip — shared by the compact (mobile) and full
@@ -677,6 +684,69 @@ function kpiLabel(label: string, hint?: string) {
       {label}
       <InfoTip text={hint} />
     </span>
+  );
+}
+
+function DashboardPeriodControl({
+  basis,
+  onChange,
+  picker,
+  t,
+}: {
+  basis: DateBasis;
+  onChange: (basis: DateBasis) => void;
+  picker: React.ReactNode;
+  t: (key: string) => string;
+}) {
+  const serieMode = basis === 'serie';
+  const BasisIcon = serieMode ? CalendarClock : CalendarDays;
+  const label = serieMode ? t('dashboardServicesScheduled') : t('dashboardOrdersPlaced');
+  return (
+    <div
+      role="group"
+      aria-label={t('dashboardAnalyzedPeriod')}
+      className="inline-flex items-stretch min-h-11 rounded-[var(--r-lg)] border border-[var(--line-strong)] bg-[var(--surface)] shadow-1 p-1"
+    >
+      <Menu>
+        <MenuTrigger asChild>
+          <button
+            type="button"
+            className="group flex items-center gap-[var(--s-2)] rounded-[var(--r-md)] px-[var(--s-3)] text-left hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-ring transition-colors"
+          >
+            <span className="w-7 h-7 rounded-[var(--r-sm)] grid place-items-center bg-[var(--brand-50)] text-[var(--brand-600)]">
+              <BasisIcon className="w-4 h-4" />
+            </span>
+            <span className="hidden sm:block leading-tight">
+              <span className="block text-[10px] text-[var(--fg-subtle)]">{t('dashboardAnalyzedPeriod')}</span>
+              <span className="block text-fs-sm font-semibold text-[var(--fg)]">{label}</span>
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-[var(--fg-muted)]" />
+          </button>
+        </MenuTrigger>
+        <MenuContent align="end" className="min-w-[280px]">
+          <MenuItem className="h-auto py-[var(--s-2)] items-start" onSelect={() => onChange('created')}>
+            <CalendarDays className="mt-0.5" />
+            <span>
+              <span className="block font-medium">{t('dashboardOrdersPlaced')}</span>
+              <span className="block text-[11px] text-[var(--fg-muted)] mt-0.5">{t('dashboardOrdersPlacedHint')}</span>
+            </span>
+            {!serieMode && <CheckCircle className="ml-auto mt-0.5 text-[var(--brand-500)]" />}
+          </MenuItem>
+          <MenuItem className="h-auto py-[var(--s-2)] items-start" onSelect={() => onChange('serie')}>
+            <CalendarClock className="mt-0.5" />
+            <span>
+              <span className="block font-medium">{t('dashboardServicesScheduled')}</span>
+              <span className="block text-[11px] text-[var(--fg-muted)] mt-0.5">{t('dashboardServicesScheduledHint')}</span>
+            </span>
+            {serieMode && <CheckCircle className="ml-auto mt-0.5 text-[var(--brand-500)]" />}
+          </MenuItem>
+        </MenuContent>
+      </Menu>
+      <div className="my-1 w-px bg-[var(--line)]" />
+      <div className="flex items-stretch [&>div]:flex [&>div]:items-stretch [&>div>button]:!border-0 [&>div>button]:!rounded-[var(--r-md)] [&>div>button]:!px-[var(--s-3)] [&>div>button]:font-semibold [&>div>button]:text-[var(--fg)]">
+        {picker}
+      </div>
+    </div>
   );
 }
 
@@ -764,7 +834,7 @@ function OperationsBar({
             {unavailable || hasUrgency ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[.12em] font-semibold text-[var(--fg-subtle)]">{t('dashboardNow')}</div>
+            <div className="text-[11px] font-semibold text-[var(--fg-subtle)]">{t('dashboardNow')}</div>
             <p className="text-fs-sm font-medium text-[var(--fg)] mt-0.5 truncate">{message}</p>
             {!unavailable && summary.oldestCreatedAt && summary.active > 0 && (
               <p className="text-[11px] text-[var(--fg-muted)] mt-0.5">
@@ -812,54 +882,60 @@ function PerformanceOverview({
   const primary = metrics[0];
   const primaryUp = primary.delta >= 0;
   return (
-    <section className="bg-[var(--surface)] border border-[var(--line)] rounded-[var(--r-xl)] overflow-hidden shadow-1">
-      <header className="px-[var(--s-5)] md:px-[var(--s-6)] pt-[var(--s-5)] md:pt-[var(--s-6)] flex items-start justify-between gap-[var(--s-4)] flex-wrap">
-        <div>
-          <h2 className="text-fs-lg font-semibold text-[var(--fg)]">{title}</h2>
-        </div>
-        {chartNote && <span className="text-fs-xs text-[var(--fg-subtle)]">{chartNote}</span>}
-      </header>
+    <section className="bg-[var(--surface)] border border-[var(--line)] rounded-[var(--r-xl)] overflow-hidden shadow-2">
+      <div
+        className="h-1.5"
+        style={{ background: 'linear-gradient(90deg, var(--brand-500) 0 62%, var(--cat-5) 62% 80%, var(--cat-4) 80% 91%, var(--success-500) 91%)' }}
+      />
+      <div style={{ background: 'linear-gradient(125deg, color-mix(in oklab, var(--brand-500) 9%, var(--surface)) 0%, var(--surface) 58%, color-mix(in oklab, var(--cat-5) 5%, var(--surface)) 100%)' }}>
+        <header className="px-[var(--s-5)] md:px-[var(--s-8)] pt-[var(--s-5)] md:pt-[var(--s-8)] flex items-start justify-between gap-[var(--s-4)] flex-wrap">
+          <h2 className="text-fs-xl font-semibold text-[var(--fg)]">{title}</h2>
+          {chartNote && <span className="text-fs-xs text-[var(--fg-subtle)]">{chartNote}</span>}
+        </header>
 
-      <div className="px-[var(--s-5)] md:px-[var(--s-6)] py-[var(--s-5)] grid grid-cols-1 md:grid-cols-[minmax(190px,.9fr)_minmax(0,1.45fr)] gap-[var(--s-5)] md:gap-[var(--s-6)] items-end">
-        <div>
-          <div className="text-fs-sm text-[var(--fg-muted)]">{primary.label}</div>
-          <div className="text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.045em] leading-none tabular-nums text-[var(--fg)] mt-2">
-            {primary.value}
-          </div>
-          {showDelta && (
-            <div className="flex items-center gap-[var(--s-2)] mt-[var(--s-3)] text-fs-xs">
-              <span className={`font-semibold tabular-nums ${primaryUp ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
-                {primaryUp ? '↑' : '↓'} {primary.delta >= 0 ? '+' : ''}{primary.delta.toFixed(1)}%
-              </span>
-              <span className="text-[var(--fg-subtle)]">{comparisonLabel}</span>
+        <div className="px-[var(--s-5)] md:px-[var(--s-8)] py-[var(--s-6)] md:pb-[var(--s-8)] grid grid-cols-1 md:grid-cols-[minmax(230px,1fr)_minmax(0,1.35fr)] gap-[var(--s-6)] md:gap-[var(--s-8)] items-end">
+          <div>
+            <div className="text-fs-sm font-medium text-[var(--fg-muted)]">{primary.label}</div>
+            <div className="text-[clamp(3rem,6vw,4.75rem)] font-semibold tracking-[-0.055em] leading-[.92] tabular-nums text-[var(--fg)] mt-[var(--s-3)]">
+              {primary.value}
             </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-3 border-y md:border-y-0 md:border-l border-[var(--line)] divide-x divide-[var(--line)] py-[var(--s-4)] md:py-1 md:pl-[var(--s-5)]">
-          {metrics.slice(1).map((metric) => {
-            const up = metric.delta >= 0;
-            return (
-              <div key={metric.key} className="px-[var(--s-3)] first:pl-0 md:first:pl-[var(--s-3)] min-w-0">
-                <div className="text-[11px] text-[var(--fg-muted)] truncate">{kpiLabel(metric.label, metric.hint)}</div>
-                <div className="text-fs-xl font-semibold tabular-nums text-[var(--fg)] mt-1 truncate">{metric.value}</div>
-                {showDelta && (
-                  <div className={`text-[11px] font-medium tabular-nums mt-1 ${up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
-                    {up ? '↑' : '↓'} {metric.delta >= 0 ? '+' : ''}{metric.delta.toFixed(1)}%
-                  </div>
-                )}
+            {showDelta && (
+              <div className="flex items-center gap-[var(--s-2)] mt-[var(--s-4)] text-fs-xs flex-wrap">
+                <span
+                  className={`rounded-full px-2.5 py-1 font-semibold tabular-nums ${primaryUp ? 'text-[var(--success-500)] bg-[var(--success-50)]' : 'text-[var(--danger-500)] bg-[var(--danger-50)]'}`}
+                >
+                  {primaryUp ? '↑' : '↓'} {primary.delta >= 0 ? '+' : ''}{primary.delta.toFixed(1)}%
+                </span>
+                <span className="text-[var(--fg-muted)]">{comparisonLabel}</span>
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-[var(--s-3)] md:border-l border-[var(--line-strong)] md:pl-[var(--s-6)]">
+            {metrics.slice(1).map((metric) => {
+              const up = metric.delta >= 0;
+              return (
+                <div key={metric.key} className="border-t-2 pt-[var(--s-3)] min-w-0" style={{ borderTopColor: metric.accent }}>
+                  <div className="text-[11px] text-[var(--fg-muted)] truncate">{kpiLabel(metric.label, metric.hint)}</div>
+                  <div className="text-[clamp(1.15rem,2vw,1.55rem)] font-semibold tabular-nums text-[var(--fg)] mt-1 truncate">{metric.value}</div>
+                  {showDelta && (
+                    <div className={`text-[11px] font-semibold tabular-nums mt-1 ${up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
+                      {up ? '↑' : '↓'} {metric.delta >= 0 ? '+' : ''}{metric.delta.toFixed(1)}%
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {chart && (
-        <div className="border-t border-[var(--line)] px-[var(--s-5)] md:px-[var(--s-6)] py-[var(--s-5)] bg-[color:color-mix(in_oklab,var(--surface-2)_45%,var(--surface))]">
+        <div className="border-t border-[var(--line)] px-[var(--s-5)] md:px-[var(--s-8)] py-[var(--s-6)] bg-[color:color-mix(in_oklab,var(--surface-2)_48%,var(--surface))]">
           {chart}
         </div>
       )}
-      <div className="border-t border-[var(--line)] px-[var(--s-5)] md:px-[var(--s-6)] py-[var(--s-5)]">
+      <div className="border-t border-[var(--line)] px-[var(--s-5)] md:px-[var(--s-8)] py-[var(--s-6)]">
         {channels}
       </div>
     </section>
@@ -898,13 +974,46 @@ function MetricChart({
   }
   const hasPrevious = previousData.some((d) => d.value > 0);
   const max = Math.max(1, ...data.map((d) => d.value), ...previousData.map((d) => d.value));
+  const compact = data.length === 1;
   const average = data.reduce((sum, d) => sum + d.value, 0) / data.length;
   const peak = data.reduce((highest, datum) => datum.value > highest.value ? datum : highest, data[0]);
+
+  if (compact) {
+    const current = data[0];
+    const prior = previousData[0]?.value ?? 0;
+    return (
+      <div className="h-[230px] flex items-end justify-center gap-[var(--s-8)] md:gap-[var(--s-12)]">
+        {hasPrevious && (
+          <div className="h-full w-24 flex flex-col items-center justify-end gap-[var(--s-2)]">
+            <span className="text-fs-sm font-semibold tabular-nums text-[var(--fg-muted)]">{fmt(prior)}</span>
+            <div className="h-[150px] w-full flex items-end justify-center">
+              <div className="w-14 rounded-t-[var(--r-sm)] bg-[var(--line-strong)]" style={{ height: `${Math.max(4, (prior / max) * 100)}%` }} />
+            </div>
+            <span className="text-fs-xs font-medium text-[var(--fg-muted)] text-center">{previousLabel}</span>
+          </div>
+        )}
+        <div className="h-full w-28 flex flex-col items-center justify-end gap-[var(--s-2)]">
+          <span className="text-fs-md font-semibold tabular-nums text-[var(--fg)]">{fmt(current.value)}</span>
+          <div className="h-[150px] w-full flex items-end justify-center">
+            <div
+              className="w-16 rounded-t-[var(--r-md)] shadow-2"
+              style={{
+                height: `${Math.max(4, (current.value / max) * 100)}%`,
+                background: 'linear-gradient(180deg, var(--brand-400), var(--brand-600))',
+              }}
+            />
+          </div>
+          <span className="text-fs-xs font-semibold text-[var(--fg)] text-center">{currentLabel}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center gap-[var(--s-4)] text-[11px] text-[var(--fg-muted)] mb-[var(--s-4)] flex-wrap">
         <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--brand-500)]" />{currentLabel}</span>
-        {hasPrevious && <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--surface-4)]" />{previousLabel}</span>}
+        {hasPrevious && <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--line-strong)]" />{previousLabel}</span>}
         <span className="ml-auto tabular-nums">{averageLabel} · {fmt(average)}</span>
         <span className="tabular-nums">{peakLabel} · {peak.label} · {fmt(peak.value)}</span>
       </div>
@@ -925,7 +1034,7 @@ function MetricChart({
                 </div>
                 <div className="flex items-end h-full w-full justify-center gap-[2px]">
                   {hasPrevious && (
-                    <div className="w-full max-w-[11px] rounded-t-[2px] bg-[var(--surface-4)]" style={{ height: `${Math.max(1, (prior / max) * 100)}%` }} />
+                    <div className="w-full max-w-[11px] rounded-t-[2px] bg-[var(--line-strong)]" style={{ height: `${Math.max(1, (prior / max) * 100)}%` }} />
                   )}
                   <div
                     className="w-full max-w-[16px] rounded-t-[3px] bg-[var(--brand-500)]"
@@ -933,7 +1042,7 @@ function MetricChart({
                     title={fmt(d.value)}
                   />
                 </div>
-                <span className="text-[10px] text-[var(--fg-muted)] truncate max-w-full min-h-[14px]">{d.day}</span>
+                <span className="text-[10px] text-[var(--fg-muted)] whitespace-nowrap min-h-[14px]">{d.day}</span>
               </div>
             );
           })}
