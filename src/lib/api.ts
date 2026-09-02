@@ -4126,6 +4126,9 @@ export interface OrderCustomerDetailsInput {
   delivery_apt?: string;
   delivery_entry_code?: string;
   delivery_notes?: string;
+  /** Verified map coordinates; both values must be supplied together. */
+  delivery_latitude?: number;
+  delivery_longitude?: number;
 }
 
 /**

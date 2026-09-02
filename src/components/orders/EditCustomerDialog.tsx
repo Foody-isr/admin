@@ -39,6 +39,7 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
   const [entryCode, setEntryCode] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // Prefill from the order each time the dialog opens (or the order changes).
   useEffect(() => {
@@ -51,9 +52,12 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
     setEntryCode(order.delivery_entry_code ?? '');
     setDeliveryNotes(order.delivery_notes ?? '');
     setSubmitting(false);
+    setSubmitError('');
   }, [open, order]);
 
-  const canConfirm = name.trim() !== '' && !submitting;
+  const canConfirm = name.trim() !== '' &&
+    (!isDelivery || (address.trim() !== '' && city.trim() !== '')) &&
+    !submitting;
 
   const close = () => {
     if (submitting) return;
@@ -63,6 +67,7 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
   const confirm = async () => {
     if (!canConfirm) return;
     setSubmitting(true);
+    setSubmitError('');
     try {
       const input: OrderCustomerDetailsInput = { name: name.trim() };
       if (isDelivery) {
@@ -75,6 +80,8 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
       }
       await onConfirm(input);
       onOpenChange(false);
+    } catch (cause) {
+      setSubmitError((cause as Error)?.message || t('couldNotSave'));
     } finally {
       setSubmitting(false);
     }
@@ -140,6 +147,12 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
                 <InfoIcon className="w-4 h-4 mt-0.5 shrink-0 text-[var(--fg-muted)]" />
                 <p className="text-fs-sm text-[var(--fg-muted)]">{t('editCustomerReflectNote')}</p>
               </div>
+            )}
+
+            {submitError && (
+              <p role="alert" className="mt-[var(--s-3)] text-fs-sm text-[var(--danger-500)]">
+                {submitError}
+              </p>
             )}
 
             <div className="flex items-center gap-[var(--s-3)] mt-[var(--s-5)]">
