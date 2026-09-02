@@ -1,5 +1,9 @@
+import type { DraftStatePayload } from "./types";
+
 const REQUIRED_PROTOCOL = "foody.website-v3";
 const REQUIRED_VERSION = 1;
+const REQUIRED_PUBLICATION_MARKER = "foody_renderer_version";
+const REQUIRED_RENDERER_VERSION = 1;
 const REQUIRED_PAGE_TYPES = ["landing", "content", "order", "catering"] as const;
 const REQUIRED_SURFACES = ["page", "checkout"] as const;
 
@@ -8,6 +12,10 @@ export type WebsiteV3RuntimeCapabilities = {
   version: number;
   page_types: string[];
   surfaces: string[];
+  publication: {
+    marker: typeof REQUIRED_PUBLICATION_MARKER;
+    version: typeof REQUIRED_RENDERER_VERSION;
+  };
 };
 
 /** Ensures the selected public storefront can render every Website V3 draft the Admin can publish. */
@@ -44,13 +52,33 @@ function isCompatible(value: unknown): value is WebsiteV3RuntimeCapabilities {
   }
   const pageTypes = value.page_types;
   const surfaces = value.surfaces;
+  const publication = value.publication;
   if (!isStringArray(pageTypes) || !isStringArray(surfaces)) {
     return false;
   }
   return (
     REQUIRED_PAGE_TYPES.every((type) => pageTypes.includes(type)) &&
-    REQUIRED_SURFACES.every((surface) => surfaces.includes(surface))
+    REQUIRED_SURFACES.every((surface) => surfaces.includes(surface)) &&
+    isRecord(publication) &&
+    publication.marker === REQUIRED_PUBLICATION_MARKER &&
+    publication.version === REQUIRED_RENDERER_VERSION
   );
+}
+
+/** Marks every page so the public renderer activates only after an explicit V3 publication. */
+export function prepareWebsiteV3StateForPublication(
+  state: DraftStatePayload,
+): DraftStatePayload {
+  return {
+    ...state,
+    pages: state.pages.map((page) => ({
+      ...page,
+      appearance_overrides: {
+        ...page.appearance_overrides,
+        [REQUIRED_PUBLICATION_MARKER]: REQUIRED_RENDERER_VERSION,
+      },
+    })),
+  };
 }
 
 function incompatibleRuntimeError(): Error {
