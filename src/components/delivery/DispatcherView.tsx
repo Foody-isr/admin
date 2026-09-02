@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   ArrowRightLeftIcon,
+  CheckIcon,
+  ListChecksIcon,
   MapPinIcon,
   MessageCircleIcon,
   RefreshCwIcon,
@@ -11,6 +13,7 @@ import {
   SparklesIcon,
   Undo2Icon,
   UserIcon,
+  UsersIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -23,9 +26,7 @@ import {
 } from '@/lib/delivery-planning';
 import { useWs } from '@/lib/ws-context';
 import {
-  buildRoute,
   cancelDeliveryRoute,
-  changeRouteCourier,
   listDeliveryRoutes,
   optimizeRoute,
   planDeliveryRoutes,
@@ -37,8 +38,6 @@ import {
 import {
   listOrders,
   listCouriers,
-  markOrderReadyForDelivery,
-  sendOrderToKitchen,
   type Order,
   type StaffMember,
 } from '@/lib/api';
@@ -54,7 +53,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge, Button, Card, CardBody, CardHeader, Input, Section, Select } from '@/components/ds';
+import { Badge, Button, Card, CardBody, CardHeader, Input, Select } from '@/components/ds';
 import {
   DataTable,
   DataTableHead,
@@ -69,6 +68,11 @@ const DeliveryMap = dynamic(() => import('@/components/delivery/DeliveryMap'), {
 
 const COURIER_COLORS = ['#F18A47', '#5AA9E6', '#C792EA', '#5BBF84', '#E6A75A', '#E26D9B'];
 type Translator = (key: string) => string;
+type DistributionMode = 'smart' | 'zone' | 'manual';
+
+function deliveryZone(order: Order, fallback: string): string {
+  return order.delivery_city?.trim() || fallback;
+}
 
 function colorFor(index: number): string {
   return COURIER_COLORS[index % COURIER_COLORS.length];
@@ -115,11 +119,9 @@ interface RouteRibbonProps {
   color: string;
   locale: string;
   selectedStopId: number | null;
-  availableCouriers: StaffMember[];
   busy: boolean;
   onSelectCourier: () => void;
   onSelectStop: (stopId: number) => void;
-  onChangeCourier: (courierId: number) => void;
   onOptimize: () => void;
   onCancel: () => void;
   t: Translator;
@@ -131,11 +133,9 @@ function RouteRibbon({
   color,
   locale,
   selectedStopId,
-  availableCouriers,
   busy,
   onSelectCourier,
   onSelectStop,
-  onChangeCourier,
   onOptimize,
   onCancel,
   t,
@@ -179,22 +179,7 @@ function RouteRibbon({
         </div>
 
         {route.status === 'draft' && (
-          <div className="mb-3 flex flex-wrap items-end gap-2 border-b border-[var(--line)] pb-3">
-            <label className="min-w-[150px] flex-1">
-              <span className="mb-1 block text-[11px] font-medium text-[var(--fg-subtle)]">
-                {t('deliveryPlanAssignedCourier')}
-              </span>
-              <Select
-                className="h-8 text-fs-xs"
-                value={route.courier_id}
-                disabled={busy}
-                onChange={(event) => onChangeCourier(Number(event.target.value))}
-              >
-                {availableCouriers.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>{candidate.full_name}</option>
-                ))}
-              </Select>
-            </label>
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2 border-b border-[var(--line)] pb-3">
             <Button
               type="button"
               variant="secondary"
@@ -318,10 +303,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [routes, setRoutes] = useState<DeliveryRoute[]>([]);
   const [livePositions, setLivePositions] = useState<Map<number, { lat: number; lng: number; updatedAt: number }>>(new Map());
   const [ready, setReady] = useState<Order[]>([]);
-  const [preparing, setPreparing] = useState<Order[]>([]);
   const [couriers, setCouriers] = useState<StaffMember[]>([]);
   const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [distributionMode, setDistributionMode] = useState<DistributionMode>('smart');
   const [plannerCouriers, setPlannerCouriers] = useState<Set<number>>(new Set());
+  const [zoneCouriers, setZoneCouriers] = useState<Map<string, number>>(new Map());
+  const [manualCouriers, setManualCouriers] = useState<Map<number, number>>(new Map());
   const [departure, setDeparture] = useState(defaultDepartureValue);
   const [planning, setPlanning] = useState(false);
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null);
@@ -334,10 +321,6 @@ export default function DispatcherView({ rid }: { rid: number }) {
     | { kind: 'stop'; routeId: number; stopId: number; customerName: string }
     | null
   >(null);
-  const [pickedPrep, setPickedPrep] = useState<Set<number>>(new Set());
-  const [assignToPrep, setAssignToPrep] = useState<number | null>(null);
-  const [prepBusy, setPrepBusy] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
@@ -349,17 +332,15 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [routeRows, readyRows, prepRows, courierRows] = await Promise.all([
+      const [routeRows, candidateRows, courierRows] = await Promise.all([
         listDeliveryRoutes(rid),
-        listOrders(rid, { type: 'delivery', status: 'ready_for_delivery', payment_status: 'paid' }),
-        listOrders(rid, { type: 'delivery', status: 'accepted,in_kitchen', payment_status: 'paid' }),
+        listOrders(rid, { type: 'delivery', status: 'accepted,in_kitchen,ready_for_delivery', payment_status: 'paid' }),
         listCouriers(rid),
       ]);
       setRoutes(routeRows);
       const routedOrderIds = new Set(routeRows.flatMap((route) => route.stops.map((stop) => stop.order_id)));
-      const available = readyRows.orders.filter((order) => !routedOrderIds.has(order.id));
+      const available = candidateRows.orders.filter((order) => !routedOrderIds.has(order.id));
       setReady(available);
-      setPreparing(prepRows.orders.filter((order) => !routedOrderIds.has(order.id)));
       setCouriers(courierRows);
       setPicked((current) => {
         const availableIds = new Set(available.map((order) => order.id));
@@ -449,6 +430,55 @@ export default function DispatcherView({ rid }: { rid: number }) {
     return map;
   }, [couriers]);
 
+  const activeCourierIds = useMemo(
+    () => new Set(routes.filter((route) => route.status === 'active').map((route) => route.courier_id)),
+    [routes],
+  );
+  const planningCouriers = useMemo(
+    () => couriers.filter((courier) => !activeCourierIds.has(courier.id)),
+    [couriers, activeCourierIds],
+  );
+  const selectedOrders = useMemo(
+    () => ready.filter((order) => picked.has(order.id)),
+    [ready, picked],
+  );
+  const selectedZones = useMemo(
+    () => Array.from(new Set(selectedOrders.map((order) => deliveryZone(order, t('deliveryPlanUnknownZone'))))),
+    [selectedOrders, t],
+  );
+
+  useEffect(() => {
+    setZoneCouriers((current) => {
+      const next = new Map<string, number>();
+      selectedZones.forEach((zone, index) => {
+        const currentCourier = current.get(zone);
+        const fallback = planningCouriers[index % Math.max(planningCouriers.length, 1)]?.id;
+        if (currentCourier && planningCouriers.some((courier) => courier.id === currentCourier)) {
+          next.set(zone, currentCourier);
+        } else if (fallback) {
+          next.set(zone, fallback);
+        }
+      });
+      return next;
+    });
+  }, [selectedZones, planningCouriers]);
+
+  useEffect(() => {
+    setManualCouriers((current) => {
+      const next = new Map<number, number>();
+      selectedOrders.forEach((order, index) => {
+        const currentCourier = current.get(order.id);
+        const fallback = planningCouriers[index % Math.max(planningCouriers.length, 1)]?.id;
+        if (currentCourier && planningCouriers.some((courier) => courier.id === currentCourier)) {
+          next.set(order.id, currentCourier);
+        } else if (fallback) {
+          next.set(order.id, fallback);
+        }
+      });
+      return next;
+    });
+  }, [selectedOrders, planningCouriers]);
+
   const selectedEntry = useMemo(() => {
     for (const route of routes) {
       const stop = route.stops.find((candidate) => candidate.id === selectedStopId);
@@ -471,10 +501,53 @@ export default function DispatcherView({ rid }: { rid: number }) {
   });
 
   const createPlan = async () => {
-    if (picked.size === 0 || plannerCouriers.size === 0 || !departure) return;
+    if (picked.size === 0 || !departure) return;
+    let assignments: Array<{ courier_id: number; order_ids: number[] }> | undefined;
+    let selectedCourierIds = Array.from(plannerCouriers);
+
+    if (distributionMode === 'zone') {
+      if (selectedZones.some((zone) => !zoneCouriers.get(zone))) {
+        setError(t('deliveryPlanMissingAssignments'));
+        return;
+      }
+      const grouped = new Map<number, number[]>();
+      selectedOrders.forEach((order) => {
+        const courierId = zoneCouriers.get(deliveryZone(order, t('deliveryPlanUnknownZone')));
+        if (!courierId) return;
+        grouped.set(courierId, [...(grouped.get(courierId) ?? []), order.id]);
+      });
+      assignments = Array.from(grouped, ([courier_id, order_ids]) => ({ courier_id, order_ids }));
+      selectedCourierIds = Array.from(grouped.keys());
+    }
+
+    if (distributionMode === 'manual') {
+      if (selectedOrders.some((order) => !manualCouriers.get(order.id))) {
+        setError(t('deliveryPlanMissingAssignments'));
+        return;
+      }
+      const grouped = new Map<number, number[]>();
+      selectedOrders.forEach((order) => {
+        const courierId = manualCouriers.get(order.id);
+        if (!courierId) return;
+        grouped.set(courierId, [...(grouped.get(courierId) ?? []), order.id]);
+      });
+      assignments = Array.from(grouped, ([courier_id, order_ids]) => ({ courier_id, order_ids }));
+      selectedCourierIds = Array.from(grouped.keys());
+    }
+
+    if (selectedCourierIds.length === 0) {
+      setError(t('deliveryPlanMissingAssignments'));
+      return;
+    }
     setPlanning(true);
     try {
-      await planDeliveryRoutes(rid, Array.from(plannerCouriers), Array.from(picked), new Date(departure).toISOString());
+      await planDeliveryRoutes(
+        rid,
+        selectedCourierIds,
+        Array.from(picked),
+        new Date(departure).toISOString(),
+        assignments,
+      );
       setPicked(new Set());
       await load();
     } catch (cause) {
@@ -511,20 +584,6 @@ export default function DispatcherView({ rid }: { rid: number }) {
     }
   };
 
-  const replaceRouteCourier = async (routeId: number, courierId: number) => {
-    setRouteBusy(routeId);
-    try {
-      await changeRouteCourier(rid, routeId, courierId);
-      setSelectedCourier(courierId);
-      await load();
-    } catch (cause) {
-      setError((cause as Error)?.message || t('deliveryPlanCourierChangeFailed'));
-      await load();
-    } finally {
-      setRouteBusy(null);
-    }
-  };
-
   const confirmUndo = async () => {
     if (!undoAction) return;
     const routeId = undoAction.routeId;
@@ -544,38 +603,6 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setError((cause as Error)?.message || t('deliveryPlanUndoFailed'));
     } finally {
       setRouteBusy(null);
-    }
-  };
-
-  const allPickedPrep = preparing.length > 0 && pickedPrep.size === preparing.length;
-  const togglePrep = (id: number) => setPickedPrep((current) => {
-    const next = new Set(current);
-    next.has(id) ? next.delete(id) : next.add(id);
-    return next;
-  });
-  const prepCourier = couriers.find((courier) => courier.id === assignToPrep);
-  const assignPreparing = async () => {
-    if (assignToPrep == null || pickedPrep.size === 0) return;
-    setPrepBusy(true);
-    try {
-      const ids = Array.from(pickedPrep);
-      for (const id of ids) {
-        const order = preparing.find((candidate) => candidate.id === id);
-        if (!order) continue;
-        if (order.status === 'accepted') await sendOrderToKitchen(rid, id);
-        await markOrderReadyForDelivery(rid, id);
-      }
-      await buildRoute(rid, assignToPrep, ids);
-      setPickedPrep(new Set());
-      setAssignToPrep(null);
-      setConfirmOpen(false);
-      await load();
-    } catch (cause) {
-      setError((cause as Error)?.message || t('deliveryPlanFailed'));
-      setConfirmOpen(false);
-      await load();
-    } finally {
-      setPrepBusy(false);
     }
   };
 
@@ -602,10 +629,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const movableRoutes = selectedEntry
     ? routes.filter((route) => route.id !== selectedEntry.route.id && route.status === 'draft')
     : [];
-  const occupiedCourierIds = new Set(
-    routes
-      .filter((route) => route.status === 'draft' || route.status === 'active')
-      .map((route) => route.courier_id),
+  const canCreatePlan = picked.size > 0 && Boolean(departure) && (
+    distributionMode === 'smart'
+      ? plannerCouriers.size > 0
+      : distributionMode === 'zone'
+        ? selectedZones.length > 0 && selectedZones.every((zone) => Boolean(zoneCouriers.get(zone)))
+        : selectedOrders.length > 0 && selectedOrders.every((order) => Boolean(manualCouriers.get(order.id)))
   );
 
   return (
@@ -624,74 +653,192 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </div>
       )}
 
-      <Card className="overflow-hidden">
-        <div className="h-1 bg-[var(--brand-500)]" />
-        <CardBody className="p-4 md:p-5">
-          <div className="grid gap-5 xl:grid-cols-[minmax(230px,0.7fr)_minmax(280px,1.2fr)_220px_auto] xl:items-end">
-            <div>
-              <div className="mb-1 flex items-center gap-2 text-fs-xs font-semibold uppercase tracking-[0.12em] text-[var(--brand-500)]">
-                <SparklesIcon className="h-4 w-4" />
-                {t('deliveryPlanEyebrow')}
-              </div>
-              <h1 className="text-fs-xl font-semibold text-[var(--fg)]">{t('deliveryPlanTitle')}</h1>
-              <p className="mt-1 text-fs-sm text-[var(--fg-muted)]">
-                {t('deliveryPlanSubtitle').replace('{count}', String(picked.size))}
-              </p>
-            </div>
+      <div className="px-1">
+        <div className="mb-1 flex items-center gap-2 text-fs-xs font-semibold uppercase tracking-[0.12em] text-[var(--brand-500)]">
+          <RouteIcon className="h-4 w-4" />
+          {t('deliveryPlanEyebrow')}
+        </div>
+        <h1 className="text-fs-xl font-semibold text-[var(--fg)]">{t('deliveryPlanTitle')}</h1>
+        <p className="mt-1 max-w-2xl text-fs-sm text-[var(--fg-muted)]">{t('deliveryPlanIntro')}</p>
+      </div>
 
-            <div>
-              <label className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanCouriers')}</label>
-              <div className="flex flex-wrap gap-2">
-                {couriers.map((courier, index) => {
-                  const checked = plannerCouriers.has(courier.id);
-                  const isActive = routes.some((route) => route.courier_id === courier.id && route.status === 'active');
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[500px_minmax(0,1fr)] lg:items-start">
+        <div className="flex flex-col gap-4">
+          <Card className="overflow-hidden border-s-4 border-s-[var(--brand-500)]">
+            <CardHeader className="items-start">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-r-md bg-[var(--brand-500)] text-fs-sm font-bold text-white">1</span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanStepOne')}</h2>
+                <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">
+                  {t('deliveryPlanStepOneHint').replace('{count}', String(picked.size))}
+                </p>
+              </div>
+              <Badge tone={picked.size > 0 ? 'info' : 'neutral'}>{picked.size}/{ready.length}</Badge>
+            </CardHeader>
+            <CardBody className="pt-0">
+              {ready.length === 0 ? (
+                <div className="py-6 text-center">
+                  <ListChecksIcon className="mx-auto mb-2 h-7 w-7 text-[var(--fg-subtle)]" />
+                  <p className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('deliveryPlanNoUnplanned')}</p>
+                </div>
+              ) : (
+                <div className="-mx-[var(--s-5)] overflow-x-auto">
+                  <DataTable responsive={false} className="rounded-none border-0 bg-transparent shadow-none dark:bg-transparent">
+                    <DataTableHead>
+                      <DataTableHeadCell className="w-10 p-3"><Checkbox checked={allPicked} onCheckedChange={toggleAll} /></DataTableHeadCell>
+                      <DataTableHeadCell className="p-3">{t('customer')}</DataTableHeadCell>
+                      <DataTableHeadCell className="p-3">{t('address')}</DataTableHeadCell>
+                      <DataTableHeadCell className="p-3">{t('status')}</DataTableHeadCell>
+                    </DataTableHead>
+                    <DataTableBody>
+                      {ready.map((order, index) => {
+                        const address = formatDeliveryAddress({
+                          address: order.delivery_address,
+                          city: order.delivery_city,
+                          floor: order.delivery_floor,
+                          apt: order.delivery_apt,
+                          entryCode: order.delivery_entry_code,
+                        }, t);
+                        return (
+                          <DataTableRow key={order.id} index={index} onClick={() => toggleOrder(order.id)} className="cursor-pointer">
+                            <DataTableCell className="w-10 p-3">
+                              <Checkbox checked={picked.has(order.id)} onCheckedChange={() => toggleOrder(order.id)} onClick={(event) => event.stopPropagation()} />
+                            </DataTableCell>
+                            <DataTableCell className="p-3">
+                              <div className="text-fs-sm font-medium text-[var(--fg)]">{order.customer_name}</div>
+                              <div className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</div>
+                            </DataTableCell>
+                            <DataTableCell className="p-3 text-fs-xs text-[var(--fg-muted)]">{address?.line1 || t('noAddress')}</DataTableCell>
+                            <DataTableCell className="p-3">
+                              <Badge tone={order.status === 'ready_for_delivery' ? 'success' : 'warning'}>
+                                {localizeStatus(order.status, t)}
+                              </Badge>
+                            </DataTableCell>
+                          </DataTableRow>
+                        );
+                      })}
+                    </DataTableBody>
+                  </DataTable>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card className="overflow-hidden border-s-4 border-s-[var(--brand-300)]">
+            <CardHeader className="items-start">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-r-md bg-[var(--brand-100)] text-fs-sm font-bold text-[var(--brand-700)]">2</span>
+              <div>
+                <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanStepTwo')}</h2>
+                <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">{t('deliveryPlanStepTwoHint')}</p>
+              </div>
+            </CardHeader>
+            <CardBody className="space-y-4 pt-0">
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t('deliveryPlanDistributionMode')}>
+                {([
+                  ['smart', SparklesIcon, 'deliveryPlanModeSmart', 'deliveryPlanModeSmartHint'],
+                  ['zone', MapPinIcon, 'deliveryPlanModeZone', 'deliveryPlanModeZoneHint'],
+                  ['manual', UsersIcon, 'deliveryPlanModeManual', 'deliveryPlanModeManualHint'],
+                ] as const).map(([mode, Icon, labelKey, hintKey]) => {
+                  const active = distributionMode === mode;
                   return (
                     <button
-                      key={courier.id}
+                      key={mode}
                       type="button"
-                      onClick={() => toggleCourier(courier.id)}
-                      disabled={isActive}
-                      aria-pressed={checked}
-                      title={isActive ? t('deliveryPlanCourierActive') : undefined}
-                      className={`flex items-center gap-2 rounded-full border px-3 py-2 text-fs-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring ${
-                        checked
-                          ? 'border-[var(--line-strong)] bg-[var(--surface-2)] text-[var(--fg)]'
-                          : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-subtle)] hover:border-[var(--line-strong)] disabled:cursor-not-allowed disabled:opacity-45'
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setDistributionMode(mode)}
+                      className={`relative min-h-[94px] rounded-r-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:shadow-ring ${
+                        active
+                          ? 'border-[var(--brand-500)] bg-[var(--brand-50)] text-[var(--fg)]'
+                          : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line-strong)]'
                       }`}
                     >
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: checked ? colorFor(index) : 'var(--line-strong)' }} />
-                      {courier.full_name}
+                      {active && <CheckIcon className="absolute end-2 top-2 h-4 w-4 text-[var(--brand-500)]" />}
+                      <Icon className="mb-2 h-5 w-5 text-[var(--brand-500)]" />
+                      <span className="block text-fs-xs font-semibold">{t(labelKey)}</span>
+                      <span className="mt-1 block text-[10px] leading-snug text-[var(--fg-subtle)]">{t(hintKey)}</span>
                     </button>
                   );
                 })}
-                {couriers.length === 0 && <span className="text-fs-xs text-[var(--fg-subtle)]">{t('noCouriersHint')}</span>}
               </div>
-            </div>
 
-            <div>
-              <label htmlFor="delivery-departure" className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">
-                {t('deliveryPlanDeparture')}
-              </label>
-              <Input id="delivery-departure" type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)} />
-            </div>
+              {distributionMode === 'smart' && (
+                <div>
+                  <label className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanCouriers')}</label>
+                  <div className="flex flex-wrap gap-2">
+                    {planningCouriers.map((courier, index) => {
+                      const checked = plannerCouriers.has(courier.id);
+                      return (
+                        <button
+                          key={courier.id}
+                          type="button"
+                          onClick={() => toggleCourier(courier.id)}
+                          aria-pressed={checked}
+                          className={`flex items-center gap-2 rounded-full border px-3 py-2 text-fs-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring ${
+                            checked
+                              ? 'border-[var(--brand-300)] bg-[var(--brand-50)] text-[var(--fg)]'
+                              : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-subtle)] hover:border-[var(--line-strong)]'
+                          }`}
+                        >
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ background: checked ? colorFor(index) : 'var(--line-strong)' }} />
+                          {courier.full_name}
+                        </button>
+                      );
+                    })}
+                    {planningCouriers.length === 0 && <span className="text-fs-xs text-[var(--fg-subtle)]">{t('noCouriersHint')}</span>}
+                  </div>
+                </div>
+              )}
 
-            <Button
-              size="lg"
-              className="w-full xl:w-auto"
-              disabled={planning || picked.size === 0 || plannerCouriers.size === 0 || !departure}
-              onClick={() => void createPlan()}
-            >
-              <RouteIcon />
-              {planning
-                ? t('deliveryPlanGenerating')
-                : t('deliveryPlanGenerate').replace('{count}', String(picked.size))}
-            </Button>
-          </div>
-        </CardBody>
-      </Card>
+              {distributionMode === 'zone' && (
+                <div className="space-y-2">
+                  {selectedZones.map((zone) => (
+                    <label key={zone} className="grid grid-cols-[minmax(0,1fr)_minmax(160px,0.8fr)] items-center gap-3 rounded-r-md border border-[var(--line)] p-3">
+                      <span className="min-w-0">
+                        <span className="block truncate text-fs-sm font-medium text-[var(--fg)]">{zone}</span>
+                        <span className="text-fs-xs text-[var(--fg-subtle)]">
+                          {t('deliveryPlanZoneCount').replace('{count}', String(selectedOrders.filter((order) => deliveryZone(order, t('deliveryPlanUnknownZone')) === zone).length))}
+                        </span>
+                      </span>
+                      <Select value={zoneCouriers.get(zone) ?? ''} onChange={(event) => setZoneCouriers((current) => new Map(current).set(zone, Number(event.target.value)))}>
+                        <option value="">{t('selectCourier')}</option>
+                        {planningCouriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.full_name}</option>)}
+                      </Select>
+                    </label>
+                  ))}
+                </div>
+              )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[390px_minmax(0,1fr)] lg:items-start">
-        <div className="flex flex-col gap-4">
+              {distributionMode === 'manual' && (
+                <div className="max-h-72 space-y-2 overflow-y-auto pe-1">
+                  {selectedOrders.map((order) => (
+                    <label key={order.id} className="grid grid-cols-[minmax(0,1fr)_minmax(160px,0.8fr)] items-center gap-3 rounded-r-md border border-[var(--line)] p-3">
+                      <span className="min-w-0">
+                        <span className="block truncate text-fs-sm font-medium text-[var(--fg)]">{order.customer_name}</span>
+                        <span className="text-fs-xs text-[var(--fg-subtle)]">#{order.id} · {deliveryZone(order, t('deliveryPlanUnknownZone'))}</span>
+                      </span>
+                      <Select value={manualCouriers.get(order.id) ?? ''} onChange={(event) => setManualCouriers((current) => new Map(current).set(order.id, Number(event.target.value)))}>
+                        <option value="">{t('selectCourier')}</option>
+                        {planningCouriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.full_name}</option>)}
+                      </Select>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid gap-3 border-t border-[var(--line)] pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                <label htmlFor="delivery-departure">
+                  <span className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanDeparture')}</span>
+                  <Input id="delivery-departure" type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)} />
+                </label>
+                <Button size="lg" className="w-full sm:w-auto" disabled={planning || !canCreatePlan} onClick={() => void createPlan()}>
+                  <RouteIcon />
+                  {planning ? t('deliveryPlanGenerating') : t('deliveryPlanGenerate').replace('{count}', String(picked.size))}
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
+
           <div className="flex items-center justify-between px-1">
             <div>
               <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanRoutes')}</h2>
@@ -718,9 +865,6 @@ export default function DispatcherView({ rid }: { rid: number }) {
               color={routeColorMap.get(route.id) ?? colorFor(0)}
               locale={locale}
               selectedStopId={selectedStopId}
-              availableCouriers={couriers.filter(
-                (courier) => courier.id === route.courier_id || !occupiedCourierIds.has(courier.id),
-              )}
               busy={routeBusy === route.id}
               onSelectCourier={() => setSelectedCourier((current) => current === route.courier_id ? null : route.courier_id)}
               onSelectStop={(stopId) => {
@@ -728,83 +872,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
                 setSelectedCourier(route.courier_id);
                 setMoveTarget(null);
               }}
-              onChangeCourier={(courierId) => void replaceRouteCourier(route.id, courierId)}
               onOptimize={() => void recalculateRoute(route.id)}
               onCancel={() => setUndoAction({ kind: 'route', routeId: route.id, stopCount: route.stops.length })}
               t={t}
             />
           ))}
 
-          <Section title={t('deliveryPlanUnplanned').replace('{count}', String(ready.length))}>
-            {ready.length === 0 ? (
-              <div className="py-3 text-center text-fs-xs text-[var(--fg-subtle)]">{t('deliveryPlanNoUnplanned')}</div>
-            ) : (
-              <div className="-mx-[var(--s-5)] overflow-x-auto">
-                <DataTable responsive={false} className="rounded-none border-0 bg-transparent shadow-none dark:bg-transparent">
-                  <DataTableHead>
-                    <DataTableHeadCell className="w-10 p-3"><Checkbox checked={allPicked} onCheckedChange={toggleAll} /></DataTableHeadCell>
-                    <DataTableHeadCell className="p-3">{t('customer')}</DataTableHeadCell>
-                    <DataTableHeadCell className="p-3">{t('address')}</DataTableHeadCell>
-                  </DataTableHead>
-                  <DataTableBody>
-                    {ready.map((order, index) => {
-                      const address = formatDeliveryAddress({
-                        address: order.delivery_address,
-                        city: order.delivery_city,
-                        floor: order.delivery_floor,
-                        apt: order.delivery_apt,
-                        entryCode: order.delivery_entry_code,
-                      }, t);
-                      return (
-                        <DataTableRow key={order.id} index={index} onClick={() => toggleOrder(order.id)} className="cursor-pointer">
-                          <DataTableCell className="w-10 p-3">
-                            <Checkbox checked={picked.has(order.id)} onCheckedChange={() => toggleOrder(order.id)} onClick={(event) => event.stopPropagation()} />
-                          </DataTableCell>
-                          <DataTableCell className="p-3">
-                            <div className="text-fs-sm font-medium text-[var(--fg)]">{order.customer_name}</div>
-                            <div className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</div>
-                          </DataTableCell>
-                          <DataTableCell className="p-3 text-fs-xs text-[var(--fg-muted)]">{address?.line1 || t('noAddress')}</DataTableCell>
-                        </DataTableRow>
-                      );
-                    })}
-                  </DataTableBody>
-                </DataTable>
-              </div>
-            )}
-          </Section>
-
-          {preparing.length > 0 && (
-            <Section title={t('beingPreparedTitle')}>
-              <p className="mb-2 text-fs-xs text-[var(--fg-subtle)]">{t('beingPreparedHint')}</p>
-              <div className="flex flex-col gap-2">
-                {preparing.map((order) => (
-                  <label key={order.id} className="flex cursor-pointer items-center gap-3 rounded-r-md border border-[var(--line)] p-3 hover:bg-[var(--surface-2)]">
-                    <Checkbox checked={pickedPrep.has(order.id)} onCheckedChange={() => togglePrep(order.id)} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-fs-sm font-medium text-[var(--fg)]">{order.customer_name}</span>
-                      <span className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</span>
-                    </span>
-                    <Badge tone="warning">{localizeStatus(order.status, t)}</Badge>
-                  </label>
-                ))}
-              </div>
-              <div className="mt-3 flex gap-2">
-                <Select className="flex-1" value={assignToPrep ?? ''} onChange={(event) => setAssignToPrep(event.target.value ? Number(event.target.value) : null)}>
-                  <option value="">{t('selectCourier')}</option>
-                  {couriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.full_name}</option>)}
-                </Select>
-                <Button disabled={pickedPrep.size === 0 || assignToPrep == null || prepBusy} onClick={() => setConfirmOpen(true)}>
-                  {t('assignNOrders').replace('{n}', String(pickedPrep.size))}
-                </Button>
-              </div>
-              {preparing.length > 1 && (
-                <button type="button" className="mt-2 text-fs-xs text-[var(--brand-500)]" onClick={() => setPickedPrep(allPickedPrep ? new Set() : new Set(preparing.map((order) => order.id)))}>
-                  {allPickedPrep ? t('deselectAll') : t('selectAll')}
-                </button>
-              )}
-            </Section>
-          )}
         </div>
 
         <div className="relative hidden lg:block lg:sticky lg:top-4">
@@ -910,25 +983,6 @@ export default function DispatcherView({ rid }: { rid: number }) {
         <MapPinIcon className="mr-2 inline h-4 w-4" />
         {t('dispatchDesktopHint')}
       </div>
-
-      <AlertDialog open={confirmOpen} onOpenChange={(open) => { if (!prepBusy) setConfirmOpen(open); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('confirmReadyTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('confirmReadyBody')
-                .replace('{n}', String(pickedPrep.size))
-                .replace('{courier}', prepCourier?.full_name ?? '')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={prepBusy}>{t('cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={(event) => { event.preventDefault(); void assignPreparing(); }} disabled={prepBusy}>
-              {t('confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={undoAction != null} onOpenChange={(open) => { if (!open && routeBusy == null) setUndoAction(null); }}>
         <AlertDialogContent>

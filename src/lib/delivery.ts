@@ -152,6 +152,7 @@ export async function planDeliveryRoutes(
   courierIds: number[],
   orderIds: number[],
   plannedDepartureAt: string,
+  assignments?: Array<{ courier_id: number; order_ids: number[] }>,
 ): Promise<DeliveryRoute[]> {
   const data = await apiFetch<{ routes: DeliveryRoute[] }>(
     `/api/v1/delivery/routes/plan?${q(restaurantId)}`, restaurantId,
@@ -161,6 +162,7 @@ export async function planDeliveryRoutes(
         courier_ids: courierIds,
         order_ids: orderIds,
         planned_departure_at: plannedDepartureAt,
+        assignments,
       }),
     },
   );
