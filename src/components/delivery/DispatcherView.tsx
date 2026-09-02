@@ -912,7 +912,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
             className="h-full min-h-[480px] overflow-hidden rounded-r-xl border border-[var(--line)] xl:min-h-0"
           />
 
-          {selectedEntry && (
+          {selectedEntry && editingOrder === null && (
             <div className="absolute bottom-4 left-4 right-4 z-[500] max-w-md rounded-r-xl border border-[var(--line-strong)] bg-[var(--surface)] p-4 shadow-3">
               <div className="mb-3 flex items-start gap-3">
                 <span
