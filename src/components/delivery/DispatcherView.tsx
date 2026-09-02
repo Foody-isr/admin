@@ -333,13 +333,15 @@ export default function DispatcherView({ rid }: { rid: number }) {
     try {
       setError(null);
       const [routeRows, candidateRows, courierRows] = await Promise.all([
-        listDeliveryRoutes(rid),
+        listDeliveryRoutes(rid, departure.slice(0, 10)),
         listOrders(rid, { type: 'delivery', status: 'accepted,in_kitchen,ready_for_delivery', payment_status: 'paid' }),
         listCouriers(rid),
       ]);
       setRoutes(routeRows);
       const routedOrderIds = new Set(routeRows.flatMap((route) => route.stops.map((stop) => stop.order_id)));
-      const available = candidateRows.orders.filter((order) => !routedOrderIds.has(order.id));
+      const available = candidateRows.orders.filter(
+        (order) => order.courier_id == null && !routedOrderIds.has(order.id),
+      );
       setReady(available);
       setCouriers(courierRows);
       setPicked((current) => {
@@ -369,7 +371,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     } catch (cause) {
       setError((cause as Error)?.message || t('couldNotLoad'));
     }
-  }, [rid, t]);
+  }, [departure, rid, t]);
 
   useEffect(() => { void load(); }, [load]);
 

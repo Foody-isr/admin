@@ -27,8 +27,17 @@ import {
   isoDate,
   type WeekStartDay,
 } from '@/lib/weeks';
-import { Calendar, RefreshCw, DollarSign, Edit, Plus, Package } from 'lucide-react';
-import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
+import {
+  Activity,
+  ArrowRight,
+  Clock,
+  DollarSign,
+  Edit,
+  Package,
+  Plus,
+  RefreshCw,
+} from 'lucide-react';
+import { Badge, Button, PageHead, Section } from '@/components/ds';
 import { InfoTip } from '@/components/help/InfoTip';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
@@ -129,8 +138,14 @@ function fmtDate(d = new Date(), locale = 'fr-FR') {
   return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-function fmtMoney(n: number) {
-  return `₪${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+function fmtMoney(n: number, locale = 'fr-FR', digits = 0) {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'ILS',
+    currencyDisplay: 'narrowSymbol',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(n);
 }
 
 function pct(now: number, before: number) {
@@ -153,12 +168,12 @@ function seriesValue(metric: MetricKey, d: DaySummary): number {
   }
 }
 
-function formatMetric(metric: MetricKey, n: number): string {
+function formatMetric(metric: MetricKey, n: number, locale: string): string {
   switch (metric) {
     case 'revenue':
-      return fmtMoney(n);
+      return fmtMoney(n, locale);
     case 'avgTicket':
-      return `₪${n.toFixed(1)}`;
+      return fmtMoney(n, locale, 1);
     default:
       return String(Math.round(n));
   }
@@ -199,6 +214,7 @@ export default function DashboardPage() {
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [series, setSeries] = useState<DaySummary[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [liveSummary, setLiveSummary] = useState<{ active: number; payments?: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // First day of week + workdays drive the picker (same config as the orders list).
@@ -262,12 +278,21 @@ export default function DashboardPage() {
         ? Promise.resolve([] as DaySummary[])
         : getDailySeries(rid, days, scope.to, basis),
       listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
+      listOrders(rid, { active: true, limit: 1 }),
+      listOrders(rid, { active: true, payment_status: 'unpaid', limit: 1 }),
+      listOrders(rid, { active: true, payment_status: 'pending', limit: 1 }),
     ])
-      .then(([per, top, daily, orders]) => {
+      .then(([per, top, daily, orders, active, unpaid, pending]) => {
         if (per.status === 'fulfilled') setPeriod(per.value);
         if (top.status === 'fulfilled') setTopSellers(top.value ?? []);
         if (daily.status === 'fulfilled') setSeries(daily.value ?? []);
         if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
+        if (active.status === 'fulfilled') {
+          const payments = unpaid.status === 'fulfilled' && pending.status === 'fulfilled'
+            ? unpaid.value.total + pending.value.total
+            : undefined;
+          setLiveSummary({ active: active.value.total, payments });
+        }
       })
       .finally(() => setLoading(false));
   }, [rid, dateRange, basis, serieMode, serieSel, serieList]);
@@ -325,7 +350,7 @@ export default function DashboardPage() {
     {
       key: 'revenue',
       label: t('grossRevenue'),
-      value: fmtMoney(current?.total_revenue ?? 0),
+      value: fmtMoney(current?.total_revenue ?? 0, dateLocale),
       delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
     },
     {
@@ -340,7 +365,7 @@ export default function DashboardPage() {
     {
       key: 'avgTicket',
       label: t('avgTicket'),
-      value: `₪${(current?.avg_ticket ?? 0).toFixed(1)}`,
+      value: fmtMoney(current?.avg_ticket ?? 0, dateLocale, 1),
       delta: pct(current?.avg_ticket ?? 0, previous?.avg_ticket ?? 0),
     },
     {
@@ -384,7 +409,9 @@ export default function DashboardPage() {
   const showChart = serieMode ? serieChartData.length > 1 : true;
   const activeChartData = serieMode ? serieChartData : chartData;
 
-  const selectedMetricLabel = metrics.find((m) => m.key === metric)?.label ?? '';
+  const periodContext = (serieMode ? t('dashboardSerieContext') : t('dashboardOrderContext'))
+    .replace('{range}', periodRangeLabel);
+  const latestOrderLabel = recentOrders[0] ? relTime(recentOrders[0].created_at) : '—';
 
   if (loading) {
     return (
@@ -426,92 +453,79 @@ export default function DashboardPage() {
         }
       />
 
-      {/* Compact KPI grid — mobile only. 2×2, tighter padding, smaller value,
-          no sparkline, so all four numbers fit above the fold on a phone. */}
-      <div className="grid grid-cols-2 md:hidden gap-[var(--s-3)] mb-[var(--s-5)]">
-        {metrics.map((m) => {
-          const up = m.delta >= 0;
-          return (
-            <Kpi
-              key={m.key}
-              className="p-[var(--s-4)]"
-              label={kpiLabel(m.label, m.hint)}
-              value={<span className="text-fs-2xl">{m.value}</span>}
-              delta={showDelta ? { value: `${up ? '+' : ''}${m.delta.toFixed(1)}%`, direction: up ? 'up' : 'down' } : undefined}
-            />
-          );
-        })}
-      </div>
+      <ServicePulse
+        activeOrders={liveSummary?.active}
+        pendingPayments={liveSummary?.payments}
+        latestOrder={latestOrderLabel}
+        onOpenOrders={() => router.push(`/${rid}/orders/all`)}
+        t={t}
+      />
 
-      {/* KPI strip — 4 equal, with sparklines. Desktop/tablet only. */}
-      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
-        {metrics.map((m) => (
-          <KpiCard
-            key={m.key}
-            label={m.label}
-            value={m.value}
-            delta={showDelta ? m.delta : undefined}
-            sub={showDelta ? vsLabel : undefined}
-            hint={m.hint}
-            spark={serieMode ? undefined : series.map((d) => seriesValue(m.key, d))}
-          />
-        ))}
-      </div>
-
-      {/* Main row: chart + right rail. The chart is per-day (created mode) or
-          per-série (a série range); for a single série there's nothing to plot,
-          so it's hidden and the rail spans the row. */}
-      <div className={`grid grid-cols-1 gap-[var(--s-5)] mb-[var(--s-5)] ${showChart ? 'lg:grid-cols-[1fr_320px]' : ''}`}>
-        {showChart && (
-          <Section
-            title={selectedMetricLabel}
-            desc={chartCapped && !serieMode ? `${periodRangeLabel} · ${t('dashChartLast90')}` : periodRangeLabel}
-          >
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,.75fr)] gap-[var(--s-5)] mb-[var(--s-5)] items-start">
+        <PerformanceOverview
+          title={t('performance')}
+          context={periodContext}
+          chartNote={chartCapped && !serieMode ? t('dashChartLast90') : undefined}
+          metrics={metrics}
+          showDelta={showDelta}
+          comparisonLabel={vsLabel}
+          chart={showChart ? (
             <MetricChart
               data={activeChartData}
-              fmt={(n) => formatMetric(metric, n)}
+              fmt={(n) => formatMetric(metric, n, dateLocale)}
               emptyLabel={t('noSalesIn7Days')}
             />
-          </Section>
-        )}
+          ) : undefined}
+        />
 
-        <div className="flex flex-col gap-[var(--s-4)]">
-          <Section title={t('quickActions')}>
-            <div className="-mx-[var(--s-2)]">
-              <QuickAction
-                icon={<DollarSign />}
-                label={t('acceptPayment')}
-                sub={t('manualTransaction')}
-                onClick={() => router.push(`/${rid}/orders/all`)}
-              />
-              <QuickAction
-                icon={<Edit />}
-                label={t('editMenuAction')}
-                sub={t('updateItemsLabel')}
-                onClick={() => router.push(`/${rid}/menu/menus`)}
-              />
-              <QuickAction
-                icon={<Plus />}
-                label={t('addItemAction')}
-                sub={t('newProduct')}
-                onClick={() => router.push(`/${rid}/menu/items/new`)}
-              />
-              <QuickAction
-                icon={<Package />}
-                label={t('receiveDelivery')}
-                sub={t('updateStock')}
-                onClick={() => router.push(`/${rid}/kitchen/stock`)}
-              />
+        <Section
+          title={t('recentActivity')}
+          className="mb-0 overflow-hidden"
+          aside={
+            <Badge tone="success" dot>
+              {t('online')}
+            </Badge>
+          }
+        >
+          {recentOrders.length === 0 ? (
+            <p className="text-fs-sm text-[var(--fg-subtle)] py-8 text-center">{t('noOrdersYet')}</p>
+          ) : (
+            <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
+              {recentOrders.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => router.push(`/${rid}/orders/all`)}
+                  className="group w-full px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0 text-left hover:bg-[var(--surface-2)] transition-colors"
+                >
+                  <div
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ background: paymentColor(o.payment_status) }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-fs-sm text-[var(--fg)] font-medium truncate">
+                      {o.customer_name?.trim() || `#${o.id}`}
+                    </div>
+                    <div className="text-fs-xs text-[var(--fg-muted)] truncate">
+                      {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')} · {fmtMoney(o.total_amount, dateLocale)}
+                    </div>
+                  </div>
+                  <span className="text-fs-xs text-[var(--fg-subtle)] shrink-0">
+                    {relTime(o.created_at)}
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[var(--fg-subtle)] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                </button>
+              ))}
             </div>
-          </Section>
-        </div>
+          )}
+        </Section>
       </div>
 
-      {/* Lower row: Top items + Recent activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--s-5)]">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-[var(--s-5)] items-start">
         <Section
           title={t('bestSellingItems')}
-          desc={periodRangeLabel}
+          desc={periodContext}
+          className="mb-0 overflow-hidden"
           aside={
             <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/analytics/items`)}>
               {t('seeAll')}
@@ -539,11 +553,11 @@ export default function DashboardPage() {
                         {s.quantity} {t('sales')}
                       </div>
                     </div>
-                    <div className="w-20 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden shrink-0">
+                    <div className="hidden sm:block w-20 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden shrink-0">
                       <div className="h-full bg-[var(--brand-500)]" style={{ width: `${pctBar}%` }} />
                     </div>
-                    <div className="font-mono tabular-nums text-fs-sm text-[var(--fg)] min-w-[70px] text-right">
-                      ₪{s.revenue.toFixed(2)}
+                    <div className="tabular-nums text-fs-sm font-medium text-[var(--fg)] min-w-[82px] text-right">
+                      {fmtMoney(s.revenue, dateLocale, 2)}
                     </div>
                   </div>
                 );
@@ -552,47 +566,33 @@ export default function DashboardPage() {
           )}
         </Section>
 
-        <Section
-          title={t('recentActivity')}
-          aside={
-            <Badge tone="success" dot>
-              {t('online')}
-            </Badge>
-          }
-        >
-          {recentOrders.length === 0 ? (
-            <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{t('noSalesYet')}</p>
-          ) : (
-            <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-              {recentOrders.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => router.push(`/${rid}/orders/all`)}
-                  className="w-full px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0 text-left hover:bg-[var(--surface-2)] transition-colors"
-                >
-                  <div
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: paymentColor(o.payment_status) }}
-                  />
-                  <div className="flex-1 text-fs-sm min-w-0">
-                    <span className="text-[var(--fg)] font-medium truncate">
-                      {o.customer_name?.trim() || `#${o.id}`}
-                    </span>{' '}
-                    <span className="text-[var(--fg-muted)]">
-                      {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')}
-                    </span>
-                  </div>
-                  <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-muted)] shrink-0">
-                    {fmtMoney(o.total_amount)}
-                  </span>
-                  <span className="text-fs-xs text-[var(--fg-subtle)] min-w-[40px] text-right shrink-0">
-                    {relTime(o.created_at)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+        <Section title={t('quickActions')} className="mb-0">
+          <div className="grid grid-cols-2 gap-[var(--s-2)]">
+            <QuickAction
+              icon={<DollarSign />}
+              label={t('acceptPayment')}
+              sub={t('manualTransaction')}
+              onClick={() => router.push(`/${rid}/orders/all`)}
+            />
+            <QuickAction
+              icon={<Edit />}
+              label={t('editMenuAction')}
+              sub={t('updateItemsLabel')}
+              onClick={() => router.push(`/${rid}/menu/menus`)}
+            />
+            <QuickAction
+              icon={<Plus />}
+              label={t('addItemAction')}
+              sub={t('newProduct')}
+              onClick={() => router.push(`/${rid}/menu/items/new`)}
+            />
+            <QuickAction
+              icon={<Package />}
+              label={t('receiveDelivery')}
+              sub={t('updateStock')}
+              onClick={() => router.push(`/${rid}/kitchen/stock`)}
+            />
+          </div>
         </Section>
       </div>
     </>
@@ -601,14 +601,11 @@ export default function DashboardPage() {
 
 // ─── Helper components ──────────────────────────────────────────────────────
 
-interface KpiCardProps {
+interface DashboardMetric {
+  key: MetricKey;
   label: string;
   value: string;
-  /** Omitted in série mode, where a single série has no previous period. */
-  delta?: number;
-  sub?: string;
-  spark?: number[];
-  /** Optional ⓘ tooltip appended to the label for a metric that needs a caveat. */
+  delta: number;
   hint?: string;
 }
 
@@ -624,53 +621,162 @@ function kpiLabel(label: string, hint?: string) {
   );
 }
 
-function KpiCard({ label, value, delta, sub, spark, hint }: KpiCardProps) {
-  const hasDelta = delta !== undefined;
-  const up = (delta ?? 0) >= 0;
+function ServicePulse({
+  activeOrders,
+  pendingPayments,
+  latestOrder,
+  onOpenOrders,
+  t,
+}: {
+  activeOrders?: number;
+  pendingPayments?: number;
+  latestOrder: string;
+  onOpenOrders: () => void;
+  t: (key: string) => string;
+}) {
+  const hasLiveData = activeOrders != null;
+  const hasActivity = hasLiveData && activeOrders > 0;
   return (
-    <Kpi
-      label={kpiLabel(label, hint)}
-      value={
-        <div className="flex items-baseline justify-between gap-[var(--s-3)] w-full">
-          <span>{value}</span>
-          {spark && spark.length > 0 && <Sparkline values={spark} up={up} />}
+    <section className="relative overflow-hidden rounded-[var(--r-xl)] bg-[#1c1917] text-white ring-1 ring-white/5 mb-[var(--s-5)]">
+      <div className="absolute inset-y-0 left-0 w-1 bg-[var(--brand-500)]" />
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(260px,1fr)_auto] gap-[var(--s-5)] px-[var(--s-5)] md:px-[var(--s-6)] py-[var(--s-5)] items-center">
+        <div className="flex items-start gap-[var(--s-3)] min-w-0">
+          <div className="w-10 h-10 rounded-full grid place-items-center shrink-0 bg-[var(--brand-500)] text-white">
+            <Activity className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-[var(--s-2)] flex-wrap">
+              <h2 className="text-fs-lg font-semibold leading-tight">
+                {!hasLiveData
+                  ? t('liveActivity')
+                  : hasActivity
+                    ? t('dashboardServiceActive')
+                    : t('dashboardServiceQuiet')}
+              </h2>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium rounded-full px-2 py-1 bg-white/10">
+                <span className={`w-1.5 h-1.5 rounded-full ${hasActivity ? 'bg-[#4ade80]' : 'bg-stone-500'}`} />
+                {hasLiveData ? t('liveLabel') : t('notAvailable')}
+              </span>
+            </div>
+            <p className="text-fs-sm mt-1 max-w-[560px] text-stone-300">
+              {!hasLiveData
+                ? t('dashboardServiceUnavailableDesc')
+                : hasActivity
+                  ? t('dashboardServiceActiveDesc')
+                  : t('dashboardServiceQuietDesc')}
+            </p>
+          </div>
         </div>
-      }
-      sub={sub}
-      delta={hasDelta ? { value: `${delta! >= 0 ? '+' : ''}${delta!.toFixed(1)}%`, direction: up ? 'up' : 'down' } : undefined}
-    />
+
+        <div className="flex items-stretch gap-[var(--s-2)] overflow-x-auto">
+          <PulseStat value={activeOrders == null ? '—' : String(activeOrders)} label={t('dashboardActiveOrders')} />
+          <PulseStat value={pendingPayments == null ? '—' : String(pendingPayments)} label={t('dashboardPendingPayments')} attention={(pendingPayments ?? 0) > 0} />
+          <PulseStat value={latestOrder} label={t('dashboardLatestOrder')} icon={<Clock />} />
+          <button
+            type="button"
+            onClick={onOpenOrders}
+            className="min-h-[64px] rounded-r-md px-[var(--s-4)] bg-white text-stone-900 text-fs-sm font-semibold whitespace-nowrap flex items-center gap-[var(--s-2)] hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400)] transition-colors"
+          >
+            {t('viewOrders')}
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
-function Sparkline({ values, up }: { values: number[]; up: boolean }) {
-  const w = 72;
-  const h = 24;
-  if (values.length < 2 || values.every((v) => v === 0)) {
-    return <svg width={w} height={h} aria-hidden />;
-  }
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const span = max - min || 1;
-  const step = w / (values.length - 1);
-  const d = values
-    .map((v, i) => {
-      const x = i * step;
-      const y = h - ((v - min) / span) * h;
-      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(' ');
-  const color = up ? 'var(--success-500)' : 'var(--danger-500)';
+function PulseStat({
+  value,
+  label,
+  attention = false,
+  icon,
+}: {
+  value: string;
+  label: string;
+  attention?: boolean;
+  icon?: React.ReactNode;
+}) {
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible">
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <div className="min-w-[108px] min-h-[64px] rounded-r-md px-[var(--s-3)] py-[var(--s-2)] bg-white/10 flex flex-col justify-center">
+      <div className={`flex items-center gap-1.5 text-fs-lg font-semibold tabular-nums ${attention ? 'text-[#fdba74]' : ''}`}>
+        {icon && <span className="[&>svg]:w-3.5 [&>svg]:h-3.5 opacity-70">{icon}</span>}
+        {value}
+      </div>
+      <div className="text-[11px] whitespace-nowrap text-stone-400">{label}</div>
+    </div>
+  );
+}
+
+function PerformanceOverview({
+  title,
+  context,
+  chartNote,
+  metrics,
+  showDelta,
+  comparisonLabel,
+  chart,
+}: {
+  title: string;
+  context: string;
+  chartNote?: string;
+  metrics: DashboardMetric[];
+  showDelta: boolean;
+  comparisonLabel: string;
+  chart?: React.ReactNode;
+}) {
+  const primary = metrics[0];
+  const primaryUp = primary.delta >= 0;
+  return (
+    <section className="bg-[var(--surface)] border border-[var(--line)] rounded-[var(--r-xl)] overflow-hidden shadow-1">
+      <header className="px-[var(--s-5)] md:px-[var(--s-6)] pt-[var(--s-5)] md:pt-[var(--s-6)] flex items-start justify-between gap-[var(--s-4)] flex-wrap">
+        <div>
+          <h2 className="text-fs-lg font-semibold text-[var(--fg)]">{title}</h2>
+          <p className="text-fs-xs text-[var(--fg-muted)] mt-1">{context}</p>
+        </div>
+        {chartNote && <span className="text-fs-xs text-[var(--fg-subtle)]">{chartNote}</span>}
+      </header>
+
+      <div className="px-[var(--s-5)] md:px-[var(--s-6)] py-[var(--s-5)] grid grid-cols-1 md:grid-cols-[minmax(190px,.9fr)_minmax(0,1.45fr)] gap-[var(--s-5)] md:gap-[var(--s-6)] items-end">
+        <div>
+          <div className="text-fs-sm text-[var(--fg-muted)]">{primary.label}</div>
+          <div className="text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.045em] leading-none tabular-nums text-[var(--fg)] mt-2">
+            {primary.value}
+          </div>
+          {showDelta && (
+            <div className="flex items-center gap-[var(--s-2)] mt-[var(--s-3)] text-fs-xs">
+              <span className={`font-semibold tabular-nums ${primaryUp ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
+                {primaryUp ? '↑' : '↓'} {primary.delta >= 0 ? '+' : ''}{primary.delta.toFixed(1)}%
+              </span>
+              <span className="text-[var(--fg-subtle)]">{comparisonLabel}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 border-y md:border-y-0 md:border-l border-[var(--line)] divide-x divide-[var(--line)] py-[var(--s-4)] md:py-1 md:pl-[var(--s-5)]">
+          {metrics.slice(1).map((metric) => {
+            const up = metric.delta >= 0;
+            return (
+              <div key={metric.key} className="px-[var(--s-3)] first:pl-0 md:first:pl-[var(--s-3)] min-w-0">
+                <div className="text-[11px] text-[var(--fg-muted)] truncate">{kpiLabel(metric.label, metric.hint)}</div>
+                <div className="text-fs-xl font-semibold tabular-nums text-[var(--fg)] mt-1 truncate">{metric.value}</div>
+                {showDelta && (
+                  <div className={`text-[11px] font-medium tabular-nums mt-1 ${up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
+                    {up ? '↑' : '↓'} {metric.delta >= 0 ? '+' : ''}{metric.delta.toFixed(1)}%
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {chart && (
+        <div className="border-t border-[var(--line)] px-[var(--s-5)] md:px-[var(--s-6)] py-[var(--s-5)] bg-[color:color-mix(in_oklab,var(--surface-2)_45%,var(--surface))]">
+          {chart}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -733,7 +839,7 @@ function QuickAction({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-left hover:bg-[var(--surface-2)] transition-colors"
+      className="group min-h-[92px] flex flex-col items-start justify-between gap-[var(--s-3)] p-[var(--s-3)] rounded-r-md border border-[var(--line)] text-left hover:bg-[var(--surface-2)] hover:border-[var(--line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)] transition-colors"
     >
       <div
         className="w-8 h-8 rounded-r-sm grid place-items-center shrink-0 [&>svg]:w-[14px] [&>svg]:h-[14px]"
@@ -744,9 +850,9 @@ function QuickAction({
       >
         {icon}
       </div>
-      <div className="flex flex-col items-start gap-0.5 min-w-0">
-        <span className="text-fs-sm text-[var(--fg)] truncate">{label}</span>
-        <span className="text-fs-xs text-[var(--fg-muted)] truncate">{sub}</span>
+      <div className="min-w-0 w-full">
+        <span className="block text-fs-sm font-medium text-[var(--fg)] leading-snug">{label}</span>
+        <span className="block text-[11px] text-[var(--fg-muted)] truncate mt-0.5">{sub}</span>
       </div>
     </button>
   );
