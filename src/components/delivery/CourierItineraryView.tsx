@@ -419,14 +419,17 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const [available, setAvailable] = useState<Order[]>([]);
   const [mapExpanded, setMapExpanded] = useState(false);
   const prevEvent = useRef(lastEvent);
+  const loadRequestId = useRef(0);
   const { denied: locationDenied } = useLocationReporter(rid, route?.status === 'active');
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestId.current;
     try {
       setError(null);
-      setRoute(await getMyRoute(rid));
+      const nextRoute = await getMyRoute(rid);
+      if (requestId === loadRequestId.current) setRoute(nextRoute);
     } catch (e) {
-      setError((e as Error)?.message || 'load failed');
+      if (requestId === loadRequestId.current) setError((e as Error)?.message || 'load failed');
     }
   }, [rid]);
 
@@ -438,18 +441,15 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
 
   useEffect(() => { if (tab === 'available') loadAvailable(); }, [tab, loadAvailable]);
 
-  // Realtime: replace state when this courier's route changes.
+  // Re-fetch the selected route on delivery updates. The event can reference a
+  // newly assigned route rather than the empty placeholder currently displayed.
   useEffect(() => {
     if (!lastEvent || lastEvent === prevEvent.current) return;
     prevEvent.current = lastEvent;
-    if (lastEvent.type === 'route.updated') {
-      const r = lastEvent.payload as unknown as DeliveryRoute;
-      if (!route) { load(); return; }
-      if (r?.id === route.id) setRoute(r);
-    } else if (lastEvent.type.startsWith('order.')) {
-      load();
+    if (lastEvent.type === 'route.updated' || lastEvent.type.startsWith('order.')) {
+      void load();
     }
-  }, [lastEvent, route, load]);
+  }, [lastEvent, load]);
 
   const stops = useMemo(
     () => [...(route?.stops ?? [])].sort((a, b) => a.sequence - b.sequence),

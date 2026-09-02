@@ -321,6 +321,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const { lastEvent } = useWs();
   const prevEvent = useRef(lastEvent);
   const initialPlanResolved = useRef(false);
+  const loadRequestId = useRef(0);
   const [routes, setRoutes] = useState<DeliveryRoute[]>([]);
   const [openRoutes, setOpenRoutes] = useState<DeliveryRoute[]>([]);
   const [livePositions, setLivePositions] = useState<Map<number, { lat: number; lng: number; updatedAt: number }>>(new Map());
@@ -353,6 +354,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   }, []);
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestId.current;
     try {
       setError(null);
       const [routeRows, openRouteRows, candidateRows, courierRows] = await Promise.all([
@@ -361,30 +363,36 @@ export default function DispatcherView({ rid }: { rid: number }) {
         listOrders(rid, { type: 'delivery', status: 'accepted,in_kitchen,ready_for_delivery', payment_status: 'paid' }),
         listCouriers(rid),
       ]);
+      if (requestId !== loadRequestId.current) return;
+
+      // Empty drafts are courier self-pick placeholders, not dispatcher plans.
+      // Keeping them visible can hide a real plan on another date.
+      const managerRouteRows = routeRows.filter((route) => route.status !== 'draft' || route.stops.length > 0);
+      const managerOpenRouteRows = openRouteRows.filter((route) => route.status !== 'draft' || route.stops.length > 0);
       const routedOrderIds = new Set([
-        ...routeRows.flatMap((route) => route.stops.map((stop) => stop.order_id)),
-        ...openRouteRows.flatMap((route) => route.stops.map((stop) => stop.order_id)),
+        ...managerRouteRows.flatMap((route) => route.stops.map((stop) => stop.order_id)),
+        ...managerOpenRouteRows.flatMap((route) => route.stops.map((stop) => stop.order_id)),
       ]);
       const available = candidateRows.orders.filter((order) => !routedOrderIds.has(order.id));
-      let visibleRoutes = routeRows;
+      let visibleRoutes = managerRouteRows;
 
       if (!initialPlanResolved.current) {
         initialPlanResolved.current = true;
         const candidateOrderIds = new Set(candidateRows.orders.map((order) => order.id));
-        const relatedOpenRoute = openRouteRows.find((route) =>
+        const relatedOpenRoute = managerOpenRouteRows.find((route) =>
           route.stops.some((stop) => candidateOrderIds.has(stop.order_id)),
         );
-        if (routeRows.length === 0 && relatedOpenRoute) {
+        if (managerRouteRows.length === 0 && relatedOpenRoute) {
           const recoveredDate = routePlanningDate(relatedOpenRoute);
           if (recoveredDate !== departure.slice(0, 10)) {
             setDeparture(departureValueForRoute(relatedOpenRoute, departure));
-            visibleRoutes = openRouteRows.filter((route) => routePlanningDate(route) === recoveredDate);
+            visibleRoutes = managerOpenRouteRows.filter((route) => routePlanningDate(route) === recoveredDate);
           }
         }
       }
 
       setRoutes(visibleRoutes);
-      setOpenRoutes(openRouteRows);
+      setOpenRoutes(managerOpenRouteRows);
       setReady(candidateRows.orders);
       setCouriers(courierRows);
       setPicked((current) => {
@@ -412,6 +420,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       });
       setLivePositions(seed);
     } catch (cause) {
+      if (requestId !== loadRequestId.current) return;
       setError((cause as Error)?.message || t('couldNotLoad'));
     }
   }, [departure, rid, t]);
