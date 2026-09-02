@@ -703,6 +703,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
         ? selectedZones.length > 0 && selectedZones.every((zone) => Boolean(zoneCouriers.get(zone)))
         : selectedOrders.length > 0 && selectedOrders.every((order) => Boolean(manualCouriers.get(order.id)))
   );
+  const routeCountLabel = t(routes.length === 1 ? 'deliveryPlanRouteCountOne' : 'deliveryPlanRouteCountMany')
+    .replace('{count}', String(routes.length));
 
   return (
     <div className="flex flex-col gap-4">
@@ -734,13 +736,14 @@ export default function DispatcherView({ rid }: { rid: number }) {
           </Badge>
           <Badge tone={routes.length > 0 ? 'info' : 'neutral'}>
             <RouteIcon className="h-3 w-3" />
-            {routes.length} {t('deliveryPlanRoutes')}
+            {routeCountLabel}
           </Badge>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:h-[calc(100dvh-170px)] xl:min-h-[620px] xl:grid-cols-[minmax(330px,0.82fr)_minmax(380px,0.96fr)_minmax(420px,1.32fr)] xl:items-stretch">
-        <div className="flex min-h-0 flex-col gap-3 xl:overflow-y-auto xl:pe-1">
+      <div className="flex min-h-0 flex-col gap-3 xl:h-[calc(100dvh-170px)] xl:min-h-[620px]">
+        {unplannedOrders.length > 0 ? (
+          <div className="grid shrink-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(420px,0.9fr)_minmax(620px,1.35fr)] xl:items-start">
           <Card className="overflow-hidden border-s-4 border-s-[var(--brand-500)] shadow-none">
             <CardHeader className="items-start px-4 py-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-r-md bg-[var(--brand-500)] text-fs-sm font-bold text-white">1</span>
@@ -926,14 +929,28 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
             </CardBody>
           </Card>
-        </div>
+          </div>
+        ) : (
+          <div className="flex shrink-0 items-center gap-3 rounded-r-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--success-50)] text-[var(--success-500)]">
+              <CheckIcon className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-fs-sm font-semibold text-[var(--fg)]">
+                {t(routes.length > 0 ? 'deliveryPlanAllPlanned' : 'deliveryPlanNoUnplanned')}
+              </p>
+              <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">{routeCountLabel}</p>
+            </div>
+          </div>
+        )}
 
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-r-xl border border-[var(--line)] bg-[var(--surface)]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(460px,0.88fr)_minmax(0,1.42fr)]">
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-r-xl border border-[var(--line)] bg-[var(--surface)]">
           <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
             <div>
               <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanRoutes')}</h2>
               <p className="text-fs-xs text-[var(--fg-subtle)]">
-                {t('deliveryPlanRoutesHint').replace('{count}', String(routes.length))}
+                {routeCountLabel}
               </p>
             </div>
             {routes.length > 0 && <Badge tone="neutral">{routes.length}</Badge>}
@@ -967,9 +984,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
               />
             ))}
           </div>
-        </section>
+          </section>
 
-        <div className="relative hidden min-h-0 xl:block">
+          <div className="relative hidden min-h-0 xl:block">
           <DeliveryMap
             routes={layers}
             couriers={courierMarkers}
@@ -980,7 +997,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               setSelectedCourier(route?.courier_id ?? null);
               setMoveTarget(null);
             }}
-            className="h-full min-h-[560px] overflow-hidden rounded-r-xl border border-[var(--line)]"
+            className="h-full min-h-[480px] overflow-hidden rounded-r-xl border border-[var(--line)]"
           />
 
           {selectedEntry && (
@@ -1071,6 +1088,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
 
