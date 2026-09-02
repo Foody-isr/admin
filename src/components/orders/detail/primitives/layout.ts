@@ -29,9 +29,9 @@ export const DETAIL_NOTES_DOCK =
 
 /** Customer, delivery and money remain fully visible beside the ticket. */
 export const DETAIL_CONTEXT_TRACK =
-  'order-detail-context min-w-0 md:col-start-2 md:row-start-1 bg-[var(--surface-2)] ' +
+  'order-detail-context min-w-0 md:col-start-2 md:row-start-1 bg-[var(--surface)] ' +
   'border-t md:border-t-0 md:border-s border-[var(--line)] ' +
-  'px-[var(--s-3)] md:px-[var(--s-4)] 2xl:px-[var(--s-5)] py-[var(--s-3)]';
+  'px-[var(--s-4)] md:px-[var(--s-5)] 2xl:px-[var(--s-6)] py-[var(--s-4)]';
 
 /** HairlineRule's row, shared so the skeleton cannot drift from the ticket. */
 export const TICKET_RULE_ROW =
