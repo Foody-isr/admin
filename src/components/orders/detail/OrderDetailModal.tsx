@@ -323,8 +323,10 @@ export function OrderDetailModal({
           </>
         }
         context={
-          <div className="order-detail-context-stack flex flex-col gap-[var(--s-3)]">
-            <div className="order-detail-service overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-2)]">
+          <div className="order-detail-context-stack flex flex-col">
+            {/* The rail itself is the surface. Customer and delivery are
+                sections, not cards inside a card. */}
+            <div className="order-detail-service">
               <CustomerPanel
                 order={order}
                 canManage={canManage}
