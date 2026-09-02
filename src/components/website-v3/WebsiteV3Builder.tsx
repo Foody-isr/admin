@@ -79,7 +79,10 @@ import { PreviewCanvas } from "./PreviewCanvas";
 import { BranchWebsitePresence } from "./BranchWebsitePresence";
 import { websiteManagementMode } from "@/lib/website-v3/chain-mode";
 import { resolveWebsiteV3PreviewOrigin } from "@/lib/website-v3/preview-origin";
-import { requireWebsiteV3RuntimeCapabilities } from "@/lib/website-v3/runtime-capabilities";
+import {
+  prepareWebsiteV3StateForPublication,
+  requireWebsiteV3RuntimeCapabilities,
+} from "@/lib/website-v3/runtime-capabilities";
 import { useI18n } from "@/lib/i18n";
 
 const EMPTY_CATALOG: ThemeCatalog = { themes: [], typography_pairings: [] };
@@ -834,6 +837,10 @@ function DesktopWebsiteV3Builder({
     setGlobalError(null);
     try {
       await autosave.beginLifecycle("publish");
+      await saveWebsiteDraft(
+        restaurantId,
+        prepareWebsiteV3StateForPublication(state),
+      );
       setSaveStatus("saved");
       const activePageBeforePublish = activePage;
       const response = normalizeDraftResponse(
