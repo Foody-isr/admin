@@ -324,7 +324,7 @@ export function OrderDetailModal({
         }
         context={
           <div className="order-detail-context-stack flex flex-col gap-[var(--s-3)]">
-            <div className="order-detail-service overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-2)] shadow-1">
+            <div className="order-detail-service overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-2)]">
               <CustomerPanel
                 order={order}
                 canManage={canManage}
@@ -337,6 +337,7 @@ export function OrderDetailModal({
             </div>
             <MoneyPanel
               order={order}
+              isCancelled={caps.isCancelled}
               subtotal={subtotal}
               discountAmount={discountAmount}
               deliveryFee={deliveryFee}

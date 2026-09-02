@@ -86,7 +86,10 @@ export function DeliveryPanel({
           <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)] text-fs-sm">
             {addr && (
               <div className="flex items-start gap-[var(--s-3)]">
-                <span className="grid size-7 shrink-0 place-items-center rounded-r-sm bg-[var(--surface)] text-[var(--brand-500)] shadow-1">
+                <span
+                  className="grid size-7 shrink-0 place-items-center rounded-r-sm text-[var(--brand-500)]"
+                  style={{ background: 'color-mix(in oklab, var(--brand-500) 10%, transparent)' }}
+                >
                   <MapPinIcon className="size-3.5" />
                 </span>
                 <div className="flex flex-col leading-tight min-w-0">
