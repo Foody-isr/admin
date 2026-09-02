@@ -33,6 +33,7 @@ const ORDER_META_STOCK_OVERSOLD = 'stock_oversold';
 
 export function MoneyPanel({
   order,
+  isCancelled,
   subtotal,
   discountAmount,
   deliveryFee,
@@ -40,6 +41,8 @@ export function MoneyPanel({
   t,
 }: {
   order: Order;
+  /** Dead orders keep their financial record, but expose no new collection action. */
+  isCancelled: boolean;
   subtotal: number;
   discountAmount: number;
   deliveryFee: number;
@@ -138,13 +141,19 @@ export function MoneyPanel({
   const chargedAmount = Number(meta[ORDER_META_PAID_AMOUNT]);
   const hasChargedAmount = editedAfterPayment && Number.isFinite(chargedAmount);
   const paymentDrift = hasChargedAmount ? totalsLine - chargedAmount : 0;
+  // A provider session can remain `pending` in the stored payment record after
+  // the order itself was cancelled. Staff cannot collect it anymore, so the
+  // summary says "unpaid" instead of presenting a live pending state.
+  const displayedPaymentStatus = isCancelled && order.payment_status === 'pending'
+    ? 'unpaid'
+    : order.payment_status;
 
   return (
     <section
       aria-labelledby={`order-${order.id}-payment-summary`}
-      className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1"
+      className="overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface)]"
     >
-      <div className="order-detail-money-head border-b border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-4)] py-[var(--s-3)]">
+      <div className="order-detail-money-head border-b border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)]">
         <div className="flex items-start justify-between gap-[var(--s-4)]">
           <div className="min-w-0">
             <span
@@ -161,10 +170,10 @@ export function MoneyPanel({
               />
             </div>
           </div>
-          <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'} dot className="mt-0.5">
+          <Badge tone={PAYMENT_TONE[displayedPaymentStatus] ?? 'neutral'} dot className="mt-0.5">
             {(() => {
-              const tv = t(order.payment_status);
-              return tv === order.payment_status ? order.payment_status : tv;
+              const tv = t(displayedPaymentStatus);
+              return tv === displayedPaymentStatus ? displayedPaymentStatus : tv;
             })()}
           </Badge>
         </div>
@@ -413,8 +422,8 @@ export function MoneyPanel({
 
           {/* Payment link — for orders awaiting online payment. Lets staff
               re-fetch and re-share the link any time. */}
-          {order.payment_status === 'pending' && (
-            <div className="mt-[var(--s-2)] flex flex-col gap-[var(--s-2)] rounded-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)]">
+          {!isCancelled && order.payment_status === 'pending' && (
+            <div className="mt-[var(--s-2)] flex flex-col gap-[var(--s-2)] border-t border-[var(--line)] pt-[var(--s-3)]">
               <span className="flex items-center gap-1.5 text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
                 <LinkIcon className="size-3.5" /> {t('paymentLink')}
               </span>
@@ -439,7 +448,13 @@ export function MoneyPanel({
                   )}
                 </>
               ) : (
-                <Button variant="secondary" size="sm" onClick={fetchPayLink} disabled={payLinkLoading}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={fetchPayLink}
+                  disabled={payLinkLoading}
+                  className="w-full justify-center"
+                >
                   <LinkIcon />
                   {payLinkLoading ? `${t('loading')}…` : t('getPaymentLink')}
                 </Button>
