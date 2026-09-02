@@ -8,6 +8,7 @@ import {
   CheckIcon,
   MapPinIcon,
   MessageCircleIcon,
+  PencilIcon,
   RefreshCwIcon,
   RouteIcon,
   SparklesIcon,
@@ -37,11 +38,16 @@ import {
   type RouteStop,
 } from '@/lib/delivery';
 import {
+  geocodeAddress,
+  getOrder,
   listOrders,
   listCouriers,
+  updateOrderCustomerDetails,
   type Order,
+  type OrderCustomerDetailsInput,
   type StaffMember,
 } from '@/lib/api';
+import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
 import { localizeStatus } from '@/lib/orders/status-presentation';
 import type { RouteLayer, CourierMarker } from '@/components/delivery/DeliveryMap';
 import {
@@ -340,6 +346,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [moveTarget, setMoveTarget] = useState<number | null>(null);
   const [moving, setMoving] = useState(false);
   const [routeBusy, setRouteBusy] = useState<number | null>(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [addressEditorLoading, setAddressEditorLoading] = useState(false);
   const [undoAction, setUndoAction] = useState<
     | { kind: 'route'; routeId: number; stopCount: number }
     | { kind: 'stop'; routeId: number; stopId: number; customerName: string }
@@ -653,6 +661,34 @@ export default function DispatcherView({ rid }: { rid: number }) {
     }
   };
 
+  const openAddressEditor = async () => {
+    if (!selectedEntry) return;
+    setAddressEditorLoading(true);
+    try {
+      setError(null);
+      setEditingOrder(await getOrder(rid, selectedEntry.stop.order_id));
+    } catch (cause) {
+      setError((cause as Error)?.message || t('couldNotLoad'));
+    } finally {
+      setAddressEditorLoading(false);
+    }
+  };
+
+  const saveVerifiedAddress = async (input: OrderCustomerDetailsInput) => {
+    if (!editingOrder || !selectedEntry) return;
+    const result = await geocodeAddress(rid, input.delivery_address ?? '', input.delivery_city);
+    if (!result.found || result.lat == null || result.lng == null) {
+      throw new Error(t('addressVerificationFailed'));
+    }
+    await updateOrderCustomerDetails(rid, editingOrder.id, {
+      ...input,
+      delivery_latitude: result.lat,
+      delivery_longitude: result.lng,
+    });
+    await optimizeRoute(rid, selectedEntry.route.id);
+    await load();
+  };
+
   const confirmUndo = async () => {
     if (!undoAction) return;
     const routeId = undoAction.routeId;
@@ -921,6 +957,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
 
               <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" disabled={addressEditorLoading} onClick={() => void openAddressEditor()}>
+                  <PencilIcon />
+                  {t('correctAddress')}
+                </Button>
                 {selectedEntry.stop.customer_phone && (
                   <Button asChild variant="primary">
                     <a href={whatsappUrl(selectedEntry.stop.customer_phone, selectedMessage)} target="_blank" rel="noopener noreferrer">
@@ -1091,6 +1131,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
         <MapPinIcon className="mr-2 inline h-4 w-4" />
         {t('dispatchDesktopHint')}
       </div>
+
+      <EditCustomerDialog
+        open={editingOrder !== null}
+        onOpenChange={(open) => { if (!open) setEditingOrder(null); }}
+        order={editingOrder}
+        onConfirm={saveVerifiedAddress}
+      />
 
       <AlertDialog open={undoAction != null} onOpenChange={(open) => { if (!open && routeBusy == null) setUndoAction(null); }}>
         <AlertDialogContent>
