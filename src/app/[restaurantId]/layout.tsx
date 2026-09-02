@@ -26,6 +26,7 @@ const PAGE_SLUGS = [
   'menu',
   'kitchen',
   'orders',
+  'deliveries',
   'staff',
   'roles',
   'customers',
@@ -61,7 +62,9 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
 
   // Derive current page name from pathname
   const segments = pathname.split('/');
-  const pageSlug = segments[2] || 'dashboard';
+  const pageSlug = pathname.startsWith(`/${restaurantId}/orders/deliveries`)
+    ? 'deliveries'
+    : segments[2] || 'dashboard';
   const pageName = (PAGE_SLUGS as readonly string[]).includes(pageSlug)
     ? t(pageSlug)
     : pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1);

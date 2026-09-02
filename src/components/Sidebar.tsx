@@ -52,6 +52,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
+import { isCourierRoleName } from '@/lib/courier-access';
 
 interface SubItem {
   href: string;
@@ -100,7 +101,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const { user, restaurantIds, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [profileOpen, setProfileOpen] = useState(false);
-  const { hasAnyPermission } = usePermissions();
+  const { hasAnyPermission, roleName, loading: permissionsLoading } = usePermissions();
   const { status: wsStatus } = useWs();
   const { t, direction, locale, setLocale } = useI18n();
   const { collapsed, toggleCollapsed } = useSidebar();
@@ -110,9 +111,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    if (permissionsLoading || isCourierRoleName(roleName)) return;
     getLowStockCount(restaurantId).then(setLowStockCount).catch(() => {});
     getPrepLowStockCount(restaurantId).then(setLowPrepCount).catch(() => {});
-  }, [restaurantId]);
+  }, [permissionsLoading, restaurantId, roleName]);
 
   const base = `/${restaurantId}`;
   const isRtl = direction === 'rtl';
@@ -245,12 +247,20 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       perm: ['settings.view', 'settings.edit', 'tables.manage'],
     },
   ];
+  const courierNav: NavItem[] = [
+    {
+      href: `${base}/orders/deliveries`,
+      labelKey: 'deliveries',
+      icon: Truck,
+      perm: ['orders.view'],
+    },
+  ];
   // A section is visible when the user holds any of its permissions; its
   // sub-entries are then filtered on their own gate, so a section that mixes
   // gates (Clients: customer list + Promotions) only ever offers the pages the
   // user can actually open. Dropping a section left with no sub-entry keeps a
   // section from becoming a dead link.
-  const nav = allNav
+  const nav = (permissionsLoading ? [] : isCourierRoleName(roleName) ? courierNav : allNav)
     .filter((item) => !item.perm || hasAnyPermission(...item.perm))
     .map((item) =>
       item.subItems

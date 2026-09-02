@@ -53,7 +53,7 @@ function q(restaurantId: number, extra?: Record<string, string>): string {
   return sp.toString();
 }
 
-/** The current courier's open route for today (server creates a draft if none). */
+/** The current courier's active or next assigned route. */
 export async function getMyRoute(restaurantId: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
     `/api/v1/delivery/routes/mine?${q(restaurantId)}`, restaurantId,
