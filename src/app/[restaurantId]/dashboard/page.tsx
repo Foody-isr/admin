@@ -6,8 +6,10 @@ import {
   getPeriodSummary,
   getTopSellers,
   getDailySeries,
+  getBreakdown,
   getRestaurant,
   listOrders,
+  type BreakdownRow,
   type PeriodComparison,
   type DaySummary,
   type TopSeller,
@@ -28,19 +30,54 @@ import {
   type WeekStartDay,
 } from '@/lib/weeks';
 import {
-  Activity,
+  AlertTriangle,
   ArrowRight,
-  Clock,
+  CheckCircle,
+  ChevronDown,
   DollarSign,
   Edit,
   Package,
   Plus,
   RefreshCw,
 } from 'lucide-react';
-import { Badge, Button, PageHead, Section } from '@/components/ds';
+import {
+  Button,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuTrigger,
+  PageHead,
+  Section,
+} from '@/components/ds';
 import { InfoTip } from '@/components/help/InfoTip';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
+
+const LIVE_ORDER_STATUSES = [
+  'pending_review',
+  'accepted',
+  'in_kitchen',
+  'ready',
+  'ready_for_pickup',
+  'ready_for_delivery',
+  'out_for_delivery',
+].join(',');
+
+interface LiveSummary {
+  active: number;
+  pendingReview: number;
+  ready: number;
+  payments?: number;
+  oldestCreatedAt?: string;
+}
+
+interface ChannelDatum {
+  key: string;
+  label: string;
+  orders: number;
+  revenue: number;
+  color: string;
+}
 
 // The dashboard period is remembered across navigation as a single shared
 // preference. Rolling presets (today, last 7 days, this week…) are stored as a
@@ -134,10 +171,6 @@ const ORDER_TYPE_KEY: Record<string, 'dineIn' | 'pickup' | 'delivery'> = {
   delivery: 'delivery',
 };
 
-function fmtDate(d = new Date(), locale = 'fr-FR') {
-  return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
-}
-
 function fmtMoney(n: number, locale = 'fr-FR', digits = 0) {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
@@ -164,7 +197,7 @@ function seriesValue(metric: MetricKey, d: DaySummary): number {
     case 'itemsSold':
       return d.items_sold;
     default:
-      return d.net_sales;
+      return d.gross_sales;
   }
 }
 
@@ -213,8 +246,10 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<PeriodComparison | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [series, setSeries] = useState<DaySummary[]>([]);
+  const [previousSeries, setPreviousSeries] = useState<DaySummary[]>([]);
+  const [channelRows, setChannelRows] = useState<BreakdownRow[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [liveSummary, setLiveSummary] = useState<{ active: number; payments?: number } | null>(null);
+  const [liveSummary, setLiveSummary] = useState<LiveSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   // First day of week + workdays drive the picker (same config as the orders list).
@@ -271,27 +306,44 @@ export default function DashboardPage() {
       : { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
     const prev = serieMode ? previousBlock(serieList, serieSel!) ?? undefined : undefined;
     const days = daysInclusive(dateRange);
+    const previousEnd = isoDate(addDays(dateRange.from, -1));
     Promise.allSettled([
       getPeriodSummary(rid, scope, basis, prev),
       getTopSellers(rid, scope, basis),
       serieMode
         ? Promise.resolve([] as DaySummary[])
         : getDailySeries(rid, days, scope.to, basis),
+      serieMode
+        ? Promise.resolve([] as DaySummary[])
+        : getDailySeries(rid, days, previousEnd, basis),
+      getBreakdown(rid, { dimension: 'order_type', scope, basis }),
       listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
-      listOrders(rid, { active: true, limit: 1 }),
-      listOrders(rid, { active: true, payment_status: 'unpaid', limit: 1 }),
-      listOrders(rid, { active: true, payment_status: 'pending', limit: 1 }),
+      listOrders(rid, { status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' }),
+      listOrders(rid, { status: 'pending_review', limit: 1 }),
+      listOrders(rid, { status: 'ready,ready_for_pickup,ready_for_delivery', limit: 1 }),
+      listOrders(rid, { status: LIVE_ORDER_STATUSES, payment_status: 'unpaid', limit: 1 }),
+      listOrders(rid, { status: LIVE_ORDER_STATUSES, payment_status: 'pending', limit: 1 }),
     ])
-      .then(([per, top, daily, orders, active, unpaid, pending]) => {
+      .then(([per, top, daily, previousDaily, breakdown, orders, active, review, readyOrders, unpaid, pending]) => {
         if (per.status === 'fulfilled') setPeriod(per.value);
         if (top.status === 'fulfilled') setTopSellers(top.value ?? []);
         if (daily.status === 'fulfilled') setSeries(daily.value ?? []);
+        if (previousDaily.status === 'fulfilled') setPreviousSeries(previousDaily.value ?? []);
+        setChannelRows(breakdown.status === 'fulfilled' ? breakdown.value.rows : []);
         if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
-        if (active.status === 'fulfilled') {
+        if (active.status === 'fulfilled' && review.status === 'fulfilled' && readyOrders.status === 'fulfilled') {
           const payments = unpaid.status === 'fulfilled' && pending.status === 'fulfilled'
             ? unpaid.value.total + pending.value.total
             : undefined;
-          setLiveSummary({ active: active.value.total, payments });
+          setLiveSummary({
+            active: active.value.total,
+            payments,
+            pendingReview: review.value.total,
+            ready: readyOrders.value.total,
+            oldestCreatedAt: active.value.orders[0]?.created_at,
+          });
+        } else {
+          setLiveSummary(null);
         }
       })
       .finally(() => setLoading(false));
@@ -337,12 +389,17 @@ export default function DashboardPage() {
   // multi-day form shows the inclusive last day.
   const periodRangeLabel = useMemo(() => {
     if (!current) return '';
-    const fmtShort = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale);
+    const fmtLong = (iso: string, weekday = false) => new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale, {
+      ...(weekday ? { weekday: 'long' as const } : {}),
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
     const startD = new Date(`${current.start}T00:00:00`);
     const lastDay = new Date(`${current.end}T00:00:00`);
     lastDay.setDate(lastDay.getDate() - 1);
-    if (sameYMD(startD, lastDay)) return fmtShort(current.start);
-    return `${fmtShort(current.start)} → ${lastDay.toLocaleDateString(dateLocale)}`;
+    if (sameYMD(startD, lastDay)) return fmtLong(current.start, true);
+    return `${fmtLong(current.start)} – ${fmtLong(isoDate(lastDay))}`;
   }, [current, dateLocale]);
 
   // KPI definitions, driven by the period totals. Presentational only.
@@ -389,15 +446,36 @@ export default function DashboardPage() {
             ? date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })
             : ''
           : date.toLocaleDateString(dateLocale, { weekday: 'short' });
-      return { day: label, value: seriesValue(metric, d), isLast: i === n - 1 };
+      return {
+        day: label,
+        label: date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' }),
+        value: seriesValue(metric, d),
+        isLast: i === n - 1,
+      };
     });
   }, [series, metric, dateLocale]);
 
   // One bar per série (oldest → newest) for a série range — a daily chart is a
   // calendar concept that doesn't fit série cadence.
   const serieChartData = useMemo(() => {
-    if (!serieMode || !serieSel) return [] as { day: string; value: number; isLast: boolean }[];
+    if (!serieMode || !serieSel) return [] as { day: string; label: string; value: number; isLast: boolean }[];
     const inRange = seriesInRange(serieList, serieSel).slice().reverse();
+    return inRange.map((s, i) => {
+      const date = new Date(`${s.date}T00:00:00`);
+      return {
+        day: date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' }),
+        label: date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' }),
+        value: s.revenue,
+        isLast: i === inRange.length - 1,
+      };
+    });
+  }, [serieMode, serieSel, serieList, dateLocale]);
+
+  const previousSerieChartData = useMemo(() => {
+    if (!serieMode || !serieSel) return [] as { day: string; value: number; isLast: boolean }[];
+    const previousRange = previousBlock(serieList, serieSel);
+    if (!previousRange) return [];
+    const inRange = seriesInRange(serieList, previousRange).slice().reverse();
     return inRange.map((s, i) => ({
       day: new Date(`${s.date}T00:00:00`).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' }),
       value: s.revenue,
@@ -405,13 +483,45 @@ export default function DashboardPage() {
     }));
   }, [serieMode, serieSel, serieList, dateLocale]);
 
-  // A single série is one bar (not useful) — only show the chart for ranges.
-  const showChart = serieMode ? serieChartData.length > 1 : true;
+  // A single day or série is one bar (not useful) — reserve the comparison
+  // chart for windows where it can reveal a trend.
+  const showChart = serieMode ? serieChartData.length > 1 : chartData.length > 1;
   const activeChartData = serieMode ? serieChartData : chartData;
+  const previousChartData = serieMode
+    ? previousSerieChartData
+    : previousSeries.map((day, index) => ({
+        day: '',
+        value: seriesValue(metric, day),
+        isLast: index === previousSeries.length - 1,
+      }));
+
+  const channelData = useMemo<ChannelDatum[]>(() => {
+    const labels: Record<string, string> = {
+      delivery: t('delivery'),
+      pickup: t('pickup'),
+      dine_in: t('dineIn'),
+      unknown: t('breakdownUnknown'),
+    };
+    const colors: Record<string, string> = {
+      delivery: 'var(--brand-500)',
+      pickup: 'var(--info-500)',
+      dine_in: 'var(--success-500)',
+      unknown: 'var(--fg-subtle)',
+    };
+    return channelRows
+      .filter((row) => row.revenue > 0 || row.orders > 0)
+      .sort((a, b) => b.revenue - a.revenue)
+      .map((row) => ({
+        key: row.key,
+        label: labels[row.key] ?? row.label ?? row.key,
+        orders: row.orders,
+        revenue: row.revenue,
+        color: colors[row.key] ?? 'var(--fg-subtle)',
+      }));
+  }, [channelRows, t]);
 
   const periodContext = (serieMode ? t('dashboardSerieContext') : t('dashboardOrderContext'))
     .replace('{range}', periodRangeLabel);
-  const latestOrderLabel = recentOrders[0] ? relTime(recentOrders[0].created_at) : '—';
 
   if (loading) {
     return (
@@ -425,9 +535,10 @@ export default function DashboardPage() {
     <>
       <PageHead
         title={t('dashboardHome') || 'Dashboard'}
-        desc={fmtDate(new Date(), dateLocale)}
+        desc={periodContext}
         actions={
           <>
+            <CreateActionsMenu restaurantId={rid} onNavigate={router.push} t={t} />
             <DateBasisToggle value={basis} onChange={onChangeBasis} />
             {serieMode ? (
               <SeriePicker
@@ -453,38 +564,61 @@ export default function DashboardPage() {
         }
       />
 
-      <ServicePulse
-        activeOrders={liveSummary?.active}
-        pendingPayments={liveSummary?.payments}
-        latestOrder={latestOrderLabel}
+      <OperationsBar
+        summary={liveSummary}
         onOpenOrders={() => router.push(`/${rid}/orders/all`)}
         t={t}
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,.75fr)] gap-[var(--s-5)] mb-[var(--s-5)] items-start">
-        <PerformanceOverview
-          title={t('performance')}
-          context={periodContext}
-          chartNote={chartCapped && !serieMode ? t('dashChartLast90') : undefined}
-          metrics={metrics}
-          showDelta={showDelta}
-          comparisonLabel={vsLabel}
-          chart={showChart ? (
-            <MetricChart
-              data={activeChartData}
-              fmt={(n) => formatMetric(metric, n, dateLocale)}
-              emptyLabel={t('noSalesIn7Days')}
-            />
-          ) : undefined}
-        />
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-[var(--s-5)] items-start">
+        <div className="flex flex-col gap-[var(--s-5)] min-w-0">
+          <PerformanceOverview
+            title={t('performance')}
+            chartNote={chartCapped && !serieMode ? t('dashChartLast90') : undefined}
+            metrics={metrics}
+            showDelta={showDelta}
+            comparisonLabel={vsLabel}
+            chart={showChart ? (
+              <MetricChart
+                data={activeChartData}
+                previousData={previousChartData}
+                currentLabel={t('dashboardCurrentPeriod')}
+              previousLabel={t('dashboardPreviousPeriod')}
+              averageLabel={t('dashboardAverage')}
+              peakLabel={t('dashboardPeak')}
+                fmt={(n) => formatMetric(metric, n, dateLocale)}
+                emptyLabel={t('noSalesIn7Days')}
+              />
+            ) : undefined}
+            channels={(
+              <ChannelMix
+                data={channelData}
+                locale={dateLocale}
+                title={t('salesChannels')}
+                emptyLabel={t('noData')}
+                ordersLabel={t('orders')}
+              />
+            )}
+          />
+
+          <TopSellersPanel
+            sellers={topSellers}
+            locale={dateLocale}
+            title={t('bestSellingItems')}
+            salesLabel={t('sales')}
+            emptyLabel={t('noSalesYet')}
+            seeAllLabel={t('seeAll')}
+            onSeeAll={() => router.push(`/${rid}/analytics/items`)}
+          />
+        </div>
 
         <Section
-          title={t('recentActivity')}
+          title={t('recentOrders')}
           className="mb-0 overflow-hidden"
           aside={
-            <Badge tone="success" dot>
-              {t('online')}
-            </Badge>
+            <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/orders/all`)}>
+              {t('seeAll')}
+            </Button>
           }
         >
           {recentOrders.length === 0 ? (
@@ -520,81 +654,6 @@ export default function DashboardPage() {
           )}
         </Section>
       </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-[var(--s-5)] items-start">
-        <Section
-          title={t('bestSellingItems')}
-          desc={periodContext}
-          className="mb-0 overflow-hidden"
-          aside={
-            <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/analytics/items`)}>
-              {t('seeAll')}
-            </Button>
-          }
-        >
-          {topSellers.length === 0 ? (
-            <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{t('noSalesYet')}</p>
-          ) : (
-            <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-              {topSellers.slice(0, 5).map((s, i) => {
-                const maxRev = Math.max(...topSellers.slice(0, 5).map((x) => x.revenue));
-                const pctBar = maxRev > 0 ? (s.revenue / maxRev) * 100 : 0;
-                return (
-                  <div
-                    key={i}
-                    className="px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0"
-                  >
-                    <div className="w-8 h-8 rounded-r-sm bg-[var(--surface-3)] grid place-items-center text-[var(--fg-muted)] text-[10px] font-bold shrink-0">
-                      {i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-fs-sm text-[var(--fg)] font-medium truncate">{s.name}</div>
-                      <div className="text-fs-xs text-[var(--fg-muted)]">
-                        {s.quantity} {t('sales')}
-                      </div>
-                    </div>
-                    <div className="hidden sm:block w-20 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden shrink-0">
-                      <div className="h-full bg-[var(--brand-500)]" style={{ width: `${pctBar}%` }} />
-                    </div>
-                    <div className="tabular-nums text-fs-sm font-medium text-[var(--fg)] min-w-[82px] text-right">
-                      {fmtMoney(s.revenue, dateLocale, 2)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Section>
-
-        <Section title={t('quickActions')} className="mb-0">
-          <div className="grid grid-cols-2 gap-[var(--s-2)]">
-            <QuickAction
-              icon={<DollarSign />}
-              label={t('acceptPayment')}
-              sub={t('manualTransaction')}
-              onClick={() => router.push(`/${rid}/orders/all`)}
-            />
-            <QuickAction
-              icon={<Edit />}
-              label={t('editMenuAction')}
-              sub={t('updateItemsLabel')}
-              onClick={() => router.push(`/${rid}/menu/menus`)}
-            />
-            <QuickAction
-              icon={<Plus />}
-              label={t('addItemAction')}
-              sub={t('newProduct')}
-              onClick={() => router.push(`/${rid}/menu/items/new`)}
-            />
-            <QuickAction
-              icon={<Package />}
-              label={t('receiveDelivery')}
-              sub={t('updateStock')}
-              onClick={() => router.push(`/${rid}/kitchen/stock`)}
-            />
-          </div>
-        </Section>
-      </div>
     </>
   );
 }
@@ -621,109 +680,134 @@ function kpiLabel(label: string, hint?: string) {
   );
 }
 
-function ServicePulse({
-  activeOrders,
-  pendingPayments,
-  latestOrder,
+function CreateActionsMenu({
+  restaurantId,
+  onNavigate,
+  t,
+}: {
+  restaurantId: number;
+  onNavigate: (href: string) => void;
+  t: (key: string) => string;
+}) {
+  const actions = [
+    { icon: DollarSign, label: t('acceptPayment'), href: `/${restaurantId}/orders/all` },
+    { icon: Edit, label: t('editMenuAction'), href: `/${restaurantId}/menu/menus` },
+    { icon: Plus, label: t('addItemAction'), href: `/${restaurantId}/menu/items/new` },
+    { icon: Package, label: t('receiveDelivery'), href: `/${restaurantId}/kitchen/stock` },
+  ];
+  return (
+    <Menu>
+      <MenuTrigger asChild>
+        <Button variant="secondary" size="md">
+          <Plus className="w-4 h-4" />
+          {t('create')}
+          <ChevronDown className="w-3.5 h-3.5" />
+        </Button>
+      </MenuTrigger>
+      <MenuContent align="end" className="min-w-[220px]">
+        {actions.map(({ icon: Icon, label, href }) => (
+          <MenuItem key={href} onSelect={() => onNavigate(href)}>
+            <Icon className="w-4 h-4" />
+            {label}
+          </MenuItem>
+        ))}
+      </MenuContent>
+    </Menu>
+  );
+}
+
+function OperationsBar({
+  summary,
   onOpenOrders,
   t,
 }: {
-  activeOrders?: number;
-  pendingPayments?: number;
-  latestOrder: string;
+  summary: LiveSummary | null;
   onOpenOrders: () => void;
   t: (key: string) => string;
 }) {
-  const hasLiveData = activeOrders != null;
-  const hasActivity = hasLiveData && activeOrders > 0;
+  const unavailable = summary === null;
+  const hasUrgency = !unavailable && (summary.pendingReview > 0 || (summary.payments ?? 0) > 0 || summary.ready > 0);
+  let message = t('dashboardNoUrgent');
+  let action = t('viewOrders');
+  if (unavailable) message = t('dashboardNowUnavailable');
+  else if (summary.pendingReview > 0) {
+    message = t('dashboardUrgentReview').replace('{count}', String(summary.pendingReview));
+    action = t('dashboardActionReview');
+  } else if ((summary.payments ?? 0) > 0) {
+    message = t('dashboardUrgentPayments').replace('{count}', String(summary.payments));
+    action = t('dashboardActionCollect');
+  } else if (summary.ready > 0) {
+    message = t('dashboardUrgentReady').replace('{count}', String(summary.ready));
+    action = t('dashboardActionReady');
+  } else if (summary.active > 0) {
+    message = t('dashboardNowActive').replace('{count}', String(summary.active));
+  }
+
+  const stats = [
+    { value: unavailable ? '—' : summary.active, label: t('dashboardActiveOrders') },
+    { value: unavailable ? '—' : summary.pendingReview, label: t('dashboardNeedsReview'), attention: !unavailable && summary.pendingReview > 0 },
+    { value: unavailable ? '—' : summary.ready, label: t('dashboardReadyOrders') },
+    { value: unavailable || summary.payments == null ? '—' : summary.payments, label: t('dashboardPendingPayments'), attention: !unavailable && (summary.payments ?? 0) > 0 },
+  ];
+
   return (
-    <section className="relative overflow-hidden rounded-[var(--r-xl)] bg-[#1c1917] text-white ring-1 ring-white/5 mb-[var(--s-5)]">
-      <div className="absolute inset-y-0 left-0 w-1 bg-[var(--brand-500)]" />
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(260px,1fr)_auto] gap-[var(--s-5)] px-[var(--s-5)] md:px-[var(--s-6)] py-[var(--s-5)] items-center">
-        <div className="flex items-start gap-[var(--s-3)] min-w-0">
-          <div className="w-10 h-10 rounded-full grid place-items-center shrink-0 bg-[var(--brand-500)] text-white">
-            <Activity className="w-5 h-5" />
+    <section className="mb-[var(--s-5)] border-y border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_65%,var(--surface))] px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-4)]">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(250px,1fr)_auto_auto] gap-[var(--s-4)] xl:gap-[var(--s-5)] items-center">
+        <div className="flex items-center gap-[var(--s-3)] min-w-0">
+          <div
+            className="w-9 h-9 rounded-full grid place-items-center shrink-0"
+            style={{
+              color: unavailable ? 'var(--fg-muted)' : hasUrgency ? 'var(--warning-500)' : 'var(--success-500)',
+              background: unavailable ? 'var(--surface-3)' : hasUrgency ? 'var(--warning-50)' : 'var(--success-50)',
+            }}
+          >
+            {unavailable || hasUrgency ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-[var(--s-2)] flex-wrap">
-              <h2 className="text-fs-lg font-semibold leading-tight">
-                {!hasLiveData
-                  ? t('liveActivity')
-                  : hasActivity
-                    ? t('dashboardServiceActive')
-                    : t('dashboardServiceQuiet')}
-              </h2>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium rounded-full px-2 py-1 bg-white/10">
-                <span className={`w-1.5 h-1.5 rounded-full ${hasActivity ? 'bg-[#4ade80]' : 'bg-stone-500'}`} />
-                {hasLiveData ? t('liveLabel') : t('notAvailable')}
-              </span>
-            </div>
-            <p className="text-fs-sm mt-1 max-w-[560px] text-stone-300">
-              {!hasLiveData
-                ? t('dashboardServiceUnavailableDesc')
-                : hasActivity
-                  ? t('dashboardServiceActiveDesc')
-                  : t('dashboardServiceQuietDesc')}
-            </p>
+            <div className="text-[11px] uppercase tracking-[.12em] font-semibold text-[var(--fg-subtle)]">{t('dashboardNow')}</div>
+            <p className="text-fs-sm font-medium text-[var(--fg)] mt-0.5 truncate">{message}</p>
+            {!unavailable && summary.oldestCreatedAt && summary.active > 0 && (
+              <p className="text-[11px] text-[var(--fg-muted)] mt-0.5">
+                {t('dashboardOldestOrder').replace('{age}', relTime(summary.oldestCreatedAt))}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="flex items-stretch gap-[var(--s-2)] overflow-x-auto">
-          <PulseStat value={activeOrders == null ? '—' : String(activeOrders)} label={t('dashboardActiveOrders')} />
-          <PulseStat value={pendingPayments == null ? '—' : String(pendingPayments)} label={t('dashboardPendingPayments')} attention={(pendingPayments ?? 0) > 0} />
-          <PulseStat value={latestOrder} label={t('dashboardLatestOrder')} icon={<Clock />} />
-          <button
-            type="button"
-            onClick={onOpenOrders}
-            className="min-h-[64px] rounded-r-md px-[var(--s-4)] bg-white text-stone-900 text-fs-sm font-semibold whitespace-nowrap flex items-center gap-[var(--s-2)] hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400)] transition-colors"
-          >
-            {t('viewOrders')}
-            <ArrowRight className="w-4 h-4" />
-          </button>
+        <div className="grid grid-cols-4 divide-x divide-[var(--line)] min-w-0">
+          {stats.map((stat) => (
+            <div key={stat.label} className="px-[var(--s-3)] first:pl-0 xl:first:pl-[var(--s-3)] min-w-[72px]">
+              <div className={`text-fs-lg font-semibold tabular-nums ${stat.attention ? 'text-[var(--warning-500)]' : 'text-[var(--fg)]'}`}>{stat.value}</div>
+              <div className="text-[10px] text-[var(--fg-muted)] truncate">{stat.label}</div>
+            </div>
+          ))}
         </div>
+
+        <Button variant={hasUrgency ? 'primary' : 'secondary'} size="md" onClick={onOpenOrders} className="justify-center whitespace-nowrap">
+          {action}
+          <ArrowRight className="w-4 h-4" />
+        </Button>
       </div>
     </section>
   );
 }
 
-function PulseStat({
-  value,
-  label,
-  attention = false,
-  icon,
-}: {
-  value: string;
-  label: string;
-  attention?: boolean;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-[108px] min-h-[64px] rounded-r-md px-[var(--s-3)] py-[var(--s-2)] bg-white/10 flex flex-col justify-center">
-      <div className={`flex items-center gap-1.5 text-fs-lg font-semibold tabular-nums ${attention ? 'text-[#fdba74]' : ''}`}>
-        {icon && <span className="[&>svg]:w-3.5 [&>svg]:h-3.5 opacity-70">{icon}</span>}
-        {value}
-      </div>
-      <div className="text-[11px] whitespace-nowrap text-stone-400">{label}</div>
-    </div>
-  );
-}
-
 function PerformanceOverview({
   title,
-  context,
   chartNote,
   metrics,
   showDelta,
   comparisonLabel,
   chart,
+  channels,
 }: {
   title: string;
-  context: string;
   chartNote?: string;
   metrics: DashboardMetric[];
   showDelta: boolean;
   comparisonLabel: string;
   chart?: React.ReactNode;
+  channels: React.ReactNode;
 }) {
   const primary = metrics[0];
   const primaryUp = primary.delta >= 0;
@@ -732,7 +816,6 @@ function PerformanceOverview({
       <header className="px-[var(--s-5)] md:px-[var(--s-6)] pt-[var(--s-5)] md:pt-[var(--s-6)] flex items-start justify-between gap-[var(--s-4)] flex-wrap">
         <div>
           <h2 className="text-fs-lg font-semibold text-[var(--fg)]">{title}</h2>
-          <p className="text-fs-xs text-[var(--fg-muted)] mt-1">{context}</p>
         </div>
         {chartNote && <span className="text-fs-xs text-[var(--fg-subtle)]">{chartNote}</span>}
       </header>
@@ -776,16 +859,29 @@ function PerformanceOverview({
           {chart}
         </div>
       )}
+      <div className="border-t border-[var(--line)] px-[var(--s-5)] md:px-[var(--s-6)] py-[var(--s-5)]">
+        {channels}
+      </div>
     </section>
   );
 }
 
 function MetricChart({
   data,
+  previousData,
+  currentLabel,
+  previousLabel,
+  averageLabel,
+  peakLabel,
   fmt,
   emptyLabel,
 }: {
-  data: { day: string; value: number; isLast: boolean }[];
+  data: { day: string; label: string; value: number; isLast: boolean }[];
+  previousData: { day: string; value: number; isLast: boolean }[];
+  currentLabel: string;
+  previousLabel: string;
+  averageLabel: string;
+  peakLabel: string;
   fmt: (n: number) => string;
   emptyLabel: string;
 }) {
@@ -800,60 +896,145 @@ function MetricChart({
       </div>
     );
   }
-  const max = Math.max(1, ...data.map((d) => d.value));
+  const hasPrevious = previousData.some((d) => d.value > 0);
+  const max = Math.max(1, ...data.map((d) => d.value), ...previousData.map((d) => d.value));
+  const average = data.reduce((sum, d) => sum + d.value, 0) / data.length;
+  const peak = data.reduce((highest, datum) => datum.value > highest.value ? datum : highest, data[0]);
   return (
-    <div className="flex items-end justify-between gap-[var(--s-2)]" style={{ height: 180 }}>
-      {data.map((d, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-[var(--s-2)] h-full">
-          <div className="flex items-end h-full w-full justify-center">
-            <div
-              className="w-full max-w-[28px] rounded-t-[3px]"
-              style={{
-                height: `${Math.max(2, (d.value / max) * 100)}%`,
-                background: d.isLast
-                  ? 'var(--brand-500)'
-                  : 'color-mix(in oklab, var(--brand-500) 55%, transparent)',
-              }}
-              title={fmt(d.value)}
-            />
-          </div>
-          <span className="text-fs-xs text-[var(--fg-muted)] truncate max-w-full">{d.day}</span>
+    <div>
+      <div className="flex items-center gap-[var(--s-4)] text-[11px] text-[var(--fg-muted)] mb-[var(--s-4)] flex-wrap">
+        <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--brand-500)]" />{currentLabel}</span>
+        {hasPrevious && <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--surface-4)]" />{previousLabel}</span>}
+        <span className="ml-auto tabular-nums">{averageLabel} · {fmt(average)}</span>
+        <span className="tabular-nums">{peakLabel} · {peak.label} · {fmt(peak.value)}</span>
+      </div>
+      <div className="relative h-[190px]">
+        <div className="absolute inset-x-0 border-t border-dashed border-[var(--line-strong)] z-[1]" style={{ bottom: `${(average / max) * 100}%` }} />
+        <div className="absolute inset-0 flex items-end justify-between gap-[var(--s-2)]">
+          {data.map((d, i) => {
+            const prior = previousData[i]?.value ?? 0;
+            return (
+              <div
+                key={`${d.day}-${i}`}
+                className="group relative flex-1 flex flex-col items-center gap-[var(--s-2)] h-full min-w-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)]"
+                tabIndex={0}
+                aria-label={`${d.label}: ${fmt(d.value)}`}
+              >
+                <div className="pointer-events-none absolute z-10 top-1 left-1/2 -translate-x-1/2 rounded-r-sm bg-[var(--fg)] text-[var(--surface)] px-2 py-1 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity shadow-2">
+                  <span>{d.label}</span> · <strong>{fmt(d.value)}</strong>{hasPrevious ? ` · ${fmt(prior)}` : ''}
+                </div>
+                <div className="flex items-end h-full w-full justify-center gap-[2px]">
+                  {hasPrevious && (
+                    <div className="w-full max-w-[11px] rounded-t-[2px] bg-[var(--surface-4)]" style={{ height: `${Math.max(1, (prior / max) * 100)}%` }} />
+                  )}
+                  <div
+                    className="w-full max-w-[16px] rounded-t-[3px] bg-[var(--brand-500)]"
+                    style={{ height: `${Math.max(1, (d.value / max) * 100)}%`, opacity: d.isLast ? 1 : 0.62 }}
+                    title={fmt(d.value)}
+                  />
+                </div>
+                <span className="text-[10px] text-[var(--fg-muted)] truncate max-w-full min-h-[14px]">{d.day}</span>
+              </div>
+            );
+          })}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
 
-function QuickAction({
-  icon,
-  label,
-  sub,
-  onClick,
+function ChannelMix({
+  data,
+  locale,
+  title,
+  emptyLabel,
+  ordersLabel,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  sub: string;
-  onClick?: () => void;
+  data: ChannelDatum[];
+  locale: string;
+  title: string;
+  emptyLabel: string;
+  ordersLabel: string;
 }) {
+  const total = data.reduce((sum, row) => sum + row.revenue, 0);
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group min-h-[92px] flex flex-col items-start justify-between gap-[var(--s-3)] p-[var(--s-3)] rounded-r-md border border-[var(--line)] text-left hover:bg-[var(--surface-2)] hover:border-[var(--line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)] transition-colors"
+    <div>
+      <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-3)]">
+        <h3 className="text-fs-sm font-semibold text-[var(--fg)]">{title}</h3>
+        {total > 0 && <span className="text-fs-xs tabular-nums text-[var(--fg-muted)]">{fmtMoney(total, locale)}</span>}
+      </div>
+      {data.length === 0 || total <= 0 ? (
+        <p className="text-fs-sm text-[var(--fg-subtle)] py-3">{emptyLabel}</p>
+      ) : (
+        <>
+          <div className="h-2 rounded-full overflow-hidden flex bg-[var(--surface-3)]" aria-hidden="true">
+            {data.map((row) => (
+              <span key={row.key} style={{ width: `${(row.revenue / total) * 100}%`, background: row.color }} />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--s-3)] mt-[var(--s-4)]">
+            {data.map((row) => (
+              <div key={row.key} className="min-w-0">
+                <div className="flex items-center gap-1.5 text-[11px] text-[var(--fg-muted)]">
+                  <span className="w-2 h-2 rounded-[2px] shrink-0" style={{ background: row.color }} />
+                  <span className="truncate">{row.label}</span>
+                  <span className="ml-auto tabular-nums">{Math.round((row.revenue / total) * 100)}%</span>
+                </div>
+                <div className="text-fs-sm font-medium tabular-nums text-[var(--fg)] mt-1">{fmtMoney(row.revenue, locale)}</div>
+                <div className="text-[10px] text-[var(--fg-subtle)]">{row.orders} {ordersLabel.toLocaleLowerCase(locale)}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TopSellersPanel({
+  sellers,
+  locale,
+  title,
+  salesLabel,
+  emptyLabel,
+  seeAllLabel,
+  onSeeAll,
+}: {
+  sellers: TopSeller[];
+  locale: string;
+  title: string;
+  salesLabel: string;
+  emptyLabel: string;
+  seeAllLabel: string;
+  onSeeAll: () => void;
+}) {
+  const visible = sellers.slice(0, 5);
+  const maxRevenue = Math.max(0, ...visible.map((seller) => seller.revenue));
+  return (
+    <Section
+      title={title}
+      className="mb-0 overflow-hidden"
+      aside={<Button variant="ghost" size="sm" onClick={onSeeAll}>{seeAllLabel}</Button>}
     >
-      <div
-        className="w-8 h-8 rounded-r-sm grid place-items-center shrink-0 [&>svg]:w-[14px] [&>svg]:h-[14px]"
-        style={{
-          background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-          color: 'var(--brand-500)',
-        }}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0 w-full">
-        <span className="block text-fs-sm font-medium text-[var(--fg)] leading-snug">{label}</span>
-        <span className="block text-[11px] text-[var(--fg-muted)] truncate mt-0.5">{sub}</span>
-      </div>
-    </button>
+      {visible.length === 0 ? (
+        <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{emptyLabel}</p>
+      ) : (
+        <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
+          {visible.map((seller, index) => (
+            <div key={seller.name} className="px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0">
+              <div className="w-8 h-8 rounded-r-sm bg-[var(--surface-3)] grid place-items-center text-[var(--fg-muted)] text-[10px] font-bold shrink-0">{index + 1}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-fs-sm text-[var(--fg)] font-medium truncate">{seller.name}</div>
+                <div className="text-fs-xs text-[var(--fg-muted)]">{seller.quantity} {salesLabel}</div>
+              </div>
+              <div className="hidden sm:block w-20 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden shrink-0">
+                <div className="h-full bg-[var(--brand-500)]" style={{ width: `${maxRevenue > 0 ? (seller.revenue / maxRevenue) * 100 : 0}%` }} />
+              </div>
+              <div className="tabular-nums text-fs-sm font-medium text-[var(--fg)] min-w-[82px] text-right">{fmtMoney(seller.revenue, locale, 2)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
   );
 }
