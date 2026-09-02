@@ -6,7 +6,6 @@ import {
   AlertCircleIcon,
   ArrowRightLeftIcon,
   CheckIcon,
-  ListChecksIcon,
   MapPinIcon,
   MessageCircleIcon,
   RefreshCwIcon,
@@ -55,15 +54,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge, Button, Card, CardBody, CardHeader, Input, Select } from '@/components/ds';
-import {
-  DataTable,
-  DataTableHead,
-  DataTableHeadCell,
-  DataTableBody,
-  DataTableRow,
-  DataTableCell,
-} from '@/components/data-table/DataTable';
+import { Badge, Button, Card, CardBody, CardHeader, Drawer, Input, Select } from '@/components/ds';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const DeliveryMap = dynamic(() => import('@/components/delivery/DeliveryMap'), { ssr: false });
@@ -337,6 +328,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [couriers, setCouriers] = useState<StaffMember[]>([]);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [distributionMode, setDistributionMode] = useState<DistributionMode>('smart');
+  const [plannerOpen, setPlannerOpen] = useState(false);
   const [plannerCouriers, setPlannerCouriers] = useState<Set<number>>(new Set());
   const [zoneCouriers, setZoneCouriers] = useState<Map<string, number>>(new Map());
   const [manualCouriers, setManualCouriers] = useState<Map<number, number>>(new Map());
@@ -616,6 +608,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         assignments,
       );
       setPicked(new Set());
+      setPlannerOpen(false);
       await load();
     } catch (cause) {
       setError((cause as Error)?.message || t('deliveryPlanFailed'));
@@ -707,7 +700,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     .replace('{count}', String(routes.length));
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {error && (
         <div
           className="flex items-center justify-between gap-3 rounded-r-lg px-4 py-3 text-fs-sm"
@@ -730,7 +723,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
           </h1>
           <p className="mt-1 max-w-2xl text-fs-sm text-[var(--fg-muted)]">{t('deliveryPlanIntro')}</p>
         </div>
-        <div className="flex items-center gap-2 text-fs-xs text-[var(--fg-muted)]">
+        <div className="flex flex-wrap items-center justify-end gap-2 text-fs-xs text-[var(--fg-muted)]">
           <Badge tone={unplannedOrders.length > 0 ? 'warning' : 'neutral'}>
             {t('deliveryPlanUnplanned').replace('{count}', String(unplannedOrders.length))}
           </Badge>
@@ -738,214 +731,88 @@ export default function DispatcherView({ rid }: { rid: number }) {
             <RouteIcon className="h-3 w-3" />
             {routeCountLabel}
           </Badge>
+          {unplannedOrders.length > 0 && (
+            <Button size="sm" disabled={picked.size === 0} onClick={() => setPlannerOpen(true)}>
+              <SparklesIcon />
+              {t('deliveryPlanStepTwo')}
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-col gap-3 xl:h-[calc(100dvh-170px)] xl:min-h-[620px]">
-        {unplannedOrders.length > 0 ? (
-          <div className="grid shrink-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(420px,0.9fr)_minmax(620px,1.35fr)] xl:items-start">
-          <Card className="overflow-hidden border-s-4 border-s-[var(--brand-500)] shadow-none">
-            <CardHeader className="items-start px-4 py-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-r-md bg-[var(--brand-500)] text-fs-sm font-bold text-white">1</span>
+      <div
+        className={`grid min-h-0 grid-cols-1 gap-3 xl:h-[calc(100dvh-184px)] xl:min-h-[560px] ${
+          unplannedOrders.length > 0
+            ? 'xl:grid-cols-[minmax(290px,0.58fr)_minmax(430px,0.88fr)_minmax(0,1.34fr)]'
+            : 'xl:grid-cols-[minmax(460px,0.78fr)_minmax(0,1.42fr)]'
+        }`}
+      >
+        {unplannedOrders.length > 0 && (
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-r-xl border border-[var(--line)] border-s-4 border-s-[var(--brand-500)] bg-[var(--surface)]">
+            <div className="flex items-start gap-3 border-b border-[var(--line)] px-3 py-3">
+              <Checkbox checked={allPicked} onCheckedChange={toggleAll} aria-label={t('selectAll')} className="mt-0.5" />
               <div className="min-w-0 flex-1">
-                <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanStepOne')}</h2>
-                <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">{t('deliveryPlanUnplanned').replace('{count}', String(unplannedOrders.length))}</p>
+                <h2 className="text-fs-sm font-semibold text-[var(--fg)]">{t('deliveryPlanStepOne')}</h2>
+                <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">
+                  {t('deliveryPlanAvailableCount')
+                    .replace('{selected}', String(picked.size))
+                    .replace('{available}', String(unplannedOrders.length))}
+                </p>
               </div>
-              <Badge tone={picked.size > 0 ? 'info' : 'neutral'}>
-                {t('deliveryPlanAvailableCount')
-                  .replace('{selected}', String(picked.size))
-                  .replace('{available}', String(unplannedOrders.length))}
-              </Badge>
-            </CardHeader>
-            <CardBody className="px-4 pb-3 pt-0">
-              {unplannedOrders.length === 0 ? (
-                <div className="py-6 text-center">
-                  <ListChecksIcon className="mx-auto mb-2 h-7 w-7 text-[var(--fg-subtle)]" />
-                  <p className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('deliveryPlanNoUnplanned')}</p>
-                </div>
-              ) : (
-                <div className="-mx-4 max-h-[310px] overflow-auto">
-                  <DataTable responsive={false} className="rounded-none border-0 bg-transparent shadow-none dark:bg-transparent">
-                    <DataTableHead>
-                      <DataTableHeadCell className="w-10 p-3"><Checkbox checked={allPicked} onCheckedChange={toggleAll} /></DataTableHeadCell>
-                      <DataTableHeadCell className="p-3">{t('customer')}</DataTableHeadCell>
-                      <DataTableHeadCell className="p-3">{t('address')}</DataTableHeadCell>
-                      <DataTableHeadCell className="p-3">{t('status')}</DataTableHeadCell>
-                    </DataTableHead>
-                    <DataTableBody>
-                      {unplannedOrders.map((order, index) => {
-                        const address = formatDeliveryAddress({
-                          address: order.delivery_address,
-                          city: order.delivery_city,
-                          floor: order.delivery_floor,
-                          apt: order.delivery_apt,
-                          entryCode: order.delivery_entry_code,
-                        }, t);
-                        return (
-                          <DataTableRow
-                            key={order.id}
-                            index={index}
-                            onClick={() => toggleOrder(order.id)}
-                            className="cursor-pointer"
-                          >
-                            <DataTableCell className="w-10 p-3">
-                              <Checkbox
-                                checked={picked.has(order.id)}
-                                onCheckedChange={() => toggleOrder(order.id)}
-                                onClick={(event) => event.stopPropagation()}
-                              />
-                            </DataTableCell>
-                            <DataTableCell className="p-3">
-                              <div className="text-fs-sm font-medium text-[var(--fg)]">{order.customer_name}</div>
-                              <div className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</div>
-                            </DataTableCell>
-                            <DataTableCell className="p-3 text-fs-xs text-[var(--fg-muted)]">{address?.line1 || t('noAddress')}</DataTableCell>
-                            <DataTableCell className="p-3">
-                              <Badge tone={order.status === 'ready_for_delivery' ? 'success' : 'warning'}>
-                                {localizeStatus(order.status, t)}
-                              </Badge>
-                            </DataTableCell>
-                          </DataTableRow>
-                        );
-                      })}
-                    </DataTableBody>
-                  </DataTable>
-                </div>
-              )}
-            </CardBody>
-          </Card>
-
-          <Card className="overflow-hidden border-s-4 border-s-[var(--brand-300)] shadow-none">
-            <CardHeader className="items-start px-4 py-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-r-md bg-[var(--brand-100)] text-fs-sm font-bold text-[var(--brand-700)]">2</span>
-              <div>
-                <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanStepTwo')}</h2>
-                <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">{t('deliveryPlanStepTwoHint')}</p>
-              </div>
-            </CardHeader>
-            <CardBody className="space-y-3 px-4 pb-4 pt-0">
-              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t('deliveryPlanDistributionMode')}>
-                {([
-                  ['smart', SparklesIcon, 'deliveryPlanModeSmart', 'deliveryPlanModeSmartHint'],
-                  ['zone', MapPinIcon, 'deliveryPlanModeZone', 'deliveryPlanModeZoneHint'],
-                  ['manual', UsersIcon, 'deliveryPlanModeManual', 'deliveryPlanModeManualHint'],
-                ] as const).map(([mode, Icon, labelKey, hintKey]) => {
-                  const active = distributionMode === mode;
-                  return (
-                    <button
-                      key={mode}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setDistributionMode(mode)}
-                      className={`relative min-h-[94px] rounded-r-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:shadow-ring ${
-                        active
-                          ? 'border-[var(--brand-500)] bg-[var(--brand-50)] text-[var(--fg)]'
-                          : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line-strong)]'
-                      }`}
-                    >
-                      {active && <CheckIcon className="absolute end-2 top-2 h-4 w-4 text-[var(--brand-500)]" />}
-                      <Icon className="mb-2 h-5 w-5 text-[var(--brand-500)]" />
-                      <span className="block text-fs-xs font-semibold">{t(labelKey)}</span>
-                      <span className="mt-1 block text-[10px] leading-snug text-[var(--fg-subtle)]">{t(hintKey)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {distributionMode === 'smart' && (
-                <div>
-                  <label className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanCouriers')}</label>
-                  <div className="flex flex-wrap gap-2">
-                    {planningCouriers.map((courier, index) => {
-                      const checked = plannerCouriers.has(courier.id);
-                      return (
-                        <button
-                          key={courier.id}
-                          type="button"
-                          onClick={() => toggleCourier(courier.id)}
-                          aria-pressed={checked}
-                          className={`flex items-center gap-2 rounded-full border px-3 py-2 text-fs-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring ${
-                            checked
-                              ? 'border-[var(--brand-300)] bg-[var(--brand-50)] text-[var(--fg)]'
-                              : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-subtle)] hover:border-[var(--line-strong)]'
-                          }`}
-                        >
-                          <span className="h-2.5 w-2.5 rounded-full" style={{ background: checked ? colorFor(index) : 'var(--line-strong)' }} />
-                          {courier.full_name}
-                        </button>
-                      );
-                    })}
-                    {planningCouriers.length === 0 && <span className="text-fs-xs text-[var(--fg-subtle)]">{t('noCouriersHint')}</span>}
-                  </div>
-                </div>
-              )}
-
-              {distributionMode === 'zone' && (
-                <div className="space-y-2">
-                  {selectedZones.map((zone) => (
-                    <label key={zone} className="grid grid-cols-[minmax(0,1fr)_minmax(160px,0.8fr)] items-center gap-3 rounded-r-md border border-[var(--line)] p-3">
-                      <span className="min-w-0">
-                        <span className="block truncate text-fs-sm font-medium text-[var(--fg)]">{zone}</span>
-                        <span className="text-fs-xs text-[var(--fg-subtle)]">
-                          {t('deliveryPlanZoneCount').replace('{count}', String(selectedOrders.filter((order) => deliveryZone(order, t('deliveryPlanUnknownZone')) === zone).length))}
-                        </span>
-                      </span>
-                      <Select value={zoneCouriers.get(zone) ?? ''} onChange={(event) => setZoneCouriers((current) => new Map(current).set(zone, Number(event.target.value)))}>
-                        <option value="">{t('selectCourier')}</option>
-                        {planningCouriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.full_name}</option>)}
-                      </Select>
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              {distributionMode === 'manual' && (
-                <div className="max-h-72 space-y-2 overflow-y-auto pe-1">
-                  {selectedOrders.map((order) => (
-                    <label key={order.id} className="grid grid-cols-[minmax(0,1fr)_minmax(160px,0.8fr)] items-center gap-3 rounded-r-md border border-[var(--line)] p-3">
-                      <span className="min-w-0">
-                        <span className="block truncate text-fs-sm font-medium text-[var(--fg)]">{order.customer_name}</span>
-                        <span className="text-fs-xs text-[var(--fg-subtle)]">#{order.id} · {deliveryZone(order, t('deliveryPlanUnknownZone'))}</span>
-                      </span>
-                      <Select value={manualCouriers.get(order.id) ?? ''} onChange={(event) => setManualCouriers((current) => new Map(current).set(order.id, Number(event.target.value)))}>
-                        <option value="">{t('selectCourier')}</option>
-                        {planningCouriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.full_name}</option>)}
-                      </Select>
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid gap-3 border-t border-[var(--line)] pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
-                <label htmlFor="delivery-departure">
-                  <span className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanDeparture')}</span>
-                  <Input id="delivery-departure" type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)} />
-                </label>
-                <Button size="lg" className="w-full sm:w-auto" disabled={planning || !canCreatePlan} onClick={() => void createPlan()}>
-                  <RouteIcon />
-                  {planning ? t('deliveryPlanGenerating') : t('deliveryPlanGenerate').replace('{count}', String(picked.size))}
-                </Button>
-              </div>
-            </CardBody>
-          </Card>
-          </div>
-        ) : (
-          <div className="flex shrink-0 items-center gap-3 rounded-r-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--success-50)] text-[var(--success-500)]">
-              <CheckIcon className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-fs-sm font-semibold text-[var(--fg)]">
-                {t(routes.length > 0 ? 'deliveryPlanAllPlanned' : 'deliveryPlanNoUnplanned')}
-              </p>
-              <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">{routeCountLabel}</p>
             </div>
-          </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {unplannedOrders.map((order) => {
+                const address = formatDeliveryAddress({
+                  address: order.delivery_address,
+                  city: order.delivery_city,
+                  floor: order.delivery_floor,
+                  apt: order.delivery_apt,
+                  entryCode: order.delivery_entry_code,
+                }, t);
+                const selected = picked.has(order.id);
+                return (
+                  <div
+                    key={order.id}
+                    onClick={() => toggleOrder(order.id)}
+                    className={`flex w-full cursor-pointer items-start gap-3 border-b border-[var(--line)] px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-[var(--surface-2)] ${
+                      selected ? 'bg-[var(--brand-50)]' : 'bg-[var(--surface)]'
+                    }`}
+                  >
+                    <Checkbox
+                      checked={selected}
+                      onCheckedChange={() => toggleOrder(order.id)}
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={`${t('customer')} ${order.customer_name}`}
+                      className="mt-0.5"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="truncate text-fs-sm font-semibold text-[var(--fg)]">{order.customer_name}</span>
+                        <span className="shrink-0 text-[10px] font-medium text-[var(--fg-subtle)]">#{order.id}</span>
+                      </span>
+                      <span className="mt-1 block text-fs-xs leading-snug text-[var(--fg-muted)]">
+                        {address?.line1 || t('noAddress')}
+                      </span>
+                      <Badge className="mt-2" tone={order.status === 'ready_for_delivery' ? 'success' : 'warning'}>
+                        {localizeStatus(order.status, t)}
+                      </Badge>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="shrink-0 border-t border-[var(--line)] p-3">
+              <Button className="w-full" disabled={picked.size === 0} onClick={() => setPlannerOpen(true)}>
+                <SparklesIcon />
+                {t('deliveryPlanStepTwo')}
+              </Button>
+            </div>
+          </section>
         )}
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(460px,0.88fr)_minmax(0,1.42fr)]">
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-r-xl border border-[var(--line)] bg-[var(--surface)]">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-r-xl border border-[var(--line)] bg-[var(--surface)]">
           <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
             <div>
               <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanRoutes')}</h2>
@@ -984,9 +851,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
               />
             ))}
           </div>
-          </section>
+        </section>
 
-          <div className="relative hidden min-h-0 xl:block">
+        <div className="relative hidden min-h-0 xl:block">
           <DeliveryMap
             routes={layers}
             couriers={courierMarkers}
@@ -997,7 +864,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               setSelectedCourier(route?.courier_id ?? null);
               setMoveTarget(null);
             }}
-            className="h-full min-h-[480px] overflow-hidden rounded-r-xl border border-[var(--line)]"
+            className="h-full min-h-[480px] overflow-hidden rounded-r-xl border border-[var(--line)] xl:min-h-0"
           />
 
           {selectedEntry && (
@@ -1088,9 +955,128 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
             </div>
           )}
-          </div>
         </div>
       </div>
+
+      <Drawer
+        open={plannerOpen}
+        onOpenChange={setPlannerOpen}
+        title={t('deliveryPlanStepTwo')}
+        subtitle={t('deliveryPlanAvailableCount')
+          .replace('{selected}', String(picked.size))
+          .replace('{available}', String(unplannedOrders.length))}
+        width={760}
+        footer={(
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <label htmlFor="delivery-departure">
+              <span className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanDeparture')}</span>
+              <Input id="delivery-departure" type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)} />
+            </label>
+            <Button size="lg" className="w-full sm:w-auto" disabled={planning || !canCreatePlan} onClick={() => void createPlan()}>
+              <RouteIcon />
+              {planning ? t('deliveryPlanGenerating') : t('deliveryPlanGenerate').replace('{count}', String(picked.size))}
+            </Button>
+          </div>
+        )}
+      >
+        <div className="space-y-5">
+          <div>
+            <p className="mb-3 text-fs-sm text-[var(--fg-muted)]">{t('deliveryPlanStepTwoHint')}</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t('deliveryPlanDistributionMode')}>
+              {([
+                ['smart', SparklesIcon, 'deliveryPlanModeSmart', 'deliveryPlanModeSmartHint'],
+                ['zone', MapPinIcon, 'deliveryPlanModeZone', 'deliveryPlanModeZoneHint'],
+                ['manual', UsersIcon, 'deliveryPlanModeManual', 'deliveryPlanModeManualHint'],
+              ] as const).map(([mode, Icon, labelKey, hintKey]) => {
+                const active = distributionMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setDistributionMode(mode)}
+                    className={`relative min-h-[116px] rounded-r-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:shadow-ring ${
+                      active
+                        ? 'border-[var(--brand-500)] bg-[var(--brand-50)] text-[var(--fg)]'
+                        : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line-strong)]'
+                    }`}
+                  >
+                    {active && <CheckIcon className="absolute end-3 top-3 h-4 w-4 text-[var(--brand-500)]" />}
+                    <Icon className="mb-3 h-5 w-5 text-[var(--brand-500)]" />
+                    <span className="block text-fs-sm font-semibold">{t(labelKey)}</span>
+                    <span className="mt-1 block text-fs-xs leading-snug text-[var(--fg-subtle)]">{t(hintKey)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {distributionMode === 'smart' && (
+            <div>
+              <label className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanCouriers')}</label>
+              <div className="flex flex-wrap gap-2">
+                {planningCouriers.map((courier, index) => {
+                  const checked = plannerCouriers.has(courier.id);
+                  return (
+                    <button
+                      key={courier.id}
+                      type="button"
+                      onClick={() => toggleCourier(courier.id)}
+                      aria-pressed={checked}
+                      className={`flex items-center gap-2 rounded-full border px-3 py-2 text-fs-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring ${
+                        checked
+                          ? 'border-[var(--brand-300)] bg-[var(--brand-50)] text-[var(--fg)]'
+                          : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-subtle)] hover:border-[var(--line-strong)]'
+                      }`}
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: checked ? colorFor(index) : 'var(--line-strong)' }} />
+                      {courier.full_name}
+                    </button>
+                  );
+                })}
+                {planningCouriers.length === 0 && <span className="text-fs-xs text-[var(--fg-subtle)]">{t('noCouriersHint')}</span>}
+              </div>
+            </div>
+          )}
+
+          {distributionMode === 'zone' && (
+            <div className="space-y-2">
+              {selectedZones.map((zone) => (
+                <label key={zone} className="grid grid-cols-1 items-center gap-3 rounded-r-md border border-[var(--line)] p-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.8fr)]">
+                  <span className="min-w-0">
+                    <span className="block truncate text-fs-sm font-medium text-[var(--fg)]">{zone}</span>
+                    <span className="text-fs-xs text-[var(--fg-subtle)]">
+                      {t('deliveryPlanZoneCount').replace('{count}', String(selectedOrders.filter((order) => deliveryZone(order, t('deliveryPlanUnknownZone')) === zone).length))}
+                    </span>
+                  </span>
+                  <Select value={zoneCouriers.get(zone) ?? ''} onChange={(event) => setZoneCouriers((current) => new Map(current).set(zone, Number(event.target.value)))}>
+                    <option value="">{t('selectCourier')}</option>
+                    {planningCouriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.full_name}</option>)}
+                  </Select>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {distributionMode === 'manual' && (
+            <div className="space-y-2">
+              {selectedOrders.map((order) => (
+                <label key={order.id} className="grid grid-cols-1 items-center gap-3 rounded-r-md border border-[var(--line)] p-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.8fr)]">
+                  <span className="min-w-0">
+                    <span className="block truncate text-fs-sm font-medium text-[var(--fg)]">{order.customer_name}</span>
+                    <span className="text-fs-xs text-[var(--fg-subtle)]">#{order.id} · {deliveryZone(order, t('deliveryPlanUnknownZone'))}</span>
+                  </span>
+                  <Select value={manualCouriers.get(order.id) ?? ''} onChange={(event) => setManualCouriers((current) => new Map(current).set(order.id, Number(event.target.value)))}>
+                    <option value="">{t('selectCourier')}</option>
+                    {planningCouriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.full_name}</option>)}
+                  </Select>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      </Drawer>
 
       <div className="rounded-r-lg border border-[var(--line)] p-3 text-fs-sm text-[var(--fg-subtle)] xl:hidden">
         <MapPinIcon className="mr-2 inline h-4 w-4" />
