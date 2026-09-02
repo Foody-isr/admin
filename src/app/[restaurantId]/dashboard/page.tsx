@@ -547,6 +547,7 @@ export default function DashboardPage() {
       <PageHead
         title={t('dashboardHome') || 'Dashboard'}
         desc={periodContext}
+        className="mb-[var(--s-4)]"
         actions={
           <>
             <CreateActionsMenu restaurantId={rid} onNavigate={router.push} t={t} />
@@ -585,38 +586,86 @@ export default function DashboardPage() {
         t={t}
       />
 
-      <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_360px] gap-[var(--s-5)] items-start">
-        <div className="flex flex-col gap-[var(--s-5)] min-w-0">
-          <PerformanceOverview
-            title={t('performance')}
-            chartNote={chartCapped && !serieMode ? t('dashChartLast90') : undefined}
-            metrics={metrics}
-            revenue={current?.total_revenue ?? 0}
-            locale={dateLocale}
-            showDelta={showDelta}
-            comparisonLabel={vsLabel}
-            chart={(
-              <MetricChart
-                data={activeChartData}
-                previousData={previousChartData}
-                currentLabel={t('dashboardCurrentPeriod')}
-                previousLabel={t('dashboardPreviousPeriod')}
-                averageLabel={t('dashboardAverage')}
-                peakLabel={t('dashboardPeak')}
-                fmt={(n) => formatMetric(metric, n, dateLocale)}
-                emptyLabel={t('noSalesIn7Days')}
-              />
+      <div className="grid grid-cols-1 items-start gap-[var(--s-4)] xl:grid-cols-[minmax(0,1fr)_340px]">
+        <PerformanceOverview
+          title={t('performance')}
+          chartNote={chartCapped && !serieMode ? t('dashChartLast90') : undefined}
+          metrics={metrics}
+          revenue={current?.total_revenue ?? 0}
+          locale={dateLocale}
+          showDelta={showDelta}
+          comparisonLabel={vsLabel}
+          chart={(
+            <MetricChart
+              data={activeChartData}
+              previousData={previousChartData}
+              currentLabel={t('dashboardCurrentPeriod')}
+              previousLabel={t('dashboardPreviousPeriod')}
+              averageLabel={t('dashboardAverage')}
+              peakLabel={t('dashboardPeak')}
+              fmt={(n) => formatMetric(metric, n, dateLocale)}
+              emptyLabel={t('noSalesIn7Days')}
+            />
+          )}
+          channels={(
+            <ChannelMix
+              data={channelData}
+              locale={dateLocale}
+              title={t('salesChannels')}
+              emptyLabel={t('noData')}
+              ordersLabel={t('orders')}
+            />
+          )}
+        />
+
+        <div className="flex min-w-0 flex-col gap-[var(--s-4)]">
+          <Section
+            title={t('recentOrders')}
+            className="mb-0 overflow-hidden shadow-none [&>div:first-child]:px-[var(--s-4)] [&>div:first-child]:pb-[var(--s-2)] [&>div:first-child]:pt-[var(--s-3)] [&>div:last-child]:px-[var(--s-4)] [&>div:last-child]:pb-[var(--s-3)]"
+            aside={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(`/${rid}/orders/all`)}
+                className="text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
+              >
+                {t('seeAll')}
+                <ArrowRight />
+              </Button>
+            }
+          >
+            {recentOrders.length === 0 ? (
+              <p className="py-6 text-center text-fs-sm text-[var(--fg-subtle)]">{t('noOrdersYet')}</p>
+            ) : (
+              <div className="-mx-[var(--s-4)] -mb-[var(--s-3)]">
+                {recentOrders.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => router.push(`/${rid}/orders/all`)}
+                    className="group flex w-full items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] text-left transition-colors first:border-t-0 hover:bg-[var(--surface-2)]"
+                  >
+                    <div
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: paymentColor(o.payment_status) }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-fs-sm font-medium leading-snug text-[var(--fg)]">
+                        {o.customer_name?.trim() || `#${o.id}`}
+                      </div>
+                      <div className="truncate text-fs-xs leading-snug text-[var(--fg-muted)]">
+                        {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')} · {fmtMoney(o.total_amount, dateLocale)}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-fs-xs text-[var(--fg-subtle)]">
+                      {relTime(o.created_at)}
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 -translate-x-1 text-[var(--fg-subtle)] opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                  </button>
+                ))}
+              </div>
             )}
-            channels={(
-              <ChannelMix
-                data={channelData}
-                locale={dateLocale}
-                title={t('salesChannels')}
-                emptyLabel={t('noData')}
-                ordersLabel={t('orders')}
-              />
-            )}
-          />
+          </Section>
 
           <TopSellersPanel
             sellers={topSellers}
@@ -628,54 +677,6 @@ export default function DashboardPage() {
             onSeeAll={() => router.push(`/${rid}/analytics/items`)}
           />
         </div>
-
-        <Section
-          title={t('recentOrders')}
-          className="mb-0 overflow-hidden shadow-none"
-          aside={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push(`/${rid}/orders/all`)}
-              className="text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
-            >
-              {t('seeAll')}
-              <ArrowRight />
-            </Button>
-          }
-        >
-          {recentOrders.length === 0 ? (
-            <p className="text-fs-sm text-[var(--fg-subtle)] py-8 text-center">{t('noOrdersYet')}</p>
-          ) : (
-            <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-              {recentOrders.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => router.push(`/${rid}/orders/all`)}
-                  className="group w-full px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0 text-left hover:bg-[var(--surface-2)] transition-colors"
-                >
-                  <div
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ background: paymentColor(o.payment_status) }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-fs-sm text-[var(--fg)] font-medium truncate">
-                      {o.customer_name?.trim() || `#${o.id}`}
-                    </div>
-                    <div className="text-fs-xs text-[var(--fg-muted)] truncate">
-                      {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')} · {fmtMoney(o.total_amount, dateLocale)}
-                    </div>
-                  </div>
-                  <span className="text-fs-xs text-[var(--fg-subtle)] shrink-0">
-                    {relTime(o.created_at)}
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[var(--fg-subtle)] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                </button>
-              ))}
-            </div>
-          )}
-        </Section>
       </div>
     </>
   );
@@ -874,11 +875,11 @@ function OperationsBar({
   ];
 
   return (
-    <section className="mb-[var(--s-5)] border-y border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_65%,var(--surface))] px-[var(--s-4)] py-[var(--s-5)] md:px-[var(--s-5)] md:py-[var(--s-6)]">
+    <section className="mb-[var(--s-4)] border-y border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_65%,var(--surface))] px-[var(--s-4)] py-[var(--s-4)] md:px-[var(--s-5)]">
       <div className="grid grid-cols-1 items-center gap-[var(--s-5)] xl:grid-cols-[minmax(280px,1fr)_minmax(460px,auto)_auto] xl:gap-[var(--s-4)]">
         <div className="flex items-center gap-[var(--s-3)] min-w-0">
           <div
-            className="h-11 w-11 rounded-full grid place-items-center shrink-0"
+            className="h-10 w-10 rounded-full grid place-items-center shrink-0"
             style={{
               color: unavailable ? 'var(--fg-muted)' : hasUrgency ? 'var(--warning-500)' : 'var(--success-500)',
               background: unavailable ? 'var(--surface-3)' : hasUrgency ? 'var(--warning-50)' : 'var(--success-50)',
@@ -888,7 +889,7 @@ function OperationsBar({
           </div>
           <div className="min-w-0">
             <div className="text-fs-xs font-semibold text-[var(--fg-subtle)]">{t('dashboardNow')}</div>
-            <p className="mt-1 text-fs-lg font-semibold leading-snug text-[var(--fg)]">{message}</p>
+            <p className="mt-0.5 text-fs-md font-semibold leading-snug text-[var(--fg)]">{message}</p>
             {!unavailable && summary.oldestCreatedAt && summary.active > 0 && (
               <p className="mt-1 text-fs-xs leading-snug text-[var(--fg-muted)]">
                 {t('dashboardOldestOrder').replace('{age}', relTime(summary.oldestCreatedAt))}
@@ -900,8 +901,8 @@ function OperationsBar({
         <div className="grid min-w-0 grid-cols-2 divide-x divide-[var(--line)] sm:grid-cols-4">
           {stats.map((stat) => (
             <div key={stat.label} className="min-w-0 px-[var(--s-4)] first:pl-0 xl:first:pl-[var(--s-4)]">
-              <div className={`text-[24px] font-semibold leading-none tabular-nums ${stat.attention ? 'text-[var(--warning-500)]' : 'text-[var(--fg)]'}`}>{stat.value}</div>
-              <div className="mt-1.5 text-[13px] leading-snug text-[var(--fg-muted)] lg:text-[14px]">{stat.label}</div>
+              <div className={`text-[22px] font-semibold leading-none tabular-nums ${stat.attention ? 'text-[var(--warning-500)]' : 'text-[var(--fg)]'}`}>{stat.value}</div>
+              <div className="mt-1 text-[13px] leading-snug text-[var(--fg-muted)]">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -942,21 +943,21 @@ function PerformanceOverview({
     <section className="overflow-hidden rounded-[var(--r-xl)] border border-[var(--line)] bg-[var(--surface)] shadow-1">
       <div className="h-1.5 bg-[var(--brand-500)]" />
       <div style={{ background: 'linear-gradient(120deg, color-mix(in oklab, var(--brand-500) 7%, var(--surface)) 0%, var(--surface) 48%)' }}>
-        <header className="px-[var(--s-5)] md:px-[var(--s-8)] pt-[var(--s-5)] md:pt-[var(--s-8)] flex items-start justify-between gap-[var(--s-4)] flex-wrap">
+        <header className="flex flex-wrap items-start justify-between gap-[var(--s-4)] px-[var(--s-5)] pt-[var(--s-4)] md:px-[var(--s-6)]">
           <h2 className="text-fs-xl font-semibold text-[var(--fg)]">{title}</h2>
           {chartNote && <span className="text-fs-xs text-[var(--fg-subtle)]">{chartNote}</span>}
         </header>
 
-        <div className="grid grid-cols-1 items-end gap-[var(--s-8)] px-[var(--s-5)] py-[var(--s-6)] md:px-[var(--s-8)] md:pb-[var(--s-8)] 2xl:grid-cols-[minmax(240px,0.72fr)_minmax(440px,1.28fr)] 2xl:gap-[var(--s-10)]">
-          <div className="min-w-0 2xl:pr-[var(--s-2)]">
+        <div className="grid grid-cols-1 items-end gap-[var(--s-6)] px-[var(--s-5)] pb-[var(--s-5)] pt-[var(--s-4)] md:px-[var(--s-6)] xl:grid-cols-[minmax(180px,0.68fr)_minmax(330px,1.32fr)] xl:gap-[var(--s-4)]">
+          <div className="min-w-0 xl:pr-[var(--s-1)]">
             <div className="text-fs-sm font-medium text-[var(--fg-muted)]">{primary.label}</div>
             <FormattedMoney
               amount={revenue}
               locale={locale}
-              className="mt-[var(--s-3)] text-[clamp(3rem,5vw,4rem)] font-semibold leading-[0.94] tracking-[-0.045em] text-[var(--fg)]"
+              className="mt-[var(--s-2)] text-[clamp(2.5rem,3.5vw,3.5rem)] font-semibold leading-[0.94] tracking-[-0.04em] text-[var(--fg)]"
             />
             {showDelta && (
-              <div className="flex items-center gap-[var(--s-2)] mt-[var(--s-4)] text-fs-xs flex-wrap">
+              <div className="mt-[var(--s-3)] flex flex-wrap items-center gap-[var(--s-2)] text-fs-xs">
                 <span
                   className={`rounded-full px-2.5 py-1 font-semibold tabular-nums ${primaryUp ? 'text-[var(--success-500)] bg-[var(--success-50)]' : 'text-[var(--danger-500)] bg-[var(--danger-50)]'}`}
                 >
@@ -967,15 +968,15 @@ function PerformanceOverview({
             )}
           </div>
 
-          <div className="grid grid-cols-1 gap-[var(--s-5)] border-t border-[var(--line-strong)] pt-[var(--s-6)] sm:grid-cols-3 2xl:border-l 2xl:border-t-0 2xl:pl-[var(--s-10)] 2xl:pt-0">
+          <div className="grid grid-cols-1 gap-[var(--s-3)] border-t border-[var(--line-strong)] pt-[var(--s-5)] sm:grid-cols-3 xl:border-l xl:border-t-0 xl:pl-[var(--s-4)] xl:pt-0">
             {metrics.slice(1).map((metric) => {
               const up = metric.delta >= 0;
               return (
                 <div key={metric.key} className="min-w-0 border-t-2 pt-[var(--s-3)]" style={{ borderTopColor: metric.accent }}>
                   <div className="text-[13px] leading-snug text-[var(--fg-muted)]">{kpiLabel(metric.label, metric.hint)}</div>
-                  <div className="mt-2 whitespace-nowrap text-[clamp(1.35rem,1.8vw,1.75rem)] font-semibold leading-none tabular-nums text-[var(--fg)]">{metric.value}</div>
+                  <div className="mt-1.5 whitespace-nowrap text-[clamp(1.2rem,1.5vw,1.375rem)] font-semibold leading-none tabular-nums text-[var(--fg)]">{metric.value}</div>
                   {showDelta && (
-                    <div className={`mt-2 text-[12px] font-semibold tabular-nums ${up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
+                    <div className={`mt-1.5 text-[12px] font-semibold tabular-nums ${up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
                       {up ? '↑' : '↓'} {fmtPercentDelta(metric.delta, locale)}
                     </div>
                   )}
@@ -987,11 +988,11 @@ function PerformanceOverview({
       </div>
 
       {chart && (
-        <div className="border-t border-[var(--line)] px-[var(--s-5)] md:px-[var(--s-8)] py-[var(--s-6)] bg-[color:color-mix(in_oklab,var(--surface-2)_48%,var(--surface))]">
+        <div className="border-t border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_48%,var(--surface))] px-[var(--s-5)] py-[var(--s-4)] md:px-[var(--s-6)]">
           {chart}
         </div>
       )}
-      <div className="border-t border-[var(--line)] px-[var(--s-5)] md:px-[var(--s-8)] py-[var(--s-6)]">
+      <div className="border-t border-[var(--line)] px-[var(--s-5)] py-[var(--s-4)] md:px-[var(--s-6)]">
         {channels}
       </div>
     </section>
@@ -1022,7 +1023,7 @@ function MetricChart({
     return (
       <div
         className="flex items-center justify-center text-fs-sm text-[var(--fg-subtle)]"
-        style={{ height: 180 }}
+        style={{ height: 150 }}
       >
         {emptyLabel}
       </div>
@@ -1038,11 +1039,11 @@ function MetricChart({
     const current = data[0];
     const prior = previousData[0]?.value ?? 0;
     return (
-      <div className="h-[230px] flex items-end justify-center gap-[var(--s-8)] md:gap-[var(--s-12)]">
+      <div className="flex h-[190px] items-end justify-center gap-[var(--s-8)] md:gap-[var(--s-12)]">
         {hasPrevious && (
           <div className="h-full w-24 flex flex-col items-center justify-end gap-[var(--s-2)]">
             <span className="text-fs-sm font-semibold tabular-nums text-[var(--fg-muted)]">{fmt(prior)}</span>
-            <div className="h-[150px] w-full flex items-end justify-center">
+            <div className="flex h-[120px] w-full items-end justify-center">
               <div className="w-14 rounded-t-[var(--r-sm)] bg-[var(--line-strong)]" style={{ height: `${Math.max(4, (prior / max) * 100)}%` }} />
             </div>
             <span className="text-fs-xs font-medium text-[var(--fg-muted)] text-center">{previousLabel}</span>
@@ -1050,7 +1051,7 @@ function MetricChart({
         )}
         <div className="h-full w-28 flex flex-col items-center justify-end gap-[var(--s-2)]">
           <span className="text-fs-md font-semibold tabular-nums text-[var(--fg)]">{fmt(current.value)}</span>
-          <div className="h-[150px] w-full flex items-end justify-center">
+          <div className="flex h-[120px] w-full items-end justify-center">
             <div
               className="w-16 rounded-t-[var(--r-md)] shadow-2"
               style={{
@@ -1067,13 +1068,13 @@ function MetricChart({
 
   return (
     <div>
-      <div className="flex items-center gap-[var(--s-4)] text-[11px] text-[var(--fg-muted)] mb-[var(--s-4)] flex-wrap">
+      <div className="mb-[var(--s-3)] flex flex-wrap items-center gap-[var(--s-4)] text-[11px] text-[var(--fg-muted)]">
         <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--brand-500)]" />{currentLabel}</span>
         {hasPrevious && <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--line-strong)]" />{previousLabel}</span>}
         <span className="ml-auto tabular-nums">{averageLabel} · {fmt(average)}</span>
         <span className="tabular-nums">{peakLabel} · {peak.label} · {fmt(peak.value)}</span>
       </div>
-      <div className="relative h-[190px]">
+      <div className="relative h-[150px]">
         <div className="absolute inset-x-0 border-t border-dashed border-[var(--line-strong)] z-[1]" style={{ bottom: `${(average / max) * 100}%` }} />
         <div className="absolute inset-0 flex items-end justify-between gap-[var(--s-2)]">
           {data.map((d, i) => {
@@ -1124,7 +1125,7 @@ function ChannelMix({
   const total = data.reduce((sum, row) => sum + row.revenue, 0);
   return (
     <div>
-      <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-3)]">
+      <div className="mb-[var(--s-2)] flex items-center justify-between gap-[var(--s-3)]">
         <h3 className="text-fs-sm font-semibold text-[var(--fg)]">{title}</h3>
         {total > 0 && <span className="text-fs-xs tabular-nums text-[var(--fg-muted)]">{fmtMoney(total, locale)}</span>}
       </div>
@@ -1132,12 +1133,12 @@ function ChannelMix({
         <p className="text-fs-sm text-[var(--fg-subtle)] py-3">{emptyLabel}</p>
       ) : (
         <>
-          <div className="h-2 rounded-full overflow-hidden flex bg-[var(--surface-3)]" aria-hidden="true">
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-[var(--surface-3)]" aria-hidden="true">
             {data.map((row) => (
               <span key={row.key} style={{ width: `${(row.revenue / total) * 100}%`, background: row.color }} />
             ))}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--s-3)] mt-[var(--s-4)]">
+          <div className="mt-[var(--s-2)] grid grid-cols-1 gap-[var(--s-3)] sm:grid-cols-3">
             {data.map((row) => (
               <div key={row.key} className="min-w-0">
                 <div className="flex items-center gap-1.5 text-[11px] text-[var(--fg-muted)]">
@@ -1178,7 +1179,7 @@ function TopSellersPanel({
   return (
     <Section
       title={title}
-      className="mb-0 overflow-hidden shadow-none"
+      className="mb-0 overflow-hidden shadow-none [&>div:first-child]:px-[var(--s-4)] [&>div:first-child]:pb-[var(--s-2)] [&>div:first-child]:pt-[var(--s-3)] [&>div:last-child]:px-[var(--s-4)] [&>div:last-child]:pb-[var(--s-3)]"
       aside={(
         <Button
           variant="ghost"
@@ -1194,18 +1195,18 @@ function TopSellersPanel({
       {visible.length === 0 ? (
         <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{emptyLabel}</p>
       ) : (
-        <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
+        <div className="-mx-[var(--s-4)] -mb-[var(--s-3)]">
           {visible.map((seller, index) => (
-            <div key={seller.name} className="px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0">
-              <div className="w-8 h-8 rounded-r-sm bg-[var(--surface-3)] grid place-items-center text-[var(--fg-muted)] text-[10px] font-bold shrink-0">{index + 1}</div>
+            <div key={seller.name} className="flex items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] first:border-t-0">
+              <div className="grid h-7 w-7 shrink-0 place-items-center rounded-r-sm bg-[var(--surface-3)] text-[10px] font-bold text-[var(--fg-muted)]">{index + 1}</div>
               <div className="flex-1 min-w-0">
-                <div className="text-fs-sm text-[var(--fg)] font-medium truncate">{seller.name}</div>
-                <div className="text-fs-xs text-[var(--fg-muted)]">{seller.quantity} {salesLabel}</div>
+                <div className="truncate text-fs-sm font-medium leading-snug text-[var(--fg)]">{seller.name}</div>
+                <div className="text-fs-xs leading-snug text-[var(--fg-muted)]">{seller.quantity} {salesLabel}</div>
               </div>
-              <div className="hidden sm:block w-20 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden shrink-0">
+              <div className="hidden h-1 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-2)] min-[1700px]:block">
                 <div className="h-full bg-[var(--brand-500)]" style={{ width: `${maxRevenue > 0 ? (seller.revenue / maxRevenue) * 100 : 0}%` }} />
               </div>
-              <div className="tabular-nums text-fs-sm font-medium text-[var(--fg)] min-w-[82px] text-right">{fmtMoney(seller.revenue, locale, 2)}</div>
+              <div className="min-w-[82px] text-right text-fs-xs font-semibold tabular-nums text-[var(--fg)]">{fmtMoney(seller.revenue, locale, 2)}</div>
             </div>
           ))}
         </div>
