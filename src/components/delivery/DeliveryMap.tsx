@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { RouteStop } from '@/lib/delivery';
+import { cn } from '@/lib/utils';
 
 export interface RouteLayer {
   routeId?: number;
@@ -116,7 +117,7 @@ export default function DeliveryMap({
   const center: [number, number] = points[0] ?? [32.0853, 34.7818]; // Tel Aviv fallback
 
   return (
-    <div className={className}>
+    <div className={cn('isolate', className)}>
       <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
