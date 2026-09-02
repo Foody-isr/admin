@@ -39,6 +39,7 @@ export default function StaffPage() {
     full_name: '',
     email: '',
     phone: '',
+    password: '',
     role_id: 0,
   });
   const [formError, setFormError] = useState('');
@@ -68,6 +69,7 @@ export default function StaffPage() {
         full_name: form.full_name,
         email: form.email,
         phone: form.phone || undefined,
+        password: form.password,
         role_id: form.role_id,
       });
       setInviteOpen(false);
@@ -79,7 +81,7 @@ export default function StaffPage() {
         : emailStatus === 'failed' ? 'invitationEmailFailed'
         : 'memberAdded';
       setSuccessMsg(t(msgKey).replace('{email}', email));
-      setForm({ full_name: '', email: '', phone: '', role_id: roles[0]?.id || 0 });
+      setForm({ full_name: '', email: '', phone: '', password: '', role_id: roles[0]?.id || 0 });
       reload();
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : t('failedToInvite'));
@@ -221,6 +223,20 @@ export default function StaffPage() {
               <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phoneOptional')}</label>
               <input className="input" value={form.phone}
                 onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('temporaryPassword')}</label>
+              <input
+                required
+                minLength={8}
+                type="password"
+                autoComplete="new-password"
+                className="input"
+                value={form.password}
+                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                placeholder={t('atLeast8Chars')}
+              />
+              <p className="mt-1 text-xs text-fg-muted">{t('temporaryPasswordHint')}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-fg-secondary mb-1">{t('role')}</label>
