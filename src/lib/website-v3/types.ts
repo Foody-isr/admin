@@ -54,6 +54,7 @@ export type ChainOrderEntryOverride = {
 };
 
 export type DraftAppearanceOverrides = {
+  foody_renderer_version?: number;
   bg?: string;
   ink?: string;
   accent?: string;

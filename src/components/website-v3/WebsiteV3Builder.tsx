@@ -79,6 +79,10 @@ import { PreviewCanvas } from "./PreviewCanvas";
 import { BranchWebsitePresence } from "./BranchWebsitePresence";
 import { websiteManagementMode } from "@/lib/website-v3/chain-mode";
 import { resolveWebsiteV3PreviewOrigin } from "@/lib/website-v3/preview-origin";
+import {
+  prepareWebsiteV3StateForPublication,
+  requireWebsiteV3RuntimeCapabilities,
+} from "@/lib/website-v3/runtime-capabilities";
 import { useI18n } from "@/lib/i18n";
 
 const EMPTY_CATALOG: ThemeCatalog = { themes: [], typography_pairings: [] };
@@ -156,6 +160,10 @@ function DesktopWebsiteV3Builder({
   restaurantId: number;
   chainOverview: ChainOverview;
 }) {
+  const webOrigin = resolveWebsiteV3PreviewOrigin(
+    process.env.NEXT_PUBLIC_WEB_URL,
+    typeof window === "undefined" ? undefined : window.location.origin,
+  );
   const showBranchSelector =
     chainOverview.chain_id !== null &&
     chainOverview.primary_restaurant_id === restaurantId &&
@@ -221,6 +229,7 @@ function DesktopWebsiteV3Builder({
     setLoading(true);
     setLoadError(null);
     Promise.all([
+      requireWebsiteV3RuntimeCapabilities(webOrigin),
       getWebsiteDraft(restaurantId),
       getWebsitePages(restaurantId),
       getRestaurant(restaurantId),
@@ -236,6 +245,7 @@ function DesktopWebsiteV3Builder({
         })),
     ])
       .then(([
+        _runtimeCapabilities,
         draft,
         publishedPages,
         restaurant,
@@ -313,7 +323,7 @@ function DesktopWebsiteV3Builder({
     return () => {
       active = false;
     };
-  }, [autosave, restaurantId, retryToken]);
+  }, [autosave, restaurantId, retryToken, webOrigin]);
 
   const state = loaded?.draft.state ?? null;
   const availableReferences = useMemo(
@@ -816,11 +826,21 @@ function DesktopWebsiteV3Builder({
       );
       return;
     }
+    try {
+      await requireWebsiteV3RuntimeCapabilities(webOrigin);
+    } catch (error: unknown) {
+      setGlobalError(readError(error));
+      return;
+    }
     lockEditor();
     lifecycleRef.current += 1;
     setGlobalError(null);
     try {
       await autosave.beginLifecycle("publish");
+      await saveWebsiteDraft(
+        restaurantId,
+        prepareWebsiteV3StateForPublication(state),
+      );
       setSaveStatus("saved");
       const activePageBeforePublish = activePage;
       const response = normalizeDraftResponse(
@@ -924,10 +944,6 @@ function DesktopWebsiteV3Builder({
     );
   }
 
-  const webOrigin = resolveWebsiteV3PreviewOrigin(
-    process.env.NEXT_PUBLIC_WEB_URL,
-    typeof window === "undefined" ? undefined : window.location.origin,
-  );
   const publicUrl = publicURLForPage({
     webOrigin,
     restaurantSlug: loaded.restaurant.slug || String(restaurantId),
