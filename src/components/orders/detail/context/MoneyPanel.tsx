@@ -151,9 +151,9 @@ export function MoneyPanel({
   return (
     <section
       aria-labelledby={`order-${order.id}-payment-summary`}
-      className="overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface)]"
+      className="mt-[var(--s-3)] border-t border-[var(--line-strong)] pt-[var(--s-4)]"
     >
-      <div className="order-detail-money-head border-b border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)]">
+      <div className="order-detail-money-head pb-[var(--s-3)]">
         <div className="flex items-start justify-between gap-[var(--s-4)]">
           <div className="min-w-0">
             <span
@@ -180,7 +180,7 @@ export function MoneyPanel({
         <CashTag order={order} variant="full" className="mt-[var(--s-2)] bg-[var(--surface)]" />
       </div>
 
-      <div className="order-detail-money-body flex flex-col gap-[var(--s-2)] px-[var(--s-4)] py-[var(--s-3)] text-fs-sm">
+      <div className="order-detail-money-body flex flex-col gap-[var(--s-2)] border-t border-[var(--line)] pt-[var(--s-3)] text-fs-sm">
           {/*
             The ledger. A two-column baseline grid rather than a stack of
             flex rows, so every figure lands on one axis and the decimal

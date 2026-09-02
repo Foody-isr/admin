@@ -659,7 +659,7 @@ input::placeholder, textarea::placeholder {
     padding-block: var(--s-2);
   }
   .order-detail-context-stack {
-    gap: var(--s-2);
+    gap: 0;
   }
   .order-detail-service > section {
     padding-block: var(--s-1);
@@ -670,9 +670,13 @@ input::placeholder, textarea::placeholder {
   .order-detail-service > section > div:first-child {
     margin-block-end: 6px;
   }
-  .order-detail-money-head,
+  .order-detail-money-head {
+    padding-block-start: 0;
+    padding-block-end: var(--s-2);
+  }
   .order-detail-money-body {
-    padding-block: var(--s-2);
+    padding-block-start: var(--s-2);
+    padding-block-end: 0;
   }
 }
 

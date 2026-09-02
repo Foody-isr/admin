@@ -31,9 +31,10 @@ export function CustomerHistoryStrip({
   if (state.status === 'idle' || state.status === 'unavailable') return null;
 
   if (state.status === 'loading') {
-    // Same height as the loaded strip, so nothing shifts underneath it.
+    // Reserve only the inline history row. This used to be a full-width gray
+    // card, which made ambient customer context look like a separate panel.
     return (
-      <div className="mt-[var(--s-2)] flex items-center gap-[var(--s-3)] rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-3)] py-[var(--s-2)]">
+      <div className="mt-[var(--s-2)] flex min-h-6 items-center gap-[var(--s-3)]">
         <Skeleton className="h-4 w-20" />
         <Skeleton className="h-4 w-16" />
         <Skeleton className="h-4 w-24" />
@@ -46,7 +47,7 @@ export function CustomerHistoryStrip({
   // A first-timer's "1 commande" says nothing. That they are new says a lot.
   if (orderCount <= 1) {
     return (
-      <div className="mt-[var(--s-2)] rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-3)] py-[var(--s-2)]">
+      <div className="mt-[var(--s-2)] flex min-h-6 items-center">
         <Badge tone="brand">{t('customerNew')}</Badge>
       </div>
     );
@@ -63,7 +64,7 @@ export function CustomerHistoryStrip({
     : null;
 
   return (
-    <div className="mt-[var(--s-2)] flex flex-wrap items-baseline gap-x-[var(--s-3)] gap-y-1 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-xs text-[var(--fg-muted)]">
+    <div className="mt-[var(--s-2)] flex min-h-6 flex-wrap items-center gap-x-[var(--s-3)] gap-y-1 text-fs-xs text-[var(--fg-muted)]">
       <span>
         <span className="num text-[var(--fg)] font-medium">{orderCount}</span>{' '}
         {t('customerOrdersCount')}
