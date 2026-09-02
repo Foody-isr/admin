@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Polygon, Circle, Polyline, Tooltip, us
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { DeliveryZone } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 const BRAND = '#F18A47';
 const RESTAURANT_GREEN = '#5BBF84';
@@ -66,7 +67,7 @@ export default function ZoneMap({
   const draftLatLng = useMemo(() => toLatLng(draftPolygon), [draftPolygon]);
 
   return (
-    <div className={className}>
+    <div className={cn('isolate', className)}>
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={13}
