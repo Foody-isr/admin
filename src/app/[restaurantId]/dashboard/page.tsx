@@ -182,6 +182,15 @@ function fmtMoney(n: number, locale = 'fr-FR', digits = 0) {
   }).format(n);
 }
 
+function fmtPercentDelta(n: number, locale = 'fr-FR') {
+  return new Intl.NumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    signDisplay: 'exceptZero',
+  }).format(n / 100);
+}
+
 function pct(now: number, before: number) {
   if (!before) return now > 0 ? 100 : 0;
   return ((now - before) / before) * 100;
@@ -576,12 +585,14 @@ export default function DashboardPage() {
         t={t}
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-[var(--s-5)] items-start">
+      <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_360px] gap-[var(--s-5)] items-start">
         <div className="flex flex-col gap-[var(--s-5)] min-w-0">
           <PerformanceOverview
             title={t('performance')}
             chartNote={chartCapped && !serieMode ? t('dashChartLast90') : undefined}
             metrics={metrics}
+            revenue={current?.total_revenue ?? 0}
+            locale={dateLocale}
             showDelta={showDelta}
             comparisonLabel={vsLabel}
             chart={(
@@ -620,10 +631,16 @@ export default function DashboardPage() {
 
         <Section
           title={t('recentOrders')}
-          className="mb-0 overflow-hidden"
+          className="mb-0 overflow-hidden shadow-none"
           aside={
-            <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/orders/all`)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/${rid}/orders/all`)}
+              className="text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
+            >
               {t('seeAll')}
+              <ArrowRight />
             </Button>
           }
         >
@@ -675,6 +692,42 @@ interface DashboardMetric {
   accent: string;
 }
 
+function FormattedMoney({
+  amount,
+  locale,
+  digits = 0,
+  className,
+}: {
+  amount: number;
+  locale: string;
+  digits?: number;
+  className?: string;
+}) {
+  const parts = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'ILS',
+    currencyDisplay: 'narrowSymbol',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).formatToParts(amount);
+
+  return (
+    <div className={`whitespace-nowrap tabular-nums ${className ?? ''}`} aria-label={fmtMoney(amount, locale, digits)}>
+      {parts.map((part, index) => {
+        if (part.type === 'literal') return null;
+        if (part.type === 'currency') {
+          return (
+            <span key={`${part.type}-${index}`} className="mx-[0.14em] inline-block text-[0.58em] font-semibold leading-none tracking-normal">
+              {part.value}
+            </span>
+          );
+        }
+        return <span key={`${part.type}-${index}`}>{part.value}</span>;
+      })}
+    </div>
+  );
+}
+
 // Label with an optional ⓘ tooltip — shared by the compact (mobile) and full
 // (desktop) KPI renders so the caveat markup lives in one place.
 function kpiLabel(label: string, hint?: string) {
@@ -705,13 +758,13 @@ function DashboardPeriodControl({
     <div
       role="group"
       aria-label={t('dashboardAnalyzedPeriod')}
-      className="inline-flex items-stretch min-h-11 rounded-[var(--r-lg)] border border-[var(--line-strong)] bg-[var(--surface)] shadow-1 p-1"
+      className="inline-flex flex-wrap items-stretch gap-[var(--s-2)]"
     >
       <Menu>
         <MenuTrigger asChild>
           <button
             type="button"
-            className="group flex items-center gap-[var(--s-2)] rounded-[var(--r-md)] px-[var(--s-3)] text-left hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-ring transition-colors"
+            className="group flex min-h-11 items-center gap-[var(--s-2)] rounded-[var(--r-lg)] border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-left hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-ring transition-colors"
           >
             <span className="w-7 h-7 rounded-[var(--r-sm)] grid place-items-center bg-[var(--brand-50)] text-[var(--brand-600)]">
               <BasisIcon className="w-4 h-4" />
@@ -742,8 +795,7 @@ function DashboardPeriodControl({
           </MenuItem>
         </MenuContent>
       </Menu>
-      <div className="my-1 w-px bg-[var(--line)]" />
-      <div className="flex items-stretch [&>div]:flex [&>div]:items-stretch [&>div>button]:!border-0 [&>div>button]:!rounded-[var(--r-md)] [&>div>button]:!px-[var(--s-3)] [&>div>button]:font-semibold [&>div>button]:text-[var(--fg)]">
+      <div className="flex items-stretch [&>div]:flex [&>div]:items-stretch [&>div>button]:!min-h-11 [&>div>button]:!rounded-[var(--r-lg)] [&>div>button]:!border-[var(--line-strong)] [&>div>button]:!bg-[var(--surface)] [&>div>button]:!px-[var(--s-4)] [&>div>button]:font-semibold [&>div>button]:text-[var(--fg)]">
         {picker}
       </div>
     </div>
@@ -804,7 +856,8 @@ function OperationsBar({
     message = t('dashboardUrgentReview').replace('{count}', String(summary.pendingReview));
     action = t('dashboardActionReview');
   } else if ((summary.payments ?? 0) > 0) {
-    message = t('dashboardUrgentPayments').replace('{count}', String(summary.payments));
+    message = t(summary.payments === 1 ? 'dashboardUrgentPayment' : 'dashboardUrgentPayments')
+      .replace('{count}', String(summary.payments));
     action = t('dashboardActionCollect');
   } else if (summary.ready > 0) {
     message = t('dashboardUrgentReady').replace('{count}', String(summary.ready));
@@ -821,34 +874,34 @@ function OperationsBar({
   ];
 
   return (
-    <section className="mb-[var(--s-5)] border-y border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_65%,var(--surface))] px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-4)]">
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(250px,1fr)_auto_auto] gap-[var(--s-4)] xl:gap-[var(--s-5)] items-center">
+    <section className="mb-[var(--s-5)] border-y border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_65%,var(--surface))] px-[var(--s-4)] py-[var(--s-5)] md:px-[var(--s-5)] md:py-[var(--s-6)]">
+      <div className="grid grid-cols-1 items-center gap-[var(--s-5)] xl:grid-cols-[minmax(280px,1fr)_minmax(460px,auto)_auto] xl:gap-[var(--s-4)]">
         <div className="flex items-center gap-[var(--s-3)] min-w-0">
           <div
-            className="w-9 h-9 rounded-full grid place-items-center shrink-0"
+            className="h-11 w-11 rounded-full grid place-items-center shrink-0"
             style={{
               color: unavailable ? 'var(--fg-muted)' : hasUrgency ? 'var(--warning-500)' : 'var(--success-500)',
               background: unavailable ? 'var(--surface-3)' : hasUrgency ? 'var(--warning-50)' : 'var(--success-50)',
             }}
           >
-            {unavailable || hasUrgency ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+            {unavailable || hasUrgency ? <AlertTriangle className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold text-[var(--fg-subtle)]">{t('dashboardNow')}</div>
-            <p className="text-fs-sm font-medium text-[var(--fg)] mt-0.5 truncate">{message}</p>
+            <div className="text-fs-xs font-semibold text-[var(--fg-subtle)]">{t('dashboardNow')}</div>
+            <p className="mt-1 text-fs-lg font-semibold leading-snug text-[var(--fg)]">{message}</p>
             {!unavailable && summary.oldestCreatedAt && summary.active > 0 && (
-              <p className="text-[11px] text-[var(--fg-muted)] mt-0.5">
+              <p className="mt-1 text-fs-xs leading-snug text-[var(--fg-muted)]">
                 {t('dashboardOldestOrder').replace('{age}', relTime(summary.oldestCreatedAt))}
               </p>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-4 divide-x divide-[var(--line)] min-w-0">
+        <div className="grid min-w-0 grid-cols-2 divide-x divide-[var(--line)] sm:grid-cols-4">
           {stats.map((stat) => (
-            <div key={stat.label} className="px-[var(--s-3)] first:pl-0 xl:first:pl-[var(--s-3)] min-w-[72px]">
-              <div className={`text-fs-lg font-semibold tabular-nums ${stat.attention ? 'text-[var(--warning-500)]' : 'text-[var(--fg)]'}`}>{stat.value}</div>
-              <div className="text-[10px] text-[var(--fg-muted)] truncate">{stat.label}</div>
+            <div key={stat.label} className="min-w-0 px-[var(--s-4)] first:pl-0 xl:first:pl-[var(--s-4)]">
+              <div className={`text-[24px] font-semibold leading-none tabular-nums ${stat.attention ? 'text-[var(--warning-500)]' : 'text-[var(--fg)]'}`}>{stat.value}</div>
+              <div className="mt-1.5 text-[13px] leading-snug text-[var(--fg-muted)] lg:text-[14px]">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -866,6 +919,8 @@ function PerformanceOverview({
   title,
   chartNote,
   metrics,
+  revenue,
+  locale,
   showDelta,
   comparisonLabel,
   chart,
@@ -874,6 +929,8 @@ function PerformanceOverview({
   title: string;
   chartNote?: string;
   metrics: DashboardMetric[];
+  revenue: number;
+  locale: string;
   showDelta: boolean;
   comparisonLabel: string;
   chart?: React.ReactNode;
@@ -882,45 +939,44 @@ function PerformanceOverview({
   const primary = metrics[0];
   const primaryUp = primary.delta >= 0;
   return (
-    <section className="bg-[var(--surface)] border border-[var(--line)] rounded-[var(--r-xl)] overflow-hidden shadow-2">
-      <div
-        className="h-1.5"
-        style={{ background: 'linear-gradient(90deg, var(--brand-500) 0 62%, var(--cat-5) 62% 80%, var(--cat-4) 80% 91%, var(--success-500) 91%)' }}
-      />
-      <div style={{ background: 'linear-gradient(125deg, color-mix(in oklab, var(--brand-500) 9%, var(--surface)) 0%, var(--surface) 58%, color-mix(in oklab, var(--cat-5) 5%, var(--surface)) 100%)' }}>
+    <section className="overflow-hidden rounded-[var(--r-xl)] border border-[var(--line)] bg-[var(--surface)] shadow-1">
+      <div className="h-1.5 bg-[var(--brand-500)]" />
+      <div style={{ background: 'linear-gradient(120deg, color-mix(in oklab, var(--brand-500) 7%, var(--surface)) 0%, var(--surface) 48%)' }}>
         <header className="px-[var(--s-5)] md:px-[var(--s-8)] pt-[var(--s-5)] md:pt-[var(--s-8)] flex items-start justify-between gap-[var(--s-4)] flex-wrap">
           <h2 className="text-fs-xl font-semibold text-[var(--fg)]">{title}</h2>
           {chartNote && <span className="text-fs-xs text-[var(--fg-subtle)]">{chartNote}</span>}
         </header>
 
-        <div className="px-[var(--s-5)] md:px-[var(--s-8)] py-[var(--s-6)] md:pb-[var(--s-8)] grid grid-cols-1 md:grid-cols-[minmax(230px,1fr)_minmax(0,1.35fr)] gap-[var(--s-6)] md:gap-[var(--s-8)] items-end">
-          <div>
+        <div className="grid grid-cols-1 items-end gap-[var(--s-8)] px-[var(--s-5)] py-[var(--s-6)] md:px-[var(--s-8)] md:pb-[var(--s-8)] 2xl:grid-cols-[minmax(240px,0.72fr)_minmax(440px,1.28fr)] 2xl:gap-[var(--s-10)]">
+          <div className="min-w-0 2xl:pr-[var(--s-2)]">
             <div className="text-fs-sm font-medium text-[var(--fg-muted)]">{primary.label}</div>
-            <div className="text-[clamp(3rem,6vw,4.75rem)] font-semibold tracking-[-0.055em] leading-[.92] tabular-nums text-[var(--fg)] mt-[var(--s-3)]">
-              {primary.value}
-            </div>
+            <FormattedMoney
+              amount={revenue}
+              locale={locale}
+              className="mt-[var(--s-3)] text-[clamp(3rem,5vw,4rem)] font-semibold leading-[0.94] tracking-[-0.045em] text-[var(--fg)]"
+            />
             {showDelta && (
               <div className="flex items-center gap-[var(--s-2)] mt-[var(--s-4)] text-fs-xs flex-wrap">
                 <span
                   className={`rounded-full px-2.5 py-1 font-semibold tabular-nums ${primaryUp ? 'text-[var(--success-500)] bg-[var(--success-50)]' : 'text-[var(--danger-500)] bg-[var(--danger-50)]'}`}
                 >
-                  {primaryUp ? '↑' : '↓'} {primary.delta >= 0 ? '+' : ''}{primary.delta.toFixed(1)}%
+                  {primaryUp ? '↑' : '↓'} {fmtPercentDelta(primary.delta, locale)}
                 </span>
                 <span className="text-[var(--fg-muted)]">{comparisonLabel}</span>
               </div>
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-[var(--s-3)] md:border-l border-[var(--line-strong)] md:pl-[var(--s-6)]">
+          <div className="grid grid-cols-1 gap-[var(--s-5)] border-t border-[var(--line-strong)] pt-[var(--s-6)] sm:grid-cols-3 2xl:border-l 2xl:border-t-0 2xl:pl-[var(--s-10)] 2xl:pt-0">
             {metrics.slice(1).map((metric) => {
               const up = metric.delta >= 0;
               return (
-                <div key={metric.key} className="border-t-2 pt-[var(--s-3)] min-w-0" style={{ borderTopColor: metric.accent }}>
-                  <div className="text-[11px] text-[var(--fg-muted)] truncate">{kpiLabel(metric.label, metric.hint)}</div>
-                  <div className="text-[clamp(1.15rem,2vw,1.55rem)] font-semibold tabular-nums text-[var(--fg)] mt-1 truncate">{metric.value}</div>
+                <div key={metric.key} className="min-w-0 border-t-2 pt-[var(--s-3)]" style={{ borderTopColor: metric.accent }}>
+                  <div className="text-[13px] leading-snug text-[var(--fg-muted)]">{kpiLabel(metric.label, metric.hint)}</div>
+                  <div className="mt-2 whitespace-nowrap text-[clamp(1.35rem,1.8vw,1.75rem)] font-semibold leading-none tabular-nums text-[var(--fg)]">{metric.value}</div>
                   {showDelta && (
-                    <div className={`text-[11px] font-semibold tabular-nums mt-1 ${up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
-                      {up ? '↑' : '↓'} {metric.delta >= 0 ? '+' : ''}{metric.delta.toFixed(1)}%
+                    <div className={`mt-2 text-[12px] font-semibold tabular-nums ${up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
+                      {up ? '↑' : '↓'} {fmtPercentDelta(metric.delta, locale)}
                     </div>
                   )}
                 </div>
@@ -1034,11 +1090,11 @@ function MetricChart({
                 </div>
                 <div className="flex items-end h-full w-full justify-center gap-[2px]">
                   {hasPrevious && (
-                    <div className="w-full max-w-[11px] rounded-t-[2px] bg-[var(--line-strong)]" style={{ height: `${Math.max(1, (prior / max) * 100)}%` }} />
+                    <div className="w-full max-w-[11px] rounded-t-[2px] bg-[var(--line-strong)] opacity-75" style={{ height: `${Math.max(1, (prior / max) * 100)}%` }} />
                   )}
                   <div
                     className="w-full max-w-[16px] rounded-t-[3px] bg-[var(--brand-500)]"
-                    style={{ height: `${Math.max(1, (d.value / max) * 100)}%`, opacity: d.isLast ? 1 : 0.62 }}
+                    style={{ height: `${Math.max(1, (d.value / max) * 100)}%`, opacity: d.isLast ? 1 : 0.82 }}
                     title={fmt(d.value)}
                   />
                 </div>
@@ -1122,8 +1178,18 @@ function TopSellersPanel({
   return (
     <Section
       title={title}
-      className="mb-0 overflow-hidden"
-      aside={<Button variant="ghost" size="sm" onClick={onSeeAll}>{seeAllLabel}</Button>}
+      className="mb-0 overflow-hidden shadow-none"
+      aside={(
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onSeeAll}
+          className="text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
+        >
+          {seeAllLabel}
+          <ArrowRight />
+        </Button>
+      )}
     >
       {visible.length === 0 ? (
         <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{emptyLabel}</p>

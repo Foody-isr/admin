@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
+  AlertCircleIcon,
   ArrowRightLeftIcon,
   CheckIcon,
   ListChecksIcon,
@@ -158,25 +159,34 @@ function RouteRibbon({
   t,
 }: RouteRibbonProps) {
   const delivered = route.stops.filter((stop) => stop.status === 'delivered').length;
+  const unresolved = route.stops.filter((stop) => stop.needs_geocode).length;
   const ordered = [...route.stops].sort((a, b) => a.sequence - b.sequence);
   const progress = route.stops.length > 0 ? (delivered / route.stops.length) * 100 : 0;
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden shadow-none">
       <div className="h-1" style={{ background: color }} />
-      <CardHeader>
+      <CardHeader className="px-3 py-2.5">
         <button type="button" onClick={onSelectCourier} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: color }} />
           <span className="truncate text-fs-sm font-semibold text-[var(--fg)]">
             {courier?.full_name ?? `#${route.courier_id}`}
           </span>
         </button>
-        <Badge tone={routeStatusTone(route.status)}>
-          {t(`routeStatus${route.status.charAt(0).toUpperCase()}${route.status.slice(1)}`)}
-        </Badge>
+        <span className="flex shrink-0 items-center gap-1">
+          {unresolved > 0 && (
+            <Badge tone="warning" title={t('addressNeedsAttention')}>
+              <AlertCircleIcon className="h-3 w-3" />
+              {unresolved}
+            </Badge>
+          )}
+          <Badge tone={routeStatusTone(route.status)}>
+            {t(`routeStatus${route.status.charAt(0).toUpperCase()}${route.status.slice(1)}`)}
+          </Badge>
+        </span>
       </CardHeader>
-      <CardBody className="pt-0">
-        <div className="mb-3 grid grid-cols-3 gap-2 rounded-r-md bg-[var(--surface-2)] p-2 text-center">
+      <CardBody className="px-3 pb-3 pt-0">
+        <div className="mb-2 grid grid-cols-3 divide-x divide-[var(--line)] rounded-r-md bg-[var(--surface-2)] px-2 py-1.5 text-center">
           <div>
             <div className="text-fs-sm font-semibold text-[var(--fg)]">{route.stops.length}</div>
             <div className="text-[11px] text-[var(--fg-subtle)]">{t('deliveryPlanStops')}</div>
@@ -191,12 +201,12 @@ function RouteRibbon({
           </div>
         </div>
 
-        <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]">
+        <div className="mb-2 h-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
           <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: color }} />
         </div>
 
         {route.status === 'draft' && (
-          <div className="mb-3 flex flex-wrap items-center justify-end gap-2 border-b border-[var(--line)] pb-3">
+          <div className="mb-2 flex flex-wrap items-center justify-end gap-1.5 border-b border-[var(--line)] pb-2">
             <Button
               type="button"
               variant="secondary"
@@ -227,9 +237,6 @@ function RouteRibbon({
           <div className="flex flex-col">
             {ordered.map((stop, index) => {
               const window = deliveryEtaWindow(route, stop, locale);
-              const expectedArrival = window
-                ? buildDeliveryEtaLabel(t('deliveryExpectedArrival'), window)
-                : null;
               const address = formatDeliveryAddress({
                 address: stop.address,
                 city: stop.city,
@@ -254,7 +261,7 @@ function RouteRibbon({
                     onClick={() => onSelectStop(stop.id)}
                     className="flex min-w-0 flex-1 items-stretch text-left focus-visible:outline-none focus-visible:shadow-ring"
                   >
-                    <span className="relative flex w-14 shrink-0 flex-col items-center px-1 py-3 text-center">
+                    <span className="relative flex w-14 shrink-0 flex-col items-center px-1 py-2.5 text-center">
                       <span className="num text-fs-xs font-semibold" style={{ color }}>
                         {String(stop.sequence).padStart(2, '0')}
                       </span>
@@ -264,11 +271,11 @@ function RouteRibbon({
                         </span>
                       )}
                       {index < ordered.length - 1 && (
-                        <span className="absolute bottom-0 top-[58px] w-0.5 rounded-full opacity-60" style={{ background: color }} />
+                        <span className="absolute bottom-0 top-[52px] w-0.5 rounded-full opacity-60" style={{ background: color }} />
                       )}
                     </span>
 
-                    <span className="min-w-0 flex-1 py-3 pe-2">
+                    <span className="min-w-0 flex-1 py-2.5 pe-2">
                       <span className="block text-fs-sm font-semibold leading-snug text-[var(--fg)]">
                         {address?.line1 || stop.customer_name}
                       </span>
@@ -281,13 +288,18 @@ function RouteRibbon({
                           {t('deliveryNotes')}: {deliveryNotes}
                         </span>
                       )}
-                      {expectedArrival && (
+                      {window ? (
                         <span className="mt-1 block text-[11px] font-medium leading-snug text-[var(--info-500)]">
-                          {expectedArrival}
+                          {window.label}
                         </span>
-                      )}
+                      ) : stop.needs_geocode ? (
+                        <span className="mt-1 flex items-center gap-1 text-[11px] font-medium leading-snug text-[var(--warning-500)]">
+                          <AlertCircleIcon className="h-3 w-3 shrink-0" />
+                          {t('addressNeedsAttention')}
+                        </span>
+                      ) : null}
                     </span>
-                    <span className="num me-2 mt-3 h-fit shrink-0 rounded-r-md bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-[var(--fg-muted)] shadow-1">
+                    <span className="num me-2 mt-2.5 h-fit shrink-0 rounded-r-md bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-[var(--fg-muted)] shadow-1">
                       #{stop.order_id}
                     </span>
                   </button>
@@ -708,25 +720,33 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </div>
       )}
 
-      <div className="px-1">
-        <div className="mb-1 flex items-center gap-2 text-fs-xs font-semibold uppercase tracking-[0.12em] text-[var(--brand-500)]">
-          <RouteIcon className="h-4 w-4" />
-          {t('deliveryPlanEyebrow')}
+      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
+        <div>
+          <h1 className="flex items-center gap-2 text-fs-xl font-semibold text-[var(--fg)]">
+            <RouteIcon className="h-5 w-5 text-[var(--brand-500)]" />
+            {t('deliveryPlanTitle')}
+          </h1>
+          <p className="mt-1 max-w-2xl text-fs-sm text-[var(--fg-muted)]">{t('deliveryPlanIntro')}</p>
         </div>
-        <h1 className="text-fs-xl font-semibold text-[var(--fg)]">{t('deliveryPlanTitle')}</h1>
-        <p className="mt-1 max-w-2xl text-fs-sm text-[var(--fg-muted)]">{t('deliveryPlanIntro')}</p>
+        <div className="flex items-center gap-2 text-fs-xs text-[var(--fg-muted)]">
+          <Badge tone={unplannedOrders.length > 0 ? 'warning' : 'neutral'}>
+            {t('deliveryPlanUnplanned').replace('{count}', String(unplannedOrders.length))}
+          </Badge>
+          <Badge tone={routes.length > 0 ? 'info' : 'neutral'}>
+            <RouteIcon className="h-3 w-3" />
+            {routes.length} {t('deliveryPlanRoutes')}
+          </Badge>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[500px_minmax(0,1fr)] lg:items-start">
-        <div className="flex flex-col gap-4">
-          <Card className="overflow-hidden border-s-4 border-s-[var(--brand-500)]">
-            <CardHeader className="items-start">
+      <div className="grid grid-cols-1 gap-4 xl:h-[calc(100dvh-170px)] xl:min-h-[620px] xl:grid-cols-[minmax(330px,0.82fr)_minmax(380px,0.96fr)_minmax(420px,1.32fr)] xl:items-stretch">
+        <div className="flex min-h-0 flex-col gap-3 xl:overflow-y-auto xl:pe-1">
+          <Card className="overflow-hidden border-s-4 border-s-[var(--brand-500)] shadow-none">
+            <CardHeader className="items-start px-4 py-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-r-md bg-[var(--brand-500)] text-fs-sm font-bold text-white">1</span>
               <div className="min-w-0 flex-1">
                 <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanStepOne')}</h2>
-                <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">
-                  {t('deliveryPlanStepOneHint').replace('{count}', String(picked.size))}
-                </p>
+                <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">{t('deliveryPlanUnplanned').replace('{count}', String(unplannedOrders.length))}</p>
               </div>
               <Badge tone={picked.size > 0 ? 'info' : 'neutral'}>
                 {t('deliveryPlanAvailableCount')
@@ -734,14 +754,14 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   .replace('{available}', String(unplannedOrders.length))}
               </Badge>
             </CardHeader>
-            <CardBody className="pt-0">
-              {ready.length === 0 ? (
+            <CardBody className="px-4 pb-3 pt-0">
+              {unplannedOrders.length === 0 ? (
                 <div className="py-6 text-center">
                   <ListChecksIcon className="mx-auto mb-2 h-7 w-7 text-[var(--fg-subtle)]" />
                   <p className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('deliveryPlanNoUnplanned')}</p>
                 </div>
               ) : (
-                <div className="-mx-[var(--s-5)] overflow-x-auto">
+                <div className="-mx-4 max-h-[310px] overflow-auto">
                   <DataTable responsive={false} className="rounded-none border-0 bg-transparent shadow-none dark:bg-transparent">
                     <DataTableHead>
                       <DataTableHeadCell className="w-10 p-3"><Checkbox checked={allPicked} onCheckedChange={toggleAll} /></DataTableHeadCell>
@@ -750,8 +770,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                       <DataTableHeadCell className="p-3">{t('status')}</DataTableHeadCell>
                     </DataTableHead>
                     <DataTableBody>
-                      {ready.map((order, index) => {
-                        const plannedRoute = openRouteByOrderId.get(order.id);
+                      {unplannedOrders.map((order, index) => {
                         const address = formatDeliveryAddress({
                           address: order.delivery_address,
                           city: order.delivery_city,
@@ -759,26 +778,16 @@ export default function DispatcherView({ rid }: { rid: number }) {
                           apt: order.delivery_apt,
                           entryCode: order.delivery_entry_code,
                         }, t);
-                        const plannedDate = plannedRoute
-                          ? new Intl.DateTimeFormat(locale, { dateStyle: 'short' }).format(
-                            new Date(`${routePlanningDate(plannedRoute)}T12:00:00`),
-                          )
-                          : null;
-                        const plannedCourier = plannedRoute ? courierById.get(plannedRoute.courier_id) : null;
                         return (
                           <DataTableRow
                             key={order.id}
                             index={index}
-                            onClick={() => plannedRoute
-                              ? setDeparture(departureValueForRoute(plannedRoute, departure))
-                              : toggleOrder(order.id)}
+                            onClick={() => toggleOrder(order.id)}
                             className="cursor-pointer"
-                            title={plannedRoute ? t('deliveryPlanOpenRoute') : undefined}
                           >
                             <DataTableCell className="w-10 p-3">
                               <Checkbox
                                 checked={picked.has(order.id)}
-                                disabled={Boolean(plannedRoute)}
                                 onCheckedChange={() => toggleOrder(order.id)}
                                 onClick={(event) => event.stopPropagation()}
                               />
@@ -789,17 +798,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
                             </DataTableCell>
                             <DataTableCell className="p-3 text-fs-xs text-[var(--fg-muted)]">{address?.line1 || t('noAddress')}</DataTableCell>
                             <DataTableCell className="p-3">
-                              <div className="flex flex-wrap items-center gap-1">
-                                <Badge tone={order.status === 'ready_for_delivery' ? 'success' : 'warning'}>
-                                  {localizeStatus(order.status, t)}
-                                </Badge>
-                                {plannedRoute && <Badge tone="info">{t('deliveryPlanAlreadyPlanned')}</Badge>}
-                              </div>
-                              {plannedRoute && (
-                                <div className="mt-1 whitespace-nowrap text-[10px] font-medium text-[var(--info-500)]">
-                                  {plannedDate} · {plannedCourier?.full_name ?? `#${plannedRoute.courier_id}`}
-                                </div>
-                              )}
+                              <Badge tone={order.status === 'ready_for_delivery' ? 'success' : 'warning'}>
+                                {localizeStatus(order.status, t)}
+                              </Badge>
                             </DataTableCell>
                           </DataTableRow>
                         );
@@ -811,15 +812,15 @@ export default function DispatcherView({ rid }: { rid: number }) {
             </CardBody>
           </Card>
 
-          <Card className="overflow-hidden border-s-4 border-s-[var(--brand-300)]">
-            <CardHeader className="items-start">
+          <Card className="overflow-hidden border-s-4 border-s-[var(--brand-300)] shadow-none">
+            <CardHeader className="items-start px-4 py-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-r-md bg-[var(--brand-100)] text-fs-sm font-bold text-[var(--brand-700)]">2</span>
               <div>
                 <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanStepTwo')}</h2>
                 <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">{t('deliveryPlanStepTwoHint')}</p>
               </div>
             </CardHeader>
-            <CardBody className="space-y-4 pt-0">
+            <CardBody className="space-y-3 px-4 pb-4 pt-0">
               <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t('deliveryPlanDistributionMode')}>
                 {([
                   ['smart', SparklesIcon, 'deliveryPlanModeSmart', 'deliveryPlanModeSmartHint'],
@@ -925,8 +926,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
             </CardBody>
           </Card>
+        </div>
 
-          <div className="flex items-center justify-between px-1">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-r-xl border border-[var(--line)] bg-[var(--surface)]">
+          <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
             <div>
               <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanRoutes')}</h2>
               <p className="text-fs-xs text-[var(--fg-subtle)]">
@@ -936,38 +939,37 @@ export default function DispatcherView({ rid }: { rid: number }) {
             {routes.length > 0 && <Badge tone="neutral">{routes.length}</Badge>}
           </div>
 
-          {routes.length === 0 ? (
-            <Card>
-              <CardBody className="py-8 text-center">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+            {routes.length === 0 ? (
+              <div className="py-8 text-center">
                 <RouteIcon className="mx-auto mb-3 h-8 w-8 text-[var(--fg-subtle)]" />
                 <p className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('noStopsYet')}</p>
                 <p className="mx-auto mt-1 max-w-xs text-fs-xs text-[var(--fg-subtle)]">{t('deliveryPlanEmptyHint')}</p>
-              </CardBody>
-            </Card>
-          ) : routes.map((route) => (
-            <RouteRibbon
-              key={route.id}
-              route={route}
-              courier={courierById.get(route.courier_id)}
-              color={routeColorMap.get(route.id) ?? colorFor(0)}
-              locale={locale}
-              selectedStopId={selectedStopId}
-              busy={routeBusy === route.id}
-              onSelectCourier={() => setSelectedCourier((current) => current === route.courier_id ? null : route.courier_id)}
-              onSelectStop={(stopId) => {
-                setSelectedStopId(stopId);
-                setSelectedCourier(route.courier_id);
-                setMoveTarget(null);
-              }}
-              onOptimize={() => void recalculateRoute(route.id)}
-              onCancel={() => setUndoAction({ kind: 'route', routeId: route.id, stopCount: route.stops.length })}
-              t={t}
-            />
-          ))}
+              </div>
+            ) : routes.map((route) => (
+              <RouteRibbon
+                key={route.id}
+                route={route}
+                courier={courierById.get(route.courier_id)}
+                color={routeColorMap.get(route.id) ?? colorFor(0)}
+                locale={locale}
+                selectedStopId={selectedStopId}
+                busy={routeBusy === route.id}
+                onSelectCourier={() => setSelectedCourier((current) => current === route.courier_id ? null : route.courier_id)}
+                onSelectStop={(stopId) => {
+                  setSelectedStopId(stopId);
+                  setSelectedCourier(route.courier_id);
+                  setMoveTarget(null);
+                }}
+                onOptimize={() => void recalculateRoute(route.id)}
+                onCancel={() => setUndoAction({ kind: 'route', routeId: route.id, stopCount: route.stops.length })}
+                t={t}
+              />
+            ))}
+          </div>
+        </section>
 
-        </div>
-
-        <div className="relative hidden lg:block lg:sticky lg:top-4">
+        <div className="relative hidden min-h-0 xl:block">
           <DeliveryMap
             routes={layers}
             couriers={courierMarkers}
@@ -978,7 +980,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               setSelectedCourier(route?.courier_id ?? null);
               setMoveTarget(null);
             }}
-            className="h-[calc(100vh-180px)] min-h-[560px] overflow-hidden rounded-r-xl border border-[var(--line)]"
+            className="h-full min-h-[560px] overflow-hidden rounded-r-xl border border-[var(--line)]"
           />
 
           {selectedEntry && (
@@ -1003,6 +1005,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   {selectedWindow && (
                     <p className="mt-1 text-fs-xs font-medium leading-snug text-[var(--info-500)]">
                       {buildDeliveryEtaLabel(t('deliveryExpectedArrival'), selectedWindow)}
+                    </p>
+                  )}
+                  {!selectedWindow && selectedEntry.stop.needs_geocode && (
+                    <p className="mt-1 flex items-center gap-1 text-fs-xs font-medium leading-snug text-[var(--warning-500)]">
+                      <AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
+                      {t('addressNeedsAttention')}
                     </p>
                   )}
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-[var(--fg-subtle)]">
@@ -1066,7 +1074,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </div>
       </div>
 
-      <div className="rounded-r-lg border border-[var(--line)] p-3 text-fs-sm text-[var(--fg-subtle)] lg:hidden">
+      <div className="rounded-r-lg border border-[var(--line)] p-3 text-fs-sm text-[var(--fg-subtle)] xl:hidden">
         <MapPinIcon className="mr-2 inline h-4 w-4" />
         {t('dispatchDesktopHint')}
       </div>
