@@ -28,6 +28,7 @@ import { useWs } from '@/lib/ws-context';
 import {
   cancelDeliveryRoute,
   listDeliveryRoutes,
+  listOpenDeliveryRoutes,
   optimizeRoute,
   planDeliveryRoutes,
   transferRouteStop,
@@ -97,6 +98,22 @@ function defaultDepartureValue(): string {
   date.setMinutes(Math.ceil(date.getMinutes() / 15) * 15, 0, 0);
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function localDateTimeValue(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 16);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function routePlanningDate(route: DeliveryRoute): string {
+  return route.date.slice(0, 10);
+}
+
+function departureValueForRoute(route: DeliveryRoute, fallback: string): string {
+  if (route.planned_departure_at) return localDateTimeValue(route.planned_departure_at);
+  return `${routePlanningDate(route)}T${fallback.slice(11, 16) || '09:00'}`;
 }
 
 function routeStatusTone(status: DeliveryRoute['status']): 'neutral' | 'success' | 'info' | 'warning' {
@@ -300,6 +317,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const { t, locale } = useI18n();
   const { lastEvent } = useWs();
   const prevEvent = useRef(lastEvent);
+  const initialPlanResolved = useRef(false);
   const [routes, setRoutes] = useState<DeliveryRoute[]>([]);
   const [livePositions, setLivePositions] = useState<Map<number, { lat: number; lng: number; updatedAt: number }>>(new Map());
   const [ready, setReady] = useState<Order[]>([]);
@@ -332,16 +350,34 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [routeRows, candidateRows, courierRows] = await Promise.all([
+      const [routeRows, openRouteRows, candidateRows, courierRows] = await Promise.all([
         listDeliveryRoutes(rid, departure.slice(0, 10)),
+        listOpenDeliveryRoutes(rid),
         listOrders(rid, { type: 'delivery', status: 'accepted,in_kitchen,ready_for_delivery', payment_status: 'paid' }),
         listCouriers(rid),
       ]);
+      const routedOrderIds = new Set([
+        ...routeRows.flatMap((route) => route.stops.map((stop) => stop.order_id)),
+        ...openRouteRows.flatMap((route) => route.stops.map((stop) => stop.order_id)),
+      ]);
+      const available = candidateRows.orders.filter((order) => !routedOrderIds.has(order.id));
+
+      if (!initialPlanResolved.current) {
+        initialPlanResolved.current = true;
+        const candidateOrderIds = new Set(candidateRows.orders.map((order) => order.id));
+        const relatedOpenRoute = openRouteRows.find((route) =>
+          route.stops.some((stop) => candidateOrderIds.has(stop.order_id)),
+        );
+        if (routeRows.length === 0 && available.length === 0 && relatedOpenRoute) {
+          const recoveredDate = routePlanningDate(relatedOpenRoute);
+          if (recoveredDate !== departure.slice(0, 10)) {
+            setDeparture(departureValueForRoute(relatedOpenRoute, departure));
+            return;
+          }
+        }
+      }
+
       setRoutes(routeRows);
-      const routedOrderIds = new Set(routeRows.flatMap((route) => route.stops.map((stop) => stop.order_id)));
-      const available = candidateRows.orders.filter(
-        (order) => order.courier_id == null && !routedOrderIds.has(order.id),
-      );
       setReady(available);
       setCouriers(courierRows);
       setPicked((current) => {

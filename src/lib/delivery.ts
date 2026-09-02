@@ -213,6 +213,14 @@ export async function listDeliveryRoutes(restaurantId: number, date?: string): P
   return data.routes ?? [];
 }
 
+/** Draft and active routes across every planning date. */
+export async function listOpenDeliveryRoutes(restaurantId: number): Promise<DeliveryRoute[]> {
+  const data = await apiFetch<{ routes: DeliveryRoute[] }>(
+    `/api/v1/delivery/routes?${q(restaurantId, { scope: 'open' })}`, restaurantId,
+  );
+  return data.routes ?? [];
+}
+
 /** Report the courier's current GPS. 204 (no active route) and 429 (rate-limited)
  *  are both fine; the caller ignores the result. */
 export async function reportLocation(
