@@ -83,7 +83,7 @@ export function DeliveryPanel({
     <>
       {hasAddressBlock && (
         <ContextBlock label={t('deliveryAddress')}>
-          <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)] text-fs-sm">
+          <div className="text-fs-sm">
             {addr && (
               <div className="flex items-start gap-[var(--s-3)]">
                 <span
