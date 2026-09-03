@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CalendarClock,
-  CalendarDays,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -11,6 +9,8 @@ import {
 import { clampWeekStartDay, type WeekStartDay } from '@/lib/weeks';
 import { useI18n } from '@/lib/i18n';
 import type { DateBasis } from '@/lib/api';
+import { buttonVariants } from '@/components/ds';
+import { cn } from '@/lib/utils';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -213,6 +213,13 @@ export default function DateRangePicker({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Closing after the first série click deliberately keeps that single-day
+  // value, but reopening must begin a fresh selection rather than unexpectedly
+  // treating the next click as the old range's second endpoint.
+  useEffect(() => {
+    if (!open) setPicking('idle');
+  }, [open]);
+
   // Sync temp values when value prop changes
   useEffect(() => {
     setTempFrom(value.from);
@@ -234,8 +241,6 @@ export default function DateRangePicker({
       : `${fmt(value.from)} – ${fmt(value.to)}`;
   const hasBasisControl = basis !== undefined && onBasisChange !== undefined;
   const serieMode = basis === 'serie';
-  const basisLabel = serieMode ? t('dashboardServicesScheduled') : t('dashboardOrdersPlaced');
-  const BasisIcon = serieMode ? CalendarClock : CalendarDays;
   const seriesDateSet = useMemo(() => new Set(series.map((item) => item.date)), [series]);
 
   const days = daysInMonth(viewYear, viewMonth);
@@ -281,9 +286,26 @@ export default function DateRangePicker({
     const clicked = new Date(viewYear, viewMonth, day);
 
     if (serieMode) {
-      const selected = { from: startOfDay(clicked), to: endOfDay(clicked) };
+      const clickedFrom = startOfDay(clicked);
+      const clickedTo = endOfDay(clicked);
+
+      if (picking !== 'start') {
+        // Keep the first click as a valid single-série selection while leaving
+        // the calendar open so a second série can define the other endpoint.
+        const selected = { from: clickedFrom, to: clickedTo };
+        setTempFrom(selected.from);
+        setTempTo(selected.to);
+        setPicking('start');
+        onChange(selected, { literal: true });
+        return;
+      }
+
+      const selected = clicked < tempFrom
+        ? { from: clickedFrom, to: endOfDay(tempFrom) }
+        : { from: startOfDay(tempFrom), to: clickedTo };
       setTempFrom(selected.from);
       setTempTo(selected.to);
+      setPicking('idle');
       onChange(selected, { literal: true });
       setOpen(false);
       return;
@@ -344,19 +366,13 @@ export default function DateRangePicker({
         aria-expanded={open}
         aria-haspopup="dialog"
         className={hasBasisControl
-          ? 'flex min-h-11 max-w-[310px] items-center gap-2 rounded-[var(--r-lg)] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-left transition-colors hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-ring'
+          ? cn(buttonVariants({ variant: 'secondary', size: 'md' }), 'max-w-[310px]')
           : 'flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary hover:text-fg-primary transition-colors'}
         style={hasBasisControl ? undefined : { border: '1px solid var(--divider)' }}
       >
         {hasBasisControl ? (
           <>
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--r-sm)] bg-[var(--brand-50)] text-[var(--brand-600)]">
-              <BasisIcon className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-[10px] text-[var(--fg-subtle)]">{basisLabel}</span>
-              <span className="block truncate text-fs-sm font-semibold text-[var(--fg)]">{rangeLabel}</span>
-            </span>
+            <span className="min-w-0 truncate">{rangeLabel}</span>
             <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-[var(--fg-muted)]" />
           </>
         ) : rangeLabel}
@@ -381,13 +397,12 @@ export default function DateRangePicker({
                 <button
                   type="button"
                   onClick={activateSeries}
-                  className={`flex w-auto shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors sm:w-full sm:px-4 ${
+                  className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors sm:w-full sm:px-4 ${
                     serieMode
                       ? 'bg-[var(--brand-50)] font-semibold text-[var(--brand-700)]'
                       : 'text-fg-secondary hover:bg-[var(--surface-subtle)] hover:text-fg-primary'
                   }`}
                 >
-                  <CalendarClock className="h-3.5 w-3.5" />
                   {t('dashboardSeries')}
                 </button>
               )}
@@ -450,7 +465,10 @@ export default function DateRangePicker({
                 const disabled = serieMode && !isSerieDate;
                 const isToday = sameDay(date, now);
                 const isSelected = (!serieMode || isSerieDate) && (sameDay(date, tempFrom) || sameDay(date, tempTo));
-                const isInRange = !serieMode && inRange(date, tempFrom, tempTo);
+                // In série mode, highlight only actual séries inside the picked
+                // interval. Calendar days without a série remain muted even
+                // when they sit between the two selected endpoints.
+                const isInRange = inRange(date, tempFrom, tempTo) && (!serieMode || isSerieDate);
                 const isOffDay = !serieMode && workdaySet !== null && !workdaySet.has(date.getDay());
 
                 return (
@@ -465,7 +483,9 @@ export default function DateRangePicker({
                         : disabled
                         ? 'cursor-not-allowed text-fg-secondary opacity-25'
                         : isInRange
-                        ? 'bg-[var(--surface-subtle)] text-fg-primary'
+                        ? serieMode
+                          ? 'bg-[var(--brand-50)] font-semibold text-[var(--brand-700)]'
+                          : 'bg-[var(--surface-subtle)] text-fg-primary'
                         : isToday
                         ? 'font-bold text-fg-primary'
                         : 'text-fg-secondary hover:bg-[var(--surface-subtle)]'
