@@ -41,6 +41,7 @@ import {
   ZapIcon,
   AlertCircleIcon,
   MapPinIcon,
+  FlagIcon,
   Maximize2Icon,
   Minimize2Icon,
   PackageIcon,
@@ -136,14 +137,78 @@ function NoStopsCard({ t }: { t: (k: string) => string }) {
   );
 }
 
+/** Optional route endpoint rendered as part of the courier's stop timeline. */
+function RouteEndpointRow({
+  kind,
+  address,
+  lat,
+  lng,
+  t,
+}: {
+  kind: 'start' | 'end';
+  address: string;
+  lat?: number | null;
+  lng?: number | null;
+  t: (k: string) => string;
+}) {
+  const isStart = kind === 'start';
+  const Icon = isStart ? MapPinIcon : FlagIcon;
+  const accent = isStart ? 'var(--success-500)' : 'var(--danger-500)';
+
+  return (
+    <div
+      className={`relative flex items-stretch ${isStart ? 'border-b border-[var(--line)]' : ''}`}
+      style={{ background: `color-mix(in oklab, ${accent} 5%, var(--surface))` }}
+    >
+      <div className="relative flex w-16 shrink-0 justify-center py-4 sm:w-[76px]">
+        <span
+          className={`absolute start-1/2 w-0.5 -translate-x-1/2 ${
+            isStart ? 'bg-[var(--success-500)]' : 'bg-[var(--danger-500)]'
+          } ${
+            isStart ? 'bottom-0 top-8' : 'bottom-8 top-0'
+          }`}
+          aria-hidden="true"
+        />
+        <span
+          className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border shadow-1 ${
+            isStart
+              ? 'border-[var(--success-500)] bg-[var(--success-50)] text-[var(--success-500)]'
+              : 'border-[var(--danger-500)] bg-[var(--danger-50)] text-[var(--danger-500)]'
+          }`}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+      <div className="min-w-0 flex-1 py-3.5 pe-4">
+        <Badge tone={isStart ? 'success' : 'danger'} dot>
+          {t(isStart ? 'routeTimelineStartReminder' : 'routeTimelineTerminus')}
+        </Badge>
+        <p className="mt-2 break-words text-fs-md font-semibold leading-snug text-[var(--fg)] sm:text-fs-lg">
+          {address}
+        </p>
+        <NavigationAppMenu
+          destination={{ address, lat, lng }}
+          variant="ghost"
+          size="sm"
+          className="mt-2 -ms-2"
+          label={t('navigate')}
+          t={t}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** Hero card for the currently active stop. */
 function CurrentStopCard({
   stop,
   etaWindow,
+  hasFollowing,
   t,
 }: {
   stop: RouteStop;
   etaWindow: DeliveryEtaWindow | null;
+  hasFollowing: boolean;
   t: (k: string) => string;
 }) {
   const isArrived = stop.status === 'arrived';
@@ -155,7 +220,7 @@ function CurrentStopCard({
 
   return (
     <div
-      className="relative flex items-stretch border-b border-[var(--line)]"
+      className={`relative flex items-stretch ${hasFollowing ? 'border-b border-[var(--line)]' : ''}`}
       style={{ background: 'color-mix(in oklab, var(--brand-500) 4%, var(--surface))' }}
       aria-current="step"
     >
@@ -168,7 +233,9 @@ function CurrentStopCard({
             {etaWindow.start}<br />{etaWindow.end}
           </span>
         )}
-        <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-500)]" />
+        {hasFollowing && (
+          <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-500)]" />
+        )}
       </div>
 
       <div className="min-w-0 flex-1 py-5 pe-4">
@@ -231,6 +298,7 @@ function StopRow({
   busy,
   onMoveUp,
   onMoveDown,
+  hasFollowingEndpoint,
   t,
 }: {
   stop: RouteStop;
@@ -240,6 +308,7 @@ function StopRow({
   busy: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  hasFollowingEndpoint: boolean;
   t: (k: string) => string;
 }) {
   const isDelivered = stop.status === 'delivered';
@@ -256,7 +325,7 @@ function StopRow({
       className="relative flex items-stretch"
       style={{
         opacity: isDelivered ? 0.5 : 1,
-        borderBottom: index < total - 1 ? '1px solid var(--line)' : 'none',
+        borderBottom: index < total - 1 || hasFollowingEndpoint ? '1px solid var(--line)' : 'none',
       }}
     >
       <div className="relative flex w-16 shrink-0 flex-col items-center px-2 py-4 text-center sm:w-[76px] sm:py-5">
@@ -268,7 +337,7 @@ function StopRow({
             {etaWindow.start}<br />{etaWindow.end}
           </span>
         )}
-        {index < total - 1 && (
+        {(index < total - 1 || hasFollowingEndpoint) && (
           <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-300)]" />
         )}
       </div>
@@ -707,12 +776,22 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
               <NoStopsCard t={t} />
             ) : (
               <Card className="overflow-hidden">
+                {route.start_address && (
+                  <RouteEndpointRow
+                    kind="start"
+                    address={route.start_address}
+                    lat={route.start_lat}
+                    lng={route.start_lng}
+                    t={t}
+                  />
+                )}
                 {stops.map((stop, index) => (
                   stop.id === currentStop?.id ? (
                     <CurrentStopCard
                       key={stop.id}
                       stop={stop}
                       etaWindow={deliveryEtaWindow(route, stop, locale)}
+                      hasFollowing={index < stops.length - 1 || !!route.end_address}
                       t={t}
                     />
                   ) : (
@@ -725,10 +804,20 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
                       busy={busy}
                       onMoveUp={() => move(stop, -1)}
                       onMoveDown={() => move(stop, 1)}
+                      hasFollowingEndpoint={!!route.end_address}
                       t={t}
                     />
                   )
                 ))}
+                {route.end_address && (
+                  <RouteEndpointRow
+                    kind="end"
+                    address={route.end_address}
+                    lat={route.end_lat}
+                    lng={route.end_lng}
+                    t={t}
+                  />
+                )}
               </Card>
             )}
           </div>

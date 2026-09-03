@@ -101,30 +101,50 @@ function courierIcon(color: string, stale: boolean): L.DivIcon {
   return icon;
 }
 
-/** Fit the map to all visible points whenever the coordinate SET changes (not array identity). */
+/** Fit all geocodes once the responsive map has a real, stable visible size. */
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
   const key = points.map((p) => `${p[0]},${p[1]}`).join('|');
-  useEffect(() => {
-    if (points.length === 0) return;
-    if (points.length === 1) { map.setView(points[0], 14); return; }
-    map.fitBounds(L.latLngBounds(points), { padding: [40, 40] });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, key]);
-  return null;
-}
-
-/** Keep Leaflet in sync when its responsive container is collapsed or resized. */
-function SyncMapSize() {
-  const map = useMap();
 
   useEffect(() => {
     const container = map.getContainer();
-    const observer = new ResizeObserver(() => map.invalidateSize({ animate: false }));
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [map]);
+    let settleTimer: ReturnType<typeof setTimeout> | undefined;
 
+    const fitToPoints = () => {
+      const { width, height } = container.getBoundingClientRect();
+      if (width < 2 || height < 2) return;
+
+      map.invalidateSize({ animate: false });
+      if (points.length === 0) return;
+      if (points.length === 1) {
+        map.setView(points[0], 14, { animate: false });
+        return;
+      }
+      map.fitBounds(L.latLngBounds(points), {
+        animate: false,
+        maxZoom: 15,
+        padding: [32, 32],
+      });
+    };
+
+    const onResize = () => {
+      map.invalidateSize({ animate: false });
+      if (settleTimer) clearTimeout(settleTimer);
+      // The mobile map opens with a height transition. Fit after it settles so
+      // Leaflet measures the final viewport instead of the initial 0px box.
+      settleTimer = setTimeout(fitToPoints, 100);
+    };
+
+    fitToPoints();
+    const observer = new ResizeObserver(onResize);
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+      if (settleTimer) clearTimeout(settleTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, key]);
   return null;
 }
 
@@ -154,7 +174,6 @@ export default function DeliveryMap({
   return (
     <div className={cn('isolate', className)}>
       <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
-        <SyncMapSize />
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
