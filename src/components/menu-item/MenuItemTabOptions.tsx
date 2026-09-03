@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import type {
   MenuItem,
@@ -61,6 +61,7 @@ export default function MenuItemTabOptions({
   onDetachOptionSet,
   hideVariantsSection = false,
 }: Props) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
@@ -146,7 +147,7 @@ export default function MenuItemTabOptions({
                 {mod.price_delta !== 0 && (
                   <span className="font-mono tabular-nums text-fs-sm text-[var(--fg)]">
                     {mod.price_delta > 0 ? '+' : ''}
-                    ₪{mod.price_delta.toFixed(2)}
+                    {money(mod.price_delta)}
                   </span>
                 )}
                 {canEdit && (
@@ -245,7 +246,7 @@ export default function MenuItemTabOptions({
                         )}
                       </div>
                       <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
-                        ₪{(v.price ?? 0).toFixed(2)}
+                        {money(v.price ?? 0)}
                       </span>
                     </div>
                   );
@@ -317,7 +318,7 @@ export default function MenuItemTabOptions({
                         </span>
                       ) : (
                         <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
-                          ₪{displayPrice.toFixed(2)}
+                          {money(displayPrice)}
                         </span>
                       )}
                     </div>

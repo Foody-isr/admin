@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '@/components/ds';
 import { cn } from '@/lib/utils';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { resolveComboStepPreview, type AvailabilityState, type MenuItem, type ComboStep } from '@/lib/api';
 import { isEffectivelySoldOut } from '@/components/menu/AvailabilityPill';
 import type { ComboSelection, NewOrderLine } from './NewOrderItemModal';
@@ -125,6 +125,7 @@ interface NewOrderComboModalProps {
 }
 
 export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, open, onClose, onAdd, initialSelections, editKey }: NewOrderComboModalProps) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const steps = useMemo(() => (combo?.combo_steps ?? []).filter((s) => s.id != null), [combo]);
   const isEdit = !!editKey;
@@ -376,7 +377,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
       width={520}
       onSave={handleAdd}
       saveDisabled={!allComplete}
-      saveLabel={`${isEdit ? t('save') : t('addToOrder')} · ₪${totalPrice.toFixed(2)}`}
+      saveLabel={`${isEdit ? t('save') : t('addToOrder')} · ${money(totalPrice)}`}
     >
       <div className="flex flex-col gap-[var(--s-5)]">
         {steps.map((step) => {
@@ -443,7 +444,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                           </span>
                         )}
                         {opt.priceDelta > 0 && (
-                          <span className="text-fs-xs text-[var(--fg-muted)]">+₪{opt.priceDelta.toFixed(2)}</span>
+                          <span className="text-fs-xs text-[var(--fg-muted)]">+{money(opt.priceDelta)}</span>
                         )}
                       </button>
                       {!single && (

@@ -51,9 +51,15 @@ test("settled method is empty when nothing was ever recorded", () => {
   assert.equal(settledPaymentMethod(order()), "");
 });
 
-test("provider-settled covers both provider names and weight holds", () => {
+test("provider-settled covers every provider name and weight holds", () => {
+  // Every provider the server can settle through, not a subset: one this list
+  // forgets reads as hand-settled and the record becomes editable, when the
+  // money has moved and only a refund can reverse it. Mirrors the server's
+  // isManuallySettledPayment.
   assert.equal(isProviderSettled(order({ external_metadata: { payment_method: "sumit" } })), true);
   assert.equal(isProviderSettled(order({ external_metadata: { payment_method: "payplus" } })), true);
+  assert.equal(isProviderSettled(order({ external_metadata: { payment_method: "cibus" } })), true);
+  assert.equal(isProviderSettled(order({ external_metadata: { payment_method: "stancer" } })), true);
   assert.equal(isProviderSettled(order({ hold_amount: 120 })), true);
   assert.equal(isProviderSettled(order({ captured_amount: 120 })), true);
   assert.equal(isProviderSettled(order({ settlement_status: "held" })), true);

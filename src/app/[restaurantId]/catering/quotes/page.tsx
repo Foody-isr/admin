@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
   DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell,
@@ -107,6 +107,7 @@ function parseConfig(config: unknown): QuoteConfig {
 }
 
 export default function CateringQuotesPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -174,7 +175,7 @@ export default function CateringQuotesPage() {
                   {quote.event_city || '-'}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_quote_total')}>
-                  {`₪${quote.total.toFixed(2)}`}
+                  {money(quote.total)}
                 </DataTableCell>
                 <DataTableCell mobileLabel={t('catering_deposit')}>
                   <div className="flex items-center gap-1.5">
@@ -215,6 +216,7 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
   onClose: () => void;
   onReviewed: () => void;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const config = parseConfig(quote.config);
   const [adjustedTotal, setAdjustedTotal] = useState('');
@@ -317,7 +319,7 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
             {config.flow_prices.map((selection, index) => (
               <div key={`${selection.step_id ?? 'flow'}-${selection.option_id ?? index}`} className="flex items-start justify-between gap-4 text-sm">
                 <span><span className="text-fg-secondary">{selection.step_title}: </span><span className="font-medium text-fg-primary">{selection.quantity && selection.quantity > 1 ? `${selection.quantity} × ` : ''}{selection.label}</span></span>
-                <span className="shrink-0 text-fg-secondary">{selection.line_total ? `₪${selection.line_total.toFixed(2)}` : ''}</span>
+                <span className="shrink-0 text-fg-secondary">{selection.line_total ? money(selection.line_total) : ''}</span>
               </div>
             ))}
           </div>
@@ -332,7 +334,7 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
                   {typeof line.quantity === 'number' && <span className="text-fg-secondary"> ×{line.quantity}</span>}
                 </span>
                 <span className="text-fg-secondary">
-                  {typeof line.line_total === 'number' ? `₪${line.line_total.toFixed(2)}` : ''}
+                  {typeof line.line_total === 'number' ? money(line.line_total) : ''}
                 </span>
               </div>
             ))}
@@ -345,7 +347,7 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
               <div key={i} className="flex items-center justify-between text-sm">
                 <span className="text-fg-primary">{opt.name}</span>
                 <span className="text-fg-secondary">
-                  {typeof opt.line_total === 'number' ? `₪${opt.line_total.toFixed(2)}` : ''}
+                  {typeof opt.line_total === 'number' ? money(opt.line_total) : ''}
                 </span>
               </div>
             ))}
@@ -354,7 +356,7 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
 
         <div className="flex items-center justify-between text-sm font-semibold border-t pt-3" style={{ borderColor: 'var(--divider)' }}>
           <span className="text-fg-primary">{t('catering_quote_total')}</span>
-          <span className="text-fg-primary">{`₪${quote.total.toFixed(2)}`}</span>
+          <span className="text-fg-primary">{money(quote.total)}</span>
         </div>
 
         {quote.review_note && (
@@ -367,7 +369,7 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
         {quote.deposit_refunded_amount > 0 && (
           <div className="text-sm">
             <span className="text-fg-secondary">{t('catering_refund_refunded')}: </span>
-            <span className="text-fg-primary font-medium">{`₪${quote.deposit_refunded_amount.toFixed(2)}`}</span>
+            <span className="text-fg-primary font-medium">{money(quote.deposit_refunded_amount)}</span>
             {quote.deposit_refunded_at && (
               <span className="text-fg-secondary">{` · ${new Date(quote.deposit_refunded_at).toLocaleDateString()}`}</span>
             )}

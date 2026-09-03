@@ -16,7 +16,7 @@ import {
   type Order,
   type DateBasis,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
 import {
   clampWeekStartDay,
@@ -47,6 +47,7 @@ import {
   Section,
 } from '@/components/ds';
 import { InfoTip } from '@/components/help/InfoTip';
+import { DEFAULT_CURRENCY } from '@/lib/currency';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
@@ -168,10 +169,12 @@ const ORDER_TYPE_KEY: Record<string, 'dineIn' | 'pickup' | 'delivery'> = {
   delivery: 'delivery',
 };
 
-function fmtMoney(n: number, locale = 'fr-FR', digits = 0) {
+// The restaurant's own currency, not the app's: a Paris restaurant's dashboard
+// reads in euros. Callers hold the ISO code from `useCurrency()`.
+function fmtMoney(n: number, locale = 'fr-FR', digits = 0, currency = DEFAULT_CURRENCY) {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'ILS',
+    currency,
     currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
@@ -207,12 +210,12 @@ function seriesValue(metric: MetricKey, d: DaySummary): number {
   }
 }
 
-function formatMetric(metric: MetricKey, n: number, locale: string): string {
+function formatMetric(metric: MetricKey, n: number, locale: string, currency: string): string {
   switch (metric) {
     case 'revenue':
-      return fmtMoney(n, locale);
+      return fmtMoney(n, locale, 0, currency);
     case 'avgTicket':
-      return fmtMoney(n, locale, 1);
+      return fmtMoney(n, locale, 1, currency);
     default:
       return String(Math.round(n));
   }
@@ -247,6 +250,7 @@ export default function DashboardPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t, locale } = useI18n();
+  const { code: currency } = useCurrency();
   const dateLocale = DATE_LOCALES[locale];
 
   const [period, setPeriod] = useState<PeriodComparison | null>(null);
@@ -388,7 +392,7 @@ export default function DashboardPage() {
     {
       key: 'revenue',
       label: t('grossRevenue'),
-      value: fmtMoney(current?.total_revenue ?? 0, dateLocale),
+      value: fmtMoney(current?.total_revenue ?? 0, dateLocale, 0, currency),
       delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
       accent: 'var(--brand-500)',
     },
@@ -405,7 +409,7 @@ export default function DashboardPage() {
     {
       key: 'avgTicket',
       label: t('avgTicket'),
-      value: fmtMoney(current?.avg_ticket ?? 0, dateLocale, 1),
+      value: fmtMoney(current?.avg_ticket ?? 0, dateLocale, 1, currency),
       delta: pct(current?.avg_ticket ?? 0, previous?.avg_ticket ?? 0),
       accent: 'var(--cat-5)',
     },
@@ -531,7 +535,7 @@ export default function DashboardPage() {
               previousLabel={t('dashboardPreviousPeriod')}
               averageLabel={t('dashboardAverage')}
               peakLabel={t('dashboardPeak')}
-              fmt={(n) => formatMetric(metric, n, dateLocale)}
+              fmt={(n) => formatMetric(metric, n, dateLocale, currency)}
               emptyLabel={t('noSalesIn7Days')}
             />
           )}
@@ -582,7 +586,7 @@ export default function DashboardPage() {
                         {o.customer_name?.trim() || `#${o.id}`}
                       </div>
                       <div className="truncate text-fs-xs leading-snug text-[var(--fg-muted)]">
-                        {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')} · {fmtMoney(o.total_amount, dateLocale)}
+                        {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')} · {fmtMoney(o.total_amount, dateLocale, 0, currency)}
                       </div>
                     </div>
                     <span className="shrink-0 text-fs-xs text-[var(--fg-subtle)]">
@@ -632,16 +636,17 @@ function FormattedMoney({
   digits?: number;
   className?: string;
 }) {
+  const { code: currency } = useCurrency();
   const parts = new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'ILS',
+    currency,
     currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).formatToParts(amount);
 
   return (
-    <div className={`whitespace-nowrap tabular-nums ${className ?? ''}`} aria-label={fmtMoney(amount, locale, digits)}>
+    <div className={`whitespace-nowrap tabular-nums ${className ?? ''}`} aria-label={fmtMoney(amount, locale, digits, currency)}>
       {parts.map((part, index) => {
         if (part.type === 'literal') return null;
         if (part.type === 'currency') {
@@ -988,12 +993,13 @@ function ChannelMix({
   emptyLabel: string;
   ordersLabel: string;
 }) {
+  const { code: currency } = useCurrency();
   const total = data.reduce((sum, row) => sum + row.revenue, 0);
   return (
     <div>
       <div className="mb-[var(--s-2)] flex items-center justify-between gap-[var(--s-3)]">
         <h3 className="text-fs-sm font-semibold text-[var(--fg)]">{title}</h3>
-        {total > 0 && <span className="text-fs-xs tabular-nums text-[var(--fg-muted)]">{fmtMoney(total, locale)}</span>}
+        {total > 0 && <span className="text-fs-xs tabular-nums text-[var(--fg-muted)]">{fmtMoney(total, locale, 0, currency)}</span>}
       </div>
       {data.length === 0 || total <= 0 ? (
         <p className="text-fs-sm text-[var(--fg-subtle)] py-3">{emptyLabel}</p>
@@ -1012,7 +1018,7 @@ function ChannelMix({
                   <span className="truncate">{row.label}</span>
                   <span className="ml-auto tabular-nums">{Math.round((row.revenue / total) * 100)}%</span>
                 </div>
-                <div className="text-fs-sm font-medium tabular-nums text-[var(--fg)] mt-1">{fmtMoney(row.revenue, locale)}</div>
+                <div className="text-fs-sm font-medium tabular-nums text-[var(--fg)] mt-1">{fmtMoney(row.revenue, locale, 0, currency)}</div>
                 <div className="text-[10px] text-[var(--fg-subtle)]">{row.orders} {ordersLabel.toLocaleLowerCase(locale)}</div>
               </div>
             ))}
@@ -1040,6 +1046,7 @@ function TopSellersPanel({
   seeAllLabel: string;
   onSeeAll: () => void;
 }) {
+  const { code: currency } = useCurrency();
   const visible = sellers.slice(0, 5);
   const maxRevenue = Math.max(0, ...visible.map((seller) => seller.revenue));
   return (
@@ -1072,7 +1079,7 @@ function TopSellersPanel({
               <div className="hidden h-1 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-2)] min-[1700px]:block">
                 <div className="h-full bg-[var(--brand-500)]" style={{ width: `${maxRevenue > 0 ? (seller.revenue / maxRevenue) * 100 : 0}%` }} />
               </div>
-              <div className="min-w-[82px] text-right text-fs-xs font-semibold tabular-nums text-[var(--fg)]">{fmtMoney(seller.revenue, locale, 2)}</div>
+              <div className="min-w-[82px] text-right text-fs-xs font-semibold tabular-nums text-[var(--fg)]">{fmtMoney(seller.revenue, locale, 2, currency)}</div>
             </div>
           ))}
         </div>

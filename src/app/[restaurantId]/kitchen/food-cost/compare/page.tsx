@@ -12,7 +12,7 @@ import {
   MenuItemIngredient,
   ItemOptionOverride,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { COST_THRESHOLD, computeItemCostSummary, ItemCostSummary } from '@/lib/cost-utils';
 import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
@@ -26,6 +26,7 @@ const MAX_ITEMS = 6;
 // Side-by-side cost comparison for 2–6 menu items. Entry point: the food-cost
 // page (Cuisine → Coût alimentaire). URL: /{rid}/kitchen/food-cost/compare?ids=1,2,3
 export default function CompareCostsPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
@@ -272,7 +273,7 @@ export default function CompareCostsPage() {
           <MetricRow label={t('metricPrice') || 'Prix'} gridTemplate={gridTemplate}>
             {summaries.map(({ item, s }, i) => (
               <Cell key={item.id} style={rankStyle(i, priceRank.bestIdx, priceRank.worstIdx)}>
-                {s.displayPrice > 0 ? `${s.displayPrice.toFixed(2)} ₪` : '—'}
+                {s.displayPrice > 0 ? money(s.displayPrice) : '—'}
               </Cell>
             ))}
           </MetricRow>
@@ -286,7 +287,7 @@ export default function CompareCostsPage() {
                     className="hover:underline text-start"
                     title={t('showFoodCostBreakdown') || 'Détail du coût'}
                   >
-                    {s.foodCost.toFixed(2)} ₪
+                    {money(s.foodCost)}
                   </button>
                 ) : (
                   '—'
@@ -322,7 +323,7 @@ export default function CompareCostsPage() {
             {summaries.map(({ item, s }, i) => (
               <Cell key={item.id} style={rankStyle(i, marginRank.bestIdx, marginRank.worstIdx)}>
                 {s.displayPrice > 0 && s.hasIngredients
-                  ? `${s.margin.toFixed(2)} ₪`
+                  ? money(s.margin)
                   : '—'}
               </Cell>
             ))}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { XIcon } from 'lucide-react';
 import { getAnalyticsCustomerDetail, CustomerDetailResponse } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 
 const labelKeyMap: Record<string, string> = {
@@ -81,12 +81,13 @@ const sourceColors: Record<string, string> = {
 };
 
 function MonthlyChart({ data, noDataLabel }: { data: { month: string; total_spent: number }[]; noDataLabel: string }) {
+  const { money } = useCurrency();
   if (data.length === 0) return <span className="text-xs text-fg-secondary">{noDataLabel}</span>;
   const max = Math.max(...data.map(d => d.total_spent), 1);
   return (
     <div className="flex items-end gap-1 h-24">
       {data.map(d => (
-        <div key={d.month} className="flex-1 flex flex-col items-center gap-1" title={`${d.month}: ₪${d.total_spent.toFixed(0)}`}>
+        <div key={d.month} className="flex-1 flex flex-col items-center gap-1" title={`${d.month}: ${money(d.total_spent, { decimals: 0 })}`}>
           <div
             className="w-full bg-brand-500 rounded-t min-h-[2px]"
             style={{ height: `${(d.total_spent / max) * 100}%` }}
@@ -105,6 +106,7 @@ export default function CustomerDetailPanel({
   phone: string;
   onClose: () => void;
 }) {
+  const { money } = useCurrency();
   const [detail, setDetail] = useState<CustomerDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const { t } = useI18n();
@@ -147,7 +149,7 @@ export default function CustomerDetailPanel({
               <p className="text-sm text-fg-secondary">{detail.customer_phone}</p>
               <div className="grid grid-cols-3 gap-3 mt-3">
                 <div className="card text-center py-3">
-                  <div className="text-lg font-bold text-fg-primary">₪{detail.total_spent.toFixed(0)}</div>
+                  <div className="text-lg font-bold text-fg-primary">{money(detail.total_spent, { decimals: 0 })}</div>
                   <div className="text-xs text-fg-secondary">{t('totalSpentLabel')}</div>
                 </div>
                 <div className="card text-center py-3">
@@ -155,7 +157,7 @@ export default function CustomerDetailPanel({
                   <div className="text-xs text-fg-secondary">{t('ordersLabel')}</div>
                 </div>
                 <div className="card text-center py-3">
-                  <div className="text-lg font-bold text-fg-primary">₪{detail.avg_order_value.toFixed(0)}</div>
+                  <div className="text-lg font-bold text-fg-primary">{money(detail.avg_order_value, { decimals: 0 })}</div>
                   <div className="text-xs text-fg-secondary">{t('avgOrderLabel')}</div>
                 </div>
               </div>
@@ -214,7 +216,7 @@ export default function CustomerDetailPanel({
                           <td className="py-1.5 text-fg-primary">{p.name}</td>
                           <td className="py-1.5 text-right text-fg-secondary">{p.times_ordered}</td>
                           <td className="py-1.5 text-right text-fg-secondary">{p.total_quantity}</td>
-                          <td className="py-1.5 text-right font-medium text-fg-primary">₪{p.total_spent.toFixed(0)}</td>
+                          <td className="py-1.5 text-right font-medium text-fg-primary">{money(p.total_spent, { decimals: 0 })}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -277,7 +279,7 @@ export default function CustomerDetailPanel({
                         <tr key={o.id} className="border-b border-divider">
                           <td className="py-1.5 text-fg-secondary">{new Date(o.created_at).toLocaleDateString()}</td>
                           <td className="py-1.5 text-fg-secondary">{formatLabel(o.order_type)}</td>
-                          <td className="py-1.5 text-right font-medium text-fg-primary">₪{o.total_amount.toFixed(0)}</td>
+                          <td className="py-1.5 text-right font-medium text-fg-primary">{money(o.total_amount, { decimals: 0 })}</td>
                           <td className="py-1.5 text-fg-secondary">{formatLabel(o.payment_method)}</td>
                           <td className="py-1.5 text-right text-fg-secondary">{o.item_count}</td>
                         </tr>

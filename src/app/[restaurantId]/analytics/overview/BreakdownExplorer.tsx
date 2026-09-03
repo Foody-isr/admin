@@ -9,7 +9,7 @@ import {
   type BreakdownRow,
   type DateBasis,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { downloadCsv } from '@/lib/csv/export';
 import { Button, NumTd, Section, Table, TableShell, Tbody, Thead } from '@/components/ds';
 
@@ -39,6 +39,7 @@ export default function BreakdownExplorer({
   basis: DateBasis;
   locale: 'en' | 'he' | 'fr';
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const [dimension, setDimension] = useState<BreakdownDimension>('month');
   const [data, setData] = useState<BreakdownResult | null>(null);
@@ -70,7 +71,7 @@ export default function BreakdownExplorer({
 
   const locStr = locale === 'he' ? 'he-IL' : locale === 'en' ? 'en-US' : 'fr-FR';
   const fmtMoney = useCallback(
-    (n: number) => `₪${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
+    (n: number) => money(n, { decimals: 0, grouped: true }),
     [],
   );
 

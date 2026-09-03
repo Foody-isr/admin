@@ -32,10 +32,15 @@ export function formatGrams(grams: number | null | undefined): string | null {
   return `${trimZeros((grams / KG).toFixed(2))} kg`;
 }
 
-/** Format a per-kilo price: `₪89.00/kg`. Null when there is no price. */
-export function formatPricePerKg(pricePerKg: number | null | undefined): string | null {
+/** Format a per-kilo price: `₪89.00/kg`, `€89.00/kg`. Null when there is no
+ *  price. `currency` is the restaurant's symbol; omitted falls back to the
+ *  shekel. */
+export function formatPricePerKg(
+  pricePerKg: number | null | undefined,
+  currency?: string,
+): string | null {
   if (typeof pricePerKg !== 'number' || !Number.isFinite(pricePerKg) || pricePerKg <= 0) return null;
-  return `${formatMoney(pricePerKg)}/kg`;
+  return `${formatMoney(pricePerKg, { currency })}/kg`;
 }
 
 export interface WeightDrift {

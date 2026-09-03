@@ -16,7 +16,7 @@
 // on* callback props the host supplies.
 
 import { useEffect, useState } from 'react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { groupOrder } from '@/lib/orders/group-order';
 import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
@@ -102,6 +102,7 @@ export function OrderDetailModal({
   onEditCustomer, onToggleForceProduction, restaurantInfo, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
 }: OrderDetailModalProps) {
   const { t, locale, direction } = useI18n();
+  const { symbol: currencySign } = useCurrency();
 
   // WhatsApp order-confirmation recap ("Envoyer au client → Confirmation").
   const [recapOpen, setRecapOpen] = useState(false);
@@ -239,7 +240,7 @@ export function OrderDetailModal({
   // Built here rather than inside the timeline: the folded heading has to say
   // how many rows are inside. `audit.events` is NOT that number — the builder
   // recognises exactly two audit actions and drops the rest.
-  const activityEvents = buildActivityEvents(order, audit.events, t);
+  const activityEvents = buildActivityEvents(order, audit.events, t, currencySign);
   const forceProductionRevives =
     ['rejected', 'cancelled', 'refunded'].includes(order.status) && !order.force_production;
 

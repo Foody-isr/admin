@@ -21,6 +21,7 @@ import { Money } from '../primitives/Money';
 import { CashTag } from '@/components/orders/CashTag';
 import { initOrderPaymentLink, collectOrderBalance, type Order } from '@/lib/api';
 import { formatMoney } from '@/lib/format-money';
+import { useCurrency } from '@/lib/i18n';
 import { PAYMENT_TONE } from '@/lib/orders/status-presentation';
 import { paymentReference } from '@/lib/orders/payment';
 
@@ -49,6 +50,8 @@ export function MoneyPanel({
   totalsLine: number;
   t: (k: string) => string;
 }) {
+  const { symbol } = useCurrency();
+
   // Payment link, for orders awaiting online payment. Regenerated on demand
   // rather than stored, so staff can re-share it any time.
   const [payLink, setPayLink] = useState<string | null>(null);
@@ -301,7 +304,7 @@ export function MoneyPanel({
                       <span className="text-[var(--fg-subtle)]">
                         {t('editedAfterPaymentCharged')}
                       </span>
-                      <span className="font-mono tabular-nums">{formatMoney(chargedAmount)}</span>
+                      <span className="font-mono tabular-nums">{formatMoney(chargedAmount, { currency: symbol })}</span>
                     </div>
                     {paymentDrift > 0.005 && (
                       <div
@@ -309,7 +312,7 @@ export function MoneyPanel({
                         style={{ color: 'var(--warning-500)' }}
                       >
                         <span>{t('editedAfterPaymentToCollect')}</span>
-                        <span className="font-mono tabular-nums">{formatMoney(paymentDrift)}</span>
+                        <span className="font-mono tabular-nums">{formatMoney(paymentDrift, { currency: symbol })}</span>
                       </div>
                     )}
                     {paymentDrift < -0.005 && (
@@ -319,7 +322,7 @@ export function MoneyPanel({
                       >
                         <span>{t('editedAfterPaymentToRefund')}</span>
                         <span className="font-mono tabular-nums">
-                          {formatMoney(Math.abs(paymentDrift))}
+                          {formatMoney(Math.abs(paymentDrift), { currency: symbol })}
                         </span>
                       </div>
                     )}
@@ -352,7 +355,7 @@ export function MoneyPanel({
                             color: 'var(--warning-600)',
                           }}
                         >
-                          {formatMoney(order.balance_due)}
+                          {formatMoney(order.balance_due, { currency: symbol })}
                         </span>
                       </div>
                       {unpaidCount > 0 && (

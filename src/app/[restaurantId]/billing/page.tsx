@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { getSubscription, setupBilling, changePlan, SubscriptionDetail, PlanTier } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { CreditCardIcon, CheckCircleIcon, AlertTriangleIcon } from 'lucide-react';
 import { PageHead } from '@/components/ds';
 
@@ -37,6 +37,7 @@ const PLANS: { tier: PlanTier; nameKey: string; priceKey: string; featureKeys: s
 ];
 
 export default function BillingPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const searchParams = useSearchParams();
   const rid = Number(restaurantId);
@@ -265,7 +266,7 @@ export default function BillingPage() {
                 </div>
                 <div className="flex items-center gap-4 text-fg-secondary">
                   {evt.amount != null && (
-                    <span className="font-medium text-fg-primary">₪{evt.amount.toFixed(0)}</span>
+                    <span className="font-medium text-fg-primary">{money(evt.amount, { decimals: 0 })}</span>
                   )}
                   <span>{new Date(evt.created_at).toLocaleDateString('he-IL')}</span>
                 </div>

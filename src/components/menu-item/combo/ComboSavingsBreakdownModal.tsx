@@ -8,7 +8,7 @@
 // stack of fixed-width sections + footer with Close).
 
 import { AlertTriangle, Info } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import type { ComboSavingsBreakdown } from './pricing';
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
 }
 
 export default function ComboSavingsBreakdownModal({ comboName, breakdown, onClose }: Props) {
+  const { money } = useCurrency();
   const { t } = useI18n();
 
   // `incomparable` short-circuits saves/surcharge framing entirely — the
@@ -98,7 +99,7 @@ export default function ComboSavingsBreakdownModal({ comboName, breakdown, onClo
                             <span className="text-[var(--fg-muted)]"> · {c.variantName}</span>
                           )}
                         </span>
-                        <span className="tabular-nums">₪{c.soloPrice.toFixed(2)}</span>
+                        <span className="tabular-nums">{money(c.soloPrice)}</span>
                       </div>
                     ))}
                     <div
@@ -108,7 +109,7 @@ export default function ComboSavingsBreakdownModal({ comboName, breakdown, onClo
                       <span className="font-sans text-fs-xs uppercase tracking-[.06em] text-[var(--fg-subtle)]">
                         {t('savingsBreakdownStepTotalLabel')}
                       </span>
-                      <span className="tabular-nums">₪{step.stepTotal.toFixed(2)}</span>
+                      <span className="tabular-nums">{money(step.stepTotal)}</span>
                     </div>
                   </>
                 )}
@@ -138,11 +139,11 @@ export default function ComboSavingsBreakdownModal({ comboName, breakdown, onClo
               >
                 <div className="flex justify-between text-[var(--fg)]">
                   <span>{t('savingsBreakdownSoloTotalLabel')}</span>
-                  <span className="tabular-nums">₪{breakdown.soloTotal.toFixed(2)}</span>
+                  <span className="tabular-nums">{money(breakdown.soloTotal)}</span>
                 </div>
                 <div className="flex justify-between text-[var(--fg)]">
                   <span>− {t('savingsBreakdownComboPriceLabel')}</span>
-                  <span className="tabular-nums">₪{breakdown.basePrice.toFixed(2)}</span>
+                  <span className="tabular-nums">{money(breakdown.basePrice)}</span>
                 </div>
                 <div
                   className="flex justify-between pt-1.5 mt-1.5 border-t font-semibold tabular-nums items-center"
@@ -161,9 +162,9 @@ export default function ComboSavingsBreakdownModal({ comboName, breakdown, onClo
                       : t('savingsBreakdownEvenLabel')}
                   </span>
                   <span>
-                    {state === 'saves' && <>−₪{absSavings.toFixed(2)} · {absPct}%</>}
-                    {state === 'surcharge' && <>+₪{absSavings.toFixed(2)} · {absPct}%</>}
-                    {state === 'even' && <>±₪0</>}
+                    {state === 'saves' && <>−{money(absSavings)} · {absPct}%</>}
+                    {state === 'surcharge' && <>+{money(absSavings)} · {absPct}%</>}
+                    {state === 'even' && <>±{money(0)}</>}
                   </span>
                 </div>
               </div>

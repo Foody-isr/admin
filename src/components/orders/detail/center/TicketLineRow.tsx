@@ -5,6 +5,7 @@ import { EditIcon } from 'lucide-react';
 import { Badge } from '@/components/ds';
 import type { OrderItem } from '@/lib/api';
 import { formatGrams, formatPricePerKg, weightDrift } from '@/lib/orders/format-weight';
+import { useCurrency } from '@/lib/i18n';
 import { Money } from '../primitives/Money';
 
 /**
@@ -98,11 +99,12 @@ export function ModifierRows({ item }: { item: OrderItem }) {
  * because that is the difference staff will have to explain.
  */
 export function WeightRow({ item }: { item: OrderItem }) {
+  const { symbol } = useCurrency();
   if (item.pricing_mode !== 'by_weight') return null;
 
   const weighed = typeof item.actual_weight_grams === 'number';
   const grams = formatGrams(weighed ? item.actual_weight_grams : item.estimated_weight_grams);
-  const perKg = formatPricePerKg(item.price_per_kg);
+  const perKg = formatPricePerKg(item.price_per_kg, symbol);
   if (!grams && !perKg) return null;
 
   const drift = weightDrift(item.estimated_weight_grams, item.actual_weight_grams);

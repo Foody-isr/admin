@@ -10,7 +10,7 @@ import {
   getRestaurant,
   ModifierSetInput, StockItem, PrepItem, TranslationMap,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Plus, Trash2 } from 'lucide-react';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
@@ -84,6 +84,7 @@ function blankRow(sortOrder: number): ModifierRow {
 const ROW_GRID = '1fr 1fr 110px 70px 70px 140px 36px';
 
 export default function ModifierSetEditorPage() {
+  const { symbol } = useCurrency();
   const { restaurantId, setId } = useParams();
   const rid = Number(restaurantId);
   const isNew = setId === 'new';
@@ -435,7 +436,7 @@ export default function ModifierSetEditorPage() {
                       onChange={(n) => updateRow(i, { price_delta: n })}
                       className="w-full text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
                     />
-                    <span className="text-neutral-400 text-xs shrink-0">₪</span>
+                    <span className="text-neutral-400 text-xs shrink-0">{symbol}</span>
                   </div>
                   <div className="flex justify-center">
                     <input
@@ -523,7 +524,7 @@ export default function ModifierSetEditorPage() {
                   className="w-full text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
                   onKeyDown={(e) => { if (e.key === 'Enter') commitNewRow(); }}
                 />
-                <span className="text-neutral-400 text-xs shrink-0">₪</span>
+                <span className="text-neutral-400 text-xs shrink-0">{symbol}</span>
               </div>
               <span />
               <span />

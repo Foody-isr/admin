@@ -6,7 +6,7 @@ import {
   importMenuAI, importMenuFromURL, confirmMenuImport, previewTranslationsGrouped, getRestaurant,
   RichExtraction, TranslationReviewEntry,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { SparklesIcon, LinkIcon, ImageIcon, GlobeIcon } from 'lucide-react';
 import TranslationReviewTable from '@/components/translations/TranslationReviewTable';
@@ -18,6 +18,7 @@ import { isLocale, collectReviewEntries, dominantLocale } from '@/lib/menu-impor
 type ImportSource = 'photo' | 'wolt' | 'website';
 
 export default function MenuImportPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
@@ -452,8 +453,8 @@ export default function MenuImportPage() {
                           title={item.pricing_mode === 'by_weight' ? t('pricePerKgLabel') : undefined}
                         >
                           {item.pricing_mode === 'by_weight'
-                            ? `₪${(item.price_per_kg ?? 0).toFixed(2)}/kg`
-                            : `₪${item.price.toFixed(2)}`}
+                            ? `${money(item.price_per_kg ?? 0)}/kg`
+                            : money(item.price)}
                         </span>
                       </div>
                     );

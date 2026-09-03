@@ -21,7 +21,8 @@ import {
   UsersIcon,
   UtensilsCrossedIcon,
 } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
+import type { MoneyFormatter } from '@/lib/currency';
 import { usePermissions } from '@/lib/permissions-context';
 import { PageHead, Button } from '@/components/ds';
 import Modal from '@/components/Modal';
@@ -90,8 +91,11 @@ const WEEKDAYS = [
   'catering_flow_weekday_saturday',
 ] as const;
 
-function money(value: number): string {
-  return `₪${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value)}`;
+// Cents only when there are any: a catalogue of round prices should not read
+// as "₪35.00" down the page. The currency itself comes from the restaurant,
+// so `money` is passed in by the component rather than bound here.
+function offerMoney(value: number, money: MoneyFormatter): string {
+  return money(value, { decimals: Number.isInteger(value) ? 0 : 2, grouped: true });
 }
 
 function priceUnit(model: CateringPricingModel, t: (key: string) => string): string {
@@ -105,6 +109,7 @@ function offerPriceSummary(
   model: CateringPricingModel,
   flow: CateringFlowConfig,
   t: (key: string) => string,
+  money: MoneyFormatter,
 ): string {
   if (model === 'custom_quote' && item.base_price <= 0) return t('catering_offer_on_request');
   const rates = offerRateDrafts(flow, item.id).map((rate) => Number(rate.price)).filter((price) => price > 0);
@@ -112,7 +117,7 @@ function offerPriceSummary(
   const prices = [...rates, ...modePrices, ...(item.base_price > 0 ? [item.base_price] : [])];
   if (!prices.length) return t('catering_offer_price_missing');
   const prefix = prices.length > 1 || model === 'custom_quote' ? t('catering_offer_from') : '';
-  return `${prefix}${money(Math.min(...prices))}${priceUnit(model, t)}`;
+  return `${prefix}${offerMoney(Math.min(...prices), money)}${priceUnit(model, t)}`;
 }
 
 export default function CateringOfferGroupPage() {
@@ -121,6 +126,7 @@ export default function CateringOfferGroupPage() {
   const sid = Number(serviceId);
   const router = useRouter();
   const { t } = useI18n();
+  const { money } = useCurrency();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('catering.manage');
 
@@ -247,7 +253,7 @@ export default function CateringOfferGroupPage() {
                     </div>
                     {item.overview && <p className="mt-1 line-clamp-2 max-w-2xl text-sm leading-relaxed text-fg-secondary">{item.overview}</p>}
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-fg-secondary">
-                      <span className="font-bold text-brand-600">{offerPriceSummary(item, service?.pricing_model ?? 'per_person', flow, t)}</span>
+                      <span className="font-bold text-brand-600">{offerPriceSummary(item, service?.pricing_model ?? 'per_person', flow, t, money)}</span>
                       {(item.min_guests > 0 || item.min_quantity > 0) && (
                         <span className="inline-flex items-center gap-1"><UsersIcon className="h-3.5 w-3.5" />{t('catering_offer_minimum_short').replace('{n}', String(item.min_guests || item.min_quantity))}</span>
                       )}
@@ -332,6 +338,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
   onSaved: (updatedService?: CateringService) => void;
 }) {
   const { t } = useI18n();
+  const { money, symbol } = useCurrency();
   const flow = useMemo(() => normalizeCateringFlowConfig(service.flow_config), [service.flow_config]);
   const [openSection, setOpenSection] = useState<EditorSection>('identity');
   const [name, setName] = useState(editing?.name ?? '');
@@ -632,7 +639,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
           </div>
         </EditorAccordion>
 
-        <EditorAccordion id="pricing" open={openSection === 'pricing'} onOpen={setOpenSection} icon={<CircleDollarSignIcon />} title={t('catering_offer_section_pricing')} summary={editing ? offerPriceSummary(editing, service.pricing_model, flow, t) : t('catering_offer_section_pricing_hint')}>
+        <EditorAccordion id="pricing" open={openSection === 'pricing'} onOpen={setOpenSection} icon={<CircleDollarSignIcon />} title={t('catering_offer_section_pricing')} summary={editing ? offerPriceSummary(editing, service.pricing_model, flow, t, money) : t('catering_offer_section_pricing_hint')}>
           {service.pricing_model === 'custom_quote' ? (
             <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
               <p className="font-medium text-fg-primary">{t('catering_offer_custom_quote_title')}</p>
@@ -769,7 +776,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
                     <div>
                       <label className="block text-xs font-semibold text-fg-secondary">{t('catering_option_price')}</label>
                       <div className="relative mt-1">
-                        <span className="pointer-events-none absolute inset-y-0 start-3 flex items-center text-sm font-semibold text-fg-tertiary">₪</span>
+                        <span className="pointer-events-none absolute inset-y-0 start-3 flex items-center text-sm font-semibold text-fg-tertiary">{symbol}</span>
                         <input type="number" min={0} step="0.01" className="input !ps-8" value={option.price} onChange={(event) => setOptions((current) => current.map((candidate, candidateIndex) => candidateIndex === index ? { ...candidate, price: event.target.value } : candidate))} />
                       </div>
                     </div>

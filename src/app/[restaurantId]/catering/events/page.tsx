@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import {
   DataTable, DataTableHead, DataTableHeadCell,
   DataTableBody, DataTableRow, DataTableCell,
@@ -17,6 +17,7 @@ function formatEventDate(d: string | null): string {
 }
 
 export default function CateringEventsPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -81,7 +82,7 @@ export default function CateringEventsPage() {
                     : <Badge tone="warning">{t('catering_events_unassigned')}</Badge>}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_deposit')}>
-                  {`₪${ev.deposit_amount.toFixed(2)}`}
+                  {money(ev.deposit_amount)}
                 </DataTableCell>
               </DataTableRow>
             ))}

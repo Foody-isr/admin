@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { CalculatorIcon, ChevronDownIcon, EyeIcon, PlusIcon, ShieldCheckIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ds';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import {
   listCateringItems,
   updateCateringServiceFlow,
@@ -67,6 +67,7 @@ export function CateringPricingSimulator({ restaurantId, service, flow, compact 
   refreshKey?: number;
 }) {
   const { t } = useI18n();
+  const { money } = useCurrency();
   const [items, setItems] = useState<CateringCatalogItem[]>([]);
   const [selectedItemId, setSelectedItemId] = useState(0);
   const [guests, setGuests] = useState(30);
@@ -149,8 +150,8 @@ export function CateringPricingSimulator({ restaurantId, service, flow, compact 
         <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-brand-500/25" />
         <p className="relative text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">{t('catering_pricing_result')}</p>
         <div className="relative mt-3 flex items-end justify-between gap-3">
-          <div><strong className="text-3xl">{simulatedRate === undefined ? '—' : `₪${simulatedRate.toLocaleString()}`}</strong><p className="text-xs text-white/55">{t('catering_pricing_per_guest')}</p></div>
-          <div className="text-end"><p className="text-xs text-white/55">{t('catering_pricing_total')}</p><strong className="text-lg">{simulatedRate === undefined ? '—' : `₪${(simulatedRate * guests).toLocaleString()}`}</strong></div>
+          <div><strong className="text-3xl">{simulatedRate === undefined ? '—' : money(simulatedRate, { decimals: 0, grouped: true })}</strong><p className="text-xs text-white/55">{t('catering_pricing_per_guest')}</p></div>
+          <div className="text-end"><p className="text-xs text-white/55">{t('catering_pricing_total')}</p><strong className="text-lg">{simulatedRate === undefined ? '—' : money(simulatedRate * guests, { decimals: 0, grouped: true })}</strong></div>
         </div>
         <p className="relative mt-4 flex items-start gap-2 border-t border-white/15 pt-3 text-xs leading-5 text-white/70">
           <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-400" />
@@ -171,6 +172,7 @@ export default function CateringPricingEditor({ restaurantId, service, canEdit, 
   refreshKey?: number;
 }) {
   const { t } = useI18n();
+  const { money } = useCurrency();
   const [items, setItems] = useState<CateringCatalogItem[]>([]);
   const [flow, setFlow] = useState<CateringFlowConfig>(() => normalizeFlow(service.flow_config));
   const [selectedItemId, setSelectedItemId] = useState(0);
@@ -283,10 +285,10 @@ export default function CateringPricingEditor({ restaurantId, service, canEdit, 
         <div className={`relative overflow-hidden rounded-xl p-5 text-white ${matchingSpecific.length > 1 ? 'bg-red-600' : 'bg-neutral-900'}`}>
           <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-500/25" />
           <p className="relative text-xs font-bold uppercase tracking-[0.14em] text-white/60">{t('catering_pricing_result')}</p>
-          <p className="relative mt-4 text-4xl font-bold">{simulatedRate === undefined ? '—' : `₪${simulatedRate.toLocaleString()}`}</p>
+          <p className="relative mt-4 text-4xl font-bold">{simulatedRate === undefined ? '—' : money(simulatedRate, { decimals: 0, grouped: true })}</p>
           <p className="relative text-sm text-white/60">{t('catering_pricing_per_guest')}</p>
           <div className="relative mt-5 border-t border-white/15 pt-4">
-            <div className="flex items-center justify-between gap-3"><span className="text-sm text-white/60">{t('catering_pricing_total')}</span><strong className="text-xl">{simulatedRate === undefined ? '—' : `₪${(simulatedRate * guests).toLocaleString()}`}</strong></div>
+            <div className="flex items-center justify-between gap-3"><span className="text-sm text-white/60">{t('catering_pricing_total')}</span><strong className="text-xl">{simulatedRate === undefined ? '—' : money(simulatedRate * guests, { decimals: 0, grouped: true })}</strong></div>
             <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-white/70"><ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-400" />{matchingSpecific.length > 1 ? t('catering_pricing_conflict') : matched ? `${t('catering_pricing_rule_applied')} ${matched.label}` : t('catering_pricing_legacy_fallback')}</p>
           </div>
         </div>
@@ -321,6 +323,7 @@ function RuleCard({ rule, choiceSteps, slots, canEdit, onChange, onCondition, on
   onRemove: () => void;
 }) {
   const { t } = useI18n();
+  const { symbol } = useCurrency();
   const guestRange = condition(rule, 'guest_count');
   const day = condition(rule, 'weekday');
   const session = condition(rule, 'session_id');
@@ -329,7 +332,7 @@ function RuleCard({ rule, choiceSteps, slots, canEdit, onChange, onCondition, on
   return <article className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
     <div className="grid gap-3 lg:grid-cols-[1.2fr_180px_auto]">
       <Field label={t('catering_pricing_rule_name')}><input className="input" disabled={!canEdit} value={rule.label} onChange={(event) => onChange(rule.id, { label: event.target.value })} /></Field>
-      <Field label={t('catering_pricing_rate')}><div className="relative"><span className="pointer-events-none absolute inset-y-0 start-3 flex items-center font-semibold text-fg-tertiary">₪</span><input className="input !ps-8" type="number" min={0} step="0.01" disabled={!canEdit} value={rule.catalog_per_guest_rate} onChange={(event) => onChange(rule.id, { catalog_per_guest_rate: Number(event.target.value) })} /></div></Field>
+      <Field label={t('catering_pricing_rate')}><div className="relative"><span className="pointer-events-none absolute inset-y-0 start-3 flex items-center font-semibold text-fg-tertiary">{symbol}</span><input className="input !ps-8" type="number" min={0} step="0.01" disabled={!canEdit} value={rule.catalog_per_guest_rate} onChange={(event) => onChange(rule.id, { catalog_per_guest_rate: Number(event.target.value) })} /></div></Field>
       {canEdit && <button type="button" aria-label={t('delete')} onClick={onRemove} className="self-end rounded-lg p-3 text-fg-secondary hover:bg-red-500/10 hover:text-red-500"><Trash2Icon className="h-4 w-4" /></button>}
     </div>
     <label className="mt-3 flex items-center gap-2 text-sm font-medium text-fg-primary"><input type="checkbox" checked={isFallback} disabled={!canEdit} onChange={(event) => onChange(rule.id, { conditions: event.target.checked ? [] : [{ factor: 'guest_count', operator: 'between', min_value: '1', max_value: '30' }] })} />{t('catering_pricing_use_fallback')}</label>

@@ -146,7 +146,7 @@ export function buildSampleCombos(
   steps: ComboStepDraft[],
   itemsById: Map<number, MenuItem>,
   baseDefaultLabel: string,
-  upchargeLabelTemplate: string, // "Base + ₪{delta} upcharge ({variant})"
+  upchargeLabelTemplate: string, // "Base + {currency}{delta} upcharge ({variant})"
   cap = 4,
 ): SampleCombo[] {
   if (steps.length === 0) return [];

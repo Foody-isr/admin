@@ -2,6 +2,7 @@
 
 import { X, Info } from 'lucide-react';
 import { useEffect } from 'react';
+import { useCurrency } from '@/lib/i18n';
 
 export interface KPIInfo {
   title: string;
@@ -19,6 +20,7 @@ interface Props {
 // Figma-ported KPI info modal. Opens when a KPI card is clicked and shows
 // Description / Formule / Exemple / Interprétation.
 export default function KPIInfoModal({ kpiInfo, onClose }: Props) {
+  const { symbol } = useCurrency();
   useEffect(() => {
     if (!kpiInfo) return;
     const onKey = (e: KeyboardEvent) => {
@@ -62,14 +64,14 @@ export default function KPIInfoModal({ kpiInfo, onClose }: Props) {
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           <Section title="Description">
             <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
-              {kpiInfo.description}
+              {withCurrency(kpiInfo.description, symbol)}
             </p>
           </Section>
 
           <Section title="Formule de calcul">
             <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl p-4">
               <code className="text-orange-900 dark:text-orange-300 font-mono text-sm">
-                {kpiInfo.formula}
+                {withCurrency(kpiInfo.formula, symbol)}
               </code>
             </div>
           </Section>
@@ -78,7 +80,7 @@ export default function KPIInfoModal({ kpiInfo, onClose }: Props) {
             <Section title="Exemple">
               <div className="bg-neutral-50 dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-xl p-4">
                 <p className="text-neutral-700 dark:text-neutral-300 text-sm">
-                  {kpiInfo.example}
+                  {withCurrency(kpiInfo.example, symbol)}
                 </p>
               </div>
             </Section>
@@ -86,7 +88,7 @@ export default function KPIInfoModal({ kpiInfo, onClose }: Props) {
 
           <Section title="Interprétation">
             <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
-              {kpiInfo.interpretation}
+              {withCurrency(kpiInfo.interpretation, symbol)}
             </p>
           </Section>
         </div>
@@ -117,6 +119,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 // KPI information database — ported from foodyadmin_figma/src/app/components/KPIInfoModal.tsx.
+/** Resolve the `{currency}` placeholders these static help texts carry, the
+ *  same way `t()` does for translations. */
+function withCurrency(text: string | undefined, symbol: string): string {
+  return (text ?? '').split('{currency}').join(symbol);
+}
+
 export const KPI_INFO: Record<string, KPIInfo> = {
   // ── Dashboard ───────────────────────────────────────────────────
   'revenue': {
@@ -124,7 +132,7 @@ export const KPI_INFO: Record<string, KPIInfo> = {
     description:
       "Le chiffre d'affaires représente le montant total des ventes réalisées sur la période sélectionnée.",
     formula: 'CA = Somme de toutes les ventes',
-    example: "Si vous avez vendu 45 commandes pour un total de ₪2,845, votre CA est de ₪2,845.",
+    example: "Si vous avez vendu 45 commandes pour un total de {currency}2,845, votre CA est de {currency}2,845.",
     interpretation:
       "Un chiffre d'affaires en hausse indique une augmentation de l'activité. Comparez-le aux périodes précédentes pour identifier les tendances.",
   },
@@ -148,7 +156,7 @@ export const KPI_INFO: Record<string, KPIInfo> = {
     title: 'Ticket moyen',
     description: 'Le montant moyen dépensé par commande.',
     formula: 'Ticket moyen = Chiffre d\'affaires ÷ Nombre de commandes',
-    example: 'CA de ₪2,845 ÷ 45 commandes = ₪63.22 par commande.',
+    example: 'CA de {currency}2,845 ÷ 45 commandes = {currency}63.22 par commande.',
     interpretation:
       'Un ticket moyen élevé suggère que vos clients achètent plus. Augmentez-le avec des ventes additionnelles et des upsells.',
   },
@@ -174,7 +182,7 @@ export const KPI_INFO: Record<string, KPIInfo> = {
     title: 'Revenu Moyen',
     description: 'Le prix de vente moyen de tous vos articles.',
     formula: "Revenu moyen = Somme des prix ÷ Nombre d'articles",
-    example: 'Si la somme de vos prix est ₪148.5 pour 8 articles: ₪148.5 ÷ 8 = ₪18.5',
+    example: 'Si la somme de vos prix est {currency}148.5 pour 8 articles: {currency}148.5 ÷ 8 = {currency}18.5',
     interpretation:
       'Utilisez ce KPI pour vous assurer que votre tarification est cohérente et compétitive.',
   },
@@ -208,7 +216,7 @@ export const KPI_INFO: Record<string, KPIInfo> = {
     description: 'La valeur monétaire totale de votre stock actuel.',
     formula: 'Valeur = Somme (Quantité × Prix unitaire) pour tous les articles',
     example:
-      "Si vous avez 10kg d'ingrédient A à ₪5/kg + 5kg d'ingrédient B à ₪10/kg: (10×5) + (5×10) = ₪100",
+      "Si vous avez 10kg d'ingrédient A à {currency}5/kg + 5kg d'ingrédient B à {currency}10/kg: (10×5) + (5×10) = {currency}100",
     interpretation:
       'Surveillez cette valeur pour optimiser votre trésorerie et éviter le surstockage.',
   },
@@ -247,7 +255,7 @@ export const KPI_INFO: Record<string, KPIInfo> = {
     formula:
       'Marge totale = Somme (Prix de vente - Coût alimentaire) pour tous les articles',
     example:
-      'Si article A génère ₪15 de marge et article B génère ₪20: Marge totale = ₪15 + ₪20 = ₪35',
+      'Si article A génère {currency}15 de marge et article B génère {currency}20: Marge totale = {currency}15 + {currency}20 = {currency}35',
     interpretation:
       'Concentrez-vous sur les articles à forte marge pour maximiser votre profitabilité globale.',
   },

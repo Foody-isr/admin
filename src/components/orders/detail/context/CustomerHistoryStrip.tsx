@@ -4,6 +4,7 @@ import { Badge } from '@/components/ds';
 import { Skeleton } from '@/components/ds';
 import { useCustomerHistory } from '@/lib/orders/use-customer-history';
 import { formatMoney } from '@/lib/format-money';
+import { useCurrency } from '@/lib/i18n';
 
 /**
  * What else this phone number has ordered here.
@@ -26,6 +27,7 @@ export function CustomerHistoryStrip({
   phone: string | undefined | null;
   t: (k: string) => string;
 }) {
+  const { symbol } = useCurrency();
   const state = useCustomerHistory(restaurantId, phone);
 
   if (state.status === 'idle' || state.status === 'unavailable') return null;
@@ -79,7 +81,7 @@ export function CustomerHistoryStrip({
           </span>
           <span>
             <span dir="ltr" className="num text-[var(--fg)] font-medium">
-              {formatMoney(totalSpent, { decimals: 0 })}
+              {formatMoney(totalSpent, { decimals: 0, currency: symbol })}
             </span>{' '}
             {t('customerLifetimeSpend')}
           </span>

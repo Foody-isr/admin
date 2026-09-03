@@ -82,6 +82,13 @@ export interface Restaurant {
   /** Source language the owner types in. en | he | fr. Falls back to 'en' if unset. */
   default_locale?: string;
   /**
+   * ISO 4217 code prices are denominated in, e.g. "ILS" or "EUR". Unset on
+   * restaurants created before Foody left Israel — `DEFAULT_CURRENCY` covers
+   * them. This is the display currency only; amounts are stored as plain
+   * numbers and are never converted between currencies.
+   */
+  currency?: string;
+  /**
    * First day of the week for weekly editors. 0=Sunday … 6=Saturday
    * (matches JS Date.getDay / Go time.Weekday). Default 1 (Monday);
    * Israeli restaurants typically use 0 (Sunday).
@@ -167,6 +174,21 @@ export interface RestaurantSettings {
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
+  /**
+   * Refuse every payment that does not go through a payment provider — no
+   * cash, no cheque, no staff-recorded settlement.
+   *
+   * This exists for restaurants that rely on the French administrative
+   * tolerance exempting distance sellers from the secured cash-register
+   * obligation: it holds only while every payment is intermediated by a bank
+   * (card or transfer). One cash order voids it for the whole business, so
+   * the restriction has to live in configuration rather than in a habit.
+   *
+   * The guest app and this admin both honour it, but neither is the guard
+   * that matters: the server must reject a non-provider settlement for such
+   * a restaurant, since a client can always be bypassed.
+   */
+  online_payment_only?: boolean;
   // Stock management
   // Auto-deactivate a menu item when its linked ingredients reach 0.
   auto_disable_soldout?: boolean;

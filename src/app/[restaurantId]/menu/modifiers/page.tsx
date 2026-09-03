@@ -6,7 +6,7 @@ import {
   getAllCategories, createModifier, deleteModifier,
   MenuCategory, MenuItem, MenuItemModifier, ModifierInput,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
   PlusIcon, TrashIcon,
@@ -39,6 +39,7 @@ function flattenItems(categories: MenuCategory[]): FlatItem[] {
 }
 
 export default function ModifiersPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -126,7 +127,7 @@ export default function ModifiersPage() {
                       <DataTableCell mobileLabel={t('categoryGroupName')} className="text-fg-secondary">{mod.category || '—'}</DataTableCell>
                       <DataTableCell align="right" mobileLabel={t('priceDelta')} className="text-fg-primary">
                         {mod.price_delta !== 0
-                          ? `${mod.price_delta > 0 ? '+' : ''}₪${mod.price_delta.toFixed(2)}`
+                          ? `${mod.price_delta > 0 ? '+' : ''}${money(mod.price_delta)}`
                           : '—'}
                       </DataTableCell>
                       <DataTableCell>

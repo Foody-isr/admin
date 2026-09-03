@@ -25,7 +25,7 @@ import {
   XIcon, SearchIcon, ChevronDownIcon, ChevronUpIcon,
   TrashIcon, SparklesIcon, RefreshCwIcon, DownloadIcon,
 } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ function isPdf(mime?: string) {
 type SortKey = 'date' | 'supplier' | 'items' | 'total';
 
 export default function SuppliesPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -210,7 +211,7 @@ export default function SuppliesPage() {
               label={t('totalValue') || 'Valeur totale'}
               value={
                 <>
-                  ₪{Math.round(totalSpent).toLocaleString()}
+                  {money(Math.round(totalSpent), { decimals: 0, grouped: true })}
                   <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
                     .{String(Math.round((totalSpent % 1) * 100)).padStart(2, '0')}
                   </span>
@@ -222,7 +223,7 @@ export default function SuppliesPage() {
               label={t('avgPerDelivery') || 'Moy. / livraison'}
               value={
                 <>
-                  ₪{Math.round(avgPerDelivery).toLocaleString()}
+                  {money(Math.round(avgPerDelivery), { decimals: 0, grouped: true })}
                 </>
               }
               sub={`${totalDeliveries} ${t('deliveries') || 'livraisons'}`}
@@ -427,7 +428,7 @@ export default function SuppliesPage() {
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('supplyTotal') || 'Total'}>
                       <span className="font-semibold tabular-nums text-neutral-900 dark:text-white">
-                        ₪{supply.total_cost.toFixed(2)}
+                        {money(supply.total_cost)}
                       </span>
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('document') || 'Document'}>
@@ -517,6 +518,7 @@ function SupplyDetailDrawer({
   onClose: () => void;
   onViewDocument: (url: string, type: string) => void;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
 
   if (!supply) {
@@ -613,10 +615,10 @@ function SupplyDetailDrawer({
                             {unit}
                           </td>
                           <td className="px-[var(--s-5)] py-[var(--s-3)] text-[var(--fg-muted)] text-right tabular-nums">
-                            ₪{costPerUnit.toFixed(2)}
+                            {money(costPerUnit)}
                           </td>
                           <td className="px-[var(--s-5)] py-[var(--s-3)] text-[var(--fg)] text-right font-semibold tabular-nums">
-                            ₪{lineCost.toFixed(2)}
+                            {money(lineCost)}
                           </td>
                         </tr>
                       );
@@ -639,7 +641,7 @@ function SupplyDetailDrawer({
               <div className="flex items-center justify-between">
                 <span className="text-fs-sm text-[var(--fg-muted)]">{t('supplyTotal') || 'Total'}</span>
                 <span className="font-mono tabular-nums text-fs-sm font-semibold">
-                  ₪{supply.total_cost.toFixed(2)}
+                  {money(supply.total_cost)}
                 </span>
               </div>
               <div className="flex items-center justify-between">

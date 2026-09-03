@@ -11,7 +11,8 @@ import {
   PlusIcon,
   TrashIcon,
 } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
+import type { MoneyFormatter } from '@/lib/currency';
 import { usePermissions } from '@/lib/permissions-context';
 import { PageHead, Button } from '@/components/ds';
 import Modal from '@/components/Modal';
@@ -26,11 +27,22 @@ import {
   type CateringService,
 } from '@/lib/api';
 
-function priceLabel(item: CateringCatalogItem, model: CateringPricingModel, t: (key: string) => string): string {
+function priceLabel(
+  item: CateringCatalogItem,
+  model: CateringPricingModel,
+  t: (key: string) => string,
+  money: MoneyFormatter,
+): string {
   if (model === 'custom_quote' && item.base_price <= 0) return t('catering_offer_on_request');
   if (item.base_price <= 0) return t('catering_offer_price_missing');
   const unit = model === 'per_person' ? t('catering_offer_per_guest') : model === 'per_unit' ? t('catering_offer_per_unit') : '';
-  return `${model === 'custom_quote' ? t('catering_offer_from') : ''}₪${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(item.base_price)}${unit}`;
+  // Cents only when the price has any, as the catalogue reads better without
+  // a column of ".00" — same rule as the offer page.
+  const price = money(item.base_price, {
+    decimals: Number.isInteger(item.base_price) ? 0 : 2,
+    grouped: true,
+  });
+  return `${model === 'custom_quote' ? t('catering_offer_from') : ''}${price}${unit}`;
 }
 
 export default function CateringOfferCatalogPage() {
@@ -38,6 +50,7 @@ export default function CateringOfferCatalogPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t } = useI18n();
+  const { money } = useCurrency();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('catering.manage');
 
@@ -126,7 +139,7 @@ export default function CateringOfferCatalogPage() {
                         <p className="truncate text-sm font-semibold text-fg-primary">{offer.name}</p>
                         {offer.overview && <p className="truncate text-xs text-fg-secondary">{offer.overview}</p>}
                       </div>
-                      <span className="shrink-0 text-xs font-bold text-brand-600">{priceLabel(offer, group.pricing_model, t)}</span>
+                      <span className="shrink-0 text-xs font-bold text-brand-600">{priceLabel(offer, group.pricing_model, t, money)}</span>
                     </div>
                   ))}
                   {groupOffers.length > 4 && <p className="px-2 pb-2 pt-1 text-xs font-medium text-fg-tertiary">{t('catering_offer_more').replace('{n}', String(groupOffers.length - 4))}</p>}

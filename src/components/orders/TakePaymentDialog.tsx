@@ -7,7 +7,7 @@ import {
   DeleteIcon, CheckIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ds';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import type { ManualPaymentMethod } from '@/lib/api';
 
@@ -25,12 +25,17 @@ interface TakePaymentDialogProps {
   discountAmount?: number;
   /** Human-readable label suffix, e.g. the discount code. */
   discountLabel?: string;
+  /** False when the restaurant is online-payment-only: cash is not offered at
+   *  all, rather than offered and rejected. See `online_payment_only` in
+   *  RestaurantSettings for why one cash order is not a small matter. */
+  allowCash?: boolean;
 }
 
 type Stage = 'method' | 'cash_input' | 'cash_change' | 'card_input';
 
 export function TakePaymentDialog({
   open, onOpenChange, totalAmount, onConfirm, discountAmount, discountLabel,
+  allowCash = true,
 }: TakePaymentDialogProps) {
   const { t } = useI18n();
   const [stage, setStage] = useState<Stage>('method');
@@ -140,6 +145,7 @@ export function TakePaymentDialog({
               submitting={submitting}
               onCash={handleSelectCash}
               onCard={handleSelectCard}
+              allowCash={allowCash}
               onCancel={close}
               discountAmount={discountAmount}
               discountLabel={discountLabel}
@@ -196,7 +202,7 @@ export function TakePaymentDialog({
 // ─── Stage 1: Method picker ────────────────────────────────────────────
 
 function MethodStage({
-  total, submitting, onCash, onCard, onCancel, discountAmount, discountLabel,
+  total, submitting, onCash, onCard, onCancel, discountAmount, discountLabel, allowCash,
 }: {
   total: number;
   submitting: boolean;
@@ -205,7 +211,9 @@ function MethodStage({
   onCancel: () => void;
   discountAmount?: number;
   discountLabel?: string;
+  allowCash: boolean;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const hasDiscount = (discountAmount ?? 0) > 0;
   return (
@@ -241,7 +249,7 @@ function MethodStage({
             {discountLabel ? ` (${discountLabel})` : ''}
           </span>
           <span className="font-mono tabular-nums text-fs-sm" style={{ color: 'var(--success-500)' }}>
-            −₪{(discountAmount ?? 0).toFixed(2)}
+            −{money(discountAmount ?? 0)}
           </span>
         </div>
       )}
@@ -255,18 +263,20 @@ function MethodStage({
       >
         <span className="text-fs-sm text-[var(--fg-muted)]">{t('total')}</span>
         <span className="font-mono tabular-nums text-fs-lg font-semibold">
-          ₪{total.toFixed(2)}
+          {money(total)}
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-[var(--s-3)]">
-        <MethodTile
-          icon={<BanknoteIcon className="w-7 h-7" />}
-          label={t('cash')}
-          onClick={onCash}
-          disabled={submitting}
-          tone="success"
-        />
+      <div className={`grid gap-[var(--s-3)] ${allowCash ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {allowCash && (
+          <MethodTile
+            icon={<BanknoteIcon className="w-7 h-7" />}
+            label={t('cash')}
+            onClick={onCash}
+            disabled={submitting}
+            tone="success"
+          />
+        )}
         <MethodTile
           icon={<CreditCardIcon className="w-7 h-7" />}
           label={t('creditCard')}
@@ -334,6 +344,7 @@ function CardReferenceStage({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   return (
     <div className="p-[var(--s-5)]">
@@ -345,7 +356,7 @@ function CardReferenceStage({
         style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}
       >
         <span className="text-fs-sm text-[var(--fg-muted)]">{t('total')}</span>
-        <span className="font-mono tabular-nums text-fs-lg font-semibold">₪{total.toFixed(2)}</span>
+        <span className="font-mono tabular-nums text-fs-lg font-semibold">{money(total)}</span>
       </div>
 
       <label htmlFor="payment-reference" className="block text-fs-sm text-[var(--fg-muted)] mb-[var(--s-2)]">
@@ -394,6 +405,7 @@ function CashInputStage({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { money, symbol } = useCurrency();
   const { t } = useI18n();
 
   return (
@@ -429,7 +441,7 @@ function CashInputStage({
       {/* Total */}
       <InfoRow
         label={t('cashPaymentTotal')}
-        value={`₪${total.toFixed(2)}`}
+        value={money(total)}
         tone="neutral"
       />
 
@@ -437,7 +449,7 @@ function CashInputStage({
       <div className="h-[var(--s-3)]" />
       <InfoRow
         label={t('cashPaymentReceived')}
-        value={input === '' ? '₪0' : `₪${input}`}
+        value={input === '' ? `${symbol}0` : `${symbol}${input}`}
         tone="brand"
       />
 
@@ -445,7 +457,7 @@ function CashInputStage({
       <div className="h-[var(--s-3)]" />
       <InfoRow
         label={t('cashPaymentChange')}
-        value={`₪${change.toFixed(2)}`}
+        value={money(change)}
         tone={canConfirm ? 'success' : 'neutral'}
       />
 
@@ -455,7 +467,7 @@ function CashInputStage({
         {quickAmounts.map((amount) => (
           <QuickChip
             key={amount}
-            label={`₪${amount}`}
+            label={money(amount)}
             onClick={() => onPickQuick(amount)}
           />
         ))}
@@ -518,6 +530,7 @@ function CashChangeStage({
   change: number;
   onDone: () => void;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const hasChange = change > 0.005;
 
@@ -537,9 +550,9 @@ function CashChangeStage({
       </h2>
 
       <div className="w-full">
-        <InfoRow label={t('cashPaymentTotal')} value={`₪${total.toFixed(2)}`} tone="neutral" />
+        <InfoRow label={t('cashPaymentTotal')} value={money(total)} tone="neutral" />
         <div className="h-[var(--s-2)]" />
-        <InfoRow label={t('cashPaymentReceived')} value={`₪${received.toFixed(2)}`} tone="neutral" />
+        <InfoRow label={t('cashPaymentReceived')} value={money(received)} tone="neutral" />
       </div>
 
       {hasChange ? (
@@ -558,7 +571,7 @@ function CashChangeStage({
             className="font-mono tabular-nums text-[40px] font-bold leading-none mt-[var(--s-2)]"
             style={{ color: 'var(--success-500)' }}
           >
-            ₪{change.toFixed(2)}
+            {money(change)}
           </span>
         </div>
       ) : (

@@ -7,7 +7,7 @@
 //   • flip default
 
 import { Check, MoreHorizontal, Pin } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 
@@ -30,6 +30,7 @@ export default function VariantSubRow({
   name, soloPrice, basePrice, included, upcharge, isDefault,
   onToggleIncluded, onUpchargeChange, onSetDefault,
 }: Props) {
+  const { money, symbol } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
@@ -77,7 +78,7 @@ export default function VariantSubRow({
           }
         </div>
         <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5">
-          {t('composeSoldSeparately')}: ₪{soloPrice.toFixed(2)}
+          {t('composeSoldSeparately')}: {money(soloPrice)}
         </div>
       </div>
 
@@ -102,7 +103,7 @@ export default function VariantSubRow({
               upchargeWarn ? 'font-semibold text-[var(--brand-500)]' : 'text-[var(--fg)]'
             }`}
           />
-          <span className="text-fs-xs text-[var(--fg-muted)] ms-1">₪</span>
+          <span className="text-fs-xs text-[var(--fg-muted)] ms-1">{symbol}</span>
         </div>
       </div>
 
@@ -115,7 +116,7 @@ export default function VariantSubRow({
               : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
           }`}
         >
-          Combo: ₪{comboPrice.toFixed(2)}
+          Combo: {money(comboPrice)}
         </span>
       </div>
 
