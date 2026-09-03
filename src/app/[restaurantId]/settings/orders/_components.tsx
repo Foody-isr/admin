@@ -14,15 +14,33 @@ export const WEEKDAYS_FR = [
   'Samedi',
 ];
 
+/** Visual track shared by switch buttons and fully clickable setting rows. */
+export function SwitchIndicator({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
+      style={{ background: checked ? 'var(--brand-500)' : 'var(--surface-3)' }}
+    >
+      <span
+        className="absolute h-5 w-5 rounded-full bg-white shadow transition-all"
+        style={{ insetInlineStart: checked ? 22 : 2 }}
+      />
+    </span>
+  );
+}
+
 /** A pill switch — the on/off control shared by service toggles, pause and rules. */
 export function Switch({
   checked,
   onChange,
   label,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -30,14 +48,11 @@ export function Switch({
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
-      style={{ background: checked ? 'var(--brand-500)' : 'var(--surface-3)' }}
+      className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
     >
-      <span
-        className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
-        style={{ transform: checked ? 'translateX(22px)' : 'translateX(2px)' }}
-      />
+      <SwitchIndicator checked={checked} />
     </button>
   );
 }
@@ -48,16 +63,26 @@ export function ServiceToggle({
   sub,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   sub: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
-    <label
-      className="flex items-center justify-between gap-[var(--s-4)] px-[var(--s-4)] py-[var(--s-3)] rounded-r-md border border-[var(--line)] cursor-pointer hover:border-[var(--line-strong)] transition-colors"
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="flex min-h-[76px] w-full items-center justify-between gap-[var(--s-4)] rounded-r-lg border border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)] text-start outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--brand-500)]"
       style={{
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
         background: checked
           ? 'color-mix(in oklab, var(--brand-500) 6%, var(--surface))'
           : 'var(--surface)',
@@ -67,8 +92,8 @@ export function ServiceToggle({
         <div className="text-fs-sm font-medium text-[var(--fg)]">{label}</div>
         <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{sub}</div>
       </div>
-      <Switch checked={checked} onChange={onChange} label={label} />
-    </label>
+      <SwitchIndicator checked={checked} />
+    </button>
   );
 }
 
@@ -78,18 +103,21 @@ export function ModeCard({
   desc,
   selected,
   onClick,
+  disabled = false,
 }: {
   title: string;
   desc: string;
   selected: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className="text-left p-[var(--s-4)] rounded-r-md border transition-colors h-full"
+      disabled={disabled}
+      className="relative h-full min-h-[118px] rounded-r-lg border p-[var(--s-4)] text-start outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--brand-500)] disabled:cursor-not-allowed disabled:opacity-60"
       style={{
         background: selected
           ? 'color-mix(in oklab, var(--brand-500) 10%, var(--surface))'
@@ -97,8 +125,17 @@ export function ModeCard({
         borderColor: selected ? 'var(--brand-500)' : 'var(--line)',
       }}
     >
-      <div className="text-fs-sm font-semibold text-[var(--fg)]">{title}</div>
-      <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">{desc}</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-fs-sm font-semibold text-[var(--fg)]">{title}</div>
+        <span
+          aria-hidden="true"
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border"
+          style={{ borderColor: selected ? 'var(--brand-500)' : 'var(--line-strong)' }}
+        >
+          {selected && <span className="h-2 w-2 rounded-full bg-[var(--brand-500)]" />}
+        </span>
+      </div>
+      <div className="mt-2 text-fs-xs leading-[var(--lh-base)] text-[var(--fg-subtle)]">{desc}</div>
     </button>
   );
 }
@@ -199,12 +236,14 @@ export function FulfillmentDayRow({
   used,
   onChange,
   onRemove,
+  disabled = false,
   t,
 }: {
   value: BatchFulfillmentDay;
   used: Set<number>;
   onChange: (patch: Partial<BatchFulfillmentDay>) => void;
   onRemove: () => void;
+  disabled?: boolean;
   t: (key: string) => string;
 }) {
   return (
@@ -215,6 +254,7 @@ export function FulfillmentDayRow({
       <Field label={t('day') || 'Jour'}>
         <Select
           value={String(value.day)}
+          disabled={disabled}
           onChange={(e) => onChange({ day: Number(e.target.value) })}
         >
           {WEEKDAYS_FR.map((label, i) => (
@@ -230,6 +270,7 @@ export function FulfillmentDayRow({
           <Input
             type="time"
             value={value.pickup_start ?? ''}
+            disabled={disabled}
             onChange={(e) => onChange({ pickup_start: e.target.value })}
             className="font-mono text-center"
             style={{ width: 100 }}
@@ -238,6 +279,7 @@ export function FulfillmentDayRow({
           <Input
             type="time"
             value={value.pickup_end ?? ''}
+            disabled={disabled}
             onChange={(e) => onChange({ pickup_end: e.target.value })}
             className="font-mono text-center"
             style={{ width: 100 }}
@@ -250,6 +292,7 @@ export function FulfillmentDayRow({
           <Input
             type="time"
             value={value.delivery_start ?? ''}
+            disabled={disabled}
             onChange={(e) => onChange({ delivery_start: e.target.value })}
             className="font-mono text-center"
             style={{ width: 100 }}
@@ -258,6 +301,7 @@ export function FulfillmentDayRow({
           <Input
             type="time"
             value={value.delivery_end ?? ''}
+            disabled={disabled}
             onChange={(e) => onChange({ delivery_end: e.target.value })}
             className="font-mono text-center"
             style={{ width: 100 }}
@@ -268,7 +312,8 @@ export function FulfillmentDayRow({
       <button
         type="button"
         onClick={onRemove}
-        className="self-end p-2 rounded-r-md text-[var(--fg-muted)] hover:text-[var(--danger-500)] transition-colors"
+        disabled={disabled}
+        className="self-end p-2 rounded-r-md text-[var(--fg-muted)] hover:text-[var(--danger-500)] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={t('remove') || 'Supprimer'}
       >
         <Trash2 className="w-4 h-4" />

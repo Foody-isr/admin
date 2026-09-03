@@ -50,6 +50,7 @@ export default function PaymentsSettingsPage() {
   const [vatRate, setVatRate] = useState<number>(18);
   const [tipsEnabled, setTipsEnabled] = useState(true);
   const [onlinePaymentOnly, setOnlinePaymentOnly] = useState(false);
+  const [weightHoldBuffer, setWeightHoldBuffer] = useState(20);
   const [rounding, setRounding] = useState<'none' | '10ag' | 'whole'>('none');
   const [tipSuggestions, setTipSuggestions] = useState<[number, number, number]>([10, 12, 15]);
 
@@ -60,6 +61,7 @@ export default function PaymentsSettingsPage() {
         setVatRate(s.vat_rate ?? 18);
         setTipsEnabled(s.tips_enabled ?? true);
         setOnlinePaymentOnly(s.online_payment_only ?? false);
+        setWeightHoldBuffer(s.weight_hold_buffer_percent ?? 20);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -71,6 +73,7 @@ export default function PaymentsSettingsPage() {
         vat_rate: vatRate,
         tips_enabled: tipsEnabled,
         online_payment_only: onlinePaymentOnly,
+        weight_hold_buffer_percent: weightHoldBuffer,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -306,6 +309,30 @@ export default function PaymentsSettingsPage() {
             </div>
           </div>
         </label>
+      </Section>
+
+      <Section
+        title={t('weightHoldBufferTitle') || 'Empreinte bancaire des articles au poids'}
+        desc={
+          t('weightHoldBufferHint') ||
+          'Ajoutez une marge au poids estimé pour que le montant final reste couvert par l’empreinte bancaire.'
+        }
+      >
+        <Field label={t('weightHoldBufferLabel') || 'Marge de sécurité'}>
+          <div className="relative w-[120px]">
+            <NumberField
+              min={0}
+              max={200}
+              value={weightHoldBuffer}
+              onChange={setWeightHoldBuffer}
+              disabled={!canEdit}
+              className="pe-8 font-mono"
+            />
+            <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)]">
+              %
+            </span>
+          </div>
+        </Field>
       </Section>
 
       <div className="flex items-center gap-[var(--s-3)]">
