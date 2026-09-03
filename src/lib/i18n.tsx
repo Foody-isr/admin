@@ -3268,8 +3268,6 @@ const translations: Record<Locale, Record<string, string>> = {
     dashboardDateFilter: 'Dashboard date filter',
     dashboardDateRange: 'Date range',
     dashboardSeries: 'Series',
-    dashboardOrdersPlaced: 'Orders placed',
-    dashboardServicesScheduled: 'Scheduled services',
     // ── Food Cost ──
     foodCostSubtitle: 'Analyze the food costs of your recipes',
     avgCostPct: 'Avg cost %',
@@ -7831,8 +7829,6 @@ const translations: Record<Locale, Record<string, string>> = {
     dashboardDateFilter: 'מסנן תאריכים ללוח הבקרה',
     dashboardDateRange: 'טווח תאריכים',
     dashboardSeries: 'סדרות',
-    dashboardOrdersPlaced: 'הזמנות שבוצעו',
-    dashboardServicesScheduled: 'שירותים מתוכננים',
     // ── Food Cost ──
     foodCostSubtitle: 'נתח את עלויות המזון של המתכונים שלך',
     avgCostPct: '% עלות ממוצעת',
@@ -12392,8 +12388,6 @@ const translations: Record<Locale, Record<string, string>> = {
     dashboardDateFilter: 'Filtre de date du tableau de bord',
     dashboardDateRange: 'Plage de dates',
     dashboardSeries: 'Séries',
-    dashboardOrdersPlaced: 'Commandes passées',
-    dashboardServicesScheduled: 'Services prévus',
     // ── Food Cost ──
     foodCostSubtitle: 'Analysez les coûts alimentaires de vos recettes',
     avgCostPct: '% Coût moyen',

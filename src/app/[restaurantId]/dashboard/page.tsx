@@ -18,7 +18,7 @@ import {
 } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import DateRangePicker, { type DateRange, type DateRangeChangeOptions } from '@/components/DateRangePicker';
-import { previousBlock, useOrderSeries } from '@/lib/series';
+import { previousBlock, seriesInRange, useOrderSeries } from '@/lib/series';
 import {
   clampWeekStartDay,
   getEffectiveWorkdays,
@@ -285,6 +285,13 @@ export default function DashboardPage() {
       to: isoDate(dateRange.to),
     }) ?? undefined;
   }, [serieMode, serieList, dateRange]);
+  const selectedSerieCount = useMemo(() => {
+    if (!serieMode) return 0;
+    return seriesInRange(serieList, {
+      from: isoDate(dateRange.from),
+      to: isoDate(dateRange.to),
+    }).length;
+  }, [serieMode, serieList, dateRange]);
   // The main chart tracks gross revenue; KPI cards are presentational.
   const metric: MetricKey = 'revenue';
 
@@ -385,7 +392,9 @@ export default function DashboardPage() {
 
   const showDelta = !serieMode || previousSerieRange !== undefined;
   const vsLabel = serieMode
-    ? t('vsPreviousSerie')
+    ? selectedSerieCount > 1
+      ? t('vsPreviousSeries').replace('{n}', String(selectedSerieCount))
+      : t('vsPreviousSerie')
     : singleDay
       ? t('vsYesterday')
       : t('vsPreviousPeriod');
@@ -514,7 +523,7 @@ export default function DashboardPage() {
         className="mb-[var(--s-4)]"
         actions={
           <>
-            <CreateActionsMenu restaurantId={rid} onNavigate={router.push} t={t} />
+            <DashboardActionsMenu restaurantId={rid} onNavigate={router.push} t={t} />
             <DateRangePicker
               value={dateRange}
               onChange={onPickRange}
@@ -695,7 +704,7 @@ function kpiLabel(label: string, hint?: string) {
   );
 }
 
-function CreateActionsMenu({
+function DashboardActionsMenu({
   restaurantId,
   onNavigate,
   t,
@@ -714,8 +723,7 @@ function CreateActionsMenu({
     <Menu>
       <MenuTrigger asChild>
         <Button variant="secondary" size="md">
-          <Plus className="w-4 h-4" />
-          {t('create')}
+          {t('actions')}
           <ChevronDown className="w-3.5 h-3.5" />
         </Button>
       </MenuTrigger>
