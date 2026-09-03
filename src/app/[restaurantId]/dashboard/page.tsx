@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getPeriodSummary,
@@ -18,8 +18,6 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
-import SeriePicker from '@/components/SeriePicker';
-import { useOrderSeries, previousBlock, seriesInRange, type SerieRange } from '@/lib/series';
 import {
   clampWeekStartDay,
   getEffectiveWorkdays,
@@ -31,8 +29,6 @@ import {
 import {
   AlertTriangle,
   ArrowRight,
-  CalendarClock,
-  CalendarDays,
   CheckCircle,
   ChevronDown,
   DollarSign,
@@ -261,6 +257,7 @@ export default function DashboardPage() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [liveSummary, setLiveSummary] = useState<LiveSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadSequence = useRef(0);
 
   // First day of week + workdays drive the picker (same config as the orders list).
   const [wsd, setWsd] = useState<WeekStartDay>(1);
@@ -269,22 +266,11 @@ export default function DashboardPage() {
   // week config is loaded and the persisted selection is hydrated (rolling
   // presets re-resolved against today), so we load once with the right window.
   const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('today', 1));
-  // Order date vs série date. basis is hydrated from storage on mount; serieDate
-  // holds the série selected in série mode (set by the SeriePicker).
+  // Order date vs série date. Both bases deliberately share `dateRange`, so
+  // changing the date field never changes the selected period or chart shape.
   const [basis, setBasis] = useState<DateBasis>('created');
-  const [serieSel, setSerieSel] = useState<SerieRange | null>(null);
   const [ready, setReady] = useState(false);
   const serieMode = basis === 'serie';
-  // The restaurant's séries (newest first). Drives the SeriePicker + the
-  // per-série comparison and chart.
-  const serieList = useOrderSeries(rid);
-
-  // Default the série selection to the latest série once the list arrives.
-  useEffect(() => {
-    if (serieList.length && !serieSel) {
-      setSerieSel({ from: serieList[0].date, to: serieList[0].date });
-    }
-  }, [serieList, serieSel]);
   // The main chart tracks gross revenue; KPI cards are presentational.
   const metric: MetricKey = 'revenue';
 
@@ -304,28 +290,19 @@ export default function DashboardPage() {
   }, [rid]);
 
   const load = useCallback(() => {
-    // In série mode, wait until a série selection has resolved.
-    if (serieMode && !serieSel) return;
+    const requestId = ++loadSequence.current;
     setLoading(true);
-    // Série mode scopes to the selected série(s) by exact scheduled_for and
-    // compares against the preceding equal-count block of séries; the per-série
-    // chart is drawn from serieList, so no daily series is fetched. Created mode
-    // uses the calendar window + last-N-days chart.
-    const scope = serieMode
-      ? { from: serieSel!.from, to: serieSel!.to }
-      : { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
-    const prev = serieMode ? previousBlock(serieList, serieSel!) ?? undefined : undefined;
+    // The same inclusive calendar window drives every endpoint for both date
+    // bases. Only the server-side date field changes (created_at vs
+    // scheduled_for), keeping totals, chart and breakdown in lock-step.
+    const scope = { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
     const days = daysInclusive(dateRange);
     const previousEnd = isoDate(addDays(dateRange.from, -1));
     Promise.allSettled([
-      getPeriodSummary(rid, scope, basis, prev),
+      getPeriodSummary(rid, scope, basis),
       getTopSellers(rid, scope, basis),
-      serieMode
-        ? Promise.resolve([] as DaySummary[])
-        : getDailySeries(rid, days, scope.to, basis),
-      serieMode
-        ? Promise.resolve([] as DaySummary[])
-        : getDailySeries(rid, days, previousEnd, basis),
+      getDailySeries(rid, days, scope.to, basis),
+      getDailySeries(rid, days, previousEnd, basis),
       getBreakdown(rid, { dimension: 'order_type', scope, basis }),
       listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
       listOrders(rid, { status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' }),
@@ -335,6 +312,9 @@ export default function DashboardPage() {
       listOrders(rid, { status: LIVE_ORDER_STATUSES, payment_status: 'pending', limit: 1 }),
     ])
       .then(([per, top, daily, previousDaily, breakdown, orders, active, review, readyOrders, unpaid, pending]) => {
+        // A basis and range can now be changed within the same open popover.
+        // Ignore a slower response for an earlier selection.
+        if (requestId !== loadSequence.current) return;
         if (per.status === 'fulfilled') setPeriod(per.value);
         if (top.status === 'fulfilled') setTopSellers(top.value ?? []);
         if (daily.status === 'fulfilled') setSeries(daily.value ?? []);
@@ -356,8 +336,10 @@ export default function DashboardPage() {
           setLiveSummary(null);
         }
       })
-      .finally(() => setLoading(false));
-  }, [rid, dateRange, basis, serieMode, serieSel, serieList]);
+      .finally(() => {
+        if (requestId === loadSequence.current) setLoading(false);
+      });
+  }, [rid, dateRange, basis]);
 
   // Switch the date basis and persist it; the load effect refetches on change.
   const onChangeBasis = useCallback((b: DateBasis) => {
@@ -381,19 +363,8 @@ export default function DashboardPage() {
   const singleDay = sameYMD(dateRange.from, dateRange.to);
   const chartCapped = daysInclusive(dateRange) > 90;
 
-  // Série-aware comparison: a single série compares to the previous série, a
-  // range to the preceding equal-count block. The delta is hidden when there's
-  // no earlier série to compare against.
-  const serieCount = serieMode && serieSel ? seriesInRange(serieList, serieSel).length : 0;
-  const serieHasPrev = serieMode && serieSel ? previousBlock(serieList, serieSel) !== null : false;
-  const showDelta = serieMode ? serieHasPrev : true;
-  const vsLabel = serieMode
-    ? serieCount <= 1
-      ? t('vsPreviousSerie')
-      : t('vsPreviousSeries').replace('{n}', String(serieCount))
-    : singleDay
-      ? t('vsYesterday')
-      : t('vsPreviousPeriod');
+  const showDelta = true;
+  const vsLabel = singleDay ? t('vsYesterday') : t('vsPreviousPeriod');
 
   // Human label for the active window. `end` is exclusive (next midnight), so the
   // multi-day form shows the inclusive last day.
@@ -469,42 +440,11 @@ export default function DashboardPage() {
     });
   }, [series, metric, dateLocale]);
 
-  // One bar per série (oldest → newest) for a série range — a daily chart is a
-  // calendar concept that doesn't fit série cadence.
-  const serieChartData = useMemo(() => {
-    if (!serieMode || !serieSel) return [] as { day: string; label: string; value: number; isLast: boolean }[];
-    const inRange = seriesInRange(serieList, serieSel).slice().reverse();
-    return inRange.map((s, i) => {
-      const date = new Date(`${s.date}T00:00:00`);
-      return {
-        day: date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' }),
-        label: date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' }),
-        value: s.revenue,
-        isLast: i === inRange.length - 1,
-      };
-    });
-  }, [serieMode, serieSel, serieList, dateLocale]);
-
-  const previousSerieChartData = useMemo(() => {
-    if (!serieMode || !serieSel) return [] as { day: string; value: number; isLast: boolean }[];
-    const previousRange = previousBlock(serieList, serieSel);
-    if (!previousRange) return [];
-    const inRange = seriesInRange(serieList, previousRange).slice().reverse();
-    return inRange.map((s, i) => ({
-      day: new Date(`${s.date}T00:00:00`).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' }),
-      value: s.revenue,
-      isLast: i === inRange.length - 1,
-    }));
-  }, [serieMode, serieSel, serieList, dateLocale]);
-
-  const activeChartData = serieMode ? serieChartData : chartData;
-  const previousChartData = serieMode
-    ? previousSerieChartData
-    : previousSeries.map((day, index) => ({
-        day: '',
-        value: seriesValue(metric, day),
-        isLast: index === previousSeries.length - 1,
-      }));
+  const previousChartData = previousSeries.map((day, index) => ({
+    day: '',
+    value: seriesValue(metric, day),
+    isLast: index === previousSeries.length - 1,
+  }));
 
   const channelData = useMemo<ChannelDatum[]>(() => {
     const labels: Record<string, string> = {
@@ -534,7 +474,7 @@ export default function DashboardPage() {
   const periodContext = (serieMode ? t('dashboardSerieContext') : t('dashboardOrderContext'))
     .replace('{range}', periodRangeLabel);
 
-  if (loading) {
+  if (loading && !period) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
@@ -551,27 +491,15 @@ export default function DashboardPage() {
         actions={
           <>
             <CreateActionsMenu restaurantId={rid} onNavigate={router.push} t={t} />
-            <DashboardPeriodControl
+            <DateRangePicker
+              value={dateRange}
+              onChange={onPickRange}
+              weekStartDay={wsd}
+              workdays={workdays}
+              restaurantId={rid}
+              align="right"
               basis={basis}
-              onChange={onChangeBasis}
-              t={t}
-              picker={serieMode ? (
-                <SeriePicker
-                  series={serieList}
-                  value={serieSel}
-                  onChange={setSerieSel}
-                  align="end"
-                />
-              ) : (
-                <DateRangePicker
-                  value={dateRange}
-                  onChange={onPickRange}
-                  weekStartDay={wsd}
-                  workdays={workdays}
-                  restaurantId={rid}
-                  align="right"
-                />
-              )}
+              onBasisChange={onChangeBasis}
             />
             <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
               <RefreshCw />
@@ -589,7 +517,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 items-start gap-[var(--s-4)] xl:grid-cols-[minmax(0,1fr)_340px]">
         <PerformanceOverview
           title={t('performance')}
-          chartNote={chartCapped && !serieMode ? t('dashChartLast90') : undefined}
+          chartNote={chartCapped ? t('dashChartLast90') : undefined}
           metrics={metrics}
           revenue={current?.total_revenue ?? 0}
           locale={dateLocale}
@@ -597,7 +525,7 @@ export default function DashboardPage() {
           comparisonLabel={vsLabel}
           chart={(
             <MetricChart
-              data={activeChartData}
+              data={chartData}
               previousData={previousChartData}
               currentLabel={t('dashboardCurrentPeriod')}
               previousLabel={t('dashboardPreviousPeriod')}
@@ -738,68 +666,6 @@ function kpiLabel(label: string, hint?: string) {
       {label}
       <InfoTip text={hint} />
     </span>
-  );
-}
-
-function DashboardPeriodControl({
-  basis,
-  onChange,
-  picker,
-  t,
-}: {
-  basis: DateBasis;
-  onChange: (basis: DateBasis) => void;
-  picker: React.ReactNode;
-  t: (key: string) => string;
-}) {
-  const serieMode = basis === 'serie';
-  const BasisIcon = serieMode ? CalendarClock : CalendarDays;
-  const label = serieMode ? t('dashboardServicesScheduled') : t('dashboardOrdersPlaced');
-  return (
-    <div
-      role="group"
-      aria-label={t('dashboardAnalyzedPeriod')}
-      className="inline-flex flex-wrap items-stretch gap-[var(--s-2)]"
-    >
-      <Menu>
-        <MenuTrigger asChild>
-          <button
-            type="button"
-            className="group flex min-h-11 items-center gap-[var(--s-2)] rounded-[var(--r-lg)] border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-left hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-ring transition-colors"
-          >
-            <span className="w-7 h-7 rounded-[var(--r-sm)] grid place-items-center bg-[var(--brand-50)] text-[var(--brand-600)]">
-              <BasisIcon className="w-4 h-4" />
-            </span>
-            <span className="hidden sm:block leading-tight">
-              <span className="block text-[10px] text-[var(--fg-subtle)]">{t('dashboardAnalyzedPeriod')}</span>
-              <span className="block text-fs-sm font-semibold text-[var(--fg)]">{label}</span>
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 text-[var(--fg-muted)]" />
-          </button>
-        </MenuTrigger>
-        <MenuContent align="end" className="min-w-[280px]">
-          <MenuItem className="h-auto py-[var(--s-2)] items-start" onSelect={() => onChange('created')}>
-            <CalendarDays className="mt-0.5" />
-            <span>
-              <span className="block font-medium">{t('dashboardOrdersPlaced')}</span>
-              <span className="block text-[11px] text-[var(--fg-muted)] mt-0.5">{t('dashboardOrdersPlacedHint')}</span>
-            </span>
-            {!serieMode && <CheckCircle className="ml-auto mt-0.5 text-[var(--brand-500)]" />}
-          </MenuItem>
-          <MenuItem className="h-auto py-[var(--s-2)] items-start" onSelect={() => onChange('serie')}>
-            <CalendarClock className="mt-0.5" />
-            <span>
-              <span className="block font-medium">{t('dashboardServicesScheduled')}</span>
-              <span className="block text-[11px] text-[var(--fg-muted)] mt-0.5">{t('dashboardServicesScheduledHint')}</span>
-            </span>
-            {serieMode && <CheckCircle className="ml-auto mt-0.5 text-[var(--brand-500)]" />}
-          </MenuItem>
-        </MenuContent>
-      </Menu>
-      <div className="flex items-stretch [&>div]:flex [&>div]:items-stretch [&>div>button]:!min-h-11 [&>div>button]:!rounded-[var(--r-lg)] [&>div>button]:!border-[var(--line-strong)] [&>div>button]:!bg-[var(--surface)] [&>div>button]:!px-[var(--s-4)] [&>div>button]:font-semibold [&>div>button]:text-[var(--fg)]">
-        {picker}
-      </div>
-    </div>
   );
 }
 

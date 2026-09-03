@@ -1,9 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import {
+  CalendarClock,
+  CalendarDays,
+  CheckCircle,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from 'lucide-react';
 import { clampWeekStartDay, type WeekStartDay } from '@/lib/weeks';
 import { useI18n } from '@/lib/i18n';
+import type { DateBasis } from '@/lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -31,6 +39,10 @@ interface DateRangePickerProps {
    *  the trigger sits on the right of its row (e.g. a page header) so the wide
    *  dropdown opens inward instead of overflowing the viewport. RTL-aware. */
   align?: 'left' | 'right';
+  /** Optional date-field selector. When supplied, it is rendered in this same
+   *  popover so callers expose one coherent date filter instead of two menus. */
+  basis?: DateBasis;
+  onBasisChange?: (basis: DateBasis) => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -156,7 +168,15 @@ function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: string; r
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export default function DateRangePicker({ value, onChange, weekStartDay, workdays, align = 'left' }: DateRangePickerProps) {
+export default function DateRangePicker({
+  value,
+  onChange,
+  weekStartDay,
+  workdays,
+  align = 'left',
+  basis,
+  onBasisChange,
+}: DateRangePickerProps) {
   const { t, locale, direction } = useI18n();
   const wsd = clampWeekStartDay(weekStartDay);
   const weekdayCols = rotatedWeekdays(wsd);
@@ -199,6 +219,15 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
   const activeId = matchEntry(value, builtinEntries);
   const activeEntry = builtinEntries.find((e) => e.id === activeId) ?? null;
   const isCustomActive = activeId === null;
+  const rangeLabel = activeEntry
+    ? activeEntry.label
+    : sameDay(value.from, value.to)
+      ? fmt(value.from)
+      : `${fmt(value.from)} – ${fmt(value.to)}`;
+  const hasBasisControl = basis !== undefined && onBasisChange !== undefined;
+  const serieMode = basis === 'serie';
+  const basisLabel = serieMode ? t('dashboardServicesScheduled') : t('dashboardOrdersPlaced');
+  const BasisIcon = serieMode ? CalendarClock : CalendarDays;
 
   const days = daysInMonth(viewYear, viewMonth);
   const firstDay = firstColumn(viewYear, viewMonth, wsd);
@@ -256,59 +285,126 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
     <div className="relative" ref={ref}>
       {/* Trigger button */}
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary hover:text-fg-primary transition-colors"
-        style={{ border: '1px solid var(--divider)' }}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        className={hasBasisControl
+          ? 'flex min-h-11 max-w-[310px] items-center gap-2 rounded-[var(--r-lg)] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-left transition-colors hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-ring'
+          : 'flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary hover:text-fg-primary transition-colors'}
+        style={hasBasisControl ? undefined : { border: '1px solid var(--divider)' }}
       >
-        {activeEntry
-          ? activeEntry.label
-          : sameDay(value.from, value.to)
-          ? fmt(value.from)
-          : `${fmt(value.from)} - ${fmt(value.to)}`}
+        {hasBasisControl ? (
+          <>
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--r-sm)] bg-[var(--brand-50)] text-[var(--brand-600)]">
+              <BasisIcon className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-[10px] text-[var(--fg-subtle)]">{basisLabel}</span>
+              <span className="block truncate text-fs-sm font-semibold text-[var(--fg)]">{rangeLabel}</span>
+            </span>
+            <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-[var(--fg-muted)]" />
+          </>
+        ) : rangeLabel}
       </button>
 
       {/* Dropdown */}
       {open && (
         <div
-          className={`absolute top-full ${dropdownAlignClass} mt-1 z-50 shadow-xl rounded-card flex overflow-hidden`}
+          role="dialog"
+          aria-label={hasBasisControl ? t('dashboardDateFilter') : t('dateBasisAria')}
+          className={`absolute top-full ${dropdownAlignClass} mt-1 z-50 flex w-[470px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-card shadow-xl`}
           style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
         >
-          {/* Left: presets */}
-          <div className="w-36 py-3 flex-shrink-0 max-h-[380px] overflow-y-auto" style={{ borderRight: '1px solid var(--divider)' }}>
-            {builtinEntries.map((e) => {
-              const isActive = activeId === e.id;
-              return (
-                <button
-                  key={e.id}
-                  onClick={() => applyRange(e.range)}
-                  className={`block w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[var(--surface-subtle)] ${
-                    isActive ? 'font-semibold text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
-                  }`}
-                  style={isActive ? { background: 'var(--surface-subtle)' } : undefined}
-                >
-                  {e.label}
-                </button>
-              );
-            })}
+          {hasBasisControl && (
+            <div className="border-b border-[var(--line)] p-3">
+              <div className="mb-2 text-[11px] font-medium text-[var(--fg-muted)]">{t('dashboardAnalyzeBy')}</div>
+              <div role="radiogroup" aria-label={t('dashboardAnalyzeBy')} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {([
+                  {
+                    key: 'created' as const,
+                    icon: CalendarDays,
+                    label: t('dashboardOrdersPlaced'),
+                    hint: t('dashboardOrdersPlacedHint'),
+                  },
+                  {
+                    key: 'serie' as const,
+                    icon: CalendarClock,
+                    label: t('dashboardServicesScheduled'),
+                    hint: t('dashboardServicesScheduledHint'),
+                  },
+                ]).map((option) => {
+                  const selected = basis === option.key;
+                  const Icon = option.icon;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => onBasisChange?.(option.key)}
+                      className={`relative flex min-h-[68px] w-full items-start gap-2.5 rounded-[var(--r-md)] border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:shadow-ring sm:w-[218px] ${
+                        selected
+                          ? 'border-[var(--brand-400)] bg-[var(--brand-50)]'
+                          : 'border-[var(--line)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'
+                      }`}
+                    >
+                      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${selected ? 'text-[var(--brand-600)]' : 'text-[var(--fg-muted)]'}`} />
+                      <span className="min-w-0 pe-4">
+                        <span className="block text-fs-sm font-semibold text-[var(--fg)]">{option.label}</span>
+                        <span className="mt-0.5 block text-[11px] leading-snug text-[var(--fg-muted)]">{option.hint}</span>
+                      </span>
+                      {selected && <CheckCircle className="absolute end-2 top-2 h-3.5 w-3.5 text-[var(--brand-600)]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-            {/* Custom (fallback) — highlights when the range matches no preset.
-                Pick a custom window by clicking two days on the calendar. */}
-            <button
-              onClick={() => setPicking('idle')}
-              className={`block w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[var(--surface-subtle)] ${
-                isCustomActive ? 'font-semibold text-fg-primary' : 'font-medium text-fg-primary'
-              }`}
-              style={isCustomActive ? { background: 'var(--surface-subtle)' } : undefined}
-            >
-              {t('drCustom')}
-            </button>
-          </div>
+          <div className="flex flex-col sm:flex-row">
+            {/* Left: presets */}
+            <div className="flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-[var(--divider)] py-3 sm:block sm:max-h-[380px] sm:w-36 sm:overflow-y-auto sm:border-b-0 sm:border-e">
+              {hasBasisControl && (
+                <div className="hidden px-4 pb-1 text-[11px] font-medium text-[var(--fg-muted)] sm:block">{t('dashboardDateRange')}</div>
+              )}
+              {builtinEntries.map((e) => {
+                const isActive = activeId === e.id;
+                return (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => applyRange(e.range)}
+                    className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-subtle)] sm:w-full sm:px-4 ${
+                      isActive ? 'font-semibold text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
+                    }`}
+                    style={isActive ? { background: 'var(--surface-subtle)' } : undefined}
+                  >
+                    {e.label}
+                  </button>
+                );
+              })}
 
-          {/* Right: calendar */}
-          <div className="p-4 w-[320px]">
+              {/* Custom (fallback) — highlights when the range matches no preset.
+                  Pick a custom window by clicking two days on the calendar. */}
+              <button
+                type="button"
+                onClick={() => setPicking('idle')}
+                className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-subtle)] sm:w-full sm:px-4 ${
+                  isCustomActive ? 'font-semibold text-fg-primary' : 'font-medium text-fg-primary'
+                }`}
+                style={isCustomActive ? { background: 'var(--surface-subtle)' } : undefined}
+              >
+                {t('drCustom')}
+              </button>
+            </div>
+
+            {/* Right: calendar */}
+            <div className="mx-auto w-[320px] p-4">
             {/* Month/year nav */}
             <div className="flex items-center justify-between mb-4">
               <button
+                type="button"
                 onClick={prevMonth}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
               >
@@ -318,6 +414,7 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
                 {monthLabel}
               </span>
               <button
+                type="button"
                 onClick={nextMonth}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
               >
@@ -348,6 +445,7 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
                 return (
                   <button
                     key={day}
+                    type="button"
                     onClick={() => handleDayClick(day)}
                     className={`w-10 h-10 mx-auto flex items-center justify-center text-sm rounded-full transition-colors ${
                       isSelected
@@ -376,6 +474,7 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
                 <div className="text-[10px] font-medium text-fg-secondary uppercase tracking-wider">{t('drEndDate')}</div>
                 <div className="text-sm text-fg-primary mt-0.5">{fmt(tempTo)}</div>
               </div>
+            </div>
             </div>
           </div>
         </div>
