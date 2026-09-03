@@ -9,7 +9,7 @@ import {
 } from '@/lib/api';
 
 import { SparklesIcon, FileTextIcon, SendHorizonalIcon, MicIcon, ScanIcon } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import SearchableSelect from '@/components/SearchableSelect';
 import { FoodySpinner } from '@/components/FoodySpinner';
@@ -1176,6 +1176,7 @@ function AiSummaryBubble({
   onDismiss: () => void;
   t: (key: string) => string;
 }) {
+  const { money } = useCurrency();
   if (dismissed) return null;
   const active = items.filter((i) => !i.skipped);
   if (active.length === 0) return null;
@@ -1190,7 +1191,7 @@ function AiSummaryBubble({
   const top = [...active]
     .sort((a, b) => (b.total_price ?? 0) - (a.total_price ?? 0))
     .slice(0, 3)
-    .map((i) => `${i.name} (${fmt(i.total_price ?? 0)} ₪)`)
+    .map((i) => `${i.name} (${money(i.total_price ?? 0)})`)
     .join(', ');
 
   const readKey = supplier ? 'aiSummaryRead' : 'aiSummaryReadNoSupplier';

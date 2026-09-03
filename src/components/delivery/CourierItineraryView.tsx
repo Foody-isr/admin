@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { useWs } from '@/lib/ws-context';
 import {
   getMyRoute, startRoute, markArrived, markStopDelivered, reorderStops, optimizeRoute,
@@ -211,6 +211,7 @@ function CurrentStopCard({
   hasFollowing: boolean;
   t: (k: string) => string;
 }) {
+  const { money } = useCurrency();
   const isArrived = stop.status === 'arrived';
   const address = stopAddress(stop, t);
   const deliveryNotes = stop.delivery_notes?.trim();
@@ -259,7 +260,7 @@ function CurrentStopCard({
             {stop.customer_name}
           </span>
           {stop.customer_phone && <span className="num" dir="ltr">{stop.customer_phone}</span>}
-          {stop.total_amount > 0 && <span className="num">₪{stop.total_amount.toFixed(0)}</span>}
+          {stop.total_amount > 0 && <span className="num">{money(stop.total_amount, { decimals: 0 })}</span>}
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -419,6 +420,7 @@ function AvailableOrderRow({
   onAdd: (o: Order) => void;
   t: (k: string) => string;
 }) {
+  const { money } = useCurrency();
   const address = formatDeliveryAddress({
     address: order.delivery_address,
     city: order.delivery_city,
@@ -452,7 +454,7 @@ function AvailableOrderRow({
       {/* Total */}
       {order.total_amount > 0 && (
         <span className="text-fs-sm font-medium tabular-nums shrink-0" style={{ color: 'var(--fg-muted)' }}>
-          ₪{order.total_amount.toFixed(0)}
+          {money(order.total_amount, { decimals: 0 })}
         </span>
       )}
 

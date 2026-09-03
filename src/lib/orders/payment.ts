@@ -1,8 +1,10 @@
 import type { Order } from '@/lib/api';
 
 /** Provider names the server writes into `external_metadata.payment_method`
- *  when it settles a payment itself. */
-const PROVIDER_METHODS = ['payplus', 'sumit'];
+ *  when it settles a payment itself. Each restaurant brings its own account,
+ *  so this list grows with the providers Foody can be handed keys for — it is
+ *  not a choice Foody makes per market. */
+const PROVIDER_METHODS = ['payplus', 'sumit', 'cibus', 'stancer'];
 
 /**
  * How an order was ACTUALLY settled.

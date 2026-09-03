@@ -57,7 +57,7 @@ import {
   DataTableSelectCell,
 } from '@/components/data-table';
 import { Button, Kpi, PageHead } from '@/components/ds';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
 import {
@@ -72,6 +72,7 @@ import {
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function StockPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -433,7 +434,7 @@ export default function StockPage() {
               label={t('totalValue') || 'Valeur totale'}
               value={
                 <>
-                  ₪{Math.round(totalValue).toLocaleString()}
+                  {money(Math.round(totalValue), { decimals: 0, grouped: true })}
                   <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
                     .{String(Math.round((totalValue % 1) * 100)).padStart(2, '0')}
                   </span>
@@ -750,7 +751,7 @@ export default function StockPage() {
                                     {formatQuantityAtLevel(item, lvl, t)}
                                   </div>
                                   <div className="font-mono text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                                    {formatUnitPriceAtLevel(item, lvl, adjustedCost(item), t)}
+                                    {formatUnitPriceAtLevel(item, lvl, adjustedCost(item), money, t)}
                                   </div>
                                 </div>
                                 {lvl === pkg.defaultLevel && pkg.levels.length > 1 && (
@@ -766,7 +767,7 @@ export default function StockPage() {
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('unitPrice') || 'Prix unitaire'}>
                       <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {formatUnitPriceAtLevel(item, level, adjustedCost(item), t)}
+                        {formatUnitPriceAtLevel(item, level, adjustedCost(item), money, t)}
                         {item.vat_rate_override != null && item.vat_rate_override !== vatRate && (
                           <span className="ml-1.5 text-[10px] tracking-wider text-neutral-400">
                             {item.vat_rate_override}% TVA
@@ -776,7 +777,7 @@ export default function StockPage() {
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('totalValue') || 'Valeur totale'}>
                       <span className="font-semibold text-neutral-900 dark:text-white">
-                        {lineValue.toFixed(2)} ₪
+                        {money(lineValue)}
                       </span>
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('supplier') || 'Fournisseur'}>
@@ -985,6 +986,7 @@ export default function StockPage() {
 function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDisplayMode, onClose, onSaved }: {
   rid: number; editing?: StockItem; categories: string[]; suppliers: Supplier[]; vatRate: number; vatDisplayMode: 'ex' | 'inc'; onClose: () => void; onSaved: () => void;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
@@ -1210,7 +1212,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
         </div>
         <div className="flex items-center gap-[var(--s-2)] mt-1.5">
           <span className="font-mono tabular-nums text-[var(--brand-500)] font-semibold">
-            ₪{(editing?.cost_per_unit ?? 0).toFixed(2)}
+            {money(editing?.cost_per_unit ?? 0)}
           </span>
           <span className="text-fs-xs text-[var(--fg-subtle)]">/ {editing?.unit ?? (qty.type === 'simple' ? qty.unit : 'unit')}</span>
           {category && (
@@ -1236,7 +1238,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
         </div>
         <div className="flex items-center justify-between">
           <span className="text-fs-sm text-[var(--fg-muted)]">{t('value') || 'Valeur'}</span>
-          <span className="font-mono tabular-nums text-fs-sm">₪{unitValue.toFixed(2)}</span>
+          <span className="font-mono tabular-nums text-fs-sm">{money(unitValue)}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-fs-sm text-[var(--fg-muted)]">{t('level') || 'Niveau'}</span>

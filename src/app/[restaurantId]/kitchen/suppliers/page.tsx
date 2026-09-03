@@ -16,7 +16,7 @@ import {
   SearchIcon, PlusIcon, TrashIcon, PencilIcon,
   TruckIcon, CheckCircleIcon, SendIcon, XCircleIcon,
 } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 import {
@@ -316,6 +316,7 @@ function OrdersTab({ orders, suppliers, onNewOrder, onSend, onReceive, onCancel,
   onDelete: (id: number) => void;
   t: (k: string) => string;
 }) {
+  const { money } = useCurrency();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
   const supplierName = (id: number) => suppliers.find((s) => s.id === id)?.name ?? '—';
@@ -355,7 +356,7 @@ function OrdersTab({ orders, suppliers, onNewOrder, onSend, onReceive, onCancel,
                     {t(o.status)}
                   </span>
                 </DataTableCell>
-                <DataTableCell mobileLabel={t('totalAmount')} className="text-fg-secondary">₪{o.total_amount.toFixed(2)}</DataTableCell>
+                <DataTableCell mobileLabel={t('totalAmount')} className="text-fg-secondary">{money(o.total_amount)}</DataTableCell>
                 <DataTableCell mobileLabel={t('items')} className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
                 <DataTableCell>
                   {canManage && (
@@ -395,6 +396,7 @@ function OrdersTab({ orders, suppliers, onNewOrder, onSend, onReceive, onCancel,
 // ─── History Tab ────────────────────────────────────────────────────
 
 function HistoryTab({ orders, t }: { orders: PurchaseOrder[]; t: (k: string) => string }) {
+  const { money } = useCurrency();
   return (
     <>
       <h3 className="font-semibold text-fg-primary">{t('orderHistory')}</h3>
@@ -421,7 +423,7 @@ function HistoryTab({ orders, t }: { orders: PurchaseOrder[]; t: (k: string) => 
                     {t(o.status)}
                   </span>
                 </DataTableCell>
-                <DataTableCell mobileLabel={t('totalAmount')} className="text-fg-secondary">₪{o.total_amount.toFixed(2)}</DataTableCell>
+                <DataTableCell mobileLabel={t('totalAmount')} className="text-fg-secondary">{money(o.total_amount)}</DataTableCell>
                 <DataTableCell mobileLabel={t('items')} className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
               </DataTableRow>
             ))}
@@ -528,6 +530,7 @@ function SupplierDetailModal({ supplier, rid, stockItems, onClose, onAddProduct,
   onEditProduct: (supplierId: number, product: SupplierProduct) => void;
   t: (k: string) => string;
 }) {
+  const { money } = useCurrency();
   const [products, setProducts] = useState<SupplierProduct[]>(supplier.products ?? []);
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
@@ -583,7 +586,7 @@ function SupplierDetailModal({ supplier, rid, stockItems, onClose, onAddProduct,
                       <td className="px-3 py-2 text-fg-primary">{p.name}</td>
                       <td className="px-3 py-2 text-fg-secondary">{p.sku || '—'}</td>
                       <td className="px-3 py-2 text-fg-secondary">{p.unit}</td>
-                      <td className="px-3 py-2 text-fg-secondary">₪{p.price_per_unit.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-fg-secondary">{money(p.price_per_unit)}</td>
                       <td className="px-3 py-2 text-fg-secondary">
                         {p.stock_item ? p.stock_item.name : stockItems.find((si) => si.id === p.stock_item_id)?.name ?? '—'}
                       </td>

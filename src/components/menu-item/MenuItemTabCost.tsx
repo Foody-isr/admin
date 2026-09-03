@@ -3,7 +3,7 @@
 import { AlertCircle, ChevronDown, FlaskConical, Package } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import {
   COST_THRESHOLD,
   computeItemCostSummary,
@@ -62,6 +62,7 @@ export default function MenuItemTabCost({
   onChangesApplied,
   collapsible = false,
 }: Props) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const router = useRouter();
 
@@ -202,7 +203,7 @@ export default function MenuItemTabCost({
                     type="button"
                     onClick={() => setVariantId(v.id)}
                     aria-pressed={active}
-                    title={`${v.name}: ${v.price.toFixed(2)} ₪`}
+                    title={`${v.name}: ${money(v.price)}`}
                     className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ${
                       active
                         ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'

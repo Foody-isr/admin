@@ -16,8 +16,12 @@ export interface FormatMoneyOptions {
   decimals?: number;
   /** Always render a sign, so a positive reads "+₪3.50". Zero stays unsigned. */
   signed?: boolean;
-  /** Currency symbol. Nothing passes this yet — the platform is shekel-only,
-   *  but the seam is here so multi-currency is one change rather than 18. */
+  /** Group thousands (`₪1,234.50`). Off by default so prices stay compact. */
+  grouped?: boolean;
+  /** Currency SYMBOL, not an ISO code. Callers that hold a restaurant's
+   *  currency should go through `@/lib/currency`, which maps the code to its
+   *  symbol and forwards here — this stays symbol-level so the formatter has
+   *  no opinion about where the currency came from. */
   currency?: string;
 }
 
@@ -35,9 +39,14 @@ const MINUS = '−';
  * Null, undefined and non-finite inputs render as zero rather than "₪NaN".
  */
 export function formatMoney(value: number | null | undefined, opts: FormatMoneyOptions = {}): string {
-  const { decimals = 2, signed = false, currency = '₪' } = opts;
+  const { decimals = 2, signed = false, grouped = false, currency = '₪' } = opts;
   const n = typeof value === 'number' && Number.isFinite(value) ? value : 0;
-  const body = Math.abs(n).toFixed(decimals);
+  const body = grouped
+    ? Math.abs(n).toLocaleString('en-US', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      })
+    : Math.abs(n).toFixed(decimals);
   // Decide the sign from the ROUNDED figure, so -0.004 renders "₪0.00" and
   // never the nonsensical "−₪0.00".
   const isZero = Number(body) === 0;

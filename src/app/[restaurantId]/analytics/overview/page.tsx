@@ -13,7 +13,7 @@ import {
   type PeriodComparison,
   type TopSeller,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
 import DateBasisToggle from '@/components/DateBasisToggle';
 import { clampWeekStartDay, isoDate, type WeekStartDay } from '@/lib/weeks';
@@ -80,6 +80,7 @@ function sparkline(values: number[], w = 320, h = 96): { line: string; area: str
 }
 
 export default function AnalyticsOverviewPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t, locale } = useI18n();
@@ -174,7 +175,7 @@ export default function AnalyticsOverviewPage() {
   const cur = period?.current;
   const prev = period?.previous;
   const revenue = cur?.total_revenue ?? 0;
-  const fmtMoney = (n: number) => `₪${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  const fmtMoney = (n: number) => money(n, { decimals: 0, grouped: true });
   const spark = sparkline(trend.map((p) => p.value));
 
   const onExportTrend = useCallback(() => {
@@ -242,7 +243,7 @@ export default function AnalyticsOverviewPage() {
             />
             <Kpi
               label={t('avgTicket')}
-              value={`₪${(cur?.avg_ticket ?? 0).toFixed(1)}`}
+              value={money(cur?.avg_ticket ?? 0, { decimals: 1 })}
               delta={delta(cur?.avg_ticket ?? 0, prev?.avg_ticket ?? 0)}
             />
             <Kpi

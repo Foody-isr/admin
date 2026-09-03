@@ -21,9 +21,10 @@ import {
   XIcon, PlusIcon, TrashIcon, InfoIcon,
   MailIcon,
 } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
+import type { MoneyFormatter } from '@/lib/currency';
 
 function formatDate(d: Date): string {
   return d.toISOString().split('T')[0];
@@ -69,10 +70,10 @@ function VarianceBadge({ pct, t }: { pct: number; t: (k: string) => string }) {
   );
 }
 
-function insightMessage(item: DailyFoodCostItem, t: (k: string) => string): string | null {
+function insightMessage(item: DailyFoodCostItem, t: (k: string) => string, money: MoneyFormatter): string | null {
   if (Math.abs(item.variance) < 0.001) return null;
   const qty = `${Math.abs(item.variance).toFixed(2)}${item.unit}`;
-  const cost = item.variance_cost !== 0 ? ` (≈ ₪${Math.abs(item.variance_cost).toFixed(0)})` : '';
+  const cost = item.variance_cost !== 0 ? ` (≈ ${money(Math.abs(item.variance_cost), { decimals: 0 })})` : '';
   if (item.variance > 0) {
     return t('insightOverUse')
       .replace('{qty}', qty)
@@ -130,6 +131,7 @@ function statusBadge(status: string) {
 }
 
 export default function DailyOperationsPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -505,20 +507,20 @@ export default function DailyOperationsPage() {
             />
             <KpiCard
               label={t('revenue') || 'Revenue'}
-              value={`₪${kpis.revenue.toFixed(0)}`}
+              value={money(kpis.revenue, { decimals: 0 })}
               tooltip={t('revenueTooltip')}
               explain={t('revenueExplain')}
             />
             <KpiCard
               label={t('variance') || 'Variance'}
-              value={`₪${kpis.varianceCost.toFixed(0)}`}
+              value={money(kpis.varianceCost, { decimals: 0 })}
               warn={kpis.varianceCost > 0}
               tooltip={t('varianceTooltip')}
               explain={t('varianceExplain')}
             />
             <KpiCard
               label={t('wasteValue') || 'Waste'}
-              value={`₪${kpis.wasteCost.toFixed(0)}`}
+              value={money(kpis.wasteCost, { decimals: 0 })}
               warn={kpis.wasteCost > 0}
               tooltip={t('wasteTooltip')}
               explain={t('wasteExplain')}
@@ -720,7 +722,7 @@ export default function DailyOperationsPage() {
                 </div>
                 {/* Rows */}
                 {report.items.map(item => {
-                  const insight = insightMessage(item, t);
+                  const insight = insightMessage(item, t, money);
                   const isExpanded = expandedItemId === item.id;
                   const bd = item.stock_item_id ? breakdownCache[item.stock_item_id] : undefined;
                   return (
@@ -851,7 +853,7 @@ export default function DailyOperationsPage() {
                                               {d.servings} {d.name}
                                             </span>
                                           ))}
-                                          {` → ₪${loss.total.toFixed(0)} `}
+                                          {` → ${money(loss.total, { decimals: 0 })} `}
                                           {t('revenueLossSuffix') || 'potential revenue lost'}
                                         </span>
                                       </div>
@@ -1211,6 +1213,7 @@ function QuickReceiveModal({
   onClose: () => void;
   t: (key: string) => string;
 }) {
+  const { money } = useCurrency();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -1374,7 +1377,7 @@ function QuickReceiveModal({
                   />
                   <span className="text-xs text-[var(--fg-secondary)] text-center">{si.unit}</span>
                   <span className="text-xs text-[var(--fg-secondary)] text-right">
-                    {si.cost_per_unit ? `₪${si.cost_per_unit.toFixed(1)}` : '—'}
+                    {si.cost_per_unit ? money(si.cost_per_unit, { decimals: 1 }) : '—'}
                   </span>
                 </div>
               );
@@ -1417,6 +1420,7 @@ function QuickSalesModal({
   onClose: () => void;
   t: (key: string) => string;
 }) {
+  const { money } = useCurrency();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({ ...initialEntries });
@@ -1542,7 +1546,7 @@ function QuickSalesModal({
                       {item.name}
                     </span>
                   </div>
-                  <span className="text-xs text-[var(--fg-secondary)] text-right">₪{item.price}</span>
+                  <span className="text-xs text-[var(--fg-secondary)] text-right">{money(item.price)}</span>
                   <NumberInput
                     integer
                     min={0}

@@ -9,7 +9,7 @@
 
 import { Info, AlertTriangle } from 'lucide-react';
 import type { MenuItem } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft } from './types';
 import { computeComboSavings } from './pricing';
@@ -28,6 +28,7 @@ export default function PricingCard({
   basePrice, onBasePriceChange, steps, itemsById,
   onShowSavingsDetail,
 }: Props) {
+  const { money, symbol } = useCurrency();
   const { t } = useI18n();
   const summary = computeComboSavings(basePrice, steps, itemsById);
 
@@ -73,7 +74,7 @@ export default function PricingCard({
               placeholder="0.00"
               className="flex-1 bg-transparent border-none outline-none text-fs-sm tabular-nums"
             />
-            <span className="text-fs-sm text-[var(--fg-muted)]">₪</span>
+            <span className="text-fs-sm text-[var(--fg-muted)]">{symbol}</span>
           </div>
         </div>
 
@@ -83,8 +84,8 @@ export default function PricingCard({
           </span>
           <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] tabular-nums text-fs-sm font-medium">
             {summary.comboMin === summary.comboMax
-              ? <>₪{summary.comboMin.toFixed(2)}</>
-              : <>₪{summary.comboMin.toFixed(2)} – ₪{summary.comboMax.toFixed(2)}</>
+              ? <>{money(summary.comboMin)}</>
+              : <>{money(summary.comboMin)} – {money(summary.comboMax)}</>
             }
           </div>
         </div>
@@ -127,22 +128,22 @@ export default function PricingCard({
                     {t('comboSavingsIncomparableShort') || 'Non comparable'}
                   </span>
                 )}
-                {savingsState === 'even' && <>±₪0 · 0%</>}
+                {savingsState === 'even' && <>±{money(0)} · 0%</>}
                 {savingsState === 'saves' && (
                   absSaveMin === absSaveMax
-                    ? <>−₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
+                    ? <>−{money(absSaveMin)} · {absSavePct}%</>
                     : (absSaveMin === 0
-                        ? <>₪0 … −₪{absSaveMax.toFixed(2)}</>
-                        : <>−₪{absSaveMin.toFixed(2)} … −₪{absSaveMax.toFixed(2)}</>)
+                        ? <>{money(0)} … −{money(absSaveMax)}</>
+                        : <>−{money(absSaveMin)} … −{money(absSaveMax)}</>)
                 )}
                 {savingsState === 'costs-more' && (
                   <>
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     {absSaveMin === absSaveMax
-                      ? <>+₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
+                      ? <>+{money(absSaveMin)} · {absSavePct}%</>
                       : (absSaveMin === 0
-                          ? <>₪0 … +₪{absSaveMax.toFixed(2)}</>
-                          : <>+₪{absSaveMin.toFixed(2)} … +₪{absSaveMax.toFixed(2)}</>)}
+                          ? <>{money(0)} … +{money(absSaveMax)}</>
+                          : <>+{money(absSaveMin)} … +{money(absSaveMax)}</>)}
                   </>
                 )}
               </>

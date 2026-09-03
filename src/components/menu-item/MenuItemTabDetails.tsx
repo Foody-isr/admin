@@ -4,7 +4,7 @@ import { ChevronDown, Boxes, ArrowRight, RefreshCw, AlertTriangle } from 'lucide
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import type { MenuCategory, Menu, ItemType, PricingMode, TranslationMap } from '@/lib/api';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
@@ -131,6 +131,7 @@ export default function MenuItemTabDetails({
   onRetranslate,
   hideBasePrice = false,
 }: Props) {
+  const { symbol } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
@@ -475,7 +476,7 @@ export default function MenuItemTabDetails({
                     className="pe-16 font-mono"
                   />
                   <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
-                    ₪/kg
+                    {symbol}/kg
                   </span>
                 </div>
               </Field>
@@ -518,9 +519,7 @@ export default function MenuItemTabDetails({
                     placeholder="0.00"
                     className="pe-8 font-mono"
                   />
-                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
-                    ₪
-                  </span>
+                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">{symbol}</span>
                 </div>
               )}
             </Field>

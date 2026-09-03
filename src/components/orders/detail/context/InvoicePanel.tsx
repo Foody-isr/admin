@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ds';
 import { getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf, type Order } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { Money } from '../primitives/Money';
 import { buildWhatsAppUrl } from '@/lib/receipt-share';
 
 // ─── Invoice Section (Summit) ────────────────────────────────────────────────
@@ -106,7 +107,7 @@ function SupplementInvoiceRow({
   return (
     <div className="flex flex-col gap-[var(--s-2)] text-fs-sm border-t border-[var(--line)] pt-[var(--s-2)]">
       <div className="flex items-center justify-between">
-        <span className="font-medium">#{sup.number} · {sup.amount} ₪</span>
+        <span className="font-medium">#{sup.number} · <Money value={sup.amount} /></span>
         <span className="text-fs-xs text-[var(--fg-muted)]">{t('supplementInvoice') || 'complément'}</span>
       </div>
       <div className="flex flex-wrap items-center gap-[var(--s-2)]">

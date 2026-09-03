@@ -49,6 +49,7 @@ export default function PaymentsSettingsPage() {
 
   const [vatRate, setVatRate] = useState<number>(18);
   const [tipsEnabled, setTipsEnabled] = useState(true);
+  const [onlinePaymentOnly, setOnlinePaymentOnly] = useState(false);
   const [rounding, setRounding] = useState<'none' | '10ag' | 'whole'>('none');
   const [tipSuggestions, setTipSuggestions] = useState<[number, number, number]>([10, 12, 15]);
 
@@ -58,6 +59,7 @@ export default function PaymentsSettingsPage() {
         setSettings(s);
         setVatRate(s.vat_rate ?? 18);
         setTipsEnabled(s.tips_enabled ?? true);
+        setOnlinePaymentOnly(s.online_payment_only ?? false);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -68,6 +70,7 @@ export default function PaymentsSettingsPage() {
       await updateRestaurantSettings(rid, {
         vat_rate: vatRate,
         tips_enabled: tipsEnabled,
+        online_payment_only: onlinePaymentOnly,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -88,8 +91,10 @@ export default function PaymentsSettingsPage() {
     {
       key: 'cash',
       name: t('paymentCash') || 'Espèces',
-      desc: t('paymentCashDesc') || 'Toujours disponible',
-      active: true,
+      desc: onlinePaymentOnly
+        ? t('onlinePaymentOnly') || 'Paiement en ligne obligatoire'
+        : t('paymentCashDesc') || 'Toujours disponible',
+      active: !onlinePaymentOnly,
       icon: 'dollar',
     },
     {
@@ -136,6 +141,23 @@ export default function PaymentsSettingsPage() {
       />
 
       <Section title={t('paymentMethods') || 'Méthodes de paiement'}>
+        <label className="flex items-start gap-[var(--s-3)] cursor-pointer mb-[var(--s-4)]">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={onlinePaymentOnly}
+            disabled={!canEdit}
+            onChange={(e) => setOnlinePaymentOnly(e.target.checked)}
+          />
+          <div>
+            <div className="text-fs-sm font-medium text-[var(--fg)]">
+              {t('onlinePaymentOnly') || 'Paiement en ligne obligatoire'}
+            </div>
+            <div className="text-fs-xs text-[var(--fg-subtle)]">
+              {t('onlinePaymentOnlyDesc')}
+            </div>
+          </div>
+        </label>
         <div className="flex flex-col gap-[var(--s-2)]">
           {methods.map((m) => (
             <div

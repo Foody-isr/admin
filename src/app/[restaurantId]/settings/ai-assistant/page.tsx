@@ -15,13 +15,14 @@ import {
   updateRestaurantSettings,
   RestaurantSettings,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, Field, NumberField, PageHead, Section, Select, Textarea } from '@/components/ds';
 
 type TriggerMode = 'manual' | 'immediate' | 'delay';
 
 export default function AIAssistantSettingsPage() {
+  const { symbol } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -225,7 +226,7 @@ export default function AIAssistantSettingsPage() {
               onChange={(e) => setFaq(e.target.value)}
               placeholder={
                 t('aiFaqPlaceholder') ||
-                'Do you deliver to Ramat Gan? — Yes, orders over ₪80.\nIs the falafel gluten-free? — Yes, fried separately.'
+                `Do you deliver to Ramat Gan? — Yes, orders over ${symbol}80.\nIs the falafel gluten-free? — Yes, fried separately.`
               }
             />
           </Field>

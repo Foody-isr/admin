@@ -15,6 +15,7 @@ import { groupOrder } from '@/lib/orders/group-order';
 import { buildCustomFieldLabels, humanizeFieldId } from '@/lib/orders/checkout-fields';
 import { findTemplate } from '@/lib/messages/registry';
 import { renderTemplate, type RenderContext } from '@/lib/messages/render';
+import { formatMoney } from '@/lib/currency';
 
 /** Languages a customer can order in. Anything else falls back to FALLBACK_LOCALE. */
 export const RECAP_LOCALES = ['fr', 'he', 'en'] as const;
@@ -168,8 +169,8 @@ const INTL_LOCALE: Record<RecapLocale, string> = {
   en: 'en-GB',
 };
 
-function money(n: number): string {
-  return `₪${(n ?? 0).toFixed(2)}`;
+function money(n: number, currency?: string): string {
+  return formatMoney(n, currency);
 }
 
 /** "jeudi 16 juillet" — day + month, no year (the recap is always near-term). */
@@ -220,11 +221,12 @@ function formatSlot(order: Order, locale: RecapLocale): string {
  */
 function modifierLine(
   modifiers: { name: string; price_delta?: number }[] | undefined,
+  currency?: string,
 ): string {
   if (!modifiers || modifiers.length === 0) return '';
   return modifiers
     .map((m) => {
-      const extra = m.price_delta && m.price_delta > 0 ? ` (+${money(m.price_delta)})` : '';
+      const extra = m.price_delta && m.price_delta > 0 ? ` (+${money(m.price_delta, currency)})` : '';
       return `${m.name}${extra}`;
     })
     .join(' · ');
@@ -236,6 +238,8 @@ export interface BuildRecapOptions {
   locale: RecapLocale;
   /** Public receipt/tracking URL. Omitted from the message when empty. */
   receiptUrl?: string;
+  /** Restaurant's ISO 4217 code. Defaults to the shekel when absent. */
+  currency?: string;
   /**
    * The restaurant's checkout form, used to label the answers the customer
    * gave to its custom fields — those are stored on the order keyed by field
@@ -266,6 +270,7 @@ export function buildRecapContext({
   restaurantName,
   locale,
   receiptUrl,
+  currency,
   checkoutConfig,
 }: BuildRecapOptions): RenderContext {
   const s = STRINGS[locale];
@@ -277,22 +282,22 @@ export function buildRecapContext({
   for (const item of g.regularItems) {
     const variant = (item.selected_variant_name || '').trim();
     const name = variant ? `${item.name} (${variant})` : item.name;
-    itemLines.push(`• ${item.quantity}× ${name} · ${money(item.price * item.quantity)}`);
+    itemLines.push(`• ${item.quantity}× ${name} · ${money(item.price * item.quantity, currency)}`);
 
-    const mods = modifierLine(item.modifiers);
+    const mods = modifierLine(item.modifiers, currency);
     if (mods) itemLines.push(`   ↳ ${mods}`);
     if ((item.notes || '').trim()) itemLines.push(`   ↳ “${item.notes!.trim()}”`);
   }
 
   for (const combo of g.comboGroups) {
-    itemLines.push(`• ${combo.name} · ${money(combo.price)}`);
+    itemLines.push(`• ${combo.name} · ${money(combo.price, currency)}`);
     for (const step of combo.items) {
       const variant = (step.selected_variant_name || '').trim();
       const name = variant ? `${step.name} (${variant})` : step.name;
       const qty = step.quantity > 1 ? `${step.quantity}× ` : '';
       itemLines.push(`   ↳ ${qty}${name}`);
 
-      const mods = modifierLine(step.modifiers);
+      const mods = modifierLine(step.modifiers, currency);
       if (mods) itemLines.push(`      ${mods}`);
     }
   }
@@ -302,11 +307,11 @@ export function buildRecapContext({
   // order shows one Total line, not a subtotal that repeats it.
   const totalLines: string[] = [];
   if (g.deliveryFee > 0 || g.discountAmount > 0) {
-    totalLines.push(`${s.subtotal} : ${money(g.subtotal)}`);
-    if (g.discountAmount > 0) totalLines.push(`${s.discount} : −${money(g.discountAmount)}`);
-    if (g.deliveryFee > 0) totalLines.push(`${s.deliveryFee} : ${money(g.deliveryFee)}`);
+    totalLines.push(`${s.subtotal} : ${money(g.subtotal, currency)}`);
+    if (g.discountAmount > 0) totalLines.push(`${s.discount} : −${money(g.discountAmount, currency)}`);
+    if (g.deliveryFee > 0) totalLines.push(`${s.deliveryFee} : ${money(g.deliveryFee, currency)}`);
   }
-  totalLines.push(`*${s.total} : ${money(g.total)}*`);
+  totalLines.push(`*${s.total} : ${money(g.total, currency)}*`);
 
   // ── Bloc adresse : vide hors livraison, pour que sa ligne disparaisse ────────
   let address = '';
@@ -349,7 +354,7 @@ export function buildRecapContext({
     payment = s.paid;
   } else if (balanceDue > 0) {
     // Paid, then items were added: only the supplement is still owed.
-    payment = `⚠️ ${s.balanceDue} : ${money(balanceDue)}`;
+    payment = `⚠️ ${s.balanceDue} : ${money(balanceDue, currency)}`;
   } else if (order.payment_status !== 'refunded') {
     payment = isDelivery ? s.toPayDelivery : order.order_type === 'dine_in' ? s.toPayDineIn : s.toPayPickup;
   }

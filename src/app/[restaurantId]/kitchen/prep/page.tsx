@@ -43,7 +43,7 @@ import {
   AlertTriangleIcon, PlayIcon, SparklesIcon,
   ChevronDownIcon, ChevronUpIcon, RefreshCwIcon, ClockIcon, ImageIcon,
 } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, Kpi, PageHead } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
@@ -59,6 +59,7 @@ const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 export default function PrepPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
@@ -324,7 +325,7 @@ export default function PrepPage() {
               label={t('totalCost') || 'Coût total en stock'}
               value={
                 <>
-                  ₪{Math.round(totalCost).toLocaleString()}
+                  {money(Math.round(totalCost), { decimals: 0, grouped: true })}
                   <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
                     .{String(Math.round((totalCost % 1) * 100)).padStart(2, '0')}
                   </span>
@@ -656,6 +657,7 @@ function PrepItemModal({
 }: {
   rid: number; editing?: PrepItem; categories: string[]; stockItems: StockItem[]; onClose: () => void; onSaved: () => void;
 }) {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
@@ -812,11 +814,11 @@ function PrepItemModal({
         {t('costPerUnit') || 'Coût de revient'}
       </div>
       <div className="flex items-baseline gap-1 font-display text-fs-2xl font-semibold tabular-nums -tracking-[0.02em]">
-        ₪{perUnit.toFixed(2)}
+        {money(perUnit)}
         <span className="text-fs-sm text-[var(--fg-muted)] font-normal font-sans">/ {unit}</span>
       </div>
       <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">
-        {t('yieldLabel') || 'Rendement'} {yieldPerBatch || 0} {unit} · {t('totalLabel') || 'total'} ₪{costTotal.toFixed(2)}
+        {t('yieldLabel') || 'Rendement'} {yieldPerBatch || 0} {unit} · {t('totalLabel') || 'total'} {money(costTotal)}
       </div>
 
       <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
@@ -1193,7 +1195,7 @@ function PrepItemModal({
                         Coût matière (HT)
                       </td>
                       <td className="px-[var(--s-3)] py-[var(--s-2)] text-end font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
-                        {costTotal > 0 ? `${costTotal.toFixed(2)} ₪` : '—'}
+                        {costTotal > 0 ? money(costTotal) : '—'}
                       </td>
                       <td aria-hidden />
                     </tr>

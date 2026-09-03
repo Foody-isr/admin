@@ -21,7 +21,7 @@ import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/li
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { type PrintTicketRestaurant } from '@/lib/print-ticket';
 import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
 import { OrderDetailModal } from '@/components/orders/detail/OrderDetailModal';
@@ -107,6 +107,7 @@ function defaultDateRange(): { from: Date; to: Date } {
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
+  const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission, isOwner, roleName } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
@@ -211,11 +212,17 @@ export default function OrdersPage() {
   // disponibilité, surfaced here so staff can pause mid-service without leaving
   // the order board.
   const [paused, setPaused] = useState(false);
+  // Cash is not offered at all on an online-payment-only restaurant, in the
+  // staff dialogs as much as on the guest checkout.
+  const [allowCash, setAllowCash] = useState(true);
   const [pauseSaving, setPauseSaving] = useState(false);
   useEffect(() => {
     if (!rid) return;
     getRestaurantSettings(rid)
-      .then((s) => setPaused(s.orders_paused ?? false))
+      .then((s) => {
+        setPaused(s.orders_paused ?? false);
+        setAllowCash(!(s.online_payment_only ?? false));
+      })
       .catch(() => {});
   }, [rid]);
 
@@ -849,7 +856,7 @@ export default function OrdersPage() {
                         mobilePrimary={col.isMobilePrimary}
                         mobileLabel={col.isMobilePrimary ? undefined : t(col.labelKey)}
                       >
-                        {col.render(order, t)}
+                        {col.render(order, t, money)}
                       </DataTableCell>
                     ))}
                   </DataTableRow>
@@ -935,6 +942,7 @@ export default function OrdersPage() {
 
       {/* Take Payment dialog */}
       <TakePaymentDialog
+        allowCash={allowCash}
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
         totalAmount={selectedOrder?.total_amount ?? 0}
@@ -1010,6 +1018,7 @@ export default function OrdersPage() {
         const target = orders.find((o) => o.id === paymentMethodOrderId);
         return (
           <CorrectPaymentMethodDialog
+            allowCash={allowCash}
             open={paymentMethodOrderId !== null}
             currentMethod={target ? settledPaymentMethod(target) : undefined}
             currentReference={target ? paymentReference(target) : undefined}

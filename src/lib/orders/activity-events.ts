@@ -86,18 +86,19 @@ function readOverrides(order: Order, key: string): OverrideEntry[] {
 }
 
 // Builds the "Discount applied · …" label from whichever detail is available:
-// a coupon code, a percentage/fixed value, or the resolved ₪ amount, plus the
-// staff reason when present.
+// a coupon code, a percentage/fixed value, or the resolved cash amount, plus
+// the staff reason when present. `currency` is the restaurant's symbol.
 function discountAppliedLabel(
   t: (k: string) => string,
   d: { type?: string; value?: number; amount?: number; reason?: string; code?: string },
+  currency?: string,
 ): string {
   const applied = t('activityDiscountApplied') || 'Discount applied';
   let desc = '';
   if (d.code) desc = d.code;
   else if (d.type === 'percent' && d.value != null) desc = `−${d.value}%`;
-  else if (d.amount != null) desc = formatMoney(-d.amount);
-  else if (d.value != null) desc = formatMoney(-d.value);
+  else if (d.amount != null) desc = formatMoney(-d.amount, { currency });
+  else if (d.value != null) desc = formatMoney(-d.value, { currency });
   const head = desc ? `${applied} · ${desc}` : applied;
   return d.reason ? `${head} · ${d.reason}` : head;
 }
@@ -114,6 +115,9 @@ export function buildActivityEvents(
   order: Order,
   auditEvents: AuditEvent[] | undefined,
   t: (k: string) => string,
+  /** The restaurant's currency symbol, for the discount amounts below.
+   *  Omitted falls back to the shekel, as every caller did before. */
+  currency?: string,
 ): ActivityEvent[] {
   const events: ActivityEvent[] = [];
 
@@ -138,7 +142,7 @@ export function buildActivityEvents(
         label:
           a.action === 'removed'
             ? t('activityDiscountRemoved') || 'Discount removed'
-            : discountAppliedLabel(t, { type: a.type, value: a.value, reason: a.reason }),
+            : discountAppliedLabel(t, { type: a.type, value: a.value, reason: a.reason }, currency),
       });
     }
   } else if ((order.discount_amount ?? 0) > 0) {
@@ -148,7 +152,7 @@ export function buildActivityEvents(
         amount: order.discount_amount,
         reason: order.discount?.reason,
         code: order.discount?.code,
-      }),
+      }, currency),
     });
   }
 

@@ -12,7 +12,7 @@ import {
   MenuCategory,
   MenuItem,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import Modal from '@/components/Modal';
 
 export interface DiscountEditModalProps {
@@ -38,6 +38,7 @@ export default function DiscountEditModal({
   onClose,
   onSaved,
 }: DiscountEditModalProps) {
+  const { symbol } = useCurrency();
   const { t } = useI18n();
 
   // --- Form fields ---
@@ -269,7 +270,7 @@ export default function DiscountEditModal({
                 }}
               />
               <span className="absolute end-3 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary pointer-events-none">
-                {type === 'fixed' ? '₪' : '%'}
+                {type === 'fixed' ? symbol : '%'}
               </span>
             </div>
           </div>
@@ -366,9 +367,7 @@ export default function DiscountEditModal({
                 onChange={(e) => setMinPurchase(e.target.value)}
                 placeholder="0"
               />
-              <span className="absolute end-3 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary pointer-events-none">
-                ₪
-              </span>
+              <span className="absolute end-3 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary pointer-events-none">{symbol}</span>
             </div>
           </div>
 

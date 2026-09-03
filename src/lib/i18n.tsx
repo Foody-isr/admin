@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { currencySymbol, DEFAULT_CURRENCY, formatMoney, type FormatMoneyOptions } from '@/lib/currency';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -15,6 +16,9 @@ interface I18nContextValue {
   direction: Direction;
   setLocale: (l: Locale) => void;
   t: (key: string) => string;
+  /** Active restaurant's ISO 4217 code, e.g. "ILS" or "EUR". */
+  currency: string;
+  setCurrency: (code: string | undefined | null) => void;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -23,6 +27,7 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('en');
+  const [currency, setCurrencyState] = useState<string>(DEFAULT_CURRENCY);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as Locale | null;
@@ -50,11 +55,28 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   const direction: Direction = locale === 'he' ? 'rtl' : 'ltr';
 
-  const t = useCallback((key: string): string => {
-    return translations[locale]?.[key] ?? translations.en[key] ?? key;
-  }, [locale]);
+  // Currency belongs to the restaurant, not to the user, so it is never
+  // persisted the way the locale is — the restaurant layout sets it on every
+  // load. Falling back on a blank code keeps the shekel rather than rendering
+  // "undefined" in the window before the restaurant request lands.
+  const setCurrency = useCallback((code: string | undefined | null) => {
+    setCurrencyState(code || DEFAULT_CURRENCY);
+  }, []);
 
-  const value = useMemo(() => ({ locale, direction, setLocale, t }), [locale, direction, setLocale, t]);
+  // A `{currency}` placeholder in a translation resolves to the active symbol
+  // here. That is what let ~70 price strings become currency-aware without
+  // growing a parameter at each of their call sites.
+  const t = useCallback((key: string): string => {
+    const raw = translations[locale]?.[key] ?? translations.en[key] ?? key;
+    return raw.includes('{currency}')
+      ? raw.split('{currency}').join(currencySymbol(currency))
+      : raw;
+  }, [locale, currency]);
+
+  const value = useMemo(
+    () => ({ locale, direction, setLocale, t, currency, setCurrency }),
+    [locale, direction, setLocale, t, currency, setCurrency],
+  );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
@@ -65,6 +87,22 @@ export function useI18n() {
   const ctx = useContext(I18nContext);
   if (!ctx) throw new Error('useI18n must be used within LocaleProvider');
   return ctx;
+}
+
+/**
+ * The open restaurant's currency, plus the formatter every price in the admin
+ * goes through. `money(12.5)` renders `₪12.50` or `€12.50` depending on which
+ * restaurant is open — never on the viewer's locale, which would let one order
+ * read differently to a manager and to their owner.
+ */
+export function useCurrency() {
+  const { currency } = useI18n();
+  const money = useCallback(
+    (amount: number | null | undefined, opts?: FormatMoneyOptions) =>
+      formatMoney(amount, currency, opts),
+    [currency],
+  );
+  return { code: currency, symbol: currencySymbol(currency), money };
 }
 
 /**
@@ -561,7 +599,7 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryAddress: 'Delivery address',
     apt: 'Apt',
     deliveryNotes: 'Delivery notes',
-    deliveryFee: 'Delivery fee (₪)',
+    deliveryFee: 'Delivery fee ({currency})',
     payMethodCash: 'Cash',
     payMethodCard: 'Card',
     payMethodLink: 'Payment link',
@@ -574,7 +612,7 @@ const translations: Record<Locale, Record<string, string>> = {
     draftDiscard: 'Discard',
     draftIssueMissing: 'no longer exists',
     draftIssueSoldOut: 'no longer available',
-    draftIssuePriceChanged: '{was} ₪ → {now} ₪',
+    draftIssuePriceChanged: '{was} {currency} → {now} {currency}',
     draftIssueComboMissing: '{name} no longer exists',
     draftIssueComboSoldOut: '{name} is no longer available',
     draftIssueRemove: 'Remove',
@@ -967,7 +1005,7 @@ const translations: Record<Locale, Record<string, string>> = {
     modifierName: 'Modifier name',
     action: 'Action',
     add: 'Add',
-    priceDelta: 'Price delta (₪)',
+    priceDelta: 'Price delta ({currency})',
     categoryGroupName: 'Category (group name)',
     categoryGroupPlaceholder: 'e.g. Toppings, Sauces',
     requiredModifier: 'Required (customer must select at least one)',
@@ -1152,7 +1190,7 @@ const translations: Record<Locale, Record<string, string>> = {
     correctPaymentMethodSilentNote: 'This only fixes the record. No money moves and the customer is not notified.',
     correctPaymentMethodNote: 'Reason for the correction (optional)',
     paymentReference: 'Invoice / reference no.',
-    paymentReferenceHint: 'The provider invoice number (Summit, PayPlus) or card slip number, when the card was charged outside Foody.',
+    paymentReferenceHint: 'The provider invoice number (Summit, PayPlus, Stancer) or card slip number, when the card was charged outside Foody.',
     activityPaymentMethodCorrected: 'Payment method corrected from {from} to {to} by {who}',
     activityPaymentReferenceRecorded: 'Payment reference recorded by {who}',
     note: 'Note:',
@@ -1218,7 +1256,7 @@ const translations: Record<Locale, Record<string, string>> = {
     cashPaymentChange: 'Change',
     cashPaymentExact: 'Exact',
     cashPaymentConfirm: 'Confirm Payment',
-    cashPaymentConfirmChange: 'Confirm · Change ₪{amount}',
+    cashPaymentConfirmChange: 'Confirm · Change {currency}{amount}',
     cashPaymentCancel: 'Cancel',
     cashPaymentSuccess: 'Payment received',
     cashPaymentNoChange: 'Exact amount — no change',
@@ -1341,6 +1379,8 @@ const translations: Record<Locale, Record<string, string>> = {
     autoSendDesc: 'Online orders go straight to the kitchen without staff approval',
     enableTips: 'Enable tips',
     enableTipsDesc: 'Show tip option at checkout',
+    onlinePaymentOnly: 'Online payment only',
+    onlinePaymentOnlyDesc: 'Refuse cash and any payment recorded by hand. Required where the business relies on the French exemption from certified cash-register software, which holds only while every payment goes through a bank.',
     itemNotesOn: 'On',
     itemNotesOff: 'Off',
     comboAllowQuantityLabel: 'Allow ordering several at once',
@@ -1484,7 +1524,7 @@ const translations: Record<Locale, Record<string, string>> = {
     aiPairingsPlaceholder: 'Burger → fries + a soft drink\nHummus → fresh pita, Israeli salad',
     aiFaq: 'Frequent questions & answers',
     aiFaqHint: 'Recurring customer questions and the answers the assistant should give (hours, delivery zones, allergens, substitutions…). One Q/A per line.',
-    aiFaqPlaceholder: 'Do you deliver to Ramat Gan? — Yes, orders over ₪80.\nIs the falafel gluten-free? — Yes, fried separately.',
+    aiFaqPlaceholder: 'Do you deliver to Ramat Gan? — Yes, orders over {currency}80.\nIs the falafel gluten-free? — Yes, fried separately.',
     aiDisabledHint: 'Assistant is currently hidden from guests.',
     aiTrigger: 'When it appears',
     aiTriggerDesc: 'Choose whether the assistant waits to be tapped or proactively offers help.',
@@ -1890,12 +1930,12 @@ const translations: Record<Locale, Record<string, string>> = {
     retry: 'Retry',
     articleSection: 'Article',
     rowNumber: 'Line {n}',
-    aiSummaryRead: 'I read this delivery as {n} items from {supplier}, totalling {totalTtc} ₪ TTC ({totalHt} ₪ HT).',
-    aiSummaryReadNoSupplier: 'I read this delivery as {n} items, totalling {totalTtc} ₪ TTC ({totalHt} ₪ HT).',
+    aiSummaryRead: 'I read this delivery as {n} items from {supplier}, totalling {totalTtc} {currency} TTC ({totalHt} {currency} HT).',
+    aiSummaryReadNoSupplier: 'I read this delivery as {n} items, totalling {totalTtc} {currency} TTC ({totalHt} {currency} HT).',
     aiSummaryTopItems: 'Largest lines: {items}.',
     aiSummaryCheckTotal: 'Verify this matches the total printed on the supplier bill.',
     askAi: 'Ask the AI to fix something',
-    askAiPlaceholder: 'e.g. Tomatoes are 10 ₪/kg, not what is shown',
+    askAiPlaceholder: 'e.g. Tomatoes are 10 {currency}/kg, not what is shown',
     aiSend: 'Send',
     aiPatchApplied: 'Change applied.',
     aiNoChange: 'No change made.',
@@ -2121,7 +2161,7 @@ const translations: Record<Locale, Record<string, string>> = {
     composePricingSubtitle: 'How the final price is calculated',
     composePricingFixed: 'Fixed price',
     composePricingSumPercent: 'Sum − %',
-    composePricingSumFixed: 'Sum − ₪',
+    composePricingSumFixed: 'Sum − {currency}',
     composePricingSoon: 'Coming soon',
     composeBasePriceLabel: 'Base price',
     composeBasePriceHint: 'Price when default options are selected',
@@ -2134,8 +2174,8 @@ const translations: Record<Locale, Record<string, string>> = {
     composeSetDefault: 'Set default',
     composeUpchargeLabel: 'Upcharge',
     composeNotAvailable: 'Not available in this combo',
-    composeIncludedAtBase: 'Included at base price · ₪{price}',
-    composeUpchargeApplied: '+₪{delta} on combo · customer pays ₪{price}',
+    composeIncludedAtBase: 'Included at base price · {currency}{price}',
+    composeUpchargeApplied: '+{currency}{delta} on combo · customer pays {currency}{price}',
     composeIncludedInCombo: 'Variants included in this combo',
     composeVariantsCount: '{n} variants',
     composeNoStepsCallout: 'No step configured yet — start composition →',
@@ -2165,7 +2205,7 @@ const translations: Record<Locale, Record<string, string>> = {
     customerOutcomeTitle: 'What your customer will see',
     customerOutcomeMore: '+{n} other combinations',
     customerOutcomeBaseDefault: 'Base price — default variant',
-    customerOutcomeWithUpcharge: 'Base + ₪{delta} upcharge ({variant})',
+    customerOutcomeWithUpcharge: 'Base + {currency}{delta} upcharge ({variant})',
     // ── Combo savings rail panel ──
     comboSavingsPanelTitle: 'Customer savings',
     comboSurchargeLabel: 'Combo surcharge',
@@ -2223,7 +2263,7 @@ const translations: Record<Locale, Record<string, string>> = {
     groupRemoveScopePrompt: 'Remove "{name}" from this week onward? OK = soft-retire from this week (preserves history). Cancel = ask about permanent deletion.',
     jumpTo: 'Jump to',
     rawStock: 'Raw Stock',
-    sellingPrice: 'Selling price: {price} ₪',
+    sellingPrice: 'Selling price: {price} {currency}',
     itemNameLabel: 'Item name',
     sellingPriceLabel: 'Selling price',
     pricingModeLabel: 'Pricing',
@@ -3592,7 +3632,7 @@ const translations: Record<Locale, Record<string, string>> = {
     sendToCustomer: 'Send to customer',
     sendReceiptWhatsApp: 'Send via WhatsApp',
     sendReceiptEmail: 'Send via email',
-    receiptShareMessage: 'Hello{name}, here is the receipt for your order #{id} for ₪{total}. {url}',
+    receiptShareMessage: 'Hello{name}, here is the receipt for your order #{id} for {currency}{total}. {url}',
     receiptEmailSubject: 'Receipt for your order #{id}',
     copy: 'Copy',
     sendOrderConfirmation: 'Send order confirmation',
@@ -3751,7 +3791,7 @@ const translations: Record<Locale, Record<string, string>> = {
     roundingNone: 'None (to the cent)',
     roundingWhole: 'Whole shekel',
     minimumOrderDelivery: 'Minimum order (delivery)',
-    minimumOrderDeliveryHelp: 'Shown as "Min ₪X" on the customer order page. 0 = no minimum.',
+    minimumOrderDeliveryHelp: 'Shown as "Min {currency}X" on the customer order page. 0 = no minimum.',
     seatingCapacity: 'Seating capacity',
     shortTagline: 'Short tagline',
     shortTaglineHint: 'For receipts (40 char. max).',
@@ -3856,12 +3896,12 @@ const translations: Record<Locale, Record<string, string>> = {
     generalSettings: 'General settings',
     zoneTypeHint_cities: 'Customers will choose their city from a list when placing an order.',
     zoneTypeHint_radius: 'The system automatically checks whether the customer address falls within the radius.',
-    zoneDeliveryFee: 'Delivery fee (₪)',
-    zoneMinOrder: 'Minimum order (₪)',
+    zoneDeliveryFee: 'Delivery fee ({currency})',
+    zoneMinOrder: 'Minimum order ({currency})',
     zoneFeeFreePlaceholder: 'Free',
     zoneMinGlobalPlaceholder: 'Default',
     zoneFeeMinHint: 'Leave empty for free delivery and the restaurant-wide minimum.',
-    defaultMinOrder: 'Default minimum order (₪)',
+    defaultMinOrder: 'Default minimum order ({currency})',
     defaultMinOrderHint: 'Applied to addresses without a zone-specific minimum. 0 = no minimum. A zone can override it below.',
 
     // ── Delivery tours ──
@@ -3923,7 +3963,7 @@ const translations: Record<Locale, Record<string, string>> = {
     discountName: 'Name',
     discountDescription: 'Description',
     discountType: 'Type',
-    typeFixed: 'Amount off (₪)',
+    typeFixed: 'Amount off ({currency})',
     typePercent: 'Percentage off',
     typeFreeDelivery: 'Free delivery',
     appliesTo: 'Applies to',
@@ -4212,7 +4252,7 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_choice_manual_add: 'Create choice',
     catering_choice_manual_name: 'Custom choice name',
     catering_choice_manual_description: 'Optional customer-facing description',
-    catering_choice_surcharge: 'Extra ₪',
+    catering_choice_surcharge: 'Extra ({currency})',
     catering_choice_chef_default: 'Chef choice',
     catering_choice_invalid: 'Complete every choice step: add a name, valid limits and enough articles.',
     catering_move_up: 'Move up',
@@ -5143,7 +5183,7 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryAddress: 'כתובת למשלוח',
     apt: 'דירה',
     deliveryNotes: 'הערות למשלוח',
-    deliveryFee: 'דמי משלוח (₪)',
+    deliveryFee: 'דמי משלוח ({currency})',
     payMethodCash: 'מזומן',
     payMethodCard: 'כרטיס',
     payMethodLink: 'קישור לתשלום',
@@ -5156,7 +5196,7 @@ const translations: Record<Locale, Record<string, string>> = {
     draftDiscard: 'ניקוי',
     draftIssueMissing: 'לא קיים יותר',
     draftIssueSoldOut: 'לא זמין יותר',
-    draftIssuePriceChanged: '{was} ₪ ← {now} ₪',
+    draftIssuePriceChanged: '{was} {currency} ← {now} {currency}',
     draftIssueComboMissing: '{name} לא קיים יותר',
     draftIssueComboSoldOut: '{name} לא זמין יותר',
     draftIssueRemove: 'הסרה',
@@ -5549,7 +5589,7 @@ const translations: Record<Locale, Record<string, string>> = {
     modifierName: 'שם תוספת',
     action: 'פעולה',
     add: 'הוספה',
-    priceDelta: 'הפרש מחיר (₪)',
+    priceDelta: 'הפרש מחיר ({currency})',
     categoryGroupName: 'קטגוריה (שם קבוצה)',
     categoryGroupPlaceholder: 'לדוגמה: תוספות, רטבים',
     requiredModifier: 'חובה (הלקוח חייב לבחור לפחות אחד)',
@@ -5734,7 +5774,7 @@ const translations: Record<Locale, Record<string, string>> = {
     correctPaymentMethodSilentNote: 'הפעולה מתקנת את הרישום בלבד. לא מועבר כסף והלקוח אינו מקבל הודעה.',
     correctPaymentMethodNote: 'סיבת התיקון (רשות)',
     paymentReference: 'מס׳ חשבונית / אסמכתא',
-    paymentReferenceHint: 'מספר החשבונית מהסולק (Summit, PayPlus) או מספר השובר, כשהכרטיס חויב מחוץ ל־Foody.',
+    paymentReferenceHint: 'מספר החשבונית מהסולק (Summit, PayPlus, Stancer) או מספר השובר, כשהכרטיס חויב מחוץ ל־Foody.',
     activityPaymentMethodCorrected: 'אמצעי התשלום תוקן מ־{from} ל־{to} על ידי {who}',
     activityPaymentReferenceRecorded: 'אסמכתת תשלום נרשמה על ידי {who}',
     note: 'הערה:',
@@ -5800,7 +5840,7 @@ const translations: Record<Locale, Record<string, string>> = {
     cashPaymentChange: 'עודף',
     cashPaymentExact: 'מדויק',
     cashPaymentConfirm: 'אשר תשלום',
-    cashPaymentConfirmChange: 'אשר · עודף ₪{amount}',
+    cashPaymentConfirmChange: 'אשר · עודף {currency}{amount}',
     cashPaymentCancel: 'ביטול',
     cashPaymentSuccess: 'התשלום התקבל',
     cashPaymentNoChange: 'סכום מדויק — אין עודף',
@@ -5923,6 +5963,8 @@ const translations: Record<Locale, Record<string, string>> = {
     autoSendDesc: 'הזמנות אונליין עוברות ישירות למטבח ללא אישור צוות',
     enableTips: 'אפשר טיפים',
     enableTipsDesc: 'הצג אפשרות טיפ בקופה',
+    onlinePaymentOnly: 'תשלום מקוון בלבד',
+    onlinePaymentOnlyDesc: 'דחיית מזומן וכל תשלום שנרשם ידנית. נדרש כשהעסק נשען על הפטור הצרפתי מתוכנת קופה מאושרת, שתקף רק כל עוד כל תשלום עובר דרך הבנק.',
     itemNotesOn: 'מופעל',
     itemNotesOff: 'כבוי',
     comboAllowQuantityLabel: 'אפשר הזמנת מספר יחידות',
@@ -6066,7 +6108,7 @@ const translations: Record<Locale, Record<string, string>> = {
     aiPairingsPlaceholder: 'המבורגר ← צ׳יפס + שתייה\nחומוס ← פיתה טרייה, סלט ישראלי',
     aiFaq: 'שאלות ותשובות נפוצות',
     aiFaqHint: 'שאלות חוזרות של לקוחות והתשובות שהעוזר צריך לתת (שעות, אזורי משלוח, אלרגנים, החלפות…). שאלה/תשובה בכל שורה.',
-    aiFaqPlaceholder: 'מגיעים לרמת גן? — כן, בהזמנות מעל ₪80.\nהפלאפל ללא גלוטן? — כן, מטוגן בנפרד.',
+    aiFaqPlaceholder: 'מגיעים לרמת גן? — כן, בהזמנות מעל {currency}80.\nהפלאפל ללא גלוטן? — כן, מטוגן בנפרד.',
     aiDisabledHint: 'העוזר מוסתר כרגע מהאורחים.',
     aiTrigger: 'מתי הוא מופיע',
     aiTriggerDesc: 'בחרו אם העוזר ימתין שילחצו עליו או יציע עזרה באופן יזום.',
@@ -6472,12 +6514,12 @@ const translations: Record<Locale, Record<string, string>> = {
     retry: 'נסה שוב',
     articleSection: 'פריט',
     rowNumber: 'שורה {n}',
-    aiSummaryRead: 'קראתי משלוח זה כ-{n} פריטים מ-{supplier}, בסך הכל {totalTtc} ₪ כולל מע״מ ({totalHt} ₪ לפני מע״מ).',
-    aiSummaryReadNoSupplier: 'קראתי משלוח זה כ-{n} פריטים, בסך הכל {totalTtc} ₪ כולל מע״מ ({totalHt} ₪ לפני מע״מ).',
+    aiSummaryRead: 'קראתי משלוח זה כ-{n} פריטים מ-{supplier}, בסך הכל {totalTtc} {currency} כולל מע״מ ({totalHt} {currency} לפני מע״מ).',
+    aiSummaryReadNoSupplier: 'קראתי משלוח זה כ-{n} פריטים, בסך הכל {totalTtc} {currency} כולל מע״מ ({totalHt} {currency} לפני מע״מ).',
     aiSummaryTopItems: 'שורות גדולות: {items}.',
     aiSummaryCheckTotal: 'ודא שהסכום הזה תואם לסכום המודפס בחשבונית הספק.',
     askAi: 'בקש מה-AI לתקן משהו',
-    askAiPlaceholder: 'לדוגמה: עגבניות עולות 10 ₪/ק״ג, לא כפי שמוצג',
+    askAiPlaceholder: 'לדוגמה: עגבניות עולות 10 {currency}/ק״ג, לא כפי שמוצג',
     aiSend: 'שלח',
     aiPatchApplied: 'השינוי הוחל.',
     aiNoChange: 'לא בוצע שינוי.',
@@ -6703,7 +6745,7 @@ const translations: Record<Locale, Record<string, string>> = {
     composePricingSubtitle: 'איך המחיר הסופי מחושב',
     composePricingFixed: 'מחיר קבוע',
     composePricingSumPercent: 'סכום − %',
-    composePricingSumFixed: 'סכום − ₪',
+    composePricingSumFixed: 'סכום − {currency}',
     composePricingSoon: 'בקרוב',
     composeBasePriceLabel: 'מחיר בסיס',
     composeBasePriceHint: 'מחיר כאשר נבחרות אפשרויות ברירת המחדל',
@@ -6716,8 +6758,8 @@ const translations: Record<Locale, Record<string, string>> = {
     composeSetDefault: 'הגדר ברירת מחדל',
     composeUpchargeLabel: 'תוספת',
     composeNotAvailable: 'לא זמין בקומבו זה',
-    composeIncludedAtBase: 'כלול במחיר הבסיס · ₪{price}',
-    composeUpchargeApplied: '+₪{delta} לקומבו · הלקוח משלם ₪{price}',
+    composeIncludedAtBase: 'כלול במחיר הבסיס · {currency}{price}',
+    composeUpchargeApplied: '+{currency}{delta} לקומבו · הלקוח משלם {currency}{price}',
     composeIncludedInCombo: 'וריאנטים כלולים בקומבו זה',
     composeVariantsCount: '{n} וריאנטים',
     composeNoStepsCallout: 'אין שלבים מוגדרים — התחל את ההרכב →',
@@ -6747,7 +6789,7 @@ const translations: Record<Locale, Record<string, string>> = {
     customerOutcomeTitle: 'מה שהלקוח שלך יראה',
     customerOutcomeMore: '+{n} שילובים נוספים',
     customerOutcomeBaseDefault: 'מחיר בסיס — וריאנט ברירת מחדל',
-    customerOutcomeWithUpcharge: 'בסיס + ₪{delta} תוספת ({variant})',
+    customerOutcomeWithUpcharge: 'בסיס + {currency}{delta} תוספת ({variant})',
     // ── Combo savings rail panel ──
     comboSavingsPanelTitle: 'חיסכון ללקוח',
     comboSurchargeLabel: 'תוספת קומבו',
@@ -6791,7 +6833,7 @@ const translations: Record<Locale, Record<string, string>> = {
     groupRemoveScopePrompt: 'להסיר את "{name}" משבוע זה והלאה? אישור = הסרה רכה (משמרת היסטוריה). ביטול = שאלה לגבי מחיקה לצמיתות.',
     jumpTo: 'קפוץ אל',
     rawStock: 'חומר גלם',
-    sellingPrice: 'מחיר מכירה: {price} ₪',
+    sellingPrice: 'מחיר מכירה: {price} {currency}',
     itemNameLabel: 'שם הפריט',
     sellingPriceLabel: 'מחיר מכירה',
     pricingModeLabel: 'תמחור',
@@ -8155,7 +8197,7 @@ const translations: Record<Locale, Record<string, string>> = {
     sendToCustomer: 'שליחה ללקוח',
     sendReceiptWhatsApp: 'שליחה בוואטסאפ',
     sendReceiptEmail: 'שליחה במייל',
-    receiptShareMessage: 'שלום{name}, הנה הקבלה עבור הזמנה #{id} בסך ₪{total}. {url}',
+    receiptShareMessage: 'שלום{name}, הנה הקבלה עבור הזמנה #{id} בסך {currency}{total}. {url}',
     receiptEmailSubject: 'קבלה עבור הזמנה #{id}',
     copy: 'העתקה',
     sendOrderConfirmation: 'שליחת אישור ההזמנה',
@@ -8312,7 +8354,7 @@ const translations: Record<Locale, Record<string, string>> = {
     rounding10ag: '10 אגורות',
     roundingAndTip: 'עיגול וטיפ',
     minimumOrderDelivery: 'הזמנה מינימלית (משלוח)',
-    minimumOrderDeliveryHelp: 'מוצג כ-"מינ\' ₪X" בעמוד ההזמנה ללקוח. 0 = ללא מינימום.',
+    minimumOrderDeliveryHelp: 'מוצג כ-"מינ\' {currency}X" בעמוד ההזמנה ללקוח. 0 = ללא מינימום.',
     roundingNone: 'ללא (עד אגורה)',
     roundingWhole: 'שקל שלם',
     seatingCapacity: 'תפוסה (מקומות)',
@@ -8418,12 +8460,12 @@ const translations: Record<Locale, Record<string, string>> = {
     generalSettings: 'הגדרות כלליות',
     zoneTypeHint_cities: 'הלקוחות יבחרו את עירם מרשימה בעת ביצוע ההזמנה.',
     zoneTypeHint_radius: 'המערכת בודקת אוטומטית אם כתובת הלקוח נמצאת בתוך הרדיוס.',
-    zoneDeliveryFee: 'דמי משלוח (₪)',
-    zoneMinOrder: 'מינימום הזמנה (₪)',
+    zoneDeliveryFee: 'דמי משלוח ({currency})',
+    zoneMinOrder: 'מינימום הזמנה ({currency})',
     zoneFeeFreePlaceholder: 'חינם',
     zoneMinGlobalPlaceholder: 'ברירת מחדל',
     zoneFeeMinHint: 'השאירו ריק למשלוח חינם ולמינימום הכללי של המסעדה.',
-    defaultMinOrder: 'מינימום הזמנה ברירת מחדל (₪)',
+    defaultMinOrder: 'מינימום הזמנה ברירת מחדל ({currency})',
     defaultMinOrderHint: 'חל על כתובות ללא מינימום ייעודי לאזור. 0 = ללא מינימום. אזור יכול לעקוף זאת למטה.',
 
     // ── Delivery tours ──
@@ -8485,7 +8527,7 @@ const translations: Record<Locale, Record<string, string>> = {
     discountName: 'שם',
     discountDescription: 'תיאור',
     discountType: 'סוג',
-    typeFixed: 'סכום הנחה (₪)',
+    typeFixed: 'סכום הנחה ({currency})',
     typePercent: 'אחוז הנחה',
     typeFreeDelivery: 'משלוח חינם',
     appliesTo: 'חל על',
@@ -8774,7 +8816,7 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_choice_manual_add: 'יצירת אפשרות',
     catering_choice_manual_name: 'שם האפשרות המותאמת',
     catering_choice_manual_description: 'תיאור אופציונלי ללקוח',
-    catering_choice_surcharge: 'תוספת ₪',
+    catering_choice_surcharge: 'תוספת ({currency})',
     catering_choice_chef_default: 'בחירת השף',
     catering_choice_invalid: 'יש להשלים כל שלב: שם, מגבלות תקינות ומספיק פריטים.',
     catering_move_up: 'הזז למעלה',
@@ -9691,7 +9733,7 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryAddress: 'Adresse de livraison',
     apt: 'Appt',
     deliveryNotes: 'Notes de livraison',
-    deliveryFee: 'Frais de livraison (₪)',
+    deliveryFee: 'Frais de livraison ({currency})',
     payMethodCash: 'Espèces',
     payMethodCard: 'Carte',
     payMethodLink: 'Lien de paiement',
@@ -9704,7 +9746,7 @@ const translations: Record<Locale, Record<string, string>> = {
     draftDiscard: 'Vider',
     draftIssueMissing: "n'existe plus",
     draftIssueSoldOut: 'plus disponible',
-    draftIssuePriceChanged: '{was} ₪ → {now} ₪',
+    draftIssuePriceChanged: '{was} {currency} → {now} {currency}',
     draftIssueComboMissing: "{name} n'existe plus",
     draftIssueComboSoldOut: "{name} n'est plus disponible",
     draftIssueRemove: 'Retirer',
@@ -10097,7 +10139,7 @@ const translations: Record<Locale, Record<string, string>> = {
     modifierName: 'Nom du modificateur',
     action: 'Action',
     add: 'Ajouter',
-    priceDelta: 'Écart de prix (₪)',
+    priceDelta: 'Écart de prix ({currency})',
     categoryGroupName: 'Catégorie (nom du groupe)',
     categoryGroupPlaceholder: 'Ex. : Garnitures, Sauces',
     requiredModifier: 'Obligatoire (le client doit en sélectionner au moins un)',
@@ -10282,7 +10324,7 @@ const translations: Record<Locale, Record<string, string>> = {
     correctPaymentMethodSilentNote: 'Cette action corrige uniquement l\'enregistrement. Aucun mouvement d\'argent, et le client n\'est pas notifié.',
     correctPaymentMethodNote: 'Motif de la correction (facultatif)',
     paymentReference: 'N° de facture / référence',
-    paymentReferenceHint: 'Le numéro de facture du prestataire (Summit, PayPlus) ou le numéro de ticket, quand la carte a été débitée hors de Foody.',
+    paymentReferenceHint: 'Le numéro de facture du prestataire (Summit, PayPlus, Stancer) ou le numéro de ticket, quand la carte a été débitée hors de Foody.',
     activityPaymentMethodCorrected: 'Mode de paiement corrigé de {from} vers {to} par {who}',
     activityPaymentReferenceRecorded: 'Référence de paiement enregistrée par {who}',
     note: 'Note :',
@@ -10348,7 +10390,7 @@ const translations: Record<Locale, Record<string, string>> = {
     cashPaymentChange: 'Rendu',
     cashPaymentExact: 'Exact',
     cashPaymentConfirm: 'Confirmer le paiement',
-    cashPaymentConfirmChange: 'Confirmer · Rendu ₪{amount}',
+    cashPaymentConfirmChange: 'Confirmer · Rendu {currency}{amount}',
     cashPaymentCancel: 'Annuler',
     cashPaymentSuccess: 'Paiement reçu',
     cashPaymentNoChange: 'Montant exact — aucun rendu',
@@ -10471,6 +10513,8 @@ const translations: Record<Locale, Record<string, string>> = {
     autoSendDesc: 'Les commandes en ligne partent directement en cuisine sans approbation du personnel',
     enableTips: 'Activer les pourboires',
     enableTipsDesc: "Afficher l'option pourboire à la caisse",
+    onlinePaymentOnly: 'Paiement en ligne obligatoire',
+    onlinePaymentOnlyDesc: "Refuse les espèces et tout paiement saisi à la main. Nécessaire lorsque l'établissement s'appuie sur la dispense française de logiciel de caisse certifié, qui ne tient que si tous les paiements passent par un établissement bancaire.",
     itemNotesOn: 'Activé',
     itemNotesOff: 'Désactivé',
     comboAllowQuantityLabel: 'Autoriser la commande en plusieurs exemplaires',
@@ -10614,7 +10658,7 @@ const translations: Record<Locale, Record<string, string>> = {
     aiPairingsPlaceholder: 'Burger → frites + une boisson\nHoumous → pita fraîche, salade israélienne',
     aiFaq: 'Questions fréquentes et réponses',
     aiFaqHint: 'Questions récurrentes des clients et les réponses que l’assistant doit donner (horaires, zones de livraison, allergènes, substitutions…). Une Q/R par ligne.',
-    aiFaqPlaceholder: 'Livrez-vous à Ramat Gan ? — Oui, commandes de plus de 80 ₪.\nLe falafel est-il sans gluten ? — Oui, frit séparément.',
+    aiFaqPlaceholder: 'Livrez-vous à Ramat Gan ? — Oui, commandes de plus de 80 {currency}.\nLe falafel est-il sans gluten ? — Oui, frit séparément.',
     aiDisabledHint: 'L’assistant est actuellement masqué aux clients.',
     aiTrigger: 'Quand il apparaît',
     aiTriggerDesc: 'Choisissez si l’assistant attend qu’on l’ouvre ou propose son aide de lui-même.',
@@ -11020,12 +11064,12 @@ const translations: Record<Locale, Record<string, string>> = {
     retry: 'Réessayer',
     articleSection: 'Article',
     rowNumber: 'Ligne {n}',
-    aiSummaryRead: "J'ai lu cette livraison comme {n} articles de {supplier}, total {totalTtc} ₪ TTC ({totalHt} ₪ HT).",
-    aiSummaryReadNoSupplier: "J'ai lu cette livraison comme {n} articles, total {totalTtc} ₪ TTC ({totalHt} ₪ HT).",
+    aiSummaryRead: "J'ai lu cette livraison comme {n} articles de {supplier}, total {totalTtc} {currency} TTC ({totalHt} {currency} HT).",
+    aiSummaryReadNoSupplier: "J'ai lu cette livraison comme {n} articles, total {totalTtc} {currency} TTC ({totalHt} {currency} HT).",
     aiSummaryTopItems: 'Plus grosses lignes : {items}.',
     aiSummaryCheckTotal: 'Vérifiez que cela correspond au total imprimé sur le bon du fournisseur.',
     askAi: "Demander à l'IA de corriger",
-    askAiPlaceholder: "ex. Les tomates sont à 10 ₪/kg, pas ce qui est affiché",
+    askAiPlaceholder: "ex. Les tomates sont à 10 {currency}/kg, pas ce qui est affiché",
     aiSend: 'Envoyer',
     aiPatchApplied: 'Modification appliquée.',
     aiNoChange: 'Aucun changement effectué.',
@@ -11251,7 +11295,7 @@ const translations: Record<Locale, Record<string, string>> = {
     composePricingSubtitle: 'Comment le prix final est calculé',
     composePricingFixed: 'Prix fixe',
     composePricingSumPercent: 'Somme − %',
-    composePricingSumFixed: 'Somme − ₪',
+    composePricingSumFixed: 'Somme − {currency}',
     composePricingSoon: 'Bientôt',
     composeBasePriceLabel: 'Prix de base',
     composeBasePriceHint: 'Prix lorsque les options par défaut sont sélectionnées',
@@ -11264,8 +11308,8 @@ const translations: Record<Locale, Record<string, string>> = {
     composeSetDefault: 'Définir défaut',
     composeUpchargeLabel: 'Supplément',
     composeNotAvailable: 'Pas disponible dans ce combo',
-    composeIncludedAtBase: 'Inclus au prix de base · ₪{price}',
-    composeUpchargeApplied: '+₪{delta} sur le combo · client paie ₪{price}',
+    composeIncludedAtBase: 'Inclus au prix de base · {currency}{price}',
+    composeUpchargeApplied: '+{currency}{delta} sur le combo · client paie {currency}{price}',
     composeIncludedInCombo: 'Variantes incluses dans ce combo',
     composeVariantsCount: '{n} variantes',
     composeNoStepsCallout: 'Aucune étape configurée — commencez la composition →',
@@ -11295,7 +11339,7 @@ const translations: Record<Locale, Record<string, string>> = {
     customerOutcomeTitle: 'Ce que verra votre client',
     customerOutcomeMore: '+{n} autres combinaisons',
     customerOutcomeBaseDefault: 'Prix de base — variante par défaut',
-    customerOutcomeWithUpcharge: 'Base + ₪{delta} supplément ({variant})',
+    customerOutcomeWithUpcharge: 'Base + {currency}{delta} supplément ({variant})',
     // ── Combo savings rail panel ──
     comboSavingsPanelTitle: 'Économies pour le client',
     comboSurchargeLabel: 'Surcoût combo',
@@ -11353,7 +11397,7 @@ const translations: Record<Locale, Record<string, string>> = {
     groupRemoveScopePrompt: 'Retirer "{name}" à partir de cette semaine ? OK = retrait progressif (préserve l\'historique). Annuler = poser la question d\'une suppression définitive.',
     jumpTo: 'Aller à',
     rawStock: 'Matière première',
-    sellingPrice: 'Prix de vente : {price} ₪',
+    sellingPrice: 'Prix de vente : {price} {currency}',
     itemNameLabel: "Nom de l'article",
     sellingPriceLabel: 'Prix de vente',
     pricingModeLabel: 'Tarification',
@@ -12717,7 +12761,7 @@ const translations: Record<Locale, Record<string, string>> = {
     sendToCustomer: 'Envoyer au client',
     sendReceiptWhatsApp: 'Envoyer par WhatsApp',
     sendReceiptEmail: 'Envoyer par email',
-    receiptShareMessage: "Bonjour{name}, voici le reçu de votre commande #{id} d'un montant de ₪{total}. {url}",
+    receiptShareMessage: "Bonjour{name}, voici le reçu de votre commande #{id} d'un montant de {currency}{total}. {url}",
     receiptEmailSubject: 'Reçu de votre commande #{id}',
     copy: 'Copier',
     sendOrderConfirmation: 'Envoyer la confirmation',
@@ -12876,7 +12920,7 @@ const translations: Record<Locale, Record<string, string>> = {
     roundingNone: 'Aucun (au centime près)',
     roundingWhole: 'Shekel entier',
     minimumOrderDelivery: 'Commande minimum (livraison)',
-    minimumOrderDeliveryHelp: 'Affiché comme « Min ₪X » sur la page de commande client. 0 = pas de minimum.',
+    minimumOrderDeliveryHelp: 'Affiché comme « Min {currency}X » sur la page de commande client. 0 = pas de minimum.',
     seatingCapacity: 'Capacité (couverts)',
     shortTagline: 'Slogan court',
     shortTaglineHint: 'Pour les reçus (40 car. max).',
@@ -12981,12 +13025,12 @@ const translations: Record<Locale, Record<string, string>> = {
     generalSettings: 'Paramètres généraux',
     zoneTypeHint_cities: 'Les clients choisiront leur ville dans une liste au moment de la commande.',
     zoneTypeHint_radius: "Le systeme verifie automatiquement si l'adresse du client est dans le rayon.",
-    zoneDeliveryFee: 'Frais de livraison (₪)',
-    zoneMinOrder: 'Commande minimum (₪)',
+    zoneDeliveryFee: 'Frais de livraison ({currency})',
+    zoneMinOrder: 'Commande minimum ({currency})',
     zoneFeeFreePlaceholder: 'Gratuit',
     zoneMinGlobalPlaceholder: 'Par défaut',
     zoneFeeMinHint: 'Laissez vide pour une livraison gratuite et le minimum global du restaurant.',
-    defaultMinOrder: 'Commande minimum par défaut (₪)',
+    defaultMinOrder: 'Commande minimum par défaut ({currency})',
     defaultMinOrderHint: 'Appliqué aux adresses sans minimum spécifique. 0 = pas de minimum. Une zone peut le remplacer ci-dessous.',
 
     // ── Tournées de livraison ──
@@ -13048,7 +13092,7 @@ const translations: Record<Locale, Record<string, string>> = {
     discountName: 'Nom',
     discountDescription: 'Description',
     discountType: 'Type',
-    typeFixed: 'Montant de remise (₪)',
+    typeFixed: 'Montant de remise ({currency})',
     typePercent: 'Pourcentage de remise',
     typeFreeDelivery: 'Livraison gratuite',
     appliesTo: "S'applique à",
@@ -13337,7 +13381,7 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_choice_manual_add: 'Créer le choix',
     catering_choice_manual_name: 'Nom du choix libre',
     catering_choice_manual_description: 'Description facultative visible par le client',
-    catering_choice_surcharge: 'Supplément ₪',
+    catering_choice_surcharge: 'Supplément ({currency})',
     catering_choice_chef_default: 'Choix du chef',
     catering_choice_invalid: 'Complétez chaque étape : nom, limites valides et nombre suffisant d’articles.',
     catering_move_up: 'Monter',

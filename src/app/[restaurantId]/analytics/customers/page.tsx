@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { SearchIcon } from 'lucide-react';
 import { getAnalyticsCustomers, CustomerInsight, CustomerListResult } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import CustomerDetailPanel from './CustomerDetailPanel';
 import { PageHead } from '@/components/ds';
 import {
@@ -35,6 +35,7 @@ function daysAgoLabel(days: number, t: (k: string) => string): string {
 }
 
 export default function CustomersInsightsPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -203,8 +204,8 @@ export default function CustomersInsightsPage() {
                       <div className="text-xs text-fg-secondary">{c.customer_phone}</div>
                     </DataTableCell>
                     <DataTableCell align="right" mobileLabel={t('orders')} className="text-fg-primary whitespace-nowrap">{c.total_orders}</DataTableCell>
-                    <DataTableCell align="right" mobileLabel={t('totalSpent')} className="font-medium text-fg-primary whitespace-nowrap">₪{c.total_spent.toFixed(0)}</DataTableCell>
-                    <DataTableCell align="right" mobileLabel={t('avgOrder')} className="text-fg-secondary whitespace-nowrap">₪{c.avg_order_value.toFixed(0)}</DataTableCell>
+                    <DataTableCell align="right" mobileLabel={t('totalSpent')} className="font-medium text-fg-primary whitespace-nowrap">{money(c.total_spent, { decimals: 0 })}</DataTableCell>
+                    <DataTableCell align="right" mobileLabel={t('avgOrder')} className="text-fg-secondary whitespace-nowrap">{money(c.avg_order_value, { decimals: 0 })}</DataTableCell>
                     <DataTableCell align="right" mobileLabel={t('lastOrder')} className="text-fg-secondary whitespace-nowrap">{daysAgoLabel(c.days_since_last_order, t)}</DataTableCell>
                     <DataTableCell mobileLabel={t('topItems')}>
                       <div className="text-xs text-fg-secondary truncate max-w-[200px]">

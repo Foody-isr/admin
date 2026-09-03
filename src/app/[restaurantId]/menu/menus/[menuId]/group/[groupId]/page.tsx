@@ -13,7 +13,7 @@ import {
   TranslationMap,
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { XIcon, SearchIcon, PlusIcon, ChevronRightIcon } from 'lucide-react';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
@@ -38,6 +38,7 @@ type ModalView = null | 'addChoice' | 'pickItems' | 'pickCategory' | 'replaceIte
 // ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function GroupPage() {
+  const { money } = useCurrency();
   const { restaurantId, menuId, groupId } = useParams();
   const rid = Number(restaurantId);
   const mid = Number(menuId);
@@ -703,7 +704,7 @@ export default function GroupPage() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-base font-medium text-fg-primary truncate">{item.name}</p>
-                    <p className="text-sm text-fg-tertiary">{item.price?.toFixed(2)} ₪</p>
+                    <p className="text-sm text-fg-tertiary">{money(item.price)}</p>
                   </div>
                   {canEdit && (
                     <button
@@ -1138,6 +1139,7 @@ function ReplaceItemsModal({ t, itemsToReplace, allItems, allCats, groupItemIds,
   onClose: () => void;
   onDone: (replacements: { oldId: number; newId: number }[]) => void;
 }) {
+  const { money } = useCurrency();
   const [stepIndex, setStepIndex] = useState(0);
   // oldItemId -> chosen replacement itemId. Built up as the operator advances
   // through one step per item being replaced.
@@ -1288,7 +1290,7 @@ function ReplaceItemsModal({ t, itemsToReplace, allItems, allCats, groupItemIds,
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-base font-medium text-fg-primary truncate">{item.name}</p>
-                <p className="text-sm text-fg-tertiary">{item.price?.toFixed(2)} ₪</p>
+                <p className="text-sm text-fg-tertiary">{money(item.price)}</p>
               </div>
               <input
                 type="radio"

@@ -7,7 +7,7 @@ import {
   createCategory, updateCategory,
   AvailabilityOverride, MenuCategory, MenuItem,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import {
@@ -89,6 +89,7 @@ function openEditor(item: FlatItem, rid: number, router: ReturnType<typeof useRo
 }
 
 export default function ItemLibraryPage() {
+  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
@@ -901,9 +902,9 @@ export default function ItemLibraryPage() {
                 const maxVariantPrice = hasVariants ? Math.max(...variantPrices) : 0;
                 const priceLabel = hasVariants
                   ? minVariantPrice === maxVariantPrice
-                    ? `₪${minVariantPrice.toFixed(2)}`
-                    : `₪${minVariantPrice.toFixed(2)} – ₪${maxVariantPrice.toFixed(2)}`
-                  : `₪${itemBase.toFixed(2)}`;
+                    ? money(minVariantPrice)
+                    : `${money(minVariantPrice)} – ${money(maxVariantPrice)}`
+                  : money(itemBase);
 
                 return (
                   <React.Fragment key={item.id}>
@@ -1058,7 +1059,7 @@ export default function ItemLibraryPage() {
                               </span>
                             </td>
                             <td className="p-3 text-right text-sm text-neutral-600 dark:text-neutral-400">
-                              ₪{effective.toFixed(2)}
+                              {money(effective)}
                               {raw === 0 && itemBase > 0 && (
                                 <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">
                                   ({t('inherited') || 'inherited'})

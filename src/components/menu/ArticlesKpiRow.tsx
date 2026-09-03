@@ -1,6 +1,6 @@
 'use client';
 
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { Kpi } from '@/components/ds';
 import type { MenuItem } from '@/lib/api';
 
@@ -11,6 +11,7 @@ interface Props {
 }
 
 export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: Props) {
+  const { money } = useCurrency();
   const { t } = useI18n();
 
   const total = items.length;
@@ -39,7 +40,7 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
         label={t('kpiAvgPrice') || 'Prix moyen'}
         value={
           <>
-            ₪{Math.round(avgPrice).toLocaleString()}
+            {money(Math.round(avgPrice), { decimals: 0, grouped: true })}
             <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
               .{String(Math.round((avgPrice % 1) * 100)).padStart(2, '0')}
             </span>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Drawer, Field, Textarea } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import type { MenuItem, MenuItemModifier } from '@/lib/api';
 import { itemSizeOptions, itemSizeGroupLabel, isSizeOrderable, type ItemSizeOption } from '@/lib/item-options';
@@ -91,6 +91,7 @@ interface NewOrderItemModalProps {
 }
 
 export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemModalProps) {
+  const { money } = useCurrency();
   const { t } = useI18n();
 
   // Only the first size group maps to the order's single selected_variant_id.
@@ -172,7 +173,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
       saveLabel={
         selectedSoldOut
           ? t('outOfStock')
-          : `${t('addToOrder')} · ₪${(previewUnit * Math.max(1, quantity)).toFixed(2)}`
+          : `${t('addToOrder')} · ${money(previewUnit * Math.max(1, quantity))}`
       }
     >
       <div className="flex flex-col gap-[var(--s-5)]">
@@ -207,7 +208,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
                         {t('outOfStock')}
                       </span>
                     ) : (
-                      <span className="font-mono tabular-nums text-fs-sm">₪{v.price.toFixed(2)}</span>
+                      <span className="font-mono tabular-nums text-fs-sm">{money(v.price)}</span>
                     )}
                   </label>
                 );
@@ -239,7 +240,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
                   </span>
                   {m.price_delta ? (
                     <span className="font-mono tabular-nums text-fs-sm text-[var(--fg-muted)]">
-                      {m.price_delta > 0 ? '+' : ''}₪{m.price_delta.toFixed(2)}
+                      {m.price_delta > 0 ? '+' : ''}{money(m.price_delta)}
                     </span>
                   ) : null}
                 </label>

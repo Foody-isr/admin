@@ -13,6 +13,7 @@ import {
 } from '@/lib/api';
 import { BRUT_COLOR, PREP_COLOR } from './RecipeComposer';
 import { NumberInput } from '@/components/ui/NumberInput';
+import { useCurrency } from '@/lib/i18n';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'portion' as StockUnit];
 // `portion` isn't in StockUnit but the API accepts it for preps — we cast.
@@ -45,6 +46,7 @@ export default function CreatePrepSheet({
   onCreated,
   onCancel,
 }: Props) {
+  const { money } = useCurrency();
   const [name, setName] = React.useState(initialName);
   const [yieldQty, setYieldQty] = React.useState<number>(1);
   const [unit, setUnit] = React.useState<StockUnit>('kg');
@@ -301,13 +303,13 @@ export default function CreatePrepSheet({
                 className="text-fs-lg font-semibold font-mono tabular-nums"
                 style={{ color: 'var(--brand-500)' }}
               >
-                ₪{totalCost.toFixed(2)}
+                {money(totalCost)}
               </div>
             </div>
             <div className="text-end">
               <div className="text-fs-xs text-[var(--fg-subtle)]">Coût au {unit}</div>
               <div className="text-fs-lg font-semibold font-mono tabular-nums">
-                ₪{costPerUnit.toFixed(2)} / {unit}
+                {money(costPerUnit)} / {unit}
               </div>
             </div>
           </div>

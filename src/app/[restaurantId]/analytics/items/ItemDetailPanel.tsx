@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { XIcon } from 'lucide-react';
 import { getAnalyticsItemDetail, ItemSalesDetail } from '@/lib/api';
 import type { DateBasis } from '@/components/DateBasisToggle';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { Badge } from '@/components/ds';
 import { ComboTooltip } from './ComboTooltip';
 
@@ -78,6 +78,7 @@ function SalesSplitBar({
   totalRevenue: number; comboRevenue: number; totalQty: number; comboQty: number;
   t: (k: string) => string;
 }) {
+  const { money } = useCurrency();
   const alaRevenue = Math.max(0, totalRevenue - comboRevenue);
   const alaQty = Math.max(0, totalQty - comboQty);
   const denom = totalRevenue > 0 ? totalRevenue : 1;
@@ -87,7 +88,7 @@ function SalesSplitBar({
     <span className={`text-xs text-fg-secondary flex items-center gap-1${interactive ? ' cursor-help' : ''}`}>
       <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />
       {label}{' '}
-      <span className="text-fg-primary font-medium">{qty} · ₪{Math.round(rev)}</span>
+      <span className="text-fg-primary font-medium">{qty} · {money(Math.round(rev))}</span>
     </span>
   );
   return (
@@ -95,11 +96,11 @@ function SalesSplitBar({
       <div className="flex rounded-full overflow-hidden h-3 bg-surface-subtle">
         {alaPct > 0 && (
           <div style={{ width: `${alaPct}%`, backgroundColor: ALACARTE_COLOR }}
-            title={`${t('alaCarteLabel')}: ${alaQty} · ₪${Math.round(alaRevenue)}`} />
+            title={`${t('alaCarteLabel')}: ${alaQty} · ${money(Math.round(alaRevenue))}`} />
         )}
         {comboPct > 0 && (
           <div style={{ width: `${comboPct}%`, backgroundColor: COMBO_COLOR }}
-            title={`${t('combo')}: ${comboQty} · ₪${Math.round(comboRevenue)}`} />
+            title={`${t('combo')}: ${comboQty} · ${money(Math.round(comboRevenue))}`} />
         )}
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
@@ -114,12 +115,13 @@ function SalesSplitBar({
 
 /** Daily revenue bars over the selected window. Labels show DD (day of month). */
 function DailyChart({ data, noDataLabel }: { data: ItemSalesDetail['daily']; noDataLabel: string }) {
+  const { money } = useCurrency();
   if (data.length === 0) return <span className="text-xs text-fg-secondary">{noDataLabel}</span>;
   const max = Math.max(...data.map(d => d.revenue), 1);
   return (
     <div className="flex items-end gap-1 h-24">
       {data.map(d => (
-        <div key={d.date} className="flex-1 flex flex-col items-center gap-1" title={`${d.date}: ₪${d.revenue.toFixed(0)} · ${d.quantity}`}>
+        <div key={d.date} className="flex-1 flex flex-col items-center gap-1" title={`${d.date}: ${money(d.revenue, { decimals: 0 })} · ${d.quantity}`}>
           <div
             className="w-full bg-brand-500 rounded-t min-h-[2px]"
             style={{ height: `${(d.revenue / max) * 100}%` }}
@@ -140,6 +142,7 @@ export default function ItemDetailPanel({
   basis: DateBasis;
   onClose: () => void;
 }) {
+  const { money } = useCurrency();
   const [detail, setDetail] = useState<ItemSalesDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const { t } = useI18n();
@@ -182,7 +185,7 @@ export default function ItemDetailPanel({
               {detail.category_name && <p className="text-sm text-fg-secondary">{detail.category_name}</p>}
               <div className="grid grid-cols-4 gap-3 mt-3">
                 <div className="card text-center py-3">
-                  <div className="text-lg font-bold text-fg-primary">₪{detail.revenue.toFixed(0)}</div>
+                  <div className="text-lg font-bold text-fg-primary">{money(detail.revenue, { decimals: 0 })}</div>
                   <div className="text-xs text-fg-secondary">{t('revenue')}</div>
                 </div>
                 <div className="card text-center py-3">
@@ -194,7 +197,7 @@ export default function ItemDetailPanel({
                   <div className="text-xs text-fg-secondary">{t('ordersLabel')}</div>
                 </div>
                 <div className="card text-center py-3">
-                  <div className="text-lg font-bold text-fg-primary">₪{detail.avg_price.toFixed(0)}</div>
+                  <div className="text-lg font-bold text-fg-primary">{money(detail.avg_price, { decimals: 0 })}</div>
                   <div className="text-xs text-fg-secondary">{t('avgPrice')}</div>
                 </div>
               </div>
@@ -260,7 +263,7 @@ export default function ItemDetailPanel({
                             )}
                           </td>
                           <td className="py-1.5 text-right text-fg-secondary">{v.quantity}</td>
-                          <td className="py-1.5 text-right font-medium text-fg-primary">₪{v.revenue.toFixed(0)}</td>
+                          <td className="py-1.5 text-right font-medium text-fg-primary">{money(v.revenue, { decimals: 0 })}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -301,7 +304,7 @@ export default function ItemDetailPanel({
                           </td>
                           <td className="py-1.5 text-right text-fg-secondary">{c.orders}</td>
                           <td className="py-1.5 text-right text-fg-secondary">{c.quantity}</td>
-                          <td className="py-1.5 text-right font-medium text-fg-primary">₪{c.revenue.toFixed(0)}</td>
+                          <td className="py-1.5 text-right font-medium text-fg-primary">{money(c.revenue, { decimals: 0 })}</td>
                         </tr>
                       ))}
                     </tbody>
