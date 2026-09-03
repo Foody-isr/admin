@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { Clock3Icon, FlagIcon, MapPinIcon, PencilIcon, SaveIcon, XIcon } from 'lucide-react';
-import { Button, Field, Input } from '@/components/ds';
+import { Button, Input } from '@/components/ds';
 import type { DeliveryRoute, RouteSettingsInput } from '@/lib/delivery';
 
 type Translator = (key: string) => string;
@@ -94,51 +94,64 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
   }
 
   return (
-    <form onSubmit={submit} className="rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface-2)] p-3">
+    <form onSubmit={submit} className="min-w-0 overflow-hidden rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface-2)] p-3 sm:p-4">
       <div className="mb-3">
         <p className="text-fs-sm font-semibold text-[var(--fg)]">{t('routeSettingsTitle')}</p>
-        <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">{t('routeSettingsHint')}</p>
+        <p className="mt-1 max-w-[60ch] text-fs-xs leading-relaxed text-[var(--fg-subtle)]">{t('routeSettingsHint')}</p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t('deliveryPlanDeparture')} className="sm:col-span-2">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+        <label className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+          <span className="text-fs-xs font-medium text-[var(--fg-muted)]">{t('deliveryPlanDeparture')}</span>
           <Input
             type="datetime-local"
             value={departure}
             onChange={(event) => setDeparture(event.target.value)}
+            className="min-w-0 max-w-full text-[16px] sm:text-fs-sm"
+            dir="ltr"
             required
             disabled={disabled || saving}
           />
-        </Field>
-        <Field label={t('routeSettingsStartAddress')} hint={t('optional')}>
+        </label>
+        <label className="flex min-w-0 flex-col gap-1.5">
+          <span className="flex items-center justify-between gap-2 text-fs-xs font-medium text-[var(--fg-muted)]">
+            {t('routeSettingsStartAddress')}
+            <span className="font-normal text-[var(--fg-subtle)]">{t('optional')}</span>
+          </span>
           <Input
             value={startAddress}
             onChange={(event) => setStartAddress(event.target.value)}
+            className="min-w-0 max-w-full text-[16px] sm:text-fs-sm"
             placeholder={t('routeSettingsStartPlaceholder')}
             autoComplete="street-address"
             dir="auto"
             maxLength={500}
             disabled={disabled || saving}
           />
-        </Field>
-        <Field label={t('routeSettingsEndAddress')} hint={t('optional')}>
+        </label>
+        <label className="flex min-w-0 flex-col gap-1.5">
+          <span className="flex items-center justify-between gap-2 text-fs-xs font-medium text-[var(--fg-muted)]">
+            {t('routeSettingsEndAddress')}
+            <span className="font-normal text-[var(--fg-subtle)]">{t('optional')}</span>
+          </span>
           <Input
             value={endAddress}
             onChange={(event) => setEndAddress(event.target.value)}
+            className="min-w-0 max-w-full text-[16px] sm:text-fs-sm"
             placeholder={t('routeSettingsEndPlaceholder')}
             autoComplete="street-address"
             dir="auto"
             maxLength={500}
             disabled={disabled || saving}
           />
-        </Field>
+        </label>
       </div>
-      <p className="mt-2 text-fs-xs text-[var(--fg-subtle)]">{t('routeSettingsGeocodeHint')}</p>
-      <div className="mt-3 flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={reset}>
+      <p className="mt-3 text-fs-xs leading-relaxed text-[var(--fg-subtle)]">{t('routeSettingsGeocodeHint')}</p>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+        <Button type="button" variant="ghost" size="md" className="w-full sm:w-auto" disabled={saving} onClick={reset}>
           <XIcon />
           {t('cancel')}
         </Button>
-        <Button type="submit" variant="primary" size="sm" disabled={disabled || saving || !departureValid}>
+        <Button type="submit" variant="primary" size="md" className="w-full sm:w-auto" disabled={disabled || saving || !departureValid}>
           <SaveIcon />
           {t(saving ? 'saving' : 'save')}
         </Button>
