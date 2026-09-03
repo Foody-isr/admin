@@ -22,7 +22,12 @@ import {
   RECAP_LOCALES,
   type RecapLocale,
 } from '@/lib/orders/whatsapp-recap';
-import { listMessageTemplates, type MessageTemplate, type Order } from '@/lib/api';
+import {
+  listMessageTemplates,
+  type CheckoutConfig,
+  type MessageTemplate,
+  type Order,
+} from '@/lib/api';
 
 const LOCALE_LABEL: Record<RecapLocale, string> = {
   fr: 'Français',
@@ -38,6 +43,9 @@ interface WhatsAppRecapDialogProps {
   restaurantName: string;
   /** Restaurant's own language — the fallback for orders with no customer_locale. */
   restaurantDefaultLocale?: string;
+  /** Checkout form, so the custom-field answers can be labelled in the
+   *  customer's language. Already fetched by both hosts. */
+  checkoutConfig?: CheckoutConfig | null;
 }
 
 export function WhatsAppRecapDialog({
@@ -47,6 +55,7 @@ export function WhatsAppRecapDialog({
   restaurantId,
   restaurantName,
   restaurantDefaultLocale,
+  checkoutConfig,
 }: WhatsAppRecapDialogProps) {
   const { t } = useI18n();
 
@@ -83,10 +92,11 @@ export function WhatsAppRecapDialog({
         restaurantName,
         locale: target,
         receiptUrl: receiptShareUrl(order.receipt_token),
+        checkoutConfig,
         body: bodyFor(target),
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [order, restaurantName, templates],
+    [order, restaurantName, templates, checkoutConfig],
   );
 
   // Reset to the customer's language and a freshly composed message each time the

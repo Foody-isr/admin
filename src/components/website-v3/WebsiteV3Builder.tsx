@@ -10,6 +10,7 @@ import {
 import {
   discardWebsiteDraft,
   getPublicRestaurantNavigationState,
+  getChainBranches,
   getRestaurant,
   getThemeCatalog,
   getWebsiteDraft,
@@ -22,16 +23,20 @@ import {
   type Menu,
   type Restaurant,
   type ThemeCatalog,
+  type ChainOverview,
 } from "@/lib/api";
-import { getDefaultContent } from "@/components/website/SectionEditors";
+import {
+  getDefaultContent,
+  getDefaultSettings,
+} from "@/components/website/SectionEditors";
 import {
   createSerializedAutosave,
   AutosaveSuspendedError,
   type AutosaveStatus,
 } from "@/lib/website-v3/autosave";
 import {
-  hasCompletePreviewCoverage,
   recordPreviewAcknowledgement,
+  stalePreviewDevices,
   type PreviewAcknowledgement,
   type PreviewAcknowledgements,
   type PreviewExpectedRevisions,
@@ -71,10 +76,28 @@ import { MobileUnavailable } from "./MobileUnavailable";
 import { PageDialog } from "./PageDialog";
 import { PageRail, type RailSelection } from "./PageRail";
 import { PreviewCanvas } from "./PreviewCanvas";
+import { BranchWebsitePresence } from "./BranchWebsitePresence";
+import { websiteManagementMode } from "@/lib/website-v3/chain-mode";
+import { resolveWebsiteV3PreviewOrigin } from "@/lib/website-v3/preview-origin";
+import {
+  prepareWebsiteV3StateForPublication,
+  requireWebsiteV3RuntimeCapabilities,
+} from "@/lib/website-v3/runtime-capabilities";
+import { useI18n } from "@/lib/i18n";
 
-const WEB_ORIGIN =
-  process.env.NEXT_PUBLIC_WEB_URL || "https://dev-app.foody-pos.co.il";
 const EMPTY_CATALOG: ThemeCatalog = { themes: [], typography_pairings: [] };
+
+const PREVIEW_DEVICE_LABELS: Record<PreviewDevice, string> = {
+  desktop: "l’aperçu ordinateur",
+  mobile: "l’aperçu mobile",
+};
+
+/** "l’aperçu mobile" / "l’aperçu ordinateur et l’aperçu mobile". */
+function describePreviewDevices(devices: PreviewDevice[]): string {
+  return devices
+    .map((device) => PREVIEW_DEVICE_LABELS[device])
+    .join(" et ");
+}
 
 type LoadedBuilder = {
   draft: DraftResponse;
@@ -86,7 +109,17 @@ type LoadedBuilder = {
 };
 
 export function WebsiteV3Builder({ restaurantId }: { restaurantId: number }) {
+  const { t } = useI18n();
+  const [chainOverview, setChainOverview] = useState<ChainOverview | null | undefined>(undefined);
   const [wideEnough, setWideEnough] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getChainBranches(restaurantId)
+      .then((overview) => { if (active) setChainOverview(overview); })
+      .catch(() => { if (active) setChainOverview(null); });
+    return () => { active = false; };
+  }, [restaurantId]);
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -96,17 +129,45 @@ export function WebsiteV3Builder({ restaurantId }: { restaurantId: number }) {
     return () => media.removeEventListener("change", sync);
   }, []);
 
+  if (chainOverview === undefined) {
+    return <div className="grid min-h-[60vh] place-items-center bg-[var(--surface)]"><div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" /></div>;
+  }
+  if (chainOverview === null) {
+    return (
+      <div className="grid min-h-[70vh] place-items-center bg-[var(--surface-2)] p-6">
+        <div className="max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center shadow-sm">
+          <p className="font-semibold text-fg-primary">{t("branch_presence_context_error")}</p>
+          <button type="button" className="btn-secondary mt-4" onClick={() => window.location.reload()}>{t("retry")}</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (websiteManagementMode(restaurantId, chainOverview).kind === "local") {
+    return <BranchWebsitePresence restaurantId={restaurantId} overview={chainOverview} />;
+  }
+
   if (wideEnough !== true) {
     return <MobileUnavailable restaurantId={restaurantId} />;
   }
-  return <DesktopWebsiteV3Builder restaurantId={restaurantId} />;
+  return <DesktopWebsiteV3Builder restaurantId={restaurantId} chainOverview={chainOverview} />;
 }
 
 function DesktopWebsiteV3Builder({
   restaurantId,
+  chainOverview,
 }: {
   restaurantId: number;
+  chainOverview: ChainOverview;
 }) {
+  const webOrigin = resolveWebsiteV3PreviewOrigin(
+    process.env.NEXT_PUBLIC_WEB_URL,
+    typeof window === "undefined" ? undefined : window.location.origin,
+  );
+  const showBranchSelector =
+    chainOverview.chain_id !== null &&
+    chainOverview.primary_restaurant_id === restaurantId &&
+    chainOverview.branches.length > 1;
   const [loaded, setLoaded] = useState<LoadedBuilder | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -168,6 +229,7 @@ function DesktopWebsiteV3Builder({
     setLoading(true);
     setLoadError(null);
     Promise.all([
+      requireWebsiteV3RuntimeCapabilities(webOrigin),
       getWebsiteDraft(restaurantId),
       getWebsitePages(restaurantId),
       getRestaurant(restaurantId),
@@ -183,6 +245,7 @@ function DesktopWebsiteV3Builder({
         })),
     ])
       .then(([
+        _runtimeCapabilities,
         draft,
         publishedPages,
         restaurant,
@@ -260,7 +323,7 @@ function DesktopWebsiteV3Builder({
     return () => {
       active = false;
     };
-  }, [autosave, restaurantId, retryToken]);
+  }, [autosave, restaurantId, retryToken, webOrigin]);
 
   const state = loaded?.draft.state ?? null;
   const availableReferences = useMemo(
@@ -326,15 +389,24 @@ function DesktopWebsiteV3Builder({
   // Clamped here, above the early returns, so the value is stable for both the
   // preview and the inspector and no non-order page can resolve to "checkout".
   const activePageType = activePage?.type;
-  const surface = effectiveSurface(activePageType, requestedSurface);
+  const surface = effectiveSurface(activePageType, requestedSurface, showBranchSelector);
   const activePreviewKey = activePage ? pageKey(activePage) : "";
   const currentAcknowledgement = acknowledgements[device];
-  const previewCovered = hasCompletePreviewCoverage(
+  const stalePreviews = stalePreviewDevices(
     acknowledgements,
     expectedPreviewRevisions,
     contentRevision,
     activePreviewKey,
   );
+  const previewCovered = stalePreviews.length === 0;
+  // Why Publish would refuse right now. The button stays clickable and says so:
+  // a disabled button explains nothing, and the field errors below live in the
+  // inspector of one page and one tab, which is very often not the one on screen.
+  const publishBlockedReason = allErrors.length > 0
+    ? `Corrigez les champs signalés avant de publier : ${allErrors[0].message}`
+    : previewCovered
+      ? null
+      : `Vérifiez la dernière version sur ${describePreviewDevices(stalePreviews)} avant de publier.`;
 
   useEffect(() => {
     if (
@@ -359,10 +431,14 @@ function DesktopWebsiteV3Builder({
   // no checkout. `surface` above already clamps the rendered value, so this is
   // only there to keep the stored request honest for the next order page.
   useEffect(() => {
-    if (activePageType && activePageType !== "order" && requestedSurface === "checkout") {
+    if (
+      activePageType &&
+      (activePageType !== "order" || (requestedSurface === "branches" && !showBranchSelector)) &&
+      requestedSurface !== "page"
+    ) {
       setRequestedSurface("page");
     }
-  }, [activePageType, requestedSurface]);
+  }, [activePageType, requestedSurface, showBranchSelector]);
 
   useEffect(() => {
     if (
@@ -525,7 +601,6 @@ function DesktopWebsiteV3Builder({
     slug: string;
     type: DraftPagePayload["type"];
     menuIds: number[];
-    serviceIds: number[];
     isDefault: boolean;
   }) => {
     if (!state || busyRef.current) return;
@@ -553,7 +628,7 @@ function DesktopWebsiteV3Builder({
           ? {
               ...base,
               type: "catering",
-              settings: { service_ids: input.serviceIds },
+              settings: { service_ids: [] },
             }
           : input.type === "landing"
             ? { ...base, type: "landing", settings: {}, is_default: false }
@@ -618,7 +693,7 @@ function DesktopWebsiteV3Builder({
       is_visible: true,
       layout: "default",
       content: getDefaultContent(type),
-      settings: {},
+      settings: getDefaultSettings(type),
     };
     setLocalState({ ...state, sections: [...state.sections, section] });
     setSelection({
@@ -742,9 +817,19 @@ function DesktopWebsiteV3Builder({
       return;
     }
     if (!previewCovered) {
+      // Same courtesy as focusError: put the thing that needs checking on screen.
+      changeDevice(stalePreviews[0]);
       setGlobalError(
-        "Vérifiez la dernière version sur les aperçus ordinateur et mobile avant de publier.",
+        `Vérifiez la dernière version sur ${describePreviewDevices(
+          stalePreviews,
+        )} avant de publier.`,
       );
+      return;
+    }
+    try {
+      await requireWebsiteV3RuntimeCapabilities(webOrigin);
+    } catch (error: unknown) {
+      setGlobalError(readError(error));
       return;
     }
     lockEditor();
@@ -752,6 +837,10 @@ function DesktopWebsiteV3Builder({
     setGlobalError(null);
     try {
       await autosave.beginLifecycle("publish");
+      await saveWebsiteDraft(
+        restaurantId,
+        prepareWebsiteV3StateForPublication(state),
+      );
       setSaveStatus("saved");
       const activePageBeforePublish = activePage;
       const response = normalizeDraftResponse(
@@ -856,7 +945,7 @@ function DesktopWebsiteV3Builder({
   }
 
   const publicUrl = publicURLForPage({
-    webOrigin: WEB_ORIGIN,
+    webOrigin,
     restaurantSlug: loaded.restaurant.slug || String(restaurantId),
     page: activePage,
   });
@@ -880,7 +969,7 @@ function DesktopWebsiteV3Builder({
         device={device}
         publicUrl={publicUrl}
         publishedAt={loaded.draft.published_at}
-        canPublish={previewCovered && allErrors.length === 0}
+        publishBlockedReason={publishBlockedReason}
         busy={busy}
         onDeviceChange={changeDevice}
         onDiscard={discard}
@@ -941,6 +1030,7 @@ function DesktopWebsiteV3Builder({
               selection={selection}
               tab={tab}
               surface={surface}
+              showBranchSelector={showBranchSelector}
               menus={loaded.menus}
               services={loaded.services}
               catalog={loaded.catalog}
@@ -968,7 +1058,7 @@ function DesktopWebsiteV3Builder({
         }
         preview={
           <PreviewCanvas
-            webOrigin={WEB_ORIGIN}
+            webOrigin={webOrigin}
             restaurantSlug={loaded.restaurant.slug}
             restaurantId={restaurantId}
             state={withWebsiteV3PreviewNavigationState(
@@ -979,6 +1069,7 @@ function DesktopWebsiteV3Builder({
             activeSectionKey={activeSectionKey}
             device={device}
             surface={surface}
+            showBranchSelector={showBranchSelector}
             onSurfaceChange={changeSurface}
             revision={previewRevision}
             contentRevision={contentRevision}

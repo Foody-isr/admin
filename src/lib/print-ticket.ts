@@ -63,6 +63,10 @@ function esc(s: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
+// Kept as a local alias so the template literals below stay readable; the
+// formatting itself is shared with the screen so a printed ticket and the order
+// detail can never disagree about the same figure — including which currency
+// it is in, which the caller passes down from the restaurant.
 function money(n: number, currency?: string): string {
   return formatMoney(n, currency);
 }

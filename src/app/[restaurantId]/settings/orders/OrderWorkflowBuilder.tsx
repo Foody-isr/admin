@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Bell, Bike, ChevronDown, ClipboardCheck, CreditCard, Info, PackageCheck, Plus, Trash2, X } from 'lucide-react';
+import { Bell, Bike, ChevronDown, ClipboardCheck, CreditCard, Info, PackageCheck, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import {
   getOrderWorkflows,
   updateOrderWorkflow,
@@ -9,8 +9,10 @@ import {
   type WorkflowStage,
   type WorkflowStageKind,
   type WorkflowOrderType,
+  type WorkflowGuidedActions,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { invalidateOrderWorkflows } from '@/lib/orders/use-order-workflows';
 import { Badge, Button, Input, Select } from '@/components/ds';
 import { Switch } from './_components';
 
@@ -18,6 +20,13 @@ type TriggerChoice = 'manual' | 'payment' | 'production' | 'courier_assigned' | 
 
 const ORDER_TYPES: WorkflowOrderType[] = ['pickup', 'dine_in', 'delivery'];
 const ALL_KINDS: WorkflowStageKind[] = ['received', 'in_progress', 'ready', 'out_for_delivery', 'completed'];
+
+const DEFAULT_GUIDED_ACTIONS: WorkflowGuidedActions = {
+  accept_sends_to_kitchen: false,
+  accept_adds_to_production: false,
+  accept_prompts_whatsapp: false,
+  delivery_reminder_enabled: false,
+};
 
 function blankStage(): WorkflowStage {
   return {
@@ -77,6 +86,7 @@ function kindColor(k: WorkflowStageKind): string {
 export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: boolean }) {
   const { t } = useI18n();
   const [byType, setByType] = useState<Record<string, WorkflowStage[]>>({});
+  const [actionsByType, setActionsByType] = useState<Record<string, WorkflowGuidedActions>>({});
   const [templateSource, setTemplateSource] = useState<Record<string, string>>({});
   const [activeType, setActiveType] = useState<WorkflowOrderType>('pickup');
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -96,12 +106,20 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
     getOrderWorkflows(rid)
       .then((wfs) => {
         const stages: Record<string, WorkflowStage[]> = {};
+        const actions: Record<string, WorkflowGuidedActions> = {};
         const tmpl: Record<string, string> = {};
         for (const wf of wfs) {
           stages[wf.order_type] = wf.stages;
+          actions[wf.order_type] = {
+            accept_sends_to_kitchen: !!wf.accept_sends_to_kitchen,
+            accept_adds_to_production: !!wf.accept_adds_to_production,
+            accept_prompts_whatsapp: !!wf.accept_prompts_whatsapp,
+            delivery_reminder_enabled: !!wf.delivery_reminder_enabled,
+          };
           tmpl[wf.order_type] = wf.template_source;
         }
         setByType(stages);
+        setActionsByType(actions);
         setTemplateSource(tmpl);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
@@ -109,6 +127,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   }, [rid]);
 
   const stages = byType[activeType] ?? [];
+  const guidedActions = actionsByType[activeType] ?? DEFAULT_GUIDED_ACTIONS;
   const setStages = (next: WorkflowStage[]) => {
     setByType((w) => ({ ...w, [activeType]: next }));
     setDirtyTypes((d) => ({ ...d, [activeType]: true }));
@@ -116,6 +135,14 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   };
   const patchStage = (i: number, patch: Partial<WorkflowStage>) =>
     setStages(stages.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  const patchGuidedActions = (patch: Partial<WorkflowGuidedActions>) => {
+    setActionsByType((current) => ({
+      ...current,
+      [activeType]: { ...guidedActions, ...patch },
+    }));
+    setDirtyTypes((d) => ({ ...d, [activeType]: true }));
+    setSaved(false);
+  };
   const removeStage = (i: number) => {
     setStages(stages.filter((_, idx) => idx !== i));
     setOpenIndex(null);
@@ -146,9 +173,19 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
     setSaving(true);
     setError(null);
     try {
-      const wf = await updateOrderWorkflow(rid, activeType, stages);
+      const wf = await updateOrderWorkflow(rid, activeType, stages, guidedActions);
       setByType((w) => ({ ...w, [activeType]: wf.stages }));
+      setActionsByType((current) => ({
+        ...current,
+        [activeType]: {
+          accept_sends_to_kitchen: !!wf.accept_sends_to_kitchen,
+          accept_adds_to_production: !!wf.accept_adds_to_production,
+          accept_prompts_whatsapp: !!wf.accept_prompts_whatsapp,
+          delivery_reminder_enabled: !!wf.delivery_reminder_enabled,
+        },
+      }));
       setTemplateSource((s) => ({ ...s, [activeType]: wf.template_source }));
+      invalidateOrderWorkflows(rid);
       setDirtyTypes((d) => ({ ...d, [activeType]: false }));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -171,7 +208,9 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
     try {
       const wf = await resetOrderWorkflow(rid, activeType);
       setByType((w) => ({ ...w, [activeType]: wf.stages }));
+      setActionsByType((current) => ({ ...current, [activeType]: { ...DEFAULT_GUIDED_ACTIONS } }));
       setTemplateSource((s) => ({ ...s, [activeType]: wf.template_source }));
+      invalidateOrderWorkflows(rid);
       setOpenIndex(null);
       setEditConn(null);
       setDirtyTypes((d) => ({ ...d, [activeType]: false }));
@@ -230,6 +269,15 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
         ? t('dineIn') || 'Sur place'
         : t('delivery') || 'Livraison';
 
+  const applyCateringPreset = () => {
+    patchGuidedActions({
+      accept_sends_to_kitchen: true,
+      accept_adds_to_production: true,
+      accept_prompts_whatsapp: true,
+      delivery_reminder_enabled: activeType === 'delivery',
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-8">
@@ -286,6 +334,58 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
             <Badge>{t('wfCustomized') || 'Personnalisé'}</Badge>
           </span>
         )}
+      </div>
+
+      {/* Guided staff actions augment the lifecycle without deleting canonical
+          statuses. A restaurant can collapse its clicks; default workflows keep
+          every switch off and therefore retain the historical full flow. */}
+      <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-4)] flex flex-col gap-[var(--s-3)]">
+        <div className="flex items-start gap-[var(--s-3)] flex-wrap">
+          <div className="flex-1 min-w-[220px]">
+            <div className="text-fs-sm font-semibold text-[var(--fg)]">
+              {t('wfGuidedActionsTitle') || 'Actions guidées du staff'}
+            </div>
+            <p className="text-fs-xs text-[var(--fg-muted)] mt-1">
+              {t('wfGuidedActionsHint') ||
+                'Regroupez les actions répétitives après l’acceptation sans supprimer les statuts techniques.'}
+            </p>
+          </div>
+          {canEdit && (
+            <Button variant="secondary" size="sm" onClick={applyCateringPreset}>
+              <Sparkles className="w-4 h-4" />
+              {t('wfCateringPreset') || 'Appliquer le preset traiteur'}
+            </Button>
+          )}
+        </div>
+
+        <div className="grid gap-[var(--s-2)] md:grid-cols-2">
+          <ToggleRow
+            checked={guidedActions.accept_sends_to_kitchen}
+            onChange={(value) => patchGuidedActions({ accept_sends_to_kitchen: value })}
+            label={t('wfAcceptSendsKitchen') || 'Accepter envoie directement en cuisine'}
+            disabled={!canEdit}
+          />
+          <ToggleRow
+            checked={guidedActions.accept_adds_to_production}
+            onChange={(value) => patchGuidedActions({ accept_adds_to_production: value })}
+            label={t('wfAcceptAddsProduction') || 'Accepter ajoute au plan de production'}
+            disabled={!canEdit}
+          />
+          <ToggleRow
+            checked={guidedActions.accept_prompts_whatsapp}
+            onChange={(value) => patchGuidedActions({ accept_prompts_whatsapp: value })}
+            label={t('wfAcceptPromptsWhatsapp') || 'Ouvrir ensuite le récapitulatif WhatsApp'}
+            disabled={!canEdit}
+          />
+          {activeType === 'delivery' && (
+            <ToggleRow
+              checked={guidedActions.delivery_reminder_enabled}
+              onChange={(value) => patchGuidedActions({ delivery_reminder_enabled: value })}
+              label={t('wfDeliveryReminder') || 'Guider l’envoi WhatsApp la veille de la livraison'}
+              disabled={!canEdit}
+            />
+          )}
+        </div>
       </div>
 
       {/* Flow */}

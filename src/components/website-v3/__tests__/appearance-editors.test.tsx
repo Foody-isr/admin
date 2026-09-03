@@ -19,6 +19,7 @@ import { FooterEditor } from "../FooterEditor";
 import { MenuHighlightsAppearanceEditor } from "../MenuHighlightsAppearanceEditor";
 import { NavigationCtaEditor } from "../NavigationCtaEditor";
 import { PageInspector } from "../PageInspector";
+import { SiteInspector } from "../SiteInspector";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -77,6 +78,65 @@ test("page navigation CTA starts inherited and reveals sparse state controls", (
   );
 });
 
+test("site and page navigation editors expose the slim links-without-logo mode", () => {
+  const page: DraftPagePayload = {
+    tmp_id: "landing-page",
+    type: "landing",
+    slug: "home",
+    title: "Accueil",
+    sort_order: 0,
+    nav_visible: true,
+    is_homepage: true,
+    is_default: false,
+    seo: {},
+    appearance_overrides: {},
+    settings: {},
+  };
+  const siteMarkup = render(
+    React.createElement(SiteInspector, {
+      tab: "settings",
+      config: {},
+      restaurantId: 24,
+      pages: [page],
+      footer: null,
+      onChange: () => undefined,
+      onPageVisibilityChange: () => undefined,
+      onFooterChange: () => undefined,
+      onStoriesNavigationAvailabilityChange: () => undefined,
+      onRestaurantLogoUpload: async () => undefined,
+      onRestaurantLogoRemove: async () => undefined,
+    }),
+  );
+  const pageMarkup = render(
+    React.createElement(PageInspector, {
+      page,
+      tab: "settings",
+      surface: "page" as const,
+      onSurfaceChange: () => undefined,
+      restaurantId: 24,
+      restaurant: {} as Restaurant,
+      config: {},
+      onConfigChange: () => undefined,
+      catalog: themeCatalog(),
+      menus: [] as Menu[],
+      services: [] as CateringService[],
+      errors: [],
+      onChange: () => undefined,
+      onReplace: () => undefined,
+      onMakeDefault: () => undefined,
+      onMakeHomepage: () => undefined,
+    }),
+  );
+
+  assert.equal(siteMarkup.match(/<option value="slim">/g)?.length, 4);
+  assert.equal(pageMarkup.match(/<option value="slim">/g)?.length, 2);
+  assert.equal(siteMarkup.match(/<option value="compact_no_logo">/g)?.length, 4);
+  assert.equal(pageMarkup.match(/<option value="compact_no_logo">/g)?.length, 2);
+  assert.match(siteMarkup, /Fine · liens visibles sans logo/);
+  assert.match(siteMarkup, /Compacte · flottante avec logo/);
+  assert.match(pageMarkup, /Position du logo/);
+});
+
 test("footer exposes content and appearance fields in their tabs", () => {
   const footer = {
     tmp_id: "site-footer",
@@ -123,7 +183,7 @@ test("footer exposes content and appearance fields in their tabs", () => {
   assert.match(appearanceMarkup, /site\.footer\.settings\.custom_divider/);
 });
 
-test("category bar editor exposes normal and customized sticky palettes", () => {
+test("category bar editor exposes one consistent palette", () => {
   const markup = render(
     React.createElement(CategoryBarStateEditor, {
       value: {
@@ -138,14 +198,47 @@ test("category bar editor exposes normal and customized sticky palettes", () => 
     markup,
     /page\.appearance_overrides\.section_colors\.categoryBar\.bg/,
   );
-  assert.match(
-    markup,
-    /page\.appearance_overrides\.section_colors\.categoryBarSticky\.bg/,
+  for (const field of [
+    "activeBg",
+    "activeText",
+    "searchBg",
+    "searchText",
+    "iconBg",
+    "icon",
+    "cartBg",
+    "cartText",
+  ]) {
+    assert.match(
+      markup,
+      new RegExp(
+        `page\\.appearance_overrides\\.section_colors\\.categoryBar\\.${field}`,
+      ),
+    );
+  }
+  assert.doesNotMatch(markup, /categoryBarSticky/);
+});
+
+test("category navigation editor exposes responsive layouts and logical sides", () => {
+  const automaticMarkup = render(
+    React.createElement(CategoryNavigationEditor, {
+      value: { mode: "auto", side: "start" },
+      onChange: () => undefined,
+    }),
   );
-  assert.match(
-    markup,
-    /page\.appearance_overrides\.section_colors\.categoryBarSticky\.divider/,
+
+  assert.match(automaticMarkup, /<option value="auto" selected="">/);
+  assert.match(automaticMarkup, /<option value="horizontal">/);
+  assert.match(automaticMarkup, /<option value="sidebar">/);
+  assert.match(automaticMarkup, /<option value="start" selected="">/);
+  assert.match(automaticMarkup, /<option value="end">/);
+
+  const horizontalMarkup = render(
+    React.createElement(CategoryNavigationEditor, {
+      value: { mode: "horizontal", side: "end" },
+      onChange: () => undefined,
+    }),
   );
+  assert.doesNotMatch(horizontalMarkup, /<option value="start"/);
 });
 
 test("category navigation editor exposes responsive layouts and logical sides", () => {

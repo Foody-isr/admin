@@ -37,6 +37,7 @@ export function Inspector({
   selection,
   tab,
   surface,
+  showBranchSelector = false,
   menus,
   services,
   catalog,
@@ -63,6 +64,7 @@ export function Inspector({
   /** The preview surface on screen. Scopes the page inspector's fields so it
    *  never offers a setting the visible surface does not render. */
   surface: InspectorSurface;
+  showBranchSelector?: boolean;
   menus: Menu[];
   services: CateringService[];
   catalog: ThemeCatalog;
@@ -108,7 +110,7 @@ export function Inspector({
 
   const title =
     selection.kind === "site"
-      ? "Identité du site"
+      ? "Éléments partagés"
       : section
         ? section.section_type.replace(/_/g, " ")
         : page?.title || "Page";
@@ -117,6 +119,13 @@ export function Inspector({
   // (which resolves to the landing page) or for a section.
   const showSurfaceSwitcher =
     selection.kind === "page" && page?.type === "order";
+  const surfaceOptions: Array<{ value: InspectorSurface; label: string }> = [
+    ...(showBranchSelector
+      ? [{ value: "branches" as const, label: t("chain_selector_surface") }]
+      : []),
+    { value: "page", label: t("chain_selector_menu_surface") },
+    { value: "checkout", label: t("websiteV3SurfaceCheckout") },
+  ];
 
   return (
     <div className="min-h-full">
@@ -140,12 +149,7 @@ export function Inspector({
               aria-label={t("websiteV3SurfaceGroupLabel")}
               className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5"
             >
-              {(
-                [
-                  ["page", "websiteV3SurfacePage"],
-                  ["checkout", "websiteV3SurfaceCheckout"],
-                ] as const
-              ).map(([value, labelKey]) => (
+              {surfaceOptions.map(({ value, label }) => (
                 <button
                   key={value}
                   type="button"
@@ -158,7 +162,7 @@ export function Inspector({
                       : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
-                  {t(labelKey)}
+                  {label}
                 </button>
               ))}
             </div>
@@ -220,6 +224,7 @@ export function Inspector({
           restaurantId={restaurantId}
           section={section}
           tab={tab}
+          placementGroups={orderPlacementGroups(page, menus)}
           onChange={(path, value) =>
             onSectionChange(stableSectionKey(section), path, value)
           }
@@ -262,6 +267,38 @@ export function Inspector({
 
 function stablePageKey(page: DraftPagePayload): string {
   return page.id !== undefined ? String(page.id) : page.tmp_id ?? "";
+}
+
+function orderPlacementGroups(
+  page: DraftPagePayload | null,
+  menus: Menu[],
+): Array<{ id: string; name: string }> {
+  if (page?.type !== "order") return [];
+  const configuredMenuIds = Array.isArray(page.settings?.menu_ids)
+    ? new Set(
+        page.settings.menu_ids
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id)),
+      )
+    : new Set<number>();
+  const selectedMenus = menus
+    .filter(
+      (menu) =>
+        menu.web_enabled &&
+        (configuredMenuIds.size === 0 || configuredMenuIds.has(menu.id)),
+    )
+    .sort((left, right) => left.sort_order - right.sort_order);
+  const showMenuName = selectedMenus.length > 1;
+
+  return selectedMenus.flatMap((menu) =>
+    (menu.groups ?? menu.categories ?? [])
+      .filter((group) => group.web_enabled && !group.is_hidden)
+      .sort((left, right) => left.sort_order - right.sort_order)
+      .map((group) => ({
+        id: String(group.id),
+        name: showMenuName ? `${group.name} — ${menu.name}` : group.name,
+      })),
+  );
 }
 
 function stableSectionKey(section: DraftSectionPayload): string {

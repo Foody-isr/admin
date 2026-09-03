@@ -1,14 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  OrderDetailDrawer,
-  buildCustomFieldLabels,
-} from '@/components/orders/OrderDetailDrawer';
+import { OrderDetailModal } from '@/components/orders/detail/OrderDetailModal';
+import { buildCustomFieldLabels } from '@/lib/orders/checkout-fields';
 import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
+import { ConfirmDialog } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
 import { type PrintTicketRestaurant } from '@/lib/print-ticket';
 import {
@@ -16,6 +15,7 @@ import {
   acceptOrder, rejectOrder, updateOrderStatus, updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   Order,
+  type CheckoutConfig,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
@@ -26,7 +26,7 @@ interface Props {
 }
 
 /**
- * Production-page wrapper around the canonical {@link OrderDetailDrawer}. Loads
+ * Production-page wrapper around the canonical {@link OrderDetailModal}. Loads
  * the full order on demand and wires the staff actions (accept, kitchen, ready,
  * payment, edit, …) so clicking a production-sheet row opens the same rich order
  * details modal used on the orders board. After any mutation the single order is
@@ -43,12 +43,16 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
   const [weightsOpen, setWeightsOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  // Same reasoning as the orders board: no native confirm() over a
+  // token-styled takeover.
+  const [pendingClose, setPendingClose] = useState(false);
 
   // Minimal restaurant identity for printed tickets + custom checkout-field
   // labels — same data the orders board feeds the drawer.
   const [restaurantInfo, setRestaurantInfo] = useState<PrintTicketRestaurant>({});
   const [restaurantLocale, setRestaurantLocale] = useState<string>('');
   const [customFieldLabels, setCustomFieldLabels] = useState<Record<string, string>>({});
+  const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
   useEffect(() => {
     if (!restaurantId) return;
     getRestaurant(restaurantId)
@@ -58,7 +62,10 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
       })
       .catch(() => {});
     getWebsiteConfig(restaurantId)
-      .then((cfg) => setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config)))
+      .then((cfg) => {
+        setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config));
+        setCheckoutConfig(cfg.checkout_config ?? null);
+      })
       .catch(() => {});
   }, [restaurantId]);
 
@@ -86,7 +93,17 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
     refetch();
   };
 
-  const handleAccept = () => order && run(() => acceptOrder(restaurantId, order.id));
+  const handleAccept = async () => {
+    if (!order) return;
+    setActionLoading(true);
+    try {
+      const result = await acceptOrder(restaurantId, order.id);
+      setOrder(result.order);
+      return result;
+    } finally {
+      setActionLoading(false);
+    }
+  };
   // Cancellation now requires a reason, collected in CancelOrderDialog.
   const handleReject = () => order && setCancelOpen(true);
   const handleCancelConfirm = (reasonCode: string, note: string) => {
@@ -109,7 +126,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
     order && run(() => markOrderDelivered(restaurantId, order.id));
 
   const handleCloseOrder = () => {
-    if (!order || !confirm(t('closeOrderConfirm'))) return;
+    if (!order) return;
     run(async () => {
       if (order.order_type === 'delivery') {
         await markOrderDelivered(restaurantId, order.id);
@@ -129,7 +146,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
 
   return (
     <>
-      <OrderDetailDrawer
+      <OrderDetailModal
         order={order}
         canManage={canManage}
         isLoading={actionLoading}
@@ -142,12 +159,13 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         onOutForDelivery={handleOutForDelivery}
         onMarkDelivered={handleMarkDelivered}
         onTakePayment={() => setPaymentOpen(true)}
-        onCloseOrder={handleCloseOrder}
+        onCloseOrder={() => setPendingClose(true)}
         onEdit={() => setEditOpen(true)}
         onConfirmWeights={() => setWeightsOpen(true)}
         restaurantInfo={restaurantInfo}
         restaurantDefaultLocale={restaurantLocale}
         customFieldLabels={customFieldLabels}
+        checkoutConfig={checkoutConfig}
       />
 
       <EditOrderDrawer
@@ -172,6 +190,19 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         onOpenChange={setWeightsOpen}
         order={order}
         onConfirmed={refetch}
+      />
+
+      <ConfirmDialog
+        open={pendingClose}
+        onOpenChange={setPendingClose}
+        title={t('closeOrder')}
+        description={t('closeOrderConfirm')}
+        confirmLabel={t('confirm')}
+        cancelLabel={t('cancel')}
+        onConfirm={() => {
+          setPendingClose(false);
+          handleCloseOrder();
+        }}
       />
 
       <CancelOrderDialog

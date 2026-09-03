@@ -41,7 +41,7 @@ export interface TemplateDefinition {
 const ORDER_RECAP: TemplateDefinition = {
   key: 'order_recap',
   tokens: ['restaurant', 'client', 'numero_commande', 'creneau'],
-  blocks: ['type_commande', 'articles', 'totaux', 'adresse', 'statut_paiement', 'salutation', 'lien_suivi'],
+  blocks: ['type_commande', 'articles', 'totaux', 'adresse', 'infos_client', 'statut_paiement', 'salutation', 'lien_suivi'],
   defaults: {
     fr: [
       '*{{restaurant}}*',
@@ -52,6 +52,7 @@ const ORDER_RECAP: TemplateDefinition = {
       '{{type_commande}}',
       '🗓️ {{creneau}}',
       '📍 {{adresse}}',
+      'ℹ️ {{infos_client}}',
       '',
       '*Votre commande*',
       '{{articles}}',
@@ -69,6 +70,7 @@ const ORDER_RECAP: TemplateDefinition = {
       '{{type_commande}}',
       '🗓️ {{creneau}}',
       '📍 {{adresse}}',
+      'ℹ️ {{infos_client}}',
       '',
       '*ההזמנה שלך*',
       '{{articles}}',
@@ -86,6 +88,7 @@ const ORDER_RECAP: TemplateDefinition = {
       '{{type_commande}}',
       '🗓️ {{creneau}}',
       '📍 {{adresse}}',
+      'ℹ️ {{infos_client}}',
       '',
       '*Your order*',
       '{{articles}}',
@@ -97,7 +100,51 @@ const ORDER_RECAP: TemplateDefinition = {
   },
 };
 
-export const TEMPLATE_REGISTRY: TemplateDefinition[] = [ORDER_RECAP];
+const DELIVERY_REMINDER: TemplateDefinition = {
+  key: 'delivery_reminder',
+  tokens: ['restaurant', 'client', 'creneau', 'telephone'],
+  blocks: ['adresse', 'consignes'],
+  defaults: {
+    fr: [
+      '*{{restaurant}}*',
+      'Bonjour {{client}},',
+      '',
+      'Petit rappel : votre livraison est prévue demain.',
+      '🗓️ {{creneau}}',
+      '📍 {{adresse}}',
+      '📞 {{telephone}}',
+      'ℹ️ {{consignes}}',
+      '',
+      'Merci de nous confirmer que ces informations sont correctes.',
+    ].join('\n'),
+    he: [
+      '*{{restaurant}}*',
+      'שלום {{client}},',
+      '',
+      'תזכורת קטנה: המשלוח שלך מתוכנן למחר.',
+      '🗓️ {{creneau}}',
+      '📍 {{adresse}}',
+      '📞 {{telephone}}',
+      'ℹ️ {{consignes}}',
+      '',
+      'נשמח לאישור שהפרטים נכונים.',
+    ].join('\n'),
+    en: [
+      '*{{restaurant}}*',
+      'Hello {{client}},',
+      '',
+      'A quick reminder: your delivery is scheduled for tomorrow.',
+      '🗓️ {{creneau}}',
+      '📍 {{adresse}}',
+      '📞 {{telephone}}',
+      'ℹ️ {{consignes}}',
+      '',
+      'Please confirm that these details are correct.',
+    ].join('\n'),
+  },
+};
+
+export const TEMPLATE_REGISTRY: TemplateDefinition[] = [ORDER_RECAP, DELIVERY_REMINDER];
 
 export function findTemplate(key: string): TemplateDefinition | undefined {
   return TEMPLATE_REGISTRY.find((d) => d.key === key);

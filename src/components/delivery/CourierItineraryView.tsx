@@ -6,11 +6,13 @@ import { useI18n, useCurrency } from '@/lib/i18n';
 import { useWs } from '@/lib/ws-context';
 import {
   getMyRoute, startRoute, markArrived, markStopDelivered, reorderStops, optimizeRoute,
-  listAvailableDeliveries, addStops,
-  type DeliveryRoute, type RouteStop,
+  listAvailableDeliveries, addStops, updateRouteSettings,
+  type DeliveryRoute, type RouteSettingsInput, type RouteStop,
 } from '@/lib/delivery';
-import type { Order } from '@/lib/api';
-import { navUrl, callUrl, whatsappUrl } from '@/lib/delivery-links';
+import { ApiError, type Order } from '@/lib/api';
+import { callUrl, whatsappUrl } from '@/lib/delivery-links';
+import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
+import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 import {
   buildDeliveryEtaLabel,
@@ -24,14 +26,12 @@ import {
   Button,
   Card,
   CardBody,
-  PageHead,
   Tabs,
   TabsList,
   Tab,
   TabsContent,
 } from '@/components/ds';
 import {
-  NavigationIcon,
   PhoneIcon,
   CheckCircle2Icon,
   CheckIcon,
@@ -41,7 +41,7 @@ import {
   ZapIcon,
   AlertCircleIcon,
   MapPinIcon,
-  MapIcon,
+  FlagIcon,
   Maximize2Icon,
   Minimize2Icon,
   PackageIcon,
@@ -137,14 +137,78 @@ function NoStopsCard({ t }: { t: (k: string) => string }) {
   );
 }
 
+/** Optional route endpoint rendered as part of the courier's stop timeline. */
+function RouteEndpointRow({
+  kind,
+  address,
+  lat,
+  lng,
+  t,
+}: {
+  kind: 'start' | 'end';
+  address: string;
+  lat?: number | null;
+  lng?: number | null;
+  t: (k: string) => string;
+}) {
+  const isStart = kind === 'start';
+  const Icon = isStart ? MapPinIcon : FlagIcon;
+  const accent = isStart ? 'var(--success-500)' : 'var(--danger-500)';
+
+  return (
+    <div
+      className={`relative flex items-stretch ${isStart ? 'border-b border-[var(--line)]' : ''}`}
+      style={{ background: `color-mix(in oklab, ${accent} 5%, var(--surface))` }}
+    >
+      <div className="relative flex w-16 shrink-0 justify-center py-4 sm:w-[76px]">
+        <span
+          className={`absolute start-1/2 w-0.5 -translate-x-1/2 ${
+            isStart ? 'bg-[var(--success-500)]' : 'bg-[var(--danger-500)]'
+          } ${
+            isStart ? 'bottom-0 top-8' : 'bottom-8 top-0'
+          }`}
+          aria-hidden="true"
+        />
+        <span
+          className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border shadow-1 ${
+            isStart
+              ? 'border-[var(--success-500)] bg-[var(--success-50)] text-[var(--success-500)]'
+              : 'border-[var(--danger-500)] bg-[var(--danger-50)] text-[var(--danger-500)]'
+          }`}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+      <div className="min-w-0 flex-1 py-3.5 pe-4">
+        <Badge tone={isStart ? 'success' : 'danger'} dot>
+          {t(isStart ? 'routeTimelineStartReminder' : 'routeTimelineTerminus')}
+        </Badge>
+        <p className="mt-2 break-words text-fs-md font-semibold leading-snug text-[var(--fg)] sm:text-fs-lg">
+          {address}
+        </p>
+        <NavigationAppMenu
+          destination={{ address, lat, lng }}
+          variant="ghost"
+          size="sm"
+          className="mt-2 -ms-2"
+          label={t('navigate')}
+          t={t}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** Hero card for the currently active stop. */
 function CurrentStopCard({
   stop,
   etaWindow,
+  hasFollowing,
   t,
 }: {
   stop: RouteStop;
   etaWindow: DeliveryEtaWindow | null;
+  hasFollowing: boolean;
   t: (k: string) => string;
 }) {
   const { money } = useCurrency();
@@ -157,12 +221,12 @@ function CurrentStopCard({
 
   return (
     <div
-      className="relative flex items-stretch border-b border-[var(--line)]"
+      className={`relative flex items-stretch ${hasFollowing ? 'border-b border-[var(--line)]' : ''}`}
       style={{ background: 'color-mix(in oklab, var(--brand-500) 4%, var(--surface))' }}
       aria-current="step"
     >
-      <div className="relative flex w-[76px] shrink-0 flex-col items-center px-2 py-5 text-center">
-        <span className="num text-fs-lg font-semibold text-[var(--brand-600)]">
+      <div className="relative flex w-16 shrink-0 flex-col items-center px-2 py-4 text-center sm:w-[76px] sm:py-5">
+        <span className="num text-fs-md font-semibold text-[var(--brand-600)] sm:text-fs-lg">
           {String(stop.sequence).padStart(2, '0')}
         </span>
         {etaWindow && (
@@ -170,13 +234,15 @@ function CurrentStopCard({
             {etaWindow.start}<br />{etaWindow.end}
           </span>
         )}
-        <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-500)]" />
+        {hasFollowing && (
+          <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-500)]" />
+        )}
       </div>
 
       <div className="min-w-0 flex-1 py-5 pe-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-fs-xl font-semibold leading-snug text-[var(--fg)]">
+            <p className="text-fs-lg font-semibold leading-snug text-[var(--fg)] sm:text-fs-xl">
               {address?.line1 || stop.customer_name}
             </p>
             {address?.line2 && (
@@ -233,6 +299,7 @@ function StopRow({
   busy,
   onMoveUp,
   onMoveDown,
+  hasFollowingEndpoint,
   t,
 }: {
   stop: RouteStop;
@@ -242,6 +309,7 @@ function StopRow({
   busy: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  hasFollowingEndpoint: boolean;
   t: (k: string) => string;
 }) {
   const isDelivered = stop.status === 'delivered';
@@ -258,10 +326,10 @@ function StopRow({
       className="relative flex items-stretch"
       style={{
         opacity: isDelivered ? 0.5 : 1,
-        borderBottom: index < total - 1 ? '1px solid var(--line)' : 'none',
+        borderBottom: index < total - 1 || hasFollowingEndpoint ? '1px solid var(--line)' : 'none',
       }}
     >
-      <div className="relative flex w-[76px] shrink-0 flex-col items-center px-2 py-5 text-center">
+      <div className="relative flex w-16 shrink-0 flex-col items-center px-2 py-4 text-center sm:w-[76px] sm:py-5">
         <span className="num text-fs-md font-medium text-[var(--fg-muted)]">
           {isDelivered ? <CheckIcon className="h-4 w-4" /> : String(stop.sequence).padStart(2, '0')}
         </span>
@@ -270,7 +338,7 @@ function StopRow({
             {etaWindow.start}<br />{etaWindow.end}
           </span>
         )}
-        {index < total - 1 && (
+        {(index < total - 1 || hasFollowingEndpoint) && (
           <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-300)]" />
         )}
       </div>
@@ -278,7 +346,7 @@ function StopRow({
       <div className="min-w-0 flex-1 py-5 pe-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-fs-lg font-semibold leading-snug text-[var(--fg)]">
+            <p className="text-fs-md font-semibold leading-snug text-[var(--fg)] sm:text-fs-lg">
               {address?.line1 || stop.customer_name}
             </p>
           </div>
@@ -309,12 +377,7 @@ function StopRow({
         ) : null}
         {!isDelivered && (
           <div className="mt-3 flex items-center gap-1">
-            <a href={navUrl(stop)} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="sm">
-                <NavigationIcon />
-                {t('navigate')}
-              </Button>
-            </a>
+            <NavigationAppMenu destination={stop} variant="ghost" size="sm" label={t('navigate')} t={t} />
             {stop.customer_phone && (
               <a
                 href={whatsappUrl(stop.customer_phone, stopWhatsappMessage(stop, etaWindow, t))}
@@ -421,14 +484,17 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const [available, setAvailable] = useState<Order[]>([]);
   const [mapExpanded, setMapExpanded] = useState(false);
   const prevEvent = useRef(lastEvent);
+  const loadRequestId = useRef(0);
   const { denied: locationDenied } = useLocationReporter(rid, route?.status === 'active');
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestId.current;
     try {
       setError(null);
-      setRoute(await getMyRoute(rid));
+      const nextRoute = await getMyRoute(rid);
+      if (requestId === loadRequestId.current) setRoute(nextRoute);
     } catch (e) {
-      setError((e as Error)?.message || 'load failed');
+      if (requestId === loadRequestId.current) setError((e as Error)?.message || 'load failed');
     }
   }, [rid]);
 
@@ -440,18 +506,15 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
 
   useEffect(() => { if (tab === 'available') loadAvailable(); }, [tab, loadAvailable]);
 
-  // Realtime: replace state when this courier's route changes.
+  // Re-fetch the selected route on delivery updates. The event can reference a
+  // newly assigned route rather than the empty placeholder currently displayed.
   useEffect(() => {
     if (!lastEvent || lastEvent === prevEvent.current) return;
     prevEvent.current = lastEvent;
-    if (lastEvent.type === 'route.updated') {
-      const r = lastEvent.payload as unknown as DeliveryRoute;
-      if (!route) { load(); return; }
-      if (r?.id === route.id) setRoute(r);
-    } else if (lastEvent.type.startsWith('order.')) {
-      load();
+    if (lastEvent.type === 'route.updated' || lastEvent.type.startsWith('order.')) {
+      void load();
     }
-  }, [lastEvent, route, load]);
+  }, [lastEvent, load]);
 
   const stops = useMemo(
     () => [...(route?.stops ?? [])].sort((a, b) => a.sequence - b.sequence),
@@ -483,6 +546,22 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
       if (!route) return;
       setRoute(await startRoute(rid, route.id));
     });
+
+  const onSaveSettings = async (input: RouteSettingsInput) => {
+    if (!route) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setRoute(await updateRouteSettings(rid, route.id, input, true));
+    } catch (cause) {
+      setError(cause instanceof ApiError
+        ? cause.details || cause.message
+        : (cause as Error)?.message || t('routeSettingsSaveFailed'));
+      throw cause;
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const onArrived = (stop: RouteStop) =>
     withBusy(async () => {
@@ -553,9 +632,13 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
     : route.status === 'active' ? t('routeStatusActive')
     : route.status === 'completed' ? t('routeStatusCompleted')
     : route.status;
+  const hasCurrentStopActions = route.status === 'active' && currentStop != null;
+  const hasFinalNavigation = currentStop == null
+    && !!route.end_address
+    && (route.status === 'active' || route.status === 'completed');
 
   return (
-    <div className="flex flex-col gap-[var(--s-4)] pb-28">
+    <div className={`flex flex-col gap-3 sm:gap-[var(--s-4)] ${hasCurrentStopActions || hasFinalNavigation ? 'pb-40 sm:pb-28' : 'pb-4'}`}>
       {/* ── Inline error banner ─────────────────────────────────────────── */}
       {error && (
         <div
@@ -567,7 +650,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
             type="button"
             onClick={() => setError(null)}
             className="shrink-0 font-semibold hover:opacity-70 transition-opacity"
-            aria-label="Dismiss"
+            aria-label={t('close')}
           >
             ✕
           </button>
@@ -577,38 +660,34 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
       {locationDenied && (
         <p className="text-fs-xs text-[var(--fg-muted)]">{t('locationOffNotice')}</p>
       )}
-      {/* ── Page header ────────────────────────────────────────────────── */}
-      <PageHead
-        title={t('deliveryRouteToday')}
-        desc={
-          <span className="flex items-center gap-[var(--s-2)]">
-            <Badge tone={routeTone} dot>{routeStatusLabel}</Badge>
-            {route.status === 'active' && route.est_duration_s > 0 && (
-              <span className="text-fs-xs text-[var(--fg-subtle)]">
-                {t('etaToFinish').replace('{time}', formatEta(route.est_duration_s, t))}
-              </span>
-            )}
+      {/* Route state sits below the courier shell without repeating its title. */}
+      <div className="flex min-h-8 items-center justify-between gap-3 px-1 sm:px-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <Badge tone={routeTone} dot>{routeStatusLabel}</Badge>
+          <span className="truncate text-fs-xs text-[var(--fg-muted)]">
+            {route.status === 'active' && route.est_duration_s > 0
+              ? t('etaToFinish').replace('{time}', formatEta(route.est_duration_s, t))
+              : `${stops.length} ${t('deliveryPlanStops')}`}
           </span>
-        }
-        actions={
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={busy || stops.length === 0}
-            onClick={onReoptimize}
-          >
-            <ZapIcon />
-            {t('reoptimize')}
-          </Button>
-        }
-      />
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 px-2 sm:px-3"
+          disabled={busy || stops.length === 0}
+          onClick={onReoptimize}
+        >
+          <ZapIcon />
+          {t('reoptimize')}
+        </Button>
+      </div>
 
       {/* ── Tab toggle: Assigned / Available ───────────────────────────── */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} variant="segmented">
-        <TabsList>
-          <Tab value="assigned">
+        <TabsList className="grid w-full grid-cols-2">
+          <Tab value="assigned" className="h-10 min-w-0 justify-center px-2 text-fs-xs sm:h-[30px] sm:text-fs-sm">
             <RouteIcon />
-            {t('assignedToMe')}
+            <span className="truncate">{t('assignedToMe')}</span>
             {stops.length > 0 && (
               <span
                 className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full tabular-nums"
@@ -621,39 +700,58 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
               </span>
             )}
           </Tab>
-          <Tab value="available">
-            {t('availableCount').replace('{n}', String(available.length))}
+          <Tab value="available" className="h-10 min-w-0 justify-center px-2 text-fs-xs sm:h-[30px] sm:text-fs-sm">
+            <PackageIcon />
+            <span className="truncate">{t('availableDeliveries')}</span>
+            <span
+              className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--fg-muted)]"
+            >
+              {available.length}
+            </span>
           </Tab>
         </TabsList>
 
         {/* ── Assigned tab ─────────────────────────────────────────────── */}
         <TabsContent value="assigned">
           <div className="flex flex-col gap-[var(--s-4)]">
+            {stops.length > 0 && (
+              <RouteSettingsEditor
+                route={route}
+                locale={locale}
+                disabled={busy || route.status !== 'draft'}
+                onSave={onSaveSettings}
+                t={t}
+              />
+            )}
+
             {/* Compact route overview. The timeline remains the primary surface. */}
             {stops.length > 0 && (
               <Card className="overflow-hidden">
                 <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
                   <div className="min-w-0">
-                    <p className="text-fs-sm font-semibold text-[var(--fg)]">
+                    <p className="whitespace-nowrap text-fs-sm font-semibold text-[var(--fg)]">
                       {formatEta(route.est_duration_s, t) || '—'} · {stops.length} {t('deliveryPlanStops')}
-                    </p>
-                    <p className="text-[11px] text-[var(--fg-subtle)]">
-                      {delivered}/{stops.length} · {routeStatusLabel}
                     </p>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="shrink-0 px-2"
                     onClick={() => setMapExpanded((current) => !current)}
                     aria-expanded={mapExpanded}
+                    aria-label={t(mapExpanded ? 'deliveryMapCollapse' : 'deliveryMapExpand')}
                   >
-                    <MapIcon />
                     {t(mapExpanded ? 'deliveryMapCollapse' : 'deliveryMapExpand')}
                     {mapExpanded ? <Minimize2Icon /> : <Maximize2Icon />}
                   </Button>
                 </div>
-                <div className={`transition-[height] duration-slow ease-out ${mapExpanded ? 'h-[42vh] min-h-[320px]' : 'h-44 sm:h-52'}`}>
-                  <DeliveryMap stops={stops} className="h-full w-full" />
+                <div className={`overflow-hidden transition-[height] duration-slow ease-out ${mapExpanded ? 'h-[42vh] min-h-[280px] sm:min-h-[320px]' : 'h-0 sm:h-52'}`}>
+                  <DeliveryMap
+                    stops={stops}
+                    start={route.start_lat != null && route.start_lng != null ? { lat: route.start_lat, lng: route.start_lng } : undefined}
+                    end={route.end_lat != null && route.end_lng != null ? { lat: route.end_lat, lng: route.end_lng } : undefined}
+                    className="h-full w-full"
+                  />
                 </div>
               </Card>
             )}
@@ -663,16 +761,39 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
               <RouteProgress delivered={delivered} total={stops.length} />
             )}
 
+            {route.status === 'draft' && stops.length > 0 && (
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full justify-center shadow-2"
+                disabled={busy}
+                onClick={onStart}
+              >
+                <RouteIcon />
+                {t('startRoute')}
+              </Button>
+            )}
+
             {stops.length === 0 ? (
               <NoStopsCard t={t} />
             ) : (
               <Card className="overflow-hidden">
+                {route.start_address && (
+                  <RouteEndpointRow
+                    kind="start"
+                    address={route.start_address}
+                    lat={route.start_lat}
+                    lng={route.start_lng}
+                    t={t}
+                  />
+                )}
                 {stops.map((stop, index) => (
                   stop.id === currentStop?.id ? (
                     <CurrentStopCard
                       key={stop.id}
                       stop={stop}
                       etaWindow={deliveryEtaWindow(route, stop, locale)}
+                      hasFollowing={index < stops.length - 1 || !!route.end_address}
                       t={t}
                     />
                   ) : (
@@ -685,10 +806,20 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
                       busy={busy}
                       onMoveUp={() => move(stop, -1)}
                       onMoveDown={() => move(stop, 1)}
+                      hasFollowingEndpoint={!!route.end_address}
                       t={t}
                     />
                   )
                 ))}
+                {route.end_address && (
+                  <RouteEndpointRow
+                    kind="end"
+                    address={route.end_address}
+                    lat={route.end_lat}
+                    lng={route.end_lng}
+                    t={t}
+                  />
+                )}
               </Card>
             )}
           </div>
@@ -724,31 +855,21 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
         </TabsContent>
       </Tabs>
 
-      {tab === 'assigned' && route.status === 'draft' && stops.length > 0 && (
+      {tab === 'assigned' && hasCurrentStopActions && (
         <div
-          className="sticky bottom-3 z-[450] rounded-r-xl border border-[var(--line-strong)] p-3 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),env(safe-area-inset-bottom))]"
+          className="sticky bottom-3 z-[450] mx-1 flex flex-wrap gap-2 rounded-r-xl border border-[var(--line-strong)] p-2.5 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),env(safe-area-inset-bottom))] sm:mx-0 sm:flex-nowrap sm:p-3"
           style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
         >
-          <Button variant="primary" size="lg" className="w-full justify-center" disabled={busy} onClick={onStart}>
-            <RouteIcon />
-            {t('startRoute')}
-          </Button>
-        </div>
-      )}
-
-      {tab === 'assigned' && route.status === 'active' && currentStop && (
-        <div
-          className="sticky bottom-3 z-[450] flex gap-2 rounded-r-xl border border-[var(--line-strong)] p-3 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),env(safe-area-inset-bottom))]"
-          style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
-        >
-          <Button asChild variant="secondary" size="lg" className="flex-1">
-            <a href={navUrl(currentStop)} target="_blank" rel="noopener noreferrer">
-              <NavigationIcon />
-              {t('navigate')}
-            </a>
-          </Button>
+          <NavigationAppMenu
+            destination={currentStop}
+            variant="secondary"
+            size="lg"
+            className="order-2 flex-1 sm:order-none"
+            label={t('navigate')}
+            t={t}
+          />
           {currentStop.customer_phone && (
-            <Button asChild variant="secondary" size="lg" icon aria-label={t('deliveryPlanWhatsApp')}>
+            <Button asChild variant="secondary" size="lg" icon className="order-2 sm:order-none" aria-label={t('deliveryPlanWhatsApp')}>
               <a
                 href={whatsappUrl(currentStop.customer_phone, stopWhatsappMessage(
                   currentStop,
@@ -763,7 +884,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
             </Button>
           )}
           {currentStop.customer_phone && (
-            <Button asChild variant="secondary" size="lg" icon aria-label={t('callCustomer')}>
+            <Button asChild variant="secondary" size="lg" icon className="order-2 sm:order-none" aria-label={t('callCustomer')}>
               <a href={callUrl(currentStop.customer_phone)}><PhoneIcon /></a>
             </Button>
           )}
@@ -771,7 +892,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
             <Button
               variant="primary"
               size="lg"
-              className="flex-1 bg-[var(--success-500)] hover:brightness-95"
+              className="order-1 w-full bg-[var(--success-500)] hover:brightness-95 sm:order-none sm:w-auto sm:flex-1"
               disabled={busy}
               onClick={() => onDelivered(currentStop)}
             >
@@ -779,11 +900,27 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
               {t('markDelivered')}
             </Button>
           ) : (
-            <Button variant="primary" size="lg" className="flex-1" disabled={busy} onClick={() => onArrived(currentStop)}>
+            <Button variant="primary" size="lg" className="order-1 w-full sm:order-none sm:w-auto sm:flex-1" disabled={busy} onClick={() => onArrived(currentStop)}>
               <CheckIcon />
               {t('markArrived')}
             </Button>
           )}
+        </div>
+      )}
+
+      {tab === 'assigned' && hasFinalNavigation && (
+        <div
+          className="sticky bottom-3 z-[450] mx-1 rounded-r-xl border border-[var(--line-strong)] p-2.5 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),env(safe-area-inset-bottom))] sm:mx-0 sm:p-3"
+          style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
+        >
+          <NavigationAppMenu
+            destination={{ address: route.end_address ?? '', lat: route.end_lat, lng: route.end_lng }}
+            variant="primary"
+            size="lg"
+            className="w-full justify-center"
+            label={t('routeSettingsNavigateEnd')}
+            t={t}
+          />
         </div>
       )}
     </div>

@@ -8,7 +8,7 @@ import {
   PAYMENT_TONE,
   localizeStatus,
   localizeOrderType,
-} from '@/components/orders/OrderDetailDrawer';
+} from '@/lib/orders/status-presentation';
 import type { Order, OrdersTableConfig } from '@/lib/api';
 import type { MoneyFormatter } from '@/lib/currency';
 import {

@@ -28,7 +28,33 @@ export type OrderTypeSelectorOverride = NavbarCtaSurfaceStyle & {
   size?: "sm" | "md" | "lg";
 };
 
+export type ChainOrderEntryLocaleCopy = {
+  brandName?: string;
+  eyebrow?: string;
+  title?: string;
+  subtitle?: string;
+  pickup?: string;
+  delivery?: string;
+  search?: string;
+  nearMe?: string;
+  branches?: string;
+  orderHere?: string;
+};
+
+export type ChainOrderEntryOverride = {
+  logo_url?: string;
+  layout?: "list" | "cards";
+  show_search?: boolean;
+  show_near_me?: boolean;
+  show_branch_count?: boolean;
+  show_branch_numbers?: boolean;
+  surface_color?: string;
+  overlay_opacity?: number;
+  translations?: Partial<Record<"en" | "fr" | "he", ChainOrderEntryLocaleCopy>>;
+};
+
 export type DraftAppearanceOverrides = {
+  foody_renderer_version?: number;
   bg?: string;
   ink?: string;
   accent?: string;
@@ -90,17 +116,19 @@ export type DraftAppearanceOverrides = {
   category_banner_overlay?: number;
   category_banner_fit?: string;
   category_banner_fit_mobile?: string;
-  navigation_mode?: "inherit" | "full" | "compact" | "hidden";
-  navigation_mode_mobile?: "inherit" | "full" | "compact" | "hidden";
+  navigation_mode?: "inherit" | "full" | "slim" | "compact" | "compact_no_logo" | "hidden";
+  navigation_mode_mobile?: "inherit" | "full" | "slim" | "compact" | "compact_no_logo" | "hidden";
   navbar_style?: "inherit" | "solid" | "transparent" | "overlay";
   navbar_color?: string;
   navbar_text_color?: string;
   navbar_overlay_text_color?: string;
+  navbar_logo_position?: "left" | "center" | "right";
   hide_navbar_name?: boolean;
   navbar_cta?: NavbarCtaOverride;
   footer_mode?: "inherit" | "full" | "compact" | "hidden";
   order_page_info?: Record<string, unknown> | null;
   order_type_selector?: OrderTypeSelectorOverride | null;
+  chain_order_entry?: ChainOrderEntryOverride | null;
   group_banners?: Record<
     string,
     {

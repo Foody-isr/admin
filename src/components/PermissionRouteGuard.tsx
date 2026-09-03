@@ -1,12 +1,13 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useParams } from 'next/navigation';
+import { usePathname, useParams, useRouter } from 'next/navigation';
 import { ShieldAlert } from 'lucide-react';
 import { usePermissions } from '@/lib/permissions-context';
 import { requiredPermissionsForPath } from '@/lib/route-permissions';
 import { useI18n } from '@/lib/i18n';
+import { isCourierDeliveryPath, isCourierRoleName } from '@/lib/courier-access';
 
 /**
  * Blocks access to a feature section when the current user's per-restaurant
@@ -18,20 +19,31 @@ import { useI18n } from '@/lib/i18n';
 export default function PermissionRouteGuard({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const params = useParams();
-  const { hasAnyPermission, loading } = usePermissions();
+  const router = useRouter();
+  const { hasAnyPermission, roleName, loading } = usePermissions();
   const { t } = useI18n();
+  const restaurantId = Number(params.restaurantId);
+  const courierOnly = isCourierRoleName(roleName);
+  const courierPathAllowed = isCourierDeliveryPath(pathname, restaurantId);
+
+  useEffect(() => {
+    if (!loading && courierOnly && !courierPathAllowed) {
+      router.replace(`/${restaurantId}/orders/deliveries`);
+    }
+  }, [courierOnly, courierPathAllowed, loading, restaurantId, router]);
 
   const required = requiredPermissionsForPath(pathname);
-  if (required.length === 0) return <>{children}</>;
 
   // Decide only once the per-restaurant permissions have loaded.
-  if (loading) {
+  if (loading || (courierOnly && !courierPathAllowed)) {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
       </div>
     );
   }
+
+  if (required.length === 0) return <>{children}</>;
 
   if (!hasAnyPermission(...required)) {
     return (

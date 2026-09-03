@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
-import { PermissionsProvider } from '@/lib/permissions-context';
+import { PermissionsProvider, usePermissions } from '@/lib/permissions-context';
 import { WsProvider } from '@/lib/ws-context';
 import { useIdleTimeout } from '@/lib/use-idle-timeout';
 import { useI18n } from '@/lib/i18n';
@@ -18,6 +18,8 @@ import { AiChatProvider } from '@/lib/ai-context';
 import { SearchShortcutProvider } from '@/lib/search-shortcut';
 import SearchModal from '@/components/search/SearchModal';
 import { getRestaurant, Restaurant } from '@/lib/api';
+import { isCourierRoleName } from '@/lib/courier-access';
+import { CourierShell } from '@/components/delivery/CourierShell';
 
 // Slugs that map to an existing translation key in i18n.tsx. Anything not listed
 // here falls back to a title-cased version of the slug.
@@ -26,6 +28,7 @@ const PAGE_SLUGS = [
   'menu',
   'kitchen',
   'orders',
+  'deliveries',
   'staff',
   'roles',
   'customers',
@@ -61,7 +64,9 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
 
   // Derive current page name from pathname
   const segments = pathname.split('/');
-  const pageSlug = segments[2] || 'dashboard';
+  const pageSlug = pathname.startsWith(`/${restaurantId}/orders/deliveries`)
+    ? 'deliveries'
+    : segments[2] || 'dashboard';
   const pageName = (PAGE_SLUGS as readonly string[]).includes(pageSlug)
     ? t(pageSlug)
     : pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1);
@@ -130,29 +135,80 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
     <PermissionsProvider restaurantId={restaurantId}>
       <WsProvider restaurantId={restaurantId}>
         <PushResync restaurantId={restaurantId} />
-        <AiChatProvider restaurantId={restaurantId}>
-          <SearchShortcutProvider>
-            <SidebarProvider>
-              <RestaurantShell
-                restaurant={restaurant}
-                restaurantId={restaurantId}
-                sidebarOpen={sidebarOpen}
-                toggleSidebar={toggleSidebar}
-                closeSidebar={closeSidebar}
-                isRtl={isRtl}
-                isWideLayout={isWideLayout}
-                pageName={pageName}
-              >
-                <PermissionRouteGuard>{children}</PermissionRouteGuard>
-              </RestaurantShell>
-              <AiDrawer />
-              <SearchModal />
-              {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
-            </SidebarProvider>
-          </SearchShortcutProvider>
-        </AiChatProvider>
+        <RestaurantExperience
+          restaurant={restaurant}
+          restaurantId={restaurantId}
+          sidebarOpen={sidebarOpen}
+          toggleSidebar={toggleSidebar}
+          closeSidebar={closeSidebar}
+          isRtl={isRtl}
+          isWideLayout={isWideLayout}
+          pageName={pageName}
+        >
+          <PermissionRouteGuard>{children}</PermissionRouteGuard>
+        </RestaurantExperience>
+        {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
       </WsProvider>
     </PermissionsProvider>
+  );
+}
+
+function RestaurantExperience({
+  children,
+  restaurant,
+  restaurantId,
+  sidebarOpen,
+  toggleSidebar,
+  closeSidebar,
+  isRtl,
+  isWideLayout,
+  pageName,
+}: {
+  children: React.ReactNode;
+  restaurant: Restaurant;
+  restaurantId: number;
+  sidebarOpen: boolean;
+  toggleSidebar: () => void;
+  closeSidebar: () => void;
+  isRtl: boolean;
+  isWideLayout: boolean;
+  pageName: string;
+}) {
+  const { roleName, loading } = usePermissions();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--brand-500)] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (isCourierRoleName(roleName)) {
+    return <CourierShell restaurant={restaurant}>{children}</CourierShell>;
+  }
+
+  return (
+    <AiChatProvider restaurantId={restaurantId}>
+      <SearchShortcutProvider>
+        <SidebarProvider>
+          <RestaurantShell
+            restaurant={restaurant}
+            restaurantId={restaurantId}
+            sidebarOpen={sidebarOpen}
+            toggleSidebar={toggleSidebar}
+            closeSidebar={closeSidebar}
+            isRtl={isRtl}
+            isWideLayout={isWideLayout}
+            pageName={pageName}
+          >
+            {children}
+          </RestaurantShell>
+          <AiDrawer />
+          <SearchModal />
+        </SidebarProvider>
+      </SearchShortcutProvider>
+    </AiChatProvider>
   );
 }
 

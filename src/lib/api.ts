@@ -15,6 +15,7 @@ import {
   browserSupportsWebAuthn,
   platformAuthenticatorIsAvailable,
 } from '@simplewebauthn/browser';
+import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'foody_restaurant_token';
@@ -682,6 +683,11 @@ export interface Order {
   // Staff "add to production plan" override. When true the order appears on the
   // production sheet regardless of scheduling/payment (see setOrderForceProduction).
   force_production?: boolean;
+  // Which stage of the restaurant's configured pipeline the order sits in
+  // (see OrderWorkflow below). The server has always sent this; it lets the
+  // stepper resolve the exact stage instead of inferring one from the status,
+  // which matters when a custom workflow has two stages of the same kind.
+  workflow_stage_id?: number | null;
   accepted_at?: string;
   in_kitchen_at?: string;
   ready_at?: string;
@@ -793,12 +799,27 @@ export interface OrderPageInfo {
 
 /** Optional per-section color overrides (hex strings). Any omitted section or
  *  field falls back to the global theme token for that color. */
+export interface CategoryBarColors {
+  bg?: string;
+  text?: string;
+  accent?: string;
+  divider?: string;
+  activeBg?: string;
+  activeText?: string;
+  searchBg?: string;
+  searchText?: string;
+  iconBg?: string;
+  icon?: string;
+  cartBg?: string;
+  cartText?: string;
+}
+
 export interface SectionColors {
   navbar?: { bg?: string; text?: string };
   hero?: { bg?: string; text?: string };
   metadata?: { bg?: string; text?: string };
-  categoryBar?: { bg?: string; text?: string; accent?: string; divider?: string };
-  categoryBarSticky?: { bg?: string; text?: string; accent?: string; divider?: string };
+  categoryBar?: CategoryBarColors;
+  categoryBarSticky?: CategoryBarColors;
   /** Catering shop: bg, buttons/accent, and button-label text. */
   catering?: { bg?: string; text?: string; accent?: string };
 }
@@ -910,12 +931,10 @@ export interface WebsiteConfig {
   /** Custom pages beyond home + menu. Each renders at /r/<slug>/<page.slug> and shows in the nav. */
   pages?: WebsitePageMeta[] | null;
   landing_enabled: boolean;
-  /** Whether the customer Stories/Reels page + bottom-nav tab is shown. */
+  /** Whether the customer Stories/Reels page is shown. */
   stories_enabled?: boolean;
   /** Whether public navigation shows the guest order-history destination. */
   show_orders_link?: boolean;
-  /** Comma-separated order of the mobile bottom-nav page tabs ("menu","stories"). First = default landing tab. */
-  nav_order?: string;
   checkout_config?: CheckoutConfig | null;
   order_page_info?: OrderPageInfo | null;
   order_type_selector?: OrderTypeSelectorConfig | null;
@@ -1013,21 +1032,13 @@ export interface WebsitePageMeta {
 }
 
 /** A single navbar composition mode for one device.
- *  full = logo + inline links + CTA; compact = floating hamburger + CTA;
+ *  full = logo + inline links + CTA; slim = a thinner bar with links + CTA and no logo;
+ *  compact = floating hamburger + CTA + logo; compact_no_logo = the same task bar without branding;
  *  hidden = no top bar. */
-export type NavMode = 'full' | 'compact' | 'hidden';
-export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
+export type NavMode = 'full' | 'slim' | 'compact' | 'compact_no_logo' | 'hidden';
+export type NavLayoutSide = { desktop: NavMode; mobile: NavMode };
 /** Per-page-type navigation composition. content = landing + content pages;
  *  shopping = order, catering, and custom pages flagged shopping. */
-export type NavigationIcon = 'home' | 'menu' | 'grid' | 'play' | 'bag' | 'user' | 'page';
-export type BottomNavigationStyle = {
-  order?: string[];
-  icons?: Record<string, NavigationIcon>;
-  background_color?: string;
-  button_background_color?: string;
-  text_color?: string;
-  active_text_color?: string;
-};
 export type CompactNavigationStyle = {
   hamburger_position?: 'left' | 'right';
   actions_position?: 'left' | 'right';
@@ -1037,7 +1048,6 @@ export type CompactNavigationStyle = {
 export type NavLayout = {
   content: NavLayoutSide;
   shopping: NavLayoutSide;
-  bottom_navigation?: BottomNavigationStyle;
   compact_navigation?: CompactNavigationStyle;
 };
 
@@ -2015,7 +2025,18 @@ export interface OrderWorkflow {
   id: number;
   order_type: WorkflowOrderType;
   template_source: string; // full | simple | custom
+  accept_sends_to_kitchen?: boolean;
+  accept_adds_to_production?: boolean;
+  accept_prompts_whatsapp?: boolean;
+  delivery_reminder_enabled?: boolean;
   stages: WorkflowStage[];
+}
+
+export interface WorkflowGuidedActions {
+  accept_sends_to_kitchen: boolean;
+  accept_adds_to_production: boolean;
+  accept_prompts_whatsapp: boolean;
+  delivery_reminder_enabled: boolean;
 }
 
 /** GET /api/v1/order-workflows — one pipeline per order type (seeded on first read). */
@@ -2028,11 +2049,12 @@ export async function getOrderWorkflows(restaurantId: number): Promise<OrderWork
 export async function updateOrderWorkflow(
   restaurantId: number,
   orderType: WorkflowOrderType,
-  stages: WorkflowStage[]
+  stages: WorkflowStage[],
+  actions: WorkflowGuidedActions,
 ): Promise<OrderWorkflow> {
   return apiFetch<OrderWorkflow>(`/api/v1/order-workflows/${orderType}`, restaurantId, {
     method: 'PUT',
-    body: JSON.stringify({ stages }),
+    body: JSON.stringify({ stages, actions }),
   });
 }
 
@@ -3753,7 +3775,7 @@ export interface MenuExtraction {
   categories: ExtractedCategory[];
 }
 
-export async function importMenuAI(restaurantId: number, file: File): Promise<MenuExtraction> {
+export async function importMenuAI(restaurantId: number, file: File): Promise<RichExtraction> {
   const token = getToken();
   const formData = new FormData();
   formData.append('file', file);
@@ -3771,7 +3793,7 @@ export async function importMenuAI(restaurantId: number, file: File): Promise<Me
     throw new Error(body.error || body.message || `Import failed (${res.status})`);
   }
   const data = await res.json();
-  return data.extraction;
+  return normalizeRichExtraction(data.extraction);
 }
 
 // ─── Wolt menu import (rich) ─────────────────────────────────────────────────
@@ -3807,6 +3829,9 @@ export interface RichItem {
   name: string;
   description: string;
   price: number;
+  pricing_mode?: 'standard' | 'by_weight';
+  price_per_kg?: number;
+  estimated_weight_grams?: number;
   image_url?: string;
   option_sets?: RichOptionSet[];
   modifier_sets?: RichModifierSet[];
@@ -3829,10 +3854,11 @@ export interface RichExtraction {
  * rendered headless and read by AI. Both return the same RichExtraction shape.
  */
 export async function importMenuFromURL(restaurantId: number, url: string): Promise<RichExtraction> {
-  return apiFetch<RichExtraction>(
+  const result = await apiFetch<unknown>(
     `/api/v1/menu/import/url?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify({ url }) }
   );
+  return normalizeRichExtraction(result);
 }
 
 export interface ConfirmMenuImportOptions {
@@ -3939,8 +3965,13 @@ export async function getOrder(restaurantId: number, orderId: number): Promise<O
   return data.order;
 }
 
-export async function acceptOrder(restaurantId: number, orderId: number): Promise<void> {
-  await apiFetch<void>(`/api/v1/orders/${orderId}/accept?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST' });
+export interface AcceptOrderResult {
+  order: Order;
+  follow_up: { whatsapp_recap: boolean };
+}
+
+export async function acceptOrder(restaurantId: number, orderId: number): Promise<AcceptOrderResult> {
+  return apiFetch<AcceptOrderResult>(`/api/v1/orders/${orderId}/accept?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST' });
 }
 
 export async function rejectOrder(
@@ -4117,6 +4148,9 @@ export interface OrderCustomerDetailsInput {
   delivery_apt?: string;
   delivery_entry_code?: string;
   delivery_notes?: string;
+  /** Verified map coordinates; both values must be supplied together. */
+  delivery_latitude?: number;
+  delivery_longitude?: number;
 }
 
 /**
@@ -6398,6 +6432,10 @@ export interface CustomerSearchResult {
   phone: string;
   phones: string[];
   order_count: number;
+  /** Lifetime spend across every order on this phone. Optional: the field is
+   *  added to the customers/search response separately, so the admin renders
+   *  the history strip without it until the server ships it. */
+  total_spent?: number;
   last_order_at: string;
   addresses: CustomerSearchAddress[];
 }
@@ -7660,13 +7698,26 @@ export type CsvImportCategoryInput = {
   items: string[];
 };
 
+export type CsvImportLibraryItemInput = {
+  name: string;
+  price?: number;
+  image_url?: string;
+};
+
+export type CsvImportLibraryCategoryInput = {
+  name: string;
+  items: CsvImportLibraryItemInput[];
+};
+
 export type CsvImportStockInput = {
   default_unit?: StockUnit;
   categories: CsvImportCategoryInput[];
 };
 
 export type CsvImportLibraryInput = {
-  categories: CsvImportCategoryInput[];
+  categories: CsvImportLibraryCategoryInput[];
+  /** Optional localized name for the automatically created carte. */
+  carte_name?: string;
 };
 
 export type CsvImportSkipped = {
@@ -7690,6 +7741,15 @@ export type CsvImportLibraryCreated = {
   id: number;
   name: string;
   category_id: number;
+  price: number;
+  image_url?: string;
+};
+
+export type CsvImportImageFailure = {
+  item_id: number;
+  name: string;
+  source_url: string;
+  reason: string;
 };
 
 export type CsvImportLibraryCategory = {
@@ -7701,6 +7761,9 @@ export type CsvImportLibraryResult = {
   created: CsvImportLibraryCreated[];
   skipped: CsvImportSkipped[];
   categories_created: CsvImportLibraryCategory[];
+  image_failures: CsvImportImageFailure[];
+  /** Created carte whose groups mirror the imported CSV categories. */
+  carte_id?: number;
 };
 
 export async function importStockCsv(
@@ -8441,6 +8504,89 @@ export async function checkDeliverable(
 // ---- Catering ----
 export type CateringPricingModel = 'per_unit' | 'per_person' | 'custom_quote';
 
+export type CateringFlowStepKind = 'guest_count' | 'schedule' | 'single_choice' | 'multi_choice' | 'quantity';
+export type CateringFlowPriceMode = 'fixed' | 'per_guest' | 'per_session' | 'per_guest_session' | 'per_unit';
+export type CateringFlowPriceEffect = 'add' | 'replace_catalog_per_guest';
+
+export interface CateringFlowOption {
+  id: string;
+  label: string;
+  description?: string;
+  price?: number;
+  price_mode?: CateringFlowPriceMode;
+  price_effect?: CateringFlowPriceEffect;
+  translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringScheduleSlot {
+  id: string;
+  label: string;
+  description?: string;
+  day_offset: number;
+  start_time?: string;
+  end_time?: string;
+  catalog_per_guest_rate?: number;
+  translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringSessionPricingRule {
+  id: string;
+  label: string;
+  /** JavaScript/Go weekday: Sunday = 0, Saturday = 6. Omitted means every day. */
+  weekday?: number;
+  start_time_from?: string;
+  start_time_until?: string;
+  catalog_per_guest_rate: number;
+}
+
+export type CateringPricingFactor = 'guest_count' | 'session_id' | 'weekday' | 'start_time' | 'service_mode' | `answer:${string}`;
+export type CateringPricingOperator = 'equals' | 'one_of' | 'between';
+
+export interface CateringPricingCondition {
+  factor: CateringPricingFactor;
+  operator: CateringPricingOperator;
+  value?: string;
+  values?: string[];
+  min_value?: string;
+  max_value?: string;
+}
+
+export interface CateringPricingRule {
+  id: string;
+  label: string;
+  catalog_item_id: number;
+  conditions?: CateringPricingCondition[];
+  catalog_per_guest_rate: number;
+}
+
+export interface CateringFlowStep {
+  id: string;
+  kind: CateringFlowStepKind;
+  scope?: 'booking' | 'session';
+  title: string;
+  description?: string;
+  required: boolean;
+  condition?: { step_id: string; operator: 'equals' | 'contains'; option_id: string };
+  options?: CateringFlowOption[];
+  schedule?: {
+    mode: 'single' | 'custom' | 'predefined';
+    min_sessions: number;
+    max_sessions: number;
+    allow_same_day: boolean;
+    slots?: CateringScheduleSlot[];
+    pricing_rules?: CateringSessionPricingRule[];
+  };
+  translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringFlowConfig {
+  version: 1 | 2 | 3;
+  enabled: boolean;
+  catalog_pricing_per_session?: boolean;
+  steps: CateringFlowStep[];
+  pricing?: { rules?: CateringPricingRule[] };
+}
+
 export interface CateringService {
   id: number;
   restaurant_id: number;
@@ -8452,8 +8598,13 @@ export interface CateringService {
   /** How many articles a customer may pick: 'single', 'multiple', or '' = auto
    *  (per_person → one formula, per_unit → several items). */
   selection_mode?: '' | 'single' | 'multiple';
+  allow_extra_sessions: boolean;
+  max_sessions: number;
+  /** Share of the quote total collected up front, 0-100. 0 disables deposits. */
+  deposit_pct: number;
   is_active: boolean;
   display_order: number;
+  flow_config?: CateringFlowConfig | Record<string, never>;
 }
 
 export interface CateringServiceInput {
@@ -8462,6 +8613,9 @@ export interface CateringServiceInput {
   pricing_model: CateringPricingModel;
   quote_mode?: 'auto' | 'review';
   selection_mode?: '' | 'single' | 'multiple';
+  allow_extra_sessions?: boolean;
+  max_sessions?: number;
+  deposit_pct?: number;
   is_active?: boolean;
   display_order?: number;
 }
@@ -8500,6 +8654,14 @@ export async function createCateringService(restaurantId: number, body: Catering
 /** Update a catering service. */
 export async function updateCateringService(restaurantId: number, id: number, body: CateringServiceInput): Promise<CateringService> {
   return apiFetch<CateringService>(`/api/v1/catering/services/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Validate and publish a service's progressive customer journey. */
+export async function updateCateringServiceFlow(restaurantId: number, id: number, flowConfig: CateringFlowConfig): Promise<CateringService> {
+  return apiFetch<CateringService>(`/api/v1/catering/services/${id}/flow`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ flow_config: flowConfig }),
+  });
 }
 
 /** Archive (soft-delete) a catering service. */
@@ -8612,6 +8774,9 @@ export interface CateringQuote {
   /** Non-empty when a second successful charge landed on an already-paid quote (customer charged twice) and needs refunding. */
   deposit_overcharge_txn_uid: string;
   deposit_refund_txn_uid: string;
+  /** True when the refund was made in the provider's console and only recorded
+   *  here, so deposit_refund_txn_uid holds a reference Foody never issued. */
+  deposit_refund_external: boolean;
   deposit_refunded_amount: number;
   deposit_refunded_at: string | null;
   overcharge_refund_txn_uid: string;
@@ -8623,7 +8788,15 @@ export interface CateringQuoteReviewInput { total?: number; note?: string }
 /** Which charge a refund targets: the primary deposit, or a recorded duplicate charge. */
 export type CateringRefundTarget = 'deposit' | 'overcharge';
 
-export interface CateringDepositRefundInput { amount: number; target: CateringRefundTarget }
+export interface CateringDepositRefundInput {
+  amount: number;
+  target: CateringRefundTarget;
+  /** True when staff already refunded in the provider's own console and are only
+   *  recording it here. Foody then calls no payment provider. */
+  external?: boolean;
+  /** Provider-side evidence of an external refund. Required when `external`. */
+  reference?: string;
+}
 
 /** List catering quotes, optionally filtered by status. */
 export async function listCateringQuotes(restaurantId: number, status?: CateringQuoteStatus): Promise<CateringQuote[]> {
@@ -8656,18 +8829,138 @@ export async function refundCateringDeposit(restaurantId: number, id: number, bo
 /** A per-person price break: from `min_guests` guests, the rate is `price`/person. */
 export interface CateringPriceTier { min_guests: number; price: number }
 
+export interface CateringChoiceItem {
+  id: number;
+  choice_group_id: number;
+  menu_item_id?: number;
+  name: string;
+  description: string;
+  price_delta: number;
+  default_quantity: number;
+  sort_order: number;
+  menu_item?: MenuItem;
+}
+
+export interface CateringChoiceGroup {
+  id: number;
+  restaurant_id: number;
+  catalog_item_id: number;
+  name: string;
+  description: string;
+  translations?: Record<string, Record<string, string>>;
+  min_selections: number;
+  max_selections: number;
+  max_per_item: number;
+  sort_order: number;
+  items: CateringChoiceItem[];
+}
+
+export interface CateringChoiceItemInput {
+  menu_item_id?: number;
+  name?: string;
+  description?: string;
+  price_delta: number;
+  default_quantity: number;
+}
+
+export interface CateringChoiceGroupInput {
+  name: string;
+  description?: string;
+  translations?: Record<string, Record<string, string>>;
+  min_selections: number;
+  max_selections: number;
+  max_per_item: number;
+  items: CateringChoiceItemInput[];
+}
+
+export interface CateringIncludedItem {
+  id: number;
+  restaurant_id: number;
+  catalog_item_id: number;
+  section_id?: number;
+  menu_item_id?: number;
+  name: string;
+  description: string;
+  sort_order: number;
+  menu_item?: MenuItem;
+}
+
+export interface CateringIncludedItemInput {
+  menu_item_id?: number;
+  name?: string;
+  description?: string;
+}
+
+export interface CateringIncludedSection {
+  id: number;
+  restaurant_id: number;
+  catalog_item_id: number;
+  name: string;
+  description: string;
+  translations?: Record<string, Record<string, string>>;
+  sort_order: number;
+  items: CateringIncludedItem[];
+}
+
+export interface CateringIncludedSectionInput {
+  name: string;
+  description?: string;
+  translations?: Record<string, Record<string, string>>;
+  items: CateringIncludedItemInput[];
+}
+
+export interface CateringCatalogItemImage {
+  id: number;
+  restaurant_id: number;
+  catalog_item_id: number;
+  image_url: string;
+  alt_text: string;
+  translations?: Record<string, Record<string, string>>;
+  sort_order: number;
+}
+
+export interface CateringCatalogItemImageInput {
+  image_url: string;
+  alt_text?: string;
+  translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringOfferServiceMode {
+  id: string;
+  name: string;
+  description?: string;
+  /** When omitted, the offer's base price applies. Zero remains valid. */
+  price?: number;
+  translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringLibraryItem {
+  id: number;
+  category_id: number;
+  category_name: string;
+  name: string;
+  description: string;
+  image_url: string;
+  is_active: boolean;
+  translations?: TranslationMap;
+}
+
 export interface CateringCatalogItem {
   id: number;
   restaurant_id: number;
   service_id: number;
   group_id?: number;
   name: string;
+  slug: string;
   /** Short marketing intro shown under the title (1-2 sentences), distinct from
    *  the itemized `description`. Translatable via the translations map. */
   overview: string;
   description: string;
   image_url: string;
   base_price: number;
+  service_modes?: CateringOfferServiceMode[];
+  /** Sunday=0 … Saturday=6. Empty means every day. */
+  available_weekdays?: number[];
   price_tiers?: CateringPriceTier[] | null;
   translations?: Record<string, Record<string, string>>;
   min_quantity: number;
@@ -8676,6 +8969,11 @@ export interface CateringCatalogItem {
   lead_time_days: number;
   is_active: boolean;
   sort_order: number;
+  choice_groups?: CateringChoiceGroup[];
+  gallery_images?: CateringCatalogItemImage[];
+  included_sections?: CateringIncludedSection[];
+  included_items?: CateringIncludedItem[];
+  options?: CateringOption[];
 }
 
 export interface CateringCatalogItemInput {
@@ -8685,12 +8983,19 @@ export interface CateringCatalogItemInput {
   description?: string;
   image_url?: string;
   base_price: number;
+  service_modes?: CateringOfferServiceMode[];
+  available_weekdays?: number[];
   price_tiers?: CateringPriceTier[];
   translations?: Record<string, Record<string, string>>;
   min_quantity?: number;
   min_guests?: number;
   is_active?: boolean;
   sort_order?: number;
+  choice_groups?: CateringChoiceGroupInput[];
+  gallery_images?: CateringCatalogItemImageInput[];
+  included_sections?: CateringIncludedSectionInput[];
+  included_items?: CateringIncludedItemInput[];
+  options?: CateringOptionInput[];
 }
 
 export interface CateringCatalogGroup {
@@ -8731,12 +9036,13 @@ export async function archiveCateringGroup(restaurantId: number, id: number): Pr
   await apiFetch(`/api/v1/catering/groups/${id}`, restaurantId, { method: 'DELETE' });
 }
 
-export type CateringOptionPriceMode = 'fixed' | 'per_person';
+export type CateringOptionPriceMode = 'fixed' | 'per_person' | 'per_unit';
 
 export interface CateringOption {
   id: number;
   restaurant_id: number;
   service_id: number;
+  catalog_item_id?: number;
   name: string;
   description: string;
   price: number;
@@ -8750,6 +9056,7 @@ export interface CateringOptionInput {
   description?: string;
   price: number;
   price_mode: CateringOptionPriceMode;
+  catalog_item_id?: number;
   is_active?: boolean;
   sort_order?: number;
 }
@@ -8760,6 +9067,41 @@ export async function listCateringItems(restaurantId: number, serviceId: number)
   return res.items ?? [];
 }
 
+/** Restaurant-global article library projected for the catering formula composer. */
+export async function listCateringArticleLibrary(restaurantId: number): Promise<CateringLibraryItem[]> {
+  const fromItemCategories = async (): Promise<CateringLibraryItem[]> => {
+    const categories = await getAllCategories(restaurantId);
+    return categories.flatMap((category) => (category.items ?? []).map((item) => ({
+      id: item.id,
+      category_id: category.id,
+      category_name: category.name,
+      name: item.name,
+      description: item.description,
+      image_url: item.image_url,
+      is_active: item.is_active,
+      translations: item.translations,
+    })));
+  };
+
+  try {
+    const res = await apiFetch<{ items: CateringLibraryItem[] }>('/api/v1/catering/article-library', restaurantId);
+    const items = res.items ?? [];
+    // The category endpoint is the long-standing source used by the article
+    // library screen. Falling back on an unexpected empty projection keeps the
+    // composer usable during rolling API deployments and legacy-data upgrades.
+    return items.length > 0 ? items : fromItemCategories();
+  } catch (error) {
+    // The catering-scoped projection was introduced after the existing menu
+    // library endpoints. During a rolling deploy Admin can reach the new UI
+    // before that route exists on the API, so use the established category
+    // endpoint until the server catches up. Other errors stay visible.
+    if (error instanceof ApiError && error.status === 404) {
+      return fromItemCategories();
+    }
+    throw error;
+  }
+}
+
 /** Create a catalog item under a service. */
 export async function createCateringItem(restaurantId: number, serviceId: number, body: CateringCatalogItemInput): Promise<CateringCatalogItem> {
   return apiFetch<CateringCatalogItem>(`/api/v1/catering/services/${serviceId}/items`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
@@ -8768,6 +9110,19 @@ export async function createCateringItem(restaurantId: number, serviceId: number
 /** Update a catalog item. */
 export async function updateCateringItem(restaurantId: number, id: number, body: CateringCatalogItemInput): Promise<CateringCatalogItem> {
   return apiFetch<CateringCatalogItem>(`/api/v1/catering/items/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Replace only a formula's ordered detail gallery. This endpoint is safe for
+ * autosave because it never commits the other draft fields in the edit modal. */
+export async function updateCateringItemGallery(
+  restaurantId: number,
+  id: number,
+  galleryImages: CateringCatalogItemImageInput[],
+): Promise<CateringCatalogItem> {
+  return apiFetch<CateringCatalogItem>(`/api/v1/catering/items/${id}/gallery`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ gallery_images: galleryImages }),
+  });
 }
 
 /** Archive (soft-delete) a catalog item. */

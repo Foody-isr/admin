@@ -1,4 +1,3 @@
-import { useCurrency } from '@/lib/i18n';
 /**
  * Currency is a property of the restaurant, not of the app.
  *
@@ -7,6 +6,8 @@ import { useCurrency } from '@/lib/i18n';
  * through here. The active currency travels with the locale (see `i18n.tsx`):
  * both are per-restaurant presentation state, and both feed `t()`.
  */
+
+import { formatMoney as baseFormatMoney } from '@/lib/format-money';
 
 /** Applied when a restaurant has no currency set, and before the API answers. */
 export const DEFAULT_CURRENCY = 'ILS';
@@ -41,6 +42,8 @@ export interface FormatMoneyOptions {
   decimals?: number;
   /** Group thousands (1 234,56). Off by default so prices stay compact. */
   grouped?: boolean;
+  /** Always render a sign, so a positive reads `+₪3.50`. Zero stays unsigned. */
+  signed?: boolean;
 }
 
 /**
@@ -55,13 +58,11 @@ export interface FormatMoneyOptions {
 export function formatMoney(
   amount: number | null | undefined,
   code?: string | null,
-  { decimals = 2, grouped = false }: FormatMoneyOptions = {},
+  opts: FormatMoneyOptions = {},
 ): string {
-  const value = Number(amount ?? 0);
-  const safe = Number.isFinite(value) ? value : 0;
-  const digits = { minimumFractionDigits: decimals, maximumFractionDigits: decimals };
-  const body = grouped
-    ? safe.toLocaleString('en-US', digits)
-    : safe.toFixed(decimals);
-  return `${currencySymbol(code)}${body}`;
+  // The number, sign and decimal handling live in one place (`format-money`),
+  // which the order detail's <Money> primitive and the printed ticket also go
+  // through. This function's only job is turning a restaurant's ISO code into
+  // the symbol that formatter should print.
+  return baseFormatMoney(amount, { ...opts, currency: currencySymbol(code) });
 }

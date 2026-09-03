@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  canAcknowledgeLegacyWebsitePreview,
+  isLegacyWebsiteReadyMessage,
   isWebsiteV3AppliedMessage,
   isWebsiteV3NavigateMessage,
   isWebsiteV3StateMessage,
+  legacyWebsiteStateMessage,
   withWebsiteV3PreviewNavigationState,
+  LEGACY_WEBSITE_READY,
+  LEGACY_WEBSITE_STATE,
   WEBSITE_V3_APPLIED,
   WEBSITE_V3_NAVIGATE,
   WEBSITE_V3_STATE,
@@ -79,6 +84,28 @@ test("preview navigation injects refreshed Stories eligibility without mutating 
   assert.equal(
     withWebsiteV3PreviewNavigationState(previewState, undefined).config
       .stories_navigation_available,
+    false,
+  );
+});
+
+test("legacy preview compatibility is limited to the landing-page surface", () => {
+  assert.equal(
+    isLegacyWebsiteReadyMessage({ type: LEGACY_WEBSITE_READY }),
+    true,
+  );
+  assert.equal(
+    isLegacyWebsiteReadyMessage({ type: LEGACY_WEBSITE_READY, extra: true }),
+    false,
+  );
+  assert.deepEqual(legacyWebsiteStateMessage(state), {
+    type: LEGACY_WEBSITE_STATE,
+    state,
+  });
+  assert.equal(canAcknowledgeLegacyWebsitePreview("landing", "page"), true);
+  assert.equal(canAcknowledgeLegacyWebsitePreview("content", "page"), false);
+  assert.equal(canAcknowledgeLegacyWebsitePreview("order", "page"), false);
+  assert.equal(
+    canAcknowledgeLegacyWebsitePreview("landing", "checkout"),
     false,
   );
 });

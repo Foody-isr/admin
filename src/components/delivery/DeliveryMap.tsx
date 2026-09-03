@@ -5,12 +5,15 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { RouteStop } from '@/lib/delivery';
+import { cn } from '@/lib/utils';
 
 export interface RouteLayer {
   routeId?: number;
   courierId: number;
   color: string;
   stops: RouteStop[];
+  start?: { lat: number; lng: number };
+  end?: { lat: number; lng: number };
 }
 
 export interface CourierMarker {
@@ -24,6 +27,9 @@ export interface CourierMarker {
 export interface DeliveryMapProps {
   /** Single-route convenience (courier view). Ignored if `routes` is provided. */
   stops?: RouteStop[];
+  /** Optional endpoints for the single courier route. */
+  start?: { lat: number; lng: number };
+  end?: { lat: number; lng: number };
   /** Multi-route (dispatcher view), each colored per courier. */
   routes?: RouteLayer[];
   /** Live courier position dots (dispatcher view). */
@@ -44,6 +50,20 @@ function located(stops: RouteStop[]): RouteStop[] {
 const HOME_ICON = L.divIcon({
   className: 'foody-home-pin',
   html: `<div style="background:${RESTAURANT_GREEN};color:#10271a;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">★</div>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+});
+
+const START_ICON = L.divIcon({
+  className: 'foody-route-start-pin',
+  html: `<div style="background:${RESTAURANT_GREEN};color:#10271a;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">▶</div>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+});
+
+const END_ICON = L.divIcon({
+  className: 'foody-route-end-pin',
+  html: `<div style="background:#252525;color:#fff;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">⚑</div>`,
   iconSize: [26, 26],
   iconAnchor: [13, 13],
 });
@@ -81,33 +101,69 @@ function courierIcon(color: string, stale: boolean): L.DivIcon {
   return icon;
 }
 
-/** Fit the map to all visible points whenever the coordinate SET changes (not array identity). */
+/** Fit all geocodes once the responsive map has a real, stable visible size. */
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
   const key = points.map((p) => `${p[0]},${p[1]}`).join('|');
+
   useEffect(() => {
-    if (points.length === 0) return;
-    if (points.length === 1) { map.setView(points[0], 14); return; }
-    map.fitBounds(L.latLngBounds(points), { padding: [40, 40] });
+    const container = map.getContainer();
+    let settleTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const fitToPoints = () => {
+      const { width, height } = container.getBoundingClientRect();
+      if (width < 2 || height < 2) return;
+
+      map.invalidateSize({ animate: false });
+      if (points.length === 0) return;
+      if (points.length === 1) {
+        map.setView(points[0], 14, { animate: false });
+        return;
+      }
+      map.fitBounds(L.latLngBounds(points), {
+        animate: false,
+        maxZoom: 15,
+        padding: [32, 32],
+      });
+    };
+
+    const onResize = () => {
+      map.invalidateSize({ animate: false });
+      if (settleTimer) clearTimeout(settleTimer);
+      // The mobile map opens with a height transition. Fit after it settles so
+      // Leaflet measures the final viewport instead of the initial 0px box.
+      settleTimer = setTimeout(fitToPoints, 100);
+    };
+
+    fitToPoints();
+    const observer = new ResizeObserver(onResize);
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+      if (settleTimer) clearTimeout(settleTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, key]);
   return null;
 }
 
 export default function DeliveryMap({
-  stops, routes, couriers, restaurant, highlightCourierId, onStopClick, className,
+  stops, start, end, routes, couriers, restaurant, highlightCourierId, onStopClick, className,
 }: DeliveryMapProps) {
   const layers: RouteLayer[] = useMemo(() => {
     if (routes && routes.length) return routes;
-    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops }];
+    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops, start, end }];
     return [];
-  }, [routes, stops]);
+  }, [end, routes, start, stops]);
 
   const points = useMemo<[number, number][]>(() => {
     const pts: [number, number][] = [];
     if (restaurant) pts.push([restaurant.lat, restaurant.lng]);
     for (const layer of layers) {
+      if (layer.start) pts.push([layer.start.lat, layer.start.lng]);
       for (const s of located(layer.stops)) pts.push([s.lat as number, s.lng as number]);
+      if (layer.end) pts.push([layer.end.lat, layer.end.lng]);
     }
     return pts;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: compare by primitive values to avoid re-snapping on object identity change
@@ -116,7 +172,7 @@ export default function DeliveryMap({
   const center: [number, number] = points[0] ?? [32.0853, 34.7818]; // Tel Aviv fallback
 
   return (
-    <div className={className}>
+    <div className={cn('isolate', className)}>
       <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
@@ -127,13 +183,16 @@ export default function DeliveryMap({
           const dim = highlightCourierId != null && layer.courierId !== highlightCourierId;
           const seq = located(layer.stops).sort((a, b) => a.sequence - b.sequence);
           const line: [number, number][] = [];
-          if (restaurant) line.push([restaurant.lat, restaurant.lng]);
+          if (layer.start) line.push([layer.start.lat, layer.start.lng]);
+          else if (restaurant) line.push([restaurant.lat, restaurant.lng]);
           seq.forEach((s) => line.push([s.lat as number, s.lng as number]));
+          if (layer.end) line.push([layer.end.lat, layer.end.lng]);
           return (
             <Fragment key={layer.routeId ?? layer.courierId}>
               {line.length > 1 && (
                 <Polyline positions={line} pathOptions={{ color: layer.color, opacity: dim ? 0.2 : 0.7, dashArray: '6 8' }} />
               )}
+              {layer.start && <Marker position={[layer.start.lat, layer.start.lng]} icon={START_ICON} />}
               {seq.map((s) => (
                 <Marker
                   key={s.id}
@@ -142,6 +201,7 @@ export default function DeliveryMap({
                   eventHandlers={onStopClick ? { click: () => onStopClick(s) } : undefined}
                 />
               ))}
+              {layer.end && <Marker position={[layer.end.lat, layer.end.lng]} icon={END_ICON} />}
             </Fragment>
           );
         })}

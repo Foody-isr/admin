@@ -6,8 +6,10 @@ import {
   getPeriodSummary,
   getTopSellers,
   getDailySeries,
+  getBreakdown,
   getRestaurant,
   listOrders,
+  type BreakdownRow,
   type PeriodComparison,
   type DaySummary,
   type TopSeller,
@@ -16,7 +18,6 @@ import {
 } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
-import DateBasisToggle from '@/components/DateBasisToggle';
 import SeriePicker from '@/components/SeriePicker';
 import { useOrderSeries, previousBlock, seriesInRange, type SerieRange } from '@/lib/series';
 import {
@@ -27,12 +28,58 @@ import {
   isoDate,
   type WeekStartDay,
 } from '@/lib/weeks';
-import { Calendar, RefreshCw, DollarSign, Edit, Plus, Package } from 'lucide-react';
-import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarClock,
+  CalendarDays,
+  CheckCircle,
+  ChevronDown,
+  DollarSign,
+  Edit,
+  Package,
+  Plus,
+  RefreshCw,
+} from 'lucide-react';
+import {
+  Button,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuTrigger,
+  PageHead,
+  Section,
+} from '@/components/ds';
 import { InfoTip } from '@/components/help/InfoTip';
-import type { MoneyFormatter } from '@/lib/currency';
+import { DEFAULT_CURRENCY } from '@/lib/currency';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
+
+const LIVE_ORDER_STATUSES = [
+  'pending_review',
+  'accepted',
+  'in_kitchen',
+  'ready',
+  'ready_for_pickup',
+  'ready_for_delivery',
+  'out_for_delivery',
+].join(',');
+
+interface LiveSummary {
+  active: number;
+  pendingReview: number;
+  ready: number;
+  payments?: number;
+  oldestCreatedAt?: string;
+}
+
+interface ChannelDatum {
+  key: string;
+  label: string;
+  orders: number;
+  revenue: number;
+  color: string;
+}
 
 // The dashboard period is remembered across navigation as a single shared
 // preference. Rolling presets (today, last 7 days, this week…) are stored as a
@@ -126,12 +173,25 @@ const ORDER_TYPE_KEY: Record<string, 'dineIn' | 'pickup' | 'delivery'> = {
   delivery: 'delivery',
 };
 
-function fmtDate(d = new Date(), locale = 'fr-FR') {
-  return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
+// The restaurant's own currency, not the app's: a Paris restaurant's dashboard
+// reads in euros. Callers hold the ISO code from `useCurrency()`.
+function fmtMoney(n: number, locale = 'fr-FR', digits = 0, currency = DEFAULT_CURRENCY) {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(n);
 }
 
-function fmtMoney(n: number, money: MoneyFormatter) {
-  return money(n, { decimals: 0, grouped: true });
+function fmtPercentDelta(n: number, locale = 'fr-FR') {
+  return new Intl.NumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    signDisplay: 'exceptZero',
+  }).format(n / 100);
 }
 
 function pct(now: number, before: number) {
@@ -150,16 +210,16 @@ function seriesValue(metric: MetricKey, d: DaySummary): number {
     case 'itemsSold':
       return d.items_sold;
     default:
-      return d.net_sales;
+      return d.gross_sales;
   }
 }
 
-function formatMetric(metric: MetricKey, n: number, money: MoneyFormatter): string {
+function formatMetric(metric: MetricKey, n: number, locale: string, currency: string): string {
   switch (metric) {
     case 'revenue':
-      return fmtMoney(n, money);
+      return fmtMoney(n, locale, 0, currency);
     case 'avgTicket':
-      return money(n, { decimals: 1 });
+      return fmtMoney(n, locale, 1, currency);
     default:
       return String(Math.round(n));
   }
@@ -190,17 +250,20 @@ function paymentColor(status: string): string {
 
 
 export default function DashboardPage() {
-  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t, locale } = useI18n();
+  const { code: currency } = useCurrency();
   const dateLocale = DATE_LOCALES[locale];
 
   const [period, setPeriod] = useState<PeriodComparison | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [series, setSeries] = useState<DaySummary[]>([]);
+  const [previousSeries, setPreviousSeries] = useState<DaySummary[]>([]);
+  const [channelRows, setChannelRows] = useState<BreakdownRow[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [liveSummary, setLiveSummary] = useState<LiveSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   // First day of week + workdays drive the picker (same config as the orders list).
@@ -257,19 +320,45 @@ export default function DashboardPage() {
       : { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
     const prev = serieMode ? previousBlock(serieList, serieSel!) ?? undefined : undefined;
     const days = daysInclusive(dateRange);
+    const previousEnd = isoDate(addDays(dateRange.from, -1));
     Promise.allSettled([
       getPeriodSummary(rid, scope, basis, prev),
       getTopSellers(rid, scope, basis),
       serieMode
         ? Promise.resolve([] as DaySummary[])
         : getDailySeries(rid, days, scope.to, basis),
+      serieMode
+        ? Promise.resolve([] as DaySummary[])
+        : getDailySeries(rid, days, previousEnd, basis),
+      getBreakdown(rid, { dimension: 'order_type', scope, basis }),
       listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
+      listOrders(rid, { status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' }),
+      listOrders(rid, { status: 'pending_review', limit: 1 }),
+      listOrders(rid, { status: 'ready,ready_for_pickup,ready_for_delivery', limit: 1 }),
+      listOrders(rid, { status: LIVE_ORDER_STATUSES, payment_status: 'unpaid', limit: 1 }),
+      listOrders(rid, { status: LIVE_ORDER_STATUSES, payment_status: 'pending', limit: 1 }),
     ])
-      .then(([per, top, daily, orders]) => {
+      .then(([per, top, daily, previousDaily, breakdown, orders, active, review, readyOrders, unpaid, pending]) => {
         if (per.status === 'fulfilled') setPeriod(per.value);
         if (top.status === 'fulfilled') setTopSellers(top.value ?? []);
         if (daily.status === 'fulfilled') setSeries(daily.value ?? []);
+        if (previousDaily.status === 'fulfilled') setPreviousSeries(previousDaily.value ?? []);
+        setChannelRows(breakdown.status === 'fulfilled' ? breakdown.value.rows : []);
         if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
+        if (active.status === 'fulfilled' && review.status === 'fulfilled' && readyOrders.status === 'fulfilled') {
+          const payments = unpaid.status === 'fulfilled' && pending.status === 'fulfilled'
+            ? unpaid.value.total + pending.value.total
+            : undefined;
+          setLiveSummary({
+            active: active.value.total,
+            payments,
+            pendingReview: review.value.total,
+            ready: readyOrders.value.total,
+            oldestCreatedAt: active.value.orders[0]?.created_at,
+          });
+        } else {
+          setLiveSummary(null);
+        }
       })
       .finally(() => setLoading(false));
   }, [rid, dateRange, basis, serieMode, serieSel, serieList]);
@@ -314,27 +403,34 @@ export default function DashboardPage() {
   // multi-day form shows the inclusive last day.
   const periodRangeLabel = useMemo(() => {
     if (!current) return '';
-    const fmtShort = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale);
+    const fmtLong = (iso: string, weekday = false) => new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale, {
+      ...(weekday ? { weekday: 'long' as const } : {}),
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
     const startD = new Date(`${current.start}T00:00:00`);
     const lastDay = new Date(`${current.end}T00:00:00`);
     lastDay.setDate(lastDay.getDate() - 1);
-    if (sameYMD(startD, lastDay)) return fmtShort(current.start);
-    return `${fmtShort(current.start)} → ${lastDay.toLocaleDateString(dateLocale)}`;
+    if (sameYMD(startD, lastDay)) return fmtLong(current.start, true);
+    return `${fmtLong(current.start)} – ${fmtLong(isoDate(lastDay))}`;
   }, [current, dateLocale]);
 
   // KPI definitions, driven by the period totals. Presentational only.
-  const metrics: { key: MetricKey; label: string; value: string; delta: number; hint?: string }[] = [
+  const metrics: { key: MetricKey; label: string; value: string; delta: number; hint?: string; accent: string }[] = [
     {
       key: 'revenue',
       label: t('grossRevenue'),
-      value: fmtMoney(current?.total_revenue ?? 0, money),
+      value: fmtMoney(current?.total_revenue ?? 0, dateLocale, 0, currency),
       delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
+      accent: 'var(--brand-500)',
     },
     {
       key: 'orders',
       label: t('orders'),
       value: String(current?.total_orders ?? 0),
       delta: pct(current?.total_orders ?? 0, previous?.total_orders ?? 0),
+      accent: 'var(--cat-4)',
       // These KPIs reflect realized (paid) activity — the count deliberately
       // excludes unpaid/scheduled orders, so it can trail the Orders list.
       hint: t('paidOrdersOnly'),
@@ -342,14 +438,16 @@ export default function DashboardPage() {
     {
       key: 'avgTicket',
       label: t('avgTicket'),
-      value: money(current?.avg_ticket ?? 0, { decimals: 1 }),
+      value: fmtMoney(current?.avg_ticket ?? 0, dateLocale, 1, currency),
       delta: pct(current?.avg_ticket ?? 0, previous?.avg_ticket ?? 0),
+      accent: 'var(--cat-5)',
     },
     {
       key: 'itemsSold',
       label: t('itemsSold'),
       value: String(current?.items_sold ?? 0),
       delta: pct(current?.items_sold ?? 0, previous?.items_sold ?? 0),
+      accent: 'var(--success-500)',
     },
   ];
 
@@ -366,15 +464,36 @@ export default function DashboardPage() {
             ? date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })
             : ''
           : date.toLocaleDateString(dateLocale, { weekday: 'short' });
-      return { day: label, value: seriesValue(metric, d), isLast: i === n - 1 };
+      return {
+        day: label,
+        label: date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' }),
+        value: seriesValue(metric, d),
+        isLast: i === n - 1,
+      };
     });
   }, [series, metric, dateLocale]);
 
   // One bar per série (oldest → newest) for a série range — a daily chart is a
   // calendar concept that doesn't fit série cadence.
   const serieChartData = useMemo(() => {
-    if (!serieMode || !serieSel) return [] as { day: string; value: number; isLast: boolean }[];
+    if (!serieMode || !serieSel) return [] as { day: string; label: string; value: number; isLast: boolean }[];
     const inRange = seriesInRange(serieList, serieSel).slice().reverse();
+    return inRange.map((s, i) => {
+      const date = new Date(`${s.date}T00:00:00`);
+      return {
+        day: date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' }),
+        label: date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' }),
+        value: s.revenue,
+        isLast: i === inRange.length - 1,
+      };
+    });
+  }, [serieMode, serieSel, serieList, dateLocale]);
+
+  const previousSerieChartData = useMemo(() => {
+    if (!serieMode || !serieSel) return [] as { day: string; value: number; isLast: boolean }[];
+    const previousRange = previousBlock(serieList, serieSel);
+    if (!previousRange) return [];
+    const inRange = seriesInRange(serieList, previousRange).slice().reverse();
     return inRange.map((s, i) => ({
       day: new Date(`${s.date}T00:00:00`).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' }),
       value: s.revenue,
@@ -382,11 +501,42 @@ export default function DashboardPage() {
     }));
   }, [serieMode, serieSel, serieList, dateLocale]);
 
-  // A single série is one bar (not useful) — only show the chart for ranges.
-  const showChart = serieMode ? serieChartData.length > 1 : true;
   const activeChartData = serieMode ? serieChartData : chartData;
+  const previousChartData = serieMode
+    ? previousSerieChartData
+    : previousSeries.map((day, index) => ({
+        day: '',
+        value: seriesValue(metric, day),
+        isLast: index === previousSeries.length - 1,
+      }));
 
-  const selectedMetricLabel = metrics.find((m) => m.key === metric)?.label ?? '';
+  const channelData = useMemo<ChannelDatum[]>(() => {
+    const labels: Record<string, string> = {
+      delivery: t('delivery'),
+      pickup: t('pickup'),
+      dine_in: t('dineIn'),
+      unknown: t('breakdownUnknown'),
+    };
+    const colors: Record<string, string> = {
+      delivery: 'var(--brand-500)',
+      pickup: 'var(--info-500)',
+      dine_in: 'var(--success-500)',
+      unknown: 'var(--fg-subtle)',
+    };
+    return channelRows
+      .filter((row) => row.revenue > 0 || row.orders > 0)
+      .sort((a, b) => b.revenue - a.revenue)
+      .map((row) => ({
+        key: row.key,
+        label: labels[row.key] ?? row.label ?? row.key,
+        orders: row.orders,
+        revenue: row.revenue,
+        color: colors[row.key] ?? 'var(--fg-subtle)',
+      }));
+  }, [channelRows, t]);
+
+  const periodContext = (serieMode ? t('dashboardSerieContext') : t('dashboardOrderContext'))
+    .replace('{range}', periodRangeLabel);
 
   if (loading) {
     return (
@@ -400,27 +550,33 @@ export default function DashboardPage() {
     <>
       <PageHead
         title={t('dashboardHome') || 'Dashboard'}
-        desc={fmtDate(new Date(), dateLocale)}
+        desc={periodContext}
+        className="mb-[var(--s-4)]"
         actions={
           <>
-            <DateBasisToggle value={basis} onChange={onChangeBasis} />
-            {serieMode ? (
-              <SeriePicker
-                series={serieList}
-                value={serieSel}
-                onChange={setSerieSel}
-                align="end"
-              />
-            ) : (
-              <DateRangePicker
-                value={dateRange}
-                onChange={onPickRange}
-                weekStartDay={wsd}
-                workdays={workdays}
-                restaurantId={rid}
-                align="right"
-              />
-            )}
+            <CreateActionsMenu restaurantId={rid} onNavigate={router.push} t={t} />
+            <DashboardPeriodControl
+              basis={basis}
+              onChange={onChangeBasis}
+              t={t}
+              picker={serieMode ? (
+                <SeriePicker
+                  series={serieList}
+                  value={serieSel}
+                  onChange={setSerieSel}
+                  align="end"
+                />
+              ) : (
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={onPickRange}
+                  weekStartDay={wsd}
+                  workdays={workdays}
+                  restaurantId={rid}
+                  align="right"
+                />
+              )}
+            />
             <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
               <RefreshCw />
             </Button>
@@ -428,174 +584,103 @@ export default function DashboardPage() {
         }
       />
 
-      {/* Compact KPI grid — mobile only. 2×2, tighter padding, smaller value,
-          no sparkline, so all four numbers fit above the fold on a phone. */}
-      <div className="grid grid-cols-2 md:hidden gap-[var(--s-3)] mb-[var(--s-5)]">
-        {metrics.map((m) => {
-          const up = m.delta >= 0;
-          return (
-            <Kpi
-              key={m.key}
-              className="p-[var(--s-4)]"
-              label={kpiLabel(m.label, m.hint)}
-              value={<span className="text-fs-2xl">{m.value}</span>}
-              delta={showDelta ? { value: `${up ? '+' : ''}${m.delta.toFixed(1)}%`, direction: up ? 'up' : 'down' } : undefined}
-            />
-          );
-        })}
-      </div>
+      <OperationsBar
+        summary={liveSummary}
+        onOpenOrders={() => router.push(`/${rid}/orders/all`)}
+        t={t}
+      />
 
-      {/* KPI strip — 4 equal, with sparklines. Desktop/tablet only. */}
-      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
-        {metrics.map((m) => (
-          <KpiCard
-            key={m.key}
-            label={m.label}
-            value={m.value}
-            delta={showDelta ? m.delta : undefined}
-            sub={showDelta ? vsLabel : undefined}
-            hint={m.hint}
-            spark={serieMode ? undefined : series.map((d) => seriesValue(m.key, d))}
-          />
-        ))}
-      </div>
-
-      {/* Main row: chart + right rail. The chart is per-day (created mode) or
-          per-série (a série range); for a single série there's nothing to plot,
-          so it's hidden and the rail spans the row. */}
-      <div className={`grid grid-cols-1 gap-[var(--s-5)] mb-[var(--s-5)] ${showChart ? 'lg:grid-cols-[1fr_320px]' : ''}`}>
-        {showChart && (
-          <Section
-            title={selectedMetricLabel}
-            desc={chartCapped && !serieMode ? `${periodRangeLabel} · ${t('dashChartLast90')}` : periodRangeLabel}
-          >
+      <div className="grid grid-cols-1 items-start gap-[var(--s-4)] xl:grid-cols-[minmax(0,1fr)_340px]">
+        <PerformanceOverview
+          title={t('performance')}
+          chartNote={chartCapped && !serieMode ? t('dashChartLast90') : undefined}
+          metrics={metrics}
+          revenue={current?.total_revenue ?? 0}
+          locale={dateLocale}
+          showDelta={showDelta}
+          comparisonLabel={vsLabel}
+          chart={(
             <MetricChart
               data={activeChartData}
-              fmt={(n) => formatMetric(metric, n, money)}
+              previousData={previousChartData}
+              currentLabel={t('dashboardCurrentPeriod')}
+              previousLabel={t('dashboardPreviousPeriod')}
+              averageLabel={t('dashboardAverage')}
+              peakLabel={t('dashboardPeak')}
+              fmt={(n) => formatMetric(metric, n, dateLocale, currency)}
               emptyLabel={t('noSalesIn7Days')}
             />
-          </Section>
-        )}
+          )}
+          channels={(
+            <ChannelMix
+              data={channelData}
+              locale={dateLocale}
+              title={t('salesChannels')}
+              emptyLabel={t('noData')}
+              ordersLabel={t('orders')}
+            />
+          )}
+        />
 
-        <div className="flex flex-col gap-[var(--s-4)]">
-          <Section title={t('quickActions')}>
-            <div className="-mx-[var(--s-2)]">
-              <QuickAction
-                icon={<DollarSign />}
-                label={t('acceptPayment')}
-                sub={t('manualTransaction')}
+        <div className="flex min-w-0 flex-col gap-[var(--s-4)]">
+          <Section
+            title={t('recentOrders')}
+            className="mb-0 overflow-hidden shadow-none [&>div:first-child]:px-[var(--s-4)] [&>div:first-child]:pb-[var(--s-2)] [&>div:first-child]:pt-[var(--s-3)] [&>div:last-child]:px-[var(--s-4)] [&>div:last-child]:pb-[var(--s-3)]"
+            aside={
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => router.push(`/${rid}/orders/all`)}
-              />
-              <QuickAction
-                icon={<Edit />}
-                label={t('editMenuAction')}
-                sub={t('updateItemsLabel')}
-                onClick={() => router.push(`/${rid}/menu/menus`)}
-              />
-              <QuickAction
-                icon={<Plus />}
-                label={t('addItemAction')}
-                sub={t('newProduct')}
-                onClick={() => router.push(`/${rid}/menu/items/new`)}
-              />
-              <QuickAction
-                icon={<Package />}
-                label={t('receiveDelivery')}
-                sub={t('updateStock')}
-                onClick={() => router.push(`/${rid}/kitchen/stock`)}
-              />
-            </div>
-          </Section>
-        </div>
-      </div>
-
-      {/* Lower row: Top items + Recent activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--s-5)]">
-        <Section
-          title={t('bestSellingItems')}
-          desc={periodRangeLabel}
-          aside={
-            <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/analytics/items`)}>
-              {t('seeAll')}
-            </Button>
-          }
-        >
-          {topSellers.length === 0 ? (
-            <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{t('noSalesYet')}</p>
-          ) : (
-            <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-              {topSellers.slice(0, 5).map((s, i) => {
-                const maxRev = Math.max(...topSellers.slice(0, 5).map((x) => x.revenue));
-                const pctBar = maxRev > 0 ? (s.revenue / maxRev) * 100 : 0;
-                return (
-                  <div
-                    key={i}
-                    className="px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0"
+                className="text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
+              >
+                {t('seeAll')}
+                <ArrowRight />
+              </Button>
+            }
+          >
+            {recentOrders.length === 0 ? (
+              <p className="py-6 text-center text-fs-sm text-[var(--fg-subtle)]">{t('noOrdersYet')}</p>
+            ) : (
+              <div className="-mx-[var(--s-4)] -mb-[var(--s-3)]">
+                {recentOrders.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => router.push(`/${rid}/orders/all`)}
+                    className="group flex w-full items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] text-left transition-colors first:border-t-0 hover:bg-[var(--surface-2)]"
                   >
-                    <div className="w-8 h-8 rounded-r-sm bg-[var(--surface-3)] grid place-items-center text-[var(--fg-muted)] text-[10px] font-bold shrink-0">
-                      {i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-fs-sm text-[var(--fg)] font-medium truncate">{s.name}</div>
-                      <div className="text-fs-xs text-[var(--fg-muted)]">
-                        {s.quantity} {t('sales')}
+                    <div
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: paymentColor(o.payment_status) }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-fs-sm font-medium leading-snug text-[var(--fg)]">
+                        {o.customer_name?.trim() || `#${o.id}`}
+                      </div>
+                      <div className="truncate text-fs-xs leading-snug text-[var(--fg-muted)]">
+                        {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')} · {fmtMoney(o.total_amount, dateLocale, 0, currency)}
                       </div>
                     </div>
-                    <div className="w-20 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden shrink-0">
-                      <div className="h-full bg-[var(--brand-500)]" style={{ width: `${pctBar}%` }} />
-                    </div>
-                    <div className="font-mono tabular-nums text-fs-sm text-[var(--fg)] min-w-[70px] text-right">
-                      {money(s.revenue)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Section>
-
-        <Section
-          title={t('recentActivity')}
-          aside={
-            <Badge tone="success" dot>
-              {t('online')}
-            </Badge>
-          }
-        >
-          {recentOrders.length === 0 ? (
-            <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{t('noSalesYet')}</p>
-          ) : (
-            <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-              {recentOrders.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => router.push(`/${rid}/orders/all`)}
-                  className="w-full px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0 text-left hover:bg-[var(--surface-2)] transition-colors"
-                >
-                  <div
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: paymentColor(o.payment_status) }}
-                  />
-                  <div className="flex-1 text-fs-sm min-w-0">
-                    <span className="text-[var(--fg)] font-medium truncate">
-                      {o.customer_name?.trim() || `#${o.id}`}
-                    </span>{' '}
-                    <span className="text-[var(--fg-muted)]">
-                      {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')}
+                    <span className="shrink-0 text-fs-xs text-[var(--fg-subtle)]">
+                      {relTime(o.created_at)}
                     </span>
-                  </div>
-                  <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-muted)] shrink-0">
-                    {fmtMoney(o.total_amount, money)}
-                  </span>
-                  <span className="text-fs-xs text-[var(--fg-subtle)] min-w-[40px] text-right shrink-0">
-                    {relTime(o.created_at)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </Section>
+                    <ArrowRight className="h-3.5 w-3.5 -translate-x-1 text-[var(--fg-subtle)] opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <TopSellersPanel
+            sellers={topSellers}
+            locale={dateLocale}
+            title={t('bestSellingItems')}
+            salesLabel={t('sales')}
+            emptyLabel={t('noSalesYet')}
+            seeAllLabel={t('seeAll')}
+            onSeeAll={() => router.push(`/${rid}/analytics/items`)}
+          />
+        </div>
       </div>
     </>
   );
@@ -603,15 +688,50 @@ export default function DashboardPage() {
 
 // ─── Helper components ──────────────────────────────────────────────────────
 
-interface KpiCardProps {
+interface DashboardMetric {
+  key: MetricKey;
   label: string;
   value: string;
-  /** Omitted in série mode, where a single série has no previous period. */
-  delta?: number;
-  sub?: string;
-  spark?: number[];
-  /** Optional ⓘ tooltip appended to the label for a metric that needs a caveat. */
+  delta: number;
   hint?: string;
+  accent: string;
+}
+
+function FormattedMoney({
+  amount,
+  locale,
+  digits = 0,
+  className,
+}: {
+  amount: number;
+  locale: string;
+  digits?: number;
+  className?: string;
+}) {
+  const { code: currency } = useCurrency();
+  const parts = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).formatToParts(amount);
+
+  return (
+    <div className={`whitespace-nowrap tabular-nums ${className ?? ''}`} aria-label={fmtMoney(amount, locale, digits, currency)}>
+      {parts.map((part, index) => {
+        if (part.type === 'literal') return null;
+        if (part.type === 'currency') {
+          return (
+            <span key={`${part.type}-${index}`} className="mx-[0.14em] inline-block text-[0.58em] font-semibold leading-none tracking-normal">
+              {part.value}
+            </span>
+          );
+        }
+        return <span key={`${part.type}-${index}`}>{part.value}</span>;
+      })}
+    </div>
+  );
 }
 
 // Label with an optional ⓘ tooltip — shared by the compact (mobile) and full
@@ -626,62 +746,280 @@ function kpiLabel(label: string, hint?: string) {
   );
 }
 
-function KpiCard({ label, value, delta, sub, spark, hint }: KpiCardProps) {
-  const hasDelta = delta !== undefined;
-  const up = (delta ?? 0) >= 0;
+function DashboardPeriodControl({
+  basis,
+  onChange,
+  picker,
+  t,
+}: {
+  basis: DateBasis;
+  onChange: (basis: DateBasis) => void;
+  picker: React.ReactNode;
+  t: (key: string) => string;
+}) {
+  const serieMode = basis === 'serie';
+  const BasisIcon = serieMode ? CalendarClock : CalendarDays;
+  const label = serieMode ? t('dashboardServicesScheduled') : t('dashboardOrdersPlaced');
   return (
-    <Kpi
-      label={kpiLabel(label, hint)}
-      value={
-        <div className="flex items-baseline justify-between gap-[var(--s-3)] w-full">
-          <span>{value}</span>
-          {spark && spark.length > 0 && <Sparkline values={spark} up={up} />}
-        </div>
-      }
-      sub={sub}
-      delta={hasDelta ? { value: `${delta! >= 0 ? '+' : ''}${delta!.toFixed(1)}%`, direction: up ? 'up' : 'down' } : undefined}
-    />
+    <div
+      role="group"
+      aria-label={t('dashboardAnalyzedPeriod')}
+      className="inline-flex flex-wrap items-stretch gap-[var(--s-2)]"
+    >
+      <Menu>
+        <MenuTrigger asChild>
+          <button
+            type="button"
+            className="group flex min-h-11 items-center gap-[var(--s-2)] rounded-[var(--r-lg)] border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-left hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-ring transition-colors"
+          >
+            <span className="w-7 h-7 rounded-[var(--r-sm)] grid place-items-center bg-[var(--brand-50)] text-[var(--brand-600)]">
+              <BasisIcon className="w-4 h-4" />
+            </span>
+            <span className="hidden sm:block leading-tight">
+              <span className="block text-[10px] text-[var(--fg-subtle)]">{t('dashboardAnalyzedPeriod')}</span>
+              <span className="block text-fs-sm font-semibold text-[var(--fg)]">{label}</span>
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-[var(--fg-muted)]" />
+          </button>
+        </MenuTrigger>
+        <MenuContent align="end" className="min-w-[280px]">
+          <MenuItem className="h-auto py-[var(--s-2)] items-start" onSelect={() => onChange('created')}>
+            <CalendarDays className="mt-0.5" />
+            <span>
+              <span className="block font-medium">{t('dashboardOrdersPlaced')}</span>
+              <span className="block text-[11px] text-[var(--fg-muted)] mt-0.5">{t('dashboardOrdersPlacedHint')}</span>
+            </span>
+            {!serieMode && <CheckCircle className="ml-auto mt-0.5 text-[var(--brand-500)]" />}
+          </MenuItem>
+          <MenuItem className="h-auto py-[var(--s-2)] items-start" onSelect={() => onChange('serie')}>
+            <CalendarClock className="mt-0.5" />
+            <span>
+              <span className="block font-medium">{t('dashboardServicesScheduled')}</span>
+              <span className="block text-[11px] text-[var(--fg-muted)] mt-0.5">{t('dashboardServicesScheduledHint')}</span>
+            </span>
+            {serieMode && <CheckCircle className="ml-auto mt-0.5 text-[var(--brand-500)]" />}
+          </MenuItem>
+        </MenuContent>
+      </Menu>
+      <div className="flex items-stretch [&>div]:flex [&>div]:items-stretch [&>div>button]:!min-h-11 [&>div>button]:!rounded-[var(--r-lg)] [&>div>button]:!border-[var(--line-strong)] [&>div>button]:!bg-[var(--surface)] [&>div>button]:!px-[var(--s-4)] [&>div>button]:font-semibold [&>div>button]:text-[var(--fg)]">
+        {picker}
+      </div>
+    </div>
   );
 }
 
-function Sparkline({ values, up }: { values: number[]; up: boolean }) {
-  const w = 72;
-  const h = 24;
-  if (values.length < 2 || values.every((v) => v === 0)) {
-    return <svg width={w} height={h} aria-hidden />;
-  }
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const span = max - min || 1;
-  const step = w / (values.length - 1);
-  const d = values
-    .map((v, i) => {
-      const x = i * step;
-      const y = h - ((v - min) / span) * h;
-      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(' ');
-  const color = up ? 'var(--success-500)' : 'var(--danger-500)';
+function CreateActionsMenu({
+  restaurantId,
+  onNavigate,
+  t,
+}: {
+  restaurantId: number;
+  onNavigate: (href: string) => void;
+  t: (key: string) => string;
+}) {
+  const actions = [
+    { icon: DollarSign, label: t('acceptPayment'), href: `/${restaurantId}/orders/all` },
+    { icon: Edit, label: t('editMenuAction'), href: `/${restaurantId}/menu/menus` },
+    { icon: Plus, label: t('addItemAction'), href: `/${restaurantId}/menu/items/new` },
+    { icon: Package, label: t('receiveDelivery'), href: `/${restaurantId}/kitchen/stock` },
+  ];
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible">
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <Menu>
+      <MenuTrigger asChild>
+        <Button variant="secondary" size="md">
+          <Plus className="w-4 h-4" />
+          {t('create')}
+          <ChevronDown className="w-3.5 h-3.5" />
+        </Button>
+      </MenuTrigger>
+      <MenuContent align="end" className="min-w-[220px]">
+        {actions.map(({ icon: Icon, label, href }) => (
+          <MenuItem key={href} onSelect={() => onNavigate(href)}>
+            <Icon className="w-4 h-4" />
+            {label}
+          </MenuItem>
+        ))}
+      </MenuContent>
+    </Menu>
+  );
+}
+
+function OperationsBar({
+  summary,
+  onOpenOrders,
+  t,
+}: {
+  summary: LiveSummary | null;
+  onOpenOrders: () => void;
+  t: (key: string) => string;
+}) {
+  const unavailable = summary === null;
+  const hasUrgency = !unavailable && (summary.pendingReview > 0 || (summary.payments ?? 0) > 0 || summary.ready > 0);
+  let message = t('dashboardNoUrgent');
+  let action = t('viewOrders');
+  if (unavailable) message = t('dashboardNowUnavailable');
+  else if (summary.pendingReview > 0) {
+    message = t('dashboardUrgentReview').replace('{count}', String(summary.pendingReview));
+    action = t('dashboardActionReview');
+  } else if ((summary.payments ?? 0) > 0) {
+    message = t(summary.payments === 1 ? 'dashboardUrgentPayment' : 'dashboardUrgentPayments')
+      .replace('{count}', String(summary.payments));
+    action = t('dashboardActionCollect');
+  } else if (summary.ready > 0) {
+    message = t('dashboardUrgentReady').replace('{count}', String(summary.ready));
+    action = t('dashboardActionReady');
+  } else if (summary.active > 0) {
+    message = t('dashboardNowActive').replace('{count}', String(summary.active));
+  }
+
+  const stats = [
+    { value: unavailable ? '—' : summary.active, label: t('dashboardActiveOrders') },
+    { value: unavailable ? '—' : summary.pendingReview, label: t('dashboardNeedsReview'), attention: !unavailable && summary.pendingReview > 0 },
+    { value: unavailable ? '—' : summary.ready, label: t('dashboardReadyOrders') },
+    { value: unavailable || summary.payments == null ? '—' : summary.payments, label: t('dashboardPendingPayments'), attention: !unavailable && (summary.payments ?? 0) > 0 },
+  ];
+
+  return (
+    <section className="mb-[var(--s-4)] border-y border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_65%,var(--surface))] px-[var(--s-4)] py-[var(--s-4)] md:px-[var(--s-5)]">
+      <div className="grid grid-cols-1 items-center gap-[var(--s-5)] xl:grid-cols-[minmax(280px,1fr)_minmax(460px,auto)_auto] xl:gap-[var(--s-4)]">
+        <div className="flex items-center gap-[var(--s-3)] min-w-0">
+          <div
+            className="h-10 w-10 rounded-full grid place-items-center shrink-0"
+            style={{
+              color: unavailable ? 'var(--fg-muted)' : hasUrgency ? 'var(--warning-500)' : 'var(--success-500)',
+              background: unavailable ? 'var(--surface-3)' : hasUrgency ? 'var(--warning-50)' : 'var(--success-50)',
+            }}
+          >
+            {unavailable || hasUrgency ? <AlertTriangle className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
+          </div>
+          <div className="min-w-0">
+            <div className="text-fs-xs font-semibold text-[var(--fg-subtle)]">{t('dashboardNow')}</div>
+            <p className="mt-0.5 text-fs-md font-semibold leading-snug text-[var(--fg)]">{message}</p>
+            {!unavailable && summary.oldestCreatedAt && summary.active > 0 && (
+              <p className="mt-1 text-fs-xs leading-snug text-[var(--fg-muted)]">
+                {t('dashboardOldestOrder').replace('{age}', relTime(summary.oldestCreatedAt))}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid min-w-0 grid-cols-2 divide-x divide-[var(--line)] sm:grid-cols-4">
+          {stats.map((stat) => (
+            <div key={stat.label} className="min-w-0 px-[var(--s-4)] first:pl-0 xl:first:pl-[var(--s-4)]">
+              <div className={`text-[22px] font-semibold leading-none tabular-nums ${stat.attention ? 'text-[var(--warning-500)]' : 'text-[var(--fg)]'}`}>{stat.value}</div>
+              <div className="mt-1 text-[13px] leading-snug text-[var(--fg-muted)]">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <Button variant={hasUrgency ? 'primary' : 'secondary'} size="md" onClick={onOpenOrders} className="justify-center whitespace-nowrap">
+          {action}
+          <ArrowRight className="w-4 h-4" />
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function PerformanceOverview({
+  title,
+  chartNote,
+  metrics,
+  revenue,
+  locale,
+  showDelta,
+  comparisonLabel,
+  chart,
+  channels,
+}: {
+  title: string;
+  chartNote?: string;
+  metrics: DashboardMetric[];
+  revenue: number;
+  locale: string;
+  showDelta: boolean;
+  comparisonLabel: string;
+  chart?: React.ReactNode;
+  channels: React.ReactNode;
+}) {
+  const primary = metrics[0];
+  const primaryUp = primary.delta >= 0;
+  return (
+    <section className="overflow-hidden rounded-[var(--r-xl)] border border-[var(--line)] bg-[var(--surface)] shadow-1">
+      <div className="h-1.5 bg-[var(--brand-500)]" />
+      <div style={{ background: 'linear-gradient(120deg, color-mix(in oklab, var(--brand-500) 7%, var(--surface)) 0%, var(--surface) 48%)' }}>
+        <header className="flex flex-wrap items-start justify-between gap-[var(--s-4)] px-[var(--s-5)] pt-[var(--s-4)] md:px-[var(--s-6)]">
+          <h2 className="text-fs-xl font-semibold text-[var(--fg)]">{title}</h2>
+          {chartNote && <span className="text-fs-xs text-[var(--fg-subtle)]">{chartNote}</span>}
+        </header>
+
+        <div className="grid grid-cols-1 items-end gap-[var(--s-6)] px-[var(--s-5)] pb-[var(--s-5)] pt-[var(--s-4)] md:px-[var(--s-6)] xl:grid-cols-[minmax(180px,0.68fr)_minmax(330px,1.32fr)] xl:gap-[var(--s-4)]">
+          <div className="min-w-0 xl:pr-[var(--s-1)]">
+            <div className="text-fs-sm font-medium text-[var(--fg-muted)]">{primary.label}</div>
+            <FormattedMoney
+              amount={revenue}
+              locale={locale}
+              className="mt-[var(--s-2)] text-[clamp(2.5rem,3.5vw,3.5rem)] font-semibold leading-[0.94] tracking-[-0.04em] text-[var(--fg)]"
+            />
+            {showDelta && (
+              <div className="mt-[var(--s-3)] flex flex-wrap items-center gap-[var(--s-2)] text-fs-xs">
+                <span
+                  className={`rounded-full px-2.5 py-1 font-semibold tabular-nums ${primaryUp ? 'text-[var(--success-500)] bg-[var(--success-50)]' : 'text-[var(--danger-500)] bg-[var(--danger-50)]'}`}
+                >
+                  {primaryUp ? '↑' : '↓'} {fmtPercentDelta(primary.delta, locale)}
+                </span>
+                <span className="text-[var(--fg-muted)]">{comparisonLabel}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-[var(--s-3)] border-t border-[var(--line-strong)] pt-[var(--s-5)] sm:grid-cols-3 xl:border-l xl:border-t-0 xl:pl-[var(--s-4)] xl:pt-0">
+            {metrics.slice(1).map((metric) => {
+              const up = metric.delta >= 0;
+              return (
+                <div key={metric.key} className="min-w-0 border-t-2 pt-[var(--s-3)]" style={{ borderTopColor: metric.accent }}>
+                  <div className="text-[13px] leading-snug text-[var(--fg-muted)]">{kpiLabel(metric.label, metric.hint)}</div>
+                  <div className="mt-1.5 whitespace-nowrap text-[clamp(1.2rem,1.5vw,1.375rem)] font-semibold leading-none tabular-nums text-[var(--fg)]">{metric.value}</div>
+                  {showDelta && (
+                    <div className={`mt-1.5 text-[12px] font-semibold tabular-nums ${up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
+                      {up ? '↑' : '↓'} {fmtPercentDelta(metric.delta, locale)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {chart && (
+        <div className="border-t border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_48%,var(--surface))] px-[var(--s-5)] py-[var(--s-4)] md:px-[var(--s-6)]">
+          {chart}
+        </div>
+      )}
+      <div className="border-t border-[var(--line)] px-[var(--s-5)] py-[var(--s-4)] md:px-[var(--s-6)]">
+        {channels}
+      </div>
+    </section>
   );
 }
 
 function MetricChart({
   data,
+  previousData,
+  currentLabel,
+  previousLabel,
+  averageLabel,
+  peakLabel,
   fmt,
   emptyLabel,
 }: {
-  data: { day: string; value: number; isLast: boolean }[];
+  data: { day: string; label: string; value: number; isLast: boolean }[];
+  previousData: { day: string; value: number; isLast: boolean }[];
+  currentLabel: string;
+  previousLabel: string;
+  averageLabel: string;
+  peakLabel: string;
   fmt: (n: number) => string;
   emptyLabel: string;
 }) {
@@ -690,66 +1028,196 @@ function MetricChart({
     return (
       <div
         className="flex items-center justify-center text-fs-sm text-[var(--fg-subtle)]"
-        style={{ height: 180 }}
+        style={{ height: 150 }}
       >
         {emptyLabel}
       </div>
     );
   }
-  const max = Math.max(1, ...data.map((d) => d.value));
-  return (
-    <div className="flex items-end justify-between gap-[var(--s-2)]" style={{ height: 180 }}>
-      {data.map((d, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-[var(--s-2)] h-full">
-          <div className="flex items-end h-full w-full justify-center">
+  const hasPrevious = previousData.some((d) => d.value > 0);
+  const max = Math.max(1, ...data.map((d) => d.value), ...previousData.map((d) => d.value));
+  const compact = data.length === 1;
+  const average = data.reduce((sum, d) => sum + d.value, 0) / data.length;
+  const peak = data.reduce((highest, datum) => datum.value > highest.value ? datum : highest, data[0]);
+
+  if (compact) {
+    const current = data[0];
+    const prior = previousData[0]?.value ?? 0;
+    return (
+      <div className="flex h-[190px] items-end justify-center gap-[var(--s-8)] md:gap-[var(--s-12)]">
+        {hasPrevious && (
+          <div className="h-full w-24 flex flex-col items-center justify-end gap-[var(--s-2)]">
+            <span className="text-fs-sm font-semibold tabular-nums text-[var(--fg-muted)]">{fmt(prior)}</span>
+            <div className="flex h-[120px] w-full items-end justify-center">
+              <div className="w-14 rounded-t-[var(--r-sm)] bg-[var(--line-strong)]" style={{ height: `${Math.max(4, (prior / max) * 100)}%` }} />
+            </div>
+            <span className="text-fs-xs font-medium text-[var(--fg-muted)] text-center">{previousLabel}</span>
+          </div>
+        )}
+        <div className="h-full w-28 flex flex-col items-center justify-end gap-[var(--s-2)]">
+          <span className="text-fs-md font-semibold tabular-nums text-[var(--fg)]">{fmt(current.value)}</span>
+          <div className="flex h-[120px] w-full items-end justify-center">
             <div
-              className="w-full max-w-[28px] rounded-t-[3px]"
+              className="w-16 rounded-t-[var(--r-md)] shadow-2"
               style={{
-                height: `${Math.max(2, (d.value / max) * 100)}%`,
-                background: d.isLast
-                  ? 'var(--brand-500)'
-                  : 'color-mix(in oklab, var(--brand-500) 55%, transparent)',
+                height: `${Math.max(4, (current.value / max) * 100)}%`,
+                background: 'linear-gradient(180deg, var(--brand-400), var(--brand-600))',
               }}
-              title={fmt(d.value)}
             />
           </div>
-          <span className="text-fs-xs text-[var(--fg-muted)] truncate max-w-full">{d.day}</span>
+          <span className="text-fs-xs font-semibold text-[var(--fg)] text-center">{currentLabel}</span>
         </div>
-      ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-[var(--s-3)] flex flex-wrap items-center gap-[var(--s-4)] text-[11px] text-[var(--fg-muted)]">
+        <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--brand-500)]" />{currentLabel}</span>
+        {hasPrevious && <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--line-strong)]" />{previousLabel}</span>}
+        <span className="ml-auto tabular-nums">{averageLabel} · {fmt(average)}</span>
+        <span className="tabular-nums">{peakLabel} · {peak.label} · {fmt(peak.value)}</span>
+      </div>
+      <div className="relative h-[150px]">
+        <div className="absolute inset-x-0 border-t border-dashed border-[var(--line-strong)] z-[1]" style={{ bottom: `${(average / max) * 100}%` }} />
+        <div className="absolute inset-0 flex items-end justify-between gap-[var(--s-2)]">
+          {data.map((d, i) => {
+            const prior = previousData[i]?.value ?? 0;
+            return (
+              <div
+                key={`${d.day}-${i}`}
+                className="group relative flex-1 flex flex-col items-center gap-[var(--s-2)] h-full min-w-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)]"
+                tabIndex={0}
+                aria-label={`${d.label}: ${fmt(d.value)}`}
+              >
+                <div className="pointer-events-none absolute z-10 top-1 left-1/2 -translate-x-1/2 rounded-r-sm bg-[var(--fg)] text-[var(--surface)] px-2 py-1 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity shadow-2">
+                  <span>{d.label}</span> · <strong>{fmt(d.value)}</strong>{hasPrevious ? ` · ${fmt(prior)}` : ''}
+                </div>
+                <div className="flex items-end h-full w-full justify-center gap-[2px]">
+                  {hasPrevious && (
+                    <div className="w-full max-w-[11px] rounded-t-[2px] bg-[var(--line-strong)] opacity-75" style={{ height: `${Math.max(1, (prior / max) * 100)}%` }} />
+                  )}
+                  <div
+                    className="w-full max-w-[16px] rounded-t-[3px] bg-[var(--brand-500)]"
+                    style={{ height: `${Math.max(1, (d.value / max) * 100)}%`, opacity: d.isLast ? 1 : 0.82 }}
+                    title={fmt(d.value)}
+                  />
+                </div>
+                <span className="text-[10px] text-[var(--fg-muted)] whitespace-nowrap min-h-[14px]">{d.day}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
-function QuickAction({
-  icon,
-  label,
-  sub,
-  onClick,
+function ChannelMix({
+  data,
+  locale,
+  title,
+  emptyLabel,
+  ordersLabel,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  sub: string;
-  onClick?: () => void;
+  data: ChannelDatum[];
+  locale: string;
+  title: string;
+  emptyLabel: string;
+  ordersLabel: string;
 }) {
+  const { code: currency } = useCurrency();
+  const total = data.reduce((sum, row) => sum + row.revenue, 0);
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-left hover:bg-[var(--surface-2)] transition-colors"
+    <div>
+      <div className="mb-[var(--s-2)] flex items-center justify-between gap-[var(--s-3)]">
+        <h3 className="text-fs-sm font-semibold text-[var(--fg)]">{title}</h3>
+        {total > 0 && <span className="text-fs-xs tabular-nums text-[var(--fg-muted)]">{fmtMoney(total, locale, 0, currency)}</span>}
+      </div>
+      {data.length === 0 || total <= 0 ? (
+        <p className="text-fs-sm text-[var(--fg-subtle)] py-3">{emptyLabel}</p>
+      ) : (
+        <>
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-[var(--surface-3)]" aria-hidden="true">
+            {data.map((row) => (
+              <span key={row.key} style={{ width: `${(row.revenue / total) * 100}%`, background: row.color }} />
+            ))}
+          </div>
+          <div className="mt-[var(--s-2)] grid grid-cols-1 gap-[var(--s-3)] sm:grid-cols-3">
+            {data.map((row) => (
+              <div key={row.key} className="min-w-0">
+                <div className="flex items-center gap-1.5 text-[11px] text-[var(--fg-muted)]">
+                  <span className="w-2 h-2 rounded-[2px] shrink-0" style={{ background: row.color }} />
+                  <span className="truncate">{row.label}</span>
+                  <span className="ml-auto tabular-nums">{Math.round((row.revenue / total) * 100)}%</span>
+                </div>
+                <div className="text-fs-sm font-medium tabular-nums text-[var(--fg)] mt-1">{fmtMoney(row.revenue, locale, 0, currency)}</div>
+                <div className="text-[10px] text-[var(--fg-subtle)]">{row.orders} {ordersLabel.toLocaleLowerCase(locale)}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TopSellersPanel({
+  sellers,
+  locale,
+  title,
+  salesLabel,
+  emptyLabel,
+  seeAllLabel,
+  onSeeAll,
+}: {
+  sellers: TopSeller[];
+  locale: string;
+  title: string;
+  salesLabel: string;
+  emptyLabel: string;
+  seeAllLabel: string;
+  onSeeAll: () => void;
+}) {
+  const { code: currency } = useCurrency();
+  const visible = sellers.slice(0, 5);
+  const maxRevenue = Math.max(0, ...visible.map((seller) => seller.revenue));
+  return (
+    <Section
+      title={title}
+      className="mb-0 overflow-hidden shadow-none [&>div:first-child]:px-[var(--s-4)] [&>div:first-child]:pb-[var(--s-2)] [&>div:first-child]:pt-[var(--s-3)] [&>div:last-child]:px-[var(--s-4)] [&>div:last-child]:pb-[var(--s-3)]"
+      aside={(
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onSeeAll}
+          className="text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
+        >
+          {seeAllLabel}
+          <ArrowRight />
+        </Button>
+      )}
     >
-      <div
-        className="w-8 h-8 rounded-r-sm grid place-items-center shrink-0 [&>svg]:w-[14px] [&>svg]:h-[14px]"
-        style={{
-          background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-          color: 'var(--brand-500)',
-        }}
-      >
-        {icon}
-      </div>
-      <div className="flex flex-col items-start gap-0.5 min-w-0">
-        <span className="text-fs-sm text-[var(--fg)] truncate">{label}</span>
-        <span className="text-fs-xs text-[var(--fg-muted)] truncate">{sub}</span>
-      </div>
-    </button>
+      {visible.length === 0 ? (
+        <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{emptyLabel}</p>
+      ) : (
+        <div className="-mx-[var(--s-4)] -mb-[var(--s-3)]">
+          {visible.map((seller, index) => (
+            <div key={seller.name} className="flex items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] first:border-t-0">
+              <div className="grid h-7 w-7 shrink-0 place-items-center rounded-r-sm bg-[var(--surface-3)] text-[10px] font-bold text-[var(--fg-muted)]">{index + 1}</div>
+              <div className="flex-1 min-w-0">
+                <div className="truncate text-fs-sm font-medium leading-snug text-[var(--fg)]">{seller.name}</div>
+                <div className="text-fs-xs leading-snug text-[var(--fg-muted)]">{seller.quantity} {salesLabel}</div>
+              </div>
+              <div className="hidden h-1 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-2)] min-[1700px]:block">
+                <div className="h-full bg-[var(--brand-500)]" style={{ width: `${maxRevenue > 0 ? (seller.revenue / maxRevenue) * 100 : 0}%` }} />
+              </div>
+              <div className="min-w-[82px] text-right text-fs-xs font-semibold tabular-nums text-[var(--fg)]">{fmtMoney(seller.revenue, locale, 2, currency)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
   );
 }

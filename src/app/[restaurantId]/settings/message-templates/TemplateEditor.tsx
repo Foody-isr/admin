@@ -16,6 +16,7 @@ import { useI18n, i18nOr } from '@/lib/i18n';
 import { unknownTokens, type TemplateDefinition } from '@/lib/messages/registry';
 import { spliceToken } from '@/lib/messages/insert-token';
 import { buildOrderRecap, type RecapLocale } from '@/lib/orders/whatsapp-recap';
+import { buildDeliveryReminder } from '@/lib/orders/delivery-reminder';
 import { receiptShareUrl } from '@/lib/receipt-share';
 import { cn } from '@/lib/utils';
 import type { Order } from '@/lib/api';
@@ -139,15 +140,21 @@ export function TemplateEditor({ definition, locale, body, onChange, readOnly }:
   const unknown = useMemo(() => unknownTokens(body, definition), [body, definition]);
 
   const preview = useMemo(
-    () =>
-      buildOrderRecap({
-        order: SAMPLE_ORDER,
-        restaurantName: SAMPLE_RESTAURANT_NAME,
-        locale,
-        receiptUrl: receiptShareUrl(SAMPLE_ORDER.receipt_token),
-        body,
-      }),
-    [body, locale],
+    () => definition.key === 'delivery_reminder'
+      ? buildDeliveryReminder({
+          order: SAMPLE_ORDER,
+          restaurantName: SAMPLE_RESTAURANT_NAME,
+          locale,
+          body,
+        })
+      : buildOrderRecap({
+          order: SAMPLE_ORDER,
+          restaurantName: SAMPLE_RESTAURANT_NAME,
+          locale,
+          receiptUrl: receiptShareUrl(SAMPLE_ORDER.receipt_token),
+          body,
+        }),
+    [body, definition.key, locale],
   );
 
   const placeholders = [...definition.tokens, ...definition.blocks];

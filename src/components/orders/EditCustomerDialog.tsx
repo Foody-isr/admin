@@ -39,6 +39,7 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
   const [entryCode, setEntryCode] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // Prefill from the order each time the dialog opens (or the order changes).
   useEffect(() => {
@@ -51,9 +52,12 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
     setEntryCode(order.delivery_entry_code ?? '');
     setDeliveryNotes(order.delivery_notes ?? '');
     setSubmitting(false);
+    setSubmitError('');
   }, [open, order]);
 
-  const canConfirm = name.trim() !== '' && !submitting;
+  const canConfirm = name.trim() !== '' &&
+    (!isDelivery || (address.trim() !== '' && city.trim() !== '')) &&
+    !submitting;
 
   const close = () => {
     if (submitting) return;
@@ -63,6 +67,7 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
   const confirm = async () => {
     if (!canConfirm) return;
     setSubmitting(true);
+    setSubmitError('');
     try {
       const input: OrderCustomerDetailsInput = { name: name.trim() };
       if (isDelivery) {
@@ -75,6 +80,8 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
       }
       await onConfirm(input);
       onOpenChange(false);
+    } catch (cause) {
+      setSubmitError((cause as Error)?.message || t('couldNotSave'));
     } finally {
       setSubmitting(false);
     }
@@ -83,8 +90,8 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
   return (
     <Dialog.Root open={open} onOpenChange={(v) => { if (!v) close(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/55 backdrop-blur-[4px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[min(480px,calc(100vw-32px))] bg-[var(--bg)] text-[var(--fg)] border border-[var(--line)] rounded-r-lg shadow-3 focus:outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95">
+        <Dialog.Overlay className="fixed inset-0 z-[1000] bg-black/55 backdrop-blur-[4px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[1001] w-[min(480px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-r-lg border border-[var(--line)] bg-[var(--bg)] text-[var(--fg)] shadow-3 focus:outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95">
           <div className="p-[var(--s-5)] max-h-[calc(100vh-64px)] overflow-y-auto">
             <div className="flex items-start gap-[var(--s-3)] mb-[var(--s-4)]">
               <div className="flex-1 min-w-0">
@@ -140,6 +147,12 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
                 <InfoIcon className="w-4 h-4 mt-0.5 shrink-0 text-[var(--fg-muted)]" />
                 <p className="text-fs-sm text-[var(--fg-muted)]">{t('editCustomerReflectNote')}</p>
               </div>
+            )}
+
+            {submitError && (
+              <p role="alert" className="mt-[var(--s-3)] text-fs-sm text-[var(--danger-500)]">
+                {submitError}
+              </p>
             )}
 
             <div className="flex items-center gap-[var(--s-3)] mt-[var(--s-5)]">

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { CateringService, Menu } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import {
   nextSlugForPageTitle,
   normalizeSlug,
@@ -24,7 +25,6 @@ type CreatePageInput = {
   slug: string;
   type: WebsitePageType;
   menuIds: number[];
-  serviceIds: number[];
   isDefault: boolean;
 };
 
@@ -107,12 +107,12 @@ export function PageDialog({
   onClose: () => void;
   onCreate: (input: CreatePageInput) => void;
 }) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const [type, setType] = useState<WebsitePageType>("content");
   const [menuIds, setMenuIds] = useState<number[]>([]);
-  const [serviceIds, setServiceIds] = useState<number[]>([]);
   const needsDefault = useMemo(
     () => !pages.some((page) => page.type === type && page.is_default),
     [pages, type],
@@ -141,9 +141,7 @@ export function PageDialog({
   const associationsValid =
     type === "order"
       ? menuIds.length > 0
-      : type === "catering"
-        ? serviceIds.length > 0
-        : true;
+      : true;
   const valid =
     title.trim().length > 0 &&
     normalizedSlug.length > 0 &&
@@ -177,7 +175,6 @@ export function PageDialog({
       slug: normalizedSlug,
       type,
       menuIds,
-      serviceIds,
       isDefault:
         (type === "order" || type === "catering") &&
         (needsDefault || makeDefault),
@@ -187,7 +184,6 @@ export function PageDialog({
     setSlugEdited(false);
     setType("content");
     setMenuIds([]);
-    setServiceIds([]);
     setMakeDefault(true);
   };
 
@@ -302,16 +298,12 @@ export function PageDialog({
             />
           ) : null}
           {type === "catering" ? (
-            <AssociationPicker
-              fieldId="page.create.service_ids"
-              label="Prestations visibles"
-              empty="Aucune prestation active n’est disponible."
-              options={services
-                .filter((service) => service.is_active)
-                .map((service) => ({ id: service.id, label: service.name }))}
-              selected={serviceIds}
-              onChange={setServiceIds}
-            />
+            <div className="rounded-xl border border-brand-500/25 bg-brand-500/5 p-4">
+              <p className="text-sm font-semibold text-fg-primary">{t("websiteV3CateringVisibilityTitle")}</p>
+              <p className="mt-1 text-sm leading-5 text-fg-secondary">
+                {t("websiteV3CateringVisibilityDescription").replace("{n}", String(services.filter((service) => service.is_active).length))}
+              </p>
+            </div>
           ) : null}
 
           {type === "order" || type === "catering" ? (

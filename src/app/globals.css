@@ -226,6 +226,74 @@
   --ring: 21 94% 53%;
 }
 
+/* ── Order detail ──────────────────────────────────────────────────────────
+   A denser operational surface with its own neutral/semantic calibration.
+   Menus are portalled outside the dialog, so they opt into the same tokens
+   through .order-detail-menu instead of inheriting them from the dialog. */
+.order-detail-surface,
+.order-detail-menu {
+  --bg: #f3f4f5;
+  --surface: #ffffff;
+  --surface-2: #f6f7f8;
+  --surface-3: #e9ecef;
+  --line: #e3e6e8;
+  --line-strong: #cfd4d9;
+  --fg: #1c1d1f;
+  --fg-muted: #5f6670;
+  --fg-subtle: #737a84;
+
+  --brand-400: #ff8b4a;
+  --brand-500: #ff6b18;
+  --brand-600: #e9580c;
+  --success-500: #168447;
+  --success-50: #e9f8ef;
+  --warning-500: #946200;
+  --warning-600: #865800;
+  --warning-700: #744c00;
+  --warning-50: #fff4ce;
+  --danger-500: #d92d20;
+  --danger-50: #fff0ee;
+  --info-500: #245fdb;
+  --info-50: #eef4ff;
+
+  --shadow-3: 0 24px 70px rgba(20, 24, 28, .20);
+  --focus-ring: 0 0 0 3px rgba(233, 88, 12, .28);
+  font-family: var(--font-order-sans, var(--font-sans));
+  font-variant-numeric: tabular-nums;
+}
+
+.dark .order-detail-surface,
+.dark .order-detail-menu,
+[data-theme='dark'] .order-detail-surface,
+[data-theme='dark'] .order-detail-menu {
+  --bg: #0f1113;
+  --surface: #181b1e;
+  --surface-2: #22262a;
+  --surface-3: #2b3035;
+  --line: #343a40;
+  --line-strong: #4a5159;
+  --fg: #f4f5f6;
+  --fg-muted: #bec4cb;
+  --fg-subtle: #929aa4;
+
+  --brand-400: #ff9b66;
+  --brand-500: #ff7a2f;
+  --brand-600: #ff8b4a;
+  --success-500: #5bd68a;
+  --success-50: #173426;
+  --warning-500: #ffd166;
+  --warning-600: #f2c252;
+  --warning-700: #e7b83f;
+  --warning-50: #3a3018;
+  --danger-500: #ff8178;
+  --danger-50: #401f20;
+  --info-500: #8bb4ff;
+  --info-50: #182a48;
+
+  --shadow-3: 0 28px 80px rgba(0, 0, 0, .45);
+  --focus-ring: 0 0 0 3px rgba(255, 155, 102, .38);
+}
+
 /* Bridge Vercel's `geist` NPM package vars onto our token names.
    GeistSans.variable sets --font-geist-sans; we alias it so the rest
    of the app references --font-sans / --font-mono only. */
@@ -582,6 +650,34 @@ input::placeholder, textarea::placeholder {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Keep every context fact visible beside the independently scrolling ticket on
+ * laptop-height screens. Mobile retains its roomier single-document flow. */
+@media (min-width: 768px) and (max-height: 950px) {
+  .order-detail-context {
+    padding-block: var(--s-2);
+  }
+  .order-detail-context-stack {
+    gap: 0;
+  }
+  .order-detail-service > section {
+    padding-block: var(--s-1);
+  }
+  .order-detail-service > section:first-child {
+    padding-block-start: 0;
+  }
+  .order-detail-service > section > div:first-child {
+    margin-block-end: 6px;
+  }
+  .order-detail-money-head {
+    padding-block-start: 0;
+    padding-block-end: var(--s-2);
+  }
+  .order-detail-money-body {
+    padding-block-start: var(--s-2);
+    padding-block-end: 0;
+  }
 }
 
 /* iOS Safari auto-zooms whenever a focused form control's font-size is

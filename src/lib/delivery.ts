@@ -40,6 +40,12 @@ export interface DeliveryRoute {
   courier_id: number;
   date: string; // YYYY-MM-DD
   status: DeliveryRouteStatus;
+  start_address?: string;
+  start_lat?: number | null;
+  start_lng?: number | null;
+  end_address?: string;
+  end_lat?: number | null;
+  end_lng?: number | null;
   planned_departure_at?: string | null;
   started_at?: string | null;
   total_distance_m: number;
@@ -48,12 +54,18 @@ export interface DeliveryRoute {
   last_location?: CourierLocationDTO | null;
 }
 
+export interface RouteSettingsInput {
+  planned_departure_at: string;
+  start_address: string;
+  end_address: string;
+}
+
 function q(restaurantId: number, extra?: Record<string, string>): string {
   const sp = new URLSearchParams({ restaurant_id: String(restaurantId), ...(extra ?? {}) });
   return sp.toString();
 }
 
-/** The current courier's open route for today (server creates a draft if none). */
+/** The current courier's active or next assigned route. */
 export async function getMyRoute(restaurantId: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
     `/api/v1/delivery/routes/mine?${q(restaurantId)}`, restaurantId,
@@ -137,6 +149,22 @@ export async function optimizeRoute(
   return data.route;
 }
 
+/** Update a draft route's time and optional endpoints as manager or owner courier. */
+export async function updateRouteSettings(
+  restaurantId: number,
+  routeId: number,
+  input: RouteSettingsInput,
+  ownRoute = false,
+): Promise<DeliveryRoute> {
+  const endpoint = ownRoute ? 'my-settings' : 'settings';
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}/${endpoint}?${q(restaurantId)}`,
+    restaurantId,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+  return data.route;
+}
+
 export async function buildRoute(
   restaurantId: number, courierId: number, orderIds: number[],
 ): Promise<DeliveryRoute> {
@@ -152,6 +180,7 @@ export async function planDeliveryRoutes(
   courierIds: number[],
   orderIds: number[],
   plannedDepartureAt: string,
+  assignments?: Array<{ courier_id: number; order_ids: number[] }>,
 ): Promise<DeliveryRoute[]> {
   const data = await apiFetch<{ routes: DeliveryRoute[] }>(
     `/api/v1/delivery/routes/plan?${q(restaurantId)}`, restaurantId,
@@ -161,6 +190,7 @@ export async function planDeliveryRoutes(
         courier_ids: courierIds,
         order_ids: orderIds,
         planned_departure_at: plannedDepartureAt,
+        assignments,
       }),
     },
   );
@@ -207,6 +237,14 @@ export async function cancelDeliveryRoute(restaurantId: number, routeId: number)
 export async function listDeliveryRoutes(restaurantId: number, date?: string): Promise<DeliveryRoute[]> {
   const data = await apiFetch<{ routes: DeliveryRoute[] }>(
     `/api/v1/delivery/routes?${q(restaurantId, date ? { date } : undefined)}`, restaurantId,
+  );
+  return data.routes ?? [];
+}
+
+/** Draft and active routes across every planning date. */
+export async function listOpenDeliveryRoutes(restaurantId: number): Promise<DeliveryRoute[]> {
+  const data = await apiFetch<{ routes: DeliveryRoute[] }>(
+    `/api/v1/delivery/routes?${q(restaurantId, { scope: 'open' })}`, restaurantId,
   );
   return data.routes ?? [];
 }

@@ -158,12 +158,9 @@ export function reconcileLegacyWebsiteDraft(
       return {
         ...page,
         slug,
-        settings: {
-          service_ids:
-            page.settings.service_ids.length > 0
-              ? page.settings.service_ids
-              : uniquePositiveIds(references.serviceIds),
-        },
+        // Visibility is owned by Catering > Prestations. Clear the legacy
+        // Website Builder allow-list so the two modules cannot disagree.
+        settings: { service_ids: [] },
       };
     }
     return { ...page, slug };
@@ -579,29 +576,6 @@ export function validateDraftForPublish(
       }
     }
     if (
-      page.type === "catering" &&
-      page.settings.service_ids.length === 0
-    ) {
-      errors.push({
-        fieldId: "page.settings.service_ids",
-        message: "Sélectionnez au moins une prestation traiteur.",
-        pageKey: key,
-        tab: "settings",
-      });
-    } else if (page.type === "catering" && references) {
-      const broken = page.settings.service_ids.filter(
-        (id) => !references.serviceIds.has(id),
-      );
-      if (broken.length > 0) {
-        errors.push({
-          fieldId: "page.settings.service_ids",
-          message: `Retirez ou remplacez les prestations indisponibles : ${broken.join(", ")}.`,
-          pageKey: key,
-          tab: "settings",
-        });
-      }
-    }
-    if (
       (page.type === "landing" || page.type === "content") &&
       page.is_default
     ) {
@@ -661,13 +635,6 @@ export function mapWebsiteDraftError(error: unknown): FieldError | null {
   if (normalized.includes("at least one menu")) {
     return {
       fieldId: "page.settings.menu_ids",
-      message,
-      tab: "settings",
-    };
-  }
-  if (normalized.includes("at least one service")) {
-    return {
-      fieldId: "page.settings.service_ids",
       message,
       tab: "settings",
     };

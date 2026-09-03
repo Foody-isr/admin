@@ -10,8 +10,9 @@
 // Line items, combos and totals come from the shared groupOrder() so the recap,
 // the drawer and the printed ticket can never disagree about what was ordered.
 
-import type { Order } from '@/lib/api';
+import type { CheckoutConfig, Order } from '@/lib/api';
 import { groupOrder } from '@/lib/orders/group-order';
+import { buildCustomFieldLabels, humanizeFieldId } from '@/lib/orders/checkout-fields';
 import { findTemplate } from '@/lib/messages/registry';
 import { renderTemplate, type RenderContext } from '@/lib/messages/render';
 import { formatMoney } from '@/lib/currency';
@@ -239,6 +240,17 @@ export interface BuildRecapOptions {
   receiptUrl?: string;
   /** Restaurant's ISO 4217 code. Defaults to the shekel when absent. */
   currency?: string;
+  /**
+   * The restaurant's checkout form, used to label the answers the customer
+   * gave to its custom fields — those are stored on the order keyed by field
+   * id, not by label, so they are unreadable without it.
+   *
+   * Passed raw rather than pre-resolved because the labels must be read in the
+   * CUSTOMER's language, and staff can switch that language in the recap
+   * dialog; a map resolved once would be stuck in whichever locale built it.
+   * Omitted = no custom-field block, which is what every caller got before.
+   */
+  checkoutConfig?: CheckoutConfig | null;
 }
 
 /**
@@ -259,6 +271,7 @@ export function buildRecapContext({
   locale,
   receiptUrl,
   currency,
+  checkoutConfig,
 }: BuildRecapOptions): RenderContext {
   const s = STRINGS[locale];
   const g = groupOrder(order, { uncategorized: s.uncategorized, comboFallback: s.comboFallback });
@@ -316,6 +329,24 @@ export function buildRecapContext({
     }
   }
 
+  // ── Bloc infos client : les réponses aux champs personnalisés du checkout ───
+  //
+  // Jusqu'ici ces réponses n'apparaissaient NULLE PART côté client — ni ici, ni
+  // sur la page de confirmation, ni sur le reçu. Un client qui s'était trompé
+  // de code immeuble n'avait aucun moyen de s'en rendre compte.
+  //
+  // Les libellés viennent de la config du checkout, dans la langue du message,
+  // pas dans celle du staff : c'est le client qui lit.
+  const infoLines: string[] = [];
+  if (checkoutConfig && order.custom_fields) {
+    const labels = buildCustomFieldLabels(checkoutConfig, locale);
+    for (const [id, value] of Object.entries(order.custom_fields)) {
+      if (value === '' || value === false || value == null) continue;
+      const label = labels[id] || humanizeFieldId(id);
+      infoLines.push(`${label} : ${typeof value === 'boolean' ? '✓' : String(value)}`);
+    }
+  }
+
   // ── Bloc statut de paiement ───────────────────────────────────────────────────
   let payment = '';
   const balanceDue = order.balance_due ?? 0;
@@ -347,6 +378,7 @@ export function buildRecapContext({
       articles: itemLines.join('\n'),
       totaux: totalLines.join('\n'),
       adresse: address,
+      infos_client: infoLines.join('\n'),
       statut_paiement: payment,
       // Always non-empty (STRINGS.greeting renders "Bonjour," even without a
       // name) so the confirmation line it shares never gets dropped by an
