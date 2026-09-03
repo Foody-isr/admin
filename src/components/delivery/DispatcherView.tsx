@@ -34,10 +34,14 @@ import {
   planDeliveryRoutes,
   transferRouteStop,
   unassignRouteStop,
+  updateRouteSettings,
   type DeliveryRoute,
+  type RouteSettingsInput,
   type RouteStop,
 } from '@/lib/delivery';
+import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
 import {
+  ApiError,
   geocodeAddress,
   getOrder,
   listOrders,
@@ -138,6 +142,7 @@ interface RouteRibbonProps {
   onSelectCourier: () => void;
   onSelectStop: (stopId: number) => void;
   onOptimize: () => void;
+  onSaveSettings: (input: RouteSettingsInput) => Promise<void>;
   onCancel: () => void;
   t: Translator;
 }
@@ -152,6 +157,7 @@ function RouteRibbon({
   onSelectCourier,
   onSelectStop,
   onOptimize,
+  onSaveSettings,
   onCancel,
   t,
 }: RouteRibbonProps) {
@@ -200,6 +206,16 @@ function RouteRibbon({
 
         <div className="mb-2 h-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
           <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: color }} />
+        </div>
+
+        <div className="mb-2">
+          <RouteSettingsEditor
+            route={route}
+            locale={locale}
+            disabled={busy || route.status !== 'draft'}
+            onSave={onSaveSettings}
+            t={t}
+          />
         </div>
 
         {route.status === 'draft' && (
@@ -466,6 +482,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
       courierId: route.courier_id,
       color: routeColorMap.get(route.id) ?? colorFor(0),
       stops: route.stops,
+      start: route.start_lat != null && route.start_lng != null
+        ? { lat: route.start_lat, lng: route.start_lng }
+        : undefined,
+      end: route.end_lat != null && route.end_lng != null
+        ? { lat: route.end_lat, lng: route.end_lng }
+        : undefined,
     })),
     [routes, routeColorMap],
   );
@@ -656,6 +678,23 @@ export default function DispatcherView({ rid }: { rid: number }) {
       await load();
     } catch (cause) {
       setError((cause as Error)?.message || t('deliveryPlanRecalculateFailed'));
+    } finally {
+      setRouteBusy(null);
+    }
+  };
+
+  const saveRouteSettings = async (routeId: number, input: RouteSettingsInput) => {
+    setRouteBusy(routeId);
+    setError(null);
+    try {
+      const updated = await updateRouteSettings(rid, routeId, input);
+      setRoutes((current) => current.map((route) => route.id === routeId ? updated : route));
+      setOpenRoutes((current) => current.map((route) => route.id === routeId ? updated : route));
+    } catch (cause) {
+      setError(cause instanceof ApiError
+        ? cause.details || cause.message
+        : (cause as Error)?.message || t('routeSettingsSaveFailed'));
+      throw cause;
     } finally {
       setRouteBusy(null);
     }
@@ -891,6 +930,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   setMoveTarget(null);
                 }}
                 onOptimize={() => void recalculateRoute(route.id)}
+                onSaveSettings={(input) => saveRouteSettings(route.id, input)}
                 onCancel={() => setUndoAction({ kind: 'route', routeId: route.id, stopCount: route.stops.length })}
                 t={t}
               />
