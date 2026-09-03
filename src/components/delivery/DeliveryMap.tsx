@@ -12,6 +12,8 @@ export interface RouteLayer {
   courierId: number;
   color: string;
   stops: RouteStop[];
+  start?: { lat: number; lng: number };
+  end?: { lat: number; lng: number };
 }
 
 export interface CourierMarker {
@@ -25,6 +27,9 @@ export interface CourierMarker {
 export interface DeliveryMapProps {
   /** Single-route convenience (courier view). Ignored if `routes` is provided. */
   stops?: RouteStop[];
+  /** Optional endpoints for the single courier route. */
+  start?: { lat: number; lng: number };
+  end?: { lat: number; lng: number };
   /** Multi-route (dispatcher view), each colored per courier. */
   routes?: RouteLayer[];
   /** Live courier position dots (dispatcher view). */
@@ -45,6 +50,20 @@ function located(stops: RouteStop[]): RouteStop[] {
 const HOME_ICON = L.divIcon({
   className: 'foody-home-pin',
   html: `<div style="background:${RESTAURANT_GREEN};color:#10271a;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">★</div>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+});
+
+const START_ICON = L.divIcon({
+  className: 'foody-route-start-pin',
+  html: `<div style="background:${RESTAURANT_GREEN};color:#10271a;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">▶</div>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+});
+
+const END_ICON = L.divIcon({
+  className: 'foody-route-end-pin',
+  html: `<div style="background:#252525;color:#fff;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">⚑</div>`,
   iconSize: [26, 26],
   iconAnchor: [13, 13],
 });
@@ -96,19 +115,21 @@ function FitBounds({ points }: { points: [number, number][] }) {
 }
 
 export default function DeliveryMap({
-  stops, routes, couriers, restaurant, highlightCourierId, onStopClick, className,
+  stops, start, end, routes, couriers, restaurant, highlightCourierId, onStopClick, className,
 }: DeliveryMapProps) {
   const layers: RouteLayer[] = useMemo(() => {
     if (routes && routes.length) return routes;
-    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops }];
+    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops, start, end }];
     return [];
-  }, [routes, stops]);
+  }, [end, routes, start, stops]);
 
   const points = useMemo<[number, number][]>(() => {
     const pts: [number, number][] = [];
     if (restaurant) pts.push([restaurant.lat, restaurant.lng]);
     for (const layer of layers) {
+      if (layer.start) pts.push([layer.start.lat, layer.start.lng]);
       for (const s of located(layer.stops)) pts.push([s.lat as number, s.lng as number]);
+      if (layer.end) pts.push([layer.end.lat, layer.end.lng]);
     }
     return pts;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: compare by primitive values to avoid re-snapping on object identity change
@@ -128,13 +149,16 @@ export default function DeliveryMap({
           const dim = highlightCourierId != null && layer.courierId !== highlightCourierId;
           const seq = located(layer.stops).sort((a, b) => a.sequence - b.sequence);
           const line: [number, number][] = [];
-          if (restaurant) line.push([restaurant.lat, restaurant.lng]);
+          if (layer.start) line.push([layer.start.lat, layer.start.lng]);
+          else if (restaurant) line.push([restaurant.lat, restaurant.lng]);
           seq.forEach((s) => line.push([s.lat as number, s.lng as number]));
+          if (layer.end) line.push([layer.end.lat, layer.end.lng]);
           return (
             <Fragment key={layer.routeId ?? layer.courierId}>
               {line.length > 1 && (
                 <Polyline positions={line} pathOptions={{ color: layer.color, opacity: dim ? 0.2 : 0.7, dashArray: '6 8' }} />
               )}
+              {layer.start && <Marker position={[layer.start.lat, layer.start.lng]} icon={START_ICON} />}
               {seq.map((s) => (
                 <Marker
                   key={s.id}
@@ -143,6 +167,7 @@ export default function DeliveryMap({
                   eventHandlers={onStopClick ? { click: () => onStopClick(s) } : undefined}
                 />
               ))}
+              {layer.end && <Marker position={[layer.end.lat, layer.end.lng]} icon={END_ICON} />}
             </Fragment>
           );
         })}

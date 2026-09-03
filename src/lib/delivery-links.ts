@@ -13,6 +13,14 @@ export function navUrl(stop: Pick<RouteStop, 'lat' | 'lng' | 'address' | 'city'>
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`;
 }
 
+/** Build a maps URL for a route endpoint. */
+export function endpointNavUrl(address: string, lat?: number | null, lng?: number | null): string {
+  if (lat != null && lng != null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  }
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+}
+
 /** tel: link from a phone number (strips spaces/dashes). */
 export function callUrl(phone: string): string {
   return `tel:${phone.replace(/[\s-]/g, '')}`;

@@ -6,11 +6,12 @@ import { useI18n } from '@/lib/i18n';
 import { useWs } from '@/lib/ws-context';
 import {
   getMyRoute, startRoute, markArrived, markStopDelivered, reorderStops, optimizeRoute,
-  listAvailableDeliveries, addStops,
-  type DeliveryRoute, type RouteStop,
+  listAvailableDeliveries, addStops, updateRouteSettings,
+  type DeliveryRoute, type RouteSettingsInput, type RouteStop,
 } from '@/lib/delivery';
-import type { Order } from '@/lib/api';
-import { navUrl, callUrl, whatsappUrl } from '@/lib/delivery-links';
+import { ApiError, type Order } from '@/lib/api';
+import { endpointNavUrl, navUrl, callUrl, whatsappUrl } from '@/lib/delivery-links';
+import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 import {
   buildDeliveryEtaLabel,
@@ -482,6 +483,22 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
       setRoute(await startRoute(rid, route.id));
     });
 
+  const onSaveSettings = async (input: RouteSettingsInput) => {
+    if (!route) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setRoute(await updateRouteSettings(rid, route.id, input, true));
+    } catch (cause) {
+      setError(cause instanceof ApiError
+        ? cause.details || cause.message
+        : (cause as Error)?.message || t('routeSettingsSaveFailed'));
+      throw cause;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onArrived = (stop: RouteStop) =>
     withBusy(async () => {
       if (!route) return;
@@ -627,6 +644,16 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
         {/* ── Assigned tab ─────────────────────────────────────────────── */}
         <TabsContent value="assigned">
           <div className="flex flex-col gap-[var(--s-4)]">
+            {stops.length > 0 && (
+              <RouteSettingsEditor
+                route={route}
+                locale={locale}
+                disabled={busy || route.status !== 'draft'}
+                onSave={onSaveSettings}
+                t={t}
+              />
+            )}
+
             {/* Compact route overview. The timeline remains the primary surface. */}
             {stops.length > 0 && (
               <Card className="overflow-hidden">
@@ -651,7 +678,12 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
                   </Button>
                 </div>
                 <div className={`transition-[height] duration-slow ease-out ${mapExpanded ? 'h-[42vh] min-h-[320px]' : 'h-44 sm:h-52'}`}>
-                  <DeliveryMap stops={stops} className="h-full w-full" />
+                  <DeliveryMap
+                    stops={stops}
+                    start={route.start_lat != null && route.start_lng != null ? { lat: route.start_lat, lng: route.start_lng } : undefined}
+                    end={route.end_lat != null && route.end_lng != null ? { lat: route.end_lat, lng: route.end_lng } : undefined}
+                    className="h-full w-full"
+                  />
                 </div>
               </Card>
             )}
@@ -782,6 +814,24 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
               {t('markArrived')}
             </Button>
           )}
+        </div>
+      )}
+
+      {tab === 'assigned' && !currentStop && route.end_address && (route.status === 'active' || route.status === 'completed') && (
+        <div
+          className="sticky bottom-3 z-[450] rounded-r-xl border border-[var(--line-strong)] p-3 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),env(safe-area-inset-bottom))]"
+          style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
+        >
+          <Button asChild variant="primary" size="lg" className="w-full justify-center">
+            <a
+              href={endpointNavUrl(route.end_address, route.end_lat, route.end_lng)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <NavigationIcon />
+              {t('routeSettingsNavigateEnd')}
+            </a>
+          </Button>
         </div>
       )}
     </div>
