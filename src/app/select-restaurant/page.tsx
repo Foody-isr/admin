@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getStoredRestaurantIds, getStoredUser, getRestaurant, Restaurant, isAuthenticated, canAccessAdmin, logout } from '@/lib/api';
 import { StoreIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { restaurantHomePath } from '@/lib/courier-access';
 
 export default function SelectRestaurantPage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function SelectRestaurantPage() {
       return;
     }
     if (rids.length === 1) {
-      router.replace(`/${rids[0]}/dashboard`);
+      router.replace(restaurantHomePath(rids[0], user?.role ?? ''));
       return;
     }
     // Resilient: a single failing restaurant fetch (expired token races, a
@@ -71,7 +72,7 @@ export default function SelectRestaurantPage() {
           {restaurants.map((r) => (
             <button
               key={r.id}
-              onClick={() => router.push(`/${r.id}/dashboard`)}
+              onClick={() => router.push(restaurantHomePath(r.id, getStoredUser()?.role ?? ''))}
               className="w-full card hover:border-brand-500 hover:shadow-md transition-all text-left flex items-center gap-4"
             >
               {r.logo_url ? (

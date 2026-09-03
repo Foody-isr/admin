@@ -1,24 +1,28 @@
-import type { RouteStop } from '@/lib/delivery';
-
-/**
- * Build a maps URL for a stop. Prefers precise coordinates; falls back to the
- * text address. Opens the device's default maps app (Google/Apple/Waze) for
- * real turn-by-turn — Foody does not draw road routes itself.
- */
-export function navUrl(stop: Pick<RouteStop, 'lat' | 'lng' | 'address' | 'city'>): string {
-  if (stop.lat != null && stop.lng != null) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`;
-  }
-  const addr = [stop.address, stop.city].filter(Boolean).join(', ');
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`;
+export interface NavigationDestination {
+  lat?: number | null;
+  lng?: number | null;
+  address: string;
+  city?: string;
 }
 
-/** Build a maps URL for a route endpoint. */
-export function endpointNavUrl(address: string, lat?: number | null, lng?: number | null): string {
-  if (lat != null && lng != null) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-  }
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+function destinationQuery(destination: NavigationDestination): string {
+  return [destination.address, destination.city].filter(Boolean).join(', ');
+}
+
+/** Google Maps directions URL for coordinates or a textual address. */
+export function googleNavigationUrl(destination: NavigationDestination): string {
+  const target = destination.lat != null && destination.lng != null
+    ? `${destination.lat},${destination.lng}`
+    : destinationQuery(destination);
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(target)}`;
+}
+
+/** Official Waze deep link; opens the app when installed and web otherwise. */
+export function wazeNavigationUrl(destination: NavigationDestination): string {
+  const target = destination.lat != null && destination.lng != null
+    ? `ll=${encodeURIComponent(`${destination.lat},${destination.lng}`)}`
+    : `q=${encodeURIComponent(destinationQuery(destination))}`;
+  return `https://www.waze.com/ul?${target}&navigate=yes`;
 }
 
 /** tel: link from a phone number (strips spaces/dashes). */
