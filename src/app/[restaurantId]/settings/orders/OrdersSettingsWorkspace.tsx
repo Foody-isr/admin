@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Settings2,
   ShoppingBag,
+  UtensilsCrossed,
 } from 'lucide-react';
 import {
   getRestaurant,
@@ -265,6 +266,7 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
   ];
   const tabs = allTabs.filter((tb) => isServiceEnabled(tb.key));
   const noServiceEnabled = tabs.length === 0;
+  const hasProcessingSettings = dineInEnabled || pickupEnabled;
   const effectiveActiveTab: OrderType = isServiceEnabled(activeTab) ? activeTab : tabs[0]?.key ?? activeTab;
   const weeklyHours = config[effectiveActiveTab] ?? defaultWeek();
   const openSomewhere = tabs.some((tb) => isScheduleOpenNow(tb.key));
@@ -1035,70 +1037,109 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
 
       {/* ── Service rules ────────────────────────────────────────────────── */}
       {view === 'processing' && (
-      <Section
-        id="service-rules"
-        className="scroll-mt-24 shadow-none"
-        title={t('ordersProcessingTitle') || 'Traitement des commandes'}
-        desc={t('ordersProcessingDesc') || 'Définissez comment le service traite une nouvelle commande.'}
-      >
-        <div className="grid grid-cols-1 gap-[var(--s-5)] md:grid-cols-2">
-            {!dineInEnabled && !pickupEnabled && (
-              <div className="md:col-span-2 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-4)] text-fs-sm text-[var(--fg-muted)]">
-                {t('ordersProcessingEmpty')}{' '}
-                <Link
-                  href={`/${rid}/settings/orders/availability`}
-                  className="font-semibold text-[var(--brand-500)] hover:underline"
-                >
-                  {t('ordersProcessingManage')}
-                </Link>
+        <>
+          <Section
+            className="shadow-none"
+            title={t('ordersProcessingGuideTitle') || 'Ce que cet écran contrôle'}
+          >
+            <div className="flex items-start gap-[var(--s-3)] rounded-r-md bg-[var(--surface-2)] p-[var(--s-4)]">
+              <Info className="mt-0.5 h-5 w-5 shrink-0 text-[var(--info-500)]" />
+              <p className="max-w-[72ch] text-fs-sm leading-[var(--lh-base)] text-[var(--fg-muted)]">
+                {t('ordersProcessingGuideDesc') ||
+                  'Ces réglages décrivent ce qui se passe après une commande : qui la remet au client et quel délai de préparation lui est annoncé.'}
+              </p>
+            </div>
+          </Section>
+
+          <Section
+            id="service-rules"
+            className="scroll-mt-24 shadow-none"
+            title={t('ordersProcessingSettingsTitle') || 'Réglages par mode de commande'}
+            desc={t('ordersProcessingSettingsDesc') || 'Chaque réglage s’applique uniquement au mode indiqué.'}
+          >
+            <div className="divide-y divide-[var(--line)] overflow-hidden rounded-r-lg border border-[var(--line)]">
+              <div className="grid gap-[var(--s-4)] p-[var(--s-4)] sm:grid-cols-[minmax(0,1fr)_260px] sm:items-center">
+                <div className="flex items-start gap-[var(--s-3)]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-r-md bg-[var(--surface-2)] text-[var(--fg-muted)]">
+                    <UtensilsCrossed className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <div className="text-fs-sm font-semibold text-[var(--fg)]">
+                      {t('ordersProcessingDineInTitle') || 'Commandes sur place'}
+                    </div>
+                    <p className="mt-1 text-fs-xs leading-[var(--lh-base)] text-[var(--fg-muted)]">
+                      {t('ordersProcessingDineInDesc') ||
+                        'Choisissez si le client récupère sa commande au comptoir ou si un serveur l’apporte à table. Ce choix modifie les étapes suivies par l’équipe.'}
+                    </p>
+                  </div>
+                </div>
+
+                {dineInEnabled ? (
+                  <div>
+                    <Field label={t('serviceMode') || 'Mode de service'}>
+                      <Select
+                        value={serviceMode}
+                        disabled={!canEdit}
+                        onChange={(e) => setServiceMode(e.target.value)}
+                      >
+                        <option value="table">{t('tableService') || 'Service à table'}</option>
+                        <option value="counter">{t('counterService') || 'Service au comptoir'}</option>
+                      </Select>
+                    </Field>
+                    <p className="mt-2 text-fs-xs leading-[var(--lh-base)] text-[var(--fg-subtle)]">
+                      {serviceMode === 'counter'
+                        ? t('ordersCounterServiceImpact') ||
+                          'Les clients récupèrent au comptoir. La commande passe par l’étape « Prête ».'
+                        : t('ordersTableServiceImpact') ||
+                          'Le personnel apporte la commande à table. Elle passe directement à l’étape « Servie ».'}
+                    </p>
+                  </div>
+                ) : (
+                  <InactiveOrderMode rid={rid} t={t} />
+                )}
               </div>
-            )}
-            {dineInEnabled && (
-              <Field
-                label={
-                  <span className="inline-flex items-center gap-2">
-                    {t('serviceMode') || 'Mode de service'}
-                    <ScopeTag>{t('dineIn') || 'Sur place'}</ScopeTag>
+
+              <div className="grid gap-[var(--s-4)] p-[var(--s-4)] sm:grid-cols-[minmax(0,1fr)_260px] sm:items-center">
+                <div className="flex items-start gap-[var(--s-3)]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-r-md bg-[var(--surface-2)] text-[var(--fg-muted)]">
+                    <ShoppingBag className="h-4 w-4" />
                   </span>
-                }
-                hint={
-                  t('serviceModeHint') ||
-                  'Concerne uniquement les commandes sur place (QR à table).'
-                }
-              >
-                <Select
-                  value={serviceMode}
-                  disabled={!canEdit}
-                  onChange={(e) => setServiceMode(e.target.value)}
-                >
-                  <option value="table">{t('tableService') || 'Service à table'}</option>
-                  <option value="counter">{t('counterService') || 'Service au comptoir'}</option>
-                </Select>
-              </Field>
-            )}
-            {pickupEnabled && (
-              <Field
-                label={
-                  <span className="inline-flex items-center gap-2">
-                    {t('pickupPrepTime') || 'Temps de préparation par défaut'}
-                    <ScopeTag>{t('pickup') || 'À emporter'}</ScopeTag>
-                  </span>
-                }
-              >
-                <Input
-                  type="number"
-                  min={0}
-                  max={240}
-                  value={prepTime}
-                  disabled={!canEdit}
-                  onChange={(e) => setPrepTime(Number(e.target.value))}
-                  className="font-mono"
-                  style={{ width: 120 }}
-                />
-              </Field>
-            )}
-        </div>
-      </Section>
+                  <div>
+                    <div className="text-fs-sm font-semibold text-[var(--fg)]">
+                      {t('ordersProcessingPickupTitle') || 'Commandes à emporter'}
+                    </div>
+                    <p className="mt-1 text-fs-xs leading-[var(--lh-base)] text-[var(--fg-muted)]">
+                      {t('ordersProcessingPickupDesc') ||
+                        'Définissez le délai de préparation estimé présenté au client avant une commande à emporter.'}
+                    </p>
+                  </div>
+                </div>
+
+                {pickupEnabled ? (
+                  <Field
+                    label={t('pickupPrepTime') || 'Temps de préparation par défaut'}
+                    hint={t('ordersPickupPrepHint') || 'Délai estimé affiché au client.'}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={240}
+                        value={prepTime}
+                        disabled={!canEdit}
+                        onChange={(e) => setPrepTime(Number(e.target.value))}
+                        className="w-[104px] font-mono"
+                      />
+                      <span className="text-fs-sm text-[var(--fg-muted)]">{t('ordersMinutesShort') || 'min'}</span>
+                    </div>
+                  </Field>
+                ) : (
+                  <InactiveOrderMode rid={rid} t={t} />
+                )}
+              </div>
+            </div>
+          </Section>
+        </>
       )}
 
       {/* ── Order workflow builder ───────────────────────────────────────── */}
@@ -1116,7 +1157,10 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
       </Section>
       )}
 
-          {view !== 'overview' && view !== 'workflow' && (canEdit || saved || saveError) && (
+          {view !== 'overview' &&
+            view !== 'workflow' &&
+            !(view === 'processing' && !hasProcessingSettings) &&
+            (canEdit || saved || saveError) && (
             <div className="sticky bottom-[var(--s-4)] z-10 mb-[var(--s-8)] flex flex-wrap items-center justify-end gap-[var(--s-3)] rounded-r-lg border border-[var(--line)] bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] p-[var(--s-3)] shadow-3 backdrop-blur-xl">
               {saved && (
                 <span className="me-auto text-fs-sm font-medium text-[var(--success-500)]">
@@ -1380,17 +1424,19 @@ function SettingsDestination({
 
 // A small pill marking which service a setting applies to — so it's obvious
 // that "Mode de service" and the prep time aren't global rules.
-function ScopeTag({ children }: { children: ReactNode }) {
+function InactiveOrderMode({ rid, t }: { rid: number; t: (key: string) => string }) {
   return (
-    <span
-      className="inline-flex items-center h-[18px] px-[6px] rounded-r-full text-fs-micro font-medium normal-case tracking-normal"
-      style={{
-        background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
-        color: 'var(--brand-600)',
-      }}
-    >
-      {children}
-    </span>
+    <div className="flex items-center justify-between gap-3 rounded-r-md bg-[var(--surface-2)] px-3 py-2.5">
+      <span className="text-fs-xs font-medium text-[var(--fg-subtle)]">
+        {t('ordersProcessingInactive') || 'Mode non activé'}
+      </span>
+      <Link
+        href={`/${rid}/settings/orders/availability`}
+        className="text-fs-xs font-semibold text-[var(--brand-500)] hover:underline"
+      >
+        {t('ordersProcessingManage') || 'Gérer les modes'}
+      </Link>
+    </div>
   );
 }
 
