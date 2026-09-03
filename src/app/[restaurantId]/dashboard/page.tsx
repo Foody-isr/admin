@@ -17,7 +17,8 @@ import {
   type DateBasis,
 } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
+import DateRangePicker, { type DateRange, type DateRangeChangeOptions } from '@/components/DateRangePicker';
+import { previousBlock, useOrderSeries } from '@/lib/series';
 import {
   clampWeekStartDay,
   getEffectiveWorkdays,
@@ -270,11 +271,20 @@ export default function DashboardPage() {
   // week config is loaded and the persisted selection is hydrated (rolling
   // presets re-resolved against today), so we load once with the right window.
   const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('today', 1));
-  // Order date vs série date. Both bases deliberately share `dateRange`, so
-  // changing the date field never changes the selected period or chart shape.
+  // Order date and série date deliberately share `dateRange`; série mode picks
+  // a fixed fulfilment day from the same calendar instead of using separate
+  // hidden picker state.
   const [basis, setBasis] = useState<DateBasis>('created');
   const [ready, setReady] = useState(false);
   const serieMode = basis === 'serie';
+  const serieList = useOrderSeries(rid);
+  const previousSerieRange = useMemo(() => {
+    if (!serieMode) return undefined;
+    return previousBlock(serieList, {
+      from: isoDate(dateRange.from),
+      to: isoDate(dateRange.to),
+    }) ?? undefined;
+  }, [serieMode, serieList, dateRange]);
   // The main chart tracks gross revenue; KPI cards are presentational.
   const metric: MetricKey = 'revenue';
 
@@ -303,10 +313,14 @@ export default function DashboardPage() {
     const days = daysInclusive(dateRange);
     const previousEnd = isoDate(addDays(dateRange.from, -1));
     Promise.allSettled([
-      getPeriodSummary(rid, scope, basis),
+      getPeriodSummary(rid, scope, basis, previousSerieRange),
       getTopSellers(rid, scope, basis),
       getDailySeries(rid, days, scope.to, basis),
-      getDailySeries(rid, days, previousEnd, basis),
+      serieMode
+        ? previousSerieRange
+          ? getDailySeries(rid, days, previousSerieRange.to, basis)
+          : Promise.resolve([] as DaySummary[])
+        : getDailySeries(rid, days, previousEnd, basis),
       getBreakdown(rid, { dimension: 'order_type', scope, basis }),
       listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
       listOrders(rid, { status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' }),
@@ -343,7 +357,7 @@ export default function DashboardPage() {
       .finally(() => {
         if (requestId === loadSequence.current) setLoading(false);
       });
-  }, [rid, dateRange, basis]);
+  }, [rid, dateRange, basis, serieMode, previousSerieRange]);
 
   // Switch the date basis and persist it; the load effect refetches on change.
   const onChangeBasis = useCallback((b: DateBasis) => {
@@ -356,9 +370,11 @@ export default function DashboardPage() {
   }, [load, ready]);
 
   // Persist the picked window; rolling presets store a re-resolving key.
-  const onPickRange = useCallback((range: DateRange) => {
+  const onPickRange = useCallback((range: DateRange, options?: DateRangeChangeOptions) => {
     setDateRange(range);
-    writeStoredSel(classifySelection(range, wsd));
+    writeStoredSel(options?.literal
+      ? { from: isoDate(range.from), to: isoDate(range.to) }
+      : classifySelection(range, wsd));
   }, [wsd]);
 
   const current = period?.current;
@@ -367,8 +383,12 @@ export default function DashboardPage() {
   const singleDay = sameYMD(dateRange.from, dateRange.to);
   const chartCapped = daysInclusive(dateRange) > 90;
 
-  const showDelta = true;
-  const vsLabel = singleDay ? t('vsYesterday') : t('vsPreviousPeriod');
+  const showDelta = !serieMode || previousSerieRange !== undefined;
+  const vsLabel = serieMode
+    ? t('vsPreviousSerie')
+    : singleDay
+      ? t('vsYesterday')
+      : t('vsPreviousPeriod');
 
   // Human label for the active window. `end` is exclusive (next midnight), so the
   // multi-day form shows the inclusive last day.
@@ -504,6 +524,7 @@ export default function DashboardPage() {
               align="right"
               basis={basis}
               onBasisChange={onChangeBasis}
+              series={serieList}
             />
             <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
               <RefreshCw />
@@ -902,40 +923,8 @@ function MetricChart({
   }
   const hasPrevious = previousData.some((d) => d.value > 0);
   const max = Math.max(1, ...data.map((d) => d.value), ...previousData.map((d) => d.value));
-  const compact = data.length === 1;
   const average = data.reduce((sum, d) => sum + d.value, 0) / data.length;
   const peak = data.reduce((highest, datum) => datum.value > highest.value ? datum : highest, data[0]);
-
-  if (compact) {
-    const current = data[0];
-    const prior = previousData[0]?.value ?? 0;
-    return (
-      <div className="flex h-[190px] items-end justify-center gap-[var(--s-8)] md:gap-[var(--s-12)]">
-        {hasPrevious && (
-          <div className="h-full w-24 flex flex-col items-center justify-end gap-[var(--s-2)]">
-            <span className="text-fs-sm font-semibold tabular-nums text-[var(--fg-muted)]">{fmt(prior)}</span>
-            <div className="flex h-[120px] w-full items-end justify-center">
-              <div className="w-14 rounded-t-[var(--r-sm)] bg-[var(--line-strong)]" style={{ height: `${Math.max(4, (prior / max) * 100)}%` }} />
-            </div>
-            <span className="text-fs-xs font-medium text-[var(--fg-muted)] text-center">{previousLabel}</span>
-          </div>
-        )}
-        <div className="h-full w-28 flex flex-col items-center justify-end gap-[var(--s-2)]">
-          <span className="text-fs-md font-semibold tabular-nums text-[var(--fg)]">{fmt(current.value)}</span>
-          <div className="flex h-[120px] w-full items-end justify-center">
-            <div
-              className="w-16 rounded-t-[var(--r-md)] shadow-2"
-              style={{
-                height: `${Math.max(4, (current.value / max) * 100)}%`,
-                background: 'linear-gradient(180deg, var(--brand-400), var(--brand-600))',
-              }}
-            />
-          </div>
-          <span className="text-fs-xs font-semibold text-[var(--fg)] text-center">{currentLabel}</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div>
