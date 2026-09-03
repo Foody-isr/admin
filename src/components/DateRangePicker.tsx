@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarClock,
   CalendarDays,
-  CheckCircle,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -20,9 +19,14 @@ export interface DateRange {
   to: Date;
 }
 
+export interface DateRangeChangeOptions {
+  /** Store this as fixed dates even when it happens to match a rolling preset. */
+  literal?: boolean;
+}
+
 interface DateRangePickerProps {
   value: DateRange;
-  onChange: (range: DateRange) => void;
+  onChange: (range: DateRange, options?: DateRangeChangeOptions) => void;
   /** First day of the week (0=Sun … 6=Sat). Drives "This/Last week" presets
    *  and the calendar-grid column order. Defaults to Sunday. */
   weekStartDay?: number;
@@ -43,6 +47,9 @@ interface DateRangePickerProps {
    *  popover so callers expose one coherent date filter instead of two menus. */
   basis?: DateBasis;
   onBasisChange?: (basis: DateBasis) => void;
+  /** Fulfilment dates shown when the optional "Series" calendar mode is
+   *  active. Dates must be ISO YYYY-MM-DD; newest-first is preferred. */
+  series?: Array<{ date: string }>;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -176,6 +183,7 @@ export default function DateRangePicker({
   align = 'left',
   basis,
   onBasisChange,
+  series = [],
 }: DateRangePickerProps) {
   const { t, locale, direction } = useI18n();
   const wsd = clampWeekStartDay(weekStartDay);
@@ -228,6 +236,7 @@ export default function DateRangePicker({
   const serieMode = basis === 'serie';
   const basisLabel = serieMode ? t('dashboardServicesScheduled') : t('dashboardOrdersPlaced');
   const BasisIcon = serieMode ? CalendarClock : CalendarDays;
+  const seriesDateSet = useMemo(() => new Set(series.map((item) => item.date)), [series]);
 
   const days = daysInMonth(viewYear, viewMonth);
   const firstDay = firstColumn(viewYear, viewMonth, wsd);
@@ -243,14 +252,42 @@ export default function DateRangePicker({
   };
 
   const applyRange = (range: DateRange) => {
+    onBasisChange?.('created');
     setTempFrom(range.from);
     setTempTo(range.to);
     onChange(range);
     setOpen(false);
   };
 
+  const activateSeries = () => {
+    onBasisChange?.('serie');
+    setPicking('idle');
+    const latest = series[0]?.date;
+    if (!latest) return;
+    const date = new Date(`${latest}T00:00:00`);
+    setViewMonth(date.getMonth());
+    setViewYear(date.getFullYear());
+    setTempFrom(startOfDay(date));
+    setTempTo(endOfDay(date));
+    onChange({ from: startOfDay(date), to: endOfDay(date) }, { literal: true });
+  };
+
+  const activateCustom = () => {
+    onBasisChange?.('created');
+    setPicking('idle');
+  };
+
   const handleDayClick = (day: number) => {
     const clicked = new Date(viewYear, viewMonth, day);
+
+    if (serieMode) {
+      const selected = { from: startOfDay(clicked), to: endOfDay(clicked) };
+      setTempFrom(selected.from);
+      setTempTo(selected.to);
+      onChange(selected, { literal: true });
+      setOpen(false);
+      return;
+    }
 
     if (picking === 'idle' || picking === 'end') {
       // Start new selection
@@ -280,6 +317,23 @@ export default function DateRangePicker({
   // 'right' aligns the wide dropdown to the trigger's end so it opens inward
   // (used in right-aligned headers). Mirrored under RTL. Default stays left-0.
   const dropdownAlignClass = align === 'right' ? (direction === 'rtl' ? 'left-0' : 'right-0') : 'left-0';
+
+  const presetButton = (entry: Entry) => {
+    const isActive = !serieMode && activeId === entry.id;
+    return (
+      <button
+        key={entry.id}
+        type="button"
+        onClick={() => applyRange(entry.range)}
+        className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-subtle)] sm:w-full sm:px-4 ${
+          isActive ? 'font-semibold text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
+        }`}
+        style={isActive ? { background: 'var(--surface-subtle)' } : undefined}
+      >
+        {entry.label}
+      </button>
+    );
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -316,84 +370,38 @@ export default function DateRangePicker({
           className={`absolute top-full ${dropdownAlignClass} mt-1 z-50 flex w-[470px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-card shadow-xl`}
           style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
         >
-          {hasBasisControl && (
-            <div className="border-b border-[var(--line)] p-3">
-              <div className="mb-2 text-[11px] font-medium text-[var(--fg-muted)]">{t('dashboardAnalyzeBy')}</div>
-              <div role="radiogroup" aria-label={t('dashboardAnalyzeBy')} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {([
-                  {
-                    key: 'created' as const,
-                    icon: CalendarDays,
-                    label: t('dashboardOrdersPlaced'),
-                    hint: t('dashboardOrdersPlacedHint'),
-                  },
-                  {
-                    key: 'serie' as const,
-                    icon: CalendarClock,
-                    label: t('dashboardServicesScheduled'),
-                    hint: t('dashboardServicesScheduledHint'),
-                  },
-                ]).map((option) => {
-                  const selected = basis === option.key;
-                  const Icon = option.icon;
-                  return (
-                    <button
-                      key={option.key}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => onBasisChange?.(option.key)}
-                      className={`relative flex min-h-[68px] w-full items-start gap-2.5 rounded-[var(--r-md)] border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:shadow-ring sm:w-[218px] ${
-                        selected
-                          ? 'border-[var(--brand-400)] bg-[var(--brand-50)]'
-                          : 'border-[var(--line)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'
-                      }`}
-                    >
-                      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${selected ? 'text-[var(--brand-600)]' : 'text-[var(--fg-muted)]'}`} />
-                      <span className="min-w-0 pe-4">
-                        <span className="block text-fs-sm font-semibold text-[var(--fg)]">{option.label}</span>
-                        <span className="mt-0.5 block text-[11px] leading-snug text-[var(--fg-muted)]">{option.hint}</span>
-                      </span>
-                      {selected && <CheckCircle className="absolute end-2 top-2 h-3.5 w-3.5 text-[var(--brand-600)]" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           <div className="flex flex-col sm:flex-row">
             {/* Left: presets */}
             <div className="flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-[var(--divider)] py-3 sm:block sm:max-h-[380px] sm:w-36 sm:overflow-y-auto sm:border-b-0 sm:border-e">
               {hasBasisControl && (
                 <div className="hidden px-4 pb-1 text-[11px] font-medium text-[var(--fg-muted)] sm:block">{t('dashboardDateRange')}</div>
               )}
-              {builtinEntries.map((e) => {
-                const isActive = activeId === e.id;
-                return (
-                  <button
-                    key={e.id}
-                    type="button"
-                    onClick={() => applyRange(e.range)}
-                    className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-subtle)] sm:w-full sm:px-4 ${
-                      isActive ? 'font-semibold text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
-                    }`}
-                    style={isActive ? { background: 'var(--surface-subtle)' } : undefined}
-                  >
-                    {e.label}
-                  </button>
-                );
-              })}
+              {builtinEntries.slice(0, 2).map(presetButton)}
+              {hasBasisControl && (
+                <button
+                  type="button"
+                  onClick={activateSeries}
+                  className={`flex w-auto shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors sm:w-full sm:px-4 ${
+                    serieMode
+                      ? 'bg-[var(--brand-50)] font-semibold text-[var(--brand-700)]'
+                      : 'text-fg-secondary hover:bg-[var(--surface-subtle)] hover:text-fg-primary'
+                  }`}
+                >
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  {t('dashboardSeries')}
+                </button>
+              )}
+              {builtinEntries.slice(2).map(presetButton)}
 
               {/* Custom (fallback) — highlights when the range matches no preset.
                   Pick a custom window by clicking two days on the calendar. */}
               <button
                 type="button"
-                onClick={() => setPicking('idle')}
+                onClick={activateCustom}
                 className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-subtle)] sm:w-full sm:px-4 ${
-                  isCustomActive ? 'font-semibold text-fg-primary' : 'font-medium text-fg-primary'
+                  !serieMode && isCustomActive ? 'font-semibold text-fg-primary' : 'font-medium text-fg-primary'
                 }`}
-                style={isCustomActive ? { background: 'var(--surface-subtle)' } : undefined}
+                style={!serieMode && isCustomActive ? { background: 'var(--surface-subtle)' } : undefined}
               >
                 {t('drCustom')}
               </button>
@@ -437,28 +445,37 @@ export default function DateRangePicker({
                 if (day === null) return <div key={`empty-${i}`} />;
 
                 const date = new Date(viewYear, viewMonth, day);
+                const dateKey = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isSerieDate = seriesDateSet.has(dateKey);
+                const disabled = serieMode && !isSerieDate;
                 const isToday = sameDay(date, now);
-                const isSelected = sameDay(date, tempFrom) || sameDay(date, tempTo);
-                const isInRange = inRange(date, tempFrom, tempTo);
-                const isOffDay = workdaySet !== null && !workdaySet.has(date.getDay());
+                const isSelected = (!serieMode || isSerieDate) && (sameDay(date, tempFrom) || sameDay(date, tempTo));
+                const isInRange = !serieMode && inRange(date, tempFrom, tempTo);
+                const isOffDay = !serieMode && workdaySet !== null && !workdaySet.has(date.getDay());
 
                 return (
                   <button
                     key={day}
                     type="button"
+                    disabled={disabled}
                     onClick={() => handleDayClick(day)}
-                    className={`w-10 h-10 mx-auto flex items-center justify-center text-sm rounded-full transition-colors ${
+                    className={`relative mx-auto flex h-10 w-10 items-center justify-center rounded-full text-sm transition-colors ${
                       isSelected
                         ? 'bg-fg-primary text-[var(--surface)] font-bold'
+                        : disabled
+                        ? 'cursor-not-allowed text-fg-secondary opacity-25'
                         : isInRange
                         ? 'bg-[var(--surface-subtle)] text-fg-primary'
                         : isToday
                         ? 'font-bold text-fg-primary'
                         : 'text-fg-secondary hover:bg-[var(--surface-subtle)]'
                     } ${isOffDay && !isSelected && !isInRange ? 'opacity-40' : ''}`}
-                    style={isToday && !isSelected ? { boxShadow: 'inset 0 0 0 1.5px var(--text-primary)' } : undefined}
+                    style={isToday && !isSelected && !disabled ? { boxShadow: 'inset 0 0 0 1.5px var(--text-primary)' } : undefined}
                   >
                     {day}
+                    {serieMode && isSerieDate && !isSelected && (
+                      <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-[var(--brand-500)]" />
+                    )}
                   </button>
                 );
               })}
