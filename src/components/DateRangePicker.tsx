@@ -78,6 +78,10 @@ function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+function isoDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function inRange(d: Date, from: Date, to: Date): boolean {
   const t = d.getTime();
   return t >= startOfDay(from).getTime() && t <= endOfDay(to).getTime();
@@ -243,6 +247,21 @@ export default function DateRangePicker({
   const serieMode = basis === 'serie';
   const seriesDateSet = useMemo(() => new Set(series.map((item) => item.date)), [series]);
 
+  // Migrate legacy consumers that persisted the date basis separately from the
+  // old série picker. A série selection must always start and end on real série
+  // dates; otherwise resolve it to the latest available one in this shared UI.
+  useEffect(() => {
+    if (!serieMode || series.length === 0) return;
+    if (seriesDateSet.has(isoDay(value.from)) && seriesDateSet.has(isoDay(value.to))) return;
+    const date = new Date(`${series[0].date}T00:00:00`);
+    const selected = { from: startOfDay(date), to: endOfDay(date) };
+    setViewMonth(date.getMonth());
+    setViewYear(date.getFullYear());
+    setTempFrom(selected.from);
+    setTempTo(selected.to);
+    onChange(selected, { literal: true });
+  }, [onChange, serieMode, series, seriesDateSet, value.from, value.to]);
+
   const days = daysInMonth(viewYear, viewMonth);
   const firstDay = firstColumn(viewYear, viewMonth, wsd);
 
@@ -265,10 +284,10 @@ export default function DateRangePicker({
   };
 
   const activateSeries = () => {
-    onBasisChange?.('serie');
-    setPicking('idle');
     const latest = series[0]?.date;
     if (!latest) return;
+    onBasisChange?.('serie');
+    setPicking('idle');
     const date = new Date(`${latest}T00:00:00`);
     setViewMonth(date.getMonth());
     setViewYear(date.getFullYear());
@@ -397,9 +416,12 @@ export default function DateRangePicker({
                 <button
                   type="button"
                   onClick={activateSeries}
+                  disabled={series.length === 0}
                   className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors sm:w-full sm:px-4 ${
                     serieMode
                       ? 'bg-[var(--brand-50)] font-semibold text-[var(--brand-700)]'
+                      : series.length === 0
+                      ? 'cursor-not-allowed text-fg-secondary opacity-40'
                       : 'text-fg-secondary hover:bg-[var(--surface-subtle)] hover:text-fg-primary'
                   }`}
                 >
@@ -460,7 +482,7 @@ export default function DateRangePicker({
                 if (day === null) return <div key={`empty-${i}`} />;
 
                 const date = new Date(viewYear, viewMonth, day);
-                const dateKey = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dateKey = isoDay(date);
                 const isSerieDate = seriesDateSet.has(dateKey);
                 const disabled = serieMode && !isSerieDate;
                 const isToday = sameDay(date, now);
