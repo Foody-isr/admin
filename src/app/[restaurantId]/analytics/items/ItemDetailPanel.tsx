@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { XIcon } from 'lucide-react';
-import { getAnalyticsItemDetail, ItemSalesDetail } from '@/lib/api';
-import type { DateBasis } from '@/components/DateBasisToggle';
+import { getAnalyticsItemDetail, ItemSalesDetail, type DateBasis } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { Badge } from '@/components/ds';
 import { ComboTooltip } from './ComboTooltip';

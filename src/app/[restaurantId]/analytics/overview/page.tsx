@@ -14,9 +14,9 @@ import {
   type TopSeller,
 } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
-import DateBasisToggle from '@/components/DateBasisToggle';
+import DateRangePicker, { type DateRange, type DateRangeChangeOptions } from '@/components/DateRangePicker';
 import { clampWeekStartDay, isoDate, type WeekStartDay } from '@/lib/weeks';
+import { useOrderSeries } from '@/lib/series';
 import {
   classifySelection,
   daysInclusive,
@@ -89,6 +89,7 @@ export default function AnalyticsOverviewPage() {
   const [wsd, setWsd] = useState<WeekStartDay>(1);
   const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('allTime', 1));
   const [basis, setBasis] = useState<DateBasis>('created');
+  const serieList = useOrderSeries(rid);
   const [ready, setReady] = useState(false);
 
   const [period, setPeriod] = useState<PeriodComparison | null>(null);
@@ -160,9 +161,11 @@ export default function AnalyticsOverviewPage() {
   }, [ready, load]);
 
   const onPickRange = useCallback(
-    (range: DateRange) => {
+    (range: DateRange, options?: DateRangeChangeOptions) => {
       setDateRange(range);
-      writeStoredSel(RANGE_STORAGE_KEY, classifySelection(range, wsd));
+      writeStoredSel(RANGE_STORAGE_KEY, options?.literal
+        ? { from: isoDate(range.from), to: isoDate(range.to) }
+        : classifySelection(range, wsd));
     },
     [wsd],
   );
@@ -191,8 +194,15 @@ export default function AnalyticsOverviewPage() {
         desc={t('reportsOverviewDesc') || 'Explorez vos données financières'}
         actions={
           <>
-            <DateBasisToggle value={basis} onChange={onChangeBasis} />
-            <DateRangePicker value={dateRange} onChange={onPickRange} weekStartDay={wsd} align="right" />
+            <DateRangePicker
+              value={dateRange}
+              onChange={onPickRange}
+              weekStartDay={wsd}
+              align="right"
+              basis={basis}
+              onBasisChange={onChangeBasis}
+              series={serieList}
+            />
             <Button variant="secondary" size="md" onClick={onExportTrend} disabled={!trend.length}>
               <Download /> {t('export')}
             </Button>
