@@ -114,6 +114,20 @@ function FitBounds({ points }: { points: [number, number][] }) {
   return null;
 }
 
+/** Keep Leaflet in sync when its responsive container is collapsed or resized. */
+function SyncMapSize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    const observer = new ResizeObserver(() => map.invalidateSize({ animate: false }));
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [map]);
+
+  return null;
+}
+
 export default function DeliveryMap({
   stops, start, end, routes, couriers, restaurant, highlightCourierId, onStopClick, className,
 }: DeliveryMapProps) {
@@ -140,6 +154,7 @@ export default function DeliveryMap({
   return (
     <div className={cn('isolate', className)}>
       <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+        <SyncMapSize />
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

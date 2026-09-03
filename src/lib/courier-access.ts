@@ -11,3 +11,9 @@ export function isCourierDeliveryPath(pathname: string, restaurantId: number): b
   return pathname === deliveryPath || pathname.startsWith(`${deliveryPath}/`);
 }
 
+/** Landing page for a restaurant account, keeping couriers out of the admin dashboard. */
+export function restaurantHomePath(restaurantId: number, roleName: string): string {
+  return isCourierRoleName(roleName)
+    ? `/${restaurantId}/orders/deliveries`
+    : `/${restaurantId}/dashboard`;
+}

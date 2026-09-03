@@ -15,6 +15,7 @@ import {
   logout,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { restaurantHomePath } from '@/lib/courier-access';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function LoginPage() {
         return;
       }
       if (rids.length === 1) {
-        router.replace(`/${rids[0]}/dashboard`);
+        router.replace(restaurantHomePath(rids[0], user?.role ?? ''));
       } else if (rids.length > 1) {
         router.replace('/select-restaurant');
       }
@@ -62,13 +63,13 @@ export default function LoginPage() {
     });
   }, []);
 
-  const routeAfterLogin = (restaurantIds: number[]) => {
+  const routeAfterLogin = (restaurantIds: number[], roleName: string) => {
     if (restaurantIds.length === 0) {
       setError(t('noRestaurantAssigned'));
       return;
     }
     if (restaurantIds.length === 1) {
-      router.push(`/${restaurantIds[0]}/dashboard`);
+      router.push(restaurantHomePath(restaurantIds[0], roleName));
     } else {
       router.push('/select-restaurant');
     }
@@ -79,8 +80,8 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const { restaurant_ids } = await login(email, password, remember);
-      routeAfterLogin(restaurant_ids);
+      const { restaurant_ids, user } = await login(email, password, remember);
+      routeAfterLogin(restaurant_ids, user.role);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('loginFailed'));
     } finally {
@@ -92,8 +93,8 @@ export default function LoginPage() {
     setError('');
     setPasskeyLoading(true);
     try {
-      const { restaurant_ids } = await loginWithPasskey(remember);
-      routeAfterLogin(restaurant_ids);
+      const { restaurant_ids, user } = await loginWithPasskey(remember);
+      routeAfterLogin(restaurant_ids, user.role);
     } catch (err: unknown) {
       // Silently ignore the user dismissing the Face ID prompt; on a real
       // failure, surface the error and fall back to the password form so the

@@ -49,6 +49,7 @@ export const viewport: Viewport = {
   // forcing inputs to 16px on mobile (see globals.css).
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
