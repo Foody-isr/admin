@@ -361,6 +361,18 @@ export default function ProductionPage() {
       </PopoverContent>
     </Popover>
   );
+  const searchControl = (
+    <div className="relative min-w-[240px] flex-1">
+      <SearchIcon className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+      <input
+        type="text"
+        placeholder={t('productionSearchClient')}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="h-11 w-full rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)] ps-11 pe-3 text-fs-sm text-[var(--fg)] placeholder:text-[var(--fg-subtle)] transition-colors focus:border-[var(--brand-500)] focus:outline-none focus:shadow-ring"
+      />
+    </div>
+  );
 
   return (
     <div
@@ -373,15 +385,16 @@ export default function ProductionPage() {
     >
       {fullscreen ? (
         /* Maximized, table-only header */
-        <div className="flex items-center justify-between gap-[var(--s-3)] flex-wrap">
+        <div className="flex flex-wrap items-center gap-[var(--s-3)]">
           <div className="flex items-center gap-[var(--s-3)]">
             <h1 className="text-fs-xl font-semibold leading-none">{t('productionTitle')}</h1>
             {date && <DateStepper date={date} days={days} onChange={setDate} />}
             {view === 'production' && displayControl}
           </div>
+          {view === 'production' && searchControl}
           <button
             onClick={exitFullscreen}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-10 rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)] text-fs-sm font-medium hover:bg-[var(--surface-2)] transition-colors"
+            className="inline-flex h-10 shrink-0 items-center gap-[var(--s-2)] rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-4)] text-fs-sm font-medium transition-colors hover:bg-[var(--surface-2)]"
           >
             <Minimize2Icon className="w-4 h-4" />
             {t('productionExitFullscreen')}
@@ -466,16 +479,7 @@ export default function ProductionPage() {
 
             {view === 'production' && (
               <div className="flex flex-wrap items-center gap-[var(--s-3)]">
-                <div className="relative flex-1 min-w-[240px]">
-                  <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder={t('productionSearchClient')}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
-                  />
-                </div>
+                {searchControl}
                 {displayControl}
               </div>
             )}
