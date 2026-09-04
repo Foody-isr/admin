@@ -118,7 +118,26 @@ export interface Restaurant {
    * See `@/lib/orders/table-config`.
    */
   orders_table_config?: OrdersTableConfig;
+  /** Restaurant defaults; each staff user may override these per restaurant. */
+  orders_default_date_basis?: DateBasis;
+  dashboard_default_date_basis?: DateBasis;
   created_at: string;
+}
+
+export interface DisplayPreferences {
+  orders_date_basis: DateBasis;
+  dashboard_date_basis: DateBasis;
+  orders_date_basis_override?: DateBasis | null;
+  dashboard_date_basis_override?: DateBasis | null;
+  orders_restaurant_default: DateBasis;
+  dashboard_restaurant_default: DateBasis;
+}
+
+export interface DisplayPreferencePatch {
+  orders_date_basis?: DateBasis;
+  dashboard_date_basis?: DateBasis;
+  reset_orders_date_basis?: boolean;
+  reset_dashboard_date_basis?: boolean;
 }
 
 /**
@@ -2419,6 +2438,26 @@ export async function updateRestaurant(id: number, input: Partial<Restaurant>): 
     { method: 'PUT', body: JSON.stringify(input) }
   );
   return data.restaurant;
+}
+
+/** Resolve the calling user's display preferences over the restaurant defaults. */
+export async function getDisplayPreferences(restaurantId: number): Promise<DisplayPreferences> {
+  return apiFetch<DisplayPreferences>(
+    `/api/v1/display-preferences?restaurant_id=${restaurantId}`,
+    restaurantId,
+  );
+}
+
+/** Persist the calling user's view defaults for one restaurant. */
+export async function updateDisplayPreferences(
+  restaurantId: number,
+  patch: DisplayPreferencePatch,
+): Promise<DisplayPreferences> {
+  return apiFetch<DisplayPreferences>(
+    `/api/v1/display-preferences?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(patch) },
+  );
 }
 
 export async function getRestaurantSettings(id: number): Promise<RestaurantSettings> {

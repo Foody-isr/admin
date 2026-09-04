@@ -10,6 +10,7 @@ import {
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   setOrderForceProduction,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
+  getDisplayPreferences, updateDisplayPreferences,
   Order, OrderStatus, PaymentStatus, ListOrdersParams, type DateBasis,
   type ManualPaymentMethod,
   type OrderCustomerDetailsInput,
@@ -174,6 +175,9 @@ export default function OrdersPage() {
   // The shared picker owns both calendar ranges and série ranges. `dateField`
   // only tells the API which order date the selected window applies to.
   const [dateField, setDateField] = useState<DateBasis>('created');
+  const [defaultDateField, setDefaultDateField] = useState<DateBasis>('created');
+  const [filtersReady, setFiltersReady] = useState(false);
+  const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
   const serieList = useOrderSeries(rid);
   const [page, setPage] = useState(0);
   const [queueCounts, setQueueCounts] = useState<Partial<Record<OperationsQueueKey, number>>>({});
@@ -221,6 +225,28 @@ export default function OrdersPage() {
         setTableConfig(r.orders_table_config ?? null);
       })
       .catch(() => {});
+  }, [rid]);
+
+  // Resolve the user's personal basis over the restaurant default before the
+  // first list request, avoiding a misleading flash of creation-date orders.
+  useEffect(() => {
+    if (!rid) return;
+    let active = true;
+    setFiltersReady(false);
+    getDisplayPreferences(rid)
+      .then((preferences) => {
+        if (!active) return;
+        setDateField(preferences.orders_date_basis);
+        setDefaultDateField(preferences.orders_date_basis);
+        setPreferenceSaveFailed(false);
+      })
+      .catch(() => {
+        if (active) setPreferenceSaveFailed(true);
+      })
+      .finally(() => {
+        if (active) setFiltersReady(true);
+      });
+    return () => { active = false; };
   }, [rid]);
 
   // Which columns the table shows, and in what order. Shared by every staff
@@ -314,6 +340,7 @@ export default function OrdersPage() {
   // ─── Fetch ────────────────────────────────────────────────────────
 
   const fetchOrders = useCallback(async (showLoading = true) => {
+    if (!filtersReady) return;
     if (showLoading) setLoading(true);
     const tab = TABS.find((t) => t.key === activeTab)!;
     const params: ListOrdersParams = {
@@ -345,11 +372,12 @@ export default function OrdersPage() {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page, setOrders]);
+  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page, setOrders, filtersReady]);
 
   useEffect(() => { void fetchOrders(); }, [fetchOrders]);
 
   const fetchQueueCounts = useCallback(async () => {
+    if (!filtersReady) return;
     setQueueCountsLoading(true);
     const base: ListOrdersParams = {
       from: isoDate(dateRange.from),
@@ -380,7 +408,7 @@ export default function OrdersPage() {
     } finally {
       setQueueCountsLoading(false);
     }
-  }, [rid, dateRange, dateField, typeFilter, paymentFilter]);
+  }, [rid, dateRange, dateField, typeFilter, paymentFilter, filtersReady]);
 
   useEffect(() => { void fetchQueueCounts(); }, [fetchQueueCounts]);
 
@@ -415,6 +443,14 @@ export default function OrdersPage() {
       });
     }
 
+    // In série mode a newly created order may belong to another fulfillment
+    // day, and an update may have moved an existing row out of this série.
+    // Re-read the filtered page instead of blindly upserting the websocket row.
+    if (dateField === 'serie') {
+      void Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+      return;
+    }
+
     setOrders((prev) => {
       const idx = prev.findIndex((o) => o.id === wsOrder.id);
       if (type === 'order.created') {
@@ -427,7 +463,7 @@ export default function OrdersPage() {
       return next;
     });
     void fetchQueueCounts();
-  }, [lastEvent, isProcessing, playSound, notify, t, fetchQueueCounts, setOrders]);
+  }, [lastEvent, isProcessing, playSound, notify, t, dateField, fetchOrders, fetchQueueCounts, setOrders]);
 
   // ─── Actions ──────────────────────────────────────────────────────
 
@@ -686,7 +722,7 @@ export default function OrdersPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const today = isoDate(new Date());
   const hasDateFilter =
-    dateField !== 'created' || isoDate(dateRange.from) !== today || isoDate(dateRange.to) !== today;
+    dateField !== defaultDateField || isoDate(dateRange.from) !== today || isoDate(dateRange.to) !== today;
   const activeFilterCount = [!!typeFilter, !!paymentFilter, hasDateFilter].filter(Boolean).length;
   const activeQueueKey = OPERATIONS_QUEUES.some((queue) => queue.key === activeTab)
     ? activeTab as OperationsQueueKey
@@ -700,9 +736,18 @@ export default function OrdersPage() {
     setTypeFilter('');
     setPaymentFilter('');
     setDateRange(defaultDateRange());
-    setDateField('created');
+    setDateField(defaultDateField);
     setPage(0);
   };
+
+  const changeDateField = useCallback((nextBasis: DateBasis) => {
+    setDateField(nextBasis);
+    setDefaultDateField(nextBasis);
+    setPage(0);
+    setPreferenceSaveFailed(false);
+    void updateDisplayPreferences(rid, { orders_date_basis: nextBasis })
+      .catch(() => setPreferenceSaveFailed(true));
+  }, [rid]);
 
   // ─── Render ───────────────────────────────────────────────────────
 
@@ -952,7 +997,7 @@ export default function OrdersPage() {
             workdays={workdays}
             restaurantId={rid}
             basis={dateField}
-            onBasisChange={(nextBasis) => { setDateField(nextBasis); setPage(0); }}
+            onBasisChange={changeDateField}
             series={serieList}
           />
 
@@ -986,6 +1031,12 @@ export default function OrdersPage() {
               <ListFilterIcon />
               {t('ordersResetFiltersWithCount').replace('{n}', String(activeFilterCount))}
             </Button>
+          )}
+
+          {preferenceSaveFailed && (
+            <span className="text-fs-xs text-[var(--warning-600)]" role="status">
+              {t('displayPreferenceSaveFailed')}
+            </span>
           )}
 
           <div className="ms-auto flex items-center gap-2">

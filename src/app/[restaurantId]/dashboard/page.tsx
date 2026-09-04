@@ -8,6 +8,8 @@ import {
   getDailySeries,
   getBreakdown,
   getRestaurant,
+  getDisplayPreferences,
+  updateDisplayPreferences,
   listOrders,
   type BreakdownRow,
   type PeriodComparison,
@@ -49,6 +51,7 @@ import {
 } from '@/components/ds';
 import { InfoTip } from '@/components/help/InfoTip';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
+import { useAuth } from '@/lib/auth-context';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
@@ -78,18 +81,14 @@ interface ChannelDatum {
   color: string;
 }
 
-// The dashboard period is remembered across navigation as a single shared
-// preference. Rolling presets (today, last 7 days, this week…) are stored as a
-// re-resolving KEY so they stay fresh across days; a custom or saved window is
-// stored as literal dates. Bumped to v2 when the enum toggle became the picker.
-const RANGE_STORAGE_KEY = 'foody.dashboard.range.v2';
-// Persisted separately from the window so the chosen date basis (order date vs
-// série/fulfillment date) survives navigation just like the range does.
-const BASIS_STORAGE_KEY = 'foody.dashboard.basis.v1';
+// The dashboard period is remembered per user and restaurant. Rolling presets
+// (today, last 7 days, this week…) are stored as a re-resolving key so they stay
+// fresh across days; a custom window is stored as literal dates. V3 introduces
+// the user/restaurant namespace so one venue cannot leak its range into another.
+const RANGE_STORAGE_PREFIX = 'foody.dashboard.range.v3';
 
-function readStoredBasis(): DateBasis {
-  if (typeof window === 'undefined') return 'created';
-  return localStorage.getItem(BASIS_STORAGE_KEY) === 'serie' ? 'serie' : 'created';
+function rangeStorageKey(userID: number | undefined, restaurantID: number): string {
+  return `${RANGE_STORAGE_PREFIX}.${userID ?? 'unknown'}.${restaurantID}`;
 }
 
 type RollingPreset = 'today' | 'yesterday' | 'last7' | 'last30' | 'thisWeek' | 'thisMonth';
@@ -141,10 +140,10 @@ function resolveStored(sel: StoredSel, wsd: WeekStartDay): DateRange {
   return { from: new Date(`${sel.from}T00:00:00`), to: new Date(`${sel.to}T00:00:00`) };
 }
 
-function readStoredSel(): StoredSel | null {
+function readStoredSel(storageKey: string): StoredSel | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(RANGE_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return null;
     const v = JSON.parse(raw);
     if (v && (typeof v.preset === 'string' || (typeof v.from === 'string' && typeof v.to === 'string'))) {
@@ -154,8 +153,8 @@ function readStoredSel(): StoredSel | null {
   return null;
 }
 
-function writeStoredSel(sel: StoredSel): void {
-  try { localStorage.setItem(RANGE_STORAGE_KEY, JSON.stringify(sel)); } catch { /* quota / private mode */ }
+function writeStoredSel(storageKey: string, sel: StoredSel): void {
+  try { localStorage.setItem(storageKey, JSON.stringify(sel)); } catch { /* quota / private mode */ }
 }
 
 const DATE_LOCALES: Record<'en' | 'he' | 'fr', string> = {
@@ -251,6 +250,7 @@ export default function DashboardPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t, locale } = useI18n();
+  const { user } = useAuth();
   const { code: currency } = useCurrency();
   const dateLocale = DATE_LOCALES[locale];
 
@@ -275,7 +275,9 @@ export default function DashboardPage() {
   // a fixed fulfilment day from the same calendar instead of using separate
   // hidden picker state.
   const [basis, setBasis] = useState<DateBasis>('created');
+  const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  const rangeKey = useMemo(() => rangeStorageKey(user?.id, rid), [user?.id, rid]);
   const serieMode = basis === 'serie';
   const serieList = useOrderSeries(rid);
   const previousSerieRange = useMemo(() => {
@@ -297,18 +299,31 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!rid) return;
-    getRestaurant(rid)
-      .then((r) => {
-        const w = clampWeekStartDay(r.week_start_day);
-        setWsd(w);
-        setWorkdays(getEffectiveWorkdays(r));
-        const stored = readStoredSel();
-        if (stored) setDateRange(resolveStored(stored, w));
-        setBasis(readStoredBasis());
+    let active = true;
+    setReady(false);
+    Promise.allSettled([getRestaurant(rid), getDisplayPreferences(rid)])
+      .then(([restaurantResult, preferenceResult]) => {
+        if (!active) return;
+        let weekStart: WeekStartDay = 1;
+        if (restaurantResult.status === 'fulfilled') {
+          weekStart = clampWeekStartDay(restaurantResult.value.week_start_day);
+          setWsd(weekStart);
+          setWorkdays(getEffectiveWorkdays(restaurantResult.value));
+        }
+        const stored = readStoredSel(rangeKey);
+        if (stored) setDateRange(resolveStored(stored, weekStart));
+        if (preferenceResult.status === 'fulfilled') {
+          setBasis(preferenceResult.value.dashboard_date_basis);
+          setPreferenceSaveFailed(false);
+        } else {
+          setPreferenceSaveFailed(true);
+        }
       })
-      .catch(() => {})
-      .finally(() => setReady(true));
-  }, [rid]);
+      .finally(() => {
+        if (active) setReady(true);
+      });
+    return () => { active = false; };
+  }, [rid, rangeKey]);
 
   const load = useCallback(() => {
     const requestId = ++loadSequence.current;
@@ -369,8 +384,10 @@ export default function DashboardPage() {
   // Switch the date basis and persist it; the load effect refetches on change.
   const onChangeBasis = useCallback((b: DateBasis) => {
     setBasis(b);
-    try { localStorage.setItem(BASIS_STORAGE_KEY, b); } catch { /* quota / private mode */ }
-  }, []);
+    setPreferenceSaveFailed(false);
+    void updateDisplayPreferences(rid, { dashboard_date_basis: b })
+      .catch(() => setPreferenceSaveFailed(true));
+  }, [rid]);
 
   useEffect(() => {
     if (ready) load();
@@ -379,10 +396,10 @@ export default function DashboardPage() {
   // Persist the picked window; rolling presets store a re-resolving key.
   const onPickRange = useCallback((range: DateRange, options?: DateRangeChangeOptions) => {
     setDateRange(range);
-    writeStoredSel(options?.literal
+    writeStoredSel(rangeKey, options?.literal
       ? { from: isoDate(range.from), to: isoDate(range.to) }
       : classifySelection(range, wsd));
-  }, [wsd]);
+  }, [rangeKey, wsd]);
 
   const current = period?.current;
   const previous = period?.previous;
@@ -538,6 +555,11 @@ export default function DashboardPage() {
             <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
               <RefreshCw />
             </Button>
+            {preferenceSaveFailed && (
+              <span className="text-fs-xs text-[var(--warning-600)]" role="status">
+                {t('displayPreferenceSaveFailed')}
+              </span>
+            )}
           </>
         }
       />

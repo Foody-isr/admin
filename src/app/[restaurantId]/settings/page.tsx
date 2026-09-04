@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getRestaurant, updateRestaurant, Restaurant } from '@/lib/api';
+import { getRestaurant, updateRestaurant, Restaurant, type DateBasis } from '@/lib/api';
 import { useI18n, SUPPORTED_LOCALES, type Locale} from '@/lib/i18n';
 import { Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
@@ -28,6 +28,8 @@ interface PrefsForm {
   timezone: string;
   currency: string;
   number_format: '1 234,56' | '1,234.56';
+  orders_default_date_basis: DateBasis;
+  dashboard_default_date_basis: DateBasis;
 }
 
 export default function SettingsPage() {
@@ -57,6 +59,8 @@ export default function SettingsPage() {
     timezone: 'Asia/Jerusalem',
     currency: 'ILS',
     number_format: '1 234,56',
+    orders_default_date_basis: 'created',
+    dashboard_default_date_basis: 'created',
   });
 
   useEffect(() => {
@@ -71,6 +75,11 @@ export default function SettingsPage() {
         }));
         if (r.timezone) setPrefs((p) => ({ ...p, timezone: r.timezone }));
         if (r.currency) setPrefs((p) => ({ ...p, currency: r.currency! }));
+        setPrefs((p) => ({
+          ...p,
+          orders_default_date_basis: r.orders_default_date_basis ?? 'created',
+          dashboard_default_date_basis: r.dashboard_default_date_basis ?? 'created',
+        }));
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -85,6 +94,8 @@ export default function SettingsPage() {
         phone: info.phone,
         timezone: prefs.timezone,
         currency: prefs.currency,
+        orders_default_date_basis: prefs.orders_default_date_basis,
+        dashboard_default_date_basis: prefs.dashboard_default_date_basis,
       });
       // Republish straight away: every price on screen is formatted from the
       // context, so without this the admin keeps showing the old symbol until
@@ -219,6 +230,40 @@ export default function SettingsPage() {
             >
               <option value="1 234,56">1 234,56</option>
               <option value="1,234.56">1,234.56</option>
+            </Select>
+          </Field>
+        </div>
+      </Section>
+
+      <Section
+        title={t('displayDefaults')}
+        desc={t('displayDefaultsDesc')}
+      >
+        <div className="flex gap-[var(--s-4)] flex-wrap">
+          <Field grow label={t('ordersDefaultDateBasis')}>
+            <Select
+              value={prefs.orders_default_date_basis}
+              disabled={!canEdit}
+              onChange={(e) => setPrefs((p) => ({
+                ...p,
+                orders_default_date_basis: e.target.value as DateBasis,
+              }))}
+            >
+              <option value="created">{t('dateBasisCreatedOption')}</option>
+              <option value="serie">{t('dateBasisSerieOption')}</option>
+            </Select>
+          </Field>
+          <Field grow label={t('dashboardDefaultDateBasis')}>
+            <Select
+              value={prefs.dashboard_default_date_basis}
+              disabled={!canEdit}
+              onChange={(e) => setPrefs((p) => ({
+                ...p,
+                dashboard_default_date_basis: e.target.value as DateBasis,
+              }))}
+            >
+              <option value="created">{t('dateBasisCreatedOption')}</option>
+              <option value="serie">{t('dateBasisSerieOption')}</option>
             </Select>
           </Field>
         </div>
