@@ -33,11 +33,11 @@ import { useOrderSeries } from '@/lib/series';
 import {
   SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
-  ChevronDownIcon, PlusIcon,
-  PauseIcon, PlayIcon,
+  ChevronDownIcon, PlusIcon, XIcon, Rows3Icon, AlignJustifyIcon,
+  PauseIcon, PlayIcon, WifiIcon, WifiOffIcon, SlidersHorizontalIcon,
+  ListFilterIcon, ClipboardListIcon,
 } from 'lucide-react';
-import { Badge, Button, ConfirmDialog, PageHead } from '@/components/ds';
-import { FeatureIntro } from '@/components/help/FeatureIntro';
+import { Button, ConfirmDialog, PageHead } from '@/components/ds';
 import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
@@ -49,6 +49,27 @@ import { paymentReference, settledPaymentMethod } from '@/lib/orders/payment';
 import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
 import { OrderColumnPicker } from '@/components/orders/OrderColumnPicker';
 import { useOrdersTableConfig } from '@/lib/orders/useOrdersTableConfig';
+import { useIsMobile } from '@/components/ui/use-mobile';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { OrdersOperationsRail } from '@/components/orders/OrdersOperationsRail';
+import { OrderQuickView } from '@/components/orders/OrderQuickView';
+import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
+import {
+  getOrderTiming,
+  OPERATIONS_QUEUES,
+  type OperationsQueueKey,
+} from '@/lib/orders/operations-board';
 import {
   DataTable,
   DataTableHead,
@@ -79,12 +100,18 @@ interface Tab {
 // still-in-progress statuses so completed/cancelled scheduled orders live in
 // the Terminées / Annulées tabs, not here.
 const TABS: Tab[] = [
-  { key: 'all', labelKey: 'all', active: undefined },
   { key: 'active', labelKey: 'active', statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery', active: true },
+  { key: 'review', labelKey: 'ordersQueueReview', statuses: 'pending_review', active: true },
+  { key: 'kitchen', labelKey: 'ordersQueueKitchen', statuses: 'accepted,in_kitchen', active: true },
+  { key: 'ready', labelKey: 'ordersQueueReady', statuses: 'ready,ready_for_pickup,ready_for_delivery', active: true },
+  { key: 'delivery', labelKey: 'ordersQueueDelivery', statuses: 'out_for_delivery', active: true },
   { key: 'scheduled', labelKey: 'scheduled', isScheduled: true, statuses: 'scheduled,pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery' },
   { key: 'completed', labelKey: 'completed', statuses: 'served,received,picked_up,delivered' },
   { key: 'canceled', labelKey: 'canceled', statuses: 'rejected,cancelled' },
+  { key: 'all', labelKey: 'all', active: undefined },
 ];
+
+const ARCHIVE_TABS = TABS.filter((tab) => ['scheduled', 'completed', 'canceled', 'all'].includes(tab.key));
 
 const PAGE_SIZE = 25;
 
@@ -96,6 +123,19 @@ function defaultDateRange(): { from: Date; to: Date } {
   const to = new Date();
   to.setHours(23, 59, 59, 999);
   return { from, to };
+}
+
+function primaryActionLabel(action: PrimaryAction, order: Order, t: (key: string) => string): string {
+  if (action === 'markReady' && order.order_type === 'delivery') return t('markReadyForDelivery');
+  const keys: Record<PrimaryAction, string> = {
+    accept: 'accept',
+    sendToKitchen: 'sendToKitchen',
+    markReady: 'markReady',
+    markServed: 'markServed',
+    markOutForDelivery: 'markOutForDelivery',
+    markDelivered: 'markDelivered',
+  };
+  return t(keys[action]);
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────
@@ -110,6 +150,7 @@ export default function OrdersPage() {
   const canOverride = isOwner || roleName === 'Manager';
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const isMobile = useIsMobile();
   const { status: wsStatus, lastEvent, addProcessingGuard, removeProcessingGuard, isProcessing } = useWs();
 
   const { play: playSound, isEnabled: isSoundEnabled, toggle: toggleSound } = useOrderSound();
@@ -124,7 +165,7 @@ export default function OrdersPage() {
   const prevEvent = useRef<WsEvent | null>(null);
 
   // Filters
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('active');
   const [search, setSearch] = useState('');
   const [searchSubmitted, setSearchSubmitted] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -135,6 +176,10 @@ export default function OrdersPage() {
   const [dateField, setDateField] = useState<DateBasis>('created');
   const serieList = useOrderSeries(rid);
   const [page, setPage] = useState(0);
+  const [queueCounts, setQueueCounts] = useState<Partial<Record<OperationsQueueKey, number>>>({});
+  const [queueCountsLoading, setQueueCountsLoading] = useState(true);
+  const [density, setDensityState] = useState<'comfortable' | 'compact'>('comfortable');
+  const [, setClockTick] = useState(0);
 
   const orders = rawOrders;
   const setOrders = setRawOrders;
@@ -145,9 +190,12 @@ export default function OrdersPage() {
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [pendingClose, setPendingClose] = useState<{ id: number; type: string } | null>(null);
 
-  // Selected order for right panel
+  // Desktop first opens a lightweight inspection panel; the canonical detail
+  // takeover remains available for editing and is used directly on mobile.
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [detailId, setDetailId] = useState<number | null>(null);
   const selectedOrder = orders.find((o) => o.id === selectedId) ?? null;
+  const detailOrder = orders.find((o) => o.id === detailId) ?? null;
 
   // First day of the week + workdays for the date picker. Loaded with the
   // restaurant; both default to "everything on" until then so the picker
@@ -229,10 +277,44 @@ export default function OrdersPage() {
 
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem(`foody.orders.density.${rid}`);
+    if (saved === 'compact' || saved === 'comfortable') setDensityState(saved);
+  }, [rid]);
+
+  const setDensity = (next: 'comfortable' | 'compact') => {
+    setDensityState(next);
+    try {
+      localStorage.setItem(`foody.orders.density.${rid}`, next);
+    } catch {
+      // The preference is optional; private browsing must not block the board.
+    }
+  };
+
+  // Stage-age labels update even when the restaurant is quiet and no websocket
+  // event causes a render.
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockTick((tick) => tick + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Search as staff type, with enough delay to avoid sending a request per
+  // keystroke. Enter still submits immediately below.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const next = search.trim();
+      if (searchSubmitted !== next) {
+        setPage(0);
+        setSearchSubmitted(next);
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [search, searchSubmitted]);
+
   // ─── Fetch ────────────────────────────────────────────────────────
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
+  const fetchOrders = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     const tab = TABS.find((t) => t.key === activeTab)!;
     const params: ListOrdersParams = {
       limit: PAGE_SIZE,
@@ -261,11 +343,46 @@ export default function OrdersPage() {
       setTotal(result.total);
       setLastUpdated(new Date());
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page]);
+  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page, setOrders]);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => { void fetchOrders(); }, [fetchOrders]);
+
+  const fetchQueueCounts = useCallback(async () => {
+    setQueueCountsLoading(true);
+    const base: ListOrdersParams = {
+      from: isoDate(dateRange.from),
+      to: isoDate(dateRange.to),
+      limit: 1,
+      offset: 0,
+    };
+    if (dateField === 'serie') base.date_field = 'serie';
+    if (typeFilter) base.type = typeFilter;
+    if (paymentFilter) base.payment_status = paymentFilter;
+
+    try {
+      const stageQueues = OPERATIONS_QUEUES.filter((queue) => queue.key !== 'active');
+      const results = await Promise.all(
+        stageQueues.map((queue) => listOrders(rid, { ...base, status: queue.statuses })),
+      );
+      const next: Partial<Record<OperationsQueueKey, number>> = {};
+      let active = 0;
+      stageQueues.forEach((queue, index) => {
+        next[queue.key] = results[index].total;
+        active += results[index].total;
+      });
+      next.active = active;
+      setQueueCounts(next);
+    } catch {
+      // Keep the last trustworthy counts. The live connection indicator above
+      // already communicates connectivity without replacing counts with false 0s.
+    } finally {
+      setQueueCountsLoading(false);
+    }
+  }, [rid, dateRange, dateField, typeFilter, paymentFilter]);
+
+  useEffect(() => { void fetchQueueCounts(); }, [fetchQueueCounts]);
 
   // ─── WebSocket ────────────────────────────────────────────────────
 
@@ -285,6 +402,8 @@ export default function OrdersPage() {
     if (type === 'order.deleted') {
       setOrders((prev) => prev.filter((o) => o.id !== wsOrder.id));
       setSelectedId((prev) => (prev === wsOrder.id ? null : prev));
+      setDetailId((prev) => (prev === wsOrder.id ? null : prev));
+      void fetchQueueCounts();
       return;
     }
 
@@ -307,7 +426,8 @@ export default function OrdersPage() {
       next[idx] = { ...next[idx], ...wsOrder };
       return next;
     });
-  }, [lastEvent, isProcessing, playSound, notify]);
+    void fetchQueueCounts();
+  }, [lastEvent, isProcessing, playSound, notify, t, fetchQueueCounts, setOrders]);
 
   // ─── Actions ──────────────────────────────────────────────────────
 
@@ -320,10 +440,12 @@ export default function OrdersPage() {
     try {
       await action();
     } catch {
-      await fetchOrders();
+      // The authoritative refresh below restores the row after a failed
+      // optimistic transition.
     } finally {
-      setActionLoading(null);
       removeProcessingGuard(orderId);
+      await Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+      setActionLoading(null);
     }
   };
 
@@ -339,11 +461,11 @@ export default function OrdersPage() {
       setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...result.order } : o)));
       return result;
     } catch {
-      await fetchOrders();
       return undefined;
     } finally {
-      setActionLoading(null);
       removeProcessingGuard(orderId);
+      await Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+      setActionLoading(null);
     }
   };
   // Cancellation now requires a reason, collected in CancelOrderDialog.
@@ -441,6 +563,7 @@ export default function OrdersPage() {
       await deleteOrder(rid, orderId);
       setOrders((prev) => prev.filter((o) => o.id !== orderId));
       setSelectedId((prev) => (prev === orderId ? null : prev));
+      setDetailId((prev) => (prev === orderId ? null : prev));
     } catch {
       alert(t('deleteOrderFailed'));
       await fetchOrders();
@@ -478,8 +601,8 @@ export default function OrdersPage() {
   const [editOpen, setEditOpen] = useState(false);
 
   const handleTakePayment = (method: PaymentMethod, reference?: string) => {
-    if (!selectedOrder) return Promise.resolve();
-    const orderId = selectedOrder.id;
+    if (!detailOrder) return Promise.resolve();
+    const orderId = detailOrder.id;
     setActionLoading(orderId);
     addProcessingGuard(orderId);
     // Optimistic
@@ -493,9 +616,10 @@ export default function OrdersPage() {
         ));
       })
       .catch(async () => { await fetchOrders(); })
-      .finally(() => {
-        setActionLoading(null);
+      .finally(async () => {
         removeProcessingGuard(orderId);
+        await Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+        setActionLoading(null);
       });
   };
 
@@ -510,6 +634,7 @@ export default function OrdersPage() {
       }
     });
     setSelectedId(null);
+    setDetailId(null);
   };
 
   // ─── Tab / search ─────────────────────────────────────────────────
@@ -518,26 +643,103 @@ export default function OrdersPage() {
     setActiveTab(key);
     setPage(0);
     setSelectedId(null);
+    setDetailId(null);
   };
 
   const handleSearch = () => {
-    setSearchSubmitted(search);
+    setSearchSubmitted(search.trim());
     setPage(0);
   };
 
+  const openOrder = (orderId: number) => {
+    if (isMobile) {
+      setSelectedId(null);
+      setDetailId(orderId);
+    } else {
+      setSelectedId((current) => current === orderId ? null : orderId);
+    }
+  };
+
+  const runPrimaryAction = (order: Order, action: PrimaryAction) => {
+    switch (action) {
+      case 'accept':
+        void handleAccept(order.id);
+        break;
+      case 'sendToKitchen':
+        void handleSendToKitchen(order.id);
+        break;
+      case 'markReady':
+        void handleMarkReady(order.id);
+        break;
+      case 'markServed':
+        void handleMarkServed(order.id);
+        break;
+      case 'markOutForDelivery':
+        void handleOutForDelivery(order.id);
+        break;
+      case 'markDelivered':
+        void handleMarkDelivered(order.id);
+        break;
+    }
+  };
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const today = isoDate(new Date());
+  const hasDateFilter =
+    dateField !== 'created' || isoDate(dateRange.from) !== today || isoDate(dateRange.to) !== today;
+  const activeFilterCount = [!!typeFilter, !!paymentFilter, hasDateFilter].filter(Boolean).length;
+  const activeQueueKey = OPERATIONS_QUEUES.some((queue) => queue.key === activeTab)
+    ? activeTab as OperationsQueueKey
+    : null;
+  const visibleStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const visibleEnd = Math.min((page + 1) * PAGE_SIZE, total);
+
+  const resetFilters = () => {
+    setSearch('');
+    setSearchSubmitted('');
+    setTypeFilter('');
+    setPaymentFilter('');
+    setDateRange(defaultDateRange());
+    setDateField('created');
+    setPage(0);
+  };
 
   // ─── Render ───────────────────────────────────────────────────────
 
-  const activeCount = orders.length;
-
   return (
-    <div className="flex gap-0" style={{ height: 'calc(100vh - 120px)' }}>
-      {/* Full-width table list — detail is now in a Drawer */}
-      <div className="flex-1 min-w-0 space-y-[var(--s-5)]">
+    <div className="min-h-[calc(100vh-var(--topbar-h)-64px)]">
+      <div className="min-w-0 space-y-[var(--s-4)]">
         <PageHead
           title={t('orders')}
-          desc={`${total} ${t('orders').toLowerCase()} · ${activeCount} ${t('shown') || 'shown'}`}
+          className="mb-0 items-center"
+          desc={(
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <span
+                className={`size-2 rounded-full ${
+                  wsStatus === 'connected'
+                    ? 'bg-[var(--success-500)]'
+                    : wsStatus === 'connecting'
+                      ? 'bg-[var(--warning-500)]'
+                      : 'bg-[var(--danger-500)]'
+                }`}
+                aria-hidden
+              />
+              <span>
+                {wsStatus === 'connected' ? t('live') : wsStatus === 'connecting' ? t('connecting') : t('offline')}
+              </span>
+              {lastUpdated && (
+                <>
+                  <span className="opacity-40">·</span>
+                  <span>
+                    {t('ordersUpdatedAt').replace(
+                      '{time}',
+                      lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    )}
+                  </span>
+                </>
+              )}
+            </span>
+          )}
           actions={
             <>
               {canManage && (
@@ -548,92 +750,92 @@ export default function OrdersPage() {
                   </Link>
                 </Button>
               )}
-              {canManage && (paused ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => togglePause(false)}
-                  disabled={pauseSaving}
-                  style={{ background: 'var(--danger-500)', color: '#fff' }}
-                  title={t('resumeOrders') || 'Reprendre les commandes'}
-                >
-                  <PlayIcon /> {t('resumeOrders') || 'Reprendre'}
-                </Button>
-              ) : (
+              <div className="flex items-center overflow-hidden rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)]">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      className="rounded-none border-e border-[var(--line)]"
+                      disabled={pauseSaving}
+                    >
+                      {paused ? <WifiOffIcon /> : <WifiIcon />}
+                      <span className="hidden sm:inline">{t('ordersOnline')}</span>
+                      <span className={paused ? 'text-[var(--danger-500)]' : 'text-[var(--success-600)]'}>
+                        {paused ? t('ordersPausedShort') : t('ordersAccepting')}
+                      </span>
+                      <ChevronDownIcon />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72">
+                    <DropdownMenuLabel>{t('ordersOnline')}</DropdownMenuLabel>
+                    <DropdownMenuItem disabled={!canManage || !paused} onSelect={() => void togglePause(false)}>
+                      <PlayIcon />
+                      <span>
+                        <span className="block">{t('ordersAccepting')}</span>
+                        <span className="block text-fs-xs text-[var(--fg-muted)]">{t('ordersAcceptingDesc')}</span>
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={!canManage || paused} onSelect={() => void togglePause(true)}>
+                      <PauseIcon />
+                      <span>
+                        <span className="block">{t('pauseOrders')}</span>
+                        <span className="block text-fs-xs text-[var(--fg-muted)]">{t('pauseOnlineOrdersDesc')}</span>
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                      checked={soundOn}
+                      onCheckedChange={() => {
+                        const next = toggleSound();
+                        setSoundOn(next);
+                      }}
+                    >
+                      <Volume2Icon /> {t('ordersSound')}
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuItem onSelect={requestPermission}>
+                      <BellIcon />
+                      {permission === 'granted' ? t('notificationsEnabled') : t('enableNotifications')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  onClick={() => togglePause(true)}
-                  disabled={pauseSaving}
-                  title={t('pauseOnlineOrders') || 'Mettre en pause les commandes en ligne'}
+                  size="md"
+                  icon
+                  className="rounded-none"
+                  onClick={() => {
+                    const next = toggleSound();
+                    setSoundOn(next);
+                  }}
+                  aria-label={soundOn ? t('muteSound') : t('unmuteSound')}
+                  title={soundOn ? t('muteSound') : t('unmuteSound')}
                 >
-                  <PauseIcon /> {t('pauseOrders') || 'Pause'}
+                  {soundOn ? <Volume2Icon /> : <VolumeXIcon />}
                 </Button>
-              ))}
-              {wsStatus === 'connected' && (
-                <Badge tone="success" dot>
-                  {t('live')}
-                </Badge>
-              )}
-              {wsStatus === 'connecting' && (
-                <Badge tone="warning" dot>
-                  {t('connecting')}
-                </Badge>
-              )}
-              {wsStatus === 'disconnected' && (
-                <Badge tone="danger" dot>
-                  {t('offline')}
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="md"
-                icon
-                onClick={() => {
-                  const next = toggleSound();
-                  setSoundOn(next);
-                }}
-                aria-label={soundOn ? t('muteSound') : t('unmuteSound')}
-                title={soundOn ? t('muteSound') : t('unmuteSound')}
-              >
-                {soundOn ? <Volume2Icon /> : <VolumeXIcon />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="md"
-                icon
-                onClick={requestPermission}
-                aria-label={
-                  permission === 'granted'
-                    ? t('notificationsEnabled')
-                    : permission === 'denied'
-                      ? t('notificationsBlocked')
-                      : t('enableNotifications')
-                }
-                title={
-                  permission === 'granted'
-                    ? t('notificationsEnabled')
-                    : permission === 'denied'
-                      ? t('notificationsBlocked')
-                      : t('enableNotifications')
-                }
-              >
-                {permission === 'granted' ? <BellIcon /> : <BellOffIcon />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="md"
-                icon
-                onClick={fetchOrders}
-                aria-label={t('refresh')}
-                title={
-                  lastUpdated
-                    ? `${t('refresh')} · ${t('lastUpdated') || 'Mise à jour'} ${lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-                    : t('refresh')
-                }
-              >
-                <RefreshCwIcon />
-              </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  icon
+                  className="rounded-none border-s border-[var(--line)]"
+                  onClick={requestPermission}
+                  aria-label={permission === 'granted' ? t('notificationsEnabled') : t('enableNotifications')}
+                  title={permission === 'granted' ? t('notificationsEnabled') : t('enableNotifications')}
+                >
+                  {permission === 'granted' ? <BellIcon /> : <BellOffIcon />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  icon
+                  className="rounded-none border-s border-[var(--line)]"
+                  onClick={() => void Promise.allSettled([fetchOrders(), fetchQueueCounts()])}
+                  aria-label={t('refresh')}
+                  title={t('refresh')}
+                >
+                  <RefreshCwIcon />
+                </Button>
+              </div>
             </>
           }
         />
@@ -670,75 +872,77 @@ export default function OrdersPage() {
           </div>
         )}
 
-        <FeatureIntro feature="orders" />
+        <section aria-label={t('ordersLiveQueues')}>
+          <OrdersOperationsRail
+            activeKey={activeQueueKey}
+            counts={queueCounts}
+            loading={queueCountsLoading}
+            onSelect={switchTab}
+          />
+        </section>
 
-        {/* Status tabs — underline style with inline counts + dot-pulse.
-            The rail spans the full row so partial tabs can fade off the end
-            without competing with adjacent buttons. Refresh moved to the
-            page-head actions above. */}
-        <div className="border-b border-[var(--line)]">
+        <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)]">
           <HorizontalScrollRail activeKey={activeTab} edgeFlush>
-            <div className="inline-flex items-center gap-[var(--s-4)] md:gap-[var(--s-5)] pe-[var(--s-4)] md:pe-0">
-            {TABS.map((tab) => {
-              const selected = activeTab === tab.key;
-              const isActive = tab.key === 'active';
-              const count = selected ? total : undefined;
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => switchTab(tab.key)}
-                  aria-selected={selected}
-                  data-rail-active={selected ? '' : undefined}
-                  className={`relative py-[var(--s-3)] bg-transparent border-none text-fs-sm font-medium transition-colors inline-flex items-center gap-[var(--s-2)] whitespace-nowrap [scroll-snap-align:start] ${
-                    selected
-                      ? 'text-[var(--fg)] after:content-[""] after:absolute after:start-0 after:end-0 after:-bottom-px after:h-[2px] after:bg-[var(--brand-500)] after:rounded-[1px]'
-                      : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-                  }`}
-                >
-                  {selected && isActive && (
-                    <span
-                      className="inline-block w-2 h-2 rounded-full bg-[var(--success-500)] relative"
-                      aria-hidden
-                    >
-                      <span className="absolute inset-0 rounded-full bg-[var(--success-500)] opacity-60 animate-ping" />
-                    </span>
-                  )}
-                  <span>{t(tab.labelKey)}</span>
-                  {count !== undefined && (
-                    <span
-                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full tabular-nums ${
-                        selected
-                          ? 'bg-[color-mix(in_oklab,var(--brand-500)_18%,transparent)] text-[var(--brand-500)]'
-                          : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            <div className="inline-flex items-center gap-5 pe-4">
+              <span className="py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)]">
+                {t('ordersHistory')}
+              </span>
+              {ARCHIVE_TABS.map((tab) => {
+                const selected = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => switchTab(tab.key)}
+                    aria-pressed={selected}
+                    data-rail-active={selected ? '' : undefined}
+                    className={`relative py-2.5 text-fs-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:shadow-ring ${
+                      selected
+                        ? 'text-[var(--fg)] after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-[var(--brand-500)]'
+                        : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                    }`}
+                  >
+                    {tab.key === 'all' ? t('allOrders') : t(tab.labelKey)}
+                  </button>
+                );
+              })}
             </div>
           </HorizontalScrollRail>
+          <span className="hidden shrink-0 text-fs-xs text-[var(--fg-muted)] md:block">
+            {t('ordersShowingCompact')
+              .replace('{start}', String(visibleStart))
+              .replace('{end}', String(visibleEnd))
+              .replace('{total}', String(total))}
+          </span>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center w-full md:w-auto">
-            <div className="relative flex-1 md:flex-initial">
-              <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
-              <input
-                type="text"
-                placeholder={t('search')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="input pl-9 pr-3 py-2 text-sm w-full md:w-48"
-              />
-            </div>
-            <button onClick={handleSearch} className="btn-secondary text-sm py-2 px-4 ms-2 shrink-0">
-              {t('search')}
-            </button>
+        {/* The controls stick below the global top bar; the order rows scroll
+            independently on desktop so queue state never disappears. */}
+        <div className="sticky top-[var(--topbar-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 bg-[var(--bg)] px-1 py-2">
+          <div className="relative w-full md:w-[300px]">
+            <SearchIcon className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+            <input
+              type="search"
+              placeholder={t('ordersSearchPlaceholder')}
+              aria-label={t('ordersSearchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSearch();
+                if (e.key === 'Escape') setSearch('');
+              }}
+              className="input h-11 w-full ps-10 pe-10 text-fs-sm"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute end-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
+                aria-label={t('ordersClearSearch')}
+              >
+                <XIcon className="size-4" />
+              </button>
+            )}
           </div>
 
           <DateRangePicker
@@ -757,7 +961,7 @@ export default function OrdersPage() {
             value={typeFilter}
             onChange={(v) => { setTypeFilter(v); setPage(0); }}
             options={[
-              { value: '', label: t('all') },
+              { value: '', label: t('ordersAllTypes') },
               { value: 'dine_in', label: t('dineIn') },
               { value: 'pickup', label: t('pickup') },
               { value: 'delivery', label: t('delivery') },
@@ -769,7 +973,7 @@ export default function OrdersPage() {
             value={paymentFilter}
             onChange={(v) => { setPaymentFilter(v); setPage(0); }}
             options={[
-              { value: '', label: t('all') },
+              { value: '', label: t('ordersAllPayments') },
               { value: 'paid', label: t('paid') },
               { value: 'pending', label: t('pending') },
               { value: 'unpaid', label: t('unpaid') },
@@ -777,60 +981,175 @@ export default function OrdersPage() {
             ]}
           />
 
-          {/* Column layout is a restaurant-wide setting, so only staff who may
-              change settings are offered the picker. */}
-          {hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="md" onClick={resetFilters}>
+              <ListFilterIcon />
+              {t('ordersResetFiltersWithCount').replace('{n}', String(activeFilterCount))}
+            </Button>
+          )}
+
+          <div className="ms-auto flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="md">
+                  <SlidersHorizontalIcon />
+                  {t('ordersDisplay')}
+                  <ChevronDownIcon />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>{t('ordersDensity')}</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={density} onValueChange={(value) => setDensity(value as 'comfortable' | 'compact')}>
+                  <DropdownMenuRadioItem value="comfortable">
+                    <Rows3Icon /> {t('ordersDensityComfortable')}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="compact">
+                    <AlignJustifyIcon /> {t('ordersDensityCompact')}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}
+          </div>
         </div>
 
         {/* Table */}
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-          </div>
+          <OrdersTableSkeleton
+            columns={columns.visible.length + (canManage ? 1 : 0)}
+            density={density}
+            label={t('loading')}
+          />
         ) : orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <div className="text-4xl">📋</div>
-            <h2 className="text-lg font-semibold text-fg-primary">{t('noMatchFound')}</h2>
-            <p className="text-sm text-fg-secondary">{t('trySearchAllOrders')}</p>
-            <button
-              onClick={() => { switchTab('all'); setSearch(''); setSearchSubmitted(''); setTypeFilter(''); setPaymentFilter(''); }}
-              className="btn-primary"
-            >
-              {t('searchAllOrders')}
-            </button>
+          <div className="flex flex-col items-center justify-center rounded-r-lg border border-dashed border-[var(--line-strong)] bg-[var(--surface)] px-6 py-16 text-center">
+            <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--fg-muted)]">
+              <ClipboardListIcon className="size-5" />
+            </span>
+            <h2 className="text-fs-lg font-semibold text-fg-primary">
+              {activeQueueKey && !searchSubmitted && activeFilterCount === 0
+                ? t('ordersNoActiveTitle')
+                : t('noMatchFound')}
+            </h2>
+            <p className="mt-1 max-w-md text-fs-sm text-fg-secondary">
+              {activeQueueKey && !searchSubmitted && activeFilterCount === 0
+                ? t('ordersNoActiveDesc')
+                : t('ordersNoResultsDesc')}
+            </p>
+            {(searchSubmitted || activeFilterCount > 0) && (
+              <Button variant="secondary" size="md" className="mt-5" onClick={resetFilters}>
+                {t('ordersResetFilters')}
+              </Button>
+            )}
           </div>
         ) : (
           <>
-            <DataTable>
-              <DataTableHead>
+            <DataTable
+              className="md:max-h-[calc(100vh-var(--topbar-h)-350px)] md:overflow-auto"
+              data-density={density}
+            >
+              <DataTableHead className="sticky top-0 z-[2]">
                 {columns.visible.map((col) => (
-                  <DataTableHeadCell key={col.key} align={col.align}>
+                  <DataTableHeadCell
+                    key={col.key}
+                    align={col.align}
+                    className={`normal-case tracking-normal bg-neutral-50 dark:bg-[#0a0a0a] ${density === 'compact' ? 'px-4 py-2.5' : ''}`}
+                  >
                     {t(col.labelKey)}
                   </DataTableHeadCell>
                 ))}
+                {canManage && (
+                  <DataTableHeadCell
+                    align="right"
+                    className={`sticky end-0 min-w-[150px] normal-case tracking-normal bg-neutral-50 dark:bg-[#0a0a0a] ${density === 'compact' ? 'px-4 py-2.5' : ''}`}
+                  >
+                    {t('ordersNextAction')}
+                  </DataTableHeadCell>
+                )}
               </DataTableHead>
               <DataTableBody>
-                {orders.map((order, index) => (
-                  <DataTableRow
-                    key={order.id}
-                    index={index}
-                    striped={false}
-                    onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
-                    className={`cursor-pointer ${selectedId === order.id ? 'bg-blue-500/10' : ''}`}
-                  >
-                    {columns.visible.map((col) => (
-                      <DataTableCell
-                        key={col.key}
-                        align={col.align}
-                        className={col.cellClassName}
-                        mobilePrimary={col.isMobilePrimary}
-                        mobileLabel={col.isMobilePrimary ? undefined : t(col.labelKey)}
-                      >
-                        {col.render(order, t, money)}
-                      </DataTableCell>
-                    ))}
-                  </DataTableRow>
-                ))}
+                {orders.map((order, index) => {
+                  const timing = getOrderTiming(order);
+                  const capabilities = deriveOrderCapabilities(order, { canManage });
+                  const selected = selectedId === order.id;
+                  return (
+                    <DataTableRow
+                      key={order.id}
+                      index={index}
+                      striped={false}
+                      tabIndex={0}
+                      aria-label={t('ordersOpenOrder').replace('{id}', String(order.id))}
+                      aria-selected={selected}
+                      onClick={() => openOrder(order.id)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          openOrder(order.id);
+                        }
+                      }}
+                      className={`group cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--brand-500)] ${
+                        selected ? 'bg-[var(--brand-50)]' : ''
+                      }`}
+                    >
+                      {columns.visible.map((col, columnIndex) => (
+                        <DataTableCell
+                          key={col.key}
+                          align={col.align}
+                          className={`${col.cellClassName ?? ''} ${density === 'compact' ? 'px-4 py-2.5' : ''} ${
+                            columnIndex === 0 && timing.overdue
+                              ? 'relative before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--danger-500)]'
+                              : ''
+                          }`}
+                          mobilePrimary={col.isMobilePrimary}
+                          mobileLabel={col.isMobilePrimary ? undefined : t(col.labelKey)}
+                        >
+                          {col.render(order, t, money)}
+                        </DataTableCell>
+                      ))}
+                      {canManage && (
+                        <DataTableCell
+                          align="right"
+                          mobileLabel={t('ordersNextAction')}
+                          className={`md:sticky md:end-0 ${density === 'compact' ? 'px-4 py-2.5' : ''} ${
+                            selected ? 'bg-[var(--brand-50)]' : 'bg-[var(--surface)] group-hover:bg-orange-50/50 dark:group-hover:bg-orange-900/20'
+                          }`}
+                        >
+                          {capabilities.primary ? (
+                            <Button
+                              variant={capabilities.primary === 'accept' ? 'primary' : 'secondary'}
+                              size="sm"
+                              disabled={actionLoading === order.id}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (capabilities.primary === 'accept') {
+                                  setSelectedId(null);
+                                  setDetailId(order.id);
+                                } else {
+                                  runPrimaryAction(order, capabilities.primary!);
+                                }
+                              }}
+                            >
+                              {capabilities.primary === 'accept'
+                                ? t('ordersReview')
+                                : primaryActionLabel(capabilities.primary, order, t)}
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openOrder(order.id);
+                              }}
+                            >
+                              {t('ordersView')}
+                            </Button>
+                          )}
+                        </DataTableCell>
+                      )}
+                    </DataTableRow>
+                  );
+                })}
               </DataTableBody>
             </DataTable>
 
@@ -838,7 +1157,7 @@ export default function OrdersPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--divider)' }}>
                 <span className="text-xs text-fg-secondary">
-                  {t('showing').replace('{start}', String(page * PAGE_SIZE + 1)).replace('{end}', String(Math.min((page + 1) * PAGE_SIZE, total))).replace('{total}', String(total))}
+                  {t('showing').replace('{start}', String(visibleStart)).replace('{end}', String(visibleEnd)).replace('{total}', String(total))}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
@@ -865,36 +1184,51 @@ export default function OrdersPage() {
         )}
       </div>
 
-      {/* Right: order detail panel */}
-      <OrderDetailModal
+      <OrderQuickView
         order={selectedOrder}
+        canManage={canManage}
+        loading={selectedOrder != null && actionLoading === selectedOrder.id}
+        onClose={() => setSelectedId(null)}
+        onOpenDetails={() => {
+          if (!selectedOrder) return;
+          setDetailId(selectedOrder.id);
+          setSelectedId(null);
+        }}
+        onPrimary={(action) => {
+          if (selectedOrder) runPrimaryAction(selectedOrder, action);
+        }}
+      />
+
+      {/* Canonical full detail for edits, history and complex actions. */}
+      <OrderDetailModal
+        order={detailOrder}
         canManage={canManage}
         canDelete={isOwner}
         canOverride={canOverride}
-        isLoading={selectedOrder != null && actionLoading === selectedOrder.id}
-        onClose={() => setSelectedId(null)}
+        isLoading={detailOrder != null && actionLoading === detailOrder.id}
+        onClose={() => setDetailId(null)}
         onAccept={() => {
-          if (!selectedOrder) return;
-          return handleAccept(selectedOrder.id);
+          if (!detailOrder) return;
+          return handleAccept(detailOrder.id);
         }}
-        onReject={() => selectedOrder && handleReject(selectedOrder.id)}
-        onDelete={() => selectedOrder && setPendingDelete(selectedOrder.id)}
-        onOverride={() => selectedOrder && handleOverride(selectedOrder.id)}
-        onCorrectPayment={() => selectedOrder && handleCorrectPayment(selectedOrder.id)}
-        onCorrectPaymentMethod={() => selectedOrder && handleCorrectPaymentMethod(selectedOrder.id)}
-        onSendToKitchen={() => selectedOrder && handleSendToKitchen(selectedOrder.id)}
-        onMarkReady={() => selectedOrder && handleMarkReady(selectedOrder.id)}
-        onMarkServed={() => selectedOrder && handleMarkServed(selectedOrder.id)}
-        onOutForDelivery={() => selectedOrder && handleOutForDelivery(selectedOrder.id)}
-        onMarkDelivered={() => selectedOrder && handleMarkDelivered(selectedOrder.id)}
+        onReject={() => detailOrder && handleReject(detailOrder.id)}
+        onDelete={() => detailOrder && setPendingDelete(detailOrder.id)}
+        onOverride={() => detailOrder && handleOverride(detailOrder.id)}
+        onCorrectPayment={() => detailOrder && handleCorrectPayment(detailOrder.id)}
+        onCorrectPaymentMethod={() => detailOrder && handleCorrectPaymentMethod(detailOrder.id)}
+        onSendToKitchen={() => detailOrder && handleSendToKitchen(detailOrder.id)}
+        onMarkReady={() => detailOrder && handleMarkReady(detailOrder.id)}
+        onMarkServed={() => detailOrder && handleMarkServed(detailOrder.id)}
+        onOutForDelivery={() => detailOrder && handleOutForDelivery(detailOrder.id)}
+        onMarkDelivered={() => detailOrder && handleMarkDelivered(detailOrder.id)}
         onTakePayment={() => setPaymentOpen(true)}
         onCloseOrder={() =>
-          selectedOrder && setPendingClose({ id: selectedOrder.id, type: selectedOrder.order_type })
+          detailOrder && setPendingClose({ id: detailOrder.id, type: detailOrder.order_type })
         }
         onEdit={() => setEditOpen(true)}
         onConfirmWeights={() => setWeightsOpen(true)}
-        onEditCustomer={() => selectedOrder && setEditCustomerId(selectedOrder.id)}
-        onToggleForceProduction={() => selectedOrder && handleToggleForceProduction(selectedOrder.id, !selectedOrder.force_production)}
+        onEditCustomer={() => detailOrder && setEditCustomerId(detailOrder.id)}
+        onToggleForceProduction={() => detailOrder && handleToggleForceProduction(detailOrder.id, !detailOrder.force_production)}
         restaurantInfo={restaurantInfo}
         restaurantDefaultLocale={restaurantLocale}
         customFieldLabels={customFieldLabels}
@@ -904,7 +1238,7 @@ export default function OrdersPage() {
       {/* Edit order items */}
       <EditOrderDrawer
         open={editOpen}
-        order={selectedOrder}
+        order={detailOrder}
         restaurantId={rid}
         onClose={() => setEditOpen(false)}
         onSaved={fetchOrders}
@@ -915,17 +1249,17 @@ export default function OrdersPage() {
         allowCash={allowCash}
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
-        totalAmount={selectedOrder?.total_amount ?? 0}
+        totalAmount={detailOrder?.total_amount ?? 0}
         onConfirm={handleTakePayment}
-        discountAmount={selectedOrder?.discount_amount}
-        discountLabel={selectedOrder?.discount?.code}
+        discountAmount={detailOrder?.discount_amount}
+        discountLabel={detailOrder?.discount?.code}
       />
 
       {/* Confirm weights — by-weight orders on a card hold */}
       <ConfirmWeightsModal
         open={weightsOpen}
         onOpenChange={setWeightsOpen}
-        order={selectedOrder}
+        order={detailOrder}
         onConfirmed={fetchOrders}
       />
 
@@ -1009,6 +1343,39 @@ export default function OrdersPage() {
   );
 }
 
+function OrdersTableSkeleton({
+  columns,
+  density,
+  label,
+}: {
+  columns: number;
+  density: 'comfortable' | 'compact';
+  label: string;
+}) {
+  return (
+    <DataTable aria-busy="true" aria-label={label}>
+      <DataTableHead>
+        {Array.from({ length: columns }).map((_, index) => (
+          <DataTableHeadCell key={index} className={density === 'compact' ? 'px-4 py-2.5' : ''}>
+            <Skeleton className="h-3 w-16" />
+          </DataTableHeadCell>
+        ))}
+      </DataTableHead>
+      <DataTableBody>
+        {Array.from({ length: 7 }).map((_, row) => (
+          <DataTableRow key={row} striped={false}>
+            {Array.from({ length: columns }).map((__, column) => (
+              <DataTableCell key={column} className={density === 'compact' ? 'px-4 py-2.5' : ''}>
+                <Skeleton className={`h-4 ${column === 1 ? 'w-32' : column === columns - 1 ? 'w-24' : 'w-16'}`} />
+              </DataTableCell>
+            ))}
+          </DataTableRow>
+        ))}
+      </DataTableBody>
+    </DataTable>
+  );
+}
+
 // ─── Filter Dropdown ─────────────────────────────────────────────────────────
 
 function FilterDropdown({ label, value, onChange, options }: {
@@ -1017,49 +1384,31 @@ function FilterDropdown({ label, value, onChange, options }: {
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
   const displayLabel = options.find((o) => o.value === value)?.label ?? 'All';
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary hover:text-fg-primary transition-colors"
-        style={{ border: '1px solid var(--divider)' }}
-      >
-        {label} <span className="font-semibold text-fg-primary">{displayLabel}</span>
-        <ChevronDownIcon className="w-3.5 h-3.5" />
-      </button>
-      {open && (
-        <div
-          className="absolute top-full left-0 mt-1 rounded-standard py-1 min-w-[140px] z-50 shadow-lg"
-          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
-        >
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-              className={`block w-full text-left px-3 py-2 text-sm transition-colors ${
-                value === opt.value
-                  ? 'text-brand-500 font-medium'
-                  : 'text-fg-secondary hover:text-fg-primary'
-              }`}
-              style={value === opt.value ? { background: 'var(--surface-subtle)' } : undefined}
-            >
-              {opt.label}
-            </button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="md">
+          <ListFilterIcon />
+          {value ? (
+            <>
+              <span className="text-[var(--fg-muted)]">{label}</span>
+              <span>{displayLabel}</span>
+            </>
+          ) : displayLabel}
+          <ChevronDownIcon />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-52">
+        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+          {options.map((option) => (
+            <DropdownMenuRadioItem key={option.value || 'all'} value={option.value}>
+              {option.label}
+            </DropdownMenuRadioItem>
           ))}
-        </div>
-      )}
-    </div>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

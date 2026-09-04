@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { CalendarClockIcon, CheckCircle2Icon } from 'lucide-react';
 import { Badge } from '@/components/ds';
 import { CashTag } from '@/components/orders/CashTag';
 import {
@@ -8,7 +9,10 @@ import {
   PAYMENT_TONE,
   localizeStatus,
   localizeOrderType,
+  localizeSource,
 } from '@/lib/orders/status-presentation';
+import { relativeDayLabel } from '@/lib/orders/order-time';
+import { getOrderTiming, isOperationalOrder } from '@/lib/orders/operations-board';
 import type { Order, OrdersTableConfig } from '@/lib/api';
 import type { MoneyFormatter } from '@/lib/currency';
 import {
@@ -66,8 +70,14 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     defaultVisible: true,
     mobilePrimary: true,
     render: (order, t) => (
-      <span className="font-semibold text-fg-primary">
-        {order.customer_name || t('guestCustomer')}
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-semibold text-fg-primary">
+          {order.customer_name || t('guestCustomer')}
+        </span>
+        <span className="mt-0.5 truncate text-fs-xs font-normal text-[var(--fg-subtle)]">
+          {localizeSource(order.order_source, t)}
+          {order.customer_phone ? ` · ${order.customer_phone}` : ''}
+        </span>
       </span>
     ),
   },
@@ -83,39 +93,67 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     labelKey: 'date',
     defaultVisible: true,
     cellClassName: 'text-fg-secondary',
-    render: (order) => (
-      <div className="flex md:flex-col items-baseline md:items-stretch gap-1.5 md:gap-0">
-        <span className="tabular-nums">
-          {new Date(order.created_at).toLocaleDateString([], {
-            day: '2-digit',
-            month: 'short',
-          })}
-        </span>
-        <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
-          {new Date(order.created_at).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
-      </div>
-    ),
+    render: (order, t) => {
+      const date = order.is_scheduled && order.scheduled_for ? order.scheduled_for : order.created_at;
+      const relative = relativeDayLabel(date, t);
+      return (
+        <div className="flex items-center gap-2">
+          {order.is_scheduled && <CalendarClockIcon className="size-3.5 shrink-0 text-[var(--info-500)]" />}
+          <div className="flex items-baseline gap-1.5 md:flex-col md:items-stretch md:gap-0">
+            <span className="tabular-nums">
+              {relative ?? new Date(date).toLocaleDateString([], {
+                day: '2-digit',
+                month: 'short',
+              })}
+            </span>
+            <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
+              {new Date(date).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          </div>
+        </div>
+      );
+    },
   },
   {
     key: 'status',
     labelKey: 'status',
     defaultVisible: true,
-    render: (order, t) => (
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
-          {localizeStatus(order.status, t)}
-        </Badge>
-        {order.external_metadata?.stock_oversold === true && (
-          <Badge tone="warning" dot>
-            {t('stockOversoldBadge')}
-          </Badge>
-        )}
-      </div>
-    ),
+    render: (order, t) => {
+      const timing = getOrderTiming(order);
+      const showTiming = isOperationalOrder(order) && !timing.scheduledForFuture;
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
+              {localizeStatus(order.status, t)}
+            </Badge>
+            {order.external_metadata?.stock_oversold === true && (
+              <Badge tone="warning" dot>
+                {t('stockOversoldBadge')}
+              </Badge>
+            )}
+          </div>
+          {showTiming && (
+            <span
+              className={`text-fs-xs tabular-nums ${
+                timing.overdue
+                  ? 'font-semibold text-[var(--danger-500)]'
+                  : timing.approaching
+                    ? 'font-medium text-[var(--warning-600)]'
+                    : 'text-[var(--fg-subtle)]'
+              }`}
+            >
+              {timing.overdue && timing.threshold !== null
+                ? t('ordersOverdueBy').replace('{n}', String(timing.minutes))
+                : t('ordersInStageFor').replace('{n}', String(timing.minutes))}
+            </span>
+          )}
+        </div>
+      );
+    },
   },
   {
     key: 'payment',
@@ -123,12 +161,19 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     defaultVisible: true,
     render: (order, t) => (
       <div className="flex items-center gap-1.5 flex-wrap">
-        <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
-          {(() => {
-            const tv = t(order.payment_status);
-            return tv === order.payment_status ? order.payment_status : tv;
-          })()}
-        </Badge>
+        {order.payment_status === 'paid' ? (
+          <span className="inline-flex items-center gap-1.5 text-fs-sm text-[var(--fg-muted)]">
+            <CheckCircle2Icon className="size-4 text-[var(--success-500)]" />
+            {t('paid')}
+          </span>
+        ) : (
+          <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
+            {(() => {
+              const tv = t(order.payment_status);
+              return tv === order.payment_status ? order.payment_status : tv;
+            })()}
+          </Badge>
+        )}
         <CashTag order={order} />
       </div>
     ),
@@ -139,7 +184,9 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     defaultVisible: true,
     align: 'right',
     cellClassName: 'font-medium text-fg-primary',
-    render: (order, _t, money) => <>{money(order.total_amount ?? 0, { decimals: 0 })}</>,
+    render: (order, _t, money) => (
+      <>{money(order.total_amount ?? 0, { decimals: 0, grouped: true }).replace(/,/g, '\u202f')}</>
+    ),
   },
   // Delivery columns. Hidden by default: a restaurant that does not deliver
   // would otherwise inherit four permanently empty columns.
