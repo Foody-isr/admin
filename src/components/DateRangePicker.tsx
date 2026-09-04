@@ -82,6 +82,16 @@ function isoDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Prefer today's fulfillment series when it exists; otherwise keep the
+ * existing newest-series fallback used for historic or future-only calendars. */
+export function preferredSerieDate(
+  series: Array<{ date: string }>,
+  referenceDate: Date = new Date(),
+): string | undefined {
+  const today = isoDay(referenceDate);
+  return series.find((item) => item.date === today)?.date ?? series[0]?.date;
+}
+
 function inRange(d: Date, from: Date, to: Date): boolean {
   const t = d.getTime();
   return t >= startOfDay(from).getTime() && t <= endOfDay(to).getTime();
@@ -245,6 +255,9 @@ export default function DateRangePicker({
       : `${fmt(value.from)} – ${fmt(value.to)}`;
   const hasBasisControl = basis !== undefined && onBasisChange !== undefined;
   const serieMode = basis === 'serie';
+  const triggerLabel = hasBasisControl
+    ? `${t(serieMode ? 'dateBasisSerieShort' : 'dateBasisCreatedShort')} · ${rangeLabel}`
+    : rangeLabel;
   const seriesDateSet = useMemo(() => new Set(series.map((item) => item.date)), [series]);
 
   // Migrate legacy consumers that persisted the date basis separately from the
@@ -253,7 +266,9 @@ export default function DateRangePicker({
   useEffect(() => {
     if (!serieMode || series.length === 0) return;
     if (seriesDateSet.has(isoDay(value.from)) && seriesDateSet.has(isoDay(value.to))) return;
-    const date = new Date(`${series[0].date}T00:00:00`);
+    const preferred = preferredSerieDate(series);
+    if (!preferred) return;
+    const date = new Date(`${preferred}T00:00:00`);
     const selected = { from: startOfDay(date), to: endOfDay(date) };
     setViewMonth(date.getMonth());
     setViewYear(date.getFullYear());
@@ -284,11 +299,11 @@ export default function DateRangePicker({
   };
 
   const activateSeries = () => {
-    const latest = series[0]?.date;
-    if (!latest) return;
+    const preferred = preferredSerieDate(series);
+    if (!preferred) return;
     onBasisChange?.('serie');
     setPicking('idle');
-    const date = new Date(`${latest}T00:00:00`);
+    const date = new Date(`${preferred}T00:00:00`);
     setViewMonth(date.getMonth());
     setViewYear(date.getFullYear());
     setTempFrom(startOfDay(date));
@@ -391,10 +406,10 @@ export default function DateRangePicker({
       >
         {hasBasisControl ? (
           <>
-            <span className="min-w-0 truncate">{rangeLabel}</span>
+            <span className="min-w-0 truncate">{triggerLabel}</span>
             <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-[var(--fg-muted)]" />
           </>
-        ) : rangeLabel}
+        ) : triggerLabel}
       </button>
 
       {/* Dropdown */}
