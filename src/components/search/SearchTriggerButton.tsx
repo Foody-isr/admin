@@ -9,7 +9,7 @@ export default function SearchTriggerButton() {
   const { t } = useI18n();
   const isMac =
     typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-  const label = t('search');
+  const label = t('globalSearch');
   return (
     <button
       onClick={openSearch}
@@ -17,7 +17,7 @@ export default function SearchTriggerButton() {
       aria-label={label}
     >
       <SearchIcon className="w-4 h-4 shrink-0 text-[var(--fg-subtle)]" />
-      <span className="flex-1 text-left text-fs-sm">{label}…</span>
+      <span className="flex-1 text-left text-fs-sm">{label}</span>
       <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded-r-xs bg-[var(--surface-2)] text-[var(--fg-muted)] border border-[var(--line)]">
         {isMac ? '⌘K' : 'Ctrl K'}
       </kbd>
