@@ -69,6 +69,7 @@ import {
   OPERATIONS_QUEUES,
   type OperationsQueueKey,
 } from '@/lib/orders/operations-board';
+import { defaultOrdersTabForBasis } from '@/lib/orders/orders-list-preferences';
 import {
   DataTable,
   DataTableHead,
@@ -231,10 +232,19 @@ export default function OrdersPage() {
         if (!active) return;
         setDateField(preferences.orders_date_basis);
         setDefaultDateField(preferences.orders_date_basis);
+        setActiveTab(defaultOrdersTabForBasis(preferences.orders_date_basis));
+        setPage(0);
+        setDetailId(null);
         setPreferenceSaveFailed(false);
       })
       .catch(() => {
-        if (active) setPreferenceSaveFailed(true);
+        if (!active) return;
+        setDateField('created');
+        setDefaultDateField('created');
+        setActiveTab(defaultOrdersTabForBasis('created'));
+        setPage(0);
+        setDetailId(null);
+        setPreferenceSaveFailed(true);
       })
       .finally(() => {
         if (active) setFiltersReady(true);
@@ -721,13 +731,17 @@ export default function OrdersPage() {
     setPaymentFilter('');
     setDateRange(defaultDateRange());
     setDateField(defaultDateField);
+    setActiveTab(defaultOrdersTabForBasis(defaultDateField));
     setPage(0);
+    setDetailId(null);
   };
 
   const changeDateField = useCallback((nextBasis: DateBasis) => {
     setDateField(nextBasis);
     setDefaultDateField(nextBasis);
+    setActiveTab(defaultOrdersTabForBasis(nextBasis));
     setPage(0);
+    setDetailId(null);
     setPreferenceSaveFailed(false);
     void updateDisplayPreferences(rid, { orders_date_basis: nextBasis })
       .catch(() => setPreferenceSaveFailed(true));
