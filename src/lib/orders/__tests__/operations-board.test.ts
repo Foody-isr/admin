@@ -58,6 +58,19 @@ test('does not age a future scheduled order as overdue', () => {
   assert.equal(timing.overdue, false);
 });
 
+test('does not treat the serialized 03:00 offset as a future fulfillment time', () => {
+  const timing = getOrderTiming(
+    order({
+      is_scheduled: true,
+      status: 'pending_review',
+      scheduled_for: '2026-09-11T00:00:00.000Z',
+    }),
+    new Date(2026, 8, 11, 0, 30).getTime(),
+  );
+
+  assert.equal(timing.scheduledForFuture, false);
+});
+
 test('maps live and terminal orders correctly', () => {
   assert.equal(isOperationalOrder(order({ status: 'out_for_delivery' })), true);
   assert.equal(isOperationalOrder(order({ status: 'delivered' })), false);

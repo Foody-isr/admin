@@ -29,41 +29,58 @@ export function formatEventDay(iso: string): string {
   }
 }
 
-/** Full scheduled stamp: "lun. 14 août, 14:00". */
+const CALENDAR_DATE_PREFIX = /^(\d{4})-(\d{2})-(\d{2})/;
+
+/**
+ * Parses `scheduled_for` as the restaurant's calendar day, not an instant.
+ *
+ * PostgreSQL stores this field as `date`, but Go serializes it as midnight UTC
+ * (`2026-09-11T00:00:00Z`). Passing that value directly to `new Date()` makes
+ * Israeli browsers display 03:00 and can shift the day in western timezones.
+ */
+export function scheduledCalendarDate(iso: string): Date | null {
+  const match = CALENDAR_DATE_PREFIX.exec(iso);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) return null;
+  return date;
+}
+
+/** Compact scheduled calendar date: "11 sept.". */
+export function formatScheduledDateShort(iso: string): string {
+  const date = scheduledCalendarDate(iso);
+  if (!date) return iso;
+  return date.toLocaleDateString([], { day: '2-digit', month: 'short' });
+}
+
+/** Full scheduled calendar date: "lun. 14 août". */
 export function formatScheduledFor(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString([], {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
+  const date = scheduledCalendarDate(iso);
+  if (!date) return iso;
+  return date.toLocaleDateString([], {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+  });
 }
 
 /** Long scheduled date with no time: "lundi 14 août". */
 export function formatScheduledDateLong(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString([], {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-/** Just the clock part of a scheduled stamp: "14:00". */
-export function formatScheduledTimeOnly(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return iso;
-  }
+  const date = scheduledCalendarDate(iso);
+  if (!date) return iso;
+  return date.toLocaleDateString([], {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 }
 
 /**
@@ -74,25 +91,48 @@ export function formatScheduledTimeOnly(iso: string): string {
  * Compares calendar days, not elapsed hours, so an order at 23:00 tonight reads
  * "Today" and one at 01:00 tomorrow reads "Tomorrow".
  */
-export function relativeDayLabel(iso: string, t: (k: string) => string): string | null {
-  try {
-    const target = new Date(iso);
-    const t0 = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const days = Math.round((t0.getTime() - today.getTime()) / 86400000);
-    if (days === 0) return t('today') || 'Today';
-    if (days === 1) return t('tomorrow') || 'Tomorrow';
-    if (days > 1 && days < 14) {
-      const tmpl = t('inDaysShort');
-      const fallback = `in ${days} days`;
-      const used = tmpl && tmpl !== 'inDaysShort' ? tmpl : fallback;
-      return used.replace('{n}', String(days));
-    }
-    return null;
-  } catch {
-    return null;
+export function relativeDayLabel(
+  iso: string,
+  t: (k: string) => string,
+  now: Date = new Date(),
+): string | null {
+  const target = scheduledCalendarDate(iso);
+  if (!target) return null;
+  return relativeCalendarDay(target, t, now);
+}
+
+/**
+ * Relative day label for a real timestamp such as `created_at`. Unlike
+ * `relativeDayLabel`, this first converts the instant into the browser's local
+ * calendar day.
+ */
+export function relativeTimestampDayLabel(
+  iso: string,
+  t: (k: string) => string,
+  now: Date = new Date(),
+): string | null {
+  const target = new Date(iso);
+  if (!Number.isFinite(target.getTime())) return null;
+  return relativeCalendarDay(target, t, now);
+}
+
+function relativeCalendarDay(
+  target: Date,
+  t: (k: string) => string,
+  now: Date,
+): string | null {
+  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((targetDay.getTime() - today.getTime()) / 86400000);
+  if (days === 0) return t('today') || 'Today';
+  if (days === 1) return t('tomorrow') || 'Tomorrow';
+  if (days > 1 && days < 14) {
+    const tmpl = t('inDaysShort');
+    const fallback = `in ${days} days`;
+    const used = tmpl && tmpl !== 'inDaysShort' ? tmpl : fallback;
+    return used.replace('{n}', String(days));
   }
+  return null;
 }
 
 /**
