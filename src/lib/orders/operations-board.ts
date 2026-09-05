@@ -1,4 +1,5 @@
 import type { Order } from '@/lib/api';
+import { scheduledCalendarDate } from '@/lib/orders/order-time';
 
 export type OperationsQueueKey = 'active' | 'review' | 'kitchen' | 'ready' | 'delivery';
 
@@ -86,7 +87,9 @@ function timingAnchor(order: Order): string {
  * settings without changing any presentation component.
  */
 export function getOrderTiming(order: Order, now: number = Date.now()): OrderTiming {
-  const scheduledAt = order.scheduled_for ? new Date(order.scheduled_for).getTime() : NaN;
+  const scheduledAt = order.scheduled_for
+    ? scheduledCalendarDate(order.scheduled_for)?.getTime() ?? NaN
+    : NaN;
   const scheduledForFuture =
     !!order.is_scheduled &&
     Number.isFinite(scheduledAt) &&

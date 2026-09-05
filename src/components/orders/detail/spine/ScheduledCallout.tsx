@@ -7,7 +7,6 @@ import { ClockIcon } from 'lucide-react';
 import type { Order } from '@/lib/api';
 import {
   formatScheduledDateLong,
-  formatScheduledTimeOnly,
   relativeDayLabel,
 } from '@/lib/orders/order-time';
 
@@ -23,17 +22,18 @@ export function ScheduledBanner({
   t: (k: string) => string;
 }) {
   const rel = relativeDayLabel(iso, t);
-  // Prefer the fulfillment window (e.g. "14:00-18:00") over the raw scheduled_for
-  // clock time — for batch orders that timestamp is a meaningless near-midnight
-  // value, so a delivery/pickup window is what staff actually need to see.
-  const win = windowStart && windowEnd ? `${windowStart}-${windowEnd}` : null;
+  // `scheduled_for` is a calendar date. Its serialized midnight clock is not a
+  // customer-selected time, so only show an actual fulfillment window here.
+  const win = windowStart && windowEnd ? `${windowStart}–${windowEnd}` : null;
   const typeLabel =
     orderType === 'delivery' ? t('delivery')
     : orderType === 'pickup' ? t('pickup')
     : null;
-  const timeText = win
-    ? (typeLabel ? `${typeLabel} · ${win}` : win)
-    : formatScheduledTimeOnly(iso);
+  const heading =
+    orderType === 'delivery' ? t('scheduledDeliveryForLabel')
+    : orderType === 'pickup' ? t('scheduledPickupForLabel')
+    : t('scheduledForLabel');
+  const timeText = win ? (typeLabel ? `${typeLabel} · ${win}` : win) : null;
   return (
     <div
       className="flex items-center gap-[var(--s-3)] rounded-r-lg p-[var(--s-3)]"
@@ -53,7 +53,7 @@ export function ScheduledBanner({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-[var(--s-2)] text-[11px] leading-4 uppercase tracking-[.06em] font-semibold text-[var(--info-500)]">
-          <span className="truncate">{t('scheduledForLabel') || 'Scheduled for'}</span>
+          <span className="truncate">{heading || t('scheduledForLabel') || 'Scheduled for'}</span>
           {rel && (
             <span
               className="inline-flex items-center px-1.5 h-[18px] rounded-r-sm text-[10px] tracking-[.04em] shrink-0"
@@ -69,9 +69,11 @@ export function ScheduledBanner({
         <div className="text-fs-lg font-semibold tracking-tight text-[var(--fg)] break-words">
           {formatScheduledDateLong(iso)}
         </div>
-        <div className="text-fs-xs tabular-nums text-[var(--fg-muted)]">
-          {timeText}
-        </div>
+        {timeText && (
+          <div className="text-fs-xs tabular-nums text-[var(--fg-muted)]">
+            {timeText}
+          </div>
+        )}
       </div>
     </div>
   );

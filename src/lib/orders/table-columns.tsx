@@ -11,7 +11,11 @@ import {
   localizeOrderType,
   localizeSource,
 } from '@/lib/orders/status-presentation';
-import { relativeDayLabel } from '@/lib/orders/order-time';
+import {
+  formatScheduledDateShort,
+  relativeDayLabel,
+  relativeTimestampDayLabel,
+} from '@/lib/orders/order-time';
 import { getOrderTiming, isOperationalOrder } from '@/lib/orders/operations-board';
 import type { Order, OrdersTableConfig } from '@/lib/api';
 import type { MoneyFormatter } from '@/lib/currency';
@@ -94,24 +98,31 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     defaultVisible: true,
     cellClassName: 'text-fg-secondary',
     render: (order, t) => {
-      const date = order.is_scheduled && order.scheduled_for ? order.scheduled_for : order.created_at;
-      const relative = relativeDayLabel(date, t);
+      const scheduled = !!order.is_scheduled && !!order.scheduled_for;
+      const date = scheduled ? order.scheduled_for! : order.created_at;
+      const relative = scheduled
+        ? relativeDayLabel(date, t)
+        : relativeTimestampDayLabel(date, t);
+      const window = scheduled && order.scheduled_pickup_window_start && order.scheduled_pickup_window_end
+        ? `${order.scheduled_pickup_window_start}–${order.scheduled_pickup_window_end}`
+        : null;
+      const secondary = scheduled
+        ? [relative, window].filter(Boolean).join(' · ')
+        : new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       return (
         <div className="flex items-center gap-2">
-          {order.is_scheduled && <CalendarClockIcon className="size-3.5 shrink-0 text-[var(--info-500)]" />}
+          {scheduled && <CalendarClockIcon className="size-3.5 shrink-0 text-[var(--info-500)]" />}
           <div className="flex items-baseline gap-1.5 md:flex-col md:items-stretch md:gap-0">
             <span className="tabular-nums">
-              {relative ?? new Date(date).toLocaleDateString([], {
-                day: '2-digit',
-                month: 'short',
-              })}
+              {scheduled
+                ? formatScheduledDateShort(date)
+                : relative ?? new Date(date).toLocaleDateString([], { day: '2-digit', month: 'short' })}
             </span>
-            <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
-              {new Date(date).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </span>
+            {secondary && (
+              <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
+                {secondary}
+              </span>
+            )}
           </div>
         </div>
       );

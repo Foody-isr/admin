@@ -50,7 +50,6 @@ import { paymentReference, settledPaymentMethod } from '@/lib/orders/payment';
 import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
 import { OrderColumnPicker } from '@/components/orders/OrderColumnPicker';
 import { useOrdersTableConfig } from '@/lib/orders/useOrdersTableConfig';
-import { useIsMobile } from '@/components/ui/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -64,7 +63,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { OrdersOperationsRail } from '@/components/orders/OrdersOperationsRail';
-import { OrderQuickView } from '@/components/orders/OrderQuickView';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
 import {
   getOrderTiming,
@@ -151,7 +149,6 @@ export default function OrdersPage() {
   const canOverride = isOwner || roleName === 'Manager';
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const isMobile = useIsMobile();
   const { status: wsStatus, lastEvent, addProcessingGuard, removeProcessingGuard, isProcessing } = useWs();
 
   const { play: playSound, isEnabled: isSoundEnabled, toggle: toggleSound } = useOrderSound();
@@ -194,11 +191,7 @@ export default function OrdersPage() {
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [pendingClose, setPendingClose] = useState<{ id: number; type: string } | null>(null);
 
-  // Desktop first opens a lightweight inspection panel; the canonical detail
-  // takeover remains available for editing and is used directly on mobile.
-  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
-  const selectedOrder = orders.find((o) => o.id === selectedId) ?? null;
   const detailOrder = orders.find((o) => o.id === detailId) ?? null;
 
   // First day of the week + workdays for the date picker. Loaded with the
@@ -426,10 +419,9 @@ export default function OrdersPage() {
     if (isProcessing(wsOrder.id)) return;
 
     // Owner deleted an order elsewhere — drop it from the list and close the
-    // drawer if it was open. Handled before the upsert below so it isn't re-added.
+    // detail if it was open. Handled before the upsert below so it isn't re-added.
     if (type === 'order.deleted') {
       setOrders((prev) => prev.filter((o) => o.id !== wsOrder.id));
-      setSelectedId((prev) => (prev === wsOrder.id ? null : prev));
       setDetailId((prev) => (prev === wsOrder.id ? null : prev));
       void fetchQueueCounts();
       return;
@@ -598,7 +590,6 @@ export default function OrdersPage() {
     try {
       await deleteOrder(rid, orderId);
       setOrders((prev) => prev.filter((o) => o.id !== orderId));
-      setSelectedId((prev) => (prev === orderId ? null : prev));
       setDetailId((prev) => (prev === orderId ? null : prev));
     } catch {
       alert(t('deleteOrderFailed'));
@@ -669,7 +660,6 @@ export default function OrdersPage() {
         await markOrderServed(rid, orderId);
       }
     });
-    setSelectedId(null);
     setDetailId(null);
   };
 
@@ -678,7 +668,6 @@ export default function OrdersPage() {
   const switchTab = (key: string) => {
     setActiveTab(key);
     setPage(0);
-    setSelectedId(null);
     setDetailId(null);
   };
 
@@ -688,12 +677,7 @@ export default function OrdersPage() {
   };
 
   const openOrder = (orderId: number) => {
-    if (isMobile) {
-      setSelectedId(null);
-      setDetailId(orderId);
-    } else {
-      setSelectedId((current) => current === orderId ? null : orderId);
-    }
+    setDetailId(orderId);
   };
 
   const runPrimaryAction = (order: Order, action: PrimaryAction) => {
@@ -1121,7 +1105,6 @@ export default function OrdersPage() {
                 {orders.map((order, index) => {
                   const timing = getOrderTiming(order);
                   const capabilities = deriveOrderCapabilities(order, { canManage });
-                  const selected = selectedId === order.id;
                   return (
                     <DataTableRow
                       key={order.id}
@@ -1129,7 +1112,6 @@ export default function OrdersPage() {
                       striped={false}
                       tabIndex={0}
                       aria-label={t('ordersOpenOrder').replace('{id}', String(order.id))}
-                      aria-selected={selected}
                       onClick={() => openOrder(order.id)}
                       onKeyDown={(event) => {
                         if (event.target !== event.currentTarget) return;
@@ -1138,9 +1120,7 @@ export default function OrdersPage() {
                           openOrder(order.id);
                         }
                       }}
-                      className={`group cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--brand-500)] ${
-                        selected ? 'bg-[var(--brand-50)]' : ''
-                      }`}
+                      className="group cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--brand-500)]"
                     >
                       {columns.visible.map((col, columnIndex) => (
                         <DataTableCell
@@ -1161,9 +1141,7 @@ export default function OrdersPage() {
                         <DataTableCell
                           align="right"
                           mobileLabel={t('ordersNextAction')}
-                          className={`md:sticky md:end-0 ${density === 'compact' ? 'px-4 py-2.5' : ''} ${
-                            selected ? 'bg-[var(--brand-50)]' : 'bg-[var(--surface)] group-hover:bg-orange-50/50 dark:group-hover:bg-orange-900/20'
-                          }`}
+                          className={`md:sticky md:end-0 bg-[var(--surface)] group-hover:bg-orange-50/50 dark:group-hover:bg-orange-900/20 ${density === 'compact' ? 'px-4 py-2.5' : ''}`}
                         >
                           {capabilities.primary ? (
                             <Button
@@ -1173,7 +1151,6 @@ export default function OrdersPage() {
                               onClick={(event) => {
                                 event.stopPropagation();
                                 if (capabilities.primary === 'accept') {
-                                  setSelectedId(null);
                                   setDetailId(order.id);
                                 } else {
                                   runPrimaryAction(order, capabilities.primary!);
@@ -1235,22 +1212,7 @@ export default function OrdersPage() {
         )}
       </div>
 
-      <OrderQuickView
-        order={selectedOrder}
-        canManage={canManage}
-        loading={selectedOrder != null && actionLoading === selectedOrder.id}
-        onClose={() => setSelectedId(null)}
-        onOpenDetails={() => {
-          if (!selectedOrder) return;
-          setDetailId(selectedOrder.id);
-          setSelectedId(null);
-        }}
-        onPrimary={(action) => {
-          if (selectedOrder) runPrimaryAction(selectedOrder, action);
-        }}
-      />
-
-      {/* Canonical full detail for edits, history and complex actions. */}
+      {/* Clicking a row opens the complete order directly. */}
       <OrderDetailModal
         order={detailOrder}
         canManage={canManage}
