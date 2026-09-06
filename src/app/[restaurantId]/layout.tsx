@@ -95,7 +95,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
 
   if (loading || restaurantLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
       </div>
     );
@@ -103,7 +103,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
 
   if (restaurantError) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-fg-secondary">Unable to load restaurant. Check your connection.</p>
         <button
           className="text-sm text-brand-500 underline"
@@ -122,7 +122,9 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
       <PermissionsProvider restaurantId={restaurantId}>
         <WsProvider restaurantId={restaurantId}>
           <PushResync restaurantId={restaurantId} />
-          <div className="min-h-screen">
+          {/* Fullscreen routes render their own chrome, so they still have to
+              absorb the status-bar inset themselves (viewport-fit=cover). */}
+          <div className="min-h-dvh pt-safe-t">
             <PermissionRouteGuard>{children}</PermissionRouteGuard>
           </div>
           {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
@@ -178,7 +180,7 @@ function RestaurantExperience({
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
+      <div className="flex min-h-dvh items-center justify-center bg-[var(--bg)]">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--brand-500)] border-t-transparent" />
       </div>
     );
@@ -244,7 +246,7 @@ function RestaurantShell({
       ? 'lg:mr-[var(--sidebar-w)]'
       : 'lg:ml-[var(--sidebar-w)]';
   return (
-    <div className="h-screen flex">
+    <div className="h-dvh flex">
       <div className="flex flex-1 min-w-0">
         <Sidebar
           restaurantId={restaurantId}
@@ -261,7 +263,13 @@ function RestaurantShell({
             pageName={pageName}
             onToggleSidebar={toggleSidebar}
           />
-          <div className={`min-w-0 ${isWideLayout ? 'p-6 lg:p-8' : 'px-6 py-6 lg:px-8'}`}>
+          <div
+            className={`min-w-0 pb-[max(var(--s-6),var(--safe-bottom))] ${
+              isWideLayout
+                ? 'px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8'
+                : 'px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8'
+            }`}
+          >
             {children}
           </div>
         </main>

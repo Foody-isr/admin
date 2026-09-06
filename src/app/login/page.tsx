@@ -115,7 +115,7 @@ export default function LoginPage() {
   const showForm = !passkeyFirst || showPasswordForm;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-page">
+    <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex justify-center mb-8">

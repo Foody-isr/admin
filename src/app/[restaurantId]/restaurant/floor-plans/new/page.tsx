@@ -33,8 +33,8 @@ export default function NewFloorPlanPage() {
   const handleCancel = () => router.push(`/${rid}/restaurant/floor-plans`);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="card w-full max-w-md p-6 space-y-5" style={{ background: 'var(--bg)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(var(--s-4),var(--safe-top))] pb-[max(var(--s-4),var(--safe-bottom))]" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div className="card w-full max-w-md p-6 space-y-5 max-h-full overflow-y-auto" style={{ background: 'var(--bg)' }}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-fg-primary">{t('floorPlanDetails')}</h2>

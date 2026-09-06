@@ -764,7 +764,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const isRtl = direction === 'rtl';
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface)' }}>
+    <div className="fixed inset-0 z-50 pt-safe-t pb-safe-b flex flex-col" style={{ background: 'var(--surface)' }}>
       {(() => {
         const displaySupplier = selectedSupplierId === -1
           ? newSupplierName

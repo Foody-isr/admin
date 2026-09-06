@@ -138,7 +138,7 @@ export default function SearchModal() {
       onClick={closeSearch}
     >
       <div
-        className="w-full sm:w-[540px] sm:max-w-[calc(100vw-32px)] sm:rounded-xl bg-[var(--surface)] border border-[var(--line-strong)] shadow-2xl overflow-hidden h-screen sm:h-auto sm:max-h-[70vh] flex flex-col"
+        className="w-full sm:w-[540px] sm:max-w-[calc(100vw-32px)] sm:rounded-xl bg-[var(--surface)] border border-[var(--line-strong)] shadow-2xl overflow-hidden h-dvh pt-safe-t pb-safe-b sm:h-auto sm:max-h-[70vh] sm:pt-0 sm:pb-0 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Input row */}

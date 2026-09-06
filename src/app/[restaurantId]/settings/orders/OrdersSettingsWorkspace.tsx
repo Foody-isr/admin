@@ -1161,7 +1161,7 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
             view !== 'workflow' &&
             !(view === 'processing' && !hasProcessingSettings) &&
             (canEdit || saved || saveError) && (
-            <div className="sticky bottom-[var(--s-4)] z-10 mb-[var(--s-8)] flex flex-wrap items-center justify-end gap-[var(--s-3)] rounded-r-lg border border-[var(--line)] bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] p-[var(--s-3)] shadow-3 backdrop-blur-xl">
+            <div className="sticky bottom-[max(var(--s-4),var(--safe-bottom))] z-10 mb-[var(--s-8)] flex flex-wrap items-center justify-end gap-[var(--s-3)] rounded-r-lg border border-[var(--line)] bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] p-[var(--s-3)] shadow-3 backdrop-blur-xl">
               {saved && (
                 <span className="me-auto text-fs-sm font-medium text-[var(--success-500)]">
                   {t('saved')}

@@ -628,7 +628,7 @@ export default function NewOrderPage() {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 120px)' }}>
+    <div className="flex flex-col" style={{ height: 'calc(100dvh - var(--topbar-total-h) - 64px)' }}>
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--bg)] shadow-1 lg:grid-cols-[1fr_minmax(360px,420px)]">
         {/* ─── Catalog ──────────────────────────────────────────────────── */}
         <div className="flex min-h-0 min-w-0 flex-col border-[var(--line)] lg:border-e">

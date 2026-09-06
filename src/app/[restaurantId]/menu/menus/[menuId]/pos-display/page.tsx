@@ -342,9 +342,9 @@ export default function PosDisplayEditorPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[var(--bg)] text-[var(--fg)]">
+    <div className="fixed inset-0 z-40 pt-safe-t pb-safe-b flex flex-col bg-[var(--bg)] text-[var(--fg)]">
       {/* ── Top bar ── */}
-      <header className="h-[60px] shrink-0 flex items-center gap-[var(--s-4)] px-[var(--s-5)] border-b border-[var(--line)] bg-[var(--surface)]">
+      <header className="h-[60px] shrink-0 flex items-center gap-[var(--s-3)] sm:gap-[var(--s-4)] px-[var(--s-4)] sm:px-[var(--s-5)] border-b border-[var(--line)] bg-[var(--surface)]">
         <Button variant="ghost" size="md" icon aria-label="Fermer" onClick={closeBack}>
           <X />
         </Button>

@@ -104,7 +104,7 @@ export function WhatsAppDeliveryReminderDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/55 backdrop-blur-[4px]" />
         <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[min(560px,calc(100vw-32px))] bg-[var(--bg)] text-[var(--fg)] border border-[var(--line)] rounded-r-lg shadow-3 focus:outline-none">
-          <div className="p-[var(--s-5)] max-h-[calc(100vh-64px)] overflow-y-auto">
+          <div className="p-[var(--s-5)] max-h-[calc(100dvh-64px-var(--safe-top)-var(--safe-bottom))] overflow-y-auto">
             <div className="flex items-start gap-[var(--s-3)] mb-[var(--s-4)]">
               <div className="flex-1 min-w-0">
                 <Dialog.Title className="text-fs-lg font-semibold">

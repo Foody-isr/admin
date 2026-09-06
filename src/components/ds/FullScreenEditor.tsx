@@ -57,6 +57,9 @@ export function FullScreenEditor({
             'fixed z-50 inset-0',
             'md:top-[32px] md:bottom-[24px]',
             'md:left-[24px] md:right-[24px]',
+            // Edge-to-edge on mobile means the head would sit under the status
+            // bar / notch (viewport-fit=cover) — absorb the insets here.
+            'pt-safe-t pb-safe-b',
             'flex flex-col overflow-hidden',
             'bg-[var(--bg)] text-[var(--fg)]',
             'md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3',

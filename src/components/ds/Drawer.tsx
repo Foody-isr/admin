@@ -54,6 +54,8 @@ export function Drawer({
         <Dialog.Content
           className={cn(
             'fixed z-50 top-0 bottom-0 end-0 max-w-[95vw]',
+            // Full-height overlay — absorb the device insets (viewport-fit=cover).
+            'pt-safe-t pb-safe-b',
             'flex flex-col',
             'bg-[var(--bg)] text-[var(--fg)]',
             'border-s border-[var(--line)] shadow-3',

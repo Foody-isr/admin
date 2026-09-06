@@ -379,7 +379,7 @@ export default function ProductionPage() {
       ref={fsRef}
       className={
         fullscreen
-          ? 'fixed inset-0 z-[60] flex flex-col gap-[var(--s-3)] overflow-auto bg-[var(--bg)] p-[var(--s-4)]'
+          ? 'fixed inset-0 z-[60] flex flex-col gap-[var(--s-3)] overflow-auto bg-[var(--bg)] p-[var(--s-4)] pt-[max(var(--s-4),var(--safe-top))] pb-[max(var(--s-4),var(--safe-bottom))]'
           : 'flex flex-col'
       }
     >

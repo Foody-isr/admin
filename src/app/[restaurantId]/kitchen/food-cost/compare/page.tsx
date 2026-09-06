@@ -177,9 +177,9 @@ export default function CompareCostsPage() {
   const gridTemplate = `220px repeat(${summaries.length}, minmax(200px, 1fr))`;
 
   return (
-    <div className="fixed inset-0 z-40 bg-[var(--bg)] overflow-y-auto flex flex-col">
+    <div className="fixed inset-0 z-40 bg-[var(--bg)] overflow-y-auto pb-safe-b flex flex-col">
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--line)] px-[var(--s-6)] py-[var(--s-4)] flex items-center justify-between gap-[var(--s-4)]">
+      <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--line)] px-[var(--s-4)] sm:px-[var(--s-6)] pb-[var(--s-4)] pt-[max(var(--s-4),var(--safe-top))] flex flex-wrap items-center justify-between gap-[var(--s-3)] sm:gap-[var(--s-4)]">
         <div className="flex items-center gap-[var(--s-3)]">
           <Button
             variant="ghost"

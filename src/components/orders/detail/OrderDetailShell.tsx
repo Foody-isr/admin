@@ -90,6 +90,9 @@ export function OrderDetailShell({
             // correct in RTL.
             '2xl:left-[max(24px,calc((100vw-1680px)/2))]',
             '2xl:right-[max(24px,calc((100vw-1680px)/2))]',
+            // Fullscreen on mobile, so the head would sit under the status bar
+            // and the footer under the home indicator (viewport-fit=cover).
+            'pt-safe-t pb-safe-b',
             'flex flex-col overflow-hidden min-h-0',
             'order-detail-surface',
             'bg-[var(--bg)] text-[var(--fg)]',
@@ -145,7 +148,6 @@ export function OrderDetailShell({
               className={cn(
                 'shrink-0 border-t border-[var(--line)] bg-[var(--surface)]',
                 'px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-3)]',
-                'pb-[max(var(--s-3),env(safe-area-inset-bottom))]',
               )}
             >
               {footer}
