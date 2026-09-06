@@ -11,7 +11,6 @@ import BranchSwitcher from '@/components/BranchSwitcher';
 import {
   ChevronRightIcon,
   ChevronDownIcon,
-  BellIcon,
   SunIcon,
   MoonIcon,
   LogOutIcon,
@@ -22,14 +21,13 @@ interface TopBarProps {
   restaurantName: string;
   pageName: string;
   onToggleSidebar: () => void;
-  orderCount?: number;
 }
 
 /**
  * Topbar — crumbs on the left, search input-group in the middle, actions on the right.
  * Matches chrome.jsx from the design reference.
  */
-export default function TopBar({ restaurantId, restaurantName, pageName, onToggleSidebar, orderCount }: TopBarProps) {
+export default function TopBar({ restaurantId, restaurantName, pageName, onToggleSidebar }: TopBarProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t, direction } = useI18n();
@@ -89,19 +87,6 @@ export default function TopBar({ restaurantId, restaurantName, pageName, onToggl
 
       {/* Search trigger */}
       <SearchTriggerButton />
-
-      {/* Bell */}
-      <button
-        className="relative p-2 rounded-r-md hover:bg-[var(--sidebar-hover)] transition-colors"
-        aria-label={t('notifications') || 'Notifications'}
-      >
-        <BellIcon className="w-4 h-4" />
-        {orderCount !== undefined && orderCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[var(--danger-500)] rounded-full text-[10px] font-bold text-white flex items-center justify-center">
-            {orderCount > 9 ? '9+' : orderCount}
-          </span>
-        )}
-      </button>
 
       {/* Avatar dropdown */}
       <div className="relative" ref={menuRef}>

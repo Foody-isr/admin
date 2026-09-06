@@ -34,8 +34,8 @@ import { useOrderSeries } from '@/lib/series';
 import {
   SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
-  ChevronDownIcon, PlusIcon, XIcon, Rows3Icon, AlignJustifyIcon,
-  PauseIcon, PlayIcon, WifiIcon, WifiOffIcon, SlidersHorizontalIcon,
+  ChevronDownIcon, MoreHorizontalIcon, PlusIcon, XIcon,
+  PauseIcon, PlayIcon, WifiIcon, WifiOffIcon,
   ListFilterIcon, ClipboardListIcon,
 } from 'lucide-react';
 import { Button, ConfirmDialog, PageHead } from '@/components/ds';
@@ -180,7 +180,6 @@ export default function OrdersPage() {
   const [page, setPage] = useState(0);
   const [queueCounts, setQueueCounts] = useState<Partial<Record<OperationsQueueKey, number>>>({});
   const [queueCountsLoading, setQueueCountsLoading] = useState(true);
-  const [density, setDensityState] = useState<'comfortable' | 'compact'>('comfortable');
   const [, setClockTick] = useState(0);
 
   const orders = rawOrders;
@@ -305,20 +304,6 @@ export default function OrdersPage() {
   };
 
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(`foody.orders.density.${rid}`);
-    if (saved === 'compact' || saved === 'comfortable') setDensityState(saved);
-  }, [rid]);
-
-  const setDensity = (next: 'comfortable' | 'compact') => {
-    setDensityState(next);
-    try {
-      localStorage.setItem(`foody.orders.density.${rid}`, next);
-    } catch {
-      // The preference is optional; private browsing must not block the board.
-    }
-  };
 
   // Stage-age labels update even when the restaurant is quiet and no websocket
   // event causes a render.
@@ -791,99 +776,92 @@ export default function OrdersPage() {
           actions={
             <>
               {canManage && (
-                <Button variant="primary" size="md" asChild>
-                  <Link href={`/${rid}/orders/new`}>
-                    <PlusIcon />
-                    {t('newOrder')}
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  icon
+                  asChild
+                  className="rounded-full border-2 border-[var(--brand-500)] text-[var(--brand-600)] hover:border-[var(--brand-600)] hover:bg-[var(--brand-50)] dark:hover:bg-orange-950/30"
+                >
+                  <Link
+                    href={`/${rid}/orders/new`}
+                    aria-label={t('newOrder')}
+                    title={t('newOrder')}
+                  >
+                    <PlusIcon className="!size-5" />
                   </Link>
                 </Button>
               )}
-              <div className="flex items-center overflow-hidden rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)]">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="md"
-                      className="rounded-none border-e border-[var(--line)]"
-                      disabled={pauseSaving}
-                    >
-                      {paused ? <WifiOffIcon /> : <WifiIcon />}
-                      <span className="hidden sm:inline">{t('ordersOnline')}</span>
-                      <span className={paused ? 'text-[var(--danger-500)]' : 'text-[var(--success-600)]'}>
-                        {paused ? t('ordersPausedShort') : t('ordersAccepting')}
-                      </span>
-                      <ChevronDownIcon />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-72">
-                    <DropdownMenuLabel>{t('ordersOnline')}</DropdownMenuLabel>
-                    <DropdownMenuItem disabled={!canManage || !paused} onSelect={() => void togglePause(false)}>
-                      <PlayIcon />
-                      <span>
-                        <span className="block">{t('ordersAccepting')}</span>
-                        <span className="block text-fs-xs text-[var(--fg-muted)]">{t('ordersAcceptingDesc')}</span>
-                      </span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled={!canManage || paused} onSelect={() => void togglePause(true)}>
-                      <PauseIcon />
-                      <span>
-                        <span className="block">{t('pauseOrders')}</span>
-                        <span className="block text-fs-xs text-[var(--fg-muted)]">{t('pauseOnlineOrdersDesc')}</span>
-                      </span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuCheckboxItem
-                      checked={soundOn}
-                      onCheckedChange={() => {
-                        const next = toggleSound();
-                        setSoundOn(next);
-                      }}
-                    >
-                      <Volume2Icon /> {t('ordersSound')}
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuItem onSelect={requestPermission}>
-                      <BellIcon />
-                      {permission === 'granted' ? t('notificationsEnabled') : t('enableNotifications')}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="ghost"
-                  size="md"
-                  icon
-                  className="rounded-none"
-                  onClick={() => {
-                    const next = toggleSound();
-                    setSoundOn(next);
-                  }}
-                  aria-label={soundOn ? t('muteSound') : t('unmuteSound')}
-                  title={soundOn ? t('muteSound') : t('unmuteSound')}
-                >
-                  {soundOn ? <Volume2Icon /> : <VolumeXIcon />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="md"
-                  icon
-                  className="rounded-none border-s border-[var(--line)]"
-                  onClick={requestPermission}
-                  aria-label={permission === 'granted' ? t('notificationsEnabled') : t('enableNotifications')}
-                  title={permission === 'granted' ? t('notificationsEnabled') : t('enableNotifications')}
-                >
-                  {permission === 'granted' ? <BellIcon /> : <BellOffIcon />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="md"
-                  icon
-                  className="rounded-none border-s border-[var(--line)]"
-                  onClick={() => void Promise.allSettled([fetchOrders(), fetchQueueCounts()])}
-                  aria-label={t('refresh')}
-                  title={t('refresh')}
-                >
-                  <RefreshCwIcon />
-                </Button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="lg" disabled={pauseSaving}>
+                    {paused ? <WifiOffIcon /> : <WifiIcon />}
+                    <span className="hidden sm:inline">{t('ordersOnline')}</span>
+                    <span className={paused ? 'text-[var(--danger-500)]' : 'text-[var(--success-600)]'}>
+                      {paused ? t('ordersPausedShort') : t('ordersAccepting')}
+                    </span>
+                    <ChevronDownIcon />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel>{t('ordersOnline')}</DropdownMenuLabel>
+                  <DropdownMenuItem disabled={!canManage || !paused} onSelect={() => void togglePause(false)}>
+                    <PlayIcon />
+                    <span>
+                      <span className="block">{t('ordersAccepting')}</span>
+                      <span className="block text-fs-xs text-[var(--fg-muted)]">{t('ordersAcceptingDesc')}</span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={!canManage || paused} onSelect={() => void togglePause(true)}>
+                    <PauseIcon />
+                    <span>
+                      <span className="block">{t('pauseOrders')}</span>
+                      <span className="block text-fs-xs text-[var(--fg-muted)]">{t('pauseOnlineOrdersDesc')}</span>
+                    </span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    icon
+                    className="rounded-full"
+                    aria-label={t('moreActions')}
+                    title={t('moreActions')}
+                  >
+                    <MoreHorizontalIcon />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuCheckboxItem
+                    checked={soundOn}
+                    onCheckedChange={() => {
+                      const next = toggleSound();
+                      setSoundOn(next);
+                    }}
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    {soundOn ? <Volume2Icon /> : <VolumeXIcon />}
+                    {t('ordersSound')}
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuItem onSelect={() => void requestPermission()}>
+                    {permission === 'granted' ? <BellIcon /> : <BellOffIcon />}
+                    {permission === 'granted' ? t('notificationsEnabled') : t('enableNotifications')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void Promise.allSettled([fetchOrders(), fetchQueueCounts()])}>
+                    <RefreshCwIcon />
+                    {t('refresh')}
+                  </DropdownMenuItem>
+                  {hasAnyPermission('settings.edit') && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <OrderColumnPicker columns={columns} />
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           }
         />
@@ -1042,36 +1020,12 @@ export default function OrdersPage() {
             </span>
           )}
 
-          <div className="ms-auto flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="md">
-                  <SlidersHorizontalIcon />
-                  {t('ordersDisplay')}
-                  <ChevronDownIcon />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>{t('ordersDensity')}</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={density} onValueChange={(value) => setDensity(value as 'comfortable' | 'compact')}>
-                  <DropdownMenuRadioItem value="comfortable">
-                    <Rows3Icon /> {t('ordersDensityComfortable')}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="compact">
-                    <AlignJustifyIcon /> {t('ordersDensityCompact')}
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}
-          </div>
         </div>
 
         {/* Table */}
         {loading ? (
           <OrdersTableSkeleton
             columns={columns.visible.length + (canManage ? 1 : 0)}
-            density={density}
             label={t('loading')}
           />
         ) : orders.length === 0 ? (
@@ -1099,14 +1053,14 @@ export default function OrdersPage() {
           <>
             <DataTable
               className="md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
-              data-density={density}
+              data-density="compact"
             >
               <DataTableHead className="sticky top-0 z-[2]">
                 {columns.visible.map((col) => (
                   <DataTableHeadCell
                     key={col.key}
                     align={col.align}
-                    className={`normal-case tracking-normal bg-neutral-50 dark:bg-[#0a0a0a] ${density === 'compact' ? 'px-4 py-2.5' : ''}`}
+                    className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]"
                   >
                     {t(col.labelKey)}
                   </DataTableHeadCell>
@@ -1114,7 +1068,7 @@ export default function OrdersPage() {
                 {canManage && (
                   <DataTableHeadCell
                     align="right"
-                    className={`sticky end-0 min-w-[150px] normal-case tracking-normal bg-neutral-50 dark:bg-[#0a0a0a] ${density === 'compact' ? 'px-4 py-2.5' : ''}`}
+                    className="sticky end-0 min-w-[150px] bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]"
                   >
                     {t('ordersNextAction')}
                   </DataTableHeadCell>
@@ -1145,7 +1099,7 @@ export default function OrdersPage() {
                         <DataTableCell
                           key={col.key}
                           align={col.align}
-                          className={`${col.cellClassName ?? ''} ${density === 'compact' ? 'px-4 py-2.5' : ''} ${
+                          className={`${col.cellClassName ?? ''} px-3 py-2 ${
                             columnIndex === 0 && timing.overdue
                               ? 'relative before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--danger-500)]'
                               : ''
@@ -1160,7 +1114,7 @@ export default function OrdersPage() {
                         <DataTableCell
                           align="right"
                           mobileLabel={t('ordersNextAction')}
-                          className={`md:sticky md:end-0 bg-[var(--surface)] group-hover:bg-orange-50/50 dark:group-hover:bg-orange-900/20 ${density === 'compact' ? 'px-4 py-2.5' : ''}`}
+                          className="bg-[var(--surface)] px-3 py-2 group-hover:bg-orange-50/50 md:sticky md:end-0 dark:group-hover:bg-orange-900/20"
                         >
                           {capabilities.primary ? (
                             <Button
@@ -1377,18 +1331,16 @@ export default function OrdersPage() {
 
 function OrdersTableSkeleton({
   columns,
-  density,
   label,
 }: {
   columns: number;
-  density: 'comfortable' | 'compact';
   label: string;
 }) {
   return (
-    <DataTable aria-busy="true" aria-label={label}>
+    <DataTable aria-busy="true" aria-label={label} data-density="compact">
       <DataTableHead>
         {Array.from({ length: columns }).map((_, index) => (
-          <DataTableHeadCell key={index} className={density === 'compact' ? 'px-4 py-2.5' : ''}>
+          <DataTableHeadCell key={index} className="px-3 py-2">
             <Skeleton className="h-3 w-16" />
           </DataTableHeadCell>
         ))}
@@ -1397,7 +1349,7 @@ function OrdersTableSkeleton({
         {Array.from({ length: 7 }).map((_, row) => (
           <DataTableRow key={row} striped={false}>
             {Array.from({ length: columns }).map((__, column) => (
-              <DataTableCell key={column} className={density === 'compact' ? 'px-4 py-2.5' : ''}>
+              <DataTableCell key={column} className="px-3 py-2">
                 <Skeleton className={`h-4 ${column === 1 ? 'w-32' : column === columns - 1 ? 'w-24' : 'w-16'}`} />
               </DataTableCell>
             ))}

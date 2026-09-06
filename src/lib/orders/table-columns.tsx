@@ -15,7 +15,6 @@ import {
 } from '@/lib/orders/status-presentation';
 import {
   formatScheduledDateShort,
-  relativeDayLabel,
   relativeTimestampDayLabel,
 } from '@/lib/orders/order-time';
 import { getOrderTiming, isOperationalOrder } from '@/lib/orders/operations-board';
@@ -102,14 +101,12 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     render: (order, t) => {
       const scheduled = !!order.is_scheduled && !!order.scheduled_for;
       const date = scheduled ? order.scheduled_for! : order.created_at;
-      const relative = scheduled
-        ? relativeDayLabel(date, t)
-        : relativeTimestampDayLabel(date, t);
+      const relative = scheduled ? null : relativeTimestampDayLabel(date, t);
       const window = scheduled && order.scheduled_pickup_window_start && order.scheduled_pickup_window_end
         ? `${order.scheduled_pickup_window_start}–${order.scheduled_pickup_window_end}`
         : null;
       const secondary = scheduled
-        ? [relative, window].filter(Boolean).join(' · ')
+        ? window
         : new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       return (
         <div className="flex items-center gap-2">
@@ -138,17 +135,15 @@ export const ORDER_COLUMNS: OrderColumn[] = [
       const timing = getOrderTiming(order);
       const showTiming = isOperationalOrder(order) && !timing.scheduledForFuture;
       return (
-        <div className="flex flex-col items-start gap-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
-              {localizeStatus(order.status, t)}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
+            {localizeStatus(order.status, t)}
+          </Badge>
+          {order.external_metadata?.stock_oversold === true && (
+            <Badge tone="warning" dot>
+              {t('stockOversoldBadge')}
             </Badge>
-            {order.external_metadata?.stock_oversold === true && (
-              <Badge tone="warning" dot>
-                {t('stockOversoldBadge')}
-              </Badge>
-            )}
-          </div>
+          )}
           {showTiming && (
             <span
               className={`text-fs-xs tabular-nums ${
