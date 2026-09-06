@@ -1,10 +1,9 @@
 // Single formatter for every money figure in the admin.
 //
 // Before this module, prices were rendered ~18 different ways: `₪${n.toFixed(2)}`
-// inline at ~15 call sites in the order detail drawer, a private `money()` in
-// print-ticket.ts, another in discounts.ts, and a `.toFixed(0)` in the orders
-// table — so the board and the detail view disagreed about the same order's
-// total. Route every price through here instead.
+// inline at ~15 call sites, another formatter in discounts.ts, and a
+// `.toFixed(0)` in the orders table — so the board and the detail view disagreed
+// about the same order's total. Route every price through here instead.
 //
 // The order detail's money column depends on this: a fixed-width column of
 // tabular figures only reads as one column if every figure is built the same

@@ -9,7 +9,6 @@ import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { ConfirmDialog } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
-import { type PrintTicketRestaurant } from '@/lib/print-ticket';
 import {
   getOrder, getRestaurant, getWebsiteConfig,
   acceptOrder, rejectOrder, updateOrderStatus, updateOrderPaymentStatus,
@@ -47,9 +46,8 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
   // token-styled takeover.
   const [pendingClose, setPendingClose] = useState(false);
 
-  // Minimal restaurant identity for printed tickets + custom checkout-field
-  // labels — same data the orders board feeds the drawer.
-  const [restaurantInfo, setRestaurantInfo] = useState<PrintTicketRestaurant>({});
+  // Restaurant identity for customer messages + custom checkout-field labels.
+  const [restaurantName, setRestaurantName] = useState('');
   const [restaurantLocale, setRestaurantLocale] = useState<string>('');
   const [customFieldLabels, setCustomFieldLabels] = useState<Record<string, string>>({});
   const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
@@ -57,7 +55,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
     if (!restaurantId) return;
     getRestaurant(restaurantId)
       .then((r) => {
-        setRestaurantInfo({ name: r.name, address: r.address, phone: r.phone });
+        setRestaurantName(r.name);
         setRestaurantLocale(r.default_locale || '');
       })
       .catch(() => {});
@@ -162,7 +160,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         onCloseOrder={() => setPendingClose(true)}
         onEdit={() => setEditOpen(true)}
         onConfirmWeights={() => setWeightsOpen(true)}
-        restaurantInfo={restaurantInfo}
+        restaurantName={restaurantName}
         restaurantDefaultLocale={restaurantLocale}
         customFieldLabels={customFieldLabels}
         checkoutConfig={checkoutConfig}

@@ -19,9 +19,9 @@ import {
  * right state each time is the slow path. Scenario chips switch between the
  * states that are otherwise hard to reproduce on demand.
  *
- * Sections that fetch on mount (internal notes, activity, invoice) will fail
- * here — there is no authenticated API behind them. That is expected and is
- * itself worth seeing: it shows how each one degrades.
+ * The fixture uses restaurant_id=0 below so sections that normally fetch on
+ * mount stay local. Without that guard, the unauthenticated design-system route
+ * is redirected to login before the preview can render.
  */
 export function OrderDetailPreview() {
   const { theme, toggleTheme } = useTheme();
@@ -33,6 +33,7 @@ export function OrderDetailPreview() {
   const [pendingDelete, setPendingDelete] = useState(false);
 
   const scenario = PREVIEW_ORDERS.find((s) => s.key === key) ?? PREVIEW_ORDERS[0];
+  const previewOrder = { ...scenario.order, restaurant_id: 0 };
   const noop = () => {};
 
   return (
@@ -66,7 +67,7 @@ export function OrderDetailPreview() {
       </div>
 
       <OrderDetailModal
-        order={open ? scenario.order : null}
+        order={open ? previewOrder : null}
         canManage
         canDelete
         canOverride
@@ -89,7 +90,7 @@ export function OrderDetailPreview() {
         onConfirmWeights={noop}
         onEditCustomer={noop}
         onToggleForceProduction={noop}
-        restaurantInfo={PREVIEW_RESTAURANT}
+        restaurantName={PREVIEW_RESTAURANT.name || ''}
         restaurantDefaultLocale="fr"
         customFieldLabels={PREVIEW_CUSTOM_FIELD_LABELS}
       />

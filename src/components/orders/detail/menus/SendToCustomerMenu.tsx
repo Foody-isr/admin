@@ -5,7 +5,8 @@
 // with a short summary plus a link to the hosted receipt page, and a copy-link
 // shortcut. No backend call — the receipt link is built from receipt_token.
 //
-// Rebuilt on ds/Menu, same reasons as PrintTicketMenu.
+// Built on ds/Menu so it portals above the sticky command bar and provides
+// keyboard navigation and focus management.
 
 import { useState } from 'react';
 import {

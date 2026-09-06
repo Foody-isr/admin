@@ -23,7 +23,6 @@ import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import { type PrintTicketRestaurant } from '@/lib/print-ticket';
 import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
 import { OrderDetailModal } from '@/components/orders/detail/OrderDetailModal';
 import { localizeOrderType } from '@/lib/orders/status-presentation';
@@ -199,8 +198,8 @@ export default function OrdersPage() {
   // never renders muted cells based on a stale guess.
   const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
   const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
-  // Minimal restaurant identity for printed tickets (name/address/phone header).
-  const [restaurantInfo, setRestaurantInfo] = useState<PrintTicketRestaurant>({});
+  // Restaurant identity used in customer-facing messages.
+  const [restaurantName, setRestaurantName] = useState('');
   // The restaurant's own language — fallback for the customer-facing WhatsApp
   // recap when an order carries no customer_locale.
   const [restaurantLocale, setRestaurantLocale] = useState<string>('');
@@ -213,7 +212,7 @@ export default function OrdersPage() {
       .then((r) => {
         setWeekStartDay(clampWeekStartDay(r.week_start_day));
         setWorkdays(getEffectiveWorkdays(r));
-        setRestaurantInfo({ name: r.name, address: r.address, phone: r.phone });
+        setRestaurantName(r.name);
         setRestaurantLocale(r.default_locale || '');
         setTableConfig(r.orders_table_config ?? null);
       })
@@ -1215,7 +1214,7 @@ export default function OrdersPage() {
         onConfirmWeights={() => setWeightsOpen(true)}
         onEditCustomer={() => detailOrder && setEditCustomerId(detailOrder.id)}
         onToggleForceProduction={() => detailOrder && handleToggleForceProduction(detailOrder.id, !detailOrder.force_production)}
-        restaurantInfo={restaurantInfo}
+        restaurantName={restaurantName}
         restaurantDefaultLocale={restaurantLocale}
         customFieldLabels={customFieldLabels}
         checkoutConfig={checkoutConfig}

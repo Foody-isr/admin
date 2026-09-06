@@ -48,10 +48,9 @@ const Gap = () => <span aria-hidden />;
  * Modifier rows.
  *
  * The sign carries the meaning: `+` for an addition, `−` (U+2212, never a
- * hyphen) for everything else, matching print-ticket.ts exactly so a screen and
- * a printed kitchen ticket cannot disagree. Colour is deliberately NOT used —
- * eight coloured chips on a long ticket is noise. Emphasis instead: additions
- * in --fg, removals muted, and a paid delta's price at full strength.
+ * hyphen) for everything else. Colour is deliberately NOT used — eight
+ * coloured chips on a long ticket is noise. Emphasis instead: additions in
+ * --fg, removals muted, and a paid delta's price at full strength.
  *
  * Before this, `m.name` was rendered alone in a neutral pill, so "Sans
  * coriandre" and "Extra citron +₪4" looked identical.

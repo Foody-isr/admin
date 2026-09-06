@@ -18,10 +18,8 @@
 import { useEffect, useState } from 'react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { groupOrder } from '@/lib/orders/group-order';
-import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
 import { statusStageKind } from '@/lib/orders/workflow-stepper';
-import { localizeOrderType } from '@/lib/orders/status-presentation';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import { WhatsAppDeliveryReminderDialog } from '@/components/orders/WhatsAppDeliveryReminderDialog';
 import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
@@ -82,7 +80,7 @@ export interface OrderDetailModalProps {
   onEditCustomer?: () => void;
   /** Toggles the "add to production plan" override. Absent = action hidden. */
   onToggleForceProduction?: () => void;
-  restaurantInfo: PrintTicketRestaurant;
+  restaurantName: string;
   /** Restaurant's own language (he/fr/en). Fallback for the customer-facing
    *  WhatsApp recap when the order carries no customer_locale. */
   restaurantDefaultLocale?: string;
@@ -99,9 +97,9 @@ export function OrderDetailModal({
   order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete,
   onOverride, onCorrectPayment, onCorrectPaymentMethod, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered, onTakePayment, onCloseOrder, onEdit, onConfirmWeights,
-  onEditCustomer, onToggleForceProduction, restaurantInfo, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
+  onEditCustomer, onToggleForceProduction, restaurantName, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
 }: OrderDetailModalProps) {
-  const { t, locale, direction } = useI18n();
+  const { t, direction } = useI18n();
   const { symbol: currencySign } = useCurrency();
 
   // WhatsApp order-confirmation recap ("Envoyer au client → Confirmation").
@@ -168,8 +166,8 @@ export function OrderDetailModal({
     : 'warning';
 
   // Category groups, combo groups and reconciled totals all come from the
-  // shared groupOrder() — the same math the printed ticket and the WhatsApp
-  // recap use, so the three surfaces can never disagree about what was ordered.
+  // shared groupOrder() — the same math the WhatsApp recap uses, so customer
+  // communication and this operational view agree about what was ordered.
   const {
     categoryGroups,
     comboGroups,
@@ -187,32 +185,6 @@ export function OrderDetailModal({
   const customerInitials = order.customer_name
     ? order.customer_name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : 'C';
-
-  const handlePrint = (kind: TicketKind) => {
-    printOrderTicket({
-      order,
-      kind,
-      restaurant: restaurantInfo,
-      locale,
-      dir: direction,
-      labels: {
-        receiptHeading: t('receiptHeading') || 'RECEIPT',
-        kitchenHeading: t('kitchenHeading') || 'KITCHEN',
-        orderNumber: t('orderNumber').replace('{id}', String(order.id)),
-        date: t('date'),
-        type: t('type'),
-        typeValue: localizeOrderType(order.order_type, t),
-        table: t('tableHeading') || 'Table',
-        customer: t('customer'),
-        phone: t('phone'),
-        subtotal: t('subtotal') || 'Sous-total',
-        deliveryFee: t('delivery_fee') || 'Frais de livraison',
-        total: t('total'),
-        uncategorized: t('uncategorized') || 'Autres',
-        comboFallback: t('comboMenuFallback') || 'Combo',
-      },
-    });
-  };
 
   const PRIMARY_HANDLER: Record<PrimaryAction, () => void> = {
     accept: () => { void onAccept(); },
@@ -264,31 +236,6 @@ export function OrderDetailModal({
             displayedLineCount={displayedLineCount}
             totalUnits={totalUnits}
             total={totalsLine}
-            actions={(
-              <OrderOverflowMenu
-                activityCount={activityEvents.length}
-                activityPending={audit.status === 'loading'}
-                activityFailed={audit.status === 'error'}
-                onViewActivity={() => setReferenceView('activity')}
-                invoiceCount={invoiceCount}
-                onViewInvoice={invoiceCount > 0 ? () => setReferenceView('invoice') : undefined}
-                canCorrect={caps.canCorrectStatus && !!onOverride}
-                canCorrectPayment={caps.canCorrectPayment && !!onCorrectPayment}
-                canCorrectPaymentMethod={caps.canCorrectPaymentMethod && !!onCorrectPaymentMethod}
-                canForceProduction={caps.canForceProduction}
-                forceProductionActive={!!order.force_production}
-                forceProductionRevives={forceProductionRevives}
-                canCancel={caps.canCancelOrder}
-                canDelete={caps.canDelete}
-                onCorrect={onOverride}
-                onCorrectPayment={onCorrectPayment}
-                onCorrectPaymentMethod={onCorrectPaymentMethod}
-                onToggleForceProduction={onToggleForceProduction}
-                onCancel={onReject}
-                onDelete={onDelete}
-                disabled={isLoading}
-              />
-            )}
           />
         }
         ribbon={<WorkflowStepper order={order} t={t} />}
@@ -363,7 +310,31 @@ export function OrderDetailModal({
             canManage={canManage}
             isLoading={isLoading}
             onEdit={onEdit}
-            onPrint={handlePrint}
+            actions={(
+              <OrderOverflowMenu
+                activityCount={activityEvents.length}
+                activityPending={audit.status === 'loading'}
+                activityFailed={audit.status === 'error'}
+                onViewActivity={() => setReferenceView('activity')}
+                invoiceCount={invoiceCount}
+                onViewInvoice={invoiceCount > 0 ? () => setReferenceView('invoice') : undefined}
+                canCorrect={caps.canCorrectStatus && !!onOverride}
+                canCorrectPayment={caps.canCorrectPayment && !!onCorrectPayment}
+                canCorrectPaymentMethod={caps.canCorrectPaymentMethod && !!onCorrectPaymentMethod}
+                canForceProduction={caps.canForceProduction}
+                forceProductionActive={!!order.force_production}
+                forceProductionRevives={forceProductionRevives}
+                canCancel={caps.canCancelOrder}
+                canDelete={caps.canDelete}
+                onCorrect={onOverride}
+                onCorrectPayment={onCorrectPayment}
+                onCorrectPaymentMethod={onCorrectPaymentMethod}
+                onToggleForceProduction={onToggleForceProduction}
+                onCancel={onReject}
+                onDelete={onDelete}
+                disabled={isLoading}
+              />
+            )}
             onSendConfirmation={() => setRecapOpen(true)}
             onSendDeliveryReminder={showDeliveryReminder ? () => setDeliveryReminderOpen(true) : undefined}
             onConfirmWeights={onConfirmWeights}
@@ -390,7 +361,7 @@ export function OrderDetailModal({
         onOpenChange={setRecapOpen}
         order={order}
         restaurantId={order.restaurant_id}
-        restaurantName={restaurantInfo.name || ''}
+        restaurantName={restaurantName}
         restaurantDefaultLocale={restaurantDefaultLocale}
         checkoutConfig={checkoutConfig}
       />
@@ -398,7 +369,7 @@ export function OrderDetailModal({
         open={deliveryReminderOpen}
         onOpenChange={setDeliveryReminderOpen}
         order={order}
-        restaurantName={restaurantInfo.name || ''}
+        restaurantName={restaurantName}
         restaurantDefaultLocale={restaurantDefaultLocale}
       />
     </>
