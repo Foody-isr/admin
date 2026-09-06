@@ -5018,7 +5018,10 @@ export async function getDailySeries(
   restaurantId: number,
   days = 7,
   date?: string,
-  basis?: DateBasis
+  basis?: DateBasis,
+  /** In série mode, the fulfillment window used to select orders. The API
+   *  still groups the matching orders by their created-at day for the chart. */
+  serieScope?: { from: string; to: string }
 ): Promise<DaySummary[]> {
   const params = new URLSearchParams({
     restaurant_id: String(restaurantId),
@@ -5026,6 +5029,10 @@ export async function getDailySeries(
     ...dateBasisParams(basis),
   });
   if (date) params.set('date', date);
+  if (basis === 'serie' && serieScope) {
+    params.set('from', serieScope.from);
+    params.set('to', serieScope.to);
+  }
   const data = await apiFetch<{ days: DaySummary[] }>(
     `/api/v1/analytics/daily?${params}`, restaurantId
   );

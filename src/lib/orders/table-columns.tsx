@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import React, { type ReactNode } from 'react';
 import { CalendarClockIcon, CheckCircle2Icon } from 'lucide-react';
 import { Badge } from '@/components/ds';
 import { CashTag } from '@/components/orders/CashTag';
@@ -94,8 +94,28 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     render: (order, t) => localizeOrderType(order.order_type, t),
   },
   {
+    key: 'created_at',
+    labelKey: 'orderDate',
+    defaultVisible: true,
+    cellClassName: 'text-fg-secondary',
+    render: (order, t) => {
+      const date = new Date(order.created_at);
+      const relative = relativeTimestampDayLabel(order.created_at, t);
+      return (
+        <div className="flex items-baseline gap-1.5 md:flex-col md:items-stretch md:gap-0">
+          <span className="tabular-nums">
+            {relative ?? date.toLocaleDateString([], { day: '2-digit', month: 'short' })}
+          </span>
+          <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
+            {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
     key: 'date',
-    labelKey: 'date',
+    labelKey: 'dateBasisSerieOption',
     defaultVisible: true,
     cellClassName: 'text-fg-secondary',
     render: (order, t) => {
