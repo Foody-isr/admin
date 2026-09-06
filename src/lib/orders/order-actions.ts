@@ -117,7 +117,11 @@ export function deriveOrderCapabilities(
   // "Close order" moves a paid in-progress order to served/delivered. Once
   // terminal there is nothing to do, and clicking it was a silent no-op that
   // read as a bug.
-  const canCloseOrder = !isCancelled && !isTerminal && order.payment_status === 'paid';
+  const canCloseOrder =
+    !isCancelled &&
+    !isTerminal &&
+    order.payment_status === 'paid' &&
+    (order.balance_due ?? 0) <= 0.01;
   const canCancelOrder = !isCancelled && !isTerminal;
 
   // Manual status correction is offered on any live or completed order, so a

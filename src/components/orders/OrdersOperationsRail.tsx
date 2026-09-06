@@ -57,15 +57,19 @@ export function OrdersOperationsRail({
           const selected = activeKey === queue.key;
           const Icon = ICONS[queue.key];
           const count = counts[queue.key];
+          const label = t(queue.labelKey);
+          const description = t(queue.descriptionKey);
           return (
             <button
               key={queue.key}
               type="button"
               role="tab"
               aria-selected={selected}
+              aria-label={`${label}: ${count ?? 0}. ${description}`}
+              title={description}
               data-rail-active={selected ? '' : undefined}
               onClick={() => onSelect(queue.key)}
-              className={`group relative flex min-w-[150px] flex-1 items-center gap-3 px-4 py-3 text-start outline-none transition-colors focus-visible:shadow-ring md:min-w-0 ${
+              className={`group relative flex min-w-[190px] flex-1 items-center gap-3 px-4 py-3 text-start outline-none transition-colors focus-visible:shadow-ring md:min-w-0 ${
                 index > 0 ? 'border-s border-[var(--line)]' : ''
               } ${selected ? 'bg-[var(--surface-2)]' : 'hover:bg-[var(--surface-2)]/70'}`}
             >
@@ -76,7 +80,7 @@ export function OrdersOperationsRail({
               </span>
               <span className="min-w-0">
                 <span className="block whitespace-nowrap text-fs-xs font-medium text-[var(--fg-muted)]">
-                  {t(queue.labelKey)}
+                  {label}
                 </span>
                 {loading && count === undefined ? (
                   <span className="mt-1 block h-5 w-8 animate-pulse rounded bg-[var(--surface-3)]" />
