@@ -53,6 +53,10 @@ export function localizePaymentMethod(method: string, t: (k: string) => string):
       return t('cash');
     case 'credit_card':
       return t('creditCard');
+    case 'bank_transfer':
+      return t('bankTransfer');
+    case 'mixed':
+      return t('mixedPayment');
     default:
       return method;
   }

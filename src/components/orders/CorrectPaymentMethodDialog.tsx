@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { XIcon, CheckIcon, InfoIcon, BanknoteIcon, CreditCardIcon } from 'lucide-react';
+import { XIcon, CheckIcon, InfoIcon, BanknoteIcon, CreditCardIcon, LandmarkIcon } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -29,6 +29,7 @@ interface CorrectPaymentMethodDialogProps {
 const OPTIONS: { method: ManualPaymentMethod; labelKey: string; Icon: typeof BanknoteIcon }[] = [
   { method: 'cash', labelKey: 'cash', Icon: BanknoteIcon },
   { method: 'credit_card', labelKey: 'creditCard', Icon: CreditCardIcon },
+  { method: 'bank_transfer', labelKey: 'bankTransfer', Icon: LandmarkIcon },
 ];
 
 // CorrectPaymentMethodDialog lets an owner/manager fix HOW a settled order was

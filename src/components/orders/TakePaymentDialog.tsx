@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   BanknoteIcon, CreditCardIcon, CheckCircle2Icon, XIcon,
-  DeleteIcon, CheckIcon,
+  DeleteIcon, CheckIcon, LandmarkIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n, useCurrency } from '@/lib/i18n';
@@ -19,7 +19,7 @@ interface TakePaymentDialogProps {
   totalAmount: number;
   /** reference is the optional trace staff can attach to a card payment taken
    *  outside Foody (slip number, provider invoice number). Empty for cash. */
-  onConfirm: (method: PaymentMethod, reference?: string) => Promise<void> | void;
+  onConfirm: (method: PaymentMethod, reference?: string, amount?: number) => Promise<void> | void;
   /** Pre-discount reduction (₪). When provided, a read-only line is shown above
    *  the total so cashiers understand why the amount differs from item prices. */
   discountAmount?: number;
@@ -31,7 +31,7 @@ interface TakePaymentDialogProps {
   allowCash?: boolean;
 }
 
-type Stage = 'method' | 'cash_input' | 'cash_change' | 'card_input';
+type Stage = 'method' | 'cash_input' | 'cash_change' | 'card_input' | 'transfer_input';
 
 export function TakePaymentDialog({
   open, onOpenChange, totalAmount, onConfirm, discountAmount, discountLabel,
@@ -43,7 +43,9 @@ export function TakePaymentDialog({
   const [submitting, setSubmitting] = useState(false);
   const [finalReceived, setFinalReceived] = useState(0);
   const [finalChange, setFinalChange] = useState(0);
+  const [finalApplied, setFinalApplied] = useState(0);
   const [reference, setReference] = useState('');
+  const [electronicAmount, setElectronicAmount] = useState('');
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -53,13 +55,15 @@ export function TakePaymentDialog({
       setSubmitting(false);
       setFinalReceived(0);
       setFinalChange(0);
+      setFinalApplied(0);
       setReference('');
+      setElectronicAmount(totalAmount.toFixed(2));
     }
-  }, [open]);
+  }, [open, totalAmount]);
 
   const received = input === '' ? 0 : Number.parseFloat(input) || 0;
   const change = Math.max(0, received - totalAmount);
-  const canConfirm = received >= totalAmount && totalAmount > 0;
+  const canConfirm = received > 0 && totalAmount > 0;
 
   const quickAmounts = useMemo(() => buildQuickAmounts(totalAmount), [totalAmount]);
 
@@ -101,13 +105,21 @@ export function TakePaymentDialog({
   // provider invoice number can be captured at the one moment staff have it in
   // hand. Skipping is one click — the reference is optional, not a gate.
   const handleSelectCard = () => {
+    setElectronicAmount(totalAmount.toFixed(2));
     setStage('card_input');
   };
 
-  const handleConfirmCard = async () => {
+  const handleSelectTransfer = () => {
+    setElectronicAmount(totalAmount.toFixed(2));
+    setStage('transfer_input');
+  };
+
+  const handleConfirmElectronic = async (method: 'credit_card' | 'bank_transfer') => {
+    const amount = Number.parseFloat(electronicAmount);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > totalAmount + 0.001) return;
     setSubmitting(true);
     try {
-      await onConfirm('credit_card', reference.trim() || undefined);
+      await onConfirm(method, reference.trim() || undefined, amount);
       onOpenChange(false);
     } finally {
       setSubmitting(false);
@@ -118,9 +130,11 @@ export function TakePaymentDialog({
     if (!canConfirm) return;
     setSubmitting(true);
     try {
-      await onConfirm('cash');
+      const applied = Math.min(received, totalAmount);
+      await onConfirm('cash', undefined, applied);
       setFinalReceived(received);
       setFinalChange(change);
+      setFinalApplied(applied);
       setStage('cash_change');
     } finally {
       setSubmitting(false);
@@ -145,6 +159,7 @@ export function TakePaymentDialog({
               submitting={submitting}
               onCash={handleSelectCash}
               onCard={handleSelectCard}
+              onTransfer={handleSelectTransfer}
               allowCash={allowCash}
               onCancel={close}
               discountAmount={discountAmount}
@@ -169,19 +184,22 @@ export function TakePaymentDialog({
               onCancel={close}
             />
           )}
-          {stage === 'card_input' && (
-            <CardReferenceStage
+          {(stage === 'card_input' || stage === 'transfer_input') && (
+            <ElectronicPaymentStage
+              method={stage === 'card_input' ? 'credit_card' : 'bank_transfer'}
               total={totalAmount}
+              amount={electronicAmount}
               reference={reference}
               submitting={submitting}
+              onAmountChange={setElectronicAmount}
               onReferenceChange={setReference}
-              onConfirm={handleConfirmCard}
+              onConfirm={() => handleConfirmElectronic(stage === 'card_input' ? 'credit_card' : 'bank_transfer')}
               onCancel={() => setStage('method')}
             />
           )}
           {stage === 'cash_change' && (
             <CashChangeStage
-              total={totalAmount}
+              total={finalApplied}
               received={finalReceived}
               change={finalChange}
               onDone={handleDone}
@@ -202,12 +220,13 @@ export function TakePaymentDialog({
 // ─── Stage 1: Method picker ────────────────────────────────────────────
 
 function MethodStage({
-  total, submitting, onCash, onCard, onCancel, discountAmount, discountLabel, allowCash,
+  total, submitting, onCash, onCard, onTransfer, onCancel, discountAmount, discountLabel, allowCash,
 }: {
   total: number;
   submitting: boolean;
   onCash: () => void;
   onCard: () => void;
+  onTransfer: () => void;
   onCancel: () => void;
   discountAmount?: number;
   discountLabel?: string;
@@ -267,7 +286,7 @@ function MethodStage({
         </span>
       </div>
 
-      <div className={`grid gap-[var(--s-3)] ${allowCash ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className={`grid gap-[var(--s-3)] ${allowCash ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {allowCash && (
           <MethodTile
             icon={<BanknoteIcon className="w-7 h-7" />}
@@ -283,6 +302,13 @@ function MethodStage({
           onClick={onCard}
           disabled={submitting}
           tone="brand"
+        />
+        <MethodTile
+          icon={<LandmarkIcon className="w-7 h-7" />}
+          label={t('bankTransfer')}
+          onClick={onTransfer}
+          disabled={submitting}
+          tone="warning"
         />
       </div>
 
@@ -306,9 +332,13 @@ function MethodTile({
   label: string;
   onClick: () => void;
   disabled?: boolean;
-  tone: 'success' | 'brand';
+  tone: 'success' | 'brand' | 'warning';
 }) {
-  const color = tone === 'success' ? 'var(--success-500)' : 'var(--brand-500)';
+  const color = tone === 'success'
+    ? 'var(--success-500)'
+    : tone === 'warning'
+      ? 'var(--warning-600)'
+      : 'var(--brand-500)';
   return (
     <button
       onClick={onClick}
@@ -334,21 +364,27 @@ function MethodTile({
 // on our side and can never be reconciled against the provider's books. The
 // field is optional so a normal collection stays one extra click.
 
-function CardReferenceStage({
-  total, reference, submitting, onReferenceChange, onConfirm, onCancel,
+function ElectronicPaymentStage({
+  method, total, amount, reference, submitting, onAmountChange, onReferenceChange, onConfirm, onCancel,
 }: {
+  method: 'credit_card' | 'bank_transfer';
   total: number;
+  amount: string;
   reference: string;
   submitting: boolean;
+  onAmountChange: (v: string) => void;
   onReferenceChange: (v: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   const { money } = useCurrency();
   const { t } = useI18n();
+  const parsedAmount = Number.parseFloat(amount);
+  const amountValid = Number.isFinite(parsedAmount) && parsedAmount > 0 && parsedAmount <= total + 0.001;
+  const title = method === 'bank_transfer' ? t('bankTransfer') : t('creditCard');
   return (
     <div className="p-[var(--s-5)]">
-      <h2 className="text-fs-lg font-semibold text-[var(--fg)]">{t('creditCard')}</h2>
+      <h2 className="text-fs-lg font-semibold text-[var(--fg)]">{title}</h2>
       <p className="text-fs-sm text-[var(--fg-muted)] mt-0.5">{t('paymentReferenceHint')}</p>
 
       <div
@@ -359,7 +395,26 @@ function CardReferenceStage({
         <span className="font-mono tabular-nums text-fs-lg font-semibold">{money(total)}</span>
       </div>
 
-      <label htmlFor="payment-reference" className="block text-fs-sm text-[var(--fg-muted)] mb-[var(--s-2)]">
+      <label htmlFor="payment-amount" className="block text-fs-sm text-[var(--fg-muted)] mb-[var(--s-2)]">
+        {t('amountCollected')}
+      </label>
+      <input
+        id="payment-amount"
+        type="number"
+        min="0.01"
+        max={total}
+        step="0.01"
+        value={amount}
+        onChange={(e) => onAmountChange(e.target.value)}
+        className="w-full rounded-r-md border border-[var(--line)] bg-[var(--bg)] text-[var(--fg)] font-mono text-fs-lg px-[var(--s-3)] py-[var(--s-2)] focus:outline-none focus:border-[var(--brand-500)]"
+      />
+      {amountValid && parsedAmount < total - 0.01 && (
+        <p className="mt-1 text-fs-xs font-medium text-[var(--warning-600)]">
+          {t('partialPaymentRemaining').replace('{amount}', money(total - parsedAmount))}
+        </p>
+      )}
+
+      <label htmlFor="payment-reference" className="block text-fs-sm text-[var(--fg-muted)] mb-[var(--s-2)] mt-[var(--s-4)]">
         {t('paymentReference')} <span className="text-[var(--fg-subtle)]">({t('optional')})</span>
       </label>
       <input
@@ -374,7 +429,7 @@ function CardReferenceStage({
         <Button variant="ghost" className="flex-1" onClick={onCancel} disabled={submitting}>
           {t('back')}
         </Button>
-        <Button variant="primary" className="flex-1" onClick={onConfirm} disabled={submitting}>
+        <Button variant="primary" className="flex-1" onClick={onConfirm} disabled={submitting || !amountValid}>
           <CheckIcon /> {t('confirm')}
         </Button>
       </div>
@@ -504,7 +559,9 @@ function CashInputStage({
         {canConfirm
           ? (received > total
               ? t('cashPaymentConfirmChange').replace('{amount}', change.toFixed(2))
-              : t('cashPaymentConfirm'))
+              : received < total - 0.01
+                ? t('recordPartialPayment')
+                : t('cashPaymentConfirm'))
           : t('cashPaymentConfirm')}
       </Button>
       <Button

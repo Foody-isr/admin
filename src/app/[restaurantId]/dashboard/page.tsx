@@ -329,18 +329,19 @@ export default function DashboardPage() {
     const requestId = ++loadSequence.current;
     setLoading(true);
     // The same inclusive calendar window drives every endpoint for both date
-    // bases. Only the server-side date field changes (created_at vs
-    // scheduled_for), keeping totals, chart and breakdown in lock-step.
+    // bases. In série mode it filters orders by scheduled_for; the daily chart
+    // then groups those matching orders by created_at so it shows when customers
+    // actually placed them rather than one bar on the fulfillment Friday.
     const scope = { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
     const days = daysInclusive(dateRange);
     const previousEnd = isoDate(addDays(dateRange.from, -1));
     Promise.allSettled([
       getPeriodSummary(rid, scope, basis, previousSerieRange),
       getTopSellers(rid, scope, basis),
-      getDailySeries(rid, days, scope.to, basis),
+      getDailySeries(rid, days, scope.to, basis, serieMode ? scope : undefined),
       serieMode
         ? previousSerieRange
-          ? getDailySeries(rid, days, previousSerieRange.to, basis)
+          ? getDailySeries(rid, days, previousSerieRange.to, basis, previousSerieRange)
           : Promise.resolve([] as DaySummary[])
         : getDailySeries(rid, days, previousEnd, basis),
       getBreakdown(rid, { dimension: 'order_type', scope, basis }),
@@ -405,7 +406,7 @@ export default function DashboardPage() {
   const previous = period?.previous;
 
   const singleDay = sameYMD(dateRange.from, dateRange.to);
-  const chartCapped = daysInclusive(dateRange) > 90;
+  const chartCapped = !serieMode && daysInclusive(dateRange) > 90;
 
   const showDelta = !serieMode || previousSerieRange !== undefined;
   const vsLabel = serieMode

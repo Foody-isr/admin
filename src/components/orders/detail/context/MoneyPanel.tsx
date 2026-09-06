@@ -147,6 +147,7 @@ export function MoneyPanel({
   const stockOversold = meta[ORDER_META_STOCK_OVERSOLD] === true;
   const chargedAmount = Number(meta[ORDER_META_PAID_AMOUNT]);
   const hasChargedAmount = editedAfterPayment && Number.isFinite(chargedAmount);
+  const hasPartialPaidAmount = order.payment_status === 'partially_paid' && Number.isFinite(chargedAmount);
   const paymentDrift = hasChargedAmount ? totalsLine - chargedAmount : 0;
   const balanceDue = order.balance_due ?? 0;
   const hasBalanceDue = balanceDue > 0.01;
@@ -231,6 +232,15 @@ export function MoneyPanel({
               <>
                 <span className="text-[var(--fg-subtle)]">{t('capturedAmount')}</span>
                 <Money value={order.captured_amount} className="text-end text-[var(--fg-muted)]" />
+              </>
+            )}
+
+            {hasPartialPaidAmount && (
+              <>
+                <span className="font-medium text-[var(--fg)]">{t('amountAlreadyPaid')}</span>
+                <Money value={chargedAmount} className="text-end font-medium text-[var(--success-600)]" />
+                <span className="font-semibold text-[var(--warning-700)]">{t('balanceDue')}</span>
+                <Money value={balanceDue} className="text-end font-semibold text-[var(--warning-700)]" />
               </>
             )}
 

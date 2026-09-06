@@ -23,9 +23,9 @@ import { useI18n } from '@/lib/i18n';
 export function OrderOverflowMenu({
   activityCount, activityPending, activityFailed, onViewActivity,
   invoiceCount, onViewInvoice,
-  canCorrect, canCorrectPayment, canCorrectPaymentMethod, canForceProduction, forceProductionActive,
+  canCorrect, canCorrectPayment, canCorrectPaymentMethod, canReactivate, canForceProduction, forceProductionActive,
   forceProductionRevives, canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
-  onToggleForceProduction, onCancel, onDelete, disabled,
+  onReactivate, onToggleForceProduction, onCancel, onDelete, disabled,
 }: {
   activityCount?: number;
   activityPending?: boolean;
@@ -36,6 +36,7 @@ export function OrderOverflowMenu({
   canCorrect?: boolean;
   canCorrectPayment?: boolean;
   canCorrectPaymentMethod?: boolean;
+  canReactivate?: boolean;
   canForceProduction?: boolean;
   forceProductionActive?: boolean;
   /** Pinning this dead order restores it before adding it to production. */
@@ -45,6 +46,7 @@ export function OrderOverflowMenu({
   onCorrect?: () => void;
   onCorrectPayment?: () => void;
   onCorrectPaymentMethod?: () => void;
+  onReactivate?: () => void;
   onToggleForceProduction?: () => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -55,7 +57,8 @@ export function OrderOverflowMenu({
   const hasManagement =
     (canCorrect && !!onCorrect) ||
     (canCorrectPayment && !!onCorrectPayment) ||
-    (canCorrectPaymentMethod && !!onCorrectPaymentMethod);
+    (canCorrectPaymentMethod && !!onCorrectPaymentMethod) ||
+    (canReactivate && !!onReactivate);
   const hasProduction = canForceProduction && !!onToggleForceProduction;
   const hasDanger = canCancel || (canDelete && !!onDelete);
   const hasReferences = !!onViewActivity || (!!invoiceCount && !!onViewInvoice);
@@ -113,6 +116,11 @@ export function OrderOverflowMenu({
         {canCorrectPaymentMethod && onCorrectPaymentMethod && (
           <MenuItem onSelect={onCorrectPaymentMethod}>
             <CreditCardIcon /> {t('correctPaymentMethod')}
+          </MenuItem>
+        )}
+        {canReactivate && onReactivate && (
+          <MenuItem onSelect={onReactivate}>
+            <RotateCcwIcon /> {t('reactivateOrder')}
           </MenuItem>
         )}
 
