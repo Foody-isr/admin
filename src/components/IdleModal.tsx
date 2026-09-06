@@ -13,7 +13,7 @@ export default function IdleModal({ countdown, onDismiss }: IdleModalProps) {
   return (
     <div
       data-idle-modal
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      className="fixed inset-0 z-[100] flex items-center justify-center pt-safe-t pb-safe-b"
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
     >
       <div className="card p-8 max-w-sm w-full mx-4 text-center space-y-5">

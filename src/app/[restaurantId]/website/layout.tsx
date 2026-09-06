@@ -3,7 +3,7 @@ import { DesktopOnly } from '@/components/common/DesktopOnly';
 export default function WebsiteLayout({ children }: { children: React.ReactNode }) {
   // The website builder is a fixed-viewport app shell: a pinned top bar (device
   // toggle, publish) with only the center preview scrolling internally. The page
-  // uses `h-screen`, but its ancestors (`min-h-screen` fullscreen wrapper) can
+  // uses `h-screen`, but its ancestors (`min-h-dvh` fullscreen wrapper) can
   // still grow, so any descendant that extends past 100vh (an absolutely
   // positioned layer, sub-pixel/zoom rounding, a future tall section) makes the
   // BODY scrollable — which scrolls the pinned top bar out of view and pushes the

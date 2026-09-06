@@ -436,7 +436,7 @@ export default function CateringFormulaComposer({
 
   if (expanded && typeof document !== 'undefined') {
     return createPortal(
-      <div role="dialog" aria-modal="true" aria-label={t('catering_formula_composition')} className="fixed inset-0 z-[80] bg-[var(--surface)] p-4 sm:p-6">
+      <div role="dialog" aria-modal="true" aria-label={t('catering_formula_composition')} className="fixed inset-0 z-[80] overflow-y-auto bg-[var(--surface)] px-4 sm:px-6 pt-[max(var(--s-4),var(--safe-top))] pb-[max(var(--s-4),var(--safe-bottom))] sm:pt-[max(var(--s-6),var(--safe-top))] sm:pb-[max(var(--s-6),var(--safe-bottom))]">
         {content}
       </div>,
       document.body,

@@ -430,9 +430,9 @@ export default function GroupPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-[var(--surface)] overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-[var(--surface)] overflow-y-auto pb-safe-b">
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-[var(--surface)] px-6 py-4 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-[var(--surface)] px-4 sm:px-6 pb-3 sm:pb-4 pt-[max(var(--s-3),var(--safe-top))] sm:pt-[max(var(--s-4),var(--safe-top))] flex items-center justify-between gap-3">
         <button
           onClick={() => router.push(`/${rid}/menu/menus/${mid}`)}
           className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"

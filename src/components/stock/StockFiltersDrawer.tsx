@@ -128,9 +128,9 @@ export default function StockFiltersDrawer({
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      <div className="absolute right-0 top-0 bottom-0 w-96 bg-white dark:bg-[#111111] shadow-2xl flex flex-col animate-slide-in">
+      <div className="absolute right-0 top-0 bottom-0 w-full max-w-96 pt-safe-t pb-safe-b bg-white dark:bg-[#111111] shadow-2xl flex flex-col animate-slide-in">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-3 min-w-0">
             {showBackButton && (
               <button

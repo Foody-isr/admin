@@ -162,8 +162,8 @@ export default function ItemDetailPanel({
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative w-full max-w-xl bg-surface shadow-xl overflow-y-auto">
-        <div className="sticky top-0 bg-surface z-10 flex items-center justify-between p-4 border-b border-divider">
+      <div className="relative w-full max-w-xl bg-surface shadow-xl overflow-y-auto pb-safe-b">
+        <div className="sticky top-0 bg-surface z-10 flex items-center justify-between gap-3 p-4 pt-[max(var(--s-4),var(--safe-top))] border-b border-divider">
           <h2 className="text-lg font-semibold text-fg-primary">{t('itemDetails')}</h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-surface-subtle">
             <XIcon className="w-5 h-5 text-fg-secondary" />

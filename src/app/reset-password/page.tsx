@@ -9,7 +9,7 @@ export default function ResetPasswordPage() {
   const { t } = useI18n();
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-page">
+      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
           <p className="text-sm text-fg-secondary">{t('loading')}</p>
@@ -95,7 +95,7 @@ function ResetPasswordContent() {
   // Loading state
   if (validating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page">
+      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
           <p className="text-sm text-fg-secondary">{t('validatingResetLink')}</p>
@@ -107,7 +107,7 @@ function ResetPasswordContent() {
   // Token error state
   if (tokenError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page">
+      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
         <div className="w-full max-w-sm">
           <div className="flex justify-center mb-8">
             <div className="flex items-center gap-3">
@@ -141,7 +141,7 @@ function ResetPasswordContent() {
   // Success state
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page">
+      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
         <div className="w-full max-w-sm">
           <div className="card text-center">
             <div className="w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
@@ -159,7 +159,7 @@ function ResetPasswordContent() {
 
   // Reset form
   return (
-    <div className="min-h-screen flex items-center justify-center bg-page">
+    <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex justify-center mb-8">

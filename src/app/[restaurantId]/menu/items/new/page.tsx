@@ -343,7 +343,7 @@ export default function NewItemPage() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 bg-white dark:bg-[#0a0a0a] flex items-center justify-center">
+      <div className="fixed inset-0 z-50 bg-white dark:bg-[#0a0a0a] pt-safe-t pb-safe-b flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
       </div>
     );

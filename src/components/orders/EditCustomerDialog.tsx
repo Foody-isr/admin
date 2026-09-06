@@ -92,7 +92,7 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[1000] bg-black/55 backdrop-blur-[4px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[1001] w-[min(480px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-r-lg border border-[var(--line)] bg-[var(--bg)] text-[var(--fg)] shadow-3 focus:outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95">
-          <div className="p-[var(--s-5)] max-h-[calc(100vh-64px)] overflow-y-auto">
+          <div className="p-[var(--s-5)] max-h-[calc(100dvh-64px-var(--safe-top)-var(--safe-bottom))] overflow-y-auto">
             <div className="flex items-start gap-[var(--s-3)] mb-[var(--s-4)]">
               <div className="flex-1 min-w-0">
                 <Dialog.Title className="text-fs-lg font-semibold text-[var(--fg)]">

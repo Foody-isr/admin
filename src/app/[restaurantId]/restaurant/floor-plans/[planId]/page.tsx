@@ -242,8 +242,8 @@ function SectionModal({ restaurantId, onCreated, onClose }: {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="card w-full max-w-lg p-6 space-y-5 overflow-y-auto max-h-[90vh]" style={{ background: 'var(--bg)' }}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pt-[max(var(--s-4),var(--safe-top))] pb-[max(var(--s-4),var(--safe-bottom))]" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div className="card w-full max-w-lg p-6 space-y-5 overflow-y-auto max-h-full" style={{ background: 'var(--bg)' }}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-fg-primary">{t('newSection')}</h2>
@@ -465,12 +465,12 @@ function AddExistingSectionPicker({
   const { t } = useI18n();
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 pt-[max(var(--s-4),var(--safe-top))] pb-[max(var(--s-4),var(--safe-bottom))]"
       style={{ background: 'rgba(0,0,0,0.5)' }}
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-md p-6 space-y-4 max-h-[80vh] overflow-y-auto"
+        className="card w-full max-w-md p-6 space-y-4 max-h-full overflow-y-auto"
         style={{ background: 'var(--bg)' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1144,7 +1144,7 @@ export default function FloorPlanEditorPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-dvh">
         <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
       </div>
     );
@@ -1152,10 +1152,10 @@ export default function FloorPlanEditorPage() {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--bg)' }}>
+      <div className="fixed inset-0 z-50 pt-safe-t pb-safe-b flex flex-col" style={{ background: 'var(--bg)' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--divider)' }}>
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--divider)' }}>
           <button onClick={goBack} className="w-10 h-10 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors" style={{ border: '1px solid var(--divider)' }}>
             <XIcon className="w-5 h-5" />
           </button>

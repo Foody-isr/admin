@@ -750,7 +750,7 @@ export default function OrdersPage() {
   // ─── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-[calc(100vh-var(--topbar-h)-64px)]">
+    <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
       <div className="min-w-0 space-y-[var(--s-4)]">
         <PageHead
           title={t('orders')}
@@ -961,7 +961,7 @@ export default function OrdersPage() {
 
         {/* The controls stick below the global top bar; the order rows scroll
             independently on desktop so queue state never disappears. */}
-        <div className="sticky top-[var(--topbar-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 bg-[var(--bg)] px-1 py-2">
+        <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 bg-[var(--bg)] px-1 py-2">
           <div className="relative w-full md:w-[300px]">
             <SearchIcon className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
             <input
@@ -1093,7 +1093,7 @@ export default function OrdersPage() {
         ) : (
           <>
             <DataTable
-              className="md:max-h-[calc(100vh-var(--topbar-h)-350px)] md:overflow-auto"
+              className="md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
               data-density={density}
             >
               <DataTableHead className="sticky top-0 z-[2]">
