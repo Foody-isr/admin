@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus, overrideOrderStatus,
   updateOrderPaymentStatus, overrideOrderPaymentStatus, correctOrderPaymentMethod,
-  updateOrderCustomerDetails,
+  updateOrderCustomerDetails, reactivateOrder,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   setOrderForceProduction,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
@@ -567,6 +567,30 @@ export default function OrdersPage() {
       await fetchOrders();
     }
   };
+  const handleReactivate = async (orderId: number) => {
+    setActionLoading(orderId);
+    addProcessingGuard(orderId);
+    try {
+      const result = await reactivateOrder(rid, orderId);
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...result.order } : o)));
+      if (result.payment_url) {
+        try {
+          await navigator.clipboard.writeText(result.payment_url);
+          alert(t('orderReactivatedSumitLinkCopied'));
+        } catch {
+          window.prompt(t('newPaymentLink'), result.payment_url);
+        }
+      } else if (result.payment_link_error) {
+        alert(t('orderReactivatedLinkError'));
+      }
+    } catch {
+      alert(t('orderReactivationFailed'));
+      await fetchOrders();
+    } finally {
+      removeProcessingGuard(orderId);
+      setActionLoading(null);
+    }
+  };
   // Correct a misspelled customer name / delivery address from the order screen.
   // The name is canonical (keyed by phone), so refetch afterwards to pick up the
   // correction on the customer's other orders in the list too, not just this one.
@@ -622,16 +646,20 @@ export default function OrdersPage() {
   const [editCustomerId, setEditCustomerId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
-  const handleTakePayment = (method: PaymentMethod, reference?: string) => {
+  const handleTakePayment = (method: PaymentMethod, reference?: string, amount?: number) => {
     if (!detailOrder) return Promise.resolve();
     const orderId = detailOrder.id;
+    const due = detailOrder.balance_due ?? detailOrder.total_amount;
+    const nextPaymentStatus: PaymentStatus = amount != null && amount < due - 0.01
+      ? 'partially_paid'
+      : 'paid';
     setActionLoading(orderId);
     addProcessingGuard(orderId);
     // Optimistic
     setOrders((prev) => prev.map((o) =>
-      o.id === orderId ? { ...o, payment_status: 'paid' } : o,
+      o.id === orderId ? { ...o, payment_status: nextPaymentStatus } : o,
     ));
-    return updateOrderPaymentStatus(rid, orderId, 'paid', method, reference)
+    return updateOrderPaymentStatus(rid, orderId, 'paid', method, reference, amount)
       .then((updated) => {
         setOrders((prev) => prev.map((o) =>
           o.id === orderId ? { ...o, ...updated } : o,
@@ -972,6 +1000,7 @@ export default function OrdersPage() {
             options={[
               { value: '', label: t('ordersAllPayments') },
               { value: 'paid', label: t('paid') },
+              { value: 'partially_paid', label: t('partiallyPaid') },
               { value: 'pending', label: t('pending') },
               { value: 'unpaid', label: t('unpaid') },
               { value: 'refunded', label: t('refunded') },
@@ -1175,6 +1204,7 @@ export default function OrdersPage() {
         onOverride={() => detailOrder && handleOverride(detailOrder.id)}
         onCorrectPayment={() => detailOrder && handleCorrectPayment(detailOrder.id)}
         onCorrectPaymentMethod={() => detailOrder && handleCorrectPaymentMethod(detailOrder.id)}
+        onReactivate={() => detailOrder && handleReactivate(detailOrder.id)}
         onSendToKitchen={() => detailOrder && handleSendToKitchen(detailOrder.id)}
         onMarkReady={() => detailOrder && handleMarkReady(detailOrder.id)}
         onMarkServed={() => detailOrder && handleMarkServed(detailOrder.id)}
@@ -1208,7 +1238,7 @@ export default function OrdersPage() {
         allowCash={allowCash}
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
-        totalAmount={detailOrder?.total_amount ?? 0}
+        totalAmount={detailOrder?.balance_due ?? detailOrder?.total_amount ?? 0}
         onConfirm={handleTakePayment}
         discountAmount={detailOrder?.discount_amount}
         discountLabel={detailOrder?.discount?.code}

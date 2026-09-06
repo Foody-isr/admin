@@ -31,14 +31,14 @@ export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'deactivated'
 export type OrderStatus =
   | 'pending_review' | 'accepted' | 'in_kitchen' | 'ready'
   | 'served' | 'received' | 'picked_up' | 'delivered' | 'rejected' | 'scheduled'
-  | 'ready_for_pickup' | 'ready_for_delivery' | 'out_for_delivery';
-export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'refunded';
+  | 'ready_for_pickup' | 'ready_for_delivery' | 'out_for_delivery' | 'cancelled' | 'refunded';
+export type PaymentStatus = 'unpaid' | 'pending' | 'partially_paid' | 'paid' | 'refunded';
 
 /** Payment methods staff can record by hand. Mirrors the server's
  *  `manualPaymentMethods` allow-list, which rejects anything else — provider
  *  names ("payplus", "sumit") are written by the provider callbacks alone, so
  *  no manual edit can claim a settlement that never happened. */
-export type ManualPaymentMethod = 'cash' | 'credit_card';
+export type ManualPaymentMethod = 'cash' | 'credit_card' | 'bank_transfer';
 
 export interface User {
   id: number;
@@ -678,6 +678,8 @@ export interface Order {
   status: OrderStatus;
   payment_status: PaymentStatus;
   payment_method?: string;
+  pending_payment_provider?: string;
+  pending_payment_started_at?: string;
   /** Settlement lifecycle for by-weight orders paid via card hold. "" = not a
    *  held order; "held" = card pre-authorized, awaiting weigh-in; "captured" =
    *  final weight confirmed and charged; "released" = hold voided;
@@ -4025,6 +4027,19 @@ export async function rejectOrder(
   });
 }
 
+/** Restores a cancelled order. A prior Sumit checkout is regenerated because
+ * its old link has expired; other payment methods are restored without a link. */
+export async function reactivateOrder(
+  restaurantId: number,
+  orderId: number,
+): Promise<{ order: Order; payment_url?: string; payment_link_error?: string }> {
+  return apiFetch<{ order: Order; payment_url?: string; payment_link_error?: string }>(
+    `/api/v1/orders/${orderId}/reactivate?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST' },
+  );
+}
+
 // Permanently deletes an order (hard delete, not archive). Restricted to
 // restaurant owners/admins on the server. Irreversible.
 export async function deleteOrder(restaurantId: number, orderId: number): Promise<void> {
@@ -4247,10 +4262,14 @@ export async function updateOrderPaymentStatus(
    *  invoice number) so the settlement stays reconcilable against the
    *  provider's own books. */
   reference?: string,
+  /** Portion applied now. When omitted, preserves the legacy full-settlement
+   * behavior; new collection UIs always send the explicit amount. */
+  amount?: number,
 ): Promise<Order> {
-  const body: Record<string, string> = { payment_status: paymentStatus };
+  const body: Record<string, string | number> = { payment_status: paymentStatus };
   if (paymentMethod) body.payment_method = paymentMethod;
   if (reference) body.reference = reference;
+  if (amount != null) body.amount = amount;
   const data = await apiFetch<{ order: Order }>(
     `/api/v1/orders/${orderId}/payment-status?restaurant_id=${restaurantId}`,
     restaurantId,

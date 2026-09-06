@@ -135,9 +135,9 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
     onClose();
   };
 
-  const handleTakePayment = (method: PaymentMethod, reference?: string) => {
+  const handleTakePayment = (method: PaymentMethod, reference?: string, amount?: number) => {
     if (!order) return Promise.resolve();
-    return updateOrderPaymentStatus(restaurantId, order.id, 'paid', method, reference)
+    return updateOrderPaymentStatus(restaurantId, order.id, 'paid', method, reference, amount)
       .then((updated) => setOrder((prev) => (prev ? { ...prev, ...updated } : prev)))
       .catch(() => refetch());
   };
@@ -177,7 +177,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
       <TakePaymentDialog
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
-        totalAmount={order?.total_amount ?? 0}
+        totalAmount={order?.balance_due ?? order?.total_amount ?? 0}
         onConfirm={handleTakePayment}
         discountAmount={order?.discount_amount}
         discountLabel={order?.discount?.code}
