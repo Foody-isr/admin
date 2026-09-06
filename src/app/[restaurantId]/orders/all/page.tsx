@@ -777,11 +777,11 @@ export default function OrdersPage() {
             <>
               {canManage && (
                 <Button
-                  variant="secondary"
+                  variant="primary"
                   size="lg"
                   icon
                   asChild
-                  className="rounded-full border-2 border-[var(--brand-500)] text-[var(--brand-600)] hover:border-[var(--brand-600)] hover:bg-[var(--brand-50)] dark:hover:bg-orange-950/30"
+                  className="rounded-full text-white shadow-sm"
                 >
                   <Link
                     href={`/${rid}/orders/new`}
