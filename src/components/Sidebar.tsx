@@ -373,7 +373,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
       <aside
         className={`
-          fixed top-0 z-30 h-screen flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
+          fixed top-0 z-30 h-dvh pt-[env(safe-area-inset-top)] flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
           ${sidebarWidth}
           transition-[width,transform] duration-200 ease-in-out
           lg:translate-x-0
@@ -645,7 +645,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       )}
       <div
         className={`
-          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col bg-[var(--sidebar-bg)]
+          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] flex flex-col bg-[var(--sidebar-bg)]
           transition-transform duration-200 ease-in-out border-[var(--line)]
           ${isRtl ? 'left-0 border-r' : 'right-0 border-l'}
           ${profileOpen ? 'translate-x-0' : isRtl ? '-translate-x-full' : 'translate-x-full'}
