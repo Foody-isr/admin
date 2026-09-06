@@ -36,7 +36,7 @@ export function OrderDetailPreview() {
   const noop = () => {};
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--fg)] p-[var(--s-8)]">
+    <div className="min-h-dvh bg-[var(--bg)] text-[var(--fg)] px-[var(--s-4)] pb-[var(--s-4)] sm:px-[var(--s-8)] sm:pb-[var(--s-8)] pt-[max(var(--s-4),var(--safe-top))] sm:pt-[max(var(--s-8),var(--safe-top))]">
       <h1 className="text-fs-3xl font-semibold leading-none -tracking-[0.02em]">
         Order detail preview
       </h1>

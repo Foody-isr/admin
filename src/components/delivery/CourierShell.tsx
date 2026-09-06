@@ -43,8 +43,7 @@ export function CourierShell({ children, restaurant }: CourierShellProps) {
   return (
     <div className="min-h-dvh bg-[var(--bg)] text-[var(--fg)]">
       <header
-        className="sticky top-0 z-50 border-b border-[var(--line)] bg-[color-mix(in_oklab,var(--surface)_94%,transparent)] backdrop-blur-xl"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        className="sticky top-0 z-50 border-b border-[var(--line)] bg-[color-mix(in_oklab,var(--surface)_94%,transparent)] pt-safe-t backdrop-blur-xl"
       >
         <div className="mx-auto flex h-14 w-full max-w-3xl items-center justify-between gap-3 px-3 sm:h-16 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
@@ -132,7 +131,7 @@ export function CourierShell({ children, restaurant }: CourierShellProps) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-3 py-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-6">
+      <main className="mx-auto w-full max-w-3xl px-3 py-3 pb-[calc(var(--s-4)+var(--safe-bottom))] sm:px-6 sm:py-6">
         {children}
       </main>
     </div>

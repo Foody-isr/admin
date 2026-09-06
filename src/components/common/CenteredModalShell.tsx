@@ -48,12 +48,14 @@ export default function CenteredModalShell({
         onClick={onClose}
       />
 
-      <div className="absolute inset-0 flex items-center justify-center p-4">
+      {/* The wrapper carries the safe-area insets so the card can simply be
+          max-h-full — on a notched phone it never slides under the status bar. */}
+      <div className="absolute inset-0 flex items-center justify-center px-3 sm:px-4 pt-[max(var(--s-3),var(--safe-top))] pb-[max(var(--s-3),var(--safe-bottom))]">
         <div
-          className={`relative bg-white dark:bg-[#0a0a0a] rounded-2xl shadow-2xl w-full ${maxWidth} max-h-[90vh] overflow-hidden flex flex-col`}
+          className={`relative bg-white dark:bg-[#0a0a0a] rounded-2xl shadow-2xl w-full ${maxWidth} max-h-full overflow-hidden flex flex-col`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-8 py-6 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 sm:gap-4 sm:px-8 sm:py-6 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
             <button
               onClick={onClose}
               aria-label={t('cancel')}
@@ -61,7 +63,7 @@ export default function CenteredModalShell({
             >
               <X size={20} className="text-neutral-600 dark:text-neutral-400" />
             </button>
-            <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate px-4">
+            <h2 className="min-w-0 flex-1 text-base sm:text-xl font-bold text-neutral-900 dark:text-white truncate">
               {title}
             </h2>
             {onSave ? (

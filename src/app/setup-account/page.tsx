@@ -11,7 +11,7 @@ export default function SetupAccountPage() {
   const { t } = useI18n();
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-page">
+      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
           <p className="text-sm text-fg-secondary">{t('loading')}</p>
@@ -166,7 +166,7 @@ function SetupAccountContent() {
   // Loading state
   if (validating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page">
+      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
           <p className="text-sm text-fg-secondary">{t('validatingInvitation')}</p>
@@ -178,7 +178,7 @@ function SetupAccountContent() {
   // Token error state
   if (tokenError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page">
+      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
         <div className="w-full max-w-sm">
           <div className="flex justify-center mb-8">
             <div className="flex items-center gap-3">
@@ -212,7 +212,7 @@ function SetupAccountContent() {
   // Success state — show POS download instructions
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page py-12 px-4">
+      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
         <div className="w-full max-w-lg">
           <div className="flex justify-center mb-6">
             <div className="flex items-center gap-3">
@@ -280,7 +280,7 @@ function SetupAccountContent() {
 
   // ─── Wizard ────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex items-center justify-center bg-page py-12 px-4">
+    <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="flex justify-center mb-6">

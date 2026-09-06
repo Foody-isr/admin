@@ -292,7 +292,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
   const hasDocumentPreview = tab === 'upload' && previewUrl;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface)' }}>
+    <div className="fixed inset-0 z-50 pt-safe-t pb-safe-b flex flex-col" style={{ background: 'var(--surface)' }}>
       {/* ─ Header ─ */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
         <div className="flex items-center gap-3">

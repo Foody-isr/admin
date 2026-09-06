@@ -22,7 +22,7 @@ export default function AiDrawer() {
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 bottom-0 z-50 w-[400px] max-w-full flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 bottom-0 z-50 w-[400px] max-w-full pt-safe-t pb-safe-b flex flex-col transition-transform duration-300 ease-in-out ${
           isRtl ? 'left-0' : 'right-0'
         } ${
           isOpen

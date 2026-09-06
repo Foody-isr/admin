@@ -39,7 +39,7 @@ export default function DesignSystemPreviewPage() {
   if (process.env.NODE_ENV === 'production') notFound();
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--fg)] p-[var(--s-8)]">
+    <div className="min-h-dvh bg-[var(--bg)] text-[var(--fg)] px-[var(--s-4)] pb-[var(--s-4)] sm:px-[var(--s-8)] sm:pb-[var(--s-8)] pt-[max(var(--s-4),var(--safe-top))] sm:pt-[max(var(--s-8),var(--safe-top))]">
       <PageHead
         title={<span className="font-display text-fs-4xl">Foody OS Design System</span>}
         desc="Phase 1 — tokens and base components. Preview dev-only."

@@ -100,8 +100,8 @@ export default function ChainDashboardPage() {
   const backBranch = overview?.branches[0]?.id;
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
-      <div className="mx-auto max-w-6xl px-6 py-8 space-y-6">
+    <div className="min-h-dvh bg-[var(--bg)] pt-safe-t">
+      <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-8 pb-[max(var(--s-8),var(--safe-bottom))] space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>

@@ -5,7 +5,7 @@ import { MonitorUp } from "lucide-react";
 
 export function MobileUnavailable({ restaurantId }: { restaurantId: number }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f4f6f8] px-6 lg:hidden">
+    <main className="flex min-h-dvh items-center justify-center bg-[#f4f6f8] px-6 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] lg:hidden">
       <section className="w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8efff] text-[#315fce]">
           <MonitorUp className="h-7 w-7" aria-hidden="true" />

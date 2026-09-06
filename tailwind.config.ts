@@ -115,6 +115,13 @@ module.exports = {
         's-10': 'var(--s-10)',
         's-12': 'var(--s-12)',
         's-16': 'var(--s-16)',
+        // Mobile safe-area insets (viewport-fit=cover) — pt-safe-t / pb-safe-b …
+        'safe-t': 'var(--safe-top)',
+        'safe-b': 'var(--safe-bottom)',
+        'safe-l': 'var(--safe-left)',
+        'safe-r': 'var(--safe-right)',
+        // Height of the TopBar including the status-bar inset it absorbs
+        'topbar': 'var(--topbar-total-h)',
       },
       borderRadius: {
         standard: '8px',

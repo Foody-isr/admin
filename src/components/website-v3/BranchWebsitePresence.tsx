@@ -128,7 +128,7 @@ export function BranchWebsitePresence({
   }
 
   return (
-    <main className="min-h-screen bg-[var(--surface-2)] px-4 py-6 md:px-8 md:py-10">
+    <main className="min-h-dvh bg-[var(--surface-2)] px-4 py-6 md:px-8 md:py-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <section className="overflow-hidden rounded-[28px] border border-[var(--line)] bg-[var(--surface)] shadow-sm">
           <div className="grid gap-6 px-6 py-7 md:grid-cols-[1fr_auto] md:items-center md:px-9">

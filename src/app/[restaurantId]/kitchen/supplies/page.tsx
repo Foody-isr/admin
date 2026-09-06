@@ -746,7 +746,7 @@ function DocumentViewer({
           className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
         />
         <Dialog.Content
-          className="fixed inset-0 z-[60] flex flex-col focus:outline-none"
+          className="fixed inset-0 z-[60] pt-safe-t pb-safe-b flex flex-col focus:outline-none"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Dialog.Title className="sr-only">{closeLabel}</Dialog.Title>

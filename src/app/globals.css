@@ -107,6 +107,19 @@
   --sidebar-w: 260px;
   --sidebar-w-collapsed: 72px;
   --topbar-h: 56px;
+
+  /* Mobile safe areas — the app ships with viewport-fit=cover (see app/layout.tsx)
+     so the viewport extends under the iOS notch / status bar and the Android
+     gesture bar. Anything anchored to a viewport edge must offset by these or it
+     renders underneath the system UI. env() falls back to 0px on desktop. */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+
+  /* Full height of the sticky TopBar including the status-bar inset it absorbs.
+     Use this (not --topbar-h) to offset anything that must sit under the bar. */
+  --topbar-total-h: calc(var(--topbar-h) + var(--safe-top));
 }
 
 /* ── Theme tokens (light = default, dark = .dark on <html>) ── */
@@ -365,6 +378,10 @@ body {
   border-radius: 8px;
   padding: 1.5rem;
   box-shadow: 0 1px 3px var(--shadow-color);
+}
+/* 24px of chrome on each side eats 13% of a 375px screen — the phone gets 16. */
+@media (max-width: 640px) {
+  .card { padding: 1rem; }
 }
 
 /* ── Buttons ── */

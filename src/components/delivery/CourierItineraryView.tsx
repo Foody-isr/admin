@@ -857,7 +857,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
 
       {tab === 'assigned' && hasCurrentStopActions && (
         <div
-          className="sticky bottom-3 z-[450] mx-1 flex flex-wrap gap-2 rounded-r-xl border border-[var(--line-strong)] p-2.5 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),env(safe-area-inset-bottom))] sm:mx-0 sm:flex-nowrap sm:p-3"
+          className="sticky bottom-3 z-[450] mx-1 flex flex-wrap gap-2 rounded-r-xl border border-[var(--line-strong)] p-2.5 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),var(--safe-bottom))] sm:mx-0 sm:flex-nowrap sm:p-3"
           style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
         >
           <NavigationAppMenu
@@ -910,7 +910,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
 
       {tab === 'assigned' && hasFinalNavigation && (
         <div
-          className="sticky bottom-3 z-[450] mx-1 rounded-r-xl border border-[var(--line-strong)] p-2.5 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),env(safe-area-inset-bottom))] sm:mx-0 sm:p-3"
+          className="sticky bottom-3 z-[450] mx-1 rounded-r-xl border border-[var(--line-strong)] p-2.5 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),var(--safe-bottom))] sm:mx-0 sm:p-3"
           style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
         >
           <NavigationAppMenu

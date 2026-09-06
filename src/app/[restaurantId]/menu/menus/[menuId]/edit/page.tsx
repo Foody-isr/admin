@@ -124,9 +124,9 @@ export default function MenuEditPage() {
   if (webEnabled) channelNames.push('Web');
 
   return (
-    <div className="fixed inset-0 z-50 bg-[var(--surface)] overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-[var(--surface)] overflow-y-auto pb-safe-b">
       {/* ── Sticky header ── */}
-      <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)] px-6 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)] px-4 sm:px-6 pb-3 pt-[max(var(--s-3),var(--safe-top))] flex items-center justify-between gap-3">
         <button
           onClick={() => router.push(`/${rid}/menu/menus/${mid}`)}
           className="p-2 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors"

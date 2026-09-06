@@ -60,7 +60,7 @@ export default function MenuItemShell({
           Entrance animation (fade-in + subtle zoom) matches the Radix-powered
           FullScreenEditor used by Stock / Prep editors. */}
       <div
-        className="absolute inset-0 md:top-[32px] md:bottom-[24px] md:left-[24px] md:right-[24px] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
+        className="absolute inset-0 md:top-[32px] md:bottom-[24px] md:left-[24px] md:right-[24px] pt-safe-t pb-safe-b flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
       >
         {/* Head — 60px, close-left · centered title · save/cancel right.
             Cancel button hides on mobile (X already cancels). */}

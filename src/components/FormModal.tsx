@@ -53,7 +53,7 @@ export default function FormModal({
   const sidebarNode = sidebar && (
     <div
       className={`hidden lg:block w-72 shrink-0 space-y-4 ${
-        stickySidebar ? 'sticky top-0 self-start max-h-[calc(100vh-12rem)] overflow-y-auto' : ''
+        stickySidebar ? 'sticky top-0 self-start max-h-[calc(100dvh-12rem)] overflow-y-auto' : ''
       }`}
     >
       {sidebar}
@@ -68,12 +68,14 @@ export default function FormModal({
         onClick={onClose}
       />
 
-      <div className="absolute inset-0 flex items-center justify-center p-4">
+      {/* The wrapper carries the safe-area insets so the card can simply be
+          max-h-full — on a notched phone it never slides under the status bar. */}
+      <div className="absolute inset-0 flex items-center justify-center px-3 sm:px-4 pt-[max(var(--s-3),var(--safe-top))] pb-[max(var(--s-3),var(--safe-bottom))]">
         <div
-          className={`relative bg-white dark:bg-[#0a0a0a] rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-[90vh] overflow-hidden flex flex-col`}
+          className={`relative bg-white dark:bg-[#0a0a0a] rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-full overflow-hidden flex flex-col`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-8 py-6 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 sm:gap-4 sm:px-8 sm:py-6 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
             <button
               onClick={onClose}
               aria-label={cancelLabel ?? t('cancel')}
@@ -81,15 +83,17 @@ export default function FormModal({
             >
               <X size={20} className="text-neutral-600 dark:text-neutral-400" />
             </button>
-            <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate px-4">
+            <h2 className="min-w-0 flex-1 text-base sm:text-xl font-bold text-neutral-900 dark:text-white truncate">
               {title}
             </h2>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {/* The X already cancels on mobile — the text button only earns its
+                  width from sm: up. */}
               {showCancelButton && (
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-6 py-2.5 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors font-medium"
+                  className="hidden sm:block px-6 py-2.5 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors font-medium"
                 >
                   {cancelLabel ?? t('cancel')}
                 </button>
@@ -98,7 +102,7 @@ export default function FormModal({
                 type="button"
                 onClick={onSave}
                 disabled={saveDisabled || saving}
-                className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 sm:px-6 sm:py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? t('saving') : (saveLabel ?? t('save'))}
               </button>
@@ -107,7 +111,7 @@ export default function FormModal({
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto">
-            <div className="px-8 py-6 flex gap-8">
+            <div className="px-4 py-4 sm:px-8 sm:py-6 flex gap-8">
               {sidebarPosition === 'left' && sidebarNode}
               <div className="flex-1 min-w-0 space-y-5">{children}</div>
               {sidebarPosition === 'right' && sidebarNode}

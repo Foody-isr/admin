@@ -409,7 +409,7 @@ function CashInputStage({
   const { t } = useI18n();
 
   return (
-    <div className="p-[var(--s-5)] max-h-[calc(100vh-64px)] overflow-y-auto">
+    <div className="p-[var(--s-5)] max-h-[calc(100dvh-64px-var(--safe-top)-var(--safe-bottom))] overflow-y-auto">
       {/* Header */}
       <div className="flex items-start gap-[var(--s-3)] mb-[var(--s-4)]">
         <div
