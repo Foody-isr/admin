@@ -23,6 +23,10 @@ import {
   Settings,
   ListPlus,
   CircleDot,
+  ChevronLeft,
+  ChevronRight,
+  ListFilter,
+  X,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -43,12 +47,11 @@ import {
   DataTableHeadCell,
   SortableHeadCell,
   DataTableHeadSpacerCell,
-  DataTableSelectAllCell,
   DataTableBody,
   DataTableRow,
   DataTableCell,
-  DataTableSelectCell,
 } from '@/components/data-table';
+import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 
 // ─── Flat item with category name for table display ────────────────────────
 
@@ -491,115 +494,132 @@ export default function ItemLibraryPage() {
   const ALL_PILL = '__all__';
   const allLabel = t('all');
   const pillCategories = [ALL_PILL, ...categoryOptions.map((c) => c.name)];
-  const activePillName =
-    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ALL_PILL;
+  const activePillName = selectedCategories.size === 0
+    ? ALL_PILL
+    : selectedCategories.size === 1
+      ? Array.from(selectedCategories)[0]
+      : null;
   const selectPill = (name: string) => {
     if (name === ALL_PILL) setSelectedCategories(new Set());
     else setSelectedCategories(new Set([name]));
   };
+  const visibleStart = sorted.length === 0 ? 0 : (pageSafe - 1) * PAGE_SIZE + 1;
+  const visibleEnd = Math.min(pageSafe * PAGE_SIZE, sorted.length);
+  const hasDefaultStatus = selectedStatuses.size === 1 && selectedStatuses.has('active');
+  const activeFilterCount = selectedCategories.size + (hasDefaultStatus ? 0 : 1);
+  const resetFilters = () => {
+    setSearch('');
+    setSelectedCategories(new Set());
+    setSelectedStatuses(new Set(['active']));
+    setPage(1);
+  };
 
   return (
-    <div className="flex flex-col">
-      <PageHead
-        title={t('itemLibrary')}
-        desc={`${allItems.length} ${t('articlesUnit')} · ${categories.length} ${t('categoriesCount')}`}
-        actions={
-          <>
-            <Button
-              variant="ghost"
-              size="md"
-              icon
-              onClick={() => setShowKpis((v) => !v)}
-              aria-label="Toggle KPIs"
-              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
-              className="hidden md:inline-flex"
-            >
-              {showKpis ? <ChevronUp /> : <ChevronDown />}
-            </Button>
-            {canEdit && (
+    <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
+      <div className="min-w-0 space-y-[var(--s-4)]">
+        <PageHead
+          title={t('itemLibrary')}
+          desc={`${allItems.length} ${t('articlesUnit')} · ${categories.length} ${t('categoriesCount')}`}
+          className="mb-0 items-center"
+          actions={
+            <>
+              {canEdit && (
+                <Button
+                  variant="primary"
+                  size="lg"
+                  icon
+                  onClick={() => router.push(`/${rid}/menu/items/new`)}
+                  aria-label={t('createItem')}
+                  title={t('createItem')}
+                  className="rounded-full text-white shadow-sm"
+                >
+                  <Plus />
+                </Button>
+              )}
               <Button
-                variant="primary"
-                size="md"
-                onClick={() => router.push(`/${rid}/menu/items/new`)}
+                variant="secondary"
+                size="lg"
+                icon
+                onClick={() => setShowKpis((v) => !v)}
+                aria-label={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
+                title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
+                className="hidden rounded-full md:inline-flex"
               >
-                <Plus />
-                {t('createItem')}
+                {showKpis ? <ChevronUp /> : <ChevronDown />}
               </Button>
-            )}
-          </>
-        }
-      />
+            </>
+          }
+        />
 
-      <FeatureIntro feature="items" />
+        <FeatureIntro feature="items" />
 
-      {/* Legacy header wrapper — kept for layout, stripped of styling */}
-      <header className="mb-[var(--s-4)]">
-        <div className="flex items-start justify-between gap-4 mb-6 flex-wrap hidden">
-          <div />
-        </div>
-
-        {/* KPI row — desktop only (mobile keeps the table primary) */}
-        {showKpis && (
-          <div className="hidden md:block mb-6">
-            <ArticlesKpiRow
-              items={allItems}
-              categoriesCount={categories.length}
-              onKpiClick={setSelectedKpi}
-            />
-          </div>
-        )}
+        <header>
+          {/* The same segmented operational summary used by the orders page. */}
+          {showKpis && (
+            <div className="hidden md:block">
+              <ArticlesKpiRow
+                items={allItems}
+                categoriesCount={categories.length}
+                onKpiClick={setSelectedKpi}
+              />
+            </div>
+          )}
 
         {/* Bulk selection toolbar — Figma App.tsx:497-523 */}
         {canEdit && selectionCount > 0 && (
-          <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl flex items-center justify-between gap-4 flex-wrap">
+          <div className="mt-[var(--s-4)] flex flex-wrap items-center justify-between gap-4 rounded-r-md border border-[var(--brand-100)] bg-[var(--brand-50)] px-4 py-3">
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-orange-900 dark:text-orange-300">
+              <span className="text-fs-sm font-semibold text-[var(--brand-700)]">
                 {selectionCount} {t('selectedItems') || 'article'}{selectionCount > 1 ? 's' : ''} {t('selectedSuffix') || 'sélectionné'}{selectionCount > 1 ? 's' : ''}
               </span>
               <button
                 onClick={() => setSelected(new Set())}
-                className="text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 text-sm font-medium"
+                className="text-fs-xs font-medium text-[var(--brand-600)] hover:text-[var(--brand-700)] focus-visible:outline-none focus-visible:shadow-ring"
               >
                 {t('deselectAll') || 'Tout désélectionner'}
               </button>
             </div>
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => setCategoryDrawer({ open: true, mode: 'bulk-assign' })}
                 disabled={bulkProcessing}
-                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
               >
                 <Tag size={16} />
                 {t('assignCategory') || 'Assigner une catégorie'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => setOptionsDrawerOpen(true)}
                 disabled={bulkProcessing}
-                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
               >
                 <ListPlus size={16} />
                 {t('assignOptions')}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => setModifiersDrawerOpen(true)}
                 disabled={bulkProcessing}
-                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
               >
                 <Settings size={16} />
                 {t('assignModifiers')}
-              </button>
+              </Button>
               <div className="relative" ref={availabilityMenuRef}>
-                <button
+                <Button
+                  variant="secondary"
+                  size="md"
                   onClick={() => setAvailabilityMenuOpen((v) => !v)}
                   disabled={bulkProcessing}
                   aria-haspopup="menu"
                   aria-expanded={availabilityMenuOpen}
-                  className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
                 >
                   <CircleDot size={16} />
                   {t('availabilityModeTitle')}
                   <ChevronDown size={14} />
-                </button>
+                </Button>
                 {availabilityMenuOpen && (
                   <div
                     role="menu"
@@ -627,58 +647,119 @@ export default function ItemLibraryPage() {
                   </div>
                 )}
               </div>
-              <button
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={handleBulkDelete}
                 disabled={bulkProcessing}
-                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400 disabled:opacity-50"
+                className="text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
               >
                 <Trash2 size={16} />
                 {t('delete') || 'Supprimer'}
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
-        {/* Search + filter pill-buttons row — larger, rounded-r-lg, CAPS-ready */}
-        <div className="flex flex-wrap items-center gap-[var(--s-3)] mt-[var(--s-4)]">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search
-              className="absolute start-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--fg-muted)] pointer-events-none"
-            />
-            <input
-              type="text"
-              placeholder={t('search') || 'Rechercher'}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
-            />
-          </div>
+      </header>
 
-          <button
-            type="button"
-            onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
-          >
-            <span className="text-[var(--fg-muted)]">{t('category')} ·</span>
-            <span className="text-[var(--brand-500)] font-semibold">
-              {selectedCategories.size === 0
-                ? t('all')
-                : selectedCategories.size === 1
-                  ? Array.from(selectedCategories)[0]
-                  : selectedCategories.size}
-            </span>
-            <ChevronDown className="w-4 h-4" />
-          </button>
+      {/* Categories use the same restrained underline navigation as order history. */}
+      {pillCategories.length > 0 && (
+        <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)]">
+          <HorizontalScrollRail activeKey={activePillName} edgeFlush>
+            <div className="inline-flex items-center gap-5 pe-4">
+              <span className="py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)]">
+                {t('category')}
+              </span>
+              {pillCategories.map((name) => {
+                const active = activePillName === name;
+                const label = name === ALL_PILL ? allLabel : name;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => selectPill(name)}
+                    aria-pressed={active}
+                    data-rail-active={active ? '' : undefined}
+                    className={`relative py-2.5 text-fs-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:shadow-ring ${
+                      active
+                        ? 'text-[var(--fg)] after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-[var(--brand-500)]'
+                        : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </HorizontalScrollRail>
+          <span className="hidden shrink-0 text-fs-xs text-[var(--fg-muted)] md:block">
+            {t('showing')
+              .replace('{start}', String(visibleStart))
+              .replace('{end}', String(visibleEnd))
+              .replace('{total}', String(sorted.length))}
+          </span>
+        </div>
+      )}
 
-          <button
-            type="button"
-            onClick={() => openFiltersDrawer('index')}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
-          >
-            {t('allFilters')}
-            <ChevronDown className="w-4 h-4" />
-          </button>
+      {/* Sticky controls preserve context while scanning a long catalogue. */}
+      <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 bg-[var(--bg)] px-1 py-2">
+        <div className="relative w-full md:w-[300px]">
+          <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+          <input
+            type="search"
+            placeholder={t('searchItems') || t('search')}
+            aria-label={t('searchItems') || t('search')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setSearch('');
+            }}
+            className="input h-11 w-full ps-10 pe-10 text-fs-sm"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute end-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
+              aria-label={t('clearAll')}
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
 
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
+        >
+          <span className="text-[var(--fg-muted)]">{t('category')}</span>
+          <span className="max-w-40 truncate font-semibold text-[var(--brand-500)]">
+            {selectedCategories.size === 0
+              ? t('all')
+              : selectedCategories.size === 1
+                ? Array.from(selectedCategories)[0]
+                : selectedCategories.size}
+          </span>
+          <ChevronDown />
+        </Button>
+
+        <Button type="button" variant="secondary" size="lg" onClick={() => openFiltersDrawer('index')}>
+          <ListFilter />
+          {t('allFilters')}
+          <ChevronDown />
+        </Button>
+
+        {activeFilterCount > 0 && (
+          <Button type="button" variant="ghost" size="lg" onClick={resetFilters}>
+            <ListFilter />
+            {t('ordersResetFiltersWithCount').replace('{n}', String(activeFilterCount))}
+          </Button>
+        )}
+
+        <div className="ms-auto [&>button]:h-11 [&>button]:rounded-r-md [&>button]:border [&>button]:border-[var(--line-strong)] [&>button]:!bg-[var(--surface)] [&>button]:px-[var(--s-4)] [&>button]:text-fs-sm hover:[&>button]:!bg-[var(--surface-2)]">
           <ActionsDropdown
             actions={[
               ...(canEdit
@@ -699,124 +780,103 @@ export default function ItemLibraryPage() {
             ]}
           />
         </div>
-      </header>
+      </div>
 
-      {/* Category pills — rounded-r-lg rectangles with CAPS labels */}
-      {pillCategories.length > 0 && (
-        <div className="flex flex-wrap gap-[var(--s-2)] mb-[var(--s-4)]">
-          {pillCategories.map((name) => {
-            const active = activePillName === name;
-            const label = name === ALL_PILL ? allLabel : name;
-            return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => selectPill(name)}
-                aria-pressed={active}
-                className={`inline-flex items-center h-10 px-[var(--s-4)] rounded-r-lg text-fs-sm font-semibold uppercase tracking-[.02em] transition-colors whitespace-nowrap ${
-                  active
-                    ? 'bg-[var(--brand-500)] text-white shadow-1'
-                    : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-          {selectedCategories.size > 1 && (
-            <button
-              onClick={() => setSelectedCategories(new Set())}
-              className="text-fs-xs text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors px-[var(--s-3)]"
-            >
-              {t('clearAll') || 'Tout effacer'}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Table wrapper */}
       <div>
-      {/* Items table */}
       {sorted.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <ImageIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-500" />
-          <p className="text-base text-neutral-600 dark:text-neutral-400 text-center max-w-md">
+        <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-6 py-16 text-center shadow-1">
+          <ImageIcon className="mx-auto size-10 text-[var(--fg-subtle)]" />
+          <p className="mx-auto mt-3 max-w-md text-fs-sm text-[var(--fg-muted)]">
             {allItems.length === 0 ? t('addFirstMenuItem') : t('tryAdjustingFilters')}
           </p>
           {allItems.length === 0 && canEdit && (
-            <button
+            <Button
+              variant="primary"
+              size="md"
               onClick={() => router.push(`/${rid}/menu/items/new`)}
-              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
+              className="mt-5"
             >
+              <Plus />
               {t('createItem')}
-            </button>
+            </Button>
           )}
         </div>
       ) : (
-        <DataTable>
-            <DataTableHead>
-                <DataTableSelectAllCell
-                  checked={selected.size > 0 && selected.size === paged.length}
-                  onCheckedChange={toggleSelectAll}
-                />
+        <DataTable
+          className="md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
+          data-density="compact"
+        >
+            <DataTableHead className="sticky top-0 z-[2]">
+                <DataTableHeadSpacerCell className="bg-neutral-50 px-3 py-2 dark:bg-[#0a0a0a]">
+                  <Checkbox
+                    checked={selected.size > 0 && selected.size === paged.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </DataTableHeadSpacerCell>
                 <SortableHeadCell
                   sortKey="name"
                   currentSortKey={sortKey}
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'name')}
+                  className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a] [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('item')}
                 </SortableHeadCell>
-                <DataTableHeadCell>{t('category')}</DataTableHeadCell>
-                <DataTableHeadCell>{t('availability')}</DataTableHeadCell>
+                <DataTableHeadCell className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]">
+                  {t('category')}
+                </DataTableHeadCell>
+                <DataTableHeadCell className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]">
+                  {t('availability')}
+                </DataTableHeadCell>
                 <SortableHeadCell
                   sortKey="price"
                   currentSortKey={sortKey}
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'price')}
                   align="right"
+                  className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a] [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('price')}
                 </SortableHeadCell>
-                <DataTableHeadSpacerCell />
+                <DataTableHeadSpacerCell className="bg-neutral-50 px-3 py-2 dark:bg-[#0a0a0a]" />
             </DataTableHead>
             <DataTableBody>
               {/* Quick create */}
               {canEdit && (!quickCreateOpen ? (
                 <tr
-                  className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800"
+                  className="cursor-pointer border-b border-neutral-100 transition-colors hover:bg-orange-50/50 dark:border-neutral-800 dark:hover:bg-orange-900/20"
                   onClick={() => {
                     setQuickCreateOpen(true);
                     if (!qcCategoryId && categories.length > 0) setQcCategoryId(categories[0].id);
                   }}
                 >
-                  <td colSpan={6} className="py-3 px-4">
-                    <span className="flex items-center gap-2 text-sm font-medium text-orange-500">
+                  <td colSpan={6} className="px-3 py-2">
+                    <span className="flex items-center gap-2 text-fs-sm font-medium text-[var(--brand-500)]">
                       <Plus size={16} /> {t('quickCreate')}
                     </span>
                   </td>
                 </tr>
               ) : (
-                <tr className="bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-100 dark:border-neutral-800">
-                  <td className="py-3 px-4" />
-                  <td className="py-3 px-2">
+                <tr className="border-b border-neutral-100 bg-neutral-50 dark:border-neutral-800 dark:bg-[#0a0a0a]">
+                  <td className="px-3 py-2" />
+                  <td className="px-3 py-2">
                     <input
                       autoFocus
                       value={qcName}
                       onChange={(e) => setQcName(e.target.value)}
                       placeholder={t('nameRequired')}
-                      className="w-full px-3 py-1.5 text-sm border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                      className="input h-9 w-full text-fs-sm"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleQuickCreate();
                         if (e.key === 'Escape') setQuickCreateOpen(false);
                       }}
                     />
                   </td>
-                  <td className="py-3 px-2">
+                  <td className="px-3 py-2">
                     <select
                       value={qcCategoryId}
                       onChange={(e) => setQcCategoryId(Number(e.target.value))}
-                      className="w-full px-3 py-1.5 text-sm border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                      className="input h-9 w-full text-fs-sm"
                     >
                       {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>
@@ -825,35 +885,39 @@ export default function ItemLibraryPage() {
                       ))}
                     </select>
                   </td>
-                  <td className="py-3 px-2" />
-                  <td className="py-3 px-2">
+                  <td className="px-3 py-2" />
+                  <td className="px-3 py-2">
                     <NumberInput
                       min={0}
                       value={qcPrice}
                       onChange={setQcPrice}
                       placeholder="0.00"
-                      className="w-full px-3 py-1.5 text-sm text-right border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                      className="input h-9 w-full text-right text-fs-sm"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleQuickCreate();
                         if (e.key === 'Escape') setQuickCreateOpen(false);
                       }}
                     />
                   </td>
-                  <td className="py-3 px-2">
+                  <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
-                      <button
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={handleQuickCreate}
                         disabled={qcSaving || !qcName.trim()}
-                        className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-medium rounded-lg shadow-sm disabled:opacity-50"
                       >
                         {qcSaving ? '...' : t('save')}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon
                         onClick={() => setQuickCreateOpen(false)}
-                        className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white px-2 py-1.5 transition-colors"
+                        aria-label={t('cancel')}
                       >
-                        ✕
-                      </button>
+                        <X />
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -910,10 +974,19 @@ export default function ItemLibraryPage() {
                   <React.Fragment key={item.id}>
                     <DataTableRow
                       index={rowIdx}
-                      className="cursor-pointer"
+                      striped={false}
+                      tabIndex={0}
+                      className="group cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--brand-500)]"
                       onClick={() => openEditor(item, rid, router)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          openEditor(item, rid, router);
+                        }
+                      }}
                     >
-                      <DataTableCell onClick={(e) => e.stopPropagation()} mobileHidden>
+                      <DataTableCell className="px-3 py-2" onClick={(e) => e.stopPropagation()} mobileHidden>
                         <div className="flex items-center gap-2">
                           <Checkbox
                             checked={selected.has(item.id)}
@@ -934,45 +1007,45 @@ export default function ItemLibraryPage() {
                           )}
                         </div>
                       </DataTableCell>
-                      <DataTableCell mobilePrimary>
-                        <div className="flex items-center gap-4">
+                      <DataTableCell className="px-3 py-2" mobilePrimary>
+                        <div className="flex items-center gap-3">
                           {item.image_url ? (
-                            <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center overflow-hidden">
+                            <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={item.image_url}
                                 alt=""
-                                className="size-full object-contain drop-shadow-sm"
+                                className="size-full object-cover"
                               />
                             </div>
                           ) : (
-                            <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center">
-                              <ImageIcon className="w-7 h-7 text-neutral-400 dark:text-white/30" />
+                            <div className="flex size-12 shrink-0 items-center justify-center rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
+                              <ImageIcon className="size-5 text-[var(--fg-subtle)]" />
                             </div>
                           )}
                           <div>
-                            <span className="font-medium text-neutral-900 dark:text-white">
+                            <span className="text-fs-sm font-semibold text-[var(--fg)]">
                               {item.name}
                             </span>
                             {item.item_type === 'combo' && (
-                              <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-orange-500/15 text-orange-500">
+                              <span className="ms-2 rounded-r-sm bg-[var(--brand-50)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand-600)]">
                                 Combo
                               </span>
                             )}
                             {hasVariants && (
-                              <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-2">
+                              <span className="ms-2 text-fs-xs text-[var(--fg-muted)]">
                                 {variants.length} {t('variants').toLowerCase()}
                               </span>
                             )}
                           </div>
                         </div>
                       </DataTableCell>
-                      <DataTableCell mobileLabel={t('category')}>
-                        <span className="px-3 py-1 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium">
+                      <DataTableCell className="px-3 py-2" mobileLabel={t('category')}>
+                        <span className="inline-flex rounded-r-sm bg-[var(--surface-2)] px-2 py-1 text-fs-xs font-medium text-[var(--fg-muted)]">
                           {item.category_name}
                         </span>
                       </DataTableCell>
-                      <DataTableCell mobileLabel={t('availability')}>
+                      <DataTableCell className="px-3 py-2" mobileLabel={t('availability')}>
                         <AvailabilityPill
                           state={item.availability_state}
                           override={item.availability_override}
@@ -983,12 +1056,12 @@ export default function ItemLibraryPage() {
                           onToggle={() => handleAvailabilityToggle(item)}
                         />
                       </DataTableCell>
-                      <DataTableCell align="right" mobileLabel={t('price')}>
-                        <span className="font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
+                      <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('price')}>
+                        <span className="num whitespace-nowrap text-fs-sm font-semibold text-[var(--fg)]">
                           {priceLabel}
                         </span>
                       </DataTableCell>
-                      <DataTableCell onClick={(e) => e.stopPropagation()}>
+                      <DataTableCell className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           {canEdit && (
                           <RowActionsMenu
@@ -1081,61 +1154,45 @@ export default function ItemLibraryPage() {
 
       {/* Pagination */}
       {sorted.length > 0 && (
-        <div className="mt-6 flex items-center justify-between flex-wrap gap-3">
-          <p className="text-neutral-600 dark:text-neutral-400">
-            {(t('paginationShowing') || 'Showing {n} of {total}')
-              .replace('{n}', String(paged.length))
+        <div className="flex items-center justify-between px-4 py-3">
+          <p className="text-fs-xs text-[var(--fg-muted)]">
+            {t('showing')
+              .replace('{start}', String(visibleStart))
+              .replace('{end}', String(visibleEnd))
               .replace('{total}', String(sorted.length))}
           </p>
           {totalPages > 1 && (
-            <div className="flex gap-2">
-              <button
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                icon
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={pageSafe === 1}
-                className="px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label={t('previousPage') || 'Previous'}
               >
-                {t('previousPage') || 'Previous'}
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(
-                  (p) =>
-                    p === 1 ||
-                    p === totalPages ||
-                    (p >= pageSafe - 1 && p <= pageSafe + 1),
-                )
-                .map((p, idx, arr) => {
-                  const prev = arr[idx - 1];
-                  const showEllipsis = prev !== undefined && p - prev > 1;
-                  return (
-                    <React.Fragment key={p}>
-                      {showEllipsis && (
-                        <span className="px-2 py-2 text-neutral-400">…</span>
-                      )}
-                      <button
-                        onClick={() => setPage(p)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                          p === pageSafe
-                            ? 'bg-orange-500 text-white'
-                            : 'border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] hover:bg-neutral-50 dark:hover:bg-[#222222] text-neutral-700 dark:text-neutral-300'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    </React.Fragment>
-                  );
-                })}
-              <button
+                <ChevronLeft />
+              </Button>
+              <span className="px-2 text-fs-xs text-[var(--fg-muted)]">
+                {t('pageOf').replace('{page}', String(pageSafe)).replace('{total}', String(totalPages))}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={pageSafe === totalPages}
-                className="px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors font-medium text-sm text-neutral-700 dark:text-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label={t('nextPage') || 'Next'}
               >
-                {t('nextPage') || 'Next'}
-              </button>
+                <ChevronRight />
+              </Button>
             </div>
           )}
         </div>
       )}
-      </div>{/* /px-8 py-6 table wrapper */}
+      </div>
+
+      </div>
 
       {/* Category drawer — dual-mode (filter | bulk-assign). */}
       <CategoryDrawer
