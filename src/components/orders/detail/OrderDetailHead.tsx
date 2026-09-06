@@ -1,7 +1,6 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
@@ -28,7 +27,6 @@ export function OrderDetailHead({
   displayedLineCount,
   totalUnits,
   total,
-  actions,
 }: {
   order: Order;
   /** Semantic tone for the status word and dot. */
@@ -36,8 +34,6 @@ export function OrderDetailHead({
   displayedLineCount: number;
   totalUnits: number;
   total: number;
-  /** Record-level management actions, kept apart from workflow buttons. */
-  actions?: ReactNode;
 }) {
   const { t } = useI18n();
 
@@ -107,12 +103,6 @@ export function OrderDetailHead({
             <span aria-hidden className="h-5 w-px bg-[var(--line)]" />
             <Money value={total} className="text-fs-lg font-semibold text-[var(--fg)]" />
           </div>
-          {actions && (
-            <>
-              <span aria-hidden className="hidden lg:block h-5 w-px bg-[var(--line)]" />
-              {actions}
-            </>
-          )}
         </div>
       </div>
     </div>

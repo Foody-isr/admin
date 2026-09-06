@@ -2,20 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { formatMoney } from "@/lib/format-money";
 
-// The migration contract: for every value the printed ticket can pass (finite,
-// non-negative, or null), formatMoney must be byte-identical to the private
-// money() it replaces — `'₪' + (n ?? 0).toFixed(2)`. print-ticket.ts only ever
-// passes line totals, combo prices, subtotal, delivery fee and the grand total,
-// none of which can be negative, so this equivalence covers the whole surface.
-const legacyTicketMoney = (n: number | null | undefined): string => "₪" + (n ?? 0).toFixed(2);
+const expectedDefaultMoney = (n: number | null | undefined): string => "₪" + (n ?? 0).toFixed(2);
 
-test("matches the printed ticket's legacy formatter for every value it can pass", () => {
+test("formats representative order totals consistently", () => {
   const values = [0, 0.5, 1, 3.5, 12.34, 25, 35, 99.99, 100, 505, 1234.5, 99999.999, null, undefined];
   for (const v of values) {
     assert.equal(
       formatMoney(v),
-      legacyTicketMoney(v),
-      `formatMoney(${String(v)}) must equal the legacy ticket output`,
+      expectedDefaultMoney(v),
+      `formatMoney(${String(v)}) must use the default order-money format`,
     );
   }
 });

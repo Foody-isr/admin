@@ -1,15 +1,13 @@
 'use client';
 
-// Record references plus rare and destructive actions. Activity and invoices
-// live here so they never add height to the fixed order workspace.
-//
-// Rebuilt on ds/Menu, same reasons as the other two. Radix gives the danger
-// group a real separator and roving keyboard focus.
+// Record references plus rare and destructive actions. The labelled trigger
+// lives in the command bar so these options are discoverable without competing
+// with the order's primary workflow action.
 //
 import {
   MoreHorizontalIcon, RotateCcwIcon, BanknoteIcon, CreditCardIcon,
   ClipboardListIcon, XIcon, Trash2Icon, HistoryIcon, FileTextIcon,
-  AlertTriangleIcon,
+  AlertTriangleIcon, ChevronDownIcon,
 } from 'lucide-react';
 import {
   Button,
@@ -67,18 +65,16 @@ export function OrderOverflowMenu({
     <Menu>
       <MenuTrigger asChild>
         <Button
-          variant="ghost"
+          variant="secondary"
           size="md"
-          icon
           disabled={disabled}
-          aria-label={t('moreActions') || 'More'}
-          title={t('moreActions') || 'More'}
-          className="h-10 w-10 flex-none justify-center"
+          className="h-11 flex-1 md:flex-none justify-center font-semibold"
         >
-          <MoreHorizontalIcon />
+          <MoreHorizontalIcon /> {t('actions') || 'Actions'}
+          <ChevronDownIcon className="w-3.5 h-3.5" />
         </Button>
       </MenuTrigger>
-      <MenuContent side="bottom" align="end" className="order-detail-menu">
+      <MenuContent side="top" align="start" className="order-detail-menu">
         {hasReferences && <MenuLabel>{t('details')}</MenuLabel>}
         {onViewActivity && (
           <MenuItem onSelect={onViewActivity}>
@@ -97,7 +93,7 @@ export function OrderOverflowMenu({
         {!!invoiceCount && onViewInvoice && (
           <MenuItem onSelect={onViewInvoice}>
             <FileTextIcon />
-            <span className="flex-1">{t('invoiceHeading') || 'Facture'}</span>
+            <span className="flex-1">{t('viewInvoice') || 'Voir la facture'}</span>
             <span className="tabular-nums text-fs-xs text-[var(--fg-subtle)]">{invoiceCount}</span>
           </MenuItem>
         )}

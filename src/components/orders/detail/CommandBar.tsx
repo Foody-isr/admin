@@ -1,22 +1,20 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { EditIcon, ScaleIcon, CreditCardIcon, CheckCircle2Icon, MessageCircleIcon } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
-import type { TicketKind } from '@/lib/print-ticket';
 import type { OrderCapabilities, PrimaryAction } from '@/lib/orders/order-actions';
-import { PrintTicketMenu } from './menus/PrintTicketMenu';
 import { SendToCustomerMenu } from './menus/SendToCustomerMenu';
 
 /**
  * The command bar.
  *
- * Start cluster: quiet utilities that are always available (edit, print, send).
+ * Start cluster: quiet utilities that are always available (edit, actions, send).
  * End cluster: contextual secondary actions and ONE dominant primary — the
- * order's next step. Record-level corrections and destructive actions live in
- * the head overflow, so they never interrupt this workflow sequence. That
- * single-primary rule is the whole point of the bar:
+ * order's next step. Record-level corrections and destructive actions stay
+ * grouped in the labelled Actions menu. That single-primary rule is the whole point of the bar:
  * whatever else is on screen, there is exactly one obvious thing to do next.
  *
  * Mobile stacks the end cluster with the primary on top (col-reverse) and every
@@ -28,7 +26,7 @@ export interface CommandBarProps {
   canManage: boolean;
   isLoading: boolean;
   onEdit: () => void;
-  onPrint: (kind: TicketKind) => void;
+  actions: ReactNode;
   onSendConfirmation: () => void;
   onSendDeliveryReminder?: () => void;
   onConfirmWeights?: () => void;
@@ -39,7 +37,7 @@ export interface CommandBarProps {
 
 export function CommandBar({
   order, caps, canManage, isLoading,
-  onEdit, onPrint, onSendConfirmation, onSendDeliveryReminder, onConfirmWeights, onTakePayment, onCloseOrder,
+  onEdit, actions, onSendConfirmation, onSendDeliveryReminder, onConfirmWeights, onTakePayment, onCloseOrder,
   onPrimary,
 }: CommandBarProps) {
   const { t } = useI18n();
@@ -69,7 +67,7 @@ export function CommandBar({
             <EditIcon /> {t('edit') || 'Modifier'}
           </Button>
         )}
-        <PrintTicketMenu onSelect={onPrint} />
+        {actions}
         <SendToCustomerMenu order={order} onSendConfirmation={onSendConfirmation} />
       </div>
 
