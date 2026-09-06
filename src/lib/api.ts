@@ -189,6 +189,7 @@ export interface RestaurantSettings {
   orders_paused?: boolean;
   orders_paused_until?: string | null;
   floor_plan_color_indicators: boolean;
+  table_in_service_color: string;
   table_yellow_after_minutes: number;
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;

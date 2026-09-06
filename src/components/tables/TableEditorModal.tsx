@@ -80,7 +80,7 @@ export function TableEditorModal({
           code: '',
           name: trimmed,
           seats: seats > 0 ? seats : 4,
-          is_open: true,
+          is_open: false,
           language,
         };
         if (sectionId != null) input.section_id = sectionId;

@@ -12,9 +12,7 @@ import { NumberInput } from '@/components/ui/NumberInput';
 /// what the floor plan actually paints. Keep them in sync with
 /// foodypos/lib/features/tables/presentation/widgets/table_status.dart.
 const SWATCH = {
-  free: '#77BA4B',
-  neutral: '#9A9AA3',
-  fresh: '#34D399',
+  free: '#737883',
   warn: '#F59E0B',
   late: '#F0736F',
   toSettle: '#F18A47',
@@ -35,6 +33,7 @@ export default function TableStatusPage() {
   const [saved, setSaved] = useState(false);
   const [svc, setSvc] = useState({
     floor_plan_color_indicators: false,
+    table_in_service_color: '#54D6A1',
     table_yellow_after_minutes: 30,
     table_red_after_minutes: 60,
   });
@@ -44,6 +43,7 @@ export default function TableStatusPage() {
       .then((s) => {
         setSvc({
           floor_plan_color_indicators: s.floor_plan_color_indicators ?? false,
+          table_in_service_color: s.table_in_service_color ?? '#54D6A1',
           table_yellow_after_minutes: s.table_yellow_after_minutes ?? 30,
           table_red_after_minutes: s.table_red_after_minutes ?? 60,
         });
@@ -76,7 +76,7 @@ export default function TableStatusPage() {
   const legend = on
     ? [
         { color: SWATCH.free, label: t('tableStatusLegendFree'), outline: true },
-        { color: SWATCH.fresh, label: `< ${svc.table_yellow_after_minutes} ${t('minutes')}` },
+        { color: svc.table_in_service_color, label: `< ${svc.table_yellow_after_minutes} ${t('minutes')}` },
         {
           color: SWATCH.warn,
           label: `${svc.table_yellow_after_minutes}-${svc.table_red_after_minutes} ${t('minutes')}`,
@@ -86,7 +86,7 @@ export default function TableStatusPage() {
       ]
     : [
         { color: SWATCH.free, label: t('tableStatusLegendFree'), outline: true },
-        { color: SWATCH.neutral, label: t('tableStatusLegendOccupied'), outline: true },
+        { color: svc.table_in_service_color, label: t('tableStatusLegendOccupied') },
         { color: SWATCH.toSettle, label: t('tableStatusLegendToSettle') },
       ];
 
@@ -95,6 +95,26 @@ export default function TableStatusPage() {
       <PageHead title={t('tableStatus')} desc={t('tableStatusDesc')} />
 
       <div className="card space-y-4">
+        <div className="flex items-center justify-between gap-4 rounded-r-md border border-[var(--divider)] bg-[var(--surface-subtle)] p-3">
+          <div className="min-w-0">
+            <label htmlFor="table-in-service-color" className="text-sm font-medium text-fg-primary block">
+              {t('tableStatusInServiceColor')}
+            </label>
+            <p className="text-xs text-fg-secondary mt-0.5">{t('tableStatusInServiceColorDesc')}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-mono text-fg-secondary">{svc.table_in_service_color.toUpperCase()}</span>
+            <input
+              id="table-in-service-color"
+              type="color"
+              disabled={!canEdit}
+              value={svc.table_in_service_color}
+              onChange={(event) => setSvc((previous) => ({ ...previous, table_in_service_color: event.target.value }))}
+              className="w-10 h-10 rounded-r-md border border-[var(--divider)] bg-transparent cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+        </div>
+
         <div className="flex items-center gap-3">
           <button
             type="button"
