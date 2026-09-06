@@ -59,13 +59,14 @@ export default function TopBar({ restaurantId, restaurantName, pageName, onToggl
 
   return (
     <header
-      className="sticky top-0 z-20 h-[var(--topbar-h)] flex items-center gap-[var(--s-4)] px-[var(--s-6)] border-b border-[var(--line)]"
+      className="sticky top-0 z-20 h-[calc(var(--topbar-h)+env(safe-area-inset-top))] shrink-0 flex items-center gap-[var(--s-4)] px-[var(--s-6)] pt-[env(safe-area-inset-top)] border-b border-[var(--line)]"
       style={{ background: 'var(--topbar-bg)', color: 'var(--topbar-fg)' }}
     >
       {/* Mobile hamburger */}
       <button
+        type="button"
         onClick={onToggleSidebar}
-        className="lg:hidden p-1.5 rounded-r-md hover:bg-[var(--sidebar-hover)] transition-colors"
+        className="lg:hidden flex h-11 w-11 shrink-0 items-center justify-center rounded-r-md hover:bg-[var(--sidebar-hover)] transition-colors"
         aria-label={t('menu') || 'Menu'}
       >
         <MenuIcon className="w-5 h-5" />
