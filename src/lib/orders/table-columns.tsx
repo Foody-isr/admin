@@ -7,6 +7,8 @@ import { CashTag } from '@/components/orders/CashTag';
 import {
   STATUS_TONE,
   PAYMENT_TONE,
+  displayedPaymentStatus,
+  localizePaymentStatus,
   localizeStatus,
   localizeOrderType,
   localizeSource,
@@ -158,7 +160,7 @@ export const ORDER_COLUMNS: OrderColumn[] = [
               }`}
             >
               {timing.overdue && timing.threshold !== null
-                ? t('ordersOverdueBy').replace('{n}', String(timing.minutes))
+                ? t('ordersOverdueBy').replace('{n}', String(timing.overdueBy))
                 : t('ordersInStageFor').replace('{n}', String(timing.minutes))}
             </span>
           )}
@@ -170,24 +172,32 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     key: 'payment',
     labelKey: 'payment',
     defaultVisible: true,
-    render: (order, t) => (
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {order.payment_status === 'paid' ? (
-          <span className="inline-flex items-center gap-1.5 text-fs-sm text-[var(--fg-muted)]">
-            <CheckCircle2Icon className="size-4 text-[var(--success-500)]" />
-            {t('paid')}
-          </span>
-        ) : (
-          <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
-            {(() => {
-              const tv = t(order.payment_status);
-              return tv === order.payment_status ? order.payment_status : tv;
-            })()}
-          </Badge>
-        )}
-        <CashTag order={order} />
-      </div>
-    ),
+    render: (order, t, money) => {
+      const paymentStatus = displayedPaymentStatus(order);
+      const balanceDue = order.balance_due ?? 0;
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {paymentStatus === 'paid' ? (
+              <span className="inline-flex items-center gap-1.5 text-fs-sm text-[var(--fg-muted)]">
+                <CheckCircle2Icon className="size-4 text-[var(--success-500)]" />
+                {t('paid')}
+              </span>
+            ) : (
+              <Badge tone={PAYMENT_TONE[paymentStatus] ?? 'neutral'} dot>
+                {localizePaymentStatus(paymentStatus, t)}
+              </Badge>
+            )}
+            <CashTag order={order} />
+          </div>
+          {paymentStatus === 'partially_paid' && balanceDue > 0.01 && (
+            <span className="text-fs-xs font-medium text-[var(--warning-600)] tabular-nums">
+              {t('balanceRemainingShort').replace('{amount}', money(balanceDue))}
+            </span>
+          )}
+        </div>
+      );
+    },
   },
   {
     key: 'total',

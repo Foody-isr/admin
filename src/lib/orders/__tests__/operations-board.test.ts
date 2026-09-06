@@ -33,14 +33,15 @@ test('uses the timestamp of the current workflow stage', () => {
   assert.equal(timing.approaching, true);
 });
 
-test('marks a stage overdue at its threshold', () => {
+test('reports how far a stage has exceeded its threshold', () => {
   const timing = getOrderTiming(
     order({ status: 'ready', ready_at: '2026-09-03T10:00:00.000Z' }),
-    new Date('2026-09-03T10:15:00.000Z').getTime(),
+    new Date('2026-09-03T10:16:00.000Z').getTime(),
   );
 
   assert.equal(timing.overdue, true);
   assert.equal(timing.threshold, 15);
+  assert.equal(timing.overdueBy, 1);
 });
 
 test('does not age a future scheduled order as overdue', () => {
@@ -55,6 +56,24 @@ test('does not age a future scheduled order as overdue', () => {
 
   assert.equal(timing.scheduledForFuture, true);
   assert.equal(timing.threshold, null);
+  assert.equal(timing.overdueBy, 0);
+  assert.equal(timing.overdue, false);
+});
+
+test('does not age a future scheduled order that was already moved into kitchen', () => {
+  const timing = getOrderTiming(
+    order({
+      is_scheduled: true,
+      status: 'in_kitchen',
+      scheduled_for: '2026-09-11T00:00:00.000Z',
+      in_kitchen_at: '2026-09-06T10:00:00.000Z',
+    }),
+    new Date(2026, 8, 6, 18, 0).getTime(),
+  );
+
+  assert.equal(timing.scheduledForFuture, true);
+  assert.equal(timing.threshold, null);
+  assert.equal(timing.overdueBy, 0);
   assert.equal(timing.overdue, false);
 });
 

@@ -428,6 +428,11 @@ export default function OrdersPage() {
     if (!wsOrder?.id) return;
     if (isProcessing(wsOrder.id)) return;
 
+    // balance_due is computed and omitted by the server once it returns to
+    // zero. Materialize the missing field so a successful supplement clears a
+    // stale "Partially paid" badge instead of preserving it through the merge.
+    const liveOrder: Order = { ...wsOrder, balance_due: wsOrder.balance_due };
+
     // Owner deleted an order elsewhere — drop it from the list and close the
     // detail if it was open. Handled before the upsert below so it isn't re-added.
     if (type === 'order.deleted') {
@@ -457,11 +462,11 @@ export default function OrdersPage() {
       const idx = prev.findIndex((o) => o.id === wsOrder.id);
       if (type === 'order.created') {
         if (idx >= 0) return prev;
-        return [wsOrder, ...prev];
+        return [liveOrder, ...prev];
       }
       if (idx < 0) return prev;
       const next = [...prev];
-      next[idx] = { ...next[idx], ...wsOrder };
+      next[idx] = { ...next[idx], ...liveOrder };
       return next;
     });
     void fetchQueueCounts();

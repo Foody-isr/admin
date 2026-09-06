@@ -6,6 +6,7 @@ export type OperationsQueueKey = 'active' | 'review' | 'kitchen' | 'ready' | 'de
 export interface OperationsQueueDefinition {
   key: OperationsQueueKey;
   labelKey: string;
+  descriptionKey: string;
   statuses: string;
   tone: 'brand' | 'danger' | 'warning' | 'success' | 'info';
 }
@@ -15,30 +16,35 @@ export const OPERATIONS_QUEUES: OperationsQueueDefinition[] = [
   {
     key: 'active',
     labelKey: 'ordersQueueActive',
+    descriptionKey: 'ordersQueueActiveDesc',
     statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery',
     tone: 'brand',
   },
   {
     key: 'review',
     labelKey: 'ordersQueueReview',
+    descriptionKey: 'ordersQueueReviewDesc',
     statuses: 'pending_review',
     tone: 'danger',
   },
   {
     key: 'kitchen',
     labelKey: 'ordersQueueKitchen',
+    descriptionKey: 'ordersQueueKitchenDesc',
     statuses: 'accepted,in_kitchen',
     tone: 'warning',
   },
   {
     key: 'ready',
     labelKey: 'ordersQueueReady',
+    descriptionKey: 'ordersQueueReadyDesc',
     statuses: 'ready,ready_for_pickup,ready_for_delivery',
     tone: 'success',
   },
   {
     key: 'delivery',
     labelKey: 'ordersQueueDelivery',
+    descriptionKey: 'ordersQueueDeliveryDesc',
     statuses: 'out_for_delivery',
     tone: 'info',
   },
@@ -49,6 +55,7 @@ const OPERATIONAL_STATUSES = new Set(OPERATIONS_QUEUES[0].statuses.split(','));
 export interface OrderTiming {
   minutes: number;
   threshold: number | null;
+  overdueBy: number;
   overdue: boolean;
   approaching: boolean;
   scheduledForFuture: boolean;
@@ -93,18 +100,19 @@ export function getOrderTiming(order: Order, now: number = Date.now()): OrderTim
   const scheduledForFuture =
     !!order.is_scheduled &&
     Number.isFinite(scheduledAt) &&
-    scheduledAt > now &&
-    (order.status === 'scheduled' || order.status === 'pending_review');
+    scheduledAt > now;
 
   const threshold = scheduledForFuture ? null : STATUS_THRESHOLDS[order.status] ?? null;
   const anchor = new Date(timingAnchor(order)).getTime();
   const minutes = Number.isFinite(anchor) ? Math.max(0, Math.floor((now - anchor) / 60_000)) : 0;
+  const overdueBy = threshold === null ? 0 : Math.max(0, minutes - threshold);
 
   return {
     minutes,
     threshold,
-    overdue: threshold !== null && minutes >= threshold,
-    approaching: threshold !== null && minutes >= Math.ceil(threshold * 0.75) && minutes < threshold,
+    overdueBy,
+    overdue: overdueBy > 0,
+    approaching: threshold !== null && minutes >= Math.ceil(threshold * 0.75) && minutes <= threshold,
     scheduledForFuture,
   };
 }

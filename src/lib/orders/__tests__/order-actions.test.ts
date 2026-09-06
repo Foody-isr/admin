@@ -143,6 +143,14 @@ test("close order needs a paid, live, non-cancelled order", () => {
     deriveOrderCapabilities(makeOrder({ status: "served", payment_status: "paid" }), OWNER).canCloseOrder,
     false,
   );
+  // The original payment settled, but a post-payment edit still needs its supplement.
+  assert.equal(
+    deriveOrderCapabilities(
+      makeOrder({ status: "in_kitchen", payment_status: "paid", balance_due: 30 }),
+      OWNER,
+    ).canCloseOrder,
+    false,
+  );
 });
 
 test("payment correction is refused once a provider settled the money", () => {

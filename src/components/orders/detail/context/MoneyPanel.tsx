@@ -22,7 +22,11 @@ import { CashTag } from '@/components/orders/CashTag';
 import { initOrderPaymentLink, collectOrderBalance, type Order } from '@/lib/api';
 import { formatMoney } from '@/lib/format-money';
 import { useCurrency } from '@/lib/i18n';
-import { PAYMENT_TONE } from '@/lib/orders/status-presentation';
+import {
+  PAYMENT_TONE,
+  displayedPaymentStatus as getDisplayedPaymentStatus,
+  localizePaymentStatus,
+} from '@/lib/orders/status-presentation';
 import { paymentReference } from '@/lib/orders/payment';
 
 // Order.external_metadata keys the server writes when a paid order is edited
@@ -144,12 +148,13 @@ export function MoneyPanel({
   const chargedAmount = Number(meta[ORDER_META_PAID_AMOUNT]);
   const hasChargedAmount = editedAfterPayment && Number.isFinite(chargedAmount);
   const paymentDrift = hasChargedAmount ? totalsLine - chargedAmount : 0;
+  const balanceDue = order.balance_due ?? 0;
+  const hasBalanceDue = balanceDue > 0.01;
+  const unpaidCount = (order.items ?? []).filter((item) => item.billed_at == null).length;
   // A provider session can remain `pending` in the stored payment record after
   // the order itself was cancelled. Staff cannot collect it anymore, so the
   // summary says "unpaid" instead of presenting a live pending state.
-  const displayedPaymentStatus = isCancelled && order.payment_status === 'pending'
-    ? 'unpaid'
-    : order.payment_status;
+  const displayedPaymentStatus = getDisplayedPaymentStatus(order, isCancelled);
 
   return (
     <section
@@ -174,10 +179,7 @@ export function MoneyPanel({
             </div>
           </div>
           <Badge tone={PAYMENT_TONE[displayedPaymentStatus] ?? 'neutral'} dot className="mt-0.5">
-            {(() => {
-              const tv = t(displayedPaymentStatus);
-              return tv === displayedPaymentStatus ? displayedPaymentStatus : tv;
-            })()}
+            {localizePaymentStatus(displayedPaymentStatus, t)}
           </Badge>
         </div>
         <CashTag order={order} variant="full" className="mt-[var(--s-2)] bg-[var(--surface)]" />
@@ -281,7 +283,7 @@ export function MoneyPanel({
               the customer paid, so the collected amount no longer matches. */}
           {editedAfterPayment && (
             <div
-              className="mt-[var(--s-2)] flex items-start gap-[var(--s-3)] rounded-md p-[var(--s-3)]"
+              className="mt-[var(--s-2)] flex items-start gap-[var(--s-2)] rounded-md p-[var(--s-2)]"
               style={{
                 background: 'color-mix(in oklab, var(--warning-500) 10%, var(--surface))',
                 border: '1px solid color-mix(in oklab, var(--warning-500) 30%, var(--line))',
@@ -291,35 +293,48 @@ export function MoneyPanel({
                 className="size-4 shrink-0 mt-0.5"
                 style={{ color: 'var(--warning-500)' }}
               />
-              <div className="flex-1 min-w-0 flex flex-col gap-[var(--s-2)]">
-                <span className="text-fs-sm font-semibold text-[var(--fg)]">
-                  {t('editedAfterPaymentTitle')}
-                </span>
-                <span className="text-fs-xs text-[var(--fg-muted)]">
-                  {t('editedAfterPaymentDesc')}
-                </span>
-                {hasChargedAmount && (
-                  <div className="flex flex-col gap-1 text-fs-xs">
-                    <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0 flex flex-col gap-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0 text-fs-sm font-semibold text-[var(--fg)]">
+                    {hasBalanceDue ? t('balancePaymentRequiredTitle') : t('editedAfterPaymentTitle')}
+                  </span>
+                  {hasBalanceDue && (
+                    <span className="shrink-0 font-mono text-fs-sm font-semibold tabular-nums text-[var(--warning-700)]">
+                      {formatMoney(balanceDue, { currency: symbol })}
+                    </span>
+                  )}
+                </div>
+                {hasBalanceDue ? (
+                  <div className="flex items-baseline justify-between gap-2 text-[10px] leading-4 text-[var(--fg-muted)]">
+                    <span className="min-w-0 truncate">
+                      {unpaidCount > 0
+                        ? t('balanceItemsUnpaid').replace('{n}', String(unpaidCount))
+                        : t('editedAfterPaymentTitle')}
+                    </span>
+                    {hasChargedAmount && (
+                      <span className="shrink-0">
+                        {t('editedAfterPaymentCharged')}{' '}
+                        <span className="font-mono tabular-nums text-[var(--fg)]">
+                          {formatMoney(chargedAmount, { currency: symbol })}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-fs-xs text-[var(--fg-muted)]">
+                    {t('editedAfterPaymentDesc')}
+                  </span>
+                )}
+                {hasChargedAmount && !hasBalanceDue && (
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-fs-xs">
+                    <div className="contents">
                       <span className="text-[var(--fg-subtle)]">
                         {t('editedAfterPaymentCharged')}
                       </span>
                       <span className="font-mono tabular-nums">{formatMoney(chargedAmount, { currency: symbol })}</span>
                     </div>
-                    {paymentDrift > 0.005 && (
-                      <div
-                        className="flex items-center justify-between font-semibold"
-                        style={{ color: 'var(--warning-500)' }}
-                      >
-                        <span>{t('editedAfterPaymentToCollect')}</span>
-                        <span className="font-mono tabular-nums">{formatMoney(paymentDrift, { currency: symbol })}</span>
-                      </div>
-                    )}
                     {paymentDrift < -0.005 && (
-                      <div
-                        className="flex items-center justify-between font-semibold"
-                        style={{ color: 'var(--warning-500)' }}
-                      >
+                      <div className="contents font-semibold" style={{ color: 'var(--warning-500)' }}>
                         <span>{t('editedAfterPaymentToRefund')}</span>
                         <span className="font-mono tabular-nums">
                           {formatMoney(Math.abs(paymentDrift), { currency: symbol })}
@@ -329,96 +344,79 @@ export function MoneyPanel({
                   </div>
                 )}
 
-                {/* Balance-due action block — shown when the server has computed
-                    an explicit balance_due amount (items added after payment that
-                    haven't been billed yet). Lets staff generate + share a top-up
-                    payment link without leaving the drawer. */}
-                {(order.balance_due ?? 0) > 0 && (() => {
-                  const unpaidCount = (order.items ?? []).filter((i) => i.billed_at == null).length;
-                  return (
-                    <div
-                      className="mt-[var(--s-1)] flex flex-col gap-[var(--s-2)] rounded-md p-[var(--s-3)]"
-                      style={{
-                        background: 'color-mix(in oklab, var(--warning-500) 6%, var(--surface))',
-                        border: '1px solid color-mix(in oklab, var(--warning-500) 22%, var(--line))',
-                      }}
-                    >
-                      {/* Amount pill — the balance due, prominent but not alarming */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-fs-xs font-medium text-[var(--fg-subtle)] uppercase tracking-[.05em]">
-                          {t('balanceToCollect')}
+                {/* Keep the supplement controls on one compact receipt row.
+                    The URL remains available to copy/share without adding a
+                    nested card that can overflow the fixed context column. */}
+                {hasBalanceDue && (
+                  <div className="mt-1 border-t border-[color-mix(in_oklab,var(--warning-500)_24%,var(--line))] pt-1.5">
+                    {balanceLink ? (
+                      <div className="flex items-center justify-between gap-2" aria-live="polite">
+                        <span className="min-w-0 text-fs-xs font-medium text-[var(--warning-700)]">
+                          {t('balanceLinkReady')}
                         </span>
-                        <span
-                          className="font-mono tabular-nums font-semibold text-fs-sm px-2 py-0.5 rounded-full"
-                          style={{
-                            background: 'color-mix(in oklab, var(--warning-500) 14%, transparent)',
-                            color: 'var(--warning-600)',
-                          }}
-                        >
-                          {formatMoney(order.balance_due, { currency: symbol })}
-                        </span>
-                      </div>
-                      {unpaidCount > 0 && (
-                        <span className="text-fs-xs text-[var(--fg-subtle)]">
-                          {t('balanceItemsUnpaid').replace('{n}', String(unpaidCount))}
-                        </span>
-                      )}
-
-                      {balanceLink ? (
-                        <>
-                          <div className="flex items-center gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] p-[var(--s-2)]">
-                            <span className="flex-1 truncate font-mono text-fs-xs">{balanceLink}</span>
-                            <Button variant="secondary" size="sm" onClick={copyBalanceLink}>
-                              {balanceLinkCopied ? <CheckIcon /> : <CopyIcon />}
-                              {balanceLinkCopied ? t('copied') : t('copyLink')}
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon
+                            onClick={copyBalanceLink}
+                            aria-label={balanceLinkCopied ? t('copied') : t('copyLink')}
+                            title={balanceLinkCopied ? t('copied') : t('copyLink')}
+                          >
+                            {balanceLinkCopied ? <CheckIcon /> : <CopyIcon />}
+                          </Button>
+                          {digits && (
+                            <Button asChild variant="secondary" size="sm" icon>
+                              <a
+                                href={balanceLinkWhatsApp}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={t('shareWhatsApp')}
+                                title={t('shareWhatsApp')}
+                              >
+                                <MessageCircleIcon />
+                              </a>
                             </Button>
-                          </div>
-                          {(order.customer_phone || '').replace(/\D/g, '') && (
-                            <a
-                              href={balanceLinkWhatsApp}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-fs-xs font-medium text-[var(--fg)] hover:bg-[var(--surface-2)]"
-                            >
-                              <MessageCircleIcon className="size-3.5" /> {t('shareWhatsApp')}
-                            </a>
                           )}
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-fs-xs text-[var(--fg-muted)] italic">
-                              {t('awaitingBalancePayment')}
-                            </span>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={generateBalanceLink}
-                              disabled={balanceLinkLoading}
-                            >
-                              <RotateCcwIcon className="size-3" />
-                              {balanceLinkLoading ? `${t('loading')}…` : t('regenerateBalanceLink')}
-                            </Button>
-                          </div>
-                        </>
-                      ) : (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={generateBalanceLink}
-                          disabled={balanceLinkLoading}
-                          style={{
-                            borderColor: 'color-mix(in oklab, var(--warning-500) 40%, var(--line-strong))',
-                            color: 'var(--warning-700)',
-                          }}
-                        >
-                          <LinkIcon className="size-3.5" />
-                          {balanceLinkLoading ? `${t('loading')}…` : t('generateBalanceLink')}
-                        </Button>
-                      )}
-                      {balanceLinkError && (
-                        <span className="text-fs-xs text-[var(--danger-500)]">{balanceLinkError}</span>
-                      )}
-                    </div>
-                  );
-                })()}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon
+                            onClick={generateBalanceLink}
+                            disabled={balanceLinkLoading}
+                            aria-label={t('regenerateBalanceLink')}
+                            title={t('regenerateBalanceLink')}
+                          >
+                            <RotateCcwIcon />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full justify-center"
+                        onClick={generateBalanceLink}
+                        disabled={balanceLinkLoading}
+                        style={{
+                          borderColor: 'color-mix(in oklab, var(--warning-500) 40%, var(--line-strong))',
+                          color: 'var(--warning-700)',
+                        }}
+                      >
+                        <LinkIcon />
+                        {balanceLinkLoading ? `${t('loading')}…` : t('generateBalanceLink')}
+                      </Button>
+                    )}
+                    {balanceLinkError && (
+                      <span
+                        className="mt-1 block truncate text-fs-xs text-[var(--danger-500)]"
+                        title={balanceLinkError}
+                      >
+                        {balanceLinkError}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

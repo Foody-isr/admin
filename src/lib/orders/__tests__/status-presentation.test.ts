@@ -4,6 +4,8 @@ import { test } from "node:test";
 import {
   STATUS_TONE,
   PAYMENT_TONE,
+  displayedPaymentStatus,
+  localizePaymentStatus,
   localizeStatus,
   localizeSource,
   localizeOrderType,
@@ -73,9 +75,22 @@ test("STATUS_TONE carries no entry the server cannot produce", () => {
 
 test("payment tones cover every payment_status", () => {
   assert.equal(PAYMENT_TONE.paid, "success");
+  assert.equal(PAYMENT_TONE.partially_paid, "warning");
   assert.equal(PAYMENT_TONE.pending, "warning");
   assert.equal(PAYMENT_TONE.unpaid, "warning");
   assert.equal(PAYMENT_TONE.refunded, "neutral");
+});
+
+test("presents a paid order with a remaining balance as partially paid", () => {
+  const order = { payment_status: "paid", balance_due: 30 } as Order;
+  assert.equal(displayedPaymentStatus(order), "partially_paid");
+  assert.equal(localizePaymentStatus("partially_paid", (key) => (
+    key === "partiallyPaid" ? "Partiellement payée" : key
+  )), "Partiellement payée");
+});
+
+test("keeps the settled status when no supplementary balance remains", () => {
+  assert.equal(displayedPaymentStatus({ payment_status: "paid", balance_due: 0 } as Order), "paid");
 });
 
 test("localizeStatus uses the translation when there is one", () => {

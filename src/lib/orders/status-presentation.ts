@@ -41,10 +41,38 @@ export const STATUS_TONE: Record<string, BadgeTone> = {
 
 export const PAYMENT_TONE: Record<string, BadgeTone> = {
   paid: 'success',
+  partially_paid: 'warning',
   pending: 'warning',
   unpaid: 'warning',
   refunded: 'neutral',
 };
+
+const PAYMENT_KEY: Record<string, string> = {
+  paid: 'paid',
+  partially_paid: 'partiallyPaid',
+  pending: 'pending',
+  unpaid: 'unpaid',
+  refunded: 'refunded',
+};
+
+/**
+ * Returns the truthful staff-facing payment state without mutating the server's
+ * settlement status. A paid order with a post-payment balance keeps its settled
+ * original payment, but is presented as partially paid until the supplement is
+ * collected.
+ */
+export function displayedPaymentStatus(order: Order, isCancelled = false): string {
+  if (isCancelled && order.payment_status === 'pending') return 'unpaid';
+  if (order.payment_status === 'paid' && (order.balance_due ?? 0) > 0.01) return 'partially_paid';
+  return order.payment_status;
+}
+
+/** Localizes both server payment statuses and the derived partial state. */
+export function localizePaymentStatus(status: string, t: (k: string) => string): string {
+  const key = PAYMENT_KEY[status] ?? status;
+  const value = t(key);
+  return value === key && key !== status ? status.replace(/_/g, ' ') : value;
+}
 
 const STATUS_KEY: Record<string, string> = {
   pending_review: 'statusPendingReview',

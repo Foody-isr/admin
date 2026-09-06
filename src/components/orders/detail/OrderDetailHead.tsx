@@ -7,7 +7,7 @@ import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
 import { localizeStatus, localizeOrderType } from '@/lib/orders/status-presentation';
-import { elapsedMinutes } from '@/lib/orders/order-time';
+import { getOrderTiming, isOperationalOrder } from '@/lib/orders/operations-board';
 import { Money } from './primitives/Money';
 
 /**
@@ -43,7 +43,8 @@ export function OrderDetailHead({
 
   const isTerminal = ['served', 'received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
   const isScheduled = order.status === 'scheduled';
-  const mins = elapsedMinutes(order.created_at);
+  const timing = getOrderTiming(order);
+  const showTiming = isOperationalOrder(order) && !timing.scheduledForFuture;
 
   return (
     <div className="h-[64px] px-[var(--s-3)] md:px-[var(--s-4)] flex items-center gap-[var(--s-3)]">
@@ -73,11 +74,11 @@ export function OrderDetailHead({
               {localizeStatus(order.status, t)}
             </span>
 
-            {!isScheduled && !isTerminal && (
+            {!isScheduled && !isTerminal && showTiming && (
               <>
                 <span className="opacity-40">·</span>
                 <span className="num shrink-0">
-                  {mins} {t('minShort') || 'min'}
+                  {timing.minutes} {t('minShort') || 'min'}
                 </span>
               </>
             )}
