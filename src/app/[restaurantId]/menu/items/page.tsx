@@ -39,7 +39,6 @@ import AssignSetDrawer from '@/components/menu/AssignSetDrawer';
 import CsvImportModal from '@/components/import/CsvImportModal';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button, PageHead } from '@/components/ds';
-import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { NumberInput } from '@/components/ui/NumberInput';
 import {
   DataTable,
@@ -165,8 +164,7 @@ export default function ItemLibraryPage() {
   const [optionsDrawerOpen, setOptionsDrawerOpen] = useState(false);
   const [modifiersDrawerOpen, setModifiersDrawerOpen] = useState(false);
 
-  // KPI collapse + info modal — Figma App.tsx:552, 570
-  const [showKpis, setShowKpis] = useState(true);
+  // KPI info modal
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
 
   // Sort
@@ -536,34 +534,16 @@ export default function ItemLibraryPage() {
                   <Plus />
                 </Button>
               )}
-              <Button
-                variant="secondary"
-                size="lg"
-                icon
-                onClick={() => setShowKpis((v) => !v)}
-                aria-label={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
-                title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
-                className="hidden rounded-full md:inline-flex"
-              >
-                {showKpis ? <ChevronUp /> : <ChevronDown />}
-              </Button>
             </>
           }
         />
 
-        <FeatureIntro feature="items" />
-
         <header>
-          {/* The same segmented operational summary used by the orders page. */}
-          {showKpis && (
-            <div className="hidden md:block">
-              <ArticlesKpiRow
-                items={allItems}
-                categoriesCount={categories.length}
-                onKpiClick={setSelectedKpi}
-              />
-            </div>
-          )}
+          <ArticlesKpiRow
+            items={allItems}
+            categoriesCount={categories.length}
+            onKpiClick={setSelectedKpi}
+          />
 
         {/* Bulk selection toolbar — Figma App.tsx:497-523 */}
         {canEdit && selectionCount > 0 && (
