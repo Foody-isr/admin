@@ -22,7 +22,7 @@ export type PrimaryAction =
   | 'markDelivered';
 
 /** Statuses from which there is nothing left to advance. */
-const TERMINAL_STATUSES = ['served', 'received', 'picked_up', 'delivered', 'rejected'];
+const TERMINAL_STATUSES = ['served', 'received', 'picked_up', 'delivered', 'rejected', 'cancelled', 'refunded'];
 
 export interface OrderPermissions {
   /** orders.manage — may act on the order at all. */
@@ -42,6 +42,7 @@ export interface OrderHandlerAvailability {
   onOverride?: boolean;
   onCorrectPayment?: boolean;
   onCorrectPaymentMethod?: boolean;
+  onReactivate?: boolean;
   onToggleForceProduction?: boolean;
   onDelete?: boolean;
 }
@@ -61,6 +62,7 @@ export interface OrderCapabilities {
   canCorrectStatus: boolean;
   canCorrectPayment: boolean;
   canCorrectPaymentMethod: boolean;
+  canReactivate: boolean;
   canForceProduction: boolean;
   canDelete: boolean;
   canEditOrder: boolean;
@@ -103,7 +105,7 @@ export function deriveOrderCapabilities(
   perms: OrderPermissions,
   handlers: OrderHandlerAvailability = {},
 ): OrderCapabilities {
-  const isCancelled = order.status === 'rejected';
+  const isCancelled = order.status === 'rejected' || order.status === 'cancelled';
   const isScheduled = order.status === 'scheduled';
   const isTerminal = TERMINAL_STATUSES.includes(order.status);
 
@@ -146,6 +148,7 @@ export function deriveOrderCapabilities(
     perms.canManage && !!handlers.onToggleForceProduction;
 
   const canDelete = !!perms.canDelete && !!handlers.onDelete;
+  const canReactivate = perms.canManage && isCancelled && !!handlers.onReactivate;
 
   // Items can be edited while the order is still in progress.
   const canEditOrder = !isCancelled && !isTerminal;
@@ -157,6 +160,7 @@ export function deriveOrderCapabilities(
     (canCorrectStatus && !!handlers.onOverride) ||
     (canCorrectPayment && !!handlers.onCorrectPayment) ||
     (canCorrectPaymentMethod && !!handlers.onCorrectPaymentMethod) ||
+    canReactivate ||
     canForceProduction ||
     canCancelOrder ||
     canDelete;
@@ -174,6 +178,7 @@ export function deriveOrderCapabilities(
     canCorrectStatus,
     canCorrectPayment,
     canCorrectPaymentMethod,
+    canReactivate,
     canForceProduction,
     canDelete,
     canEditOrder,

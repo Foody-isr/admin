@@ -64,6 +64,8 @@ export interface OrderDetailModalProps {
   /** Opens the correct-payment-METHOD dialog: relabels how a settled order was
    *  paid (cash ⇄ card) without moving its payment status. */
   onCorrectPaymentMethod?: () => void;
+  /** Restores a cancelled order; Sumit orders also receive a fresh link. */
+  onReactivate?: () => void;
   onSendToKitchen: () => void;
   onMarkReady: () => void;
   onMarkServed: () => void;
@@ -95,7 +97,7 @@ export interface OrderDetailModalProps {
 
 export function OrderDetailModal({
   order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete,
-  onOverride, onCorrectPayment, onCorrectPaymentMethod, onSendToKitchen, onMarkReady, onMarkServed,
+  onOverride, onCorrectPayment, onCorrectPaymentMethod, onReactivate, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered, onTakePayment, onCloseOrder, onEdit, onConfirmWeights,
   onEditCustomer, onToggleForceProduction, restaurantName, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
 }: OrderDetailModalProps) {
@@ -143,6 +145,7 @@ export function OrderDetailModal({
       onOverride: !!onOverride,
       onCorrectPayment: !!onCorrectPayment,
       onCorrectPaymentMethod: !!onCorrectPaymentMethod,
+      onReactivate: !!onReactivate,
       onToggleForceProduction: !!onToggleForceProduction,
       onDelete: !!onDelete,
     },
@@ -321,6 +324,7 @@ export function OrderDetailModal({
                 canCorrect={caps.canCorrectStatus && !!onOverride}
                 canCorrectPayment={caps.canCorrectPayment && !!onCorrectPayment}
                 canCorrectPaymentMethod={caps.canCorrectPaymentMethod && !!onCorrectPaymentMethod}
+                canReactivate={caps.canReactivate}
                 canForceProduction={caps.canForceProduction}
                 forceProductionActive={!!order.force_production}
                 forceProductionRevives={forceProductionRevives}
@@ -329,6 +333,7 @@ export function OrderDetailModal({
                 onCorrect={onOverride}
                 onCorrectPayment={onCorrectPayment}
                 onCorrectPaymentMethod={onCorrectPaymentMethod}
+                onReactivate={onReactivate}
                 onToggleForceProduction={onToggleForceProduction}
                 onCancel={onReject}
                 onDelete={onDelete}

@@ -46,6 +46,7 @@ const ALL_HANDLERS = {
   onOverride: true,
   onCorrectPayment: true,
   onCorrectPaymentMethod: true,
+  onReactivate: true,
   onToggleForceProduction: true,
   onDelete: true,
 };
@@ -114,11 +115,9 @@ test("terminal covers every status with nothing left to advance", () => {
   }
 });
 
-test("only `rejected` counts as cancelled, matching the original predicate", () => {
-  // The legacy `cancelled` status shares rejected's LABEL but not this flag.
-  // Pinned because changing it would silently re-enable destructive actions.
+test("both canonical and legacy cancellation statuses count as cancelled", () => {
   assert.equal(deriveOrderCapabilities(makeOrder({ status: "rejected" }), OWNER).isCancelled, true);
-  assert.equal(deriveOrderCapabilities(makeOrder({ status: "cancelled" }), OWNER).isCancelled, false);
+  assert.equal(deriveOrderCapabilities(makeOrder({ status: "cancelled" }), OWNER).isCancelled, true);
 });
 
 // ─── Payment guards ──────────────────────────────────────────────────────────
@@ -126,6 +125,7 @@ test("only `rejected` counts as cancelled, matching the original predicate", () 
 test("take payment is offered until the order is paid or refunded", () => {
   assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "unpaid" }), OWNER).canTakePayment, true);
   assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "pending" }), OWNER).canTakePayment, true);
+  assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "partially_paid" }), OWNER).canTakePayment, true);
   assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "paid" }), OWNER).canTakePayment, false);
   assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "refunded" }), OWNER).canTakePayment, false);
 });
@@ -238,6 +238,15 @@ test("dead orders can be restored by forcing them onto the production plan", () 
     assert.equal(caps.canForceProduction, true, `${status}: restore action missing`);
     assert.equal(caps.hasOverflow, true, `${status}: restore menu missing`);
   }
+});
+
+test("cancelled orders expose explicit reactivation when the handler is wired", () => {
+  for (const status of ["rejected", "cancelled"]) {
+    const caps = deriveOrderCapabilities(makeOrder({ status }), OWNER, ALL_HANDLERS);
+    assert.equal(caps.canReactivate, true, status);
+    assert.equal(caps.hasOverflow, true, status);
+  }
+  assert.equal(deriveOrderCapabilities(makeOrder({ status: "refunded" }), OWNER, ALL_HANDLERS).canReactivate, false);
 });
 
 // ─── The production page's reduced prop set ──────────────────────────────────

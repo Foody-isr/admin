@@ -31,14 +31,14 @@ export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'deactivated'
 export type OrderStatus =
   | 'pending_review' | 'accepted' | 'in_kitchen' | 'ready'
   | 'served' | 'received' | 'picked_up' | 'delivered' | 'rejected' | 'scheduled'
-  | 'ready_for_pickup' | 'ready_for_delivery' | 'out_for_delivery';
-export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'refunded';
+  | 'ready_for_pickup' | 'ready_for_delivery' | 'out_for_delivery' | 'cancelled' | 'refunded';
+export type PaymentStatus = 'unpaid' | 'pending' | 'partially_paid' | 'paid' | 'refunded';
 
 /** Payment methods staff can record by hand. Mirrors the server's
  *  `manualPaymentMethods` allow-list, which rejects anything else — provider
  *  names ("payplus", "sumit") are written by the provider callbacks alone, so
  *  no manual edit can claim a settlement that never happened. */
-export type ManualPaymentMethod = 'cash' | 'credit_card';
+export type ManualPaymentMethod = 'cash' | 'credit_card' | 'bank_transfer';
 
 export interface User {
   id: number;
@@ -121,6 +121,8 @@ export interface Restaurant {
   /** Restaurant defaults; each staff user may override these per restaurant. */
   orders_default_date_basis?: DateBasis;
   dashboard_default_date_basis?: DateBasis;
+  /** Restaurant-wide population used by the operational dashboard KPIs. */
+  dashboard_revenue_mode?: DashboardRevenueMode;
   created_at: string;
 }
 
@@ -189,6 +191,7 @@ export interface RestaurantSettings {
   orders_paused?: boolean;
   orders_paused_until?: string | null;
   floor_plan_color_indicators: boolean;
+  table_in_service_color: string;
   table_yellow_after_minutes: number;
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
@@ -678,6 +681,8 @@ export interface Order {
   status: OrderStatus;
   payment_status: PaymentStatus;
   payment_method?: string;
+  pending_payment_provider?: string;
+  pending_payment_started_at?: string;
   /** Settlement lifecycle for by-weight orders paid via card hold. "" = not a
    *  held order; "held" = card pre-authorized, awaiting weigh-in; "captured" =
    *  final weight confirmed and charged; "released" = hold voided;
@@ -1296,6 +1301,11 @@ export type AnalyticsScope = AnalyticsRange | { from: string; to: string };
  *  série/fulfillment date, i.e. scheduled_for). Matches the server's
  *  common.DateBasis* constants. Omitted/created is the default everywhere. */
 export type DateBasis = 'created' | 'serie';
+export type DashboardRevenueMode =
+  | 'paid_only'
+  | 'accepted_orders'
+  | 'completed_orders'
+  | 'all_active_orders';
 
 /** Serializes an analytics scope into query params for the period/top-sellers
  *  endpoints. A string becomes `range=`, a window becomes `from=&to=`. */
@@ -4025,6 +4035,19 @@ export async function rejectOrder(
   });
 }
 
+/** Restores a cancelled order. A prior Sumit checkout is regenerated because
+ * its old link has expired; other payment methods are restored without a link. */
+export async function reactivateOrder(
+  restaurantId: number,
+  orderId: number,
+): Promise<{ order: Order; payment_url?: string; payment_link_error?: string }> {
+  return apiFetch<{ order: Order; payment_url?: string; payment_link_error?: string }>(
+    `/api/v1/orders/${orderId}/reactivate?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST' },
+  );
+}
+
 // Permanently deletes an order (hard delete, not archive). Restricted to
 // restaurant owners/admins on the server. Irreversible.
 export async function deleteOrder(restaurantId: number, orderId: number): Promise<void> {
@@ -4247,10 +4270,14 @@ export async function updateOrderPaymentStatus(
    *  invoice number) so the settlement stays reconcilable against the
    *  provider's own books. */
   reference?: string,
+  /** Portion applied now. When omitted, preserves the legacy full-settlement
+   * behavior; new collection UIs always send the explicit amount. */
+  amount?: number,
 ): Promise<Order> {
-  const body: Record<string, string> = { payment_status: paymentStatus };
+  const body: Record<string, string | number> = { payment_status: paymentStatus };
   if (paymentMethod) body.payment_method = paymentMethod;
   if (reference) body.reference = reference;
+  if (amount != null) body.amount = amount;
   const data = await apiFetch<{ order: Order }>(
     `/api/v1/orders/${orderId}/payment-status?restaurant_id=${restaurantId}`,
     restaurantId,
@@ -5018,7 +5045,10 @@ export async function getDailySeries(
   restaurantId: number,
   days = 7,
   date?: string,
-  basis?: DateBasis
+  basis?: DateBasis,
+  /** In série mode, the fulfillment window used to select orders. The API
+   *  still groups the matching orders by their created-at day for the chart. */
+  serieScope?: { from: string; to: string }
 ): Promise<DaySummary[]> {
   const params = new URLSearchParams({
     restaurant_id: String(restaurantId),
@@ -5026,6 +5056,10 @@ export async function getDailySeries(
     ...dateBasisParams(basis),
   });
   if (date) params.set('date', date);
+  if (basis === 'serie' && serieScope) {
+    params.set('from', serieScope.from);
+    params.set('to', serieScope.to);
+  }
   const data = await apiFetch<{ days: DaySummary[] }>(
     `/api/v1/analytics/daily?${params}`, restaurantId
   );
@@ -5033,7 +5067,7 @@ export async function getDailySeries(
 }
 
 /**
- * Groups paid orders in a scope by a chosen dimension (month/week/day/série,
+ * Groups dashboard-scoped orders in a scope by a chosen dimension (month/week/day/série,
  * order type, payment method, day-of-week, or customer), returning per-group
  * order counts + revenue plus the period total. Order-level, so it also covers
  * historical orders imported without line items. `limit` caps rows (top-N).

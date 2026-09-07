@@ -16,6 +16,7 @@ import {
   type DaySummary,
   type TopSeller,
   type Order,
+  type DashboardRevenueMode,
   type DateBasis,
 } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
@@ -52,6 +53,7 @@ import {
 import { InfoTip } from '@/components/help/InfoTip';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { useAuth } from '@/lib/auth-context';
+import { orderDetailPath } from '@/lib/orders/routes';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
@@ -276,6 +278,7 @@ export default function DashboardPage() {
   // hidden picker state.
   const [basis, setBasis] = useState<DateBasis>('created');
   const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
+  const [revenueMode, setRevenueMode] = useState<DashboardRevenueMode>('paid_only');
   const [ready, setReady] = useState(false);
   const rangeKey = useMemo(() => rangeStorageKey(user?.id, rid), [user?.id, rid]);
   const serieMode = basis === 'serie';
@@ -309,6 +312,7 @@ export default function DashboardPage() {
           weekStart = clampWeekStartDay(restaurantResult.value.week_start_day);
           setWsd(weekStart);
           setWorkdays(getEffectiveWorkdays(restaurantResult.value));
+          setRevenueMode(restaurantResult.value.dashboard_revenue_mode ?? 'paid_only');
         }
         const stored = readStoredSel(rangeKey);
         if (stored) setDateRange(resolveStored(stored, weekStart));
@@ -329,18 +333,19 @@ export default function DashboardPage() {
     const requestId = ++loadSequence.current;
     setLoading(true);
     // The same inclusive calendar window drives every endpoint for both date
-    // bases. Only the server-side date field changes (created_at vs
-    // scheduled_for), keeping totals, chart and breakdown in lock-step.
+    // bases. In série mode it filters orders by scheduled_for; the daily chart
+    // then groups those matching orders by created_at so it shows when customers
+    // actually placed them rather than one bar on the fulfillment Friday.
     const scope = { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
     const days = daysInclusive(dateRange);
     const previousEnd = isoDate(addDays(dateRange.from, -1));
     Promise.allSettled([
       getPeriodSummary(rid, scope, basis, previousSerieRange),
       getTopSellers(rid, scope, basis),
-      getDailySeries(rid, days, scope.to, basis),
+      getDailySeries(rid, days, scope.to, basis, serieMode ? scope : undefined),
       serieMode
         ? previousSerieRange
-          ? getDailySeries(rid, days, previousSerieRange.to, basis)
+          ? getDailySeries(rid, days, previousSerieRange.to, basis, previousSerieRange)
           : Promise.resolve([] as DaySummary[])
         : getDailySeries(rid, days, previousEnd, basis),
       getBreakdown(rid, { dimension: 'order_type', scope, basis }),
@@ -405,7 +410,7 @@ export default function DashboardPage() {
   const previous = period?.previous;
 
   const singleDay = sameYMD(dateRange.from, dateRange.to);
-  const chartCapped = daysInclusive(dateRange) > 90;
+  const chartCapped = !serieMode && daysInclusive(dateRange) > 90;
 
   const showDelta = !serieMode || previousSerieRange !== undefined;
   const vsLabel = serieMode
@@ -434,6 +439,7 @@ export default function DashboardPage() {
   }, [current, dateLocale]);
 
   // KPI definitions, driven by the period totals. Presentational only.
+  const revenueModeHint = t(`${revenueMode}DashboardHint`);
   const metrics: { key: MetricKey; label: string; value: string; delta: number; hint?: string; accent: string }[] = [
     {
       key: 'revenue',
@@ -441,6 +447,7 @@ export default function DashboardPage() {
       value: fmtMoney(current?.total_revenue ?? 0, dateLocale, 0, currency),
       delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
       accent: 'var(--brand-500)',
+      hint: revenueModeHint,
     },
     {
       key: 'orders',
@@ -448,9 +455,7 @@ export default function DashboardPage() {
       value: String(current?.total_orders ?? 0),
       delta: pct(current?.total_orders ?? 0, previous?.total_orders ?? 0),
       accent: 'var(--cat-4)',
-      // These KPIs reflect realized (paid) activity — the count deliberately
-      // excludes unpaid/scheduled orders, so it can trail the Orders list.
-      hint: t('paidOrdersOnly'),
+      hint: revenueModeHint,
     },
     {
       key: 'avgTicket',
@@ -626,7 +631,7 @@ export default function DashboardPage() {
                   <button
                     key={o.id}
                     type="button"
-                    onClick={() => router.push(`/${rid}/orders/all`)}
+                    onClick={() => router.push(orderDetailPath(rid, o.id))}
                     className="group flex w-full items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] text-left transition-colors first:border-t-0 hover:bg-[var(--surface-2)]"
                   >
                     <div

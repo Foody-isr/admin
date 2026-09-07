@@ -1,12 +1,14 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { Check, Share2, X } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
 import { localizeStatus, localizeOrderType } from '@/lib/orders/status-presentation';
 import { getOrderTiming, isOperationalOrder } from '@/lib/orders/operations-board';
+import { orderDetailUrl } from '@/lib/orders/routes';
 import { Money } from './primitives/Money';
 
 /**
@@ -36,6 +38,34 @@ export function OrderDetailHead({
   total: number;
 }) {
   const { t } = useI18n();
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  useEffect(() => {
+    if (!linkCopied) return;
+    const timer = window.setTimeout(() => setLinkCopied(false), 2_000);
+    return () => window.clearTimeout(timer);
+  }, [linkCopied]);
+
+  const shareOrder = async () => {
+    const title = t('orderNumber').replace('{id}', String(order.id));
+    const url = orderDetailUrl(window.location.origin, order.restaurant_id, order.id);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+    } catch {
+      window.prompt(t('copyLink') || 'Copier le lien', url);
+    }
+  };
 
   const isTerminal = ['served', 'received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
   const isScheduled = order.status === 'scheduled';
@@ -105,6 +135,20 @@ export function OrderDetailHead({
           </div>
         </div>
       </div>
+
+      <Button
+        variant="ghost"
+        size="md"
+        className="shrink-0 px-2 md:px-[var(--s-4)]"
+        onClick={() => { void shareOrder(); }}
+        aria-label={linkCopied ? t('linkCopied') : t('shareOrder')}
+        title={linkCopied ? t('linkCopied') : t('shareOrder')}
+      >
+        {linkCopied ? <Check /> : <Share2 />}
+        <span className="hidden md:inline">
+          {linkCopied ? t('linkCopied') : t('shareOrder')}
+        </span>
+      </Button>
     </div>
   );
 }
