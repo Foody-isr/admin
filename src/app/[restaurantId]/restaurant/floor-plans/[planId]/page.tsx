@@ -24,6 +24,15 @@ import {
 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { TableEditorModal } from '@/components/tables/TableEditorModal';
+import {
+  applyRectangleRotation,
+  applyTableShape,
+  FLOOR_PLAN_CANVAS_ASPECT,
+  normalizeTablePlacement,
+  tablePlacementCollisionIds,
+  TABLE_SIZE_PRESETS,
+} from '@/lib/floor-plan-layout';
+import type { TableShape } from '@/lib/floor-plan-layout';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,7 +43,7 @@ interface CanvasPlacement {
   y: number;        // %
   width: number;    // %
   height: number;   // %
-  shape: 'square' | 'circle';
+  shape: TableShape;
   rotation: number; // degrees
 }
 
@@ -80,18 +89,17 @@ const SNAP_THRESHOLD = 1.2; // percent — within this distance, edges/centers s
 // height, so a placement only keeps its shape across surfaces when every
 // surface letterboxes to this same ratio. Taken from the Figma canvas
 // (1160x667). Do not change it here alone.
-const CANVAS_ASPECT = 1.74;
 
 // Default size + spacing used when click-placing tables from the sidebar.
 // Tables auto-fill the canvas row-by-row in a regular grid; the picker
 // skips slots that overlap anything the user has already placed/moved.
 //
 // Width and height differ because they are percentages of different axes: on a
-// CANVAS_ASPECT canvas these produce the ~1.3:1 chip the Figma design shows.
+// canonical canvas these produce the intended physical table proportions.
 // Equal percentages would instead inherit the canvas ratio and read as a flat
 // letterbox. Kept in sync with common.DefaultPlacementWidth/Height (Go).
-const DEFAULT_TABLE_W = 10.5;       // % of canvas width
-const DEFAULT_TABLE_H = 14;         // % of canvas height
+const DEFAULT_TABLE_W = TABLE_SIZE_PRESETS.square.width;
+const DEFAULT_TABLE_H = TABLE_SIZE_PRESETS.square.height;
 const AUTO_PLACE_GAP = 2;           // % — gap between adjacent auto-placed tables
 const AUTO_PLACE_MARGIN = 4;        // % — margin from canvas edges
 
@@ -582,7 +590,7 @@ export default function FloorPlanEditorPage() {
       const [fp, secs] = await Promise.all([getFloorPlan(rid, pid), listSections(rid)]);
       setPlan(fp);
       setSections(secs);
-      const mapped: CanvasPlacement[] = (fp.placements ?? []).map((p) => ({
+      const mapped: CanvasPlacement[] = (fp.placements ?? []).map((p) => normalizeTablePlacement({
         tableId: p.table_id,
         tableName: p.table.name,
         x: p.x,
@@ -615,6 +623,7 @@ export default function FloorPlanEditorPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const placedIds = new Set(placements.map((p) => p.tableId));
+  const collisionIds = tablePlacementCollisionIds(placements);
 
   // Sections visible in the right sidebar: sections that have at least one
   // table placed on this plan, plus any the user has explicitly added to this
@@ -979,11 +988,6 @@ export default function FloorPlanEditorPage() {
     ? decorations.find((d) => d.id === primary.id)
     : undefined;
 
-  const updateSelected = (patch: Partial<CanvasPlacement>) => {
-    if (primary?.type !== 'table') return;
-    setPlacements((prev) => prev.map((p) => p.tableId === primary.id ? { ...p, ...patch } : p));
-  };
-
   const updateSelectedDecoration = (patch: Partial<CanvasDecoration>) => {
     if (primary?.type !== 'decoration') return;
     setDecorations((prev) => prev.map((d) => d.id === primary.id ? { ...d, ...patch } : d));
@@ -1182,31 +1186,41 @@ export default function FloorPlanEditorPage() {
                 <div>
                   <p className="text-xs text-fg-secondary mb-1.5">{t('shape')}</p>
                   <div className="flex flex-col gap-1">
-                    {(['square', 'circle'] as const).map((s) => (
+                    {(['circle', 'square', 'rectangle'] as const).map((s) => (
                       <button key={s}
-                        onClick={() => updateSelected({ shape: s })}
+                        onClick={() => {
+                          if (primary?.type !== 'table') return;
+                          setPlacements((prev) => prev.map((p) => p.tableId === primary.id ? applyTableShape(p, s) : p));
+                        }}
                         className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${selectedPlacement.shape === s ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}
                         style={selectedPlacement.shape !== s ? { background: 'var(--surface-subtle)' } : {}}
                       >
-                        {s === 'square' ? t('squareShape') : t('circleShape')}
+                        {s === 'square' ? t('squareShape') : s === 'circle' ? t('circleShape') : t('rectangleShape')}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div>
-                  <p className="text-xs text-fg-secondary mb-1">{t('tableWidth')}</p>
-                  <NumberInput min={3} max={30}
-                    value={Math.round(selectedPlacement.width * 10) / 10}
-                    onChange={(n) => updateSelected({ width: n })}
-                    className="input text-xs w-full" />
-                </div>
-                <div>
-                  <p className="text-xs text-fg-secondary mb-1">{t('tableHeight')}</p>
-                  <NumberInput min={3} max={30}
-                    value={Math.round(selectedPlacement.height * 10) / 10}
-                    onChange={(n) => updateSelected({ height: n })}
-                    className="input text-xs w-full" />
-                </div>
+                {selectedPlacement.shape === 'rectangle' && (
+                  <div>
+                    <p className="text-xs text-fg-secondary mb-1.5">{t('rotation')}</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {([0, 90] as const).map((rotation) => (
+                        <button
+                          key={rotation}
+                          onClick={() => {
+                            if (primary?.type !== 'table') return;
+                            setPlacements((prev) => prev.map((p) => p.tableId === primary.id ? applyRectangleRotation(p, rotation) : p));
+                          }}
+                          className={`px-2 py-1.5 rounded text-xs font-medium ${selectedPlacement.rotation === rotation ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}
+                          style={selectedPlacement.rotation !== rotation ? { background: 'var(--surface-subtle)' } : {}}
+                        >
+                          {rotation}°
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-[11px] leading-4 text-fg-secondary">{t('tableSizeManagedAutomatically')}</p>
                 <button onClick={removeSelected} className="p-2 rounded-md hover:bg-red-500/10 self-start">
                   <TrashIcon className="w-4 h-4 text-red-400" />
                 </button>
@@ -1273,19 +1287,24 @@ export default function FloorPlanEditorPage() {
           </div>
 
           {/* Center — canvas.
-              Locked to CANVAS_ASPECT and letterboxed inside whatever space is
+              Locked to the canonical aspect ratio and letterboxed inside whatever space is
               available, rather than stretched to fill it. A free-floating ratio
               (this used to be `w-full` x `70vh`) silently changed what the
               stored height percentages meant, so a table drawn square here came
               out as a flattened rectangle on the POS. Capping the width at
               `70vh * ratio` keeps the previous vertical footprint. */}
-          <div className="flex-1 overflow-auto p-4 relative flex justify-center items-start">
+          <div className="flex-1 overflow-auto p-4 relative flex flex-col items-center gap-3">
+            {collisionIds.size > 0 && (
+              <div role="alert" className="w-full max-w-xl rounded-lg border border-red-400/50 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-300">
+                {t('floorPlanOverlapWarning').replace('{count}', String(collisionIds.size))}
+              </div>
+            )}
             <div
               ref={canvasRef}
               className="relative w-full select-none"
               style={{
-                aspectRatio: String(CANVAS_ASPECT),
-                maxWidth: `calc(70vh * ${CANVAS_ASPECT})`,
+                aspectRatio: String(FLOOR_PLAN_CANVAS_ASPECT),
+                maxWidth: `calc(70vh * ${FLOOR_PLAN_CANVAS_ASPECT})`,
                 background: 'white',
                 backgroundImage: 'linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px)',
                 backgroundSize: '40px 40px',
@@ -1372,7 +1391,7 @@ export default function FloorPlanEditorPage() {
               {/* Tables — rendered on top of decorations */}
               {placements.map((p) => {
                 const isSelectedTbl = isSelected('table', p.tableId);
-                const isPrimary = primary?.type === 'table' && primary.id === p.tableId;
+                const hasCollision = collisionIds.has(p.tableId);
                 return (
                   <div
                     key={p.tableId}
@@ -1382,8 +1401,6 @@ export default function FloorPlanEditorPage() {
                       top: `${p.y}%`,
                       width: `${p.width}%`,
                       height: `${p.height}%`,
-                      transform: `rotate(${p.rotation}deg)`,
-                      transformOrigin: 'center center',
                       zIndex: 2,
                     }}
                   >
@@ -1393,9 +1410,10 @@ export default function FloorPlanEditorPage() {
                       style={{
                         width: '100%',
                         height: '100%',
-                        borderRadius: p.shape === 'circle' ? '50%' : '6px',
+                        borderRadius: p.shape === 'circle' ? '50%' : p.shape === 'rectangle' ? '14px' : '6px',
                         background: '#1a1a1a',
-                        border: isSelectedTbl ? '2px solid #F18A47' : '2px solid transparent',
+                        border: hasCollision ? '3px solid #ef4444' : isSelectedTbl ? '2px solid #F18A47' : '2px solid transparent',
+                        boxShadow: hasCollision ? '0 0 0 4px rgba(239,68,68,0.18)' : undefined,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1403,42 +1421,12 @@ export default function FloorPlanEditorPage() {
                         userSelect: 'none',
                         transition: 'border-color 0.1s',
                       }}
+                      title={hasCollision ? t('floorPlanTableOverlap') : undefined}
                     >
                       <span style={{ color: 'white', fontSize: '11px', fontWeight: 600, textAlign: 'center', padding: '2px', lineHeight: 1.2 }}>
                         {p.tableName}
                       </span>
                     </div>
-                    {/* Resize handles — only on the primary selected item */}
-                    {canManage && isPrimary && <ResizeHandles type="table" id={p.tableId} onMouseDown={handleResizeMouseDown} />}
-                    {/* Rotate handle */}
-                    {canManage && isPrimary && (
-                      <div
-                        onMouseDown={(e) => handleRotateMouseDown(e, 'table', p.tableId)}
-                        onClick={(e) => e.stopPropagation()}
-                        title="Rotate"
-                        style={{
-                          position: 'absolute',
-                          top: '-22px',
-                          right: '-22px',
-                          width: '20px',
-                          height: '20px',
-                          background: 'white',
-                          border: '2px solid #F18A47',
-                          borderRadius: '50%',
-                          cursor: 'grab',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
-                          zIndex: 10,
-                        }}
-                      >
-                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                          <path d="M10 3C8.8 1.5 7 0.6 5 0.6C2.5 0.6 0.6 2.5 0.6 5s1.9 4.4 4.4 4.4c1.5 0 2.8-.7 3.7-1.8" stroke="#F18A47" strokeWidth="1.5" strokeLinecap="round"/>
-                          <path d="M8.5 0.5L10 3L8 3.8" stroke="#F18A47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </div>
-                    )}
                   </div>
                 );
               })}
