@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   SearchIcon,
   PrinterIcon,
@@ -42,11 +42,12 @@ import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
 import { ProductionMobile } from '@/components/production/ProductionMobile';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
-import { ProductionOrderDetail } from '@/components/production/ProductionOrderDetail';
+import { orderDetailPath } from '@/lib/orders/routes';
 
 export default function ProductionPage() {
   const params = useParams<{ restaurantId: string }>();
   const restaurantId = Number(params.restaurantId);
+  const router = useRouter();
   const { t } = useI18n();
   // A clients × items matrix can't be read on a phone, so instead of shrinking
   // it we swap in ProductionMobile — a single-axis view the staffer switches
@@ -59,7 +60,6 @@ export default function ProductionPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'production' | 'courses'>('production');
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer'>('none');
   // Portion sizes each article is sold in (from its variants), used both to
@@ -256,7 +256,9 @@ export default function ProductionPage() {
       .filter((c) => c.sheet.items.length > 0);
   }, [orderedSheet]);
 
-  const handleRowClick = fullscreen ? () => undefined : (id: number) => setSelectedOrderId(id);
+  const handleRowClick = fullscreen
+    ? () => undefined
+    : (id: number) => router.push(orderDetailPath(restaurantId, id));
   // Split views are desktop-only; on a phone we always render the single main
   // table (any split chosen on a wider screen is ignored while narrow).
   const effectiveSplit = isMobile ? 'none' : splitMode;
@@ -572,11 +574,6 @@ export default function ProductionPage() {
           </div>
         ))}
 
-      <ProductionOrderDetail
-        restaurantId={restaurantId}
-        orderId={selectedOrderId}
-        onClose={() => setSelectedOrderId(null)}
-      />
     </div>
   );
 }
