@@ -31,10 +31,9 @@ import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import { useOrderSeries } from '@/lib/series';
 import {
-  SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
-  BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
-  ChevronDownIcon, MoreHorizontalIcon, PlusIcon, XIcon,
-  PauseIcon, PlayIcon, WifiIcon, WifiOffIcon,
+  SearchIcon, Volume2Icon, VolumeXIcon,
+  ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon,
+  PlusIcon, XIcon, PauseIcon, PlayIcon,
   ListFilterIcon, ClipboardListIcon,
 } from 'lucide-react';
 import { Button, ConfirmDialog, PageHead } from '@/components/ds';
@@ -52,13 +51,9 @@ import { useOrdersTableConfig } from '@/lib/orders/useOrdersTableConfig';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { OrdersOperationsRail } from '@/components/orders/OrdersOperationsRail';
@@ -155,7 +150,7 @@ export default function OrdersPage() {
   const { status: wsStatus, lastEvent, addProcessingGuard, removeProcessingGuard, isProcessing } = useWs();
 
   const { play: playSound, isEnabled: isSoundEnabled, toggle: toggleSound } = useOrderSound();
-  const { permission, requestPermission, notify } = useBrowserNotifications();
+  const { notify } = useBrowserNotifications();
   const [soundOn, setSoundOn] = useState(true);
 
   const [rawOrders, setRawOrders] = useState<Order[]>([]);
@@ -319,6 +314,7 @@ export default function OrdersPage() {
   // staff dialogs as much as on the guest checkout.
   const [allowCash, setAllowCash] = useState(true);
   const [pauseSaving, setPauseSaving] = useState(false);
+  const [pauseConfirmationOpen, setPauseConfirmationOpen] = useState(false);
   useEffect(() => {
     if (!rid) return;
     getRestaurantSettings(rid)
@@ -855,6 +851,28 @@ export default function OrdersPage() {
                   </span>
                 </>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = toggleSound();
+                  setSoundOn(next);
+                }}
+                className="ms-0.5 inline-flex size-7 items-center justify-center rounded-full text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
+                aria-label={t('ordersSound')}
+                aria-pressed={soundOn}
+                title={soundOn ? t('muteSound') : t('unmuteSound')}
+              >
+                {soundOn ? <Volume2Icon className="size-3.5" /> : <VolumeXIcon className="size-3.5" />}
+              </button>
+              {wsStatus === 'disconnected' && (
+                <button
+                  type="button"
+                  onClick={() => void Promise.allSettled([fetchOrders(), fetchQueueCounts()])}
+                  className="text-fs-xs font-medium text-[var(--brand-600)] hover:underline focus-visible:outline-none focus-visible:shadow-ring"
+                >
+                  {t('refresh')}
+                </button>
+              )}
             </span>
           )}
           actions={
@@ -876,76 +894,30 @@ export default function OrdersPage() {
                   </Link>
                 </Button>
               )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="lg" disabled={pauseSaving}>
-                    {paused ? <WifiOffIcon /> : <WifiIcon />}
-                    <span className="hidden sm:inline">{t('ordersOnline')}</span>
-                    <span className={paused ? 'text-[var(--danger-500)]' : 'text-[var(--success-600)]'}>
-                      {paused ? t('ordersPausedShort') : t('ordersAccepting')}
-                    </span>
-                    <ChevronDownIcon />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72">
-                  <DropdownMenuLabel>{t('ordersOnline')}</DropdownMenuLabel>
-                  <DropdownMenuItem disabled={!canManage || !paused} onSelect={() => void togglePause(false)}>
-                    <PlayIcon />
-                    <span>
-                      <span className="block">{t('ordersAccepting')}</span>
-                      <span className="block text-fs-xs text-[var(--fg-muted)]">{t('ordersAcceptingDesc')}</span>
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem disabled={!canManage || paused} onSelect={() => void togglePause(true)}>
-                    <PauseIcon />
-                    <span>
-                      <span className="block">{t('pauseOrders')}</span>
-                      <span className="block text-fs-xs text-[var(--fg-muted)]">{t('pauseOnlineOrdersDesc')}</span>
-                    </span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    icon
-                    className="rounded-full"
-                    aria-label={t('moreActions')}
-                    title={t('moreActions')}
-                  >
-                    <MoreHorizontalIcon />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuCheckboxItem
-                    checked={soundOn}
-                    onCheckedChange={() => {
-                      const next = toggleSound();
-                      setSoundOn(next);
-                    }}
-                    onSelect={(event) => event.preventDefault()}
-                  >
-                    {soundOn ? <Volume2Icon /> : <VolumeXIcon />}
-                    {t('ordersSound')}
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuItem onSelect={() => void requestPermission()}>
-                    {permission === 'granted' ? <BellIcon /> : <BellOffIcon />}
-                    {permission === 'granted' ? t('notificationsEnabled') : t('enableNotifications')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void Promise.allSettled([fetchOrders(), fetchQueueCounts()])}>
-                    <RefreshCwIcon />
-                    {t('refresh')}
-                  </DropdownMenuItem>
-                  {hasAnyPermission('settings.edit') && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <OrderColumnPicker columns={columns} />
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {canManage && (
+                <Button
+                  variant={paused ? 'secondary' : 'danger'}
+                  size="lg"
+                  icon
+                  disabled={pauseSaving}
+                  className={
+                    paused
+                      ? 'rounded-full border-transparent bg-[var(--success-500)] text-white shadow-sm hover:bg-[var(--success-600)]'
+                      : 'rounded-full shadow-sm'
+                  }
+                  onClick={() => {
+                    if (paused) {
+                      void togglePause(false);
+                    } else {
+                      setPauseConfirmationOpen(true);
+                    }
+                  }}
+                  aria-label={paused ? t('resumeOrders') : t('pauseOrders')}
+                  title={paused ? t('resumeOrders') : t('pauseOrders')}
+                >
+                  {paused ? <PlayIcon className="!size-5" /> : <PauseIcon className="!size-5" />}
+                </Button>
+              )}
             </>
           }
         />
@@ -1098,6 +1070,8 @@ export default function OrdersPage() {
               {t('ordersResetFiltersWithCount').replace('{n}', String(activeFilterCount))}
             </Button>
           )}
+
+          {hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}
 
           {preferenceSaveFailed && (
             <span className="text-fs-xs text-[var(--warning-600)]" role="status">
@@ -1346,6 +1320,20 @@ export default function OrdersPage() {
         onOpenChange={setWeightsOpen}
         order={detailOrder}
         onConfirmed={fetchOrders}
+      />
+
+      <ConfirmDialog
+        open={pauseConfirmationOpen}
+        onOpenChange={setPauseConfirmationOpen}
+        title={t('pauseOrders')}
+        description={t('pauseOnlineOrdersDesc')}
+        confirmLabel={t('pauseOrders')}
+        cancelLabel={t('cancel')}
+        danger
+        onConfirm={() => {
+          setPauseConfirmationOpen(false);
+          void togglePause(true);
+        }}
       />
 
       {/* Cancel order — reason required */}
