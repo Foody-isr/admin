@@ -16,6 +16,7 @@ import {
   type DaySummary,
   type TopSeller,
   type Order,
+  type DashboardRevenueMode,
   type DateBasis,
 } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
@@ -276,6 +277,7 @@ export default function DashboardPage() {
   // hidden picker state.
   const [basis, setBasis] = useState<DateBasis>('created');
   const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
+  const [revenueMode, setRevenueMode] = useState<DashboardRevenueMode>('paid_only');
   const [ready, setReady] = useState(false);
   const rangeKey = useMemo(() => rangeStorageKey(user?.id, rid), [user?.id, rid]);
   const serieMode = basis === 'serie';
@@ -309,6 +311,7 @@ export default function DashboardPage() {
           weekStart = clampWeekStartDay(restaurantResult.value.week_start_day);
           setWsd(weekStart);
           setWorkdays(getEffectiveWorkdays(restaurantResult.value));
+          setRevenueMode(restaurantResult.value.dashboard_revenue_mode ?? 'paid_only');
         }
         const stored = readStoredSel(rangeKey);
         if (stored) setDateRange(resolveStored(stored, weekStart));
@@ -435,6 +438,7 @@ export default function DashboardPage() {
   }, [current, dateLocale]);
 
   // KPI definitions, driven by the period totals. Presentational only.
+  const revenueModeHint = t(`${revenueMode}DashboardHint`);
   const metrics: { key: MetricKey; label: string; value: string; delta: number; hint?: string; accent: string }[] = [
     {
       key: 'revenue',
@@ -442,6 +446,7 @@ export default function DashboardPage() {
       value: fmtMoney(current?.total_revenue ?? 0, dateLocale, 0, currency),
       delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
       accent: 'var(--brand-500)',
+      hint: revenueModeHint,
     },
     {
       key: 'orders',
@@ -449,9 +454,7 @@ export default function DashboardPage() {
       value: String(current?.total_orders ?? 0),
       delta: pct(current?.total_orders ?? 0, previous?.total_orders ?? 0),
       accent: 'var(--cat-4)',
-      // These KPIs reflect realized (paid) activity — the count deliberately
-      // excludes unpaid/scheduled orders, so it can trail the Orders list.
-      hint: t('paidOrdersOnly'),
+      hint: revenueModeHint,
     },
     {
       key: 'avgTicket',
