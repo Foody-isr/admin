@@ -6970,7 +6970,7 @@ export interface FloorPlanPlacement {
   y: number;
   width: number;
   height: number;
-  shape: 'square' | 'circle';
+  shape: 'square' | 'circle' | 'rectangle';
   rotation: number; // degrees
   table: RestaurantTableRef;
 }
@@ -7023,7 +7023,7 @@ export interface PlacementInput {
   y: number;
   width: number;
   height: number;
-  shape: 'square' | 'circle';
+  shape: 'square' | 'circle' | 'rectangle';
   rotation: number; // degrees
 }
 
