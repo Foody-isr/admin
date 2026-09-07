@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus, overrideOrderStatus,
+  listOrders, getOrder, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus, overrideOrderStatus,
   updateOrderPaymentStatus, overrideOrderPaymentStatus, correctOrderPaymentMethod,
   updateOrderCustomerDetails, reactivateOrder,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
@@ -64,6 +64,7 @@ import {
   type OperationsQueueKey,
 } from '@/lib/orders/operations-board';
 import { defaultOrdersTabForBasis } from '@/lib/orders/orders-list-preferences';
+import { orderDetailPath, ordersListPath, parseOrderIdParam } from '@/lib/orders/routes';
 import {
   DataTable,
   DataTableHead,
@@ -142,8 +143,10 @@ export default function OrdersPage() {
   // Manual status correction is a management action — owner or manager only,
   // matching the server route (RequireRestaurantRoles owner, manager).
   const canOverride = isOwner || roleName === 'Manager';
-  const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
+  const params = useParams<{ restaurantId: string; orderId?: string }>();
+  const router = useRouter();
+  const rid = Number(params.restaurantId);
+  const detailId = parseOrderIdParam(params.orderId);
   const { status: wsStatus, lastEvent, addProcessingGuard, removeProcessingGuard, isProcessing } = useWs();
 
   const { play: playSound, isEnabled: isSoundEnabled, toggle: toggleSound } = useOrderSound();
@@ -185,8 +188,50 @@ export default function OrdersPage() {
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [pendingClose, setPendingClose] = useState<{ id: number; type: string } | null>(null);
 
-  const [detailId, setDetailId] = useState<number | null>(null);
-  const detailOrder = orders.find((o) => o.id === detailId) ?? null;
+  // The URL is the source of truth for the open order. A direct link may point
+  // outside today's filtered page, so load that order independently from the
+  // table and keep the full API representation for the detail surface.
+  const [directOrder, setDirectOrder] = useState<Order | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoadFailed, setDetailLoadFailed] = useState(false);
+  const detailOrder = directOrder?.id === detailId
+    ? directOrder
+    : orders.find((o) => o.id === detailId) ?? null;
+
+  const closeOrderDetail = useCallback(() => {
+    router.replace(ordersListPath(rid));
+  }, [rid, router]);
+
+  const openOrder = useCallback((orderId: number) => {
+    router.push(orderDetailPath(rid, orderId));
+  }, [rid, router]);
+
+  useEffect(() => {
+    if (!rid || detailId == null) {
+      setDirectOrder(null);
+      setDetailLoading(false);
+      setDetailLoadFailed(false);
+      return;
+    }
+
+    let active = true;
+    setDetailLoading(true);
+    setDetailLoadFailed(false);
+    getOrder(rid, detailId)
+      .then((order) => {
+        if (active) setDirectOrder(order);
+      })
+      .catch(() => {
+        if (!active) return;
+        setDirectOrder(null);
+        setDetailLoadFailed(true);
+      })
+      .finally(() => {
+        if (active) setDetailLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [rid, detailId]);
 
   // First day of the week + workdays for the date picker. Loaded with the
   // restaurant; both default to "everything on" until then so the picker
@@ -227,7 +272,6 @@ export default function OrdersPage() {
         setDefaultDateField(preferences.orders_date_basis);
         setActiveTab(defaultOrdersTabForBasis(preferences.orders_date_basis));
         setPage(0);
-        setDetailId(null);
         setPreferenceSaveFailed(false);
       })
       .catch(() => {
@@ -236,7 +280,6 @@ export default function OrdersPage() {
         setDefaultDateField('created');
         setActiveTab(defaultOrdersTabForBasis('created'));
         setPage(0);
-        setDetailId(null);
         setPreferenceSaveFailed(true);
       })
       .finally(() => {
@@ -413,11 +456,15 @@ export default function OrdersPage() {
     // stale "Partially paid" badge instead of preserving it through the merge.
     const liveOrder: Order = { ...wsOrder, balance_due: wsOrder.balance_due };
 
+    if (detailId === wsOrder.id) {
+      setDirectOrder((current) => current ? { ...current, ...liveOrder } : liveOrder);
+    }
+
     // Owner deleted an order elsewhere — drop it from the list and close the
     // detail if it was open. Handled before the upsert below so it isn't re-added.
     if (type === 'order.deleted') {
       setOrders((prev) => prev.filter((o) => o.id !== wsOrder.id));
-      setDetailId((prev) => (prev === wsOrder.id ? null : prev));
+      if (detailId === wsOrder.id) closeOrderDetail();
       void fetchQueueCounts();
       return;
     }
@@ -450,7 +497,7 @@ export default function OrdersPage() {
       return next;
     });
     void fetchQueueCounts();
-  }, [lastEvent, isProcessing, playSound, notify, t, dateField, fetchOrders, fetchQueueCounts, setOrders]);
+  }, [lastEvent, isProcessing, playSound, notify, t, dateField, fetchOrders, fetchQueueCounts, setOrders, detailId, closeOrderDetail]);
 
   // ─── Actions ──────────────────────────────────────────────────────
 
@@ -459,6 +506,7 @@ export default function OrdersPage() {
     addProcessingGuard(orderId);
     if (optimisticStatus) {
       setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: optimisticStatus } : o));
+      setDirectOrder((prev) => prev?.id === orderId ? { ...prev, status: optimisticStatus } : prev);
     }
     try {
       await action();
@@ -476,12 +524,14 @@ export default function OrdersPage() {
     setActionLoading(orderId);
     addProcessingGuard(orderId);
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'accepted' } : o)));
+    setDirectOrder((prev) => prev?.id === orderId ? { ...prev, status: 'accepted' } : prev);
     try {
       const result = await acceptOrder(rid, orderId);
       // The configured one-click flow may have skipped straight to in_kitchen
       // and pinned production. Apply the authoritative response immediately;
       // the WebSocket broadcast remains the cross-screen sync mechanism.
       setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...result.order } : o)));
+      setDirectOrder((prev) => prev?.id === orderId ? { ...prev, ...result.order } : prev);
       return result;
     } catch {
       return undefined;
@@ -518,6 +568,7 @@ export default function OrdersPage() {
     try {
       const updated = await overrideOrderPaymentStatus(rid, id, paymentStatus, note);
       setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+      setDirectOrder((prev) => prev?.id === id ? { ...prev, ...updated } : prev);
     } catch {
       await fetchOrders();
     } finally {
@@ -542,6 +593,7 @@ export default function OrdersPage() {
     try {
       const updated = await correctOrderPaymentMethod(rid, id, method, reference, note);
       setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+      setDirectOrder((prev) => prev?.id === id ? { ...prev, ...updated } : prev);
     } catch {
       await fetchOrders();
     } finally {
@@ -562,6 +614,7 @@ export default function OrdersPage() {
       const updated = await setOrderForceProduction(rid, orderId, force);
       if (updated) {
         setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updated } : o)));
+        setDirectOrder((prev) => prev?.id === orderId ? { ...prev, ...updated } : prev);
       }
     } catch {
       await fetchOrders();
@@ -573,6 +626,7 @@ export default function OrdersPage() {
     try {
       const result = await reactivateOrder(rid, orderId);
       setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...result.order } : o)));
+      setDirectOrder((prev) => prev?.id === orderId ? { ...prev, ...result.order } : prev);
       if (result.payment_url) {
         try {
           await navigator.clipboard.writeText(result.payment_url);
@@ -599,6 +653,7 @@ export default function OrdersPage() {
     const id = editCustomerId;
     const updated = await updateOrderCustomerDetails(rid, id, input);
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    setDirectOrder((prev) => prev?.id === id ? { ...prev, ...updated } : prev);
     await fetchOrders();
   };
   // Hard delete — permanently removes the order. Owner/admin only (also enforced
@@ -609,7 +664,7 @@ export default function OrdersPage() {
     try {
       await deleteOrder(rid, orderId);
       setOrders((prev) => prev.filter((o) => o.id !== orderId));
-      setDetailId((prev) => (prev === orderId ? null : prev));
+      if (detailId === orderId) closeOrderDetail();
     } catch {
       alert(t('deleteOrderFailed'));
       await fetchOrders();
@@ -624,7 +679,9 @@ export default function OrdersPage() {
   // dispatch pipeline (the Deliveries page filters on that status). Dine-in and
   // pickup use the generic `ready`.
   const handleMarkReady = (orderId: number) => {
-    const isDelivery = orders.find((o) => o.id === orderId)?.order_type === 'delivery';
+    const selected = orders.find((o) => o.id === orderId)
+      ?? (directOrder?.id === orderId ? directOrder : null);
+    const isDelivery = selected?.order_type === 'delivery';
     return isDelivery
       ? runAction(orderId, () => markOrderReadyForDelivery(rid, orderId).then(() => {}), 'ready_for_delivery')
       : runAction(orderId, () => updateOrderStatus(rid, orderId, 'ready').then(() => {}), 'ready');
@@ -659,11 +716,15 @@ export default function OrdersPage() {
     setOrders((prev) => prev.map((o) =>
       o.id === orderId ? { ...o, payment_status: nextPaymentStatus } : o,
     ));
+    setDirectOrder((prev) => prev?.id === orderId
+      ? { ...prev, payment_status: nextPaymentStatus }
+      : prev);
     return updateOrderPaymentStatus(rid, orderId, 'paid', method, reference, amount)
       .then((updated) => {
         setOrders((prev) => prev.map((o) =>
           o.id === orderId ? { ...o, ...updated } : o,
         ));
+        setDirectOrder((prev) => prev?.id === orderId ? { ...prev, ...updated } : prev);
       })
       .catch(async () => { await fetchOrders(); })
       .finally(async () => {
@@ -683,7 +744,7 @@ export default function OrdersPage() {
         await markOrderServed(rid, orderId);
       }
     });
-    setDetailId(null);
+    closeOrderDetail();
   };
 
   // ─── Tab / search ─────────────────────────────────────────────────
@@ -691,16 +752,12 @@ export default function OrdersPage() {
   const switchTab = (key: string) => {
     setActiveTab(key);
     setPage(0);
-    setDetailId(null);
+    closeOrderDetail();
   };
 
   const handleSearch = () => {
     setSearchSubmitted(search.trim());
     setPage(0);
-  };
-
-  const openOrder = (orderId: number) => {
-    setDetailId(orderId);
   };
 
   const runPrimaryAction = (order: Order, action: PrimaryAction) => {
@@ -746,7 +803,7 @@ export default function OrdersPage() {
     setDateField(defaultDateField);
     setActiveTab(defaultOrdersTabForBasis(defaultDateField));
     setPage(0);
-    setDetailId(null);
+    closeOrderDetail();
   };
 
   const changeDateField = useCallback((nextBasis: DateBasis) => {
@@ -754,11 +811,11 @@ export default function OrdersPage() {
     setDefaultDateField(nextBasis);
     setActiveTab(defaultOrdersTabForBasis(nextBasis));
     setPage(0);
-    setDetailId(null);
+    closeOrderDetail();
     setPreferenceSaveFailed(false);
     void updateDisplayPreferences(rid, { orders_date_basis: nextBasis })
       .catch(() => setPreferenceSaveFailed(true));
-  }, [rid]);
+  }, [rid, closeOrderDetail]);
 
   // ─── Render ───────────────────────────────────────────────────────
 
@@ -1126,7 +1183,7 @@ export default function OrdersPage() {
                               onClick={(event) => {
                                 event.stopPropagation();
                                 if (capabilities.primary === 'accept') {
-                                  setDetailId(order.id);
+                                  openOrder(order.id);
                                 } else {
                                   runPrimaryAction(order, capabilities.primary!);
                                 }
@@ -1188,13 +1245,26 @@ export default function OrdersPage() {
       </div>
 
       {/* Clicking a row opens the complete order directly. */}
+      {detailId != null && detailLoadFailed && !detailOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[3px]" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-r-xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center shadow-3">
+            <h2 className="text-fs-lg font-semibold text-[var(--fg)]">
+              {t('orderNumber').replace('{id}', String(detailId))}
+            </h2>
+            <p className="mt-2 text-fs-sm text-[var(--fg-muted)]">{t('noMatchFound')}</p>
+            <Button variant="primary" size="md" className="mt-5" onClick={closeOrderDetail}>
+              {t('backToOrders')}
+            </Button>
+          </div>
+        </div>
+      )}
       <OrderDetailModal
         order={detailOrder}
         canManage={canManage}
         canDelete={isOwner}
         canOverride={canOverride}
-        isLoading={detailOrder != null && actionLoading === detailOrder.id}
-        onClose={() => setDetailId(null)}
+        isLoading={detailLoading || (detailOrder != null && actionLoading === detailOrder.id)}
+        onClose={closeOrderDetail}
         onAccept={() => {
           if (!detailOrder) return;
           return handleAccept(detailOrder.id);

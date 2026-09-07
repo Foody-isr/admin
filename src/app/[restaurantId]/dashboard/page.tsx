@@ -53,6 +53,7 @@ import {
 import { InfoTip } from '@/components/help/InfoTip';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { useAuth } from '@/lib/auth-context';
+import { orderDetailPath } from '@/lib/orders/routes';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
@@ -630,7 +631,7 @@ export default function DashboardPage() {
                   <button
                     key={o.id}
                     type="button"
-                    onClick={() => router.push(`/${rid}/orders/all`)}
+                    onClick={() => router.push(orderDetailPath(rid, o.id))}
                     className="group flex w-full items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] text-left transition-colors first:border-t-0 hover:bg-[var(--surface-2)]"
                   >
                     <div
