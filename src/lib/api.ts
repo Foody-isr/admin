@@ -121,6 +121,8 @@ export interface Restaurant {
   /** Restaurant defaults; each staff user may override these per restaurant. */
   orders_default_date_basis?: DateBasis;
   dashboard_default_date_basis?: DateBasis;
+  /** Restaurant-wide population used by the operational dashboard KPIs. */
+  dashboard_revenue_mode?: DashboardRevenueMode;
   created_at: string;
 }
 
@@ -1299,6 +1301,11 @@ export type AnalyticsScope = AnalyticsRange | { from: string; to: string };
  *  série/fulfillment date, i.e. scheduled_for). Matches the server's
  *  common.DateBasis* constants. Omitted/created is the default everywhere. */
 export type DateBasis = 'created' | 'serie';
+export type DashboardRevenueMode =
+  | 'paid_only'
+  | 'accepted_orders'
+  | 'completed_orders'
+  | 'all_active_orders';
 
 /** Serializes an analytics scope into query params for the period/top-sellers
  *  endpoints. A string becomes `range=`, a window becomes `from=&to=`. */
@@ -5060,7 +5067,7 @@ export async function getDailySeries(
 }
 
 /**
- * Groups paid orders in a scope by a chosen dimension (month/week/day/série,
+ * Groups dashboard-scoped orders in a scope by a chosen dimension (month/week/day/série,
  * order type, payment method, day-of-week, or customer), returning per-group
  * order counts + revenue plus the period total. Order-level, so it also covers
  * historical orders imported without line items. `limit` caps rows (top-N).

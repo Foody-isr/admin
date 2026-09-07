@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getRestaurant, updateRestaurant, Restaurant, type DateBasis } from '@/lib/api';
+import {
+  getRestaurant,
+  updateRestaurant,
+  Restaurant,
+  type DashboardRevenueMode,
+  type DateBasis,
+} from '@/lib/api';
 import { useI18n, SUPPORTED_LOCALES, type Locale} from '@/lib/i18n';
 import { Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
@@ -30,6 +36,7 @@ interface PrefsForm {
   number_format: '1 234,56' | '1,234.56';
   orders_default_date_basis: DateBasis;
   dashboard_default_date_basis: DateBasis;
+  dashboard_revenue_mode: DashboardRevenueMode;
 }
 
 export default function SettingsPage() {
@@ -61,6 +68,7 @@ export default function SettingsPage() {
     number_format: '1 234,56',
     orders_default_date_basis: 'created',
     dashboard_default_date_basis: 'created',
+    dashboard_revenue_mode: 'paid_only',
   });
 
   useEffect(() => {
@@ -79,6 +87,7 @@ export default function SettingsPage() {
           ...p,
           orders_default_date_basis: r.orders_default_date_basis ?? 'created',
           dashboard_default_date_basis: r.dashboard_default_date_basis ?? 'created',
+          dashboard_revenue_mode: r.dashboard_revenue_mode ?? 'paid_only',
         }));
       })
       .finally(() => setLoading(false));
@@ -96,6 +105,7 @@ export default function SettingsPage() {
         currency: prefs.currency,
         orders_default_date_basis: prefs.orders_default_date_basis,
         dashboard_default_date_basis: prefs.dashboard_default_date_basis,
+        dashboard_revenue_mode: prefs.dashboard_revenue_mode,
       });
       // Republish straight away: every price on screen is formatted from the
       // context, so without this the admin keeps showing the old symbol until
@@ -267,6 +277,30 @@ export default function SettingsPage() {
             </Select>
           </Field>
         </div>
+      </Section>
+
+      <Section
+        title={t('dashboardRevenueCalculation')}
+        desc={t('dashboardRevenueCalculationDesc')}
+      >
+        <Field
+          label={t('dashboardRevenueMode')}
+          hint={t(`${prefs.dashboard_revenue_mode}Desc`)}
+        >
+          <Select
+            value={prefs.dashboard_revenue_mode}
+            disabled={!canEdit}
+            onChange={(e) => setPrefs((p) => ({
+              ...p,
+              dashboard_revenue_mode: e.target.value as DashboardRevenueMode,
+            }))}
+          >
+            <option value="paid_only">{t('paid_onlyOption')}</option>
+            <option value="accepted_orders">{t('accepted_ordersOption')}</option>
+            <option value="completed_orders">{t('completed_ordersOption')}</option>
+            <option value="all_active_orders">{t('all_active_ordersOption')}</option>
+          </Select>
+        </Field>
       </Section>
 
       <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)] flex-wrap">
