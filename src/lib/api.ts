@@ -194,6 +194,11 @@ export interface RestaurantSettings {
   table_in_service_color: string;
   table_yellow_after_minutes: number;
   table_red_after_minutes: number;
+  /** Limits guest-to-staff calls that have not yet been acknowledged. The
+   *  counter is scoped to one active table session. */
+  table_assistance_rate_limit_enabled?: boolean;
+  table_assistance_rate_limit_max_requests?: number;
+  table_assistance_rate_limit_window_minutes?: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
   /**
