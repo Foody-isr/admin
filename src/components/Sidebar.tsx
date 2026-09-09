@@ -159,7 +159,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost', desktopOnly: true },
         { href: `${base}/kitchen/availability`, labelKey: 'availability', desktopOnly: true },
         { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations', desktopOnly: true },
-        { href: `${base}/kitchen/supplies`, labelKey: 'supplies' },
+        { href: `${base}/kitchen/suppliers`, labelKey: 'suppliers' },
         { href: `${base}/kitchen/units`, labelKey: 'units', desktopOnly: true },
         { href: `${base}/kitchen/lab`, labelKey: 'recipeLab' },
       ],

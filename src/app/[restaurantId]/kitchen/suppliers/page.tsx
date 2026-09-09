@@ -1,884 +1,1809 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
-  listSuppliers, createSupplier, updateSupplier, deleteSupplier,
-  listSupplierProducts, createSupplierProduct, updateSupplierProduct, deleteSupplierProduct,
-  listPurchaseOrders, createPurchaseOrder, updatePurchaseOrderStatus, receivePurchaseOrder,
-  deletePurchaseOrder, listStockItems,
-  Supplier, SupplierInput, SupplierProduct, SupplierProductInput,
-  PurchaseOrder, PurchaseOrderStatus, PurchaseOrderItemInput,
-  StockItem, StockUnit,
-} from '@/lib/api';
-import Modal from '@/components/Modal';
+  createPurchaseOrder,
+  createSupplier,
+  createSupplierProduct,
+  deletePurchaseOrder,
+  deleteSupplier,
+  deleteSupplierProduct,
+  getRestaurant,
+  listPurchaseOrders,
+  listStockItems,
+  listSupplierProducts,
+  listSuppliers,
+  receivePurchaseOrder,
+  sendOrderEmail,
+  updatePurchaseOrderStatus,
+  updateSupplier,
+  updateSupplierProduct,
+  type PurchaseOrder,
+  type PurchaseOrderItemInput,
+  type StockItem,
+  type StockUnit,
+  type Supplier,
+  type SupplierDeliverySchedule,
+  type SupplierDeliveryScheduleInput,
+  type SupplierOrderChannel,
+  type SupplierOrderLanguage,
+  type SupplierProduct,
+  type SupplierProductInput,
+} from "@/lib/api";
+import Modal from "@/components/Modal";
+import SupplierHubTabs, {
+  type SupplierHubTab,
+} from "@/components/suppliers/SupplierHubTabs";
+import { Button, EmptyState, PageHead } from "@/components/ds";
+import { NumberInput } from "@/components/ui/NumberInput";
+import { useI18n, useCurrency } from "@/lib/i18n";
+import { usePermissions } from "@/lib/permissions-context";
 import {
-  SearchIcon, PlusIcon, TrashIcon, PencilIcon,
-  TruckIcon, CheckCircleIcon, SendIcon, XCircleIcon,
-} from 'lucide-react';
-import { useI18n, useCurrency } from '@/lib/i18n';
-import { usePermissions } from '@/lib/permissions-context';
-import { NumberInput } from '@/components/ui/NumberInput';
+  buildPurchaseOrderMessage,
+  buildWhatsAppUrl,
+} from "@/lib/suppliers/order-message";
 import {
-  DataTable,
-  DataTableHead,
-  DataTableHeadCell,
-  DataTableHeadSpacerCell,
-  DataTableBody,
-  DataTableRow,
-  DataTableCell,
-} from '@/components/data-table';
+  AlertTriangle,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Mail,
+  MessageCircle,
+  PackageCheck,
+  Pencil,
+  Plus,
+  Search,
+  Send,
+  Settings2,
+  Trash2,
+  Truck,
+  XCircle,
+} from "lucide-react";
 
-const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
-type Tab = 'suppliers' | 'orders' | 'history';
+const UNITS: StockUnit[] = [
+  "kg",
+  "g",
+  "l",
+  "ml",
+  "unit",
+  "pack",
+  "box",
+  "bag",
+  "dose",
+  "other",
+];
+const ORDER_TABS: SupplierHubTab[] = ["needs", "orders", "suppliers"];
+type OrderSeed = { supplierId?: number; stockItemIds?: number[] };
 
-const STATUS_COLORS: Record<PurchaseOrderStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  sent: 'bg-blue-100 text-blue-700',
-  received: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
-};
+function isLow(item: StockItem) {
+  return (
+    item.is_active &&
+    (item.quantity <= 0 ||
+      (item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold))
+  );
+}
 
-// ─── Main ──────────────────────────────────────────────────────────
+function dateTimeLabel(value: string | null | undefined, locale: string) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function nextSchedule(
+  supplier: Supplier,
+): { schedule: SupplierDeliverySchedule; delivery: Date; cutoff: Date } | null {
+  const now = new Date();
+  const candidates = (supplier.schedules ?? []).flatMap((schedule) => {
+    const values: {
+      schedule: SupplierDeliverySchedule;
+      delivery: Date;
+      cutoff: Date;
+    }[] = [];
+    for (let offset = 0; offset < 14; offset += 1) {
+      const delivery = new Date(now);
+      delivery.setDate(now.getDate() + offset);
+      if (delivery.getDay() !== schedule.weekday) continue;
+      const [hours, minutes] = schedule.window_start.split(":").map(Number);
+      delivery.setHours(hours, minutes, 0, 0);
+      if (delivery <= now) continue;
+      const cutoff = new Date(delivery);
+      cutoff.setDate(cutoff.getDate() - schedule.order_cutoff_days_before);
+      const [cutoffHours, cutoffMinutes] = schedule.order_cutoff_time
+        .split(":")
+        .map(Number);
+      cutoff.setHours(cutoffHours, cutoffMinutes, 0, 0);
+      values.push({ schedule, delivery, cutoff });
+      break;
+    }
+    return values;
+  });
+  return (
+    candidates.sort((a, b) => a.delivery.getTime() - b.delivery.getTime())[0] ??
+    null
+  );
+}
 
 export default function SuppliersPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { t, locale } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission("kitchen.manage");
+  const activeParam = searchParams.get("tab") as SupplierHubTab | null;
+  const activeTab = ORDER_TABS.includes(activeParam as SupplierHubTab)
+    ? activeParam!
+    : "needs";
 
-  const [tab, setTab] = useState<Tab>('suppliers');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [restaurantName, setRestaurantName] = useState("Foody");
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-
-  // Modals
-  const [supplierModal, setSupplierModal] = useState<{ open: boolean; editing?: Supplier }>({ open: false });
-  const [detailSupplier, setDetailSupplier] = useState<Supplier | null>(null);
-  const [productModal, setProductModal] = useState<{ open: boolean; supplierId: number; editing?: SupplierProduct }>({ open: false, supplierId: 0 });
-  const [orderModal, setOrderModal] = useState(false);
-  const [receiveModal, setReceiveModal] = useState<PurchaseOrder | null>(null);
+  const [error, setError] = useState("");
+  const [supplierModal, setSupplierModal] = useState<{
+    open: boolean;
+    editing?: Supplier;
+  }>({ open: false });
+  const [productsSupplier, setProductsSupplier] = useState<Supplier | null>(
+    null,
+  );
+  const [orderSeed, setOrderSeed] = useState<OrderSeed | null>(null);
+  const [sendOrder, setSendOrder] = useState<PurchaseOrder | null>(null);
+  const [receiveOrder, setReceiveOrder] = useState<PurchaseOrder | null>(null);
 
   const reload = useCallback(async () => {
+    setError("");
     try {
-      const [s, o, si] = await Promise.all([
-        listSuppliers(rid),
-        listPurchaseOrders(rid),
-        listStockItems(rid),
-      ]);
-      setSuppliers(s);
-      setOrders(o);
-      setStockItems(si);
+      const [supplierData, orderData, stockData, restaurant] =
+        await Promise.all([
+          listSuppliers(rid),
+          listPurchaseOrders(rid),
+          listStockItems(rid),
+          getRestaurant(rid),
+        ]);
+      setSuppliers(supplierData);
+      setOrders(orderData);
+      setStockItems(stockData);
+      setRestaurantName(restaurant.name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("supplierLoadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [rid]);
+  }, [rid, t]);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+  const lowItems = useMemo(() => stockItems.filter(isLow), [stockItems]);
+  const setTab = (tab: SupplierHubTab) =>
+    router.replace(`/${rid}/kitchen/suppliers?tab=${tab}`);
 
-  const filteredSuppliers = suppliers.filter((s) =>
-    !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.contact_name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const activeOrders = orders.filter((o) => o.status === 'draft' || o.status === 'sent');
-  const historyOrders = orders.filter((o) => o.status === 'received' || o.status === 'cancelled');
-
-  if (loading) {
+  if (loading)
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+      <div className="flex h-64 items-center justify-center">
+        <div className="size-8 animate-spin rounded-full border-4 border-[var(--brand-500)] border-t-transparent" />
       </div>
     );
-  }
 
   return (
-    <div className="space-y-6">
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
-        {(['suppliers', 'orders', 'history'] as Tab[]).map((t2) => (
-          <button
-            key={t2}
-            onClick={() => setTab(t2)}
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              tab === t2 ? 'shadow text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
-            }`}
-            style={tab === t2 ? { background: 'var(--surface)' } : {}}
-          >
-            {t2 === 'suppliers' ? t('suppliers') : t2 === 'orders' ? t('purchaseOrders') : t('orderHistory')}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'suppliers' && (
-        <SuppliersTab
-          suppliers={filteredSuppliers}
-          search={search}
-          onSearchChange={setSearch}
-          onAdd={() => setSupplierModal({ open: true })}
-          onEdit={(s) => setSupplierModal({ open: true, editing: s })}
-          onDelete={async (id) => { await deleteSupplier(rid, id); reload(); }}
-          onDetail={setDetailSupplier}
-          t={t}
-        />
+    <div className="min-w-0">
+      <PageHead
+        title={t("supplierHubTitle")}
+        desc={t("supplierHubDesc")}
+        actions={
+          canManage ? (
+            <Button
+              size="lg"
+              onClick={() => setOrderSeed({})}
+              disabled={suppliers.length === 0}
+            >
+              <Plus /> {t("newPurchaseOrder")}
+            </Button>
+          ) : undefined
+        }
+      />
+      <SupplierHubTabs
+        restaurantId={rid}
+        active={activeTab}
+        lowCount={lowItems.length}
+      />
+      {error && (
+        <div
+          role="alert"
+          className="mb-4 rounded-r-md border border-[var(--danger-500)]/30 bg-[var(--danger-50)] px-4 py-3 text-fs-sm text-[var(--danger-500)]"
+        >
+          {error}
+        </div>
       )}
 
-      {tab === 'orders' && (
-        <OrdersTab
-          orders={activeOrders}
+      {activeTab === "needs" && (
+        <NeedsTab
           suppliers={suppliers}
-          onNewOrder={() => setOrderModal(true)}
-          onSend={async (id) => { await updatePurchaseOrderStatus(rid, id, 'sent'); reload(); }}
-          onReceive={(o) => setReceiveModal(o)}
-          onCancel={async (id) => { await updatePurchaseOrderStatus(rid, id, 'cancelled'); reload(); }}
-          onDelete={async (id) => { await deletePurchaseOrder(rid, id); reload(); }}
-          t={t}
+          stockItems={stockItems}
+          locale={locale}
+          canManage={canManage}
+          onOrder={setOrderSeed}
+          onOpenSuppliers={() => setTab("suppliers")}
+        />
+      )}
+      {activeTab === "orders" && (
+        <OrdersTab
+          orders={orders}
+          locale={locale}
+          canManage={canManage}
+          onSend={setSendOrder}
+          onReceive={setReceiveOrder}
+          onCancel={async (order) => {
+            await updatePurchaseOrderStatus(rid, order.id, "cancelled");
+            await reload();
+          }}
+          onDelete={async (order) => {
+            if (confirm(t("deletePurchaseOrderConfirm"))) {
+              await deletePurchaseOrder(rid, order.id);
+              await reload();
+            }
+          }}
+        />
+      )}
+      {activeTab === "suppliers" && (
+        <SuppliersTab
+          suppliers={suppliers}
+          locale={locale}
+          canManage={canManage}
+          onAdd={() => setSupplierModal({ open: true })}
+          onEdit={(supplier) =>
+            setSupplierModal({ open: true, editing: supplier })
+          }
+          onProducts={setProductsSupplier}
+          onOrder={(supplier) => setOrderSeed({ supplierId: supplier.id })}
+          onDelete={async (supplier) => {
+            if (confirm(t("deleteSupplierConfirm"))) {
+              await deleteSupplier(rid, supplier.id);
+              await reload();
+            }
+          }}
         />
       )}
 
-      {tab === 'history' && (
-        <HistoryTab orders={historyOrders} t={t} />
-      )}
-
-      {/* Supplier Create/Edit Modal */}
       {supplierModal.open && (
         <SupplierFormModal
           editing={supplierModal.editing}
           onClose={() => setSupplierModal({ open: false })}
           onSave={async (input) => {
-            if (supplierModal.editing) {
+            if (supplierModal.editing)
               await updateSupplier(rid, supplierModal.editing.id, input);
-            } else {
-              await createSupplier(rid, input);
-            }
+            else await createSupplier(rid, input);
             setSupplierModal({ open: false });
-            reload();
+            await reload();
           }}
-          t={t}
         />
       )}
-
-      {/* Supplier Detail / Products */}
-      {detailSupplier && (
-        <SupplierDetailModal
-          supplier={detailSupplier}
+      {productsSupplier && (
+        <SupplierProductsModal
+          supplier={productsSupplier}
           rid={rid}
           stockItems={stockItems}
-          onClose={() => { setDetailSupplier(null); reload(); }}
-          onAddProduct={(sid) => setProductModal({ open: true, supplierId: sid })}
-          onEditProduct={(sid, p) => setProductModal({ open: true, supplierId: sid, editing: p })}
-          t={t}
-        />
-      )}
-
-      {/* Product Create/Edit Modal */}
-      {productModal.open && (
-        <ProductFormModal
-          editing={productModal.editing}
-          stockItems={stockItems}
-          onClose={() => setProductModal({ open: false, supplierId: 0 })}
-          onSave={async (input) => {
-            if (productModal.editing) {
-              await updateSupplierProduct(rid, productModal.supplierId, productModal.editing.id, input);
-            } else {
-              await createSupplierProduct(rid, productModal.supplierId, input);
-            }
-            setProductModal({ open: false, supplierId: 0 });
-            // Refresh detail supplier
-            const updated = await listSuppliers(rid);
-            setSuppliers(updated);
-            const s = updated.find((x) => x.id === productModal.supplierId);
-            if (s) setDetailSupplier(s);
+          onClose={() => {
+            setProductsSupplier(null);
+            void reload();
           }}
-          t={t}
         />
       )}
-
-      {/* New Order Modal */}
-      {orderModal && (
-        <NewOrderModal
+      {orderSeed && (
+        <OrderComposer
+          rid={rid}
           suppliers={suppliers}
-          rid={rid}
-          onClose={() => setOrderModal(false)}
-          onCreated={() => { setOrderModal(false); reload(); }}
-          t={t}
+          stockItems={stockItems}
+          seed={orderSeed}
+          onClose={() => setOrderSeed(null)}
+          onCreated={async (order, continueToSend) => {
+            setOrderSeed(null);
+            await reload();
+            if (continueToSend) setSendOrder(order);
+            else setTab("orders");
+          }}
         />
       )}
-
-      {/* Receive Modal */}
-      {receiveModal && (
-        <ReceiveOrderModal
-          order={receiveModal}
+      {sendOrder && (
+        <SendOrderModal
           rid={rid}
-          onClose={() => setReceiveModal(null)}
-          onReceived={() => { setReceiveModal(null); reload(); }}
-          t={t}
+          order={sendOrder}
+          restaurantName={restaurantName}
+          onClose={() => setSendOrder(null)}
+          onSent={async () => {
+            setSendOrder(null);
+            await reload();
+            setTab("orders");
+          }}
+        />
+      )}
+      {receiveOrder && (
+        <ReceiveOrderModal
+          rid={rid}
+          order={receiveOrder}
+          onClose={() => setReceiveOrder(null)}
+          onReceived={async () => {
+            setReceiveOrder(null);
+            await reload();
+          }}
         />
       )}
     </div>
   );
 }
 
-// ─── Suppliers Tab ──────────────────────────────────────────────────
-
-function SuppliersTab({ suppliers, search, onSearchChange, onAdd, onEdit, onDelete, onDetail, t }: {
+function NeedsTab({
+  suppliers,
+  stockItems,
+  locale,
+  canManage,
+  onOrder,
+  onOpenSuppliers,
+}: {
   suppliers: Supplier[];
-  search: string;
-  onSearchChange: (v: string) => void;
-  onAdd: () => void;
-  onEdit: (s: Supplier) => void;
-  onDelete: (id: number) => void;
-  onDetail: (s: Supplier) => void;
-  t: (k: string) => string;
+  stockItems: StockItem[];
+  locale: string;
+  canManage: boolean;
+  onOrder: (seed: OrderSeed) => void;
+  onOpenSuppliers: () => void;
 }) {
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
+  const { t } = useI18n();
+  const lowItems = stockItems.filter(isLow);
+  const grouped = suppliers
+    .map((supplier) => ({
+      supplier,
+      items: lowItems.filter((item) => item.supplier_id === supplier.id),
+    }))
+    .filter((group) => group.items.length > 0);
+  const unassigned = lowItems.filter(
+    (item) =>
+      !item.supplier_id ||
+      !suppliers.some((supplier) => supplier.id === item.supplier_id),
+  );
   return (
-    <>
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={t('searchItems')}
-            className="w-full pl-9 pr-3 py-2 rounded-lg border text-sm"
-            style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
+    <div className="space-y-[var(--s-6)]">
+      <WeeklyDeliveryRail suppliers={suppliers} locale={locale} />
+      <section>
+        <div className="mb-3 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-fs-xl font-semibold text-[var(--fg)]">
+              {t("orderToday")}
+            </h2>
+            <p className="mt-1 text-fs-sm text-[var(--fg-muted)]">
+              {t("orderTodayDesc")}
+            </p>
+          </div>
+          {lowItems.length > 0 && (
+            <span className="text-fs-sm font-medium text-[var(--danger-500)]">
+              {lowItems.length} {t("items")}
+            </span>
+          )}
+        </div>
+        {lowItems.length === 0 ? (
+          <EmptyState
+            icon={<PackageCheck />}
+            title={t("stockNeedsClear")}
+            desc={t("stockNeedsClearDesc")}
           />
-        </div>
-        {canManage && (
-          <button onClick={onAdd} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors">
-            <PlusIcon className="w-4 h-4" /> {t('addSupplier')}
-          </button>
-        )}
-      </div>
-
-      {suppliers.length === 0 ? (
-        <div className="text-center py-12 text-fg-secondary">{t('noSuppliers')}</div>
-      ) : (
-        <DataTable>
-          <DataTableHead>
-            <DataTableHeadCell>{t('supplierName')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('contactName')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('phone')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('supplierProducts')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('status')}</DataTableHeadCell>
-            <DataTableHeadSpacerCell />
-          </DataTableHead>
-          <DataTableBody>
-            {suppliers.map((s, index) => (
-              <DataTableRow
-                key={s.id}
-                index={index}
-                className="cursor-pointer"
-                onClick={() => onDetail(s)}
-              >
-                <DataTableCell mobilePrimary className="font-medium text-fg-primary">{s.name}</DataTableCell>
-                <DataTableCell mobileLabel={t('contactName')} className="text-fg-secondary">{s.contact_name}</DataTableCell>
-                <DataTableCell mobileLabel={t('phone')} className="text-fg-secondary">{s.phone}</DataTableCell>
-                <DataTableCell mobileLabel={t('supplierProducts')} className="text-fg-secondary">{s.products?.length ?? 0}</DataTableCell>
-                <DataTableCell mobileLabel={t('status')}>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                    {s.is_active ? t('active') : t('inactive')}
-                  </span>
-                </DataTableCell>
-                <DataTableCell>
-                  {canManage && (
-                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => onEdit(s)} className="p-1.5 rounded-md hover:bg-[var(--surface-subtle)]">
-                        <PencilIcon className="w-4 h-4 text-fg-secondary" />
-                      </button>
-                      <button onClick={() => { if (confirm('Delete this supplier?')) onDelete(s.id); }} className="p-1.5 rounded-md hover:bg-red-50">
-                        <TrashIcon className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
-                  )}
-                </DataTableCell>
-              </DataTableRow>
-            ))}
-          </DataTableBody>
-        </DataTable>
-      )}
-    </>
-  );
-}
-
-// ─── Orders Tab ─────────────────────────────────────────────────────
-
-function OrdersTab({ orders, suppliers, onNewOrder, onSend, onReceive, onCancel, onDelete, t }: {
-  orders: PurchaseOrder[];
-  suppliers: Supplier[];
-  onNewOrder: () => void;
-  onSend: (id: number) => void;
-  onReceive: (o: PurchaseOrder) => void;
-  onCancel: (id: number) => void;
-  onDelete: (id: number) => void;
-  t: (k: string) => string;
-}) {
-  const { money } = useCurrency();
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-  const supplierName = (id: number) => suppliers.find((s) => s.id === id)?.name ?? '—';
-
-  return (
-    <>
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-fg-primary">{t('purchaseOrders')}</h3>
-        {canManage && (
-          <button onClick={onNewOrder} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors">
-            <PlusIcon className="w-4 h-4" /> {t('newOrder')}
-          </button>
-        )}
-      </div>
-
-      {orders.length === 0 ? (
-        <div className="text-center py-12 text-fg-secondary">{t('noOrders')}</div>
-      ) : (
-        <DataTable>
-          <DataTableHead>
-            <DataTableHeadCell>#</DataTableHeadCell>
-            <DataTableHeadCell>{t('suppliers')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('orderDate')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('status')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('totalAmount')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('items')}</DataTableHeadCell>
-            <DataTableHeadSpacerCell />
-          </DataTableHead>
-          <DataTableBody>
-            {orders.map((o, index) => (
-              <DataTableRow key={o.id} index={index}>
-                <DataTableCell mobilePrimary className="font-medium text-fg-primary">PO-{o.id}</DataTableCell>
-                <DataTableCell mobileLabel={t('suppliers')} className="text-fg-secondary">{o.supplier?.name ?? supplierName(o.supplier_id)}</DataTableCell>
-                <DataTableCell mobileLabel={t('orderDate')} className="text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</DataTableCell>
-                <DataTableCell mobileLabel={t('status')}>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status]}`}>
-                    {t(o.status)}
-                  </span>
-                </DataTableCell>
-                <DataTableCell mobileLabel={t('totalAmount')} className="text-fg-secondary">{money(o.total_amount)}</DataTableCell>
-                <DataTableCell mobileLabel={t('items')} className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
-                <DataTableCell>
-                  {canManage && (
-                    <div className="flex gap-1">
-                      {o.status === 'draft' && (
-                        <>
-                          <button onClick={() => onSend(o.id)} title={t('markAsSent')} className="p-1.5 rounded-md hover:bg-blue-50">
-                            <SendIcon className="w-4 h-4 text-blue-500" />
-                          </button>
-                          <button onClick={() => { if (confirm('Delete this order?')) onDelete(o.id); }} className="p-1.5 rounded-md hover:bg-red-50">
-                            <TrashIcon className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      )}
-                      {o.status === 'sent' && (
-                        <>
-                          <button onClick={() => onReceive(o)} title={t('receiveOrder')} className="p-1.5 rounded-md hover:bg-green-50">
-                            <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                          </button>
-                          <button onClick={() => { if (confirm('Cancel this order?')) onCancel(o.id); }} title={t('cancelled')} className="p-1.5 rounded-md hover:bg-red-50">
-                            <XCircleIcon className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
+        ) : (
+          <div className="space-y-3">
+            {grouped.map(({ supplier, items }) => {
+              const upcoming = nextSchedule(supplier);
+              const cutoffPassed = !!upcoming && upcoming.cutoff < new Date();
+              return (
+                <article
+                  key={supplier.id}
+                  className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--line)] bg-[var(--surface-2)]/60 px-4 py-3">
+                    <div>
+                      <h3 className="font-semibold text-[var(--fg)]">
+                        {supplier.name}
+                      </h3>
+                      {upcoming ? (
+                        <p
+                          className={`mt-1 text-fs-xs ${cutoffPassed ? "text-[var(--danger-500)]" : "text-[var(--fg-muted)]"}`}
+                        >
+                          {t("nextDelivery")}:{" "}
+                          {dateTimeLabel(
+                            upcoming.delivery.toISOString(),
+                            locale,
+                          )}{" "}
+                          · {t("orderBefore")}:{" "}
+                          {dateTimeLabel(upcoming.cutoff.toISOString(), locale)}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-fs-xs text-[var(--warning-500)]">
+                          {t("scheduleMissing")}
+                        </p>
                       )}
                     </div>
+                    {canManage && (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          onOrder({
+                            supplierId: supplier.id,
+                            stockItemIds: items.map((item) => item.id),
+                          })
+                        }
+                      >
+                        {t("orderFromSupplier")} <ChevronRight />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="divide-y divide-[var(--line)]">
+                    {items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-4 py-3 text-fs-sm"
+                      >
+                        <span className="truncate font-medium text-[var(--fg)]">
+                          {item.name}
+                        </span>
+                        <span className="text-[var(--fg-muted)]">
+                          {t("currentStock")}:{" "}
+                          <b className="text-[var(--danger-500)]">
+                            {item.quantity} {item.unit}
+                          </b>
+                        </span>
+                        <span className="hidden text-[var(--fg-muted)] sm:inline">
+                          {t("reorderThreshold")}: {item.reorder_threshold}{" "}
+                          {item.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+            {unassigned.length > 0 && (
+              <article className="rounded-r-lg border border-dashed border-[var(--warning-500)] bg-[var(--warning-50)]/40 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h3 className="flex items-center gap-2 font-semibold text-[var(--fg)]">
+                      <AlertTriangle className="size-4 text-[var(--warning-500)]" />
+                      {t("supplierToDefine")}
+                    </h3>
+                    <p className="mt-1 text-fs-sm text-[var(--fg-muted)]">
+                      {unassigned.map((item) => item.name).join(", ")}
+                    </p>
+                  </div>
+                  {canManage && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={onOpenSuppliers}
+                    >
+                      {t("manageSuppliers")}
+                    </Button>
                   )}
-                </DataTableCell>
-              </DataTableRow>
-            ))}
-          </DataTableBody>
-        </DataTable>
-      )}
-    </>
-  );
-}
-
-// ─── History Tab ────────────────────────────────────────────────────
-
-function HistoryTab({ orders, t }: { orders: PurchaseOrder[]; t: (k: string) => string }) {
-  const { money } = useCurrency();
-  return (
-    <>
-      <h3 className="font-semibold text-fg-primary">{t('orderHistory')}</h3>
-      {orders.length === 0 ? (
-        <div className="text-center py-12 text-fg-secondary">{t('noOrders')}</div>
-      ) : (
-        <DataTable>
-          <DataTableHead>
-            <DataTableHeadCell>#</DataTableHeadCell>
-            <DataTableHeadCell>{t('suppliers')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('orderDate')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('status')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('totalAmount')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('items')}</DataTableHeadCell>
-          </DataTableHead>
-          <DataTableBody>
-            {orders.map((o, index) => (
-              <DataTableRow key={o.id} index={index}>
-                <DataTableCell mobilePrimary className="font-medium text-fg-primary">PO-{o.id}</DataTableCell>
-                <DataTableCell mobileLabel={t('suppliers')} className="text-fg-secondary">{o.supplier?.name ?? '—'}</DataTableCell>
-                <DataTableCell mobileLabel={t('orderDate')} className="text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</DataTableCell>
-                <DataTableCell mobileLabel={t('status')}>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status]}`}>
-                    {t(o.status)}
-                  </span>
-                </DataTableCell>
-                <DataTableCell mobileLabel={t('totalAmount')} className="text-fg-secondary">{money(o.total_amount)}</DataTableCell>
-                <DataTableCell mobileLabel={t('items')} className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
-              </DataTableRow>
-            ))}
-          </DataTableBody>
-        </DataTable>
-      )}
-    </>
-  );
-}
-
-// ─── Supplier Form Modal ────────────────────────────────────────────
-
-function SupplierFormModal({ editing, onClose, onSave, t }: {
-  editing?: Supplier;
-  onClose: () => void;
-  onSave: (input: SupplierInput) => void;
-  t: (k: string) => string;
-}) {
-  const [name, setName] = useState(editing?.name ?? '');
-  const [contactName, setContactName] = useState(editing?.contact_name ?? '');
-  const [phone, setPhone] = useState(editing?.phone ?? '');
-  const [email, setEmail] = useState(editing?.email ?? '');
-  const [address, setAddress] = useState(editing?.address ?? '');
-  const [notes, setNotes] = useState(editing?.notes ?? '');
-  const [extractionHints, setExtractionHints] = useState(editing?.extraction_hints ?? '');
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-
-  return (
-    <Modal title={editing ? t('editSupplier') : t('addSupplier')} onClose={onClose}>
-      <div className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('supplierName')} *</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('contactName')}</label>
-          <input value={contactName} onChange={(e) => setContactName(e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-fg-secondary mb-1">{t('phone')}</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-fg-secondary mb-1">{t('email')}</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('address')}</label>
-          <input value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('notes')}</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-        </div>
-        {/* AI Extraction Hints — auto-generated on first import, editable */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-medium text-fg-secondary">{t('extractionHints')}</label>
-            {extractionHints && (
-              <button
-                type="button"
-                onClick={() => setExtractionHints('')}
-                className="text-xs text-fg-tertiary hover:text-fg-primary transition-colors"
-              >
-                {t('extractionHintsReset')}
-              </button>
+                </div>
+              </article>
             )}
           </div>
-          <textarea
-            value={extractionHints}
-            onChange={(e) => setExtractionHints(e.target.value)}
-            rows={5}
-            className="w-full px-3 py-2 rounded-lg border text-sm font-mono"
-            style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
-            placeholder={t('extractionHintsPlaceholder')}
-          />
-          <p className="text-xs text-fg-tertiary mt-1">{t('extractionHintsHelp')}</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function WeeklyDeliveryRail({
+  suppliers,
+  locale,
+}: {
+  suppliers: Supplier[];
+  locale: string;
+}) {
+  const { t } = useI18n();
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const days = Array.from({ length: 7 }, (_, offset) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + offset);
+    const slots = suppliers.flatMap((supplier) =>
+      (supplier.schedules ?? [])
+        .filter((schedule) => schedule.weekday === date.getDay())
+        .map((schedule) => ({ supplier, schedule })),
+    );
+    return { date, slots };
+  });
+  return (
+    <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+      <div className="flex items-center gap-2 border-b border-[var(--line)] px-4 py-3">
+        <CalendarDays className="size-4 text-[var(--brand-500)]" />
+        <h2 className="font-semibold text-[var(--fg)]">
+          {t("upcomingDeliveries")}
+        </h2>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="grid min-w-[760px] grid-cols-7">
+          {days.map(({ date, slots }, index) => (
+            <div
+              key={date.toISOString()}
+              className={`min-h-28 p-3 ${index > 0 ? "border-s border-[var(--line)]" : ""}`}
+            >
+              <div className="text-fs-xs font-medium text-[var(--fg-muted)]">
+                {new Intl.DateTimeFormat(locale, { weekday: "short" }).format(
+                  date,
+                )}
+              </div>
+              <div className="mt-0.5 text-fs-lg font-semibold text-[var(--fg)]">
+                {date.getDate()}
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {slots.length === 0 ? (
+                  <span className="text-fs-xs text-[var(--fg-subtle)]">—</span>
+                ) : (
+                  slots.map(({ supplier, schedule }) => (
+                    <div
+                      key={`${supplier.id}-${schedule.id}`}
+                      className="rounded-r-sm bg-[var(--brand-50)] px-2 py-1.5 text-fs-xs text-[var(--brand-800)]"
+                    >
+                      <div className="truncate font-semibold">
+                        {supplier.name}
+                      </div>
+                      <div>
+                        {schedule.window_start}–{schedule.window_end}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function SuppliersTab({
+  suppliers,
+  locale,
+  canManage,
+  onAdd,
+  onEdit,
+  onProducts,
+  onOrder,
+  onDelete,
+}: {
+  suppliers: Supplier[];
+  locale: string;
+  canManage: boolean;
+  onAdd: () => void;
+  onEdit: (supplier: Supplier) => void;
+  onProducts: (supplier: Supplier) => void;
+  onOrder: (supplier: Supplier) => void;
+  onDelete: (supplier: Supplier) => void;
+}) {
+  const { t } = useI18n();
+  const [search, setSearch] = useState("");
+  const filtered = suppliers.filter((supplier) =>
+    `${supplier.name} ${supplier.contact_name}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+  return (
+    <section>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <label className="relative min-w-60 flex-1">
+          <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("searchSuppliers")}
+            className="h-11 w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] ps-10 pe-3 text-fs-sm outline-none focus:shadow-ring"
+          />
+        </label>
         {canManage && (
-          <button
-            disabled={!name.trim()}
-            onClick={() => onSave({ name, contact_name: contactName, phone, email, address, notes, extraction_hints: extractionHints })}
-            className="w-full py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
+          <Button variant="secondary" onClick={onAdd}>
+            <Plus />
+            {t("addSupplier")}
+          </Button>
+        )}
+      </div>
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={<Truck />}
+          title={t("noSuppliers")}
+          desc={t("noSuppliersHint")}
+          action={
+            canManage ? (
+              <Button onClick={onAdd}>{t("addSupplier")}</Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+          <div className="hidden grid-cols-[1.2fr_1.2fr_1.4fr_.8fr_auto] gap-4 border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-fs-xs font-semibold text-[var(--fg-muted)] md:grid">
+            <span>{t("supplier")}</span>
+            <span>{t("nextDelivery")}</span>
+            <span>{t("contact")}</span>
+            <span>{t("supplierProducts")}</span>
+            <span />
+          </div>
+          <div className="divide-y divide-[var(--line)]">
+            {filtered.map((supplier) => {
+              const upcoming = nextSchedule(supplier);
+              return (
+                <article
+                  key={supplier.id}
+                  className="grid gap-3 px-4 py-4 md:grid-cols-[1.2fr_1.2fr_1.4fr_.8fr_auto] md:items-center md:gap-4"
+                >
+                  <div>
+                    <div className="font-semibold text-[var(--fg)]">
+                      {supplier.name}
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-fs-xs text-[var(--fg-muted)]">
+                      {supplier.preferred_channel === "email" ? (
+                        <Mail className="size-3.5" />
+                      ) : (
+                        <MessageCircle className="size-3.5" />
+                      )}
+                      {t(`language_${supplier.preferred_language || "he"}`)}
+                    </div>
+                  </div>
+                  <div className="text-fs-sm text-[var(--fg-muted)]">
+                    {upcoming ? (
+                      <>
+                        <div>
+                          {dateTimeLabel(
+                            upcoming.delivery.toISOString(),
+                            locale,
+                          )}
+                        </div>
+                        <div className="text-fs-xs">
+                          {upcoming.schedule.window_start}–
+                          {upcoming.schedule.window_end}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-[var(--warning-500)]">
+                        {t("scheduleMissing")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-fs-sm text-[var(--fg-muted)]">
+                    <div>{supplier.contact_name || "—"}</div>
+                    <div className="text-fs-xs">
+                      {supplier.phone || supplier.email || "—"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onProducts(supplier)}
+                    className="w-fit text-fs-sm font-medium text-[var(--brand-600)] hover:underline"
+                  >
+                    {supplier.products?.length ?? 0} {t("products")}
+                  </button>
+                  {canManage && (
+                    <div className="flex items-center gap-1 md:justify-end">
+                      <button
+                        onClick={() => onOrder(supplier)}
+                        title={t("newPurchaseOrder")}
+                        className="rounded-r-sm p-2 text-[var(--brand-600)] hover:bg-[var(--brand-50)]"
+                      >
+                        <Send className="size-4" />
+                      </button>
+                      <button
+                        onClick={() => onEdit(supplier)}
+                        title={t("edit")}
+                        className="rounded-r-sm p-2 text-[var(--fg-muted)] hover:bg-[var(--surface-2)]"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(supplier)}
+                        title={t("delete")}
+                        className="rounded-r-sm p-2 text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OrdersTab({
+  orders,
+  locale,
+  canManage,
+  onSend,
+  onReceive,
+  onCancel,
+  onDelete,
+}: {
+  orders: PurchaseOrder[];
+  locale: string;
+  canManage: boolean;
+  onSend: (order: PurchaseOrder) => void;
+  onReceive: (order: PurchaseOrder) => void;
+  onCancel: (order: PurchaseOrder) => void;
+  onDelete: (order: PurchaseOrder) => void;
+}) {
+  const { t } = useI18n();
+  const { money } = useCurrency();
+  if (orders.length === 0)
+    return (
+      <EmptyState
+        icon={<Send />}
+        title={t("noOrders")}
+        desc={t("noPurchaseOrdersHint")}
+      />
+    );
+  return (
+    <div className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+      <div className="hidden grid-cols-[.7fr_1.2fr_1.1fr_1fr_.8fr_auto] gap-4 border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-fs-xs font-semibold text-[var(--fg-muted)] md:grid">
+        <span>#</span>
+        <span>{t("supplier")}</span>
+        <span>{t("expectedDelivery")}</span>
+        <span>{t("status")}</span>
+        <span>{t("total")}</span>
+        <span />
+      </div>
+      <div className="divide-y divide-[var(--line)]">
+        {orders.map((order) => (
+          <article
+            key={order.id}
+            className="grid gap-2 px-4 py-4 md:grid-cols-[.7fr_1.2fr_1.1fr_1fr_.8fr_auto] md:items-center md:gap-4"
           >
-            {editing ? t('save') : t('addSupplier')}
+            <span className="font-semibold text-[var(--fg)]">
+              PO-{order.id}
+            </span>
+            <div>
+              <div className="text-fs-sm font-medium text-[var(--fg)]">
+                {order.supplier?.name || "—"}
+              </div>
+              <div className="text-fs-xs text-[var(--fg-muted)]">
+                {order.items?.length ?? 0} {t("items")}
+              </div>
+            </div>
+            <span className="text-fs-sm text-[var(--fg-muted)]">
+              {dateTimeLabel(order.expected_delivery_at, locale)}
+            </span>
+            <span
+              className={`w-fit rounded-full px-2.5 py-1 text-fs-xs font-semibold ${order.status === "received" ? "bg-[var(--success-50)] text-[var(--success-500)]" : order.status === "cancelled" ? "bg-[var(--danger-50)] text-[var(--danger-500)]" : order.status === "sent" ? "bg-[var(--info-50)] text-[var(--info-500)]" : "bg-[var(--surface-2)] text-[var(--fg-muted)]"}`}
+            >
+              {t(`purchaseOrderStatus_${order.status}`)}
+            </span>
+            <span className="text-fs-sm font-medium text-[var(--fg)]">
+              {money(order.total_amount)}
+            </span>
+            {canManage && (
+              <div className="flex items-center gap-1 md:justify-end">
+                {order.status === "draft" && (
+                  <button
+                    onClick={() => onSend(order)}
+                    className="rounded-r-sm p-2 text-[var(--brand-600)] hover:bg-[var(--brand-50)]"
+                    title={t("sendOrder")}
+                  >
+                    <Send className="size-4" />
+                  </button>
+                )}
+                {order.status === "sent" && (
+                  <button
+                    onClick={() => onReceive(order)}
+                    className="rounded-r-sm p-2 text-[var(--success-500)] hover:bg-[var(--success-50)]"
+                    title={t("receiveOrder")}
+                  >
+                    <CheckCircle2 className="size-4" />
+                  </button>
+                )}
+                {(order.status === "draft" || order.status === "sent") && (
+                  <button
+                    onClick={() => onCancel(order)}
+                    className="rounded-r-sm p-2 text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
+                    title={t("cancel")}
+                  >
+                    <XCircle className="size-4" />
+                  </button>
+                )}
+                {order.status === "draft" && (
+                  <button
+                    onClick={() => onDelete(order)}
+                    className="rounded-r-sm p-2 text-[var(--fg-muted)] hover:bg-[var(--surface-2)]"
+                    title={t("delete")}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                )}
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SupplierFormModal({
+  editing,
+  onClose,
+  onSave,
+}: {
+  editing?: Supplier;
+  onClose: () => void;
+  onSave: (input: Parameters<typeof createSupplier>[1]) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [name, setName] = useState(editing?.name ?? "");
+  const [contactName, setContactName] = useState(editing?.contact_name ?? "");
+  const [phone, setPhone] = useState(editing?.phone ?? "");
+  const [email, setEmail] = useState(editing?.email ?? "");
+  const [address, setAddress] = useState(editing?.address ?? "");
+  const [notes, setNotes] = useState(editing?.notes ?? "");
+  const [channel, setChannel] = useState<SupplierOrderChannel>(
+    editing?.preferred_channel || "whatsapp",
+  );
+  const [language, setLanguage] = useState<SupplierOrderLanguage>(
+    editing?.preferred_language || "he",
+  );
+  const [schedules, setSchedules] = useState<SupplierDeliveryScheduleInput[]>(
+    (editing?.schedules ?? []).map(
+      ({
+        weekday,
+        window_start,
+        window_end,
+        order_cutoff_days_before,
+        order_cutoff_time,
+      }) => ({
+        weekday,
+        window_start,
+        window_end,
+        order_cutoff_days_before,
+        order_cutoff_time,
+      }),
+    ),
+  );
+  const [saving, setSaving] = useState(false);
+  const updateSchedule = (
+    index: number,
+    patch: Partial<SupplierDeliveryScheduleInput>,
+  ) =>
+    setSchedules((current) =>
+      current.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    );
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onSave({
+        name: name.trim(),
+        contact_name: contactName,
+        phone,
+        email,
+        address,
+        notes,
+        preferred_channel: channel,
+        preferred_language: language,
+        schedules,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal
+      title={editing ? t("editSupplier") : t("addSupplier")}
+      onClose={onClose}
+    >
+      <div className="space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label={t("supplierName")}
+            value={name}
+            onChange={setName}
+            required
+          />
+          <Field
+            label={t("contactName")}
+            value={contactName}
+            onChange={setContactName}
+          />
+          <Field
+            label={t("phoneWhatsApp")}
+            value={phone}
+            onChange={setPhone}
+            type="tel"
+          />
+          <Field
+            label={t("email")}
+            value={email}
+            onChange={setEmail}
+            type="email"
+          />
+          <div className="sm:col-span-2">
+            <Field label={t("address")} value={address} onChange={setAddress} />
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SelectField
+            label={t("preferredChannel")}
+            value={channel}
+            onChange={(value) => setChannel(value as SupplierOrderChannel)}
+            options={[
+              ["whatsapp", "WhatsApp"],
+              ["email", t("email")],
+            ]}
+          />
+          <SelectField
+            label={t("preferredLanguage")}
+            value={language}
+            onChange={(value) => setLanguage(value as SupplierOrderLanguage)}
+            options={[
+              ["he", t("language_he")],
+              ["fr", t("language_fr")],
+              ["en", t("language_en")],
+            ]}
+          />
+        </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div>
+              <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
+                {t("deliverySchedule")}
+              </h4>
+              <p className="text-fs-xs text-[var(--fg-muted)]">
+                {t("deliveryScheduleHint")}
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setSchedules((current) => [
+                  ...current,
+                  {
+                    weekday: 1,
+                    window_start: "06:00",
+                    window_end: "09:00",
+                    order_cutoff_days_before: 1,
+                    order_cutoff_time: "14:00",
+                  },
+                ])
+              }
+            >
+              <Plus />
+              {t("addSlot")}
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {schedules.map((schedule, index) => (
+              <div
+                key={index}
+                className="grid gap-2 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-3 sm:grid-cols-[1.1fr_.8fr_.8fr_.8fr_.8fr_auto] sm:items-end"
+              >
+                <SelectField
+                  label={t("day")}
+                  value={String(schedule.weekday)}
+                  onChange={(value) =>
+                    updateSchedule(index, { weekday: Number(value) })
+                  }
+                  options={Array.from({ length: 7 }, (_, day) => [
+                    String(day),
+                    t(`weekday_${day}`),
+                  ])}
+                />
+                <Field
+                  label={t("from")}
+                  value={schedule.window_start}
+                  onChange={(value) =>
+                    updateSchedule(index, { window_start: value })
+                  }
+                  type="time"
+                />
+                <Field
+                  label={t("to")}
+                  value={schedule.window_end}
+                  onChange={(value) =>
+                    updateSchedule(index, { window_end: value })
+                  }
+                  type="time"
+                />
+                <Field
+                  label={t("daysBefore")}
+                  value={String(schedule.order_cutoff_days_before)}
+                  onChange={(value) =>
+                    updateSchedule(index, {
+                      order_cutoff_days_before: Math.max(0, Number(value)),
+                    })
+                  }
+                  type="number"
+                />
+                <Field
+                  label={t("cutoffTime")}
+                  value={schedule.order_cutoff_time}
+                  onChange={(value) =>
+                    updateSchedule(index, { order_cutoff_time: value })
+                  }
+                  type="time"
+                />
+                <button
+                  onClick={() =>
+                    setSchedules((current) =>
+                      current.filter((_, i) => i !== index),
+                    )
+                  }
+                  className="mb-0.5 rounded-r-sm p-2 text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            ))}
+            {schedules.length === 0 && (
+              <p className="rounded-r-md border border-dashed border-[var(--line-strong)] px-4 py-5 text-center text-fs-sm text-[var(--fg-muted)]">
+                {t("noDeliverySlots")}
+              </p>
+            )}
+          </div>
+        </div>
+        <label className="block">
+          <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+            {t("notes")}
+          </span>
+          <textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            rows={3}
+            className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-fs-sm outline-none focus:shadow-ring"
+          />
+        </label>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            {t("cancel")}
+          </Button>
+          <Button disabled={saving || !name.trim()} onClick={save}>
+            {saving ? t("saving") : t("save")}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function OrderComposer({
+  rid,
+  suppliers,
+  stockItems,
+  seed,
+  onClose,
+  onCreated,
+}: {
+  rid: number;
+  suppliers: Supplier[];
+  stockItems: StockItem[];
+  seed: OrderSeed;
+  onClose: () => void;
+  onCreated: (order: PurchaseOrder, continueToSend: boolean) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [supplierId, setSupplierId] = useState(
+    seed.supplierId ?? suppliers[0]?.id ?? 0,
+  );
+  const [products, setProducts] = useState<SupplierProduct[]>([]);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [notes, setNotes] = useState("");
+  const [expectedDelivery, setExpectedDelivery] = useState("");
+  const [saving, setSaving] = useState(false);
+  const supplier = suppliers.find((item) => item.id === supplierId);
+  useEffect(() => {
+    if (!supplierId) return;
+    void listSupplierProducts(rid, supplierId).then((data) => {
+      setProducts(data);
+      const next: Record<string, number> = {};
+      const productStockIds = new Set(
+        data.map((product) => product.stock_item_id).filter(Boolean),
+      );
+      data.forEach((product) => {
+        if (
+          product.stock_item_id &&
+          seed.stockItemIds?.includes(product.stock_item_id)
+        )
+          next[`p-${product.id}`] = 1;
+      });
+      stockItems.forEach((item) => {
+        if (
+          item.supplier_id === supplierId &&
+          !productStockIds.has(item.id) &&
+          seed.stockItemIds?.includes(item.id)
+        )
+          next[`s-${item.id}`] = 1;
+      });
+      setQuantities(next);
+    });
+  }, [rid, seed.stockItemIds, stockItems, supplierId]);
+  useEffect(() => {
+    if (!supplier) return;
+    const upcoming = nextSchedule(supplier);
+    if (upcoming) {
+      const local = new Date(
+        upcoming.delivery.getTime() -
+          upcoming.delivery.getTimezoneOffset() * 60_000,
+      )
+        .toISOString()
+        .slice(0, 16);
+      setExpectedDelivery(local);
+    } else setExpectedDelivery("");
+  }, [supplier]);
+  const linkedStockIds = new Set(
+    products.map((product) => product.stock_item_id).filter(Boolean),
+  );
+  const supplierStock = stockItems.filter(
+    (item) => item.supplier_id === supplierId && !linkedStockIds.has(item.id),
+  );
+  const rows = [
+    ...products.map((product) => ({
+      key: `p-${product.id}`,
+      name: product.name,
+      unit: product.unit as StockUnit,
+      price: product.price_per_unit,
+      supplierProductId: product.id,
+      stockItem: stockItems.find((item) => item.id === product.stock_item_id),
+    })),
+    ...supplierStock.map((item) => ({
+      key: `s-${item.id}`,
+      name: item.name,
+      unit: item.unit,
+      price: item.cost_per_unit,
+      supplierProductId: undefined,
+      stockItem: item,
+    })),
+  ];
+  const selectedRows = rows.filter((row) => (quantities[row.key] ?? 0) > 0);
+  const create = async (continueToSend: boolean) => {
+    if (!supplier || selectedRows.length === 0) return;
+    setSaving(true);
+    try {
+      const items: PurchaseOrderItemInput[] = selectedRows.map((row) => ({
+        supplier_product_id: row.supplierProductId,
+        stock_item_id: row.stockItem?.id,
+        name: row.name,
+        unit: row.unit,
+        quantity: quantities[row.key],
+        price_per_unit: row.price,
+      }));
+      const order = await createPurchaseOrder(rid, {
+        supplier_id: supplier.id,
+        expected_delivery_at: expectedDelivery
+          ? new Date(expectedDelivery).toISOString()
+          : null,
+        notes,
+        items,
+      });
+      await onCreated(order, continueToSend);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-black/40"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="flex h-full w-full max-w-3xl flex-col bg-[var(--surface)] shadow-3">
+        <div className="flex items-start justify-between border-b border-[var(--line)] px-5 py-4 sm:px-6">
+          <div>
+            <h2 className="text-fs-xl font-semibold text-[var(--fg)]">
+              {t("newPurchaseOrder")}
+            </h2>
+            <p className="mt-1 text-fs-sm text-[var(--fg-muted)]">
+              {t("newPurchaseOrderDesc")}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-r-sm p-2 text-[var(--fg-muted)] hover:bg-[var(--surface-2)]"
+          >
+            ✕
           </button>
+        </div>
+        <div className="flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SelectField
+              label={t("supplier")}
+              value={String(supplierId)}
+              onChange={(value) => setSupplierId(Number(value))}
+              options={suppliers.map((item) => [String(item.id), item.name])}
+            />
+            <Field
+              label={t("expectedDelivery")}
+              value={expectedDelivery}
+              onChange={setExpectedDelivery}
+              type="datetime-local"
+            />
+          </div>
+          <div>
+            <div className="mb-2 grid grid-cols-[minmax(0,1fr)_100px] gap-3 px-3 text-fs-xs font-semibold text-[var(--fg-muted)]">
+              <span>{t("productAndStock")}</span>
+              <span>{t("quantity")}</span>
+            </div>
+            <div className="divide-y divide-[var(--line)] overflow-hidden rounded-r-lg border border-[var(--line)]">
+              {rows.map((row) => (
+                <div
+                  key={row.key}
+                  className={`grid grid-cols-[minmax(0,1fr)_100px] items-center gap-3 px-3 py-3 ${(quantities[row.key] ?? 0) > 0 ? "bg-[var(--brand-50)]/60" : ""}`}
+                >
+                  <div>
+                    <div className="text-fs-sm font-medium text-[var(--fg)]">
+                      {row.name}
+                    </div>
+                    <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
+                      {row.stockItem
+                        ? `${t("currentStock")}: ${row.stockItem.quantity} ${row.stockItem.unit}`
+                        : t("notLinkedToStock")}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <NumberInput
+                      min={0}
+                      value={quantities[row.key] ?? 0}
+                      onChange={(value) =>
+                        setQuantities((current) => ({
+                          ...current,
+                          [row.key]: value,
+                        }))
+                      }
+                      className="h-9 w-16 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-2 text-fs-sm"
+                    />
+                    <span className="text-fs-xs text-[var(--fg-muted)]">
+                      {row.unit}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {rows.length === 0 && (
+                <div className="p-8 text-center text-fs-sm text-[var(--fg-muted)]">
+                  {t("noSupplierProductsHint")}
+                </div>
+              )}
+            </div>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+              {t("notes")}
+            </span>
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={3}
+              className="w-full rounded-r-md border border-[var(--line-strong)] px-3 py-2 text-fs-sm outline-none focus:shadow-ring"
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--line)] bg-[var(--surface-2)]/50 px-5 py-4 sm:px-6">
+          <Button variant="secondary" onClick={onClose}>
+            {t("cancel")}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={saving || selectedRows.length === 0}
+            onClick={() => create(false)}
+          >
+            {t("saveDraft")}
+          </Button>
+          <Button
+            disabled={saving || selectedRows.length === 0}
+            onClick={() => create(true)}
+          >
+            {t("continueToSend")}
+            <ChevronRight />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SendOrderModal({
+  rid,
+  order,
+  restaurantName,
+  onClose,
+  onSent,
+}: {
+  rid: number;
+  order: PurchaseOrder;
+  restaurantName: string;
+  onClose: () => void;
+  onSent: () => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const supplier = order.supplier;
+  const [language, setLanguage] = useState<SupplierOrderLanguage>(
+    supplier.preferred_language || "he",
+  );
+  const [channel, setChannel] = useState<SupplierOrderChannel>(
+    supplier.preferred_channel || "whatsapp",
+  );
+  const [message, setMessage] = useState("");
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(
+    () =>
+      setMessage(
+        buildPurchaseOrderMessage(
+          {
+            restaurantName,
+            supplierName: supplier.name,
+            expectedDeliveryAt: order.expected_delivery_at,
+            items: order.items,
+            notes: order.notes,
+          },
+          language,
+        ),
+      ),
+    [language, order, restaurantName, supplier.name],
+  );
+  const send = async () => {
+    setError("");
+    if (channel === "whatsapp") {
+      const url = buildWhatsAppUrl(supplier.phone, message);
+      if (!url) {
+        setError(t("invalidWhatsAppPhone"));
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+      setAwaitingConfirmation(true);
+      return;
+    }
+    if (!supplier.email) {
+      setError(t("supplierEmailMissing"));
+      return;
+    }
+    setSending(true);
+    try {
+      await sendOrderEmail(rid, order.id, { language });
+      await onSent();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("sendOrderFailed"));
+    } finally {
+      setSending(false);
+    }
+  };
+  const confirmWhatsApp = async () => {
+    setSending(true);
+    try {
+      await updatePurchaseOrderStatus(rid, order.id, "sent", {
+        channel: "whatsapp",
+        language,
+      });
+      await onSent();
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <Modal title={t("sendPurchaseOrder")} onClose={onClose}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => {
+              setChannel("whatsapp");
+              setAwaitingConfirmation(false);
+            }}
+            className={`rounded-r-md border p-4 text-start ${channel === "whatsapp" ? "border-[var(--brand-500)] bg-[var(--brand-50)] shadow-ring" : "border-[var(--line)]"}`}
+          >
+            <MessageCircle className="mb-2 size-5 text-[var(--success-500)]" />
+            <div className="font-semibold">WhatsApp</div>
+            <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+              {supplier.phone || t("phoneMissing")}
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              setChannel("email");
+              setAwaitingConfirmation(false);
+            }}
+            className={`rounded-r-md border p-4 text-start ${channel === "email" ? "border-[var(--brand-500)] bg-[var(--brand-50)] shadow-ring" : "border-[var(--line)]"}`}
+          >
+            <Mail className="mb-2 size-5 text-[var(--info-500)]" />
+            <div className="font-semibold">{t("email")}</div>
+            <div className="mt-1 truncate text-fs-xs text-[var(--fg-muted)]">
+              {supplier.email || t("emailMissing")}
+            </div>
+          </button>
+        </div>
+        <SelectField
+          label={t("messageLanguage")}
+          value={language}
+          onChange={(value) => {
+            setLanguage(value as SupplierOrderLanguage);
+            setAwaitingConfirmation(false);
+          }}
+          options={[
+            ["he", t("language_he")],
+            ["fr", t("language_fr")],
+            ["en", t("language_en")],
+          ]}
+        />
+        <label className="block">
+          <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+            {t("messagePreview")}
+          </span>
+          <textarea
+            dir={language === "he" ? "rtl" : "ltr"}
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            rows={11}
+            className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface-2)] px-3 py-3 text-fs-sm leading-relaxed outline-none focus:bg-[var(--surface)] focus:shadow-ring"
+          />
+        </label>
+        {error && (
+          <p role="alert" className="text-fs-sm text-[var(--danger-500)]">
+            {error}
+          </p>
+        )}
+        {awaitingConfirmation ? (
+          <div className="rounded-r-md border border-[var(--info-500)]/30 bg-[var(--info-50)] p-4">
+            <p className="text-fs-sm font-medium text-[var(--fg)]">
+              {t("whatsAppOpened")}
+            </p>
+            <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+              {t("whatsAppConfirmHint")}
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Button disabled={sending} onClick={confirmWhatsApp}>
+                <Check />
+                {t("markSent")}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setAwaitingConfirmation(false)}
+              >
+                {t("notYet")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={onClose}>
+              {t("cancel")}
+            </Button>
+            <Button disabled={sending} onClick={send}>
+              {channel === "whatsapp" ? <MessageCircle /> : <Mail />}
+              {channel === "whatsapp" ? t("openWhatsApp") : t("sendEmail")}
+            </Button>
+          </div>
         )}
       </div>
     </Modal>
   );
 }
 
-// ─── Supplier Detail Modal ──────────────────────────────────────────
+function ReceiveOrderModal({
+  rid,
+  order,
+  onClose,
+  onReceived,
+}: {
+  rid: number;
+  order: PurchaseOrder;
+  onClose: () => void;
+  onReceived: () => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [items, setItems] = useState(
+    order.items.map((item) => ({
+      item_id: item.id,
+      received_qty: item.quantity,
+    })),
+  );
+  const [saving, setSaving] = useState(false);
+  return (
+    <Modal title={t("receiveOrder")} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-fs-sm text-[var(--fg-muted)]">
+          PO-{order.id} · {order.supplier?.name}
+        </p>
+        <div className="divide-y divide-[var(--line)] overflow-hidden rounded-r-md border border-[var(--line)]">
+          {order.items.map((item, index) => (
+            <div
+              key={item.id}
+              className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-3 px-3 py-3"
+            >
+              <div>
+                <div className="text-fs-sm font-medium">{item.name}</div>
+                <div className="text-fs-xs text-[var(--fg-muted)]">
+                  {t("ordered")}: {item.quantity} {item.unit}
+                </div>
+              </div>
+              <NumberInput
+                min={0}
+                value={items[index].received_qty}
+                onChange={(value) =>
+                  setItems((current) =>
+                    current.map((entry, i) =>
+                      i === index ? { ...entry, received_qty: value } : entry,
+                    ),
+                  )
+                }
+                className="h-9 rounded-r-sm border border-[var(--line-strong)] px-2"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            {t("cancel")}
+          </Button>
+          <Button
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await receivePurchaseOrder(rid, order.id, items);
+                await onReceived();
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            <PackageCheck />
+            {t("markAsReceived")}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
-function SupplierDetailModal({ supplier, rid, stockItems, onClose, onAddProduct, onEditProduct, t }: {
+function SupplierProductsModal({
+  supplier,
+  rid,
+  stockItems,
+  onClose,
+}: {
   supplier: Supplier;
   rid: number;
   stockItems: StockItem[];
   onClose: () => void;
-  onAddProduct: (supplierId: number) => void;
-  onEditProduct: (supplierId: number, product: SupplierProduct) => void;
-  t: (k: string) => string;
 }) {
-  const { money } = useCurrency();
-  const [products, setProducts] = useState<SupplierProduct[]>(supplier.products ?? []);
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-
+  const { t } = useI18n();
+  const [products, setProducts] = useState<SupplierProduct[]>([]);
+  const [editing, setEditing] = useState<SupplierProduct | null | undefined>(
+    undefined,
+  );
+  const load = useCallback(
+    () => listSupplierProducts(rid, supplier.id).then(setProducts),
+    [rid, supplier.id],
+  );
   useEffect(() => {
-    listSupplierProducts(rid, supplier.id).then(setProducts);
-  }, [rid, supplier.id]);
-
-  const handleDelete = async (productId: number) => {
-    if (!confirm('Delete this product?')) return;
-    await deleteSupplierProduct(rid, supplier.id, productId);
-    const updated = await listSupplierProducts(rid, supplier.id);
-    setProducts(updated);
-  };
-
+    void load();
+  }, [load]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-auto" style={{ background: 'var(--surface)' }}>
-        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--divider)' }}>
-          <div>
-            <h3 className="font-semibold text-fg-primary text-lg">{supplier.name}</h3>
-            <p className="text-sm text-fg-secondary">{supplier.contact_name} {supplier.phone && `· ${supplier.phone}`}</p>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-md text-fg-secondary hover:text-fg-primary">✕</button>
+    <Modal
+      title={`${supplier.name} · ${t("supplierProducts")}`}
+      onClose={onClose}
+    >
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => setEditing(null)}>
+            <Plus />
+            {t("addProduct")}
+          </Button>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium text-fg-primary">{t('supplierProducts')}</h4>
-            {canManage && (
-              <button onClick={() => onAddProduct(supplier.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors">
-                <PlusIcon className="w-3 h-3" /> {t('addProduct')}
-              </button>
-            )}
-          </div>
-          {products.length === 0 ? (
-            <p className="text-sm text-fg-secondary py-4 text-center">{t('noSuppliers')}</p>
-          ) : (
-            <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--divider)' }}>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ background: 'var(--surface-subtle)' }}>
-                    <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('name')}</th>
-                    <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('sku')}</th>
-                    <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('unit')}</th>
-                    <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('pricePerUnit')}</th>
-                    <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('linkedStockItem')}</th>
-                    <th className="px-3 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map((p) => (
-                    <tr key={p.id} className="border-t" style={{ borderColor: 'var(--divider)' }}>
-                      <td className="px-3 py-2 text-fg-primary">{p.name}</td>
-                      <td className="px-3 py-2 text-fg-secondary">{p.sku || '—'}</td>
-                      <td className="px-3 py-2 text-fg-secondary">{p.unit}</td>
-                      <td className="px-3 py-2 text-fg-secondary">{money(p.price_per_unit)}</td>
-                      <td className="px-3 py-2 text-fg-secondary">
-                        {p.stock_item ? p.stock_item.name : stockItems.find((si) => si.id === p.stock_item_id)?.name ?? '—'}
-                      </td>
-                      <td className="px-3 py-2">
-                        {canManage && (
-                          <div className="flex gap-1">
-                            <button onClick={() => onEditProduct(supplier.id, p)} className="p-1 rounded-md hover:bg-[var(--surface-subtle)]">
-                              <PencilIcon className="w-3.5 h-3.5 text-fg-secondary" />
-                            </button>
-                            <button onClick={() => handleDelete(p.id)} className="p-1 rounded-md hover:bg-red-50">
-                              <TrashIcon className="w-3.5 h-3.5 text-red-500" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="divide-y divide-[var(--line)] overflow-hidden rounded-r-md border border-[var(--line)]">
+          {products.map((product) => (
+            <div
+              key={product.id}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-3"
+            >
+              <div>
+                <div className="text-fs-sm font-medium">{product.name}</div>
+                <div className="text-fs-xs text-[var(--fg-muted)]">
+                  {product.sku || "—"} · {product.price_per_unit} /{" "}
+                  {product.unit}
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setEditing(product)}
+                  className="rounded-r-sm p-2 hover:bg-[var(--surface-2)]"
+                >
+                  <Pencil className="size-4" />
+                </button>
+                <button
+                  onClick={async () => {
+                    if (confirm(t("deleteProductConfirm"))) {
+                      await deleteSupplierProduct(rid, supplier.id, product.id);
+                      await load();
+                    }
+                  }}
+                  className="rounded-r-sm p-2 text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
             </div>
+          ))}
+          {products.length === 0 && (
+            <p className="p-8 text-center text-fs-sm text-[var(--fg-muted)]">
+              {t("noSupplierProductsHint")}
+            </p>
           )}
         </div>
+        {editing !== undefined && (
+          <ProductEditor
+            editing={editing ?? undefined}
+            stockItems={stockItems}
+            onClose={() => setEditing(undefined)}
+            onSave={async (input) => {
+              if (editing)
+                await updateSupplierProduct(
+                  rid,
+                  supplier.id,
+                  editing.id,
+                  input,
+                );
+              else await createSupplierProduct(rid, supplier.id, input);
+              setEditing(undefined);
+              await load();
+            }}
+          />
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
-// ─── Product Form Modal ─────────────────────────────────────────────
-
-function ProductFormModal({ editing, stockItems, onClose, onSave, t }: {
+function ProductEditor({
+  editing,
+  stockItems,
+  onClose,
+  onSave,
+}: {
   editing?: SupplierProduct;
   stockItems: StockItem[];
   onClose: () => void;
-  onSave: (input: SupplierProductInput) => void;
-  t: (k: string) => string;
+  onSave: (input: SupplierProductInput) => Promise<void>;
 }) {
-  const [name, setName] = useState(editing?.name ?? '');
-  const [sku, setSku] = useState(editing?.sku ?? '');
-  const [unit, setUnit] = useState<StockUnit>((editing?.unit as StockUnit) ?? 'unit');
-  const [price, setPrice] = useState(editing?.price_per_unit ?? 0);
-  const [stockItemId, setStockItemId] = useState<number | null>(editing?.stock_item_id ?? null);
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-
-  return (
-    <Modal title={editing ? t('editSupplier') : t('addProduct')} onClose={onClose}>
-      <div className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('name')} *</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-fg-secondary mb-1">{t('sku')}</label>
-            <input value={sku} onChange={(e) => setSku(e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-fg-secondary mb-1">{t('unit')}</label>
-            <select value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}>
-              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('pricePerUnit')}</label>
-          <NumberInput value={price} onChange={setPrice} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('linkedStockItem')}</label>
-          <select value={stockItemId ?? ''} onChange={(e) => setStockItemId(e.target.value ? Number(e.target.value) : null)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}>
-            <option value="">—</option>
-            {stockItems.map((si) => <option key={si.id} value={si.id}>{si.name} ({si.unit})</option>)}
-          </select>
-        </div>
-        {canManage && (
-          <button
-            disabled={!name.trim()}
-            onClick={() => onSave({ name, sku, unit, price_per_unit: price, stock_item_id: stockItemId })}
-            className="w-full py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
-          >
-            {t('save')}
-          </button>
-        )}
-      </div>
-    </Modal>
+  const { t } = useI18n();
+  const [name, setName] = useState(editing?.name ?? "");
+  const [sku, setSku] = useState(editing?.sku ?? "");
+  const [unit, setUnit] = useState<StockUnit>(
+    (editing?.unit as StockUnit) ?? "unit",
   );
-}
-
-// ─── New Order Modal ────────────────────────────────────────────────
-
-function NewOrderModal({ suppliers, rid, onClose, onCreated, t }: {
-  suppliers: Supplier[];
-  rid: number;
-  onClose: () => void;
-  onCreated: () => void;
-  t: (k: string) => string;
-}) {
-  const [supplierId, setSupplierId] = useState<number>(suppliers[0]?.id ?? 0);
-  const [notes, setNotes] = useState('');
-  const [products, setProducts] = useState<SupplierProduct[]>([]);
-  const [items, setItems] = useState<(PurchaseOrderItemInput & { _key: number })[]>([]);
-  const [saving, setSaving] = useState(false);
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-
-  useEffect(() => {
-    if (!supplierId) return;
-    listSupplierProducts(rid, supplierId).then((p) => {
-      setProducts(p);
-      setItems(p.map((sp, i) => ({
-        _key: i,
-        supplier_product_id: sp.id,
-        stock_item_id: sp.stock_item_id,
-        name: sp.name,
-        unit: sp.unit,
-        quantity: 0,
-        price_per_unit: sp.price_per_unit,
-      })));
-    });
-  }, [rid, supplierId]);
-
-  const handleSave = async () => {
-    const validItems = items.filter((i) => i.quantity > 0);
-    if (validItems.length === 0) return;
-    setSaving(true);
-    try {
-      await createPurchaseOrder(rid, {
-        supplier_id: supplierId,
-        notes,
-        items: validItems.map(({ _key, ...rest }) => rest),
-      });
-      onCreated();
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  const [price, setPrice] = useState(editing?.price_per_unit ?? 0);
+  const [stockItemId, setStockItemId] = useState(
+    editing?.stock_item_id ? String(editing.stock_item_id) : "",
+  );
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-auto" style={{ background: 'var(--surface)' }}>
-        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--divider)' }}>
-          <h3 className="font-semibold text-fg-primary">{t('newOrder')}</h3>
-          <button onClick={onClose} className="p-1 rounded-md text-fg-secondary hover:text-fg-primary">✕</button>
+    <div className="rounded-r-md border border-[var(--brand-200)] bg-[var(--brand-50)]/40 p-4">
+      <div className="mb-3 flex items-center gap-2 font-semibold">
+        <Settings2 className="size-4" />
+        {editing ? t("editProduct") : t("addProduct")}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={t("name")} value={name} onChange={setName} required />
+        <Field label={t("sku")} value={sku} onChange={setSku} />
+        <SelectField
+          label={t("unit")}
+          value={unit}
+          onChange={(value) => setUnit(value as StockUnit)}
+          options={UNITS.map((value) => [value, t(value)])}
+        />
+        <label>
+          <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+            {t("pricePerUnit")}
+          </span>
+          <NumberInput
+            min={0}
+            value={price}
+            onChange={setPrice}
+            className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3"
+          />
+        </label>
+        <div className="sm:col-span-2">
+          <SelectField
+            label={t("linkedStockItem")}
+            value={stockItemId}
+            onChange={setStockItemId}
+            options={[
+              ["", "—"],
+              ...stockItems.map((item) => [
+                String(item.id),
+                `${item.name} (${item.unit})`,
+              ]),
+            ]}
+          />
         </div>
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-fg-secondary mb-1">{t('suppliers')}</label>
-            <select value={supplierId} onChange={(e) => setSupplierId(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-fg-secondary mb-1">{t('notes')}</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
-          </div>
-
-          {/* Items table */}
-          <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--divider)' }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: 'var(--surface-subtle)' }}>
-                  <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('name')}</th>
-                  <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('unit')}</th>
-                  <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('pricePerUnit')}</th>
-                  <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('quantity')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, idx) => (
-                  <tr key={item._key} className="border-t" style={{ borderColor: 'var(--divider)' }}>
-                    <td className="px-3 py-2 text-fg-primary">{item.name}</td>
-                    <td className="px-3 py-2 text-fg-secondary">{item.unit}</td>
-                    <td className="px-3 py-2">
-                      <NumberInput
-                        value={item.price_per_unit}
-                        onChange={(v) => { const n = [...items]; n[idx] = { ...item, price_per_unit: v }; setItems(n); }}
-                        className="w-20 px-2 py-1 rounded border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <NumberInput
-                        min={0} value={item.quantity}
-                        onChange={(v) => { const n = [...items]; n[idx] = { ...item, quantity: v }; setItems(n); }}
-                        className="w-20 px-2 py-1 rounded border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Add manual item */}
-          {canManage && (
-            <button
-              onClick={() => setItems([...items, { _key: Date.now(), name: '', unit: 'unit' as StockUnit, quantity: 1, price_per_unit: 0 }])}
-              className="text-sm text-brand-500 hover:text-brand-600 font-medium"
-            >
-              + {t('addItem')}
-            </button>
-          )}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--divider)', color: 'var(--text-primary)' }}>{t('cancel')}</button>
-            {canManage && (
-              <button
-                disabled={saving || items.every((i) => i.quantity <= 0)}
-                onClick={handleSave}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
-              >
-                {t('save')}
-              </button>
-            )}
-          </div>
-        </div>
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button size="sm" variant="secondary" onClick={onClose}>
+          {t("cancel")}
+        </Button>
+        <Button
+          size="sm"
+          disabled={!name.trim()}
+          onClick={() =>
+            onSave({
+              name: name.trim(),
+              sku,
+              unit,
+              price_per_unit: price,
+              stock_item_id: stockItemId ? Number(stockItemId) : null,
+            })
+          }
+        >
+          {t("save")}
+        </Button>
       </div>
     </div>
   );
 }
 
-// ─── Receive Order Modal ────────────────────────────────────────────
-
-function ReceiveOrderModal({ order, rid, onClose, onReceived, t }: {
-  order: PurchaseOrder;
-  rid: number;
-  onClose: () => void;
-  onReceived: () => void;
-  t: (k: string) => string;
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
 }) {
-  const [receivedItems, setReceivedItems] = useState(
-    (order.items ?? []).map((item) => ({ id: item.id, received_qty: item.quantity }))
-  );
-  const [saving, setSaving] = useState(false);
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-
-  const handleReceive = async () => {
-    setSaving(true);
-    try {
-      await receivePurchaseOrder(rid, order.id, receivedItems);
-      onReceived();
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
-    <Modal title={t('receiveOrder')} onClose={onClose}>
-      <div className="space-y-3">
-        <p className="text-sm text-fg-secondary">PO-{order.id} — {order.supplier?.name}</p>
-        <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--divider)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ background: 'var(--surface-subtle)' }}>
-                <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('name')}</th>
-                <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('quantity')}</th>
-                <th className="text-start px-3 py-2 font-medium text-fg-secondary">{t('receivedQty')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(order.items ?? []).map((item, idx) => (
-                <tr key={item.id} className="border-t" style={{ borderColor: 'var(--divider)' }}>
-                  <td className="px-3 py-2 text-fg-primary">{item.name}</td>
-                  <td className="px-3 py-2 text-fg-secondary">{item.quantity} {item.unit}</td>
-                  <td className="px-3 py-2">
-                    <NumberInput
-                      min={0}
-                      value={receivedItems[idx]?.received_qty ?? item.quantity}
-                      onChange={(v) => {
-                        const n = [...receivedItems];
-                        n[idx] = { id: item.id, received_qty: v };
-                        setReceivedItems(n);
-                      }}
-                      className="w-20 px-2 py-1 rounded border text-sm"
-                      style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {canManage && (
-          <button
-            disabled={saving}
-            onClick={handleReceive}
-            className="w-full py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            <TruckIcon className="w-4 h-4 inline mr-1" /> {t('markAsReceived')}
-          </button>
-        )}
-      </div>
-    </Modal>
+    <label className="block">
+      <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+        {label}
+        {required ? " *" : ""}
+      </span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required={required}
+        className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm text-[var(--fg)] outline-none focus:shadow-ring"
+      />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[][];
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm text-[var(--fg)] outline-none focus:shadow-ring"
+      >
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>
+            {optionLabel}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
