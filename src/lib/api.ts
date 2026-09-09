@@ -6829,6 +6829,14 @@ export interface PurchaseOrderItem {
   name: string;
   unit: string;
   quantity: number;
+  packaging_set: boolean;
+  package_count: number;
+  units_per_pack: number;
+  unit_size: number;
+  unit_size_unit: string;
+  container_type: string;
+  unit_type: string;
+  translations: TranslationMap;
   price_per_unit: number;
   total_price: number;
   received_qty: number | null;
@@ -6840,6 +6848,14 @@ export interface PurchaseOrderItemInput {
   name: string;
   unit?: string;
   quantity: number;
+  packaging_set?: boolean;
+  package_count?: number;
+  units_per_pack?: number;
+  unit_size?: number;
+  unit_size_unit?: string;
+  container_type?: string;
+  unit_type?: string;
+  translations?: TranslationMap;
   price_per_unit: number;
 }
 
