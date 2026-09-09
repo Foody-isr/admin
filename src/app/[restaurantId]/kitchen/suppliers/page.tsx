@@ -37,6 +37,7 @@ import SupplierHubTabs, {
 } from "@/components/suppliers/SupplierHubTabs";
 import { Button, EmptyState, PageHead } from "@/components/ds";
 import { NumberInput } from "@/components/ui/NumberInput";
+import { labelForRaw } from "@/components/stock/StockQuantityForm";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { usePermissions } from "@/lib/permissions-context";
 import {
@@ -51,6 +52,7 @@ import {
   ChevronRight,
   Mail,
   MessageCircle,
+  Package,
   PackageCheck,
   Pencil,
   Plus,
@@ -76,6 +78,76 @@ const UNITS: StockUnit[] = [
 ];
 const ORDER_TABS: SupplierHubTab[] = ["needs", "orders", "suppliers"];
 type OrderSeed = { supplierId?: number; stockItemIds?: number[] };
+type PackagingDraft = {
+  packagingSet: boolean;
+  unitsPerPack: number;
+  unitSize: number;
+  unitSizeUnit: string;
+  containerType: string;
+  unitType: string;
+};
+
+function packagingFromStock(item?: StockItem): PackagingDraft {
+  const packagingSet = Boolean(
+    item &&
+      (item.pack_size > 0 ||
+        (item.unit_content ?? 0) > 0 ||
+        item.container_type ||
+        item.unit_type),
+  );
+  return {
+    packagingSet,
+    unitsPerPack: item?.pack_size ?? 0,
+    unitSize: item?.unit_content ?? 0,
+    unitSizeUnit: item?.unit_content_unit || item?.unit || "unit",
+    containerType: item?.container_type ?? "",
+    unitType: item?.unit_type ?? "",
+  };
+}
+
+function packagingLabel(
+  packaging: PackagingDraft,
+  t: (key: string) => string,
+): string {
+  const parts: string[] = [];
+  if (packaging.containerType)
+    parts.push(labelForRaw(packaging.containerType, t));
+  if (packaging.unitsPerPack > 0) {
+    parts.push(
+      `× ${packaging.unitsPerPack}${packaging.unitType ? ` ${labelForRaw(packaging.unitType, t)}` : ""}`,
+    );
+  }
+  if (packaging.unitSize > 0) {
+    parts.push(`× ${packaging.unitSize} ${packaging.unitSizeUnit}`);
+  }
+  return parts.join(" ");
+}
+
+function convertOrderUnit(quantity: number, from: string, to: string): number {
+  if (!from || !to || from === to) return quantity;
+  const factors: Record<string, number> = { g: 1, kg: 1000, ml: 1, l: 1000 };
+  if (!(from in factors) || !(to in factors)) return quantity;
+  return (quantity * factors[from]) / factors[to];
+}
+
+function orderBaseQuantity(
+  packageCount: number,
+  packaging: PackagingDraft,
+  stockUnit: StockUnit,
+): number {
+  if (!packaging.packagingSet) return packageCount;
+  let quantity = packageCount;
+  if (packaging.unitsPerPack > 0) quantity *= packaging.unitsPerPack;
+  if (packaging.unitSize > 0) {
+    quantity *= packaging.unitSize;
+    quantity = convertOrderUnit(
+      quantity,
+      packaging.unitSizeUnit || stockUnit,
+      stockUnit,
+    );
+  }
+  return quantity;
+}
 
 function isLow(item: StockItem) {
   return (
@@ -443,8 +515,20 @@ function NeedsTab({
                     {items.map((item) => (
                       <div
                         key={item.id}
-                        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-4 py-3 text-fs-sm"
+                        className="grid grid-cols-[40px_minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-3 text-fs-sm"
                       >
+                        <div className="flex size-10 items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
+                          {item.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={item.image_url}
+                              alt=""
+                              className="size-full object-cover"
+                            />
+                          ) : (
+                            <Package className="size-4 text-[var(--fg-subtle)]" />
+                          )}
+                        </div>
                         <span className="truncate font-medium text-[var(--fg)]">
                           {item.name}
                         </span>
@@ -454,7 +538,7 @@ function NeedsTab({
                             {item.quantity} {item.unit}
                           </b>
                         </span>
-                        <span className="hidden text-[var(--fg-muted)] sm:inline">
+                        <span className="hidden text-[var(--fg-muted)] md:inline">
                           {t("reorderThreshold")}: {item.reorder_threshold}{" "}
                           {item.unit}
                         </span>
@@ -1089,41 +1173,61 @@ function OrderComposer({
   onClose: () => void;
   onCreated: (order: PurchaseOrder, continueToSend: boolean) => Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [supplierId, setSupplierId] = useState(
     seed.supplierId ?? suppliers[0]?.id ?? 0,
   );
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [packagings, setPackagings] = useState<Record<string, PackagingDraft>>(
+    {},
+  );
+  const [editingPackagingKey, setEditingPackagingKey] = useState<string | null>(
+    null,
+  );
   const [notes, setNotes] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
   const [saving, setSaving] = useState(false);
   const supplier = suppliers.find((item) => item.id === supplierId);
   useEffect(() => {
     if (!supplierId) return;
+    let active = true;
     void listSupplierProducts(rid, supplierId).then((data) => {
+      if (!active) return;
       setProducts(data);
-      const next: Record<string, number> = {};
+      const nextQuantities: Record<string, number> = {};
+      const nextPackagings: Record<string, PackagingDraft> = {};
       const productStockIds = new Set(
-        data.map((product) => product.stock_item_id).filter(Boolean),
+        data.flatMap((product) =>
+          product.stock_item_id ? [product.stock_item_id] : [],
+        ),
       );
       data.forEach((product) => {
+        const key = `p-${product.id}`;
+        const stockItem = stockItems.find(
+          (item) => item.id === product.stock_item_id,
+        );
+        nextPackagings[key] = packagingFromStock(stockItem);
         if (
           product.stock_item_id &&
           seed.stockItemIds?.includes(product.stock_item_id)
         )
-          next[`p-${product.id}`] = 1;
+          nextQuantities[key] = 1;
       });
       stockItems.forEach((item) => {
-        if (
-          item.supplier_id === supplierId &&
-          !productStockIds.has(item.id) &&
-          seed.stockItemIds?.includes(item.id)
-        )
-          next[`s-${item.id}`] = 1;
+        if (item.supplier_id !== supplierId || productStockIds.has(item.id))
+          return;
+        const key = `s-${item.id}`;
+        nextPackagings[key] = packagingFromStock(item);
+        if (seed.stockItemIds?.includes(item.id)) nextQuantities[key] = 1;
       });
-      setQuantities(next);
+      setQuantities(nextQuantities);
+      setPackagings(nextPackagings);
+      setEditingPackagingKey(null);
     });
+    return () => {
+      active = false;
+    };
   }, [rid, seed.stockItemIds, stockItems, supplierId]);
   useEffect(() => {
     if (!supplier) return;
@@ -1139,7 +1243,9 @@ function OrderComposer({
     } else setExpectedDelivery("");
   }, [supplier]);
   const linkedStockIds = new Set(
-    products.map((product) => product.stock_item_id).filter(Boolean),
+    products.flatMap((product) =>
+      product.stock_item_id ? [product.stock_item_id] : [],
+    ),
   );
   const supplierStock = stockItems.filter(
     (item) => item.supplier_id === supplierId && !linkedStockIds.has(item.id),
@@ -1163,18 +1269,38 @@ function OrderComposer({
     })),
   ];
   const selectedRows = rows.filter((row) => (quantities[row.key] ?? 0) > 0);
+  const numberFormatter = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 3,
+  });
+  const updatePackaging = (key: string, update: Partial<PackagingDraft>) =>
+    setPackagings((current) => ({
+      ...current,
+      [key]: { ...current[key], ...update },
+    }));
   const create = async (continueToSend: boolean) => {
     if (!supplier || selectedRows.length === 0) return;
     setSaving(true);
     try {
-      const items: PurchaseOrderItemInput[] = selectedRows.map((row) => ({
-        supplier_product_id: row.supplierProductId,
-        stock_item_id: row.stockItem?.id,
-        name: row.name,
-        unit: row.unit,
-        quantity: quantities[row.key],
-        price_per_unit: row.price,
-      }));
+      const items: PurchaseOrderItemInput[] = selectedRows.map((row) => {
+        const packaging =
+          packagings[row.key] ?? packagingFromStock(row.stockItem);
+        const packageCount = quantities[row.key];
+        return {
+          supplier_product_id: row.supplierProductId,
+          stock_item_id: row.stockItem?.id,
+          name: row.name,
+          unit: row.unit,
+          quantity: orderBaseQuantity(packageCount, packaging, row.unit),
+          packaging_set: packaging.packagingSet,
+          package_count: packaging.packagingSet ? packageCount : 0,
+          units_per_pack: packaging.unitsPerPack,
+          unit_size: packaging.unitSize,
+          unit_size_unit: packaging.unitSizeUnit,
+          container_type: packaging.containerType,
+          unit_type: packaging.unitType,
+          price_per_unit: row.price,
+        };
+      });
       const order = await createPurchaseOrder(rid, {
         supplier_id: supplier.id,
         expected_delivery_at: expectedDelivery
@@ -1227,44 +1353,109 @@ function OrderComposer({
             />
           </div>
           <div>
-            <div className="mb-2 grid grid-cols-[minmax(0,1fr)_100px] gap-3 px-3 text-fs-xs font-semibold text-[var(--fg-muted)]">
+            <div className="mb-2 grid grid-cols-[52px_minmax(0,1fr)_140px] gap-3 px-3 text-fs-xs font-semibold text-[var(--fg-muted)]">
+              <span aria-hidden="true" />
               <span>{t("productAndStock")}</span>
               <span>{t("quantity")}</span>
             </div>
             <div className="divide-y divide-[var(--line)] overflow-hidden rounded-r-lg border border-[var(--line)]">
-              {rows.map((row) => (
-                <div
-                  key={row.key}
-                  className={`grid grid-cols-[minmax(0,1fr)_100px] items-center gap-3 px-3 py-3 ${(quantities[row.key] ?? 0) > 0 ? "bg-[var(--brand-50)]/60" : ""}`}
-                >
-                  <div>
-                    <div className="text-fs-sm font-medium text-[var(--fg)]">
-                      {row.name}
+              {rows.map((row) => {
+                const packaging =
+                  packagings[row.key] ?? packagingFromStock(row.stockItem);
+                const amount = quantities[row.key] ?? 0;
+                const baseQuantity = orderBaseQuantity(
+                  amount,
+                  packaging,
+                  row.unit,
+                );
+                const editing = editingPackagingKey === row.key;
+                return (
+                  <div
+                    key={row.key}
+                    className={
+                      amount > 0 ? "bg-[var(--brand-50)]/60" : undefined
+                    }
+                  >
+                    <div className="grid grid-cols-[52px_minmax(0,1fr)_140px] items-center gap-3 px-3 py-3">
+                      <div className="flex size-[52px] items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
+                        {row.stockItem?.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={row.stockItem.image_url}
+                            alt=""
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <Package className="size-5 text-[var(--fg-subtle)]" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-fs-sm font-medium text-[var(--fg)]">
+                          {row.name}
+                        </div>
+                        <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
+                          {row.stockItem
+                            ? `${t("currentStock")}: ${numberFormatter.format(row.stockItem.quantity)} ${row.stockItem.unit}`
+                            : t("notLinkedToStock")}
+                        </div>
+                        {row.stockItem && (
+                          <button
+                            type="button"
+                            aria-expanded={editing}
+                            onClick={() =>
+                              setEditingPackagingKey(editing ? null : row.key)
+                            }
+                            className="mt-1.5 flex max-w-full items-center gap-1 text-start text-fs-xs font-medium text-[var(--brand-600)] hover:text-[var(--brand-700)]"
+                          >
+                            <span className="truncate">
+                              {packaging.packagingSet
+                                ? `${t("lastDeliveryPackaging")}: ${packagingLabel(packaging, t)}`
+                                : t("noPackagingSaved")}
+                            </span>
+                            <Pencil className="size-3 shrink-0" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <NumberInput
+                            min={0}
+                            value={amount}
+                            onChange={(value) =>
+                              setQuantities((current) => ({
+                                ...current,
+                                [row.key]: value,
+                              }))
+                            }
+                            className="h-9 min-w-0 flex-1 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-2 text-fs-sm"
+                          />
+                          <span className="max-w-16 truncate text-fs-xs text-[var(--fg-muted)]">
+                            {packaging.packagingSet
+                              ? labelForRaw(packaging.containerType, t) ||
+                                row.unit
+                              : row.unit}
+                          </span>
+                        </div>
+                        {packaging.packagingSet && amount > 0 && (
+                          <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+                            = {numberFormatter.format(baseQuantity)} {row.unit}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
-                      {row.stockItem
-                        ? `${t("currentStock")}: ${row.stockItem.quantity} ${row.stockItem.unit}`
-                        : t("notLinkedToStock")}
-                    </div>
+                    {editing && row.stockItem && (
+                      <PackagingEditor
+                        packaging={packaging}
+                        stockUnit={row.unit}
+                        amount={amount}
+                        baseQuantity={baseQuantity}
+                        numberFormatter={numberFormatter}
+                        onChange={(update) => updatePackaging(row.key, update)}
+                      />
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <NumberInput
-                      min={0}
-                      value={quantities[row.key] ?? 0}
-                      onChange={(value) =>
-                        setQuantities((current) => ({
-                          ...current,
-                          [row.key]: value,
-                        }))
-                      }
-                      className="h-9 w-16 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-2 text-fs-sm"
-                    />
-                    <span className="text-fs-xs text-[var(--fg-muted)]">
-                      {row.unit}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {rows.length === 0 && (
                 <div className="p-8 text-center text-fs-sm text-[var(--fg-muted)]">
                   {t("noSupplierProductsHint")}
@@ -1304,6 +1495,137 @@ function OrderComposer({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PackagingEditor({
+  packaging,
+  stockUnit,
+  amount,
+  baseQuantity,
+  numberFormatter,
+  onChange,
+}: {
+  packaging: PackagingDraft;
+  stockUnit: StockUnit;
+  amount: number;
+  baseQuantity: number;
+  numberFormatter: Intl.NumberFormat;
+  onChange: (update: Partial<PackagingDraft>) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="border-t border-[var(--line)] bg-[var(--surface)] px-4 py-4">
+      <div className="mb-3 flex items-start justify-between gap-4">
+        <div>
+          <div className="text-fs-sm font-semibold text-[var(--fg)]">
+            {t("editPackaging")}
+          </div>
+          <p className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
+            {t("packagingHelper")}
+          </p>
+        </div>
+        {!packaging.packagingSet && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              onChange({
+                packagingSet: true,
+                containerType: packaging.containerType || "pack",
+                unitSizeUnit: stockUnit,
+              })
+            }
+          >
+            {t("usePackaging")}
+          </Button>
+        )}
+      </div>
+      {packaging.packagingSet && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+                {t("supplierOrderOuterContainer")}
+              </span>
+              <input
+                value={packaging.containerType}
+                maxLength={20}
+                placeholder={t("containerPlaceholder")}
+                onChange={(event) =>
+                  onChange({ containerType: event.target.value })
+                }
+                className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm outline-none focus:shadow-ring"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+                {t("supplierOrderUnitsPerPackage")}
+              </span>
+              <NumberInput
+                min={0}
+                value={packaging.unitsPerPack}
+                onChange={(value) => onChange({ unitsPerPack: value })}
+                className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm outline-none focus:shadow-ring"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+                {t("supplierOrderInnerUnit")}
+              </span>
+              <input
+                value={packaging.unitType}
+                maxLength={20}
+                placeholder={t("innerUnitPlaceholder")}
+                onChange={(event) => onChange({ unitType: event.target.value })}
+                className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm outline-none focus:shadow-ring"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
+                {t("supplierOrderContentPerUnit")}
+              </span>
+              <span className="flex gap-2">
+                <NumberInput
+                  min={0}
+                  value={packaging.unitSize}
+                  onChange={(value) => onChange({ unitSize: value })}
+                  className="h-10 min-w-0 flex-1 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm outline-none focus:shadow-ring"
+                />
+                <select
+                  value={packaging.unitSizeUnit}
+                  onChange={(event) =>
+                    onChange({ unitSizeUnit: event.target.value })
+                  }
+                  className="h-10 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-2 text-fs-sm outline-none focus:shadow-ring"
+                >
+                  {UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => onChange({ packagingSet: false })}
+              className="text-fs-xs font-medium text-[var(--fg-muted)] underline-offset-2 hover:text-[var(--fg)] hover:underline"
+            >
+              {t("supplierOrderRemovePackaging")}
+            </button>
+            {amount > 0 && (
+              <span className="rounded-r-sm bg-[var(--surface-2)] px-3 py-1.5 text-fs-xs font-medium text-[var(--fg-muted)]">
+                {t("stockEquivalent")}: {numberFormatter.format(baseQuantity)}{" "}
+                {stockUnit}
+              </span>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

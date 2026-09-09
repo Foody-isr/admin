@@ -3,10 +3,12 @@ import test from "node:test";
 import {
   buildPurchaseOrderMessage,
   buildWhatsAppUrl,
+  formatOrderQuantity,
+  localizedOrderItemName,
   normalizeWhatsAppPhone,
 } from "./order-message";
 
-test("keeps supplier product names while translating the surrounding message", () => {
+test("falls back to the original item name when no translation exists", () => {
   const message = buildPurchaseOrderMessage(
     {
       restaurantName: "Sea You",
@@ -29,4 +31,61 @@ test("normalizes Israeli local numbers and encodes a WhatsApp deep link", () => 
 
 test("rejects an unusable WhatsApp number", () => {
   assert.equal(buildWhatsAppUrl("123", "hello"), null);
+});
+
+test("uses the selected packaging in supplier messages", () => {
+  const item = {
+    name: "Tomates",
+    quantity: 9.6,
+    unit: "kg",
+    packaging_set: true,
+    package_count: 2,
+    units_per_pack: 12,
+    unit_size: 400,
+    unit_size_unit: "g",
+    container_type: "cartons",
+    unit_type: "barquettes",
+  };
+
+  assert.equal(
+    formatOrderQuantity(item, "fr"),
+    "2 cartons × 12 barquettes × 400 g (9,6 kg au total)",
+  );
+  assert.match(
+    buildPurchaseOrderMessage(
+      {
+        restaurantName: "Sea You",
+        supplierName: "Moshé",
+        items: [item],
+      },
+      "he",
+    ),
+    /2 cartons × 12 barquettes × 400 g \(9\.6 kg סה"כ\)/,
+  );
+});
+
+test("uses the item name translated for the selected message language", () => {
+  const item = {
+    name: "Oignon vert",
+    quantity: 1,
+    unit: "kg",
+    translations: {
+      name: { en: "Spring onion", he: "בצל ירוק" },
+    },
+  };
+
+  assert.equal(localizedOrderItemName(item, "he"), "בצל ירוק");
+  assert.equal(localizedOrderItemName(item, "en"), "Spring onion");
+  assert.equal(localizedOrderItemName(item, "fr"), "Oignon vert");
+  assert.match(
+    buildPurchaseOrderMessage(
+      {
+        restaurantName: "Sea You",
+        supplierName: "Moshé",
+        items: [item],
+      },
+      "he",
+    ),
+    /בצל ירוק — 1 kg/,
+  );
 });
