@@ -384,7 +384,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
       const [routeRows, openRouteRows, candidateRows, courierRows] = await Promise.all([
         listDeliveryRoutes(rid, departure.slice(0, 10)),
         listOpenDeliveryRoutes(rid),
-        listOrders(rid, { type: 'delivery', status: 'accepted,in_kitchen,ready_for_delivery', payment_status: 'paid' }),
+        // Acceptance is the manager's operational gate: once a delivery has
+        // entered preparation it must be plannable even when payment will be
+        // collected later. The courier self-pick pool remains paid-only.
+        listOrders(rid, { type: 'delivery', status: 'accepted,in_kitchen,ready_for_delivery' }),
         listCouriers(rid),
       ]);
       if (requestId !== loadRequestId.current) return;
