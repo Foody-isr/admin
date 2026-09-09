@@ -34,32 +34,32 @@ import SearchableListField from '@/components/SearchableListField';
 import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, NumberField, Textarea } from '@/components/ds';
 import { Image as LucideImageIcon, Camera, Sparkles } from 'lucide-react';
 import IngredientIconPicker from '@/components/stock/IngredientIconPicker';
+import StockKpiRow from '@/components/stock/StockKpiRow';
 import {
   SearchIcon, PlusIcon, DownloadIcon,
   AlertTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowRightLeftIcon,
   SparklesIcon, ClockIcon, RefreshCwIcon,
-  ChevronDownIcon, ChevronUpIcon, ImageIcon, UploadIcon,
-  RulerIcon,
+  ChevronDownIcon, ImageIcon, UploadIcon,
+  RulerIcon, ListFilterIcon, XIcon, TagIcon, PercentIcon,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
+import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import {
   DataTable,
   DataTableHead,
   DataTableHeadCell,
   SortableHeadCell,
   DataTableHeadSpacerCell,
-  DataTableSelectAllCell,
   DataTableBody,
   DataTableRow,
   DataTableCell,
-  DataTableSelectCell,
 } from '@/components/data-table';
-import { Button, Kpi, PageHead } from '@/components/ds';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button, PageHead } from '@/components/ds';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { FeatureIntro } from '@/components/help/FeatureIntro';
 import {
   getPackaging,
   formatQuantityAtLevel,
@@ -332,8 +332,6 @@ export default function StockPage() {
     reload();
   };
 
-  const [showKpis, setShowKpis] = useState(true);
-
   const filterByStatus = (status: 'low' | 'ok' | null) => {
     setSelectedCategories(new Set());
     setSelectedStatuses(status ? new Set([status]) : new Set());
@@ -347,11 +345,12 @@ export default function StockPage() {
     );
   }
 
-  // Figma KPIs — computed from real stock data
+  // Operational overview — computed from the complete inventory, independently
+  // from the current filters so it remains a stable navigation aid.
   const stockLow = items.filter((i) => stockStatusOf(i) === 'low').length;
   const stockOk = items.length - stockLow;
   const totalValue = items.reduce(
-    (sum, i) => sum + (i.quantity ?? 0) * (i.cost_per_unit ?? 0),
+    (sum, i) => sum + (i.quantity ?? 0) * adjustedCost(i),
     0,
   );
 
@@ -359,281 +358,284 @@ export default function StockPage() {
   const ALL_PILL = '__all__';
   const allLabel = t('all');
   const pillCategories = [ALL_PILL, ...categories.map((c) => c.name)];
-  const activePill =
-    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ALL_PILL;
+  const activePill = selectedCategories.size === 0
+    ? ALL_PILL
+    : selectedCategories.size === 1
+      ? Array.from(selectedCategories)[0]
+      : null;
   const selectPill = (name: string) => {
     if (name === ALL_PILL) setSelectedCategories(new Set());
     else setSelectedCategories(new Set([name]));
   };
+  const visibleStart = sorted.length > 0 ? 1 : 0;
+  const visibleEnd = sorted.length;
+  const resetFilters = () => {
+    setSearch('');
+    setSelectedCategories(new Set());
+    setSelectedStatuses(new Set());
+  };
 
   return (
-    <div className="flex flex-col">
-      <PageHead
-        title={t('stock') || 'Stock'}
-        desc={t('stockSubtitle') || "Gérez votre inventaire d'ingrédients"}
-        actions={
-          <>
-            <Button
-              variant="ghost"
-              size="md"
-              icon
-              onClick={() => setShowKpis((v) => !v)}
-              aria-label="Toggle KPIs"
-              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
-              className="hidden md:inline-flex"
-            >
-              {showKpis ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            </Button>
-            {canManage && (
-              <>
+    <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
+      <div className="min-w-0 space-y-[var(--s-4)]">
+        <PageHead
+          title={t('stock') || 'Stock'}
+          desc={`${items.length} ${t('articlesUnit')} · ${categories.length} ${t('categoriesCount')}`}
+          className="mb-0 items-center"
+          actions={
+            canManage ? (
+              <Button
+                variant="primary"
+                size="lg"
+                icon
+                onClick={() => setItemModal({ open: true })}
+                aria-label={t('addItem')}
+                title={t('addItem')}
+                className="rounded-full text-white shadow-sm"
+              >
+                <PlusIcon className="!size-5" />
+              </Button>
+            ) : null
+          }
+        />
+
+        <header>
+          <StockKpiRow
+            total={items.length}
+            categoriesCount={categories.length}
+            okCount={stockOk}
+            lowCount={stockLow}
+            totalValue={totalValue}
+            vatDisplayMode={vatDisplayMode}
+            onStatusChange={filterByStatus}
+          />
+
+          {canManage && selected.size > 0 && (
+            <div className="mt-[var(--s-4)] flex flex-wrap items-center justify-between gap-4 rounded-r-md border border-[var(--brand-100)] bg-[var(--brand-50)] px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="text-fs-sm font-semibold text-[var(--brand-700)]">
+                  {t('itemsSelected').replace('{count}', String(selected.size))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  className="text-fs-xs font-medium text-[var(--brand-600)] hover:text-[var(--brand-700)] focus-visible:outline-none focus-visible:shadow-ring"
+                >
+                  {t('deselectAll') || 'Tout désélectionner'}
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="secondary"
                   size="md"
-                  onClick={() => setImportModal(true)}
+                  onClick={() => setCategoryDrawer({ open: true, mode: 'bulk-assign' })}
+                  disabled={bulkProcessing}
                 >
-                  <DownloadIcon />
-                  {t('importDelivery') || 'Importer'}
+                  <TagIcon />
+                  {t('updateCategory')}
                 </Button>
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="md"
-                  onClick={() => setItemModal({ open: true })}
+                  onClick={() => { setBulkVatValue(null); setBulkVatModal(true); }}
+                  disabled={bulkProcessing}
                 >
-                  <PlusIcon />
-                  {t('addItem')}
+                  <PercentIcon />
+                  {t('updateVat')}
                 </Button>
-              </>
-            )}
-          </>
-        }
-      />
-      <FeatureIntro feature="stock" />
-      <header className="mb-[var(--s-4)]">
-        <div className="hidden" />
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={handleBulkDelete}
+                  disabled={bulkProcessing}
+                  className="text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
+                >
+                  <TrashIcon />
+                  {t('delete')} ({selected.size})
+                </Button>
+              </div>
+            </div>
+          )}
+        </header>
 
-        {/* KPIs — desktop only (mobile keeps the table primary) */}
-        {showKpis && (
-          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
-            <Kpi
-              label={t('itemsInStock') || 'Articles en stock'}
-              value={items.length}
-              sub={`${categories.length} ${t('categoriesCount') || 'catégories'}`}
-              onClick={() => filterByStatus(null)}
-            />
-            <Kpi
-              label={t('statusOk') || 'Statut OK'}
-              value={stockOk}
-              sub={
-                items.length > 0
-                  ? `${((stockOk / items.length) * 100).toFixed(0)}% ${t('ofTotal') || 'du total'}`
-                  : '—'
-              }
-              onClick={() => filterByStatus('ok')}
-            />
-            <Kpi
-              label={t('totalValue') || 'Valeur totale'}
-              value={
-                <>
-                  {money(Math.round(totalValue), { decimals: 0, grouped: true })}
-                  <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
-                    .{String(Math.round((totalValue % 1) * 100)).padStart(2, '0')}
-                  </span>
-                </>
-              }
-              sub={vatDisplayMode === 'inc' ? (t('incVat') || 'TTC') : (t('exVat') || 'HT')}
-            />
-            <Kpi
-              tone={stockLow > 0 ? 'danger' : 'default'}
-              label={t('stockAlerts') || 'Alertes stock'}
-              value={stockLow}
-              sub={stockLow > 0 ? (t('toOrder') || 'À commander') : 'OK'}
-              onClick={() => filterByStatus('low')}
-            />
+        {pillCategories.length > 0 && (
+          <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)]">
+            <HorizontalScrollRail activeKey={activePill} edgeFlush>
+              <div className="inline-flex items-center gap-5 pe-4">
+                <span className="py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)]">
+                  {t('category')}
+                </span>
+                {pillCategories.map((name) => {
+                  const active = activePill === name;
+                  const label = name === ALL_PILL ? allLabel : name;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => selectPill(name)}
+                      aria-pressed={active}
+                      data-rail-active={active ? '' : undefined}
+                      className={`relative whitespace-nowrap py-2.5 text-fs-sm font-medium outline-none transition-colors focus-visible:shadow-ring ${
+                        active
+                          ? 'text-[var(--fg)] after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-[var(--brand-500)]'
+                          : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </HorizontalScrollRail>
+            <span className="hidden shrink-0 text-fs-xs text-[var(--fg-muted)] md:block">
+              {t('showing')
+                .replace('{start}', String(visibleStart))
+                .replace('{end}', String(visibleEnd))
+                .replace('{total}', String(sorted.length))}
+            </span>
           </div>
         )}
 
-        {/* Bulk toolbar — Figma-style orange banner when rows are selected. */}
-        {canManage && selected.size > 0 && (
-          <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <span className="font-semibold text-orange-900 dark:text-orange-300">
-                {t('itemsSelected').replace('{count}', String(selected.size))}
-              </span>
-              <button
-                onClick={() => setSelected(new Set())}
-                className="text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 text-sm font-medium"
-              >
-                {t('deselectAll') || 'Tout désélectionner'}
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCategoryDrawer({ open: true, mode: 'bulk-assign' })}
-                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300"
-              >
-                {t('updateCategory')}
-              </button>
-              <button
-                onClick={() => { setBulkVatValue(null); setBulkVatModal(true); }}
-                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300"
-              >
-                {t('updateVat')}
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400"
-              >
-                <TrashIcon className="w-4 h-4" />
-                {t('delete')} ({selected.size})
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Search + filter pill-buttons row — matches Articles */}
-        <div className="flex flex-wrap items-center gap-[var(--s-3)]">
-          <div className="relative flex-1 min-w-[240px]">
-            <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
+        <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 bg-[var(--bg)] px-1 py-2">
+          <div className="relative w-full md:w-[300px]">
+            <SearchIcon className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
             <input
-              type="text"
+              type="search"
               placeholder={t('search')}
+              aria-label={t('search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setSearch('');
+              }}
+              className="input h-11 w-full ps-10 pe-10 text-fs-sm"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute end-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
+                aria-label={t('clearAll')}
+              >
+                <XIcon className="size-4" />
+              </button>
+            )}
           </div>
-          <button
+
+          <Button
             type="button"
+            variant="secondary"
+            size="lg"
             onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
           >
-            <span className="text-[var(--fg-muted)]">{t('category')} ·</span>
-            <span className="text-[var(--brand-500)] font-semibold">
+            <span className="text-[var(--fg-muted)]">{t('category')}</span>
+            <span className="max-w-40 truncate font-semibold text-[var(--brand-500)]">
               {selectedCategories.size === 0
                 ? t('all')
                 : selectedCategories.size === 1
                   ? Array.from(selectedCategories)[0]
                   : selectedCategories.size}
             </span>
-            <ChevronDownIcon className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => openFiltersDrawer('index')}
-            className={`inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 rounded-r-lg text-fs-sm font-medium transition-colors whitespace-nowrap ${
-              activeFilterCount > 0
-                ? 'bg-[var(--brand-500)]/10 border border-[var(--brand-500)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/15'
-                : 'bg-[var(--surface)] border border-[var(--line-strong)] text-[var(--fg)] hover:bg-[var(--surface-2)]'
-            }`}
-          >
+            <ChevronDownIcon />
+          </Button>
+
+          <Button type="button" variant="secondary" size="lg" onClick={() => openFiltersDrawer('index')}>
+            <ListFilterIcon />
             {t('allFilters')}
-            {activeFilterCount > 0 && (
-              <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[var(--brand-500)] text-white text-fs-xs font-semibold tabular-nums">
-                {activeFilterCount}
-              </span>
-            )}
-            <ChevronDownIcon className="w-4 h-4" />
-          </button>
-          <ActionsDropdown
-            actions={[
-              {
-                // Label describes the result of clicking — "switch to the
-                // OTHER mode" — not the mode you're already in. So when
-                // currently displaying TTC, the action says "HT" because
-                // that's what tapping it will give you, and vice versa.
-                label: vatDisplayMode === 'inc'
-                  ? `${t('displayPrice')}: ${t('exVat')}`
-                  : `${t('displayPrice')}: ${t('incVat')}`,
-                onClick: toggleVatDisplay,
-                icon: <ArrowRightLeftIcon className="w-4 h-4" />,
-              },
-              ...(canManage ? [
-                {
-                  label: t('importDelivery'),
-                  onClick: () => { setImportDraftId(undefined); setImportModal(true); },
-                  icon: <SparklesIcon className="w-4 h-4" />,
-                },
-                {
-                  label: t('importCsv'),
-                  onClick: () => setCsvImportOpen(true),
-                  icon: <UploadIcon className="w-4 h-4" />,
-                },
-              ] : []),
-              {
-                label: t('refresh'),
-                onClick: reload,
-                icon: <RefreshCwIcon className="w-4 h-4" />,
-              },
-            ]}
-          />
-        </div>
-      </header>
+            <ChevronDownIcon />
+          </Button>
 
-      {/* Category pills — rounded-r-lg rectangles with CAPS labels (matches Articles) */}
-      {pillCategories.length > 1 && (
-        <div className="mb-[var(--s-4)] flex flex-wrap gap-[var(--s-2)]">
-          {pillCategories.map((name) => {
-            const active = activePill === name;
-            const label = name === ALL_PILL ? allLabel : name;
-            return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => selectPill(name)}
-                aria-pressed={active}
-                className={`inline-flex items-center h-10 px-[var(--s-4)] rounded-r-lg text-fs-sm font-semibold uppercase tracking-[.02em] transition-colors whitespace-nowrap ${
-                  active
-                    ? 'bg-[var(--brand-500)] text-white shadow-1'
-                    : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+          {activeFilterCount > 0 && (
+            <Button type="button" variant="ghost" size="lg" onClick={resetFilters}>
+              <ListFilterIcon />
+              {t('ordersResetFiltersWithCount').replace('{n}', String(activeFilterCount))}
+            </Button>
+          )}
 
-      {/* Table wrapper — horizontal scroll when columns overflow */}
-      <div className="overflow-x-auto">
+          <div className="ms-auto [&>button]:h-11 [&>button]:rounded-r-md [&>button]:border [&>button]:border-[var(--line-strong)] [&>button]:!bg-[var(--surface)] [&>button]:px-[var(--s-4)] [&>button]:text-fs-sm hover:[&>button]:!bg-[var(--surface-2)]">
+            <ActionsDropdown
+              actions={[
+                {
+                  label: vatDisplayMode === 'inc'
+                    ? `${t('displayPrice')}: ${t('exVat')}`
+                    : `${t('displayPrice')}: ${t('incVat')}`,
+                  onClick: toggleVatDisplay,
+                  icon: <ArrowRightLeftIcon className="w-4 h-4" />,
+                },
+                ...(canManage ? [
+                  {
+                    label: t('importDelivery'),
+                    onClick: () => { setImportDraftId(undefined); setImportModal(true); },
+                    icon: <SparklesIcon className="w-4 h-4" />,
+                  },
+                  {
+                    label: t('importCsv'),
+                    onClick: () => setCsvImportOpen(true),
+                    icon: <UploadIcon className="w-4 h-4" />,
+                  },
+                ] : []),
+                {
+                  label: t('refresh'),
+                  onClick: reload,
+                  icon: <RefreshCwIcon className="w-4 h-4" />,
+                },
+              ]}
+            />
+          </div>
+        </div>
+
+        <div>
 
       {/* Table — Figma App.tsx:600 (stock variant) */}
       {sorted.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <ImageIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-500" />
-          <p className="text-base text-neutral-600 dark:text-neutral-400 text-center max-w-md">
+        <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-6 py-16 text-center shadow-1">
+          <ImageIcon className="mx-auto size-10 text-[var(--fg-subtle)]" />
+          <p className="mx-auto mt-3 max-w-md text-fs-sm text-[var(--fg-muted)]">
             {items.length === 0 ? t('addFirstStockItem') : t('tryAdjustingFilters')}
           </p>
           {items.length === 0 && canManage && (
-            <button
+            <Button
+              variant="primary"
+              size="md"
               onClick={() => setItemModal({ open: true })}
-              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
+              className="mt-5"
             >
+              <PlusIcon />
               {t('addItem')}
-            </button>
+            </Button>
           )}
         </div>
       ) : (
-        <DataTable>
-            <DataTableHead>
-                <DataTableSelectAllCell
+        <DataTable
+          className="md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
+          data-density="compact"
+        >
+            <DataTableHead className="sticky top-0 z-[2]">
+                <DataTableHeadSpacerCell className="bg-neutral-50 px-3 py-2 dark:bg-[#0a0a0a]">
+                  <Checkbox
                   checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
                   onCheckedChange={toggleSelectAll}
-                />
+                  />
+                </DataTableHeadSpacerCell>
                 <SortableHeadCell
                   sortKey="name"
                   currentSortKey={sortKey}
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'name')}
+                  className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a] [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('item') || 'Article'}
                 </SortableHeadCell>
-                <DataTableHeadCell>{t('category') || 'Catégorie'}</DataTableHeadCell>
+                <DataTableHeadCell className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]">
+                  {t('category') || 'Catégorie'}
+                </DataTableHeadCell>
                 <SortableHeadCell
                   sortKey="quantity"
                   currentSortKey={sortKey}
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'quantity')}
+                  align="right"
+                  className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a] [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('quantity') || 'Quantité'}
                 </SortableHeadCell>
@@ -642,6 +644,8 @@ export default function StockPage() {
                   currentSortKey={sortKey}
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'price')}
+                  align="right"
+                  className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a] [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('unitPrice') || 'Prix unitaire'}
                 </SortableHeadCell>
@@ -650,12 +654,18 @@ export default function StockPage() {
                   currentSortKey={sortKey}
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'total')}
+                  align="right"
+                  className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a] [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('totalValue') || 'Valeur totale'}
                 </SortableHeadCell>
-                <DataTableHeadCell>{t('supplier') || 'Fournisseur'}</DataTableHeadCell>
-                <DataTableHeadCell>{t('status') || 'Statut'}</DataTableHeadCell>
-                <DataTableHeadSpacerCell />
+                <DataTableHeadCell className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]">
+                  {t('supplier') || 'Fournisseur'}
+                </DataTableHeadCell>
+                <DataTableHeadCell className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]">
+                  {t('status') || 'Statut'}
+                </DataTableHeadCell>
+                <DataTableHeadSpacerCell className="bg-neutral-50 px-3 py-2 dark:bg-[#0a0a0a]" />
             </DataTableHead>
             <DataTableBody>
               {sorted.map((item, index) => {
@@ -666,38 +676,50 @@ export default function StockPage() {
                 const popoverOpen = levelPopover === item.id;
                 const lineValue = item.quantity * adjustedCost(item);
                 return (
-                  <DataTableRow key={item.id} index={index}>
-                    <DataTableSelectCell
-                      checked={selected.has(item.id)}
-                      onCheckedChange={() => toggleSelect(item.id)}
-                    />
-                    <DataTableCell mobilePrimary>
-                      <button
-                        type="button"
-                        onClick={() => setItemModal({ open: true, editing: item })}
-                        className="flex items-center gap-4 text-left hover:text-orange-500 transition-colors"
-                      >
+                  <DataTableRow
+                    key={item.id}
+                    index={index}
+                    striped={false}
+                    tabIndex={0}
+                    className="group cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--brand-500)]"
+                    onClick={() => setItemModal({ open: true, editing: item })}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setItemModal({ open: true, editing: item });
+                      }
+                    }}
+                  >
+                    <DataTableCell className="px-3 py-2" onClick={(event) => event.stopPropagation()} mobileHidden>
+                      <Checkbox
+                        checked={selected.has(item.id)}
+                        onCheckedChange={() => toggleSelect(item.id)}
+                      />
+                    </DataTableCell>
+                    <DataTableCell className="px-3 py-2" mobilePrimary>
+                      <div className="flex items-center gap-3">
                         {item.image_url ? (
-                          <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center overflow-hidden">
+                          <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={item.image_url}
                               alt=""
-                              className="size-full object-contain drop-shadow-sm"
+                              className="size-full object-cover"
                             />
                           </div>
                         ) : (
-                          <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center">
-                            <ImageIcon className="w-7 h-7 text-neutral-400 dark:text-white/30" />
+                          <div className="flex size-12 shrink-0 items-center justify-center rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
+                            <ImageIcon className="size-5 text-[var(--fg-subtle)]" />
                           </div>
                         )}
-                        <span className="font-medium text-neutral-900 dark:text-white">
+                        <span className="text-fs-sm font-semibold text-[var(--fg)]">
                           {item.name}
                         </span>
-                      </button>
+                      </div>
                     </DataTableCell>
-                    <DataTableCell mobileLabel={t('category') || 'Catégorie'}>
-                      <span className="inline-flex items-center gap-[var(--s-2)] h-[22px] px-[var(--s-2)] bg-[var(--surface-2)] text-[var(--fg-muted)] rounded-r-sm text-fs-xs font-semibold uppercase tracking-[.02em] whitespace-nowrap">
+                    <DataTableCell className="px-3 py-2" mobileLabel={t('category') || 'Catégorie'}>
+                      <span className="inline-flex items-center gap-[var(--s-2)] rounded-r-sm bg-[var(--surface-2)] px-2 py-1 text-fs-xs font-medium text-[var(--fg-muted)] whitespace-nowrap">
                         {catColor && (
                           <span
                             className="w-1.5 h-1.5 rounded-full shrink-0"
@@ -708,14 +730,18 @@ export default function StockPage() {
                       </span>
                     </DataTableCell>
                     <DataTableCell
-                      className="relative cursor-pointer hover:text-orange-500"
-                      onClick={() => setLevelPopover(item.id)}
+                      className="relative cursor-pointer px-3 py-2 hover:text-[var(--brand-500)]"
+                      align="right"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setLevelPopover(item.id);
+                      }}
                       title={t('displayAs') || 'Display as'}
                       mobileLabel={t('quantity') || 'Quantité'}
                     >
-                      <span className="inline-flex items-center gap-1.5 font-medium text-neutral-900 dark:text-white">
+                      <span className="num inline-flex items-center gap-1.5 text-fs-sm font-semibold text-[var(--fg)]">
                         {formatQuantityAtLevel(item, level, t)}
-                        <ChevronDownIcon className="w-3.5 h-3.5 text-neutral-400" />
+                        <ChevronDownIcon className="size-3.5 text-[var(--fg-subtle)]" />
                       </span>
                       {popoverOpen && (
                         <>
@@ -727,10 +753,10 @@ export default function StockPage() {
                             }}
                           />
                           <div
-                            className="absolute left-0 top-full mt-1 z-50 w-64 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 p-1 text-left bg-white dark:bg-[#1a1a1a]"
+                            className="absolute start-0 top-full z-50 mt-1 w-64 rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-1 text-start shadow-3"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div className="px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                            <div className="px-3 py-2 text-fs-xs font-medium text-[var(--fg-subtle)]">
                               {t('displayAs') || 'Display as'}
                             </div>
                             {pkg.levels.map((lvl) => (
@@ -740,22 +766,22 @@ export default function StockPage() {
                                   e.stopPropagation();
                                   selectItemLevel(item.id, lvl);
                                 }}
-                                className={`w-full text-left px-3 py-2 rounded flex items-center justify-between gap-2 ${
+                                className={`flex w-full items-center justify-between gap-2 rounded-r-sm px-3 py-2 text-start ${
                                   lvl === level
-                                    ? 'bg-orange-500/10 text-orange-500'
-                                    : 'text-neutral-900 dark:text-white hover:bg-neutral-50 dark:hover:bg-[#222222]'
+                                    ? 'bg-[var(--brand-50)] text-[var(--brand-600)]'
+                                    : 'text-[var(--fg)] hover:bg-[var(--surface-2)]'
                                 }`}
                               >
                                 <div className="min-w-0">
-                                  <div className="font-medium text-sm truncate">
+                                  <div className="truncate text-fs-sm font-medium">
                                     {formatQuantityAtLevel(item, lvl, t)}
                                   </div>
-                                  <div className="font-mono text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                                  <div className="num truncate text-fs-xs text-[var(--fg-muted)]">
                                     {formatUnitPriceAtLevel(item, lvl, adjustedCost(item), money, t)}
                                   </div>
                                 </div>
                                 {lvl === pkg.defaultLevel && pkg.levels.length > 1 && (
-                                  <span className="text-[10px] uppercase tracking-wider text-neutral-400 flex-shrink-0">
+                                  <span className="shrink-0 text-[10px] text-[var(--fg-subtle)]">
                                     {t('default') || 'default'}
                                   </span>
                                 )}
@@ -765,39 +791,37 @@ export default function StockPage() {
                         </>
                       )}
                     </DataTableCell>
-                    <DataTableCell mobileLabel={t('unitPrice') || 'Prix unitaire'}>
-                      <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                    <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('unitPrice') || 'Prix unitaire'}>
+                      <span className="num whitespace-nowrap text-fs-sm text-[var(--fg-muted)]">
                         {formatUnitPriceAtLevel(item, level, adjustedCost(item), money, t)}
                         {item.vat_rate_override != null && item.vat_rate_override !== vatRate && (
-                          <span className="ml-1.5 text-[10px] tracking-wider text-neutral-400">
+                          <span className="ms-1.5 text-[10px] text-[var(--fg-subtle)]">
                             {item.vat_rate_override}% TVA
                           </span>
                         )}
                       </span>
                     </DataTableCell>
-                    <DataTableCell mobileLabel={t('totalValue') || 'Valeur totale'}>
-                      <span className="font-semibold text-neutral-900 dark:text-white">
+                    <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('totalValue') || 'Valeur totale'}>
+                      <span className="num whitespace-nowrap text-fs-sm font-semibold text-[var(--fg)]">
                         {money(lineValue)}
                       </span>
                     </DataTableCell>
-                    <DataTableCell mobileLabel={t('supplier') || 'Fournisseur'}>
-                      <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                    <DataTableCell className="px-3 py-2" mobileLabel={t('supplier') || 'Fournisseur'}>
+                      <span className="text-fs-sm text-[var(--fg-muted)]">
                         {item.supplier || '—'}
                       </span>
                     </DataTableCell>
-                    <DataTableCell mobileLabel={t('status') || 'Statut'}>
+                    <DataTableCell className="px-3 py-2" mobileLabel={t('status') || 'Statut'}>
                       {isLow ? (
-                        <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-fs-xs font-semibold whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
-                          <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />
+                        <Badge tone="danger">
+                          <AlertTriangleIcon className="size-3.5" />
                           {t('lowStock') || 'Bas'}
-                        </span>
+                        </Badge>
                       ) : (
-                        <span className="inline-flex items-center h-7 px-2.5 rounded-md text-fs-xs font-semibold whitespace-nowrap bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-                          OK
-                        </span>
+                        <Badge tone="success" dot>OK</Badge>
                       )}
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell className="px-3 py-2" onClick={(event) => event.stopPropagation()}>
                       <RowActionsMenu
                         actions={[
                           { label: t('stockHistory'), onClick: () => setHistoryItem(item), icon: <ClockIcon className="w-4 h-4" /> },
@@ -816,14 +840,17 @@ export default function StockPage() {
         </DataTable>
       )}
 
-      {/* Pagination — Figma App.tsx:800 */}
       {sorted.length > 0 && (
-        <div className="mt-6 flex items-center justify-between flex-wrap gap-3">
-          <p className="text-neutral-600 dark:text-neutral-400">
-            {sorted.length} article{sorted.length > 1 ? 's' : ''} {t('atTotal') || 'au total'}
+        <div className="flex items-center justify-between px-4 py-3">
+          <p className="text-fs-xs text-[var(--fg-muted)]">
+            {t('showing')
+              .replace('{start}', String(visibleStart))
+              .replace('{end}', String(visibleEnd))
+              .replace('{total}', String(sorted.length))}
           </p>
         </div>
       )}
+        </div>
 
       {/* Stock Item Modal */}
       {itemModal.open && (
