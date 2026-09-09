@@ -7,7 +7,6 @@ import {
   ReceiptTextIcon,
 } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import type { MenuItem } from '@/lib/api';
 
 interface Props {
@@ -68,8 +67,7 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
   ];
 
   return (
-    <HorizontalScrollRail edgeFlush>
-      <div className="inline-flex min-w-full overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1">
+      <div className="grid min-w-full grid-cols-2 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 md:flex">
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
           return (
@@ -77,8 +75,12 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
               key={metric.key}
               type="button"
               onClick={() => onKpiClick(metric.key)}
-              className={`group flex min-w-[210px] flex-1 items-center gap-3 px-4 py-3 text-start outline-none transition-colors hover:bg-[var(--surface-2)]/70 focus-visible:shadow-ring md:min-w-0 ${
-                index > 0 ? 'border-s border-[var(--line)]' : ''
+              className={`group flex min-w-0 items-center gap-2.5 px-3 py-3 text-start outline-none transition-colors hover:bg-[var(--surface-2)]/70 focus-visible:shadow-ring md:flex-1 md:gap-3 md:px-4 ${
+                index % 2 === 1 ? 'border-s border-[var(--line)]' : ''
+              } ${
+                index > 1 ? 'border-t border-[var(--line)] md:border-t-0' : ''
+              } ${
+                index === 2 ? 'md:border-s md:border-[var(--line)]' : ''
               }`}
             >
               <span className={`flex size-8 shrink-0 items-center justify-center rounded-r-md ${metric.tone}`}>
@@ -89,10 +91,10 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
                   {metric.label}
                 </span>
                 <span className="flex items-baseline gap-2 whitespace-nowrap">
-                  <span className="num text-fs-xl font-semibold leading-tight text-[var(--fg)]">
+                  <span className="num text-fs-lg font-semibold leading-tight text-[var(--fg)] sm:text-fs-xl">
                     {metric.value}
                   </span>
-                  <span className="text-[11px] text-[var(--fg-subtle)]">
+                  <span className="hidden text-[11px] text-[var(--fg-subtle)] sm:inline">
                     {metric.detail}
                   </span>
                 </span>
@@ -101,6 +103,5 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
           );
         })}
       </div>
-    </HorizontalScrollRail>
   );
 }

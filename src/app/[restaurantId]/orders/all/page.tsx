@@ -821,7 +821,7 @@ export default function OrdersPage() {
 
   return (
     <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
-      <div className="min-w-0 space-y-[var(--s-4)]">
+      <div className="min-w-0 space-y-[var(--s-3)] md:space-y-[var(--s-4)]">
         <PageHead
           title={t('orders')}
           className="mb-0 items-center"
@@ -966,7 +966,7 @@ export default function OrdersPage() {
         <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)]">
           <HorizontalScrollRail activeKey={activeTab} edgeFlush>
             <div className="inline-flex items-center gap-5 pe-4">
-              <span className="py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)]">
+              <span className="hidden py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)] md:inline">
                 {t('ordersHistory')}
               </span>
               {ARCHIVE_TABS.map((tab) => {
@@ -1000,7 +1000,7 @@ export default function OrdersPage() {
 
         {/* The controls stick below the global top bar; the order rows scroll
             independently on desktop so queue state never disappears. */}
-        <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 bg-[var(--bg)] px-1 py-2">
+        <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 border-b border-transparent bg-[var(--bg)] px-1 py-2 max-md:border-[var(--line)]">
           <div className="relative w-full md:w-[300px]">
             <SearchIcon className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
             <input
@@ -1027,16 +1027,17 @@ export default function OrdersPage() {
             )}
           </div>
 
-          <DateRangePicker
-            value={dateRange}
-            onChange={(range) => { setDateRange(range); setPage(0); }}
-            weekStartDay={weekStartDay}
-            workdays={workdays}
-            restaurantId={rid}
-            basis={dateField}
-            onBasisChange={changeDateField}
-            series={serieList}
-          />
+          <div className="no-scrollbar flex w-full items-center gap-2 overflow-x-auto pb-0.5 md:contents">
+            <DateRangePicker
+              value={dateRange}
+              onChange={(range) => { setDateRange(range); setPage(0); }}
+              weekStartDay={weekStartDay}
+              workdays={workdays}
+              restaurantId={rid}
+              basis={dateField}
+              onBasisChange={changeDateField}
+              series={serieList}
+            />
 
           <FilterDropdown
             label={t('type')}
@@ -1078,7 +1079,7 @@ export default function OrdersPage() {
               {t('displayPreferenceSaveFailed')}
             </span>
           )}
-
+          </div>
         </div>
 
         {/* Table */}
@@ -1111,7 +1112,7 @@ export default function OrdersPage() {
         ) : (
           <>
             <DataTable
-              className="md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
+              className="operational-table orders-operational-table md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
               data-density="compact"
             >
               <DataTableHead className="sticky top-0 z-[2]">
@@ -1165,6 +1166,8 @@ export default function OrdersPage() {
                           }`}
                           mobilePrimary={col.isMobilePrimary}
                           mobileLabel={col.isMobilePrimary ? undefined : t(col.labelKey)}
+                          data-mobile-role={col.isMobilePrimary ? 'primary' : 'detail'}
+                          data-mobile-column={col.key}
                         >
                           {col.render(order, t, money)}
                         </DataTableCell>
@@ -1173,6 +1176,7 @@ export default function OrdersPage() {
                         <DataTableCell
                           align="right"
                           mobileLabel={t('ordersNextAction')}
+                          data-mobile-role="primary-action"
                           className="bg-[var(--surface)] px-3 py-2 group-hover:bg-orange-50/50 md:sticky md:end-0 dark:group-hover:bg-orange-900/20"
                         >
                           {capabilities.primary ? (

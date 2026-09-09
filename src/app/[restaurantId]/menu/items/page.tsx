@@ -514,7 +514,7 @@ export default function ItemLibraryPage() {
 
   return (
     <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
-      <div className="min-w-0 space-y-[var(--s-4)]">
+      <div className="min-w-0 space-y-[var(--s-3)] md:space-y-[var(--s-4)]">
         <PageHead
           title={t('itemLibrary')}
           desc={`${allItems.length} ${t('articlesUnit')} · ${categories.length} ${t('categoriesCount')}`}
@@ -648,7 +648,7 @@ export default function ItemLibraryPage() {
         <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)]">
           <HorizontalScrollRail activeKey={activePillName} edgeFlush>
             <div className="inline-flex items-center gap-5 pe-4">
-              <span className="py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)]">
+              <span className="hidden py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)] md:inline">
                 {t('category')}
               </span>
               {pillCategories.map((name) => {
@@ -683,7 +683,7 @@ export default function ItemLibraryPage() {
       )}
 
       {/* Sticky controls preserve context while scanning a long catalogue. */}
-      <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 bg-[var(--bg)] px-1 py-2">
+      <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 border-b border-transparent bg-[var(--bg)] px-1 py-2 max-md:border-[var(--line)]">
         <div className="relative w-full md:w-[300px]">
           <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
           <input
@@ -713,6 +713,7 @@ export default function ItemLibraryPage() {
           type="button"
           variant="secondary"
           size="lg"
+          className="max-md:hidden"
           onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
         >
           <span className="text-[var(--fg-muted)]">{t('category')}</span>
@@ -726,7 +727,7 @@ export default function ItemLibraryPage() {
           <ChevronDown />
         </Button>
 
-        <Button type="button" variant="secondary" size="lg" onClick={() => openFiltersDrawer('index')}>
+        <Button type="button" variant="secondary" size="lg" className="max-md:flex-1" onClick={() => openFiltersDrawer('index')}>
           <ListFilter />
           {t('allFilters')}
           <ChevronDown />
@@ -739,8 +740,9 @@ export default function ItemLibraryPage() {
           </Button>
         )}
 
-        <div className="ms-auto [&>button]:h-11 [&>button]:rounded-r-md [&>button]:border [&>button]:border-[var(--line-strong)] [&>button]:!bg-[var(--surface)] [&>button]:px-[var(--s-4)] [&>button]:text-fs-sm hover:[&>button]:!bg-[var(--surface-2)]">
+        <div className="ms-auto max-md:ms-0 [&>button]:h-11 [&>button]:rounded-r-md [&>button]:border [&>button]:border-[var(--line-strong)] [&>button]:!bg-[var(--surface)] [&>button]:px-[var(--s-4)] [&>button]:text-fs-sm hover:[&>button]:!bg-[var(--surface-2)]">
           <ActionsDropdown
+            compactOnMobile
             actions={[
               ...(canEdit
                 ? [
@@ -783,7 +785,7 @@ export default function ItemLibraryPage() {
         </div>
       ) : (
         <DataTable
-          className="md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
+          className="catalog-operational-table operational-table md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
           data-density="compact"
         >
             <DataTableHead className="sticky top-0 z-[2]">
@@ -824,6 +826,7 @@ export default function ItemLibraryPage() {
               {/* Quick create */}
               {canEdit && (!quickCreateOpen ? (
                 <tr
+                  data-mobile-hidden-row=""
                   className="cursor-pointer border-b border-neutral-100 transition-colors hover:bg-orange-50/50 dark:border-neutral-800 dark:hover:bg-orange-900/20"
                   onClick={() => {
                     setQuickCreateOpen(true);
@@ -837,7 +840,7 @@ export default function ItemLibraryPage() {
                   </td>
                 </tr>
               ) : (
-                <tr className="border-b border-neutral-100 bg-neutral-50 dark:border-neutral-800 dark:bg-[#0a0a0a]">
+                <tr data-mobile-hidden-row="" className="border-b border-neutral-100 bg-neutral-50 dark:border-neutral-800 dark:bg-[#0a0a0a]">
                   <td className="px-3 py-2" />
                   <td className="px-3 py-2">
                     <input
@@ -1020,12 +1023,12 @@ export default function ItemLibraryPage() {
                           </div>
                         </div>
                       </DataTableCell>
-                      <DataTableCell className="px-3 py-2" mobileLabel={t('category')}>
+                      <DataTableCell className="px-3 py-2" mobileLabel={t('category')} data-mobile-role="detail" data-mobile-column="category">
                         <span className="inline-flex rounded-r-sm bg-[var(--surface-2)] px-2 py-1 text-fs-xs font-medium text-[var(--fg-muted)]">
                           {item.category_name}
                         </span>
                       </DataTableCell>
-                      <DataTableCell className="px-3 py-2" mobileLabel={t('availability')}>
+                      <DataTableCell className="px-3 py-2" mobileLabel={t('availability')} data-mobile-role="detail" data-mobile-column="availability">
                         <AvailabilityPill
                           state={item.availability_state}
                           override={item.availability_override}
@@ -1036,12 +1039,12 @@ export default function ItemLibraryPage() {
                           onToggle={() => handleAvailabilityToggle(item)}
                         />
                       </DataTableCell>
-                      <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('price')}>
+                      <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('price')} data-mobile-role="detail" data-mobile-column="price">
                         <span className="num whitespace-nowrap text-fs-sm font-semibold text-[var(--fg)]">
                           {priceLabel}
                         </span>
                       </DataTableCell>
-                      <DataTableCell className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <DataTableCell className="px-3 py-2" data-mobile-role="menu" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           {canEdit && (
                           <RowActionsMenu
@@ -1087,6 +1090,7 @@ export default function ItemLibraryPage() {
                         return (
                           <tr
                             key={`${item.id}-v-${v.id}`}
+                            data-mobile-hidden-row=""
                             className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#0f0f0f]"
                             onClick={() => {
                               saveScroll(CACHE_KEY);

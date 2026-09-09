@@ -377,7 +377,7 @@ export default function StockPage() {
 
   return (
     <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
-      <div className="min-w-0 space-y-[var(--s-4)]">
+      <div className="min-w-0 space-y-[var(--s-3)] md:space-y-[var(--s-4)]">
         <PageHead
           title={t('stock') || 'Stock'}
           desc={`${items.length} ${t('articlesUnit')} · ${categories.length} ${t('categoriesCount')}`}
@@ -462,7 +462,7 @@ export default function StockPage() {
           <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)]">
             <HorizontalScrollRail activeKey={activePill} edgeFlush>
               <div className="inline-flex items-center gap-5 pe-4">
-                <span className="py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)]">
+                <span className="hidden py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)] md:inline">
                   {t('category')}
                 </span>
                 {pillCategories.map((name) => {
@@ -496,7 +496,7 @@ export default function StockPage() {
           </div>
         )}
 
-        <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 bg-[var(--bg)] px-1 py-2">
+        <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 border-b border-transparent bg-[var(--bg)] px-1 py-2 max-md:border-[var(--line)]">
           <div className="relative w-full md:w-[300px]">
             <SearchIcon className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
             <input
@@ -526,6 +526,7 @@ export default function StockPage() {
             type="button"
             variant="secondary"
             size="lg"
+            className="max-md:hidden"
             onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
           >
             <span className="text-[var(--fg-muted)]">{t('category')}</span>
@@ -539,7 +540,7 @@ export default function StockPage() {
             <ChevronDownIcon />
           </Button>
 
-          <Button type="button" variant="secondary" size="lg" onClick={() => openFiltersDrawer('index')}>
+          <Button type="button" variant="secondary" size="lg" className="max-md:flex-1" onClick={() => openFiltersDrawer('index')}>
             <ListFilterIcon />
             {t('allFilters')}
             <ChevronDownIcon />
@@ -552,8 +553,9 @@ export default function StockPage() {
             </Button>
           )}
 
-          <div className="ms-auto [&>button]:h-11 [&>button]:rounded-r-md [&>button]:border [&>button]:border-[var(--line-strong)] [&>button]:!bg-[var(--surface)] [&>button]:px-[var(--s-4)] [&>button]:text-fs-sm hover:[&>button]:!bg-[var(--surface-2)]">
+          <div className="ms-auto max-md:ms-0 [&>button]:h-11 [&>button]:rounded-r-md [&>button]:border [&>button]:border-[var(--line-strong)] [&>button]:!bg-[var(--surface)] [&>button]:px-[var(--s-4)] [&>button]:text-fs-sm hover:[&>button]:!bg-[var(--surface-2)]">
             <ActionsDropdown
+              compactOnMobile
               actions={[
                 {
                   label: vatDisplayMode === 'inc'
@@ -607,7 +609,7 @@ export default function StockPage() {
         </div>
       ) : (
         <DataTable
-          className="md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
+          className="operational-table md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
           data-density="compact"
         >
             <DataTableHead className="sticky top-0 z-[2]">
@@ -718,7 +720,7 @@ export default function StockPage() {
                         </span>
                       </div>
                     </DataTableCell>
-                    <DataTableCell className="px-3 py-2" mobileLabel={t('category') || 'Catégorie'}>
+                    <DataTableCell className="px-3 py-2" mobileLabel={t('category') || 'Catégorie'} data-mobile-role="detail">
                       <span className="inline-flex items-center gap-[var(--s-2)] rounded-r-sm bg-[var(--surface-2)] px-2 py-1 text-fs-xs font-medium text-[var(--fg-muted)] whitespace-nowrap">
                         {catColor && (
                           <span
@@ -738,6 +740,7 @@ export default function StockPage() {
                       }}
                       title={t('displayAs') || 'Display as'}
                       mobileLabel={t('quantity') || 'Quantité'}
+                      data-mobile-role="detail"
                     >
                       <span className="num inline-flex items-center gap-1.5 text-fs-sm font-semibold text-[var(--fg)]">
                         {formatQuantityAtLevel(item, level, t)}
@@ -791,7 +794,7 @@ export default function StockPage() {
                         </>
                       )}
                     </DataTableCell>
-                    <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('unitPrice') || 'Prix unitaire'}>
+                    <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('unitPrice') || 'Prix unitaire'} data-mobile-role="detail">
                       <span className="num whitespace-nowrap text-fs-sm text-[var(--fg-muted)]">
                         {formatUnitPriceAtLevel(item, level, adjustedCost(item), money, t)}
                         {item.vat_rate_override != null && item.vat_rate_override !== vatRate && (
@@ -801,17 +804,17 @@ export default function StockPage() {
                         )}
                       </span>
                     </DataTableCell>
-                    <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('totalValue') || 'Valeur totale'}>
+                    <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('totalValue') || 'Valeur totale'} data-mobile-role="detail">
                       <span className="num whitespace-nowrap text-fs-sm font-semibold text-[var(--fg)]">
                         {money(lineValue)}
                       </span>
                     </DataTableCell>
-                    <DataTableCell className="px-3 py-2" mobileLabel={t('supplier') || 'Fournisseur'}>
+                    <DataTableCell className="px-3 py-2" mobileLabel={t('supplier') || 'Fournisseur'} data-mobile-role="detail">
                       <span className="text-fs-sm text-[var(--fg-muted)]">
                         {item.supplier || '—'}
                       </span>
                     </DataTableCell>
-                    <DataTableCell className="px-3 py-2" mobileLabel={t('status') || 'Statut'}>
+                    <DataTableCell className="px-3 py-2" mobileLabel={t('status') || 'Statut'} data-mobile-role="detail">
                       {isLow ? (
                         <Badge tone="danger">
                           <AlertTriangleIcon className="size-3.5" />
@@ -821,7 +824,7 @@ export default function StockPage() {
                         <Badge tone="success" dot>OK</Badge>
                       )}
                     </DataTableCell>
-                    <DataTableCell className="px-3 py-2" onClick={(event) => event.stopPropagation()}>
+                    <DataTableCell className="px-3 py-2" data-mobile-role="menu" onClick={(event) => event.stopPropagation()}>
                       <RowActionsMenu
                         actions={[
                           { label: t('stockHistory'), onClick: () => setHistoryItem(item), icon: <ClockIcon className="w-4 h-4" /> },
