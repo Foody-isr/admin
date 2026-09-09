@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import SupplierHubTabs from '@/components/suppliers/SupplierHubTabs';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -176,8 +177,8 @@ export default function SuppliesPage() {
   return (
     <div className="flex flex-col">
       <PageHead
-        title={t('supplies') || 'Approvisionnements'}
-        desc={t('suppliesDesc') || 'Livraisons et approvisionnements'}
+	        title={t('supplierDeliveries')}
+	        desc={t('supplierDeliveriesDesc')}
         actions={
           <>
             <Button
@@ -198,12 +199,14 @@ export default function SuppliesPage() {
         }
       />
 
+      <SupplierHubTabs restaurantId={rid} active="deliveries" />
+
       <header className="mb-[var(--s-4)]">
         {/* KPIs — desktop only (mobile keeps the table primary) */}
         {showKpis && (
           <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
             <Kpi
-              label={t('supplies') || 'Approvisionnements'}
+	              label={t('supplierDeliveries')}
               value={totalDeliveries}
               sub={`${supplierNames.length} ${t('suppliers') || 'fournisseurs'}`}
             />

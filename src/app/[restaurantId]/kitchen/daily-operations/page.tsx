@@ -434,7 +434,7 @@ export default function DailyOperationsPage() {
     setSendingEmailPO(po.id);
     try {
       const to = emailTo || po.supplier?.email || '';
-      await sendOrderEmail(rid, po.id, to);
+	      await sendOrderEmail(rid, po.id, { to, language: po.supplier?.preferred_language || 'he' });
       // Refresh POs to get updated status
       if (report) {
         const pos = await listPurchaseOrders(rid, { source_report_id: report.id });
