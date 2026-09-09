@@ -7,11 +7,11 @@ import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, listStockTransactions,
   batchUpdateStockCategory, batchUpdateStockVat, getRestaurantSettings, uploadStockItemImage,
-  listSuppliers,
+  getRestaurant, listSuppliers,
   createStockCategory, updateStockCategory, deleteStockCategory,
   listCustomUnits, createCustomUnit,
   StockItem, StockCategory, StockItemInput, StockItemAliasInput, StockTransactionType, StockTransaction,
-  Supplier, CustomUnit, UnitConversionInput,
+  Supplier, CustomUnit, UnitConversionInput, TranslationMap,
 } from '@/lib/api';
 import VatRateSelect from '@/components/stock/VatRateSelect';
 import DeliveryImportModal from './DeliveryImportModal';
@@ -61,6 +61,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button, PageHead } from '@/components/ds';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import LocalizedOrderNameField, { supportedOrderLocale } from '@/components/i18n/LocalizedOrderNameField';
+import type { Locale } from '@/components/i18n/LocaleTabs';
 import {
   getPackaging,
   formatQuantityAtLevel,
@@ -87,6 +89,7 @@ export default function StockPage() {
   const [items, setItems] = useState<StockItem[]>([]);
   const [categories, setCategories] = useState<StockCategory[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -210,6 +213,7 @@ export default function StockPage() {
   // Load VAT rate from restaurant settings
   useEffect(() => {
     getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
+    getRestaurant(rid).then((restaurant) => setSourceLocale(supportedOrderLocale(restaurant.default_locale))).catch(() => {});
   }, [rid]);
 
   const reload = useCallback(async () => {
@@ -868,6 +872,7 @@ export default function StockPage() {
           editing={itemModal.editing}
           categories={categories.map((c) => c.name)}
           suppliers={suppliers}
+          sourceLocale={sourceLocale}
           vatRate={vatRate}
           vatDisplayMode={vatDisplayMode}
           onClose={() => setItemModal({ open: false })}
@@ -1019,8 +1024,8 @@ export default function StockPage() {
 
 // ─── Stock Item Create/Edit Modal ───────────────────────────────────────────
 
-function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDisplayMode, onClose, onSaved }: {
-  rid: number; editing?: StockItem; categories: string[]; suppliers: Supplier[]; vatRate: number; vatDisplayMode: 'ex' | 'inc'; onClose: () => void; onSaved: () => void;
+function StockItemModal({ rid, editing, categories, suppliers, sourceLocale, vatRate, vatDisplayMode, onClose, onSaved }: {
+  rid: number; editing?: StockItem; categories: string[]; suppliers: Supplier[]; sourceLocale: Locale; vatRate: number; vatDisplayMode: 'ex' | 'inc'; onClose: () => void; onSaved: () => void;
 }) {
   const { money } = useCurrency();
   const { t } = useI18n();
@@ -1034,6 +1039,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
 
   // Item-level fields (not part of the quantity form)
   const [name, setName] = useState(editing?.name ?? '');
+  const [translations, setTranslations] = useState<TranslationMap>(editing?.translations ?? {});
   const [sku, setSku] = useState(editing?.sku ?? '');
   const [aliases, setAliases] = useState<StockItemAliasInput[]>(
     () => (editing?.aliases ?? []).map((a) => ({ alias: a.alias, language: a.language })),
@@ -1133,6 +1139,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
     try {
       const payload: StockItemInput = {
         name,
+        translations,
         ...stockInputToServer(qty),
         reorder_threshold: reorder,
         supplier,
@@ -1331,16 +1338,21 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
       <div className="max-w-3xl">
         <EditorSectionHead title={t('identityAndPurchase') || "Identité & achat"} />
 
-        {/* Name */}
+        {/* Names used in supplier orders */}
         <div className="mb-[var(--s-5)]">
-          <Field label={t('nameLabel') || "Nom de l'article"}>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('nameLabel') + ' *'}
-              autoFocus
-            />
-          </Field>
+          <h3 className="mb-1 text-fs-sm font-semibold text-[var(--fg)]">
+            {t('orderItemNames')}
+          </h3>
+          <p className="mb-[var(--s-3)] text-fs-xs text-[var(--fg-muted)]">
+            {t('orderItemNamesHelp')}
+          </p>
+          <LocalizedOrderNameField
+            sourceLocale={sourceLocale}
+            name={name}
+            translations={translations}
+            onNameChange={setName}
+            onTranslationsChange={setTranslations}
+          />
         </div>
 
         {/* Classification */}

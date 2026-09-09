@@ -1553,6 +1553,7 @@ export interface StockItem {
   id: number;
   restaurant_id: number;
   name: string;
+  translations?: TranslationMap;
   unit: StockUnit;
   quantity: number;
   reorder_threshold: number;
@@ -1669,6 +1670,7 @@ export interface StockTransaction {
 
 export interface StockItemInput {
   name: string;
+  translations?: TranslationMap;
   unit: StockUnit;
   quantity?: number;
   reorder_threshold?: number;
@@ -6779,6 +6781,7 @@ export interface SupplierProduct {
   supplier_id: number;
   restaurant_id: number;
   name: string;
+  translations?: TranslationMap;
   sku: string;
   unit: string;
   price_per_unit: number;
@@ -6791,6 +6794,7 @@ export interface SupplierProduct {
 
 export interface SupplierProductInput {
   name: string;
+  translations?: TranslationMap;
   sku?: string;
   unit?: string;
   price_per_unit?: number;
@@ -6942,6 +6946,13 @@ export async function listPurchaseOrders(restaurantId: number, params?: { suppli
 export async function createPurchaseOrder(restaurantId: number, input: { supplier_id: number; expected_delivery_at?: string | null; notes?: string; items: PurchaseOrderItemInput[] }): Promise<PurchaseOrder> {
   const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
+  });
+  return data.order;
+}
+
+export async function refreshPurchaseOrderTranslations(restaurantId: number, id: number): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}/refresh-translations?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST',
   });
   return data.order;
 }
