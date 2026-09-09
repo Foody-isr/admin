@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, MoreHorizontalIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { useDropdownPosition } from '@/lib/use-dropdown-position';
 
@@ -23,9 +23,12 @@ export interface ActionItem {
 export default function ActionsDropdown({
   label,
   actions,
+  compactOnMobile = false,
 }: {
   label?: string;
   actions: ActionItem[];
+  /** Keep dense mobile toolbars to one line while preserving the full label on desktop. */
+  compactOnMobile?: boolean;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -61,11 +64,16 @@ export default function ActionsDropdown({
       <button
         ref={buttonRef}
         onClick={() => setOpen((v) => !v)}
-        className="btn-secondary rounded-full px-5 py-2 flex items-center gap-2"
+        className={`btn-secondary flex items-center gap-2 rounded-full px-5 py-2 ${
+          compactOnMobile ? 'max-md:size-11 max-md:justify-center max-md:px-0' : ''
+        }`}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={label ?? t('actions')}
       >
-        {label ?? t('actions')} <ChevronDownIcon className="w-3.5 h-3.5" />
+        {compactOnMobile && <MoreHorizontalIcon className="size-5 md:hidden" aria-hidden />}
+        <span className={compactOnMobile ? 'max-md:sr-only' : undefined}>{label ?? t('actions')}</span>
+        <ChevronDownIcon className={`size-3.5 ${compactOnMobile ? 'max-md:hidden' : ''}`} />
       </button>
       {open && pos && typeof document !== 'undefined'
         ? createPortal(

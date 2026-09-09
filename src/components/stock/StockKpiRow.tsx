@@ -6,7 +6,6 @@ import {
   PackageXIcon,
   WalletCardsIcon,
 } from 'lucide-react';
-import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { useCurrency, useI18n } from '@/lib/i18n';
 
 interface Props {
@@ -77,13 +76,14 @@ export default function StockKpiRow({
   ];
 
   return (
-    <HorizontalScrollRail edgeFlush>
-      <div className="inline-flex min-w-full overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1">
+      <div className="grid min-w-full grid-cols-2 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 md:flex">
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
-          const className = `group flex min-w-[210px] flex-1 items-center gap-3 px-4 py-3 text-start outline-none transition-colors md:min-w-0 ${
+          const className = `group flex min-w-0 items-center gap-2.5 px-3 py-3 text-start outline-none transition-colors md:flex-1 md:gap-3 md:px-4 ${
             metric.onClick ? 'hover:bg-[var(--surface-2)]/70 focus-visible:shadow-ring' : ''
-          } ${index > 0 ? 'border-s border-[var(--line)]' : ''}`;
+          } ${index % 2 === 1 ? 'border-s border-[var(--line)]' : ''} ${
+            index > 1 ? 'border-t border-[var(--line)] md:border-t-0' : ''
+          } ${index === 2 ? 'md:border-s md:border-[var(--line)]' : ''}`;
           const content = (
             <>
               <span className={`flex size-8 shrink-0 items-center justify-center rounded-r-md ${metric.tone}`}>
@@ -94,10 +94,10 @@ export default function StockKpiRow({
                   {metric.label}
                 </span>
                 <span className="flex items-baseline gap-2 whitespace-nowrap">
-                  <span className="num text-fs-xl font-semibold leading-tight text-[var(--fg)]">
+                  <span className="num text-fs-lg font-semibold leading-tight text-[var(--fg)] sm:text-fs-xl">
                     {metric.value}
                   </span>
-                  <span className="text-[11px] text-[var(--fg-subtle)]">
+                  <span className="hidden text-[11px] text-[var(--fg-subtle)] sm:inline">
                     {metric.detail}
                   </span>
                 </span>
@@ -116,6 +116,5 @@ export default function StockKpiRow({
           );
         })}
       </div>
-    </HorizontalScrollRail>
   );
 }
