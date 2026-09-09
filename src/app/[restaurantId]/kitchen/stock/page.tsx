@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, listStockTransactions,
@@ -41,7 +42,7 @@ import {
   ArrowUpIcon, ArrowDownIcon, ArrowRightLeftIcon,
   SparklesIcon, ClockIcon, RefreshCwIcon,
   ChevronDownIcon, ImageIcon, UploadIcon,
-  RulerIcon, ListFilterIcon, XIcon, TagIcon, PercentIcon,
+	  RulerIcon, ListFilterIcon, XIcon, TagIcon, PercentIcon, ShoppingCartIcon,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -382,9 +383,14 @@ export default function StockPage() {
           title={t('stock') || 'Stock'}
           desc={`${items.length} ${t('articlesUnit')} · ${categories.length} ${t('categoriesCount')}`}
           className="mb-0 items-center"
-          actions={
-            canManage ? (
-              <Button
+	          actions={
+	            canManage ? (<>
+	              <Button variant="secondary" size="lg" asChild>
+	                <Link href={`/${rid}/kitchen/suppliers?tab=needs`}>
+	                  <ShoppingCartIcon /> {t('orderStock')}
+	                </Link>
+	              </Button>
+	              <Button
                 variant="primary"
                 size="lg"
                 icon
@@ -392,10 +398,10 @@ export default function StockPage() {
                 aria-label={t('addItem')}
                 title={t('addItem')}
                 className="rounded-full text-white shadow-sm"
-              >
-                <PlusIcon className="!size-5" />
-              </Button>
-            ) : null
+	              >
+	                <PlusIcon className="!size-5" />
+	              </Button>
+	            </>) : null
           }
         />
 

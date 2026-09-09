@@ -6731,8 +6731,11 @@ export interface Supplier {
   address: string;
   notes: string;
   extraction_hints: string;
+  preferred_channel: SupplierOrderChannel;
+  preferred_language: SupplierOrderLanguage;
   is_active: boolean;
   products?: SupplierProduct[];
+  schedules: SupplierDeliverySchedule[];
   created_at: string;
   updated_at: string;
 }
@@ -6745,8 +6748,31 @@ export interface SupplierInput {
   address?: string;
   notes?: string;
   extraction_hints?: string;
+  preferred_channel?: SupplierOrderChannel;
+  preferred_language?: SupplierOrderLanguage;
+  schedules?: SupplierDeliveryScheduleInput[];
   is_active?: boolean;
 }
+
+export type SupplierOrderChannel = 'whatsapp' | 'email';
+export type SupplierOrderLanguage = 'he' | 'fr' | 'en';
+
+export interface SupplierDeliverySchedule {
+  id: number;
+  supplier_id: number;
+  restaurant_id: number;
+  /** Sunday = 0, matching JavaScript Date#getDay. */
+  weekday: number;
+  window_start: string;
+  window_end: string;
+  order_cutoff_days_before: number;
+  order_cutoff_time: string;
+}
+
+export type SupplierDeliveryScheduleInput = Omit<
+  SupplierDeliverySchedule,
+  'id' | 'supplier_id' | 'restaurant_id'
+>;
 
 export interface SupplierProduct {
   id: number;
@@ -6782,8 +6808,12 @@ export interface PurchaseOrder {
   notes: string;
   total_amount: number;
   order_date: string | null;
+  expected_delivery_at: string | null;
   received_date: string | null;
   source_report_id?: number | null;
+  send_channel: SupplierOrderChannel | '';
+  send_language: SupplierOrderLanguage | '';
+  sent_at: string | null;
   created_by_id: number;
   supplier: Supplier;
   items: PurchaseOrderItem[];
@@ -6893,21 +6923,26 @@ export async function listPurchaseOrders(restaurantId: number, params?: { suppli
   return data.orders ?? [];
 }
 
-export async function createPurchaseOrder(restaurantId: number, input: { supplier_id: number; notes?: string; items: PurchaseOrderItemInput[] }): Promise<PurchaseOrder> {
+export async function createPurchaseOrder(restaurantId: number, input: { supplier_id: number; expected_delivery_at?: string | null; notes?: string; items: PurchaseOrderItemInput[] }): Promise<PurchaseOrder> {
   const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
   });
   return data.order;
 }
 
-export async function updatePurchaseOrderStatus(restaurantId: number, id: number, status: PurchaseOrderStatus): Promise<PurchaseOrder> {
+export async function updatePurchaseOrderStatus(
+  restaurantId: number,
+  id: number,
+  status: PurchaseOrderStatus,
+  send?: { channel?: SupplierOrderChannel; language?: SupplierOrderLanguage },
+): Promise<PurchaseOrder> {
   const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}/status?restaurant_id=${restaurantId}`, restaurantId, {
-    method: 'PUT', body: JSON.stringify({ status }),
+    method: 'PUT', body: JSON.stringify({ status, ...send }),
   });
   return data.order;
 }
 
-export async function receivePurchaseOrder(restaurantId: number, id: number, items: { id: number; received_qty: number }[]): Promise<PurchaseOrder> {
+export async function receivePurchaseOrder(restaurantId: number, id: number, items: { item_id: number; received_qty: number }[]): Promise<PurchaseOrder> {
   const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}/receive?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify({ items }),
   });
@@ -6918,10 +6953,14 @@ export async function deletePurchaseOrder(restaurantId: number, id: number): Pro
   await apiFetch<void>(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
 
-export async function sendOrderEmail(restaurantId: number, poId: number, to?: string): Promise<{ sent: boolean }> {
+export async function sendOrderEmail(
+  restaurantId: number,
+  poId: number,
+  options?: { to?: string; language?: SupplierOrderLanguage },
+): Promise<{ sent: boolean }> {
   return await apiFetch<{ sent: boolean }>(`/api/v1/purchase-orders/${poId}/send-email?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST',
-    body: JSON.stringify({ to: to || '' }),
+    body: JSON.stringify({ to: options?.to || '', language: options?.language || '' }),
   });
 }
 
