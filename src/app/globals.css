@@ -666,6 +666,90 @@ input::placeholder, textarea::placeholder {
     top: 12px;
     inset-inline-end: 12px;
   }
+
+  /* Dense restaurant workspaces need scan speed more than report-like cards.
+     Articles, stock and orders use a two-column operational readout: identity
+     first, then compact facts, with menus and workflow actions in fixed zones. */
+  .operational-table > table > tbody {
+    gap: 10px;
+  }
+  .operational-table[data-density='compact'] > table > tbody > tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0;
+    padding: 12px;
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-1);
+  }
+  .operational-table > table > tbody > tr[data-mobile-hidden-row] {
+    display: none;
+  }
+  .operational-table > table > tbody > tr > td[data-mobile-primary] {
+    order: -10;
+    grid-column: 1 / -1;
+    min-height: 48px;
+    margin: 0 0 10px;
+    padding: 0 38px 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  [dir='rtl'] .operational-table > table > tbody > tr > td[data-mobile-primary] {
+    padding-right: 0;
+    padding-left: 38px;
+  }
+  .operational-table > table > tbody > tr > td[data-mobile-role='detail'] {
+    display: block;
+    min-width: 0;
+    padding: 7px 4px;
+    text-align: start;
+  }
+  .operational-table > table > tbody > tr > td[data-mobile-role='detail']::before {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-align: start;
+    text-transform: none;
+    color: var(--fg-subtle);
+  }
+  .operational-table > table > tbody > tr > td[data-mobile-role='menu'] {
+    position: absolute;
+    inset-block-start: 13px;
+    inset-inline-end: 9px;
+  }
+  .operational-table > table > tbody > tr > td[data-mobile-role='primary-action'] {
+    order: 20;
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .operational-table > table > tbody > tr > td[data-mobile-role='primary-action'] > button {
+    width: 100%;
+    min-height: 40px;
+  }
+  .orders-operational-table > table > tbody > tr > td[data-mobile-column='order_no'] {
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .orders-operational-table > table > tbody > tr > td[data-mobile-column='total'] {
+    font-size: var(--fs-lg);
+    font-weight: 650;
+    color: var(--fg);
+  }
+  .catalog-operational-table > table > tbody > tr > td[data-mobile-column='price'] {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 2px;
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
+  }
+  .catalog-operational-table > table > tbody > tr > td[data-mobile-column='price']::before {
+    margin-bottom: 0;
+  }
 }
 
 /* Hide the native scrollbar on horizontally-scrollable rails (mobile tab

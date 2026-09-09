@@ -69,7 +69,7 @@ export function OrdersOperationsRail({
               title={description}
               data-rail-active={selected ? '' : undefined}
               onClick={() => onSelect(queue.key)}
-              className={`group relative flex min-w-[190px] flex-1 items-center gap-3 px-4 py-3 text-start outline-none transition-colors focus-visible:shadow-ring md:min-w-0 ${
+              className={`group relative flex min-w-[142px] flex-1 items-center gap-2.5 px-3 py-3 text-start outline-none transition-colors focus-visible:shadow-ring md:min-w-0 md:gap-3 md:px-4 ${
                 index > 0 ? 'border-s border-[var(--line)]' : ''
               } ${selected ? 'bg-[var(--surface-2)]' : 'hover:bg-[var(--surface-2)]/70'}`}
             >
