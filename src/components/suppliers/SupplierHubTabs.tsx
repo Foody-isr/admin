@@ -44,9 +44,9 @@ export default function SupplierHubTabs({
   return (
     <nav
       aria-label={t("supplierHubTitle")}
-      className="mb-[var(--s-5)] border-b border-[var(--line)]"
+      className="mb-[var(--s-5)] overflow-x-auto border-b border-[var(--line)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <div className="flex min-w-max gap-[var(--s-5)] overflow-x-auto">
+      <div className="flex w-max min-w-full gap-[var(--s-5)]">
         {tabs.map((tab) => (
           <Link
             key={tab.key}

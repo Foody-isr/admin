@@ -15,6 +15,7 @@ import {
   listSupplierProducts,
   listSuppliers,
   receivePurchaseOrder,
+  refreshPurchaseOrderTranslations,
   sendOrderEmail,
   updatePurchaseOrderStatus,
   updateSupplier,
@@ -30,6 +31,7 @@ import {
   type SupplierOrderLanguage,
   type SupplierProduct,
   type SupplierProductInput,
+  type TranslationMap,
 } from "@/lib/api";
 import Modal from "@/components/Modal";
 import SupplierHubTabs, {
@@ -40,6 +42,10 @@ import { NumberInput } from "@/components/ui/NumberInput";
 import { labelForRaw } from "@/components/stock/StockQuantityForm";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { usePermissions } from "@/lib/permissions-context";
+import LocalizedOrderNameField, {
+  supportedOrderLocale,
+} from "@/components/i18n/LocalizedOrderNameField";
+import type { Locale } from "@/components/i18n/LocaleTabs";
 import {
   buildPurchaseOrderMessage,
   buildWhatsAppUrl,
@@ -61,6 +67,7 @@ import {
   Settings2,
   Trash2,
   Truck,
+  X,
   XCircle,
 } from "lucide-react";
 
@@ -216,6 +223,7 @@ export default function SuppliersPage() {
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [restaurantName, setRestaurantName] = useState("Foody");
+  const [sourceLocale, setSourceLocale] = useState<Locale>("en");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [supplierModal, setSupplierModal] = useState<{
@@ -243,6 +251,7 @@ export default function SuppliersPage() {
       setOrders(orderData);
       setStockItems(stockData);
       setRestaurantName(restaurant.name);
+      setSourceLocale(supportedOrderLocale(restaurant.default_locale));
     } catch (err) {
       setError(err instanceof Error ? err.message : t("supplierLoadFailed"));
     } finally {
@@ -267,17 +276,21 @@ export default function SuppliersPage() {
   return (
     <div className="min-w-0">
       <PageHead
+        className="max-sm:[&>div:last-child]:w-full"
         title={t("supplierHubTitle")}
         desc={t("supplierHubDesc")}
         actions={
           canManage ? (
-            <Button
-              size="lg"
-              onClick={() => setOrderSeed({})}
-              disabled={suppliers.length === 0}
-            >
-              <Plus /> {t("newPurchaseOrder")}
-            </Button>
+            <div className="w-full sm:w-auto">
+              <Button
+                size="lg"
+                className="w-full sm:w-auto"
+                onClick={() => setOrderSeed({})}
+                disabled={suppliers.length === 0}
+              >
+                <Plus /> {t("newPurchaseOrder")}
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -362,6 +375,7 @@ export default function SuppliersPage() {
           supplier={productsSupplier}
           rid={rid}
           stockItems={stockItems}
+          sourceLocale={sourceLocale}
           onClose={() => {
             setProductsSupplier(null);
             void reload();
@@ -443,7 +457,7 @@ function NeedsTab({
     <div className="space-y-[var(--s-6)]">
       <WeeklyDeliveryRail suppliers={suppliers} locale={locale} />
       <section>
-        <div className="mb-3 flex items-end justify-between gap-4">
+        <div className="mb-3 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-end sm:gap-4">
           <div>
             <h2 className="text-fs-xl font-semibold text-[var(--fg)]">
               {t("orderToday")}
@@ -474,8 +488,8 @@ function NeedsTab({
                   key={supplier.id}
                   className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--line)] bg-[var(--surface-2)]/60 px-4 py-3">
-                    <div>
+                  <div className="flex flex-col items-stretch justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface-2)]/60 px-4 py-3 sm:flex-row sm:items-start sm:gap-4">
+                    <div className="min-w-0">
                       <h3 className="font-semibold text-[var(--fg)]">
                         {supplier.name}
                       </h3>
@@ -500,6 +514,7 @@ function NeedsTab({
                     {canManage && (
                       <Button
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() =>
                           onOrder({
                             supplierId: supplier.id,
@@ -515,7 +530,7 @@ function NeedsTab({
                     {items.map((item) => (
                       <div
                         key={item.id}
-                        className="grid grid-cols-[40px_minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-3 text-fs-sm"
+                        className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-3 px-4 py-3 text-fs-sm md:grid-cols-[40px_minmax(0,1fr)_auto_auto]"
                       >
                         <div className="flex size-10 items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
                           {item.image_url ? (
@@ -529,10 +544,15 @@ function NeedsTab({
                             <Package className="size-4 text-[var(--fg-subtle)]" />
                           )}
                         </div>
-                        <span className="truncate font-medium text-[var(--fg)]">
-                          {item.name}
-                        </span>
-                        <span className="text-[var(--fg-muted)]">
+                        <div className="min-w-0">
+                          <div className="truncate font-medium text-[var(--fg)]">
+                            {item.name}
+                          </div>
+                          <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)] md:hidden">
+                            {t("currentStock")}: {item.quantity} {item.unit}
+                          </div>
+                        </div>
+                        <span className="hidden text-[var(--fg-muted)] md:inline">
                           {t("currentStock")}:{" "}
                           <b className="text-[var(--danger-500)]">
                             {item.quantity} {item.unit}
@@ -678,17 +698,21 @@ function SuppliersTab({
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="relative min-w-60 flex-1">
+        <label className="relative min-w-0 flex-1 basis-full sm:min-w-60 sm:basis-auto">
           <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t("searchSuppliers")}
-            className="h-11 w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] ps-10 pe-3 text-fs-sm outline-none focus:shadow-ring"
+            className="h-11 w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] ps-10 pe-3 text-base outline-none focus:shadow-ring sm:text-fs-sm"
           />
         </label>
         {canManage && (
-          <Button variant="secondary" onClick={onAdd}>
+          <Button
+            variant="secondary"
+            className="w-full sm:w-auto"
+            onClick={onAdd}
+          >
             <Plus />
             {t("addSupplier")}
           </Button>
@@ -1187,8 +1211,21 @@ function OrderComposer({
   );
   const [notes, setNotes] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
+  const [productSearch, setProductSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const supplier = suppliers.find((item) => item.id === supplierId);
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
   useEffect(() => {
     if (!supplierId) return;
     let active = true;
@@ -1223,6 +1260,7 @@ function OrderComposer({
       });
       setQuantities(nextQuantities);
       setPackagings(nextPackagings);
+      setProductSearch("");
       setEditingPackagingKey(null);
     });
     return () => {
@@ -1269,6 +1307,12 @@ function OrderComposer({
     })),
   ];
   const selectedRows = rows.filter((row) => (quantities[row.key] ?? 0) > 0);
+  const normalizedSearch = productSearch.trim().toLocaleLowerCase(locale);
+  const visibleRows = normalizedSearch
+    ? rows.filter((row) =>
+        row.name.toLocaleLowerCase(locale).includes(normalizedSearch),
+      )
+    : rows;
   const numberFormatter = new Intl.NumberFormat(locale, {
     maximumFractionDigits: 3,
   });
@@ -1316,28 +1360,34 @@ function OrderComposer({
   };
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/40"
+      className="fixed inset-0 z-50 flex justify-end overflow-hidden bg-black/50 backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="purchase-order-title"
     >
-      <div className="flex h-full w-full max-w-3xl flex-col bg-[var(--surface)] shadow-3">
-        <div className="flex items-start justify-between border-b border-[var(--line)] px-5 py-4 sm:px-6">
-          <div>
-            <h2 className="text-fs-xl font-semibold text-[var(--fg)]">
+      <div className="flex h-[100dvh] min-w-0 w-full flex-col overflow-hidden bg-[var(--surface)] shadow-3 sm:max-w-3xl">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--line)] px-4 pb-3 pt-[max(var(--s-3),var(--safe-top))] sm:px-6 sm:py-4">
+          <div className="min-w-0 pt-0.5">
+            <h2
+              id="purchase-order-title"
+              className="text-fs-lg font-semibold leading-tight text-[var(--fg)] sm:text-fs-xl"
+            >
               {t("newPurchaseOrder")}
             </h2>
-            <p className="mt-1 text-fs-sm text-[var(--fg-muted)]">
+            <p className="mt-1 text-fs-xs leading-snug text-[var(--fg-muted)] sm:text-fs-sm">
               {t("newPurchaseOrderDesc")}
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-r-sm p-2 text-[var(--fg-muted)] hover:bg-[var(--surface-2)]"
+            aria-label={t("cancel")}
+            className="grid size-11 shrink-0 place-items-center rounded-r-md text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
           >
-            ✕
+            <X className="size-5" />
           </button>
         </div>
-        <div className="flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
+        <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-5 sm:p-6">
           <div className="grid gap-3 sm:grid-cols-2">
             <SelectField
               label={t("supplier")}
@@ -1353,13 +1403,24 @@ function OrderComposer({
             />
           </div>
           <div>
-            <div className="mb-2 grid grid-cols-[52px_minmax(0,1fr)_140px] gap-3 px-3 text-fs-xs font-semibold text-[var(--fg-muted)]">
+            <label className="relative mb-3 block">
+              <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
+              <input
+                type="search"
+                value={productSearch}
+                onChange={(event) => setProductSearch(event.target.value)}
+                placeholder={t("searchItems")}
+                aria-label={t("searchItems")}
+                className="h-11 w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] ps-10 pe-3 text-base text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] focus:shadow-ring sm:text-fs-sm"
+              />
+            </label>
+            <div className="mb-2 hidden grid-cols-[52px_minmax(0,1fr)_150px] gap-3 px-3 text-fs-xs font-semibold text-[var(--fg-muted)] sm:grid">
               <span aria-hidden="true" />
               <span>{t("productAndStock")}</span>
               <span>{t("quantity")}</span>
             </div>
-            <div className="divide-y divide-[var(--line)] overflow-hidden rounded-r-lg border border-[var(--line)]">
-              {rows.map((row) => {
+            <div className="space-y-2 sm:space-y-0 sm:divide-y sm:divide-[var(--line)] sm:overflow-hidden sm:rounded-r-lg sm:border sm:border-[var(--line)]">
+              {visibleRows.map((row) => {
                 const packaging =
                   packagings[row.key] ?? packagingFromStock(row.stockItem);
                 const amount = quantities[row.key] ?? 0;
@@ -1372,12 +1433,14 @@ function OrderComposer({
                 return (
                   <div
                     key={row.key}
-                    className={
-                      amount > 0 ? "bg-[var(--brand-50)]/60" : undefined
-                    }
+                    className={`overflow-hidden rounded-r-lg border sm:rounded-none sm:border-0 ${
+                      amount > 0
+                        ? "border-[var(--brand-500)]/35 bg-[var(--brand-50)]/60"
+                        : "border-[var(--line)] bg-[var(--surface)]"
+                    }`}
                   >
-                    <div className="grid grid-cols-[52px_minmax(0,1fr)_140px] items-center gap-3 px-3 py-3">
-                      <div className="flex size-[52px] items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
+                    <div className="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] items-start gap-3 p-3 sm:grid-cols-[52px_minmax(0,1fr)_150px] sm:items-center">
+                      <div className="flex size-12 items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] sm:size-[52px]">
                         {row.stockItem?.image_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -1390,7 +1453,7 @@ function OrderComposer({
                         )}
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-fs-sm font-medium text-[var(--fg)]">
+                        <div className="truncate text-fs-sm font-semibold text-[var(--fg)]">
                           {row.name}
                         </div>
                         <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
@@ -1405,9 +1468,9 @@ function OrderComposer({
                             onClick={() =>
                               setEditingPackagingKey(editing ? null : row.key)
                             }
-                            className="mt-1.5 flex max-w-full items-center gap-1 text-start text-fs-xs font-medium text-[var(--brand-600)] hover:text-[var(--brand-700)]"
+                            className="mt-1.5 flex max-w-full items-start gap-1 text-start text-fs-xs font-medium leading-snug text-[var(--brand-600)] hover:text-[var(--brand-700)]"
                           >
-                            <span className="truncate">
+                            <span className="min-w-0">
                               {packaging.packagingSet
                                 ? `${t("lastDeliveryPackaging")}: ${packagingLabel(packaging, t)}`
                                 : t("noPackagingSaved")}
@@ -1416,7 +1479,15 @@ function OrderComposer({
                           </button>
                         )}
                       </div>
-                      <div className="min-w-0">
+                      <label className="col-span-2 min-w-0 sm:col-span-1">
+                        <span className="mb-1.5 flex items-center justify-between gap-2 text-fs-xs font-medium text-[var(--fg-muted)] sm:hidden">
+                          <span>{t("quantity")}</span>
+                          {packaging.packagingSet && amount > 0 && (
+                            <span>
+                              = {numberFormatter.format(baseQuantity)} {row.unit}
+                            </span>
+                          )}
+                        </span>
                         <div className="flex items-center gap-2">
                           <NumberInput
                             min={0}
@@ -1427,9 +1498,10 @@ function OrderComposer({
                                 [row.key]: value,
                               }))
                             }
-                            className="h-9 min-w-0 flex-1 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-2 text-fs-sm"
+                            aria-label={`${t("quantity")} · ${row.name}`}
+                            className="h-11 min-w-0 flex-1 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-center text-base font-semibold text-[var(--fg)] outline-none focus:shadow-ring sm:h-9 sm:rounded-r-sm sm:px-2 sm:text-fs-sm sm:font-normal"
                           />
-                          <span className="max-w-16 truncate text-fs-xs text-[var(--fg-muted)]">
+                          <span className="max-w-24 shrink-0 truncate rounded-r-sm bg-[var(--surface-2)] px-2.5 py-2 text-fs-xs font-medium text-[var(--fg-muted)] sm:max-w-16 sm:bg-transparent sm:px-0 sm:py-0 sm:font-normal">
                             {packaging.packagingSet
                               ? labelForRaw(packaging.containerType, t) ||
                                 row.unit
@@ -1437,11 +1509,11 @@ function OrderComposer({
                           </span>
                         </div>
                         {packaging.packagingSet && amount > 0 && (
-                          <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+                          <div className="mt-1 hidden text-fs-xs text-[var(--fg-muted)] sm:block">
                             = {numberFormatter.format(baseQuantity)} {row.unit}
                           </div>
                         )}
-                      </div>
+                      </label>
                     </div>
                     {editing && row.stockItem && (
                       <PackagingEditor
@@ -1456,9 +1528,11 @@ function OrderComposer({
                   </div>
                 );
               })}
-              {rows.length === 0 && (
+              {visibleRows.length === 0 && (
                 <div className="p-8 text-center text-fs-sm text-[var(--fg-muted)]">
-                  {t("noSupplierProductsHint")}
+                  {rows.length === 0
+                    ? t("noSupplierProductsHint")
+                    : t("noResults")}
                 </div>
               )}
             </div>
@@ -1471,24 +1545,36 @@ function OrderComposer({
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               rows={3}
-              className="w-full rounded-r-md border border-[var(--line-strong)] px-3 py-2 text-fs-sm outline-none focus:shadow-ring"
+              className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-base text-[var(--fg)] outline-none focus:shadow-ring sm:text-fs-sm"
             />
           </label>
         </div>
-        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--line)] bg-[var(--surface-2)]/50 px-5 py-4 sm:px-6">
-          <Button variant="secondary" onClick={onClose}>
+        <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] gap-2 border-t border-[var(--line)] bg-[var(--surface)] px-4 pt-3 pb-[max(var(--s-4),var(--safe-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] sm:flex sm:flex-wrap sm:justify-end sm:bg-[var(--surface-2)]/50 sm:px-6 sm:py-4 sm:shadow-none">
+          <span className="order-1 self-center text-fs-xs font-medium text-[var(--fg-muted)] sm:me-auto">
+            {t("itemsSelectedCount").replace(
+              "{count}",
+              String(selectedRows.length),
+            )}
+          </span>
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            className="order-3 min-w-0 w-full sm:order-none sm:w-auto"
+          >
             {t("cancel")}
           </Button>
           <Button
             variant="secondary"
             disabled={saving || selectedRows.length === 0}
             onClick={() => create(false)}
+            className="order-4 min-w-0 w-full text-fs-xs sm:order-none sm:w-auto sm:text-fs-sm"
           >
             {t("saveDraft")}
           </Button>
           <Button
             disabled={saving || selectedRows.length === 0}
             onClick={() => create(true)}
+            className="order-2 col-span-2 h-11 w-full sm:order-none sm:w-auto"
           >
             {t("continueToSend")}
             <ChevronRight />
@@ -1516,9 +1602,9 @@ function PackagingEditor({
 }) {
   const { t } = useI18n();
   return (
-    <div className="border-t border-[var(--line)] bg-[var(--surface)] px-4 py-4">
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div>
+    <div className="border-t border-[var(--line)] bg-[var(--surface)] px-3 py-4 sm:px-4">
+      <div className="mb-3 flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
           <div className="text-fs-sm font-semibold text-[var(--fg)]">
             {t("editPackaging")}
           </div>
@@ -1530,6 +1616,7 @@ function PackagingEditor({
           <Button
             size="sm"
             variant="secondary"
+            className="w-full sm:w-auto"
             onClick={() =>
               onChange({
                 packagingSet: true,
@@ -1556,7 +1643,7 @@ function PackagingEditor({
                 onChange={(event) =>
                   onChange({ containerType: event.target.value })
                 }
-                className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm outline-none focus:shadow-ring"
+                className="h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
               />
             </label>
             <label className="block">
@@ -1567,7 +1654,7 @@ function PackagingEditor({
                 min={0}
                 value={packaging.unitsPerPack}
                 onChange={(value) => onChange({ unitsPerPack: value })}
-                className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm outline-none focus:shadow-ring"
+                className="h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
               />
             </label>
             <label className="block">
@@ -1579,7 +1666,7 @@ function PackagingEditor({
                 maxLength={20}
                 placeholder={t("innerUnitPlaceholder")}
                 onChange={(event) => onChange({ unitType: event.target.value })}
-                className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm outline-none focus:shadow-ring"
+                className="h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
               />
             </label>
             <label className="block">
@@ -1591,14 +1678,14 @@ function PackagingEditor({
                   min={0}
                   value={packaging.unitSize}
                   onChange={(value) => onChange({ unitSize: value })}
-                  className="h-10 min-w-0 flex-1 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm outline-none focus:shadow-ring"
+                  className="h-11 min-w-0 flex-1 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
                 />
                 <select
                   value={packaging.unitSizeUnit}
                   onChange={(event) =>
                     onChange({ unitSizeUnit: event.target.value })
                   }
-                  className="h-10 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-2 text-fs-sm outline-none focus:shadow-ring"
+                  className="h-11 max-w-24 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-2 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
                 >
                   {UNITS.map((unit) => (
                     <option key={unit} value={unit}>
@@ -1644,17 +1731,37 @@ function SendOrderModal({
   onSent: () => Promise<void>;
 }) {
   const { t } = useI18n();
-  const supplier = order.supplier;
+  const [preparedOrder, setPreparedOrder] = useState(order);
+  const supplier = preparedOrder.supplier;
   const [language, setLanguage] = useState<SupplierOrderLanguage>(
-    supplier.preferred_language || "he",
+    order.supplier.preferred_language || "he",
   );
   const [channel, setChannel] = useState<SupplierOrderChannel>(
-    supplier.preferred_channel || "whatsapp",
+    order.supplier.preferred_channel || "whatsapp",
   );
   const [message, setMessage] = useState("");
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [preparing, setPreparing] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setPreparedOrder(order);
+    setPreparing(true);
+    refreshPurchaseOrderTranslations(rid, order.id)
+      .then((refreshed) => {
+        if (active) setPreparedOrder(refreshed);
+      })
+      .catch(() => {
+        if (active) setError(t("translationPreparationFailed"));
+      })
+      .finally(() => {
+        if (active) setPreparing(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [order, rid, t]);
   useEffect(
     () =>
       setMessage(
@@ -1662,14 +1769,14 @@ function SendOrderModal({
           {
             restaurantName,
             supplierName: supplier.name,
-            expectedDeliveryAt: order.expected_delivery_at,
-            items: order.items,
-            notes: order.notes,
+            expectedDeliveryAt: preparedOrder.expected_delivery_at,
+            items: preparedOrder.items,
+            notes: preparedOrder.notes,
           },
           language,
         ),
       ),
-    [language, order, restaurantName, supplier.name],
+    [language, preparedOrder, restaurantName, supplier.name],
   );
   const send = async () => {
     setError("");
@@ -1689,7 +1796,7 @@ function SendOrderModal({
     }
     setSending(true);
     try {
-      await sendOrderEmail(rid, order.id, { language });
+      await sendOrderEmail(rid, preparedOrder.id, { language });
       await onSent();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("sendOrderFailed"));
@@ -1700,7 +1807,7 @@ function SendOrderModal({
   const confirmWhatsApp = async () => {
     setSending(true);
     try {
-      await updatePurchaseOrderStatus(rid, order.id, "sent", {
+      await updatePurchaseOrderStatus(rid, preparedOrder.id, "sent", {
         channel: "whatsapp",
         language,
       });
@@ -1710,15 +1817,20 @@ function SendOrderModal({
     }
   };
   return (
-    <Modal title={t("sendPurchaseOrder")} onClose={onClose}>
+    <Modal
+      title={t("sendPurchaseOrder")}
+      onClose={onClose}
+      size="lg"
+      bodyClassName="!p-4 sm:!p-6"
+    >
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <button
             onClick={() => {
               setChannel("whatsapp");
               setAwaitingConfirmation(false);
             }}
-            className={`rounded-r-md border p-4 text-start ${channel === "whatsapp" ? "border-[var(--brand-500)] bg-[var(--brand-50)] shadow-ring" : "border-[var(--line)]"}`}
+            className={`min-w-0 rounded-r-md border p-3 text-start sm:p-4 ${channel === "whatsapp" ? "border-[var(--brand-500)] bg-[var(--brand-50)] shadow-ring" : "border-[var(--line)]"}`}
           >
             <MessageCircle className="mb-2 size-5 text-[var(--success-500)]" />
             <div className="font-semibold">WhatsApp</div>
@@ -1731,7 +1843,7 @@ function SendOrderModal({
               setChannel("email");
               setAwaitingConfirmation(false);
             }}
-            className={`rounded-r-md border p-4 text-start ${channel === "email" ? "border-[var(--brand-500)] bg-[var(--brand-50)] shadow-ring" : "border-[var(--line)]"}`}
+            className={`min-w-0 rounded-r-md border p-3 text-start sm:p-4 ${channel === "email" ? "border-[var(--brand-500)] bg-[var(--brand-50)] shadow-ring" : "border-[var(--line)]"}`}
           >
             <Mail className="mb-2 size-5 text-[var(--info-500)]" />
             <div className="font-semibold">{t("email")}</div>
@@ -1753,6 +1865,11 @@ function SendOrderModal({
             ["en", t("language_en")],
           ]}
         />
+        {preparing && (
+          <p className="text-fs-xs text-[var(--fg-muted)]" role="status">
+            {t("preparingTranslatedNames")}
+          </p>
+        )}
         <label className="block">
           <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
             {t("messagePreview")}
@@ -1761,8 +1878,8 @@ function SendOrderModal({
             dir={language === "he" ? "rtl" : "ltr"}
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            rows={11}
-            className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface-2)] px-3 py-3 text-fs-sm leading-relaxed outline-none focus:bg-[var(--surface)] focus:shadow-ring"
+            rows={9}
+            className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface-2)] px-3 py-3 text-base leading-relaxed outline-none focus:bg-[var(--surface)] focus:shadow-ring sm:text-fs-sm"
           />
         </label>
         {error && (
@@ -1778,25 +1895,38 @@ function SendOrderModal({
             <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
               {t("whatsAppConfirmHint")}
             </p>
-            <div className="mt-3 flex gap-2">
-              <Button disabled={sending} onClick={confirmWhatsApp}>
+            <div className="mt-3 grid gap-2 sm:flex">
+              <Button
+                disabled={preparing || sending}
+                onClick={confirmWhatsApp}
+                className="h-11 w-full sm:w-auto"
+              >
                 <Check />
                 {t("markSent")}
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => setAwaitingConfirmation(false)}
+                className="w-full sm:w-auto"
               >
                 {t("notYet")}
               </Button>
             </div>
           </div>
         ) : (
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={onClose}>
+          <div className="grid gap-2 sm:flex sm:justify-end">
+            <Button
+              variant="secondary"
+              onClick={onClose}
+              className="order-2 w-full sm:order-1 sm:w-auto"
+            >
               {t("cancel")}
             </Button>
-            <Button disabled={sending} onClick={send}>
+            <Button
+              disabled={preparing || sending}
+              onClick={send}
+              className="order-1 h-11 w-full sm:order-2 sm:w-auto"
+            >
               {channel === "whatsapp" ? <MessageCircle /> : <Mail />}
               {channel === "whatsapp" ? t("openWhatsApp") : t("sendEmail")}
             </Button>
@@ -1888,11 +2018,13 @@ function SupplierProductsModal({
   supplier,
   rid,
   stockItems,
+  sourceLocale,
   onClose,
 }: {
   supplier: Supplier;
   rid: number;
   stockItems: StockItem[];
+  sourceLocale: Locale;
   onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -1963,6 +2095,7 @@ function SupplierProductsModal({
           <ProductEditor
             editing={editing ?? undefined}
             stockItems={stockItems}
+            sourceLocale={sourceLocale}
             onClose={() => setEditing(undefined)}
             onSave={async (input) => {
               if (editing)
@@ -1986,16 +2119,21 @@ function SupplierProductsModal({
 function ProductEditor({
   editing,
   stockItems,
+  sourceLocale,
   onClose,
   onSave,
 }: {
   editing?: SupplierProduct;
   stockItems: StockItem[];
+  sourceLocale: Locale;
   onClose: () => void;
   onSave: (input: SupplierProductInput) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? "");
+  const [translations, setTranslations] = useState<TranslationMap>(
+    editing?.translations ?? {},
+  );
   const [sku, setSku] = useState(editing?.sku ?? "");
   const [unit, setUnit] = useState<StockUnit>(
     (editing?.unit as StockUnit) ?? "unit",
@@ -2011,7 +2149,15 @@ function ProductEditor({
         {editing ? t("editProduct") : t("addProduct")}
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t("name")} value={name} onChange={setName} required />
+        <div className="sm:col-span-2">
+          <LocalizedOrderNameField
+            sourceLocale={sourceLocale}
+            name={name}
+            translations={translations}
+            onNameChange={setName}
+            onTranslationsChange={setTranslations}
+          />
+        </div>
         <Field label={t("sku")} value={sku} onChange={setSku} />
         <SelectField
           label={t("unit")}
@@ -2055,6 +2201,7 @@ function ProductEditor({
           onClick={() =>
             onSave({
               name: name.trim(),
+              translations,
               sku,
               unit,
               price_per_unit: price,
@@ -2083,7 +2230,7 @@ function Field({
   required?: boolean;
 }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
         {label}
         {required ? " *" : ""}
@@ -2093,7 +2240,7 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         required={required}
-        className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm text-[var(--fg)] outline-none focus:shadow-ring"
+        className="h-11 min-w-0 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base text-[var(--fg)] outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
       />
     </label>
   );
@@ -2111,14 +2258,14 @@ function SelectField({
   options: string[][];
 }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
         {label}
       </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm text-[var(--fg)] outline-none focus:shadow-ring"
+        className="h-11 min-w-0 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base text-[var(--fg)] outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
       >
         {options.map(([optionValue, optionLabel]) => (
           <option key={optionValue} value={optionValue}>
