@@ -655,6 +655,7 @@ function WeeklyDeliveryRail({
   locale: string;
 }) {
   const { t } = useI18n();
+  const [selectedDay, setSelectedDay] = useState(0);
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const days = Array.from({ length: 7 }, (_, offset) => {
@@ -683,53 +684,106 @@ function WeeklyDeliveryRail({
           </h2>
         </div>
         <span className="shrink-0 rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-fs-xs font-semibold text-[var(--fg-muted)]">
-          {deliveryCount} {t("deliveries")}
+          {deliveryCount}
+          <span className="hidden sm:inline"> {t("deliveries")}</span>
         </span>
       </div>
-      <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-max snap-x snap-mandatory md:grid md:min-w-0 md:grid-cols-7">
-          {days.map(({ date, slots }, index) => (
-            <div
-              key={date.toISOString()}
-              className={`min-h-28 w-32 shrink-0 snap-start p-3 md:w-auto ${index > 0 ? "border-s border-[var(--line)]" : ""} ${index === 0 ? "bg-[var(--brand-500)]/5" : ""}`}
+      <div className="grid grid-cols-7 gap-1 p-2 md:hidden">
+        {days.map(({ date, slots }, index) => (
+          <button
+            key={date.toISOString()}
+            type="button"
+            aria-pressed={selectedDay === index}
+            aria-label={`${new Intl.DateTimeFormat(locale, {
+              dateStyle: "full",
+            }).format(date)}, ${slots.length} ${t("deliveries")}`}
+            onClick={() => setSelectedDay(index)}
+            className={`relative flex min-w-0 flex-col items-center rounded-r-md px-0.5 py-2 outline-none focus-visible:shadow-ring ${
+              selectedDay === index
+                ? "bg-[var(--surface-2)] text-[var(--fg)] shadow-1"
+                : "text-[var(--fg-muted)]"
+            }`}
+          >
+            <span
+              className={`w-full truncate text-center text-[10px] font-medium ${index === 0 ? "text-[var(--brand-500)]" : ""}`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-fs-xs font-medium text-[var(--fg-muted)]">
-                  {new Intl.DateTimeFormat(locale, {
-                    weekday: "short",
-                  }).format(date)}
-                </div>
-                {index === 0 && (
-                  <span className="rounded-full bg-[var(--brand-500)]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand-700)] dark:text-[var(--brand-500)]">
-                    {t("today")}
-                  </span>
-                )}
-              </div>
-              <div className="mt-0.5 text-fs-lg font-semibold text-[var(--fg)]">
-                {date.getDate()}
-              </div>
-              <div className="mt-2 space-y-1.5">
-                {slots.length === 0 ? (
-                  <span className="text-fs-xs text-[var(--fg-subtle)]">—</span>
-                ) : (
-                  slots.map(({ supplier, schedule }) => (
-                    <div
-                      key={`${supplier.id}-${schedule.id}`}
-                      className="rounded-r-sm border border-[var(--brand-500)]/25 bg-[var(--brand-500)]/10 px-2 py-1.5 text-fs-xs text-[var(--brand-800)] dark:text-[var(--brand-400)]"
-                    >
-                      <div className="truncate font-semibold">
-                        {supplier.name}
-                      </div>
-                      <div>
-                        {schedule.window_start}–{schedule.window_end}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              {new Intl.DateTimeFormat(locale, { weekday: "narrow" }).format(
+                date,
+              )}
+            </span>
+            <span className="mt-1 text-fs-md font-semibold">
+              {date.getDate()}
+            </span>
+            <span
+              aria-hidden="true"
+              className={`mt-1 h-1.5 min-w-1.5 rounded-full ${
+                slots.length > 0
+                  ? "bg-[var(--brand-500)]"
+                  : "bg-[var(--line-strong)]"
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+      {days[selectedDay].slots.length > 0 && (
+        <div className="space-y-2 border-t border-[var(--line)] px-3 py-3 md:hidden">
+          {days[selectedDay].slots.map(({ supplier, schedule }) => (
+            <div
+              key={`${supplier.id}-${schedule.id}`}
+              className="flex items-center justify-between gap-3 rounded-r-md bg-[var(--brand-500)]/10 px-3 py-2 text-fs-xs"
+            >
+              <span className="truncate font-semibold text-[var(--fg)]">
+                {supplier.name}
+              </span>
+              <span className="shrink-0 text-[var(--fg-muted)]">
+                {schedule.window_start}–{schedule.window_end}
+              </span>
             </div>
           ))}
         </div>
+      )}
+      <div className="hidden grid-cols-7 md:grid">
+        {days.map(({ date, slots }, index) => (
+          <div
+            key={date.toISOString()}
+            className={`min-h-28 p-3 ${index > 0 ? "border-s border-[var(--line)]" : ""} ${index === 0 ? "bg-[var(--brand-500)]/5" : ""}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-fs-xs font-medium text-[var(--fg-muted)]">
+                {new Intl.DateTimeFormat(locale, {
+                  weekday: "short",
+                }).format(date)}
+              </div>
+              {index === 0 && (
+                <span className="rounded-full bg-[var(--brand-500)]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand-700)] dark:text-[var(--brand-500)]">
+                  {t("today")}
+                </span>
+              )}
+            </div>
+            <div className="mt-0.5 text-fs-lg font-semibold text-[var(--fg)]">
+              {date.getDate()}
+            </div>
+            <div className="mt-2 space-y-1.5">
+              {slots.length === 0 ? (
+                <span className="text-fs-xs text-[var(--fg-subtle)]">—</span>
+              ) : (
+                slots.map(({ supplier, schedule }) => (
+                  <div
+                    key={`${supplier.id}-${schedule.id}`}
+                    className="rounded-r-sm border border-[var(--brand-500)]/25 bg-[var(--brand-500)]/10 px-2 py-1.5 text-fs-xs text-[var(--brand-800)] dark:text-[var(--brand-400)]"
+                  >
+                    <div className="truncate font-semibold">
+                      {supplier.name}
+                    </div>
+                    <div>
+                      {schedule.window_start}–{schedule.window_end}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
