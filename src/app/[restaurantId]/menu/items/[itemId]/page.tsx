@@ -16,7 +16,7 @@ import {
   ModifierSetItemOverridesInput,
   OptionSet, ItemOptionOverride, ItemType, PricingMode,
   StockItem, PrepItem, MenuItemIngredient,
-  TranslationMap,
+  TranslationMap, MenuItemCustomerFacts, normalizeMenuItemCustomerFacts,
 } from '@/lib/api';
 import { getRestaurantSettings } from '@/lib/api';
 import type { Locale } from '@/components/i18n/LocaleTabs';
@@ -113,6 +113,9 @@ export default function EditItemPage() {
   const [estimatedWeightGrams, setEstimatedWeightGrams] = useState<number>(() => item?.estimated_weight_grams ?? 0);
   const [description, setDescription] = useState(() => item?.description ?? '');
   const [aiContext, setAiContext] = useState(() => item?.ai_context ?? '');
+  const [customerFacts, setCustomerFacts] = useState<MenuItemCustomerFacts>(() =>
+    normalizeMenuItemCustomerFacts(item?.customer_facts),
+  );
   const [portion, setPortion] = useState(() => item?.portion ?? '');
   const [translations, setTranslations] = useState<TranslationMap>(() => item?.translations ?? {});
   // The restaurant's source language. Loaded with the categories below.
@@ -215,6 +218,7 @@ export default function EditItemPage() {
           setEstimatedWeightGrams(found.estimated_weight_grams ?? 0);
           setDescription(found.description ?? '');
           setAiContext(found.ai_context ?? '');
+          setCustomerFacts(normalizeMenuItemCustomerFacts(found.customer_facts));
           setPortion(found.portion ?? '');
           setTranslations(found.translations ?? {});
           setCategoryId(found.category_id);
@@ -386,6 +390,10 @@ export default function EditItemPage() {
         name: name.trim(),
         description,
         ai_context: aiContext,
+        customer_facts: {
+          ...customerFacts,
+          ingredients: customerFacts.ingredients.filter((ingredient) => ingredient.name.trim()),
+        },
         portion,
         price: effectivePrice,
         pricing_mode: pricingMode,
@@ -632,6 +640,11 @@ export default function EditItemPage() {
                   setEstimatedWeightGrams={setEstimatedWeightGrams}
                   description={description}
                   setDescription={setDescription}
+                  customerFacts={customerFacts}
+                  setCustomerFacts={setCustomerFacts}
+                  suggestedCustomerIngredients={ingredients
+                    .map((ingredient) => ingredient.stock_item?.name ?? ingredient.prep_item?.name ?? '')
+                    .filter(Boolean)}
                   aiContext={aiContext}
                   setAiContext={setAiContext}
                   portion={portion}

@@ -10,7 +10,7 @@ import {
   syncItemVariants,
   getRestaurantSettings,
   MenuCategory, Menu, MenuItem, ModifierSet, OptionSet,
-  ItemType, PricingMode,
+  ItemType, PricingMode, MenuItemCustomerFacts, normalizeMenuItemCustomerFacts,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -65,6 +65,7 @@ export default function NewItemPage() {
   const [estimatedWeightGrams, setEstimatedWeightGrams] = useState<number>(0);
   const [description, setDescription] = useState('');
   const [aiContext, setAiContext] = useState('');
+  const [customerFacts, setCustomerFacts] = useState<MenuItemCustomerFacts>(() => normalizeMenuItemCustomerFacts());
   const [portion, setPortion] = useState('');
   const [categoryId, setCategoryId] = useState(defaultCatId);
   const [isActive, setIsActive] = useState(true);
@@ -213,6 +214,10 @@ export default function NewItemPage() {
         name: name.trim(),
         description,
         ai_context: aiContext,
+        customer_facts: {
+          ...customerFacts,
+          ingredients: customerFacts.ingredients.filter((ingredient) => ingredient.name.trim()),
+        },
         portion,
         price: effectivePrice,
         pricing_mode: pricingMode,
@@ -470,6 +475,8 @@ export default function NewItemPage() {
                 setEstimatedWeightGrams={setEstimatedWeightGrams}
                 description={description}
                 setDescription={setDescription}
+                customerFacts={customerFacts}
+                setCustomerFacts={setCustomerFacts}
                 aiContext={aiContext}
                 setAiContext={setAiContext}
                 portion={portion}
