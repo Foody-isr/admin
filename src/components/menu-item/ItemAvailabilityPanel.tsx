@@ -600,7 +600,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
                       </Select>
                     </Field>
                     <a
-                      href={`/${rid}/kitchen/availability`}
+                      href={`/${rid}/settings/stock/availability`}
                       className="shrink-0 pb-[10px] inline-flex items-center gap-1 text-fs-xs font-medium text-[var(--brand-500)] hover:underline"
                     >
                       {t('availabilityManageRules')} <ArrowRight className="w-3 h-3" />

@@ -8,7 +8,7 @@ export default function KitchenRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace(`/${restaurantId}/kitchen/stock`);
+    router.replace(`/${restaurantId}/kitchen/daily-operations`);
   }, [restaurantId, router]);
 
   return null;

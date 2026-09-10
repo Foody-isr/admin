@@ -1,6 +1,7 @@
 'use client';
 
 import { useImperativeHandle, forwardRef, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -176,14 +177,22 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
           <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabRecipe') || 'Recette'}</h3>
         </div>
         {canEdit && (
-          <button
-            type="button"
-            onClick={() => setShowImportModal(true)}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm border border-[var(--line-strong)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors"
-          >
-            <Sparkles className="w-4 h-4" />
-            {t('importRecipe') || 'Importer une recette'}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-[var(--s-2)]">
+            <Link
+              href={`/${rid}/kitchen/lab`}
+              className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm border border-[var(--line-strong)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              {t('createWithLab')}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm border border-[var(--line-strong)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors"
+            >
+              {t('importRecipe') || 'Importer une recette'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -372,4 +381,3 @@ function SimpleIngredientPicker({
     </>
   );
 }
-
