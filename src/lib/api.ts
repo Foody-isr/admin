@@ -8758,6 +8758,7 @@ export async function checkDeliverable(
 
 // ---- Catering ----
 export type CateringPricingModel = 'per_unit' | 'per_person' | 'custom_quote';
+export type CateringDateSelectionTiming = 'before_catalog' | 'checkout';
 
 export type CateringFlowStepKind = 'guest_count' | 'schedule' | 'single_choice' | 'multi_choice' | 'quantity';
 export type CateringFlowPriceMode = 'fixed' | 'per_guest' | 'per_session' | 'per_guest_session' | 'per_unit';
@@ -8849,6 +8850,7 @@ export interface CateringService {
   slug: string;
   description: string;
   pricing_model: CateringPricingModel;
+  date_selection_timing?: CateringDateSelectionTiming;
   quote_mode: 'auto' | 'review';
   /** How many articles a customer may pick: 'single', 'multiple', or '' = auto
    *  (per_person → one formula, per_unit → several items). */
@@ -8866,6 +8868,7 @@ export interface CateringServiceInput {
   name: string;
   description?: string;
   pricing_model: CateringPricingModel;
+  date_selection_timing?: CateringDateSelectionTiming;
   quote_mode?: 'auto' | 'review';
   selection_mode?: '' | 'single' | 'multiple';
   allow_extra_sessions?: boolean;
