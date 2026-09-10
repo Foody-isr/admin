@@ -166,7 +166,7 @@ export default function CateringQuotesPage() {
                   {quote.customer_name}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_quote_guests')}>
-                  {quote.guests}
+                  {quote.guests > 0 ? quote.guests : '—'}
                 </DataTableCell>
                 <DataTableCell mobileLabel={t('catering_quote_event_date')} className="text-fg-secondary">
                   {formatEventDate(quote.event_date)}
@@ -291,7 +291,7 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <div className="text-fg-secondary">{t('catering_quote_guests')}</div>
-            <div className="text-fg-primary font-medium">{config.guests ?? quote.guests}</div>
+            <div className="text-fg-primary font-medium">{(config.guests ?? quote.guests) > 0 ? (config.guests ?? quote.guests) : '—'}</div>
           </div>
           <div>
             <div className="text-fg-secondary">{t('catering_quote_event_date')}</div>

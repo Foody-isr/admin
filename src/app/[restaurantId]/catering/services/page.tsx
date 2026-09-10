@@ -179,6 +179,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
+  const [pricingModel, setPricingModel] = useState<CateringPricingModel>(editing?.pricing_model ?? 'per_person');
   const [quoteMode, setQuoteMode] = useState<'auto' | 'review'>(editing?.quote_mode ?? 'review');
   const [depositPct, setDepositPct] = useState(String(editing?.deposit_pct ?? 0));
   const [selectionMode, setSelectionMode] = useState<'single' | 'multiple'>(editing?.selection_mode === 'single' ? 'single' : 'multiple');
@@ -196,7 +197,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
       const body = {
         name: name.trim(),
         description,
-        pricing_model: editing?.pricing_model ?? 'per_person' as const,
+        pricing_model: pricingModel,
         quote_mode: quoteMode,
         selection_mode: selectionMode,
         allow_extra_sessions: allowExtraSessions,
@@ -224,6 +225,27 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
           <label className="block text-sm font-medium text-fg-secondary">{t('catering_offer_group_description')}</label>
           <textarea rows={3} className="input mt-1" value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t('catering_offer_group_description_example')} />
         </div>
+        <fieldset>
+          <legend className="text-sm font-medium text-fg-secondary">{t('catering_offer_group_sales_unit')}</legend>
+          <p className="mt-1 text-sm text-fg-tertiary">{t('catering_offer_group_sales_unit_hint')}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {(['per_person', 'per_unit', 'custom_quote'] as const).map((model) => {
+              const active = pricingModel === model;
+              return (
+                <button
+                  key={model}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setPricingModel(model)}
+                  className={`rounded-xl border p-4 text-start transition ${active ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500' : 'border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand-400'}`}
+                >
+                  <span className="font-semibold text-fg-primary">{t(`catering_pricing_${model === 'custom_quote' ? 'custom' : model}`)}</span>
+                  <span className="mt-1 block text-xs leading-5 text-fg-secondary">{t(`catering_offer_group_sales_${model}_hint`)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
         <fieldset>
           <legend className="block text-sm font-medium text-fg-secondary">{t('catering_service_quote_mode')}</legend>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
