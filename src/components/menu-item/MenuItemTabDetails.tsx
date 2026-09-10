@@ -6,13 +6,14 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import type { MenuCategory, Menu, ItemType, PricingMode, TranslationMap } from '@/lib/api';
+import type { MenuCategory, Menu, ItemType, PricingMode, TranslationMap, MenuItemCustomerFacts } from '@/lib/api';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
 import { Field, Input, NumberField, Textarea } from '@/components/ds';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 import { Switch } from '@/components/ui/switch';
 import { LocaleEditingBanner } from '@/components/i18n/LocaleEditingBanner';
 import TypePickerCards from './combo/TypePickerCards';
+import CustomerFactsEditor from './CustomerFactsEditor';
 
 const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 
@@ -40,6 +41,9 @@ interface Props {
   setEstimatedWeightGrams: (v: number) => void;
   description: string;
   setDescription: (v: string) => void;
+  customerFacts: MenuItemCustomerFacts;
+  setCustomerFacts: (v: MenuItemCustomerFacts) => void;
+  suggestedCustomerIngredients?: string[];
   /** Private staff guidance about this item for the AI ordering assistant only
    *  (never shown to customers). */
   aiContext?: string;
@@ -111,6 +115,8 @@ export default function MenuItemTabDetails({
   pricePerKg, setPricePerKg,
   estimatedWeightGrams, setEstimatedWeightGrams,
   description, setDescription,
+  customerFacts, setCustomerFacts,
+  suggestedCustomerIngredients,
   aiContext, setAiContext,
   portion, setPortion,
   categoryId, setCategoryId,
@@ -632,6 +638,15 @@ export default function MenuItemTabDetails({
             </>
           )}
         </Field>
+
+        {isSourceTab && (
+          <CustomerFactsEditor
+            value={customerFacts}
+            onChange={setCustomerFacts}
+            disabled={!canEdit}
+            suggestedIngredients={suggestedCustomerIngredients}
+          />
+        )}
 
         {/* AI assistant context — private staff guidance, never shown to guests. */}
         {setAiContext && (

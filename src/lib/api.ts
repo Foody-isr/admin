@@ -531,6 +531,43 @@ export interface ComboStepInput {
  */
 export type TranslationMap = Partial<Record<string, Partial<Record<'en' | 'he' | 'fr', string>>>>;
 
+export interface CustomerIngredient {
+  name: string;
+  removable: boolean;
+}
+
+/** Customer-safe composition. It never contains recipe quantities or costs.
+ * `complete` is required before absence may be treated as a reliable "no". */
+export interface MenuItemCustomerFacts {
+  ingredients: CustomerIngredient[];
+  allergens: string[];
+  may_contain: string[];
+  dietary_tags: string[];
+  complete: boolean;
+}
+
+export const EMPTY_CUSTOMER_FACTS: MenuItemCustomerFacts = {
+  ingredients: [],
+  allergens: [],
+  may_contain: [],
+  dietary_tags: [],
+  complete: false,
+};
+
+/** Normalizes older menu payloads where customer_facts or one of its arrays is
+ * absent, keeping the item editor safe during rolling deployments. */
+export function normalizeMenuItemCustomerFacts(
+  value?: Partial<MenuItemCustomerFacts> | null,
+): MenuItemCustomerFacts {
+  return {
+    ingredients: value?.ingredients ?? [],
+    allergens: value?.allergens ?? [],
+    may_contain: value?.may_contain ?? [],
+    dietary_tags: value?.dietary_tags ?? [],
+    complete: value?.complete ?? false,
+  };
+}
+
 export interface MenuItem {
   id: number;
   category_id: number;
@@ -547,6 +584,8 @@ export interface MenuItem {
   estimated_weight_grams?: number;
   /** Private staff guidance for the AI ordering assistant (never shown to guests). */
   ai_context?: string;
+  /** Verified customer-safe composition used by guest surfaces, POS and AI. */
+  customer_facts?: MenuItemCustomerFacts;
   /** Short serving-size label shown under the title when the item has no size
    *  options (e.g. "par personne"). Translatable via the translations map. */
   portion?: string;
