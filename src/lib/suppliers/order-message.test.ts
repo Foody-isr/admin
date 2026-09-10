@@ -89,3 +89,17 @@ test("uses the item name translated for the selected message language", () => {
     /בצל ירוק — 1 kg/,
   );
 });
+
+test("uses and localizes the chef-selected unit in supplier messages", () => {
+  const item = {
+    name: "Tomates",
+    quantity: 1,
+    unit: "kg",
+    order_quantity: 8,
+    order_unit: "unité",
+  };
+
+  assert.equal(formatOrderQuantity(item, "fr"), "8 unités");
+  assert.equal(formatOrderQuantity(item, "en"), "8 units");
+  assert.equal(formatOrderQuantity(item, "he"), "8 יחידות");
+});

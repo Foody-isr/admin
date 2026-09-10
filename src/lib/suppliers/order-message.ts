@@ -9,6 +9,8 @@ interface PurchaseOrderMessageInput {
     | "name"
     | "quantity"
     | "unit"
+    | "order_quantity"
+    | "order_unit"
     | "packaging_set"
     | "package_count"
     | "units_per_pack"
@@ -57,6 +59,14 @@ const copy = {
 
 const packagingLabels: Record<SupplierOrderLanguage, Record<string, string>> = {
   en: {
+    unit: "unit",
+    units: "units",
+    piece: "piece",
+    pieces: "pieces",
+    "unité": "unit",
+    "unités": "units",
+    paquet: "pack",
+    paquets: "packs",
     carton: "carton",
     pack: "pack",
     crate: "crate",
@@ -77,6 +87,14 @@ const packagingLabels: Record<SupplierOrderLanguage, Record<string, string>> = {
     jug: "jug",
   },
   fr: {
+    unit: "unité",
+    units: "unités",
+    piece: "pièce",
+    pieces: "pièces",
+    "unité": "unité",
+    "unités": "unités",
+    paquet: "paquet",
+    paquets: "paquets",
     carton: "carton",
     pack: "pack",
     crate: "cageot",
@@ -97,6 +115,14 @@ const packagingLabels: Record<SupplierOrderLanguage, Record<string, string>> = {
     jug: "bidon",
   },
   he: {
+    unit: "יחידה",
+    units: "יחידות",
+    piece: "יחידה",
+    pieces: "יחידות",
+    "unité": "יחידה",
+    "unités": "יחידות",
+    paquet: "חבילה",
+    paquets: "חבילות",
     carton: "קרטון",
     pack: "חבילה",
     crate: "ארגז",
@@ -118,11 +144,51 @@ const packagingLabels: Record<SupplierOrderLanguage, Record<string, string>> = {
   },
 };
 
+const pluralPackagingLabels: Record<
+  SupplierOrderLanguage,
+  Record<string, string>
+> = {
+  en: {
+    unit: "units",
+    "unité": "units",
+    piece: "pieces",
+    "pièce": "pieces",
+    pack: "packs",
+    packet: "packets",
+    paquet: "packs",
+    botte: "bunches",
+  },
+  fr: {
+    unit: "unités",
+    "unité": "unités",
+    piece: "pièces",
+    "pièce": "pièces",
+    pack: "packs",
+    packet: "paquets",
+    paquet: "paquets",
+    botte: "bottes",
+  },
+  he: {
+    unit: "יחידות",
+    "unité": "יחידות",
+    piece: "יחידות",
+    "pièce": "יחידות",
+    pack: "חבילות",
+    packet: "חבילות",
+    paquet: "חבילות",
+    botte: "צרורות",
+  },
+};
+
 function packagingLabel(
   value: string | undefined,
   language: SupplierOrderLanguage,
+  quantity = 1,
 ): string {
   if (!value) return "";
+  if (quantity !== 1 && pluralPackagingLabels[language][value]) {
+    return pluralPackagingLabels[language][value];
+  }
   return packagingLabels[language][value] || value;
 }
 
@@ -139,16 +205,19 @@ export function formatOrderQuantity(
   item: PurchaseOrderMessageInput["items"][number],
   language: SupplierOrderLanguage,
 ): string {
+  if (item.order_quantity && item.order_unit && (!item.packaging_set || !item.package_count)) {
+    return `${formatQuantity(item.order_quantity, language)} ${packagingLabel(item.order_unit, language, item.order_quantity)}`.trim();
+  }
   if (!item.packaging_set || !item.package_count) {
     return `${formatQuantity(item.quantity, language)} ${item.unit || ""}`.trim();
   }
 
   const parts = [
-    `${formatQuantity(item.package_count, language)} ${packagingLabel(item.container_type, language) || item.unit || ""}`.trim(),
+    `${formatQuantity(item.package_count, language)} ${packagingLabel(item.container_type, language, item.package_count) || item.unit || ""}`.trim(),
   ];
   if (item.units_per_pack) {
     parts.push(
-      `× ${formatQuantity(item.units_per_pack, language)} ${packagingLabel(item.unit_type, language)}`.trim(),
+      `× ${formatQuantity(item.units_per_pack, language)} ${packagingLabel(item.unit_type, language, item.units_per_pack)}`.trim(),
     );
   }
   if (item.unit_size) {

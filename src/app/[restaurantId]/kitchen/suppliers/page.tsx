@@ -12,6 +12,7 @@ import {
   getRestaurant,
   listPurchaseOrders,
   listStockItems,
+  listSupplierOrderUnitPreferences,
   listSupplierProducts,
   listSuppliers,
   receivePurchaseOrder,
@@ -50,6 +51,12 @@ import {
   buildPurchaseOrderMessage,
   buildWhatsAppUrl,
 } from "@/lib/suppliers/order-message";
+import {
+  buildOrderUnitOptions,
+  orderQuantityInBase as selectedOrderQuantityInBase,
+  preferredOrderUnit,
+  type OrderUnitOption,
+} from "@/lib/suppliers/order-units";
 import {
   AlertTriangle,
   CalendarDays,
@@ -135,25 +142,6 @@ function convertOrderUnit(quantity: number, from: string, to: string): number {
   const factors: Record<string, number> = { g: 1, kg: 1000, ml: 1, l: 1000 };
   if (!(from in factors) || !(to in factors)) return quantity;
   return (quantity * factors[from]) / factors[to];
-}
-
-function orderBaseQuantity(
-  packageCount: number,
-  packaging: PackagingDraft,
-  stockUnit: StockUnit,
-): number {
-  if (!packaging.packagingSet) return packageCount;
-  let quantity = packageCount;
-  if (packaging.unitsPerPack > 0) quantity *= packaging.unitsPerPack;
-  if (packaging.unitSize > 0) {
-    quantity *= packaging.unitSize;
-    quantity = convertOrderUnit(
-      quantity,
-      packaging.unitSizeUnit || stockUnit,
-      stockUnit,
-    );
-  }
-  return quantity;
 }
 
 function isLow(item: StockItem) {
@@ -1203,6 +1191,9 @@ function OrderComposer({
   );
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [selectedUnits, setSelectedUnits] = useState<Record<string, string>>(
+    {},
+  );
   const [packagings, setPackagings] = useState<Record<string, PackagingDraft>>(
     {},
   );
@@ -1229,11 +1220,21 @@ function OrderComposer({
   useEffect(() => {
     if (!supplierId) return;
     let active = true;
-    void listSupplierProducts(rid, supplierId).then((data) => {
+    void Promise.all([
+      listSupplierProducts(rid, supplierId),
+      listSupplierOrderUnitPreferences(rid, supplierId).catch(() => []),
+    ]).then(([data, preferences]) => {
       if (!active) return;
       setProducts(data);
       const nextQuantities: Record<string, number> = {};
       const nextPackagings: Record<string, PackagingDraft> = {};
+      const nextSelectedUnits: Record<string, string> = {};
+      const preferenceByStockItem = new Map(
+        preferences.map((preference) => [
+          preference.stock_item_id,
+          preference.unit,
+        ]),
+      );
       const productStockIds = new Set(
         data.flatMap((product) =>
           product.stock_item_id ? [product.stock_item_id] : [],
@@ -1244,7 +1245,16 @@ function OrderComposer({
         const stockItem = stockItems.find(
           (item) => item.id === product.stock_item_id,
         );
-        nextPackagings[key] = packagingFromStock(stockItem);
+        const packaging = packagingFromStock(stockItem);
+        nextPackagings[key] = packaging;
+        if (stockItem) {
+          nextSelectedUnits[key] = preferredOrderUnit(
+            preferenceByStockItem.get(stockItem.id),
+            buildOrderUnitOptions(stockItem, packaging),
+          );
+        } else {
+          nextSelectedUnits[key] = product.unit;
+        }
         if (
           product.stock_item_id &&
           seed.stockItemIds?.includes(product.stock_item_id)
@@ -1255,11 +1265,17 @@ function OrderComposer({
         if (item.supplier_id !== supplierId || productStockIds.has(item.id))
           return;
         const key = `s-${item.id}`;
-        nextPackagings[key] = packagingFromStock(item);
+        const packaging = packagingFromStock(item);
+        nextPackagings[key] = packaging;
+        nextSelectedUnits[key] = preferredOrderUnit(
+          preferenceByStockItem.get(item.id),
+          buildOrderUnitOptions(item, packaging),
+        );
         if (seed.stockItemIds?.includes(item.id)) nextQuantities[key] = 1;
       });
       setQuantities(nextQuantities);
       setPackagings(nextPackagings);
+      setSelectedUnits(nextSelectedUnits);
       setProductSearch("");
       setEditingPackagingKey(null);
     });
@@ -1289,14 +1305,19 @@ function OrderComposer({
     (item) => item.supplier_id === supplierId && !linkedStockIds.has(item.id),
   );
   const rows = [
-    ...products.map((product) => ({
-      key: `p-${product.id}`,
-      name: product.name,
-      unit: product.unit as StockUnit,
-      price: product.price_per_unit,
-      supplierProductId: product.id,
-      stockItem: stockItems.find((item) => item.id === product.stock_item_id),
-    })),
+    ...products.map((product) => {
+      const stockItem = stockItems.find(
+        (item) => item.id === product.stock_item_id,
+      );
+      return {
+        key: `p-${product.id}`,
+        name: product.name,
+        unit: (stockItem?.unit ?? product.unit) as StockUnit,
+        price: product.price_per_unit,
+        supplierProductId: product.id,
+        stockItem,
+      };
+    }),
     ...supplierStock.map((item) => ({
       key: `s-${item.id}`,
       name: item.name,
@@ -1328,15 +1349,40 @@ function OrderComposer({
       const items: PurchaseOrderItemInput[] = selectedRows.map((row) => {
         const packaging =
           packagings[row.key] ?? packagingFromStock(row.stockItem);
-        const packageCount = quantities[row.key];
+        const amount = quantities[row.key];
+        const unitOptions: OrderUnitOption[] = row.stockItem
+          ? buildOrderUnitOptions(row.stockItem, packaging)
+          : [
+              {
+                value: row.unit,
+                kind: "stock",
+                baseQuantityPerUnit: 1,
+              },
+            ];
+        const selectedUnit = preferredOrderUnit(
+          selectedUnits[row.key],
+          unitOptions,
+        );
+        const baseQuantity = row.stockItem
+          ? (selectedOrderQuantityInBase(
+              amount,
+              selectedUnit,
+              unitOptions,
+            ) ?? 0)
+          : convertOrderUnit(amount, selectedUnit, row.unit);
+        const packagingSelected =
+          unitOptions.find((option) => option.value === selectedUnit)?.kind ===
+          "packaging";
         return {
           supplier_product_id: row.supplierProductId,
           stock_item_id: row.stockItem?.id,
           name: row.name,
           unit: row.unit,
-          quantity: orderBaseQuantity(packageCount, packaging, row.unit),
-          packaging_set: packaging.packagingSet,
-          package_count: packaging.packagingSet ? packageCount : 0,
+          quantity: baseQuantity,
+          order_quantity: amount,
+          order_unit: selectedUnit,
+          packaging_set: packagingSelected,
+          package_count: packagingSelected ? amount : 0,
           units_per_pack: packaging.unitsPerPack,
           unit_size: packaging.unitSize,
           unit_size_unit: packaging.unitSizeUnit,
@@ -1414,7 +1460,7 @@ function OrderComposer({
                 className="h-11 w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] ps-10 pe-3 text-base text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] focus:shadow-ring sm:text-fs-sm"
               />
             </label>
-            <div className="mb-2 hidden grid-cols-[52px_minmax(0,1fr)_150px] gap-3 px-3 text-fs-xs font-semibold text-[var(--fg-muted)] sm:grid">
+            <div className="mb-2 hidden grid-cols-[52px_minmax(0,1fr)_220px] gap-3 px-3 text-fs-xs font-semibold text-[var(--fg-muted)] sm:grid">
               <span aria-hidden="true" />
               <span>{t("productAndStock")}</span>
               <span>{t("quantity")}</span>
@@ -1424,11 +1470,32 @@ function OrderComposer({
                 const packaging =
                   packagings[row.key] ?? packagingFromStock(row.stockItem);
                 const amount = quantities[row.key] ?? 0;
-                const baseQuantity = orderBaseQuantity(
-                  amount,
-                  packaging,
-                  row.unit,
+                const unitOptions: OrderUnitOption[] = row.stockItem
+                  ? buildOrderUnitOptions(row.stockItem, packaging)
+                  : [
+                      {
+                        value: row.unit,
+                        kind: "stock",
+                        baseQuantityPerUnit: 1,
+                      },
+                    ];
+                const selectedUnit = preferredOrderUnit(
+                  selectedUnits[row.key],
+                  unitOptions,
                 );
+                const baseQuantity = row.stockItem
+                  ? (selectedOrderQuantityInBase(
+                      amount,
+                      selectedUnit,
+                      unitOptions,
+                    ) ?? 0)
+                  : convertOrderUnit(amount, selectedUnit, row.unit);
+                const showEquivalent =
+                  amount > 0 &&
+                  (selectedUnit !== row.unit ||
+                    unitOptions.find(
+                      (option) => option.value === selectedUnit,
+                    )?.kind === "packaging");
                 const editing = editingPackagingKey === row.key;
                 return (
                   <div
@@ -1439,7 +1506,7 @@ function OrderComposer({
                         : "border-[var(--line)] bg-[var(--surface)]"
                     }`}
                   >
-                    <div className="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] items-start gap-3 p-3 sm:grid-cols-[52px_minmax(0,1fr)_150px] sm:items-center">
+                    <div className="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] items-start gap-3 p-3 sm:grid-cols-[52px_minmax(0,1fr)_220px] sm:items-center">
                       <div className="flex size-12 items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] sm:size-[52px]">
                         {row.stockItem?.image_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -1482,7 +1549,7 @@ function OrderComposer({
                       <label className="col-span-2 min-w-0 sm:col-span-1">
                         <span className="mb-1.5 flex items-center justify-between gap-2 text-fs-xs font-medium text-[var(--fg-muted)] sm:hidden">
                           <span>{t("quantity")}</span>
-                          {packaging.packagingSet && amount > 0 && (
+                          {showEquivalent && (
                             <span>
                               = {numberFormatter.format(baseQuantity)} {row.unit}
                             </span>
@@ -1501,16 +1568,29 @@ function OrderComposer({
                             aria-label={`${t("quantity")} · ${row.name}`}
                             className="h-11 min-w-0 flex-1 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-center text-base font-semibold text-[var(--fg)] outline-none focus:shadow-ring sm:h-9 sm:rounded-r-sm sm:px-2 sm:text-fs-sm sm:font-normal"
                           />
-                          <span className="max-w-24 shrink-0 truncate rounded-r-sm bg-[var(--surface-2)] px-2.5 py-2 text-fs-xs font-medium text-[var(--fg-muted)] sm:max-w-16 sm:bg-transparent sm:px-0 sm:py-0 sm:font-normal">
-                            {packaging.packagingSet
-                              ? labelForRaw(packaging.containerType, t) ||
-                                row.unit
-                              : row.unit}
-                          </span>
+                          <select
+                            value={selectedUnit}
+                            onChange={(event) =>
+                              setSelectedUnits((current) => ({
+                                ...current,
+                                [row.key]: event.target.value,
+                              }))
+                            }
+                            aria-label={`${t("orderUnit")} · ${row.name}`}
+                            className="h-11 min-w-[7rem] max-w-[10rem] rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-2.5 text-base font-semibold text-[var(--fg)] outline-none focus:shadow-ring sm:h-9 sm:min-w-[5.5rem] sm:max-w-[8rem] sm:rounded-r-sm sm:text-fs-sm sm:font-normal"
+                          >
+                            {unitOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {labelForRaw(option.value, t)}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                        {packaging.packagingSet && amount > 0 && (
-                          <div className="mt-1 hidden text-fs-xs text-[var(--fg-muted)] sm:block">
-                            = {numberFormatter.format(baseQuantity)} {row.unit}
+                        {showEquivalent && (
+                          <div className="mt-1 hidden text-fs-xs font-medium text-[var(--fg-muted)] sm:block">
+                            {numberFormatter.format(amount)}{" "}
+                            {labelForRaw(selectedUnit, t)} ={" "}
+                            {numberFormatter.format(baseQuantity)} {row.unit}
                           </div>
                         )}
                       </label>
