@@ -44,18 +44,18 @@ export default function SupplierHubTabs({
   return (
     <nav
       aria-label={t("supplierHubTitle")}
-      className="mb-[var(--s-5)] overflow-x-auto border-b border-[var(--line)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="mb-[var(--s-6)] overflow-x-auto rounded-r-lg bg-[var(--surface-2)] p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <div className="flex w-max min-w-full gap-[var(--s-5)]">
+      <div className="flex w-max min-w-full gap-1">
         {tabs.map((tab) => (
           <Link
             key={tab.key}
             href={tab.href}
             aria-current={active === tab.key ? "page" : undefined}
-            className={`relative inline-flex h-11 items-center gap-2 whitespace-nowrap text-fs-sm font-medium outline-none transition-colors focus-visible:shadow-ring ${
+            className={`inline-flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-r-md px-4 text-fs-sm font-medium outline-none transition-colors focus-visible:shadow-ring ${
               active === tab.key
-                ? "text-[var(--fg)] after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-[var(--brand-500)]"
-                : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                ? "bg-[var(--surface)] text-[var(--fg)] shadow-1"
+                : "text-[var(--fg-muted)] hover:bg-[var(--surface)]/60 hover:text-[var(--fg)]"
             }`}
           >
             {tab.label}
