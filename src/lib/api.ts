@@ -6833,6 +6833,8 @@ export interface PurchaseOrderItem {
   name: string;
   unit: string;
   quantity: number;
+  order_quantity: number;
+  order_unit: string;
   packaging_set: boolean;
   package_count: number;
   units_per_pack: number;
@@ -6852,6 +6854,8 @@ export interface PurchaseOrderItemInput {
   name: string;
   unit?: string;
   quantity: number;
+  order_quantity?: number;
+  order_unit?: string;
   packaging_set?: boolean;
   package_count?: number;
   units_per_pack?: number;
@@ -6861,6 +6865,17 @@ export interface PurchaseOrderItemInput {
   unit_type?: string;
   translations?: TranslationMap;
   price_per_unit: number;
+}
+
+export interface SupplierOrderUnitPreference {
+  id: number;
+  user_id: number;
+  restaurant_id: number;
+  supplier_id: number;
+  stock_item_id: number;
+  unit: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export async function listSuppliers(restaurantId: number): Promise<Supplier[]> {
@@ -6914,6 +6929,17 @@ export async function deleteCustomUnit(restaurantId: number, id: number): Promis
 export async function listSupplierProducts(restaurantId: number, supplierId: number): Promise<SupplierProduct[]> {
   const data = await apiFetch<{ products: SupplierProduct[] }>(`/api/v1/suppliers/${supplierId}/products?restaurant_id=${restaurantId}`, restaurantId);
   return data.products ?? [];
+}
+
+export async function listSupplierOrderUnitPreferences(
+  restaurantId: number,
+  supplierId: number,
+): Promise<SupplierOrderUnitPreference[]> {
+  const data = await apiFetch<{ preferences: SupplierOrderUnitPreference[] }>(
+    `/api/v1/suppliers/${supplierId}/order-unit-preferences?restaurant_id=${restaurantId}`,
+    restaurantId,
+  );
+  return data.preferences ?? [];
 }
 
 export async function createSupplierProduct(restaurantId: number, supplierId: number, input: SupplierProductInput): Promise<SupplierProduct> {
