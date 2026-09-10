@@ -2,24 +2,27 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   getTodayFoodCostReport, getFoodCostReport, computeFoodCostReport,
   upsertSalesEntries, updateClosingStock, updateRetrospective,
   closeFoodCostReport, createFoodCostReport, listFoodCostReports,
   getFoodCostBreakdown, getFoodCostSummary, deleteSalesEntries, deleteCostItems,
-  listStockTransactions, getAllCategories, listStockItems,
+  listStockTransactions, getAllCategories, listStockItems, getRestaurant,
   confirmDelivery, deleteStockTransaction,
+  getDailyPrepPlan,
   generateEstimatedSupplies, sendOrderEmail, listPurchaseOrders, EstimatedSuppliesResult,
   DailyFoodCostReport, DailyFoodCostItem, DailySalesEntry,
   IngredientBreakdown, StockTransaction, MenuCategory, MenuItem, StockItem,
-  ConfirmDeliveryItemInput, PurchaseOrder,
+  ConfirmDeliveryItemInput, PurchaseOrder, DailyPlanItem, OpeningHoursConfig,
 } from '@/lib/api';
 import {
   ChevronDownIcon, ChevronUpIcon, RefreshCwIcon,
   CheckCircleIcon, AlertTriangleIcon,
   ChevronLeftIcon, ChevronRightIcon,
   XIcon, PlusIcon, TrashIcon, InfoIcon,
-  MailIcon,
+  MailIcon, SunriseIcon, UtensilsIcon, MoonIcon, ArrowRightIcon,
+  PackageIcon, ChefHatIcon, type LucideIcon,
 } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -28,6 +31,32 @@ import type { MoneyFormatter } from '@/lib/currency';
 
 function formatDate(d: Date): string {
   return d.toISOString().split('T')[0];
+}
+
+const WEEKDAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+
+function timeToMinutes(value: string): number | null {
+  const [hours, minutes] = value.split(':').map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return hours * 60 + minutes;
+}
+
+function getServiceWindow(config: OpeningHoursConfig | null, date: Date): { open: number; close: number } | null {
+  if (!config) return null;
+  const weekday = WEEKDAY_KEYS[date.getDay()];
+  const windows = [config.dine_in, config.pickup, config.delivery]
+    .map((schedule) => schedule?.[weekday])
+    .filter((hours) => hours && !hours.closed && hours.open && hours.close)
+    .flatMap((hours) => {
+      const open = timeToMinutes(hours!.open);
+      const close = timeToMinutes(hours!.close);
+      return open == null || close == null ? [] : [{ open, close: close < open ? close + 24 * 60 : close }];
+    });
+  if (windows.length === 0) return null;
+  return {
+    open: Math.min(...windows.map((window) => window.open)),
+    close: Math.max(...windows.map((window) => window.close)),
+  };
 }
 
 type VarianceLevel = 'ok' | 'attention' | 'problem';
@@ -185,6 +214,11 @@ export default function DailyOperationsPage() {
   // Stock items for reference
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
 
+  // Prep coverage for the selected weekday. This powers both the opening
+  // production brief and the before-service risk summary.
+  const [dailyPrepPlan, setDailyPrepPlan] = useState<DailyPlanItem[]>([]);
+  const [openingHours, setOpeningHours] = useState<OpeningHoursConfig | null>(null);
+
   // Estimated supplies
   const [estimatedPOs, setEstimatedPOs] = useState<PurchaseOrder[]>([]);
   const [generatingOrders, setGeneratingOrders] = useState(false);
@@ -261,12 +295,16 @@ export default function DailyOperationsPage() {
 
   const loadSupplementary = useCallback(async () => {
     try {
-      const [cats, stock] = await Promise.all([
+      const [cats, stock, prepPlan, restaurant] = await Promise.all([
         getAllCategories(rid),
         listStockItems(rid),
+        getDailyPrepPlan(rid, { day_of_week: selectedDate.getDay() }).catch(() => []),
+        getRestaurant(rid).catch(() => null),
       ]);
       setCategories(cats);
       setStockItems(stock);
+      setDailyPrepPlan(prepPlan);
+      setOpeningHours(restaurant?.opening_hours_config ?? null);
 
       // Load today's receive transactions
       const txns = await listStockTransactions(rid, { type: 'receive' });
@@ -275,6 +313,7 @@ export default function DailyOperationsPage() {
       setTodayReceives(filtered);
     } catch {
       // non-critical
+      setDailyPrepPlan([]);
     }
   }, [rid, selectedDate]);
 
@@ -458,76 +497,175 @@ export default function DailyOperationsPage() {
   }
 
   const isOpen = report?.status === 'open' && canManage;
+  const prepToLaunch = dailyPrepPlan.filter((item) => item.batches_needed > 0);
+  const prepReadyCount = Math.max(0, dailyPrepPlan.length - prepToLaunch.length);
+  const batchesToLaunch = prepToLaunch.reduce((sum, item) => sum + item.batches_needed, 0);
+  const lowStockItems = stockItems.filter(
+    (item) => item.is_active !== false && item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold,
+  );
+  const varianceAlerts = (report?.items ?? []).filter(
+    (item) => varianceLevel(item.variance_percent) !== 'ok',
+  ).length;
+  const selectedIsToday = formatDate(selectedDate) === formatDate(new Date());
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const serviceWindow = getServiceWindow(openingHours, selectedDate);
+  const operationalNowMinutes = serviceWindow && serviceWindow.close > 24 * 60 && nowMinutes < serviceWindow.open
+    ? nowMinutes + 24 * 60
+    : nowMinutes;
+  const serviceHasStarted = serviceWindow
+    ? operationalNowMinutes >= serviceWindow.open
+    : nowMinutes >= 11 * 60;
+  const serviceHasEnded = serviceWindow
+    ? operationalNowMinutes > serviceWindow.close
+    : nowMinutes >= 17 * 60;
+  const suggestedPhase: 'opening' | 'service' | 'closing' | null = !selectedIsToday
+    ? null
+    : report?.status === 'closed' || serviceHasEnded
+      ? 'closing'
+      : serviceHasStarted
+        ? 'service'
+        : 'opening';
+
+  const jumpToPhase = (phase: 'opening' | 'service' | 'closing') => {
+    document.getElementById(`phase-${phase}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-fg-primary">{t('dailyOperations') || 'Daily Operations'}</h1>
-          <p className="text-sm text-[var(--fg-secondary)] mt-1">{t('dailyOperationsDesc') || 'Track food cost, waste, and run your daily retrospective'}</p>
-        </div>
-        {report && statusBadge(report.status)}
-      </div>
-
-      {/* Date Navigator */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigateDate(-1)} className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition-colors">
-          <ChevronLeftIcon className="w-5 h-5" />
-        </button>
-        <input
-          type="date"
-          value={formatDate(selectedDate)}
-          onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
-          className="input px-3 py-1.5 text-sm"
-        />
-        <button onClick={() => navigateDate(1)} className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition-colors">
-          <ChevronRightIcon className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* KPI Cards */}
-      {report && (() => {
-        const kpis = report.status === 'open'
-          ? computeKpis(report)
-          : {
-              foodCostPct: report.food_cost_percent,
-              revenue: report.total_sales_revenue,
-              varianceCost: report.total_variance_value,
-              wasteCost: report.total_waste_value,
-            };
-        return (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <KpiCard
-              label="Food Cost %"
-              value={`${kpis.foodCostPct.toFixed(1)}%`}
-              warn={kpis.foodCostPct > 35}
-              tooltip={t('foodCostPctTooltip')}
-              explain={t('foodCostPctExplain')}
-            />
-            <KpiCard
-              label={t('revenue') || 'Revenue'}
-              value={money(kpis.revenue, { decimals: 0 })}
-              tooltip={t('revenueTooltip')}
-              explain={t('revenueExplain')}
-            />
-            <KpiCard
-              label={t('variance') || 'Variance'}
-              value={money(kpis.varianceCost, { decimals: 0 })}
-              warn={kpis.varianceCost > 0}
-              tooltip={t('varianceTooltip')}
-              explain={t('varianceExplain')}
-            />
-            <KpiCard
-              label={t('wasteValue') || 'Waste'}
-              value={money(kpis.wasteCost, { decimals: 0 })}
-              warn={kpis.wasteCost > 0}
-              tooltip={t('wasteTooltip')}
-              explain={t('wasteExplain')}
-            />
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-6">
+      {/* Today is the kitchen cockpit: one date, three moments, one recommended focus. */}
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-[-0.025em] text-fg-primary">
+              {t('today')}
+            </h1>
+            {report && statusBadge(report.status)}
           </div>
-        );
-      })()}
+          <p className="mt-1 max-w-2xl text-sm text-[var(--fg-secondary)]">
+            {t('todayKitchenDesc')}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <button
+            onClick={() => navigateDate(-1)}
+            className="grid size-9 place-items-center rounded-r-md border border-[var(--line)] text-[var(--fg-muted)] hover:bg-[var(--surface-hover)]"
+            aria-label={t('previousDay')}
+          >
+            <ChevronLeftIcon className="size-4" />
+          </button>
+          <input
+            type="date"
+            value={formatDate(selectedDate)}
+            onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
+            className="input h-9 px-3 text-sm"
+          />
+          <button
+            onClick={() => navigateDate(1)}
+            className="grid size-9 place-items-center rounded-r-md border border-[var(--line)] text-[var(--fg-muted)] hover:bg-[var(--surface-hover)]"
+            aria-label={t('nextDay')}
+          >
+            <ChevronRightIcon className="size-4" />
+          </button>
+        </div>
+      </header>
+
+      <nav aria-label={t('todayPhases')} className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+        <div className="grid md:grid-cols-3">
+          {([
+            ['opening', t('dayPhaseOpening'), t('dayPhaseOpeningShort'), SunriseIcon],
+            ['service', t('dayPhaseService'), t('dayPhaseServiceShort'), UtensilsIcon],
+            ['closing', t('dayPhaseClosing'), t('dayPhaseClosingShort'), MoonIcon],
+          ] as const).map(([phase, label, desc, Icon], index) => {
+            const recommended = suggestedPhase === phase;
+            return (
+              <button
+                key={phase}
+                type="button"
+                onClick={() => jumpToPhase(phase)}
+                className={`group relative flex min-h-24 items-start gap-3 px-5 py-4 text-start transition-colors md:border-s md:first:border-s-0 md:border-[var(--line)] ${
+                  recommended ? 'bg-[var(--brand-50)]' : 'hover:bg-[var(--surface-2)]'
+                } ${index > 0 ? 'border-t border-[var(--line)] md:border-t-0' : ''}`}
+              >
+                <span className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-full ${
+                  recommended
+                    ? 'bg-[var(--brand-500)] text-white'
+                    : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
+                }`}>
+                  <Icon className="size-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2 font-semibold text-[var(--fg)]">
+                    {label}
+                    {recommended && (
+                      <span className="rounded-full bg-[var(--brand-100)] px-2 py-0.5 text-[11px] font-medium text-[var(--brand-700)]">
+                        {t('recommendedNow')}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-[var(--fg-muted)]">{desc}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      <PhaseHeading
+        id="phase-opening"
+        icon={SunriseIcon}
+        title={t('dayPhaseOpening')}
+        desc={t('dayPhaseOpeningDesc')}
+        recommended={suggestedPhase === 'opening'}
+        t={t}
+      />
+
+      <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+        <div className="flex flex-col gap-3 border-b border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 font-semibold text-[var(--fg)]">
+              <ChefHatIcon className="size-4 text-[var(--brand-500)]" />
+              {t('prepToLaunch')}
+            </h2>
+            <p className="mt-1 text-xs text-[var(--fg-muted)]">{t('prepToLaunchDesc')}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {batchesToLaunch > 0 && (
+              <span className="rounded-r-md bg-[var(--brand-50)] px-2.5 py-1 text-xs font-semibold text-[var(--brand-700)]">
+                {batchesToLaunch} {t('batches')}
+              </span>
+            )}
+            <Link
+              href={`/${rid}/kitchen/prep`}
+              className="inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-500)] hover:underline"
+            >
+              {t('viewPreparations')} <ArrowRightIcon className="size-3.5" />
+            </Link>
+          </div>
+        </div>
+        {prepToLaunch.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-[var(--fg-muted)]">{t('noPrepToLaunch')}</div>
+        ) : (
+          <div className="divide-y divide-[var(--line)]">
+            {prepToLaunch.slice(0, 5).map((item) => (
+              <div key={item.prep_item_id} className="grid gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-[var(--fg)]">{item.prep_item_name}</div>
+                  <div className="mt-0.5 text-xs text-[var(--fg-muted)]">{item.category}</div>
+                </div>
+                <div className="text-xs text-[var(--fg-muted)] sm:text-end">
+                  {t('current')}: <span className="font-medium text-[var(--fg)]">{item.current_qty.toFixed(1)} {item.unit}</span>
+                  {' / '}
+                  {t('demand')}: <span className="font-medium text-[var(--fg)]">{item.required_qty.toFixed(1)} {item.unit}</span>
+                </div>
+                <span className="w-fit rounded-r-md bg-[var(--brand-50)] px-3 py-1.5 text-xs font-semibold text-[var(--brand-700)] sm:min-w-24 sm:text-center">
+                  {item.batches_needed} {t('batches')}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Section 1: Supplies Received */}
       <CollapsibleSection
@@ -588,6 +726,53 @@ export default function DailyOperationsPage() {
           </table>
         )}
       </CollapsibleSection>
+
+      <PhaseHeading
+        id="phase-service"
+        icon={UtensilsIcon}
+        title={t('dayPhaseService')}
+        desc={t('dayPhaseServiceDesc')}
+        recommended={suggestedPhase === 'service'}
+        t={t}
+      />
+
+      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+        <div className="grid divide-y divide-[var(--line)] md:grid-cols-3 md:divide-x md:divide-y-0 rtl:md:divide-x-reverse">
+          <OperationalMetric
+            icon={ChefHatIcon}
+            label={t('servicePrepCoverage')}
+            value={`${prepReadyCount}/${dailyPrepPlan.length}`}
+            detail={prepToLaunch.length > 0
+              ? t('servicePrepRisk').replace('{count}', String(prepToLaunch.length))
+              : t('servicePrepReady')}
+            tone={prepToLaunch.length > 0 ? 'warning' : 'success'}
+          />
+          <OperationalMetric
+            icon={PackageIcon}
+            label={t('lowStockItems')}
+            value={String(lowStockItems.length)}
+            detail={lowStockItems.length > 0 ? t('needsAttention') : t('stockCovered')}
+            tone={lowStockItems.length > 0 ? 'danger' : 'success'}
+          />
+          <OperationalMetric
+            icon={UtensilsIcon}
+            label={t('salesEntry')}
+            value={String(report?.sales?.length ?? 0)}
+            detail={t('salesTrackedItems')}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--line)] px-5 py-3 text-sm">
+          <Link href={`/${rid}/kitchen/prep`} className="inline-flex items-center gap-1 font-medium text-[var(--brand-500)] hover:underline">
+            {t('viewPreparations')} <ArrowRightIcon className="size-3.5" />
+          </Link>
+          <Link href={`/${rid}/kitchen/stock`} className="inline-flex items-center gap-1 font-medium text-[var(--brand-500)] hover:underline">
+            {t('viewStock')} <ArrowRightIcon className="size-3.5" />
+          </Link>
+          <Link href={`/${rid}/settings/stock/availability`} className="inline-flex items-center gap-1 font-medium text-[var(--brand-500)] hover:underline">
+            {t('manageAvailability')} <ArrowRightIcon className="size-3.5" />
+          </Link>
+        </div>
+      </section>
 
       {/* Section 2: Sales */}
       <CollapsibleSection
@@ -682,6 +867,57 @@ export default function DailyOperationsPage() {
           </p>
         )}
       </CollapsibleSection>
+
+      <PhaseHeading
+        id="phase-closing"
+        icon={MoonIcon}
+        title={t('dayPhaseClosing')}
+        desc={t('dayPhaseClosingDesc')}
+        recommended={suggestedPhase === 'closing'}
+        t={t}
+      />
+
+      {report && (() => {
+        const kpis = report.status === 'open'
+          ? computeKpis(report)
+          : {
+              foodCostPct: report.food_cost_percent,
+              revenue: report.total_sales_revenue,
+              varianceCost: report.total_variance_value,
+              wasteCost: report.total_waste_value,
+            };
+        return (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <KpiCard
+              label="Food Cost %"
+              value={`${kpis.foodCostPct.toFixed(1)}%`}
+              warn={kpis.foodCostPct > 35}
+              tooltip={t('foodCostPctTooltip')}
+              explain={t('foodCostPctExplain')}
+            />
+            <KpiCard
+              label={t('revenue') || 'Revenue'}
+              value={money(kpis.revenue, { decimals: 0 })}
+              tooltip={t('revenueTooltip')}
+              explain={t('revenueExplain')}
+            />
+            <KpiCard
+              label={t('variance') || 'Variance'}
+              value={money(kpis.varianceCost, { decimals: 0 })}
+              warn={varianceAlerts > 0}
+              tooltip={t('varianceTooltip')}
+              explain={t('varianceExplain')}
+            />
+            <KpiCard
+              label={t('wasteValue') || 'Waste'}
+              value={money(kpis.wasteCost, { decimals: 0 })}
+              warn={kpis.wasteCost > 0}
+              tooltip={t('wasteTooltip')}
+              explain={t('wasteExplain')}
+            />
+          </div>
+        );
+      })()}
 
       {/* Section 3: Stock Count & Variance */}
       <CollapsibleSection
@@ -1599,6 +1835,79 @@ function ExplainModal({ title, body, onClose }: { title: string; body: string; o
           </button>
         </div>
         <div dir="auto" className="text-sm text-[var(--fg-secondary)] leading-relaxed whitespace-pre-line text-left">{body}</div>
+      </div>
+    </div>
+  );
+}
+
+function PhaseHeading({
+  id,
+  icon: Icon,
+  title,
+  desc,
+  recommended,
+  t,
+}: {
+  id: string;
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+  recommended: boolean;
+  t: (key: string) => string;
+}) {
+  return (
+    <div id={id} className="scroll-mt-24 border-b border-[var(--line)] pb-3 pt-2">
+      <div className="flex items-start gap-3">
+        <span className={`grid size-9 shrink-0 place-items-center rounded-full ${
+          recommended
+            ? 'bg-[var(--brand-500)] text-white'
+            : 'border border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)]'
+        }`}>
+          <Icon className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-semibold text-[var(--fg)]">{title}</h2>
+            {recommended && (
+              <span className="rounded-full bg-[var(--brand-50)] px-2 py-0.5 text-[11px] font-medium text-[var(--brand-700)]">
+                {t('recommendedNow')}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-[var(--fg-muted)]">{desc}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OperationalMetric({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  tone = 'default',
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  detail: string;
+  tone?: 'default' | 'danger' | 'warning' | 'success';
+}) {
+  const toneClass = tone === 'danger'
+    ? 'text-[var(--danger-500)]'
+    : tone === 'warning'
+      ? 'text-[var(--warning-500)]'
+      : tone === 'success'
+        ? 'text-[var(--success-500)]'
+        : 'text-[var(--fg)]';
+  return (
+    <div className="flex min-h-28 gap-3 px-5 py-4">
+      <Icon className={`mt-1 size-4 shrink-0 ${toneClass}`} />
+      <div className="min-w-0">
+        <div className="text-xs font-medium text-[var(--fg-muted)]">{label}</div>
+        <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</div>
+        <div className="mt-1 text-xs text-[var(--fg-muted)]">{detail}</div>
       </div>
     </div>
   );

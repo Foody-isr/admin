@@ -19,6 +19,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, Field, PageHead, Section, Select } from '@/components/ds';
+import StockSettingsNav from '@/components/settings/StockSettingsNav';
 
 type StockUnit = '' | 'g' | 'kg';
 
@@ -70,6 +71,7 @@ export default function StockSettingsPage() {
   return (
     <div className="max-w-[880px]">
       <PageHead title={t('stockSettings')} desc={t('stockSettingsDesc')} />
+      <StockSettingsNav />
 
       <Section title={t('defaultStockUnitTitle')} desc={t('defaultStockUnitHint')}>
         <Field grow label={t('defaultStockUnitLabel')}>

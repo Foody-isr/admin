@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
+import StockSettingsNav from '@/components/settings/StockSettingsNav';
 
 const BLANK: AvailabilityRuleInput = {
   name: '',
@@ -124,6 +125,8 @@ export default function AvailabilityRulesPage() {
           ) : undefined
         }
       />
+
+      <StockSettingsNav />
 
       <FeatureIntro feature="availability" />
 

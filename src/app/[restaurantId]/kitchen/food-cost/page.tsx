@@ -253,7 +253,7 @@ export default function FoodCostPage() {
   return (
     <div className="flex flex-col">
       <PageHead
-        title="Food Cost"
+        title={t('costsAndMargins')}
         desc={t('foodCostSubtitle') || 'Analysez les coûts alimentaires de vos recettes'}
       />
 
