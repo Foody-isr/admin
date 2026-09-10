@@ -72,12 +72,16 @@ export const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
 };
 export const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
 
-/** Translate a raw packaging-unit string (as persisted in StockItem.container_type
- *  or .unit_type) to its display label. Unknown values pass through as-is so
+const BASE_UNIT_NAME_KEY: Record<BaseUnit, string> = {
+  g: 'unit_gram', kg: 'unit_kilogram', ml: 'unit_milliliter', l: 'unit_liter', unit: 'unit_piece',
+};
+
+/** Translate a raw base-unit or packaging-unit string (as persisted in StockItem
+ *  fields) to its display label. Unknown values pass through as-is so
  *  legacy free-text isn't lost. */
 export function labelForRaw(raw: string, t: (k: string) => string): string {
   if (!raw) return '';
-  const key = UNIT_I18N_KEY[raw as PackagingUnit];
+  const key = BASE_UNIT_NAME_KEY[raw as BaseUnit] || UNIT_I18N_KEY[raw as PackagingUnit];
   if (!key) return raw;
   const translated = t(key);
   return translated && translated !== key ? translated : raw;
@@ -85,9 +89,6 @@ export function labelForRaw(raw: string, t: (k: string) => string): string {
 
 /** Full human name for a base unit, used in the "Display price in" menu
  *  ("Par litre" reads better than "Par l"). Falls back to the abbreviation. */
-const BASE_UNIT_NAME_KEY: Record<BaseUnit, string> = {
-  g: 'unit_gram', kg: 'unit_kilogram', ml: 'unit_milliliter', l: 'unit_liter', unit: 'unit_piece',
-};
 const baseUnitName = (u: BaseUnit, t: (k: string) => string) => {
   const translated = t(BASE_UNIT_NAME_KEY[u]);
   return translated && translated !== BASE_UNIT_NAME_KEY[u] ? translated : u;
@@ -921,4 +922,3 @@ function PriceSentence({
     </div>
   );
 }
-
