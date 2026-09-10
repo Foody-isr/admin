@@ -2143,6 +2143,42 @@ export async function resetOrderWorkflow(
   });
 }
 
+// ─── Guided table service ───────────────────────────────────────────────────
+
+export type ServiceGuidanceType = 'check_in' | 'offer_dessert';
+
+export interface ServiceGuidanceRule {
+  id?: number;
+  restaurant_id?: number;
+  type: ServiceGuidanceType;
+  enabled: boolean;
+  enabled_at?: string;
+  delay_minutes: number;
+  overdue_minutes: number;
+}
+
+/** GET /api/v1/restaurants/:id/service-guidance — configured or safe defaults. */
+export async function getServiceGuidanceRules(restaurantId: number): Promise<ServiceGuidanceRule[]> {
+  const data = await apiFetch<{ rules: ServiceGuidanceRule[] }>(
+    `/api/v1/restaurants/${restaurantId}/service-guidance`,
+    restaurantId,
+  );
+  return data.rules ?? [];
+}
+
+/** PUT /api/v1/restaurants/:id/service-guidance — save both MVP reminder slots. */
+export async function updateServiceGuidanceRules(
+  restaurantId: number,
+  rules: ServiceGuidanceRule[],
+): Promise<ServiceGuidanceRule[]> {
+  const data = await apiFetch<{ rules: ServiceGuidanceRule[] }>(
+    `/api/v1/restaurants/${restaurantId}/service-guidance`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify({ rules }) },
+  );
+  return data.rules ?? [];
+}
+
 // ─── Saved date ranges (orders filter presets) ───────────────────────────────
 // Reusable filter windows for the orders list (e.g. "Vendredi à vendredi").
 // Stored as a recurring rule — start_weekday (0=Sun…6=Sat) + length_days — so
