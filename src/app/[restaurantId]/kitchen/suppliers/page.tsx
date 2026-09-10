@@ -18,6 +18,7 @@ import {
   receivePurchaseOrder,
   refreshPurchaseOrderTranslations,
   sendOrderEmail,
+  updatePurchaseOrder,
   updatePurchaseOrderStatus,
   updateSupplier,
   updateSupplierProduct,
@@ -59,10 +60,12 @@ import {
 } from "@/lib/suppliers/order-units";
 import {
   AlertTriangle,
+  ArrowUpRight,
   CalendarDays,
   Check,
   CheckCircle2,
   ChevronRight,
+  Clock3,
   Mail,
   MessageCircle,
   Package,
@@ -132,7 +135,9 @@ function packagingLabel(
     );
   }
   if (packaging.unitSize > 0) {
-    parts.push(`× ${packaging.unitSize} ${packaging.unitSizeUnit}`);
+    parts.push(
+      `× ${packaging.unitSize} ${labelForRaw(packaging.unitSizeUnit, t)}`,
+    );
   }
   return parts.join(" ");
 }
@@ -160,14 +165,34 @@ function dateTimeLabel(value: string | null | undefined, locale: string) {
   }).format(new Date(value));
 }
 
-function nextSchedule(
+function dateTimeLocalValue(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}
+
+function localizedSupplierName(
   supplier: Supplier,
-): { schedule: SupplierDeliverySchedule; delivery: Date; cutoff: Date } | null {
+  language: SupplierOrderLanguage,
+) {
+  return supplier.translations?.name?.[language]?.trim() || supplier.name;
+}
+
+function nextSchedule(supplier: Supplier): {
+  schedule: SupplierDeliverySchedule;
+  delivery: Date;
+  deliveryEnd: Date;
+  cutoff: Date;
+} | null {
   const now = new Date();
   const candidates = (supplier.schedules ?? []).flatMap((schedule) => {
     const values: {
       schedule: SupplierDeliverySchedule;
       delivery: Date;
+      deliveryEnd: Date;
       cutoff: Date;
     }[] = [];
     for (let offset = 0; offset < 14; offset += 1) {
@@ -183,7 +208,10 @@ function nextSchedule(
         .split(":")
         .map(Number);
       cutoff.setHours(cutoffHours, cutoffMinutes, 0, 0);
-      values.push({ schedule, delivery, cutoff });
+      const deliveryEnd = new Date(delivery);
+      const [endHours, endMinutes] = schedule.window_end.split(":").map(Number);
+      deliveryEnd.setHours(endHours, endMinutes, 0, 0);
+      values.push({ schedule, delivery, deliveryEnd, cutoff });
       break;
     }
     return values;
@@ -271,8 +299,8 @@ export default function SuppliersPage() {
           canManage ? (
             <div className="w-full sm:w-auto">
               <Button
-                size="lg"
-                className="w-full sm:w-auto"
+                size="md"
+                className="h-11 w-full px-5 sm:w-auto"
                 onClick={() => setOrderSeed({})}
                 disabled={suppliers.length === 0}
               >
@@ -348,6 +376,7 @@ export default function SuppliersPage() {
       {supplierModal.open && (
         <SupplierFormModal
           editing={supplierModal.editing}
+          sourceLocale={sourceLocale}
           onClose={() => setSupplierModal({ open: false })}
           onSave={async (input) => {
             if (supplierModal.editing)
@@ -442,10 +471,10 @@ function NeedsTab({
       !suppliers.some((supplier) => supplier.id === item.supplier_id),
   );
   return (
-    <div className="space-y-[var(--s-6)]">
+    <div className="space-y-[var(--s-8)]">
       <WeeklyDeliveryRail suppliers={suppliers} locale={locale} />
       <section>
-        <div className="mb-3 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-end sm:gap-4">
+        <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end sm:gap-4">
           <div>
             <h2 className="text-fs-xl font-semibold text-[var(--fg)]">
               {t("orderToday")}
@@ -455,7 +484,7 @@ function NeedsTab({
             </p>
           </div>
           {lowItems.length > 0 && (
-            <span className="text-fs-sm font-medium text-[var(--danger-500)]">
+            <span className="inline-flex items-center rounded-full bg-[var(--danger-50)] px-2.5 py-1 text-fs-xs font-semibold text-[var(--danger-500)]">
               {lowItems.length} {t("items")}
             </span>
           )}
@@ -476,33 +505,54 @@ function NeedsTab({
                   key={supplier.id}
                   className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1"
                 >
-                  <div className="flex flex-col items-stretch justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface-2)]/60 px-4 py-3 sm:flex-row sm:items-start sm:gap-4">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-[var(--fg)]">
-                        {supplier.name}
-                      </h3>
-                      {upcoming ? (
-                        <p
-                          className={`mt-1 text-fs-xs ${cutoffPassed ? "text-[var(--danger-500)]" : "text-[var(--fg-muted)]"}`}
-                        >
-                          {t("nextDelivery")}:{" "}
-                          {dateTimeLabel(
-                            upcoming.delivery.toISOString(),
-                            locale,
-                          )}{" "}
-                          · {t("orderBefore")}:{" "}
-                          {dateTimeLabel(upcoming.cutoff.toISOString(), locale)}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-fs-xs text-[var(--warning-500)]">
-                          {t("scheduleMissing")}
-                        </p>
-                      )}
+                  <div className="flex flex-col items-stretch justify-between gap-4 border-b border-[var(--line)] px-4 py-4 sm:flex-row sm:items-center sm:gap-5">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="grid size-10 shrink-0 place-items-center rounded-r-md bg-[var(--brand-500)]/10 text-fs-sm font-semibold text-[var(--brand-700)] dark:text-[var(--brand-500)]">
+                        {supplier.name
+                          .trim()
+                          .charAt(0)
+                          .toLocaleUpperCase(locale)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate font-semibold text-[var(--fg)]">
+                            {supplier.name}
+                          </h3>
+                          <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-semibold text-[var(--fg-muted)]">
+                            {items.length} {t("items")}
+                          </span>
+                        </div>
+                        {upcoming ? (
+                          <p
+                            className={`mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-fs-xs ${cutoffPassed ? "text-[var(--danger-500)]" : "text-[var(--fg-muted)]"}`}
+                          >
+                            <Clock3 className="size-3.5 shrink-0" />
+                            <span>
+                              {t("nextDelivery")}:{" "}
+                              {dateTimeLabel(
+                                upcoming.delivery.toISOString(),
+                                locale,
+                              )}{" "}
+                              · {t("orderBefore")}:{" "}
+                              {dateTimeLabel(
+                                upcoming.cutoff.toISOString(),
+                                locale,
+                              )}
+                            </span>
+                          </p>
+                        ) : (
+                          <p className="mt-1.5 flex items-center gap-1.5 text-fs-xs text-[var(--warning-500)]">
+                            <AlertTriangle className="size-3.5 shrink-0" />
+                            {t("scheduleMissing")}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {canManage && (
                       <Button
+                        variant="secondary"
                         size="sm"
-                        className="w-full sm:w-auto"
+                        className="h-10 w-full px-4 sm:w-auto"
                         onClick={() =>
                           onOrder({
                             supplierId: supplier.id,
@@ -510,7 +560,7 @@ function NeedsTab({
                           })
                         }
                       >
-                        {t("orderFromSupplier")} <ChevronRight />
+                        {t("orderFromSupplier")} <ArrowUpRight />
                       </Button>
                     )}
                   </div>
@@ -518,9 +568,9 @@ function NeedsTab({
                     {items.map((item) => (
                       <div
                         key={item.id}
-                        className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-3 px-4 py-3 text-fs-sm md:grid-cols-[40px_minmax(0,1fr)_auto_auto]"
+                        className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-3 px-4 py-3.5 text-fs-sm md:grid-cols-[44px_minmax(0,1fr)_auto_auto] md:gap-5"
                       >
-                        <div className="flex size-10 items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
+                        <div className="flex size-11 items-center justify-center overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
                           {item.image_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -536,8 +586,17 @@ function NeedsTab({
                           <div className="truncate font-medium text-[var(--fg)]">
                             {item.name}
                           </div>
-                          <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)] md:hidden">
-                            {t("currentStock")}: {item.quantity} {item.unit}
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-fs-xs text-[var(--fg-muted)] md:hidden">
+                            <span>
+                              {t("currentStock")}:{" "}
+                              <b className="text-[var(--danger-500)]">
+                                {item.quantity} {item.unit}
+                              </b>
+                            </span>
+                            <span>
+                              {t("reorderThreshold")}: {item.reorder_threshold}{" "}
+                              {item.unit}
+                            </span>
                           </div>
                         </div>
                         <span className="hidden text-[var(--fg-muted)] md:inline">
@@ -558,7 +617,7 @@ function NeedsTab({
             })}
             {unassigned.length > 0 && (
               <article className="rounded-r-lg border border-dashed border-[var(--warning-500)] bg-[var(--warning-50)]/40 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center">
                   <div>
                     <h3 className="flex items-center gap-2 font-semibold text-[var(--fg)]">
                       <AlertTriangle className="size-4 text-[var(--warning-500)]" />
@@ -572,6 +631,7 @@ function NeedsTab({
                     <Button
                       variant="secondary"
                       size="sm"
+                      className="h-10 w-full sm:w-auto"
                       onClick={onOpenSuppliers}
                     >
                       {t("manageSuppliers")}
@@ -607,24 +667,42 @@ function WeeklyDeliveryRail({
     );
     return { date, slots };
   });
+  const deliveryCount = days.reduce(
+    (total, day) => total + day.slots.length,
+    0,
+  );
   return (
-    <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
-      <div className="flex items-center gap-2 border-b border-[var(--line)] px-4 py-3">
-        <CalendarDays className="size-4 text-[var(--brand-500)]" />
-        <h2 className="font-semibold text-[var(--fg)]">
-          {t("upcomingDeliveries")}
-        </h2>
+    <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid size-9 shrink-0 place-items-center rounded-r-md bg-[var(--brand-500)]/10 text-[var(--brand-600)] dark:text-[var(--brand-500)]">
+            <CalendarDays className="size-4" />
+          </div>
+          <h2 className="truncate font-semibold text-[var(--fg)]">
+            {t("upcomingDeliveries")}
+          </h2>
+        </div>
+        <span className="shrink-0 rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-fs-xs font-semibold text-[var(--fg-muted)]">
+          {deliveryCount} {t("deliveries")}
+        </span>
       </div>
-      <div className="overflow-x-auto">
-        <div className="grid min-w-[760px] grid-cols-7">
+      <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex min-w-max snap-x snap-mandatory md:grid md:min-w-0 md:grid-cols-7">
           {days.map(({ date, slots }, index) => (
             <div
               key={date.toISOString()}
-              className={`min-h-28 p-3 ${index > 0 ? "border-s border-[var(--line)]" : ""}`}
+              className={`min-h-28 w-32 shrink-0 snap-start p-3 md:w-auto ${index > 0 ? "border-s border-[var(--line)]" : ""} ${index === 0 ? "bg-[var(--brand-500)]/5" : ""}`}
             >
-              <div className="text-fs-xs font-medium text-[var(--fg-muted)]">
-                {new Intl.DateTimeFormat(locale, { weekday: "short" }).format(
-                  date,
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-fs-xs font-medium text-[var(--fg-muted)]">
+                  {new Intl.DateTimeFormat(locale, {
+                    weekday: "short",
+                  }).format(date)}
+                </div>
+                {index === 0 && (
+                  <span className="rounded-full bg-[var(--brand-500)]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand-700)] dark:text-[var(--brand-500)]">
+                    {t("today")}
+                  </span>
                 )}
               </div>
               <div className="mt-0.5 text-fs-lg font-semibold text-[var(--fg)]">
@@ -637,7 +715,7 @@ function WeeklyDeliveryRail({
                   slots.map(({ supplier, schedule }) => (
                     <div
                       key={`${supplier.id}-${schedule.id}`}
-                      className="rounded-r-sm bg-[var(--brand-50)] px-2 py-1.5 text-fs-xs text-[var(--brand-800)]"
+                      className="rounded-r-sm border border-[var(--brand-500)]/25 bg-[var(--brand-500)]/10 px-2 py-1.5 text-fs-xs text-[var(--brand-800)] dark:text-[var(--brand-400)]"
                     >
                       <div className="truncate font-semibold">
                         {supplier.name}
@@ -773,35 +851,48 @@ function SuppliersTab({
                       {supplier.phone || supplier.email || "—"}
                     </div>
                   </div>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => onProducts(supplier)}
-                    className="w-fit text-fs-sm font-medium text-[var(--brand-600)] hover:underline"
+                    className="w-fit px-2 text-[var(--brand-600)]"
                   >
                     {supplier.products?.length ?? 0} {t("products")}
-                  </button>
+                  </Button>
                   {canManage && (
-                    <div className="flex items-center gap-1 md:justify-end">
-                      <button
+                    <div className="flex items-center gap-1 border-t border-[var(--line)] pt-3 md:justify-end md:border-0 md:pt-0">
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        icon
                         onClick={() => onOrder(supplier)}
                         title={t("newPurchaseOrder")}
-                        className="rounded-r-sm p-2 text-[var(--brand-600)] hover:bg-[var(--brand-50)]"
+                        aria-label={t("newPurchaseOrder")}
+                        className="text-[var(--brand-600)] hover:bg-[var(--brand-500)]/10"
                       >
                         <Send className="size-4" />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        icon
                         onClick={() => onEdit(supplier)}
                         title={t("edit")}
-                        className="rounded-r-sm p-2 text-[var(--fg-muted)] hover:bg-[var(--surface-2)]"
+                        aria-label={t("edit")}
                       >
                         <Pencil className="size-4" />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        icon
                         onClick={() => onDelete(supplier)}
                         title={t("delete")}
-                        className="rounded-r-sm p-2 text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
+                        aria-label={t("delete")}
+                        className="text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
                       >
                         <Trash2 className="size-4" />
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </article>
@@ -855,12 +946,12 @@ function OrdersTab({
         {orders.map((order) => (
           <article
             key={order.id}
-            className="grid gap-2 px-4 py-4 md:grid-cols-[.7fr_1.2fr_1.1fr_1fr_.8fr_auto] md:items-center md:gap-4"
+            className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-4 md:grid-cols-[.7fr_1.2fr_1.1fr_1fr_.8fr_auto] md:items-center md:gap-4"
           >
-            <span className="font-semibold text-[var(--fg)]">
+            <span className="order-1 font-semibold text-[var(--fg)] md:order-none">
               PO-{order.id}
             </span>
-            <div>
+            <div className="order-3 col-span-2 md:order-none md:col-span-1">
               <div className="text-fs-sm font-medium text-[var(--fg)]">
                 {order.supplier?.name || "—"}
               </div>
@@ -868,54 +959,75 @@ function OrdersTab({
                 {order.items?.length ?? 0} {t("items")}
               </div>
             </div>
-            <span className="text-fs-sm text-[var(--fg-muted)]">
+            <div className="order-4 text-fs-sm text-[var(--fg-muted)] md:order-none">
+              <span className="mb-0.5 block text-[11px] font-medium text-[var(--fg-subtle)] md:hidden">
+                {t("expectedDelivery")}
+              </span>
               {dateTimeLabel(order.expected_delivery_at, locale)}
-            </span>
+            </div>
             <span
-              className={`w-fit rounded-full px-2.5 py-1 text-fs-xs font-semibold ${order.status === "received" ? "bg-[var(--success-50)] text-[var(--success-500)]" : order.status === "cancelled" ? "bg-[var(--danger-50)] text-[var(--danger-500)]" : order.status === "sent" ? "bg-[var(--info-50)] text-[var(--info-500)]" : "bg-[var(--surface-2)] text-[var(--fg-muted)]"}`}
+              className={`order-2 w-fit justify-self-end rounded-full px-2.5 py-1 text-fs-xs font-semibold md:order-none md:justify-self-auto ${order.status === "received" ? "bg-[var(--success-50)] text-[var(--success-500)]" : order.status === "cancelled" ? "bg-[var(--danger-50)] text-[var(--danger-500)]" : order.status === "sent" ? "bg-[var(--info-50)] text-[var(--info-500)]" : "bg-[var(--surface-2)] text-[var(--fg-muted)]"}`}
             >
               {t(`purchaseOrderStatus_${order.status}`)}
             </span>
-            <span className="text-fs-sm font-medium text-[var(--fg)]">
+            <div className="order-5 text-end text-fs-sm font-medium text-[var(--fg)] md:order-none md:text-start">
+              <span className="mb-0.5 block text-[11px] font-medium text-[var(--fg-subtle)] md:hidden">
+                {t("total")}
+              </span>
               {money(order.total_amount)}
-            </span>
+            </div>
             {canManage && (
-              <div className="flex items-center gap-1 md:justify-end">
+              <div className="order-6 col-span-2 flex items-center gap-1 border-t border-[var(--line)] pt-3 md:order-none md:col-span-1 md:justify-end md:border-0 md:pt-0">
                 {order.status === "draft" && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    icon
                     onClick={() => onSend(order)}
-                    className="rounded-r-sm p-2 text-[var(--brand-600)] hover:bg-[var(--brand-50)]"
+                    className="text-[var(--brand-600)] hover:bg-[var(--brand-500)]/10"
                     title={t("sendOrder")}
+                    aria-label={t("sendOrder")}
                   >
                     <Send className="size-4" />
-                  </button>
+                  </Button>
                 )}
                 {order.status === "sent" && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    icon
                     onClick={() => onReceive(order)}
-                    className="rounded-r-sm p-2 text-[var(--success-500)] hover:bg-[var(--success-50)]"
+                    className="text-[var(--success-500)] hover:bg-[var(--success-50)]"
                     title={t("receiveOrder")}
+                    aria-label={t("receiveOrder")}
                   >
                     <CheckCircle2 className="size-4" />
-                  </button>
+                  </Button>
                 )}
                 {(order.status === "draft" || order.status === "sent") && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    icon
                     onClick={() => onCancel(order)}
-                    className="rounded-r-sm p-2 text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
+                    className="text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
                     title={t("cancel")}
+                    aria-label={t("cancel")}
                   >
                     <XCircle className="size-4" />
-                  </button>
+                  </Button>
                 )}
                 {order.status === "draft" && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    icon
                     onClick={() => onDelete(order)}
-                    className="rounded-r-sm p-2 text-[var(--fg-muted)] hover:bg-[var(--surface-2)]"
                     title={t("delete")}
+                    aria-label={t("delete")}
                   >
                     <Trash2 className="size-4" />
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
@@ -928,15 +1040,20 @@ function OrdersTab({
 
 function SupplierFormModal({
   editing,
+  sourceLocale,
   onClose,
   onSave,
 }: {
   editing?: Supplier;
+  sourceLocale: Locale;
   onClose: () => void;
   onSave: (input: Parameters<typeof createSupplier>[1]) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? "");
+  const [translations, setTranslations] = useState<TranslationMap>(
+    editing?.translations ?? {},
+  );
   const [contactName, setContactName] = useState(editing?.contact_name ?? "");
   const [phone, setPhone] = useState(editing?.phone ?? "");
   const [email, setEmail] = useState(editing?.email ?? "");
@@ -978,6 +1095,7 @@ function SupplierFormModal({
     try {
       await onSave({
         name: name.trim(),
+        translations,
         contact_name: contactName,
         phone,
         email,
@@ -998,12 +1116,15 @@ function SupplierFormModal({
     >
       <div className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field
-            label={t("supplierName")}
-            value={name}
-            onChange={setName}
-            required
-          />
+          <div className="sm:col-span-2">
+            <LocalizedOrderNameField
+              sourceLocale={sourceLocale}
+              name={name}
+              translations={translations}
+              onNameChange={setName}
+              onTranslationsChange={setTranslations}
+            />
+          </div>
           <Field
             label={t("contactName")}
             value={contactName}
@@ -1202,6 +1323,8 @@ function OrderComposer({
   );
   const [notes, setNotes] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
+  const [expectedDeliveryEnd, setExpectedDeliveryEnd] = useState("");
+  const [deliveryError, setDeliveryError] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const supplier = suppliers.find((item) => item.id === supplierId);
@@ -1287,14 +1410,15 @@ function OrderComposer({
     if (!supplier) return;
     const upcoming = nextSchedule(supplier);
     if (upcoming) {
-      const local = new Date(
-        upcoming.delivery.getTime() -
-          upcoming.delivery.getTimezoneOffset() * 60_000,
-      )
-        .toISOString()
-        .slice(0, 16);
-      setExpectedDelivery(local);
-    } else setExpectedDelivery("");
+      setExpectedDelivery(dateTimeLocalValue(upcoming.delivery.toISOString()));
+      setExpectedDeliveryEnd(
+        dateTimeLocalValue(upcoming.deliveryEnd.toISOString()),
+      );
+    } else {
+      setExpectedDelivery("");
+      setExpectedDeliveryEnd("");
+    }
+    setDeliveryError("");
   }, [supplier]);
   const linkedStockIds = new Set(
     products.flatMap((product) =>
@@ -1344,6 +1468,19 @@ function OrderComposer({
     }));
   const create = async (continueToSend: boolean) => {
     if (!supplier || selectedRows.length === 0) return;
+    setDeliveryError("");
+    if (continueToSend && !expectedDelivery) {
+      setDeliveryError(t("deliveryDateRequired"));
+      return;
+    }
+    if (
+      expectedDeliveryEnd &&
+      (!expectedDelivery ||
+        new Date(expectedDeliveryEnd) <= new Date(expectedDelivery))
+    ) {
+      setDeliveryError(t("deliveryWindowInvalid"));
+      return;
+    }
     setSaving(true);
     try {
       const items: PurchaseOrderItemInput[] = selectedRows.map((row) => {
@@ -1396,6 +1533,9 @@ function OrderComposer({
         expected_delivery_at: expectedDelivery
           ? new Date(expectedDelivery).toISOString()
           : null,
+        expected_delivery_end_at: expectedDeliveryEnd
+          ? new Date(expectedDeliveryEnd).toISOString()
+          : null,
         notes,
         items,
       });
@@ -1434,7 +1574,7 @@ function OrderComposer({
           </button>
         </div>
         <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-5 sm:p-6">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <SelectField
               label={t("supplier")}
               value={String(supplierId)}
@@ -1442,12 +1582,32 @@ function OrderComposer({
               options={suppliers.map((item) => [String(item.id), item.name])}
             />
             <Field
-              label={t("expectedDelivery")}
+              label={t("deliveryWindowStart")}
               value={expectedDelivery}
-              onChange={setExpectedDelivery}
+              onChange={(value) => {
+                setExpectedDelivery(value);
+                setDeliveryError("");
+              }}
+              type="datetime-local"
+            />
+            <Field
+              label={t("deliveryWindowEnd")}
+              value={expectedDeliveryEnd}
+              onChange={(value) => {
+                setExpectedDeliveryEnd(value);
+                setDeliveryError("");
+              }}
               type="datetime-local"
             />
           </div>
+          <p className="-mt-2 text-fs-xs text-[var(--fg-muted)]">
+            {t("deliveryTimingHint")}
+          </p>
+          {deliveryError && (
+            <p role="alert" className="text-fs-sm text-[var(--danger-500)]">
+              {deliveryError}
+            </p>
+          )}
           <div>
             <label className="relative mb-3 block">
               <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
@@ -1551,7 +1711,8 @@ function OrderComposer({
                           <span>{t("quantity")}</span>
                           {showEquivalent && (
                             <span>
-                              = {numberFormatter.format(baseQuantity)} {row.unit}
+                              = {numberFormatter.format(baseQuantity)}{" "}
+                              {labelForRaw(row.unit, t)}
                             </span>
                           )}
                         </span>
@@ -1590,7 +1751,8 @@ function OrderComposer({
                           <div className="mt-1 hidden text-fs-xs font-medium text-[var(--fg-muted)] sm:block">
                             {numberFormatter.format(amount)}{" "}
                             {labelForRaw(selectedUnit, t)} ={" "}
-                            {numberFormatter.format(baseQuantity)} {row.unit}
+                            {numberFormatter.format(baseQuantity)}{" "}
+                            {labelForRaw(row.unit, t)}
                           </div>
                         )}
                       </label>
@@ -1819,6 +1981,12 @@ function SendOrderModal({
   const [channel, setChannel] = useState<SupplierOrderChannel>(
     order.supplier.preferred_channel || "whatsapp",
   );
+  const [expectedDelivery, setExpectedDelivery] = useState(
+    dateTimeLocalValue(order.expected_delivery_at),
+  );
+  const [expectedDeliveryEnd, setExpectedDeliveryEnd] = useState(
+    dateTimeLocalValue(order.expected_delivery_end_at),
+  );
   const [message, setMessage] = useState("");
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [preparing, setPreparing] = useState(true);
@@ -1827,10 +1995,20 @@ function SendOrderModal({
   useEffect(() => {
     let active = true;
     setPreparedOrder(order);
+    setExpectedDelivery(dateTimeLocalValue(order.expected_delivery_at));
+    setExpectedDeliveryEnd(dateTimeLocalValue(order.expected_delivery_end_at));
     setPreparing(true);
     refreshPurchaseOrderTranslations(rid, order.id)
       .then((refreshed) => {
-        if (active) setPreparedOrder(refreshed);
+        if (active) {
+          setPreparedOrder(refreshed);
+          setExpectedDelivery(
+            dateTimeLocalValue(refreshed.expected_delivery_at),
+          );
+          setExpectedDeliveryEnd(
+            dateTimeLocalValue(refreshed.expected_delivery_end_at),
+          );
+        }
       })
       .catch(() => {
         if (active) setError(t("translationPreparationFailed"));
@@ -1848,19 +2026,75 @@ function SendOrderModal({
         buildPurchaseOrderMessage(
           {
             restaurantName,
-            supplierName: supplier.name,
-            expectedDeliveryAt: preparedOrder.expected_delivery_at,
+            supplierName: localizedSupplierName(supplier, language),
+            expectedDeliveryAt: expectedDelivery
+              ? new Date(expectedDelivery).toISOString()
+              : null,
+            expectedDeliveryEndAt: expectedDeliveryEnd
+              ? new Date(expectedDeliveryEnd).toISOString()
+              : null,
             items: preparedOrder.items,
             notes: preparedOrder.notes,
           },
           language,
         ),
       ),
-    [language, preparedOrder, restaurantName, supplier.name],
+    [
+      expectedDelivery,
+      expectedDeliveryEnd,
+      language,
+      preparedOrder,
+      restaurantName,
+      supplier,
+    ],
   );
+  const validateDelivery = () => {
+    if (!expectedDelivery) {
+      setError(t("deliveryDateRequired"));
+      return false;
+    }
+    if (
+      expectedDeliveryEnd &&
+      new Date(expectedDeliveryEnd) <= new Date(expectedDelivery)
+    ) {
+      setError(t("deliveryWindowInvalid"));
+      return false;
+    }
+    return true;
+  };
+  const persistDelivery = async () => {
+    if (!validateDelivery()) return null;
+    return await updatePurchaseOrder(rid, preparedOrder.id, {
+      supplier_id: preparedOrder.supplier_id,
+      expected_delivery_at: new Date(expectedDelivery).toISOString(),
+      expected_delivery_end_at: expectedDeliveryEnd
+        ? new Date(expectedDeliveryEnd).toISOString()
+        : null,
+      notes: preparedOrder.notes,
+      items: preparedOrder.items.map((item) => ({
+        supplier_product_id: item.supplier_product_id,
+        stock_item_id: item.stock_item_id,
+        name: item.name,
+        unit: item.unit,
+        quantity: item.quantity,
+        order_quantity: item.order_quantity,
+        order_unit: item.order_unit,
+        packaging_set: item.packaging_set,
+        package_count: item.package_count,
+        units_per_pack: item.units_per_pack,
+        unit_size: item.unit_size,
+        unit_size_unit: item.unit_size_unit,
+        container_type: item.container_type,
+        unit_type: item.unit_type,
+        translations: item.translations,
+        price_per_unit: item.price_per_unit,
+      })),
+    });
+  };
   const send = async () => {
     setError("");
     if (channel === "whatsapp") {
+      if (!validateDelivery()) return;
       const url = buildWhatsAppUrl(supplier.phone, message);
       if (!url) {
         setError(t("invalidWhatsAppPhone"));
@@ -1876,6 +2110,7 @@ function SendOrderModal({
     }
     setSending(true);
     try {
+      if (!(await persistDelivery())) return;
       await sendOrderEmail(rid, preparedOrder.id, { language });
       await onSent();
     } catch (err) {
@@ -1885,13 +2120,17 @@ function SendOrderModal({
     }
   };
   const confirmWhatsApp = async () => {
+    setError("");
     setSending(true);
     try {
+      if (!(await persistDelivery())) return;
       await updatePurchaseOrderStatus(rid, preparedOrder.id, "sent", {
         channel: "whatsapp",
         language,
       });
       await onSent();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("sendOrderFailed"));
     } finally {
       setSending(false);
     }
@@ -1932,6 +2171,31 @@ function SendOrderModal({
             </div>
           </button>
         </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label={t("deliveryWindowStart")}
+            value={expectedDelivery}
+            onChange={(value) => {
+              setExpectedDelivery(value);
+              setAwaitingConfirmation(false);
+              setError("");
+            }}
+            type="datetime-local"
+          />
+          <Field
+            label={t("deliveryWindowEnd")}
+            value={expectedDeliveryEnd}
+            onChange={(value) => {
+              setExpectedDeliveryEnd(value);
+              setAwaitingConfirmation(false);
+              setError("");
+            }}
+            type="datetime-local"
+          />
+        </div>
+        <p className="-mt-2 text-fs-xs text-[var(--fg-muted)]">
+          {t("deliveryTimingHint")}
+        </p>
         <SelectField
           label={t("messageLanguage")}
           value={language}
@@ -1956,10 +2220,11 @@ function SendOrderModal({
           </span>
           <textarea
             dir={language === "he" ? "rtl" : "ltr"}
+            lang={language}
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             rows={9}
-            className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface-2)] px-3 py-3 text-base leading-relaxed outline-none focus:bg-[var(--surface)] focus:shadow-ring sm:text-fs-sm"
+            className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface-2)] px-3 py-3 text-base leading-relaxed [unicode-bidi:plaintext] outline-none focus:bg-[var(--surface)] focus:shadow-ring sm:text-fs-sm"
           />
         </label>
         {error && (

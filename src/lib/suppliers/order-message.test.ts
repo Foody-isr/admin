@@ -4,9 +4,24 @@ import {
   buildPurchaseOrderMessage,
   buildWhatsAppUrl,
   formatOrderQuantity,
+  formatPurchaseOrderDeliveryWindow,
   localizedOrderItemName,
   normalizeWhatsAppPhone,
 } from "./order-message";
+
+test("formats an exact localized delivery window with a helpful relative day", () => {
+  const now = new Date("2026-09-10T07:00:00.000Z");
+  const start = "2026-09-11T05:00:00.000Z";
+  const end = "2026-09-11T07:00:00.000Z";
+  assert.equal(
+    formatPurchaseOrderDeliveryWindow(start, end, "fr", "Asia/Jerusalem", now),
+    "demain, vendredi 11 septembre 2026, 08:00–10:00",
+  );
+  assert.equal(
+    formatPurchaseOrderDeliveryWindow(start, end, "he", "Asia/Jerusalem", now),
+    "מחר, יום שישי, 11 בספטמבר 2026, 08:00–10:00",
+  );
+});
 
 test("falls back to the original item name when no translation exists", () => {
   const message = buildPurchaseOrderMessage(
@@ -60,7 +75,7 @@ test("uses the selected packaging in supplier messages", () => {
       },
       "he",
     ),
-    /2 cartons × 12 barquettes × 400 g \(9\.6 kg סה"כ\)/,
+    /2 cartons × 12 barquettes × 400 גרם \(סה״כ 9\.6 ק״ג\)/,
   );
 });
 
@@ -86,7 +101,7 @@ test("uses the item name translated for the selected message language", () => {
       },
       "he",
     ),
-    /בצל ירוק — 1 kg/,
+    /בצל ירוק — 1 ק״ג/,
   );
 });
 
@@ -102,4 +117,36 @@ test("uses and localizes the chef-selected unit in supplier messages", () => {
   assert.equal(formatOrderQuantity(item, "fr"), "8 unités");
   assert.equal(formatOrderQuantity(item, "en"), "8 units");
   assert.equal(formatOrderQuantity(item, "he"), "8 יחידות");
+});
+
+test("translates standard stock units and keeps Hebrew lines RTL", () => {
+  assert.equal(
+    formatOrderQuantity({ name: "Tomato", quantity: 2, unit: "kg" }, "he"),
+    "2 ק״ג",
+  );
+  assert.equal(
+    formatOrderQuantity({ name: "Herbs", quantity: 80, unit: "g" }, "he"),
+    "80 גרם",
+  );
+  assert.equal(
+    formatOrderQuantity({ name: "Oil", quantity: 1, unit: "l" }, "he"),
+    "1 ליטר",
+  );
+  assert.equal(
+    formatOrderQuantity({ name: "Sauce", quantity: 250, unit: "ml" }, "he"),
+    "250 מ״ל",
+  );
+
+  const message = buildPurchaseOrderMessage(
+    {
+      restaurantName: "Sea You",
+      supplierName: "Moshé",
+      items: [{ name: "Tomato", quantity: 2, unit: "kg" }],
+    },
+    "he",
+  );
+  for (const line of message.split("\n").filter(Boolean)) {
+    assert.ok(line.startsWith("\u200F"));
+  }
+  assert.match(message, /• Tomato — 2 ק״ג/);
 });
