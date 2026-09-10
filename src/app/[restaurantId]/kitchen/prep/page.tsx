@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   listPrepItems, listStockItems, createPrepItem, updatePrepItem, deletePrepItem,
   getPrepItem, getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
@@ -296,6 +297,12 @@ export default function PrepPage() {
             <Button variant="secondary" size="md" onClick={() => setPlanModal(true)}>
               <CalendarDaysIcon />
               {t('dailyPlan') || 'Plan du jour'}
+            </Button>
+            <Button asChild variant="secondary" size="md">
+              <Link href={`/${rid}/kitchen/lab`}>
+                <SparklesIcon />
+                {t('createWithLab')}
+              </Link>
             </Button>
             {canManage && (
               <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>

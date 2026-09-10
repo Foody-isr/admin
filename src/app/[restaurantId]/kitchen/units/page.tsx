@@ -12,6 +12,7 @@ import Modal from '@/components/Modal';
 import { PlusIcon, TrashIcon, PencilIcon, RulerIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import StockSettingsNav from '@/components/settings/StockSettingsNav';
 
 // Units screen: manage the restaurant's library of custom measurement units
 // (e.g. "piece", "slice"). The concrete size of one custom unit is set per
@@ -84,6 +85,8 @@ export default function UnitsPage() {
           </button>
         )}
       </div>
+
+      <StockSettingsNav />
 
       {units.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-16 rounded-xl border border-dashed" style={{ borderColor: 'var(--divider)' }}>
