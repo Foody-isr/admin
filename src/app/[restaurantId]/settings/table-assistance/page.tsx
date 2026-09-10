@@ -1,14 +1,26 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useParams } from 'next/navigation';
+import { CakeSlice, Clock3, Eye } from 'lucide-react';
 import { Button, NumberField, PageHead, Section } from '@/components/ds';
-import { getRestaurantSettings, updateRestaurantSettings } from '@/lib/api';
+import {
+  getRestaurantSettings,
+  getServiceGuidanceRules,
+  updateRestaurantSettings,
+  updateServiceGuidanceRules,
+  type ServiceGuidanceRule,
+} from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 
 const DEFAULT_MAX_REQUESTS = 5;
 const DEFAULT_WINDOW_MINUTES = 10;
+const DEFAULT_GUIDANCE: ServiceGuidanceRule[] = [
+  { type: 'check_in', enabled: false, delay_minutes: 5, overdue_minutes: 10 },
+  { type: 'offer_dessert', enabled: false, delay_minutes: 20, overdue_minutes: 10 },
+];
 
 interface AssistancePolicy {
   enabled: boolean;
@@ -34,14 +46,15 @@ export default function TableAssistanceSettingsPage() {
     maxRequests: DEFAULT_MAX_REQUESTS,
     windowMinutes: DEFAULT_WINDOW_MINUTES,
   });
+  const [guidance, setGuidance] = useState<ServiceGuidanceRule[]>(DEFAULT_GUIDANCE);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getRestaurantSettings(rid)
-      .then((settings) => {
+    Promise.all([getRestaurantSettings(rid), getServiceGuidanceRules(rid)])
+      .then(([settings, rules]) => {
         setPolicy({
           enabled: settings.table_assistance_rate_limit_enabled ?? true,
           maxRequests:
@@ -49,6 +62,7 @@ export default function TableAssistanceSettingsPage() {
           windowMinutes:
             settings.table_assistance_rate_limit_window_minutes ?? DEFAULT_WINDOW_MINUTES,
         });
+        if (rules.length === DEFAULT_GUIDANCE.length) setGuidance(rules);
       })
       .catch((cause) => {
         setError(cause instanceof Error ? cause.message : t('tableAssistanceSaveError'));
@@ -68,11 +82,14 @@ export default function TableAssistanceSettingsPage() {
     setSaved(false);
     setError(null);
     try {
-      const settings = await updateRestaurantSettings(rid, {
-        table_assistance_rate_limit_enabled: policy.enabled,
-        table_assistance_rate_limit_max_requests: policy.maxRequests,
-        table_assistance_rate_limit_window_minutes: policy.windowMinutes,
-      });
+      const [settings, savedGuidance] = await Promise.all([
+        updateRestaurantSettings(rid, {
+          table_assistance_rate_limit_enabled: policy.enabled,
+          table_assistance_rate_limit_max_requests: policy.maxRequests,
+          table_assistance_rate_limit_window_minutes: policy.windowMinutes,
+        }),
+        updateServiceGuidanceRules(rid, guidance),
+      ]);
       setPolicy({
         enabled: settings.table_assistance_rate_limit_enabled ?? policy.enabled,
         maxRequests:
@@ -80,6 +97,7 @@ export default function TableAssistanceSettingsPage() {
         windowMinutes:
           settings.table_assistance_rate_limit_window_minutes ?? policy.windowMinutes,
       });
+      setGuidance(savedGuidance);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2000);
     } catch (cause) {
@@ -100,9 +118,30 @@ export default function TableAssistanceSettingsPage() {
   return (
     <div className="max-w-2xl">
       <PageHead
-        title={t('tableAssistanceSettings')}
-        desc={t('tableAssistanceSettingsDesc')}
+        title={t('tableServiceSettings')}
+        desc={t('tableServiceSettingsDesc')}
       />
+
+      <Section title={t('serviceGuidanceTitle')} desc={t('serviceGuidanceDesc')}>
+        <div className="space-y-[var(--s-3)]">
+          {guidance.map((rule) => (
+            <GuidanceRuleCard
+              key={rule.type}
+              rule={rule}
+              canEdit={canEdit}
+              title={t(rule.type === 'check_in' ? 'serviceGuidanceCheckIn' : 'serviceGuidanceDessert')}
+              description={t(rule.type === 'check_in' ? 'serviceGuidanceCheckInDesc' : 'serviceGuidanceDessertDesc')}
+              icon={rule.type === 'check_in' ? <Eye className="h-5 w-5" /> : <CakeSlice className="h-5 w-5" />}
+              onChange={(next) => setGuidance((rules) => rules.map((item) => item.type === next.type ? next : item))}
+              t={t}
+            />
+          ))}
+          <div className="flex items-start gap-2 border-s-4 border-[var(--info-500)] bg-[var(--surface-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-xs leading-relaxed text-[var(--fg-muted)]">
+            <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--info-500)]" />
+            <span>{t('serviceGuidanceCalmNote')}</span>
+          </div>
+        </div>
+      </Section>
 
       <Section
         title={t('tableAssistanceProtection')}
@@ -205,6 +244,62 @@ export default function TableAssistanceSettingsPage() {
             {error}
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function GuidanceRuleCard({
+  rule,
+  canEdit,
+  title,
+  description,
+  icon,
+  onChange,
+  t,
+}: {
+  rule: ServiceGuidanceRule;
+  canEdit: boolean;
+  title: string;
+  description: string;
+  icon: ReactNode;
+  onChange: (rule: ServiceGuidanceRule) => void;
+  t: (key: string) => string;
+}) {
+  const labelId = `guidance-${rule.type}`;
+  const patch = (next: Partial<ServiceGuidanceRule>) => onChange({ ...rule, ...next });
+  return (
+    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-4)]">
+      <div className="flex items-start gap-[var(--s-3)]">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-r-md bg-[var(--surface-2)] text-[var(--fg-muted)]">
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div id={labelId} className="text-fs-sm font-semibold text-[var(--fg)]">{title}</div>
+          <p className="mt-1 max-w-[62ch] text-fs-xs leading-relaxed text-[var(--fg-muted)]">{description}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={rule.enabled}
+          aria-labelledby={labelId}
+          disabled={!canEdit}
+          onClick={() => patch({ enabled: !rule.enabled })}
+          className="relative h-6 w-11 shrink-0 rounded-full border border-[var(--line)] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--brand-500)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ background: rule.enabled ? 'var(--brand-500)' : 'var(--surface-3)' }}
+        >
+          <span aria-hidden="true" className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ insetInlineStart: rule.enabled ? 22 : 2 }} />
+        </button>
+      </div>
+      <div className="mt-[var(--s-4)] grid gap-[var(--s-4)] sm:grid-cols-2">
+        <label className="space-y-1.5">
+          <span className="block text-fs-xs font-medium text-[var(--fg-muted)]">{t('serviceGuidanceDelay')}</span>
+          <NumberField integer min={1} max={180} value={rule.delay_minutes} disabled={!canEdit || !rule.enabled} onChange={(delay_minutes) => patch({ delay_minutes })} />
+        </label>
+        <label className="space-y-1.5">
+          <span className="block text-fs-xs font-medium text-[var(--fg-muted)]">{t('serviceGuidanceOverdue')}</span>
+          <NumberField integer min={1} max={120} value={rule.overdue_minutes} disabled={!canEdit || !rule.enabled} onChange={(overdue_minutes) => patch({ overdue_minutes })} />
+        </label>
       </div>
     </div>
   );

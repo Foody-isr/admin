@@ -340,7 +340,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       items: [
         { id: 'floor-plans', href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', icon: LayoutGrid, desktopOnly: true },
         { id: 'sections', href: `${base}/restaurant/sections`, labelKey: 'sections', icon: Boxes },
-        { id: 'table-assistance', href: `${base}/settings/table-assistance`, labelKey: 'tableAssistanceSettings', icon: BellRing },
+        { id: 'table-assistance', href: `${base}/settings/table-assistance`, labelKey: 'tableServiceSettings', icon: BellRing },
         { id: 'table-status', href: `${base}/restaurant/table-status`, labelKey: 'tableStatus', icon: Armchair },
         { id: 'table-qr', href: `${base}/restaurant/table-qr`, labelKey: 'tableQrCodes', icon: QrCode },
       ],
