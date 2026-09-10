@@ -6727,6 +6727,7 @@ export interface Supplier {
   id: number;
   restaurant_id: number;
   name: string;
+  translations: TranslationMap;
   contact_name: string;
   phone: string;
   email: string;
@@ -6744,6 +6745,7 @@ export interface Supplier {
 
 export interface SupplierInput {
   name: string;
+  translations?: TranslationMap;
   contact_name?: string;
   phone?: string;
   email?: string;
@@ -6813,6 +6815,7 @@ export interface PurchaseOrder {
   total_amount: number;
   order_date: string | null;
   expected_delivery_at: string | null;
+  expected_delivery_end_at: string | null;
   received_date: string | null;
   source_report_id?: number | null;
   send_channel: SupplierOrderChannel | '';
@@ -6969,9 +6972,16 @@ export async function listPurchaseOrders(restaurantId: number, params?: { suppli
   return data.orders ?? [];
 }
 
-export async function createPurchaseOrder(restaurantId: number, input: { supplier_id: number; expected_delivery_at?: string | null; notes?: string; items: PurchaseOrderItemInput[] }): Promise<PurchaseOrder> {
+export async function createPurchaseOrder(restaurantId: number, input: { supplier_id: number; expected_delivery_at?: string | null; expected_delivery_end_at?: string | null; notes?: string; items: PurchaseOrderItemInput[] }): Promise<PurchaseOrder> {
   const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
+  });
+  return data.order;
+}
+
+export async function updatePurchaseOrder(restaurantId: number, id: number, input: { supplier_id: number; expected_delivery_at?: string | null; expected_delivery_end_at?: string | null; notes?: string; items: PurchaseOrderItemInput[] }): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
   });
   return data.order;
 }

@@ -4,6 +4,7 @@ interface PurchaseOrderMessageInput {
   restaurantName: string;
   supplierName: string;
   expectedDeliveryAt?: string | null;
+  expectedDeliveryEndAt?: string | null;
   items: Pick<
     PurchaseOrderItemInput,
     | "name"
@@ -52,19 +53,92 @@ const copy = {
     order: "להלן ההזמנה של",
     delivery: "משלוח מבוקש",
     notes: "הערות",
-    total: 'סה"כ',
+    total: "סה״כ",
     confirm: "נא לאשר זמינות. תודה.",
   },
 } satisfies Record<SupplierOrderLanguage, Record<string, string>>;
 
+const relativeDays: Record<SupplierOrderLanguage, readonly string[]> = {
+  en: ["today", "tomorrow", "the day after tomorrow"],
+  fr: ["aujourd’hui", "demain", "après-demain"],
+  he: ["היום", "מחר", "מחרתיים"],
+};
+
+function calendarDayNumber(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+  return (
+    Date.UTC(Number(value.year), Number(value.month) - 1, Number(value.day)) /
+    86_400_000
+  );
+}
+
+export function formatPurchaseOrderDeliveryWindow(
+  expectedDeliveryAt: string,
+  expectedDeliveryEndAt: string | null | undefined,
+  language: SupplierOrderLanguage,
+  timeZone = "Asia/Jerusalem",
+  now = new Date(),
+): string {
+  const start = new Date(expectedDeliveryAt);
+  if (Number.isNaN(start.getTime())) return "";
+  const dateLabel = new Intl.DateTimeFormat(localeByLanguage[language], {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone,
+  }).format(start);
+  const timeFormatter = new Intl.DateTimeFormat(localeByLanguage[language], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone,
+  });
+  let timeLabel = timeFormatter.format(start);
+  if (expectedDeliveryEndAt) {
+    const end = new Date(expectedDeliveryEndAt);
+    if (!Number.isNaN(end.getTime()) && end > start) {
+      const sameDay =
+        calendarDayNumber(start, timeZone) === calendarDayNumber(end, timeZone);
+      timeLabel += sameDay
+        ? `–${timeFormatter.format(end)}`
+        : `–${new Intl.DateTimeFormat(localeByLanguage[language], {
+            dateStyle: "medium",
+            timeStyle: "short",
+            hourCycle: "h23",
+            timeZone,
+          }).format(end)}`;
+    }
+  }
+  const dayDifference =
+    calendarDayNumber(start, timeZone) - calendarDayNumber(now, timeZone);
+  const relative =
+    dayDifference >= 0 && dayDifference <= 2
+      ? relativeDays[language][dayDifference]
+      : "";
+  return [relative, dateLabel, timeLabel].filter(Boolean).join(", ");
+}
+
 const packagingLabels: Record<SupplierOrderLanguage, Record<string, string>> = {
   en: {
+    g: "g",
+    kg: "kg",
+    ml: "ml",
+    l: "l",
     unit: "unit",
     units: "units",
     piece: "piece",
     pieces: "pieces",
-    "unité": "unit",
-    "unités": "units",
+    unité: "unit",
+    unités: "units",
     paquet: "pack",
     paquets: "packs",
     carton: "carton",
@@ -87,12 +161,16 @@ const packagingLabels: Record<SupplierOrderLanguage, Record<string, string>> = {
     jug: "jug",
   },
   fr: {
+    g: "g",
+    kg: "kg",
+    ml: "ml",
+    l: "l",
     unit: "unité",
     units: "unités",
     piece: "pièce",
     pieces: "pièces",
-    "unité": "unité",
-    "unités": "unités",
+    unité: "unité",
+    unités: "unités",
     paquet: "paquet",
     paquets: "paquets",
     carton: "carton",
@@ -115,12 +193,32 @@ const packagingLabels: Record<SupplierOrderLanguage, Record<string, string>> = {
     jug: "bidon",
   },
   he: {
+    g: "גרם",
+    gram: "גרם",
+    grams: "גרם",
+    gramme: "גרם",
+    grammes: "גרם",
+    kg: "ק״ג",
+    kilogram: "ק״ג",
+    kilograms: "ק״ג",
+    kilogramme: "ק״ג",
+    kilogrammes: "ק״ג",
+    ml: "מ״ל",
+    milliliter: "מ״ל",
+    milliliters: "מ״ל",
+    millilitre: "מ״ל",
+    millilitres: "מ״ל",
+    l: "ליטר",
+    liter: "ליטר",
+    liters: "ליטר",
+    litre: "ליטר",
+    litres: "ליטר",
     unit: "יחידה",
     units: "יחידות",
     piece: "יחידה",
     pieces: "יחידות",
-    "unité": "יחידה",
-    "unités": "יחידות",
+    unité: "יחידה",
+    unités: "יחידות",
     paquet: "חבילה",
     paquets: "חבילות",
     carton: "קרטון",
@@ -150,9 +248,9 @@ const pluralPackagingLabels: Record<
 > = {
   en: {
     unit: "units",
-    "unité": "units",
+    unité: "units",
     piece: "pieces",
-    "pièce": "pieces",
+    pièce: "pieces",
     pack: "packs",
     packet: "packets",
     paquet: "packs",
@@ -160,9 +258,9 @@ const pluralPackagingLabels: Record<
   },
   fr: {
     unit: "unités",
-    "unité": "unités",
+    unité: "unités",
     piece: "pièces",
-    "pièce": "pièces",
+    pièce: "pièces",
     pack: "packs",
     packet: "paquets",
     paquet: "paquets",
@@ -170,9 +268,9 @@ const pluralPackagingLabels: Record<
   },
   he: {
     unit: "יחידות",
-    "unité": "יחידות",
+    unité: "יחידות",
     piece: "יחידות",
-    "pièce": "יחידות",
+    pièce: "יחידות",
     pack: "חבילות",
     packet: "חבילות",
     paquet: "חבילות",
@@ -186,10 +284,11 @@ function packagingLabel(
   quantity = 1,
 ): string {
   if (!value) return "";
-  if (quantity !== 1 && pluralPackagingLabels[language][value]) {
-    return pluralPackagingLabels[language][value];
+  const key = value.trim().toLocaleLowerCase();
+  if (quantity !== 1 && pluralPackagingLabels[language][key]) {
+    return pluralPackagingLabels[language][key];
   }
-  return packagingLabels[language][value] || value;
+  return packagingLabels[language][key] || value;
 }
 
 function formatQuantity(
@@ -205,11 +304,15 @@ export function formatOrderQuantity(
   item: PurchaseOrderMessageInput["items"][number],
   language: SupplierOrderLanguage,
 ): string {
-  if (item.order_quantity && item.order_unit && (!item.packaging_set || !item.package_count)) {
+  if (
+    item.order_quantity &&
+    item.order_unit &&
+    (!item.packaging_set || !item.package_count)
+  ) {
     return `${formatQuantity(item.order_quantity, language)} ${packagingLabel(item.order_unit, language, item.order_quantity)}`.trim();
   }
   if (!item.packaging_set || !item.package_count) {
-    return `${formatQuantity(item.quantity, language)} ${item.unit || ""}`.trim();
+    return `${formatQuantity(item.quantity, language)} ${packagingLabel(item.unit, language, item.quantity)}`.trim();
   }
 
   const parts = [
@@ -222,14 +325,15 @@ export function formatOrderQuantity(
   }
   if (item.unit_size) {
     parts.push(
-      `× ${formatQuantity(item.unit_size, language)} ${item.unit_size_unit || item.unit || ""}`.trim(),
+      `× ${formatQuantity(item.unit_size, language)} ${packagingLabel(item.unit_size_unit || item.unit, language, item.unit_size)}`.trim(),
     );
   }
+  const totalQuantity = formatQuantity(item.quantity, language);
+  const totalUnit = packagingLabel(item.unit, language, item.quantity);
   parts.push(
-    `(${formatQuantity(item.quantity, language)} ${item.unit || ""} ${copy[language].total})`.replace(
-      /\s+/g,
-      " ",
-    ),
+    language === "he"
+      ? `(${copy.he.total} ${totalQuantity} ${totalUnit})`
+      : `(${totalQuantity} ${totalUnit} ${copy[language].total})`,
   );
   return parts.join(" ");
 }
@@ -255,18 +359,14 @@ export function buildPurchaseOrderMessage(
   ];
 
   if (input.expectedDeliveryAt) {
-    const date = new Date(input.expectedDeliveryAt);
-    if (!Number.isNaN(date.getTime())) {
-      lines.push(
-        `${t.delivery}: ${new Intl.DateTimeFormat(localeByLanguage[language], {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: input.timeZone || "Asia/Jerusalem",
-        }).format(date)}`,
-      );
+    const delivery = formatPurchaseOrderDeliveryWindow(
+      input.expectedDeliveryAt,
+      input.expectedDeliveryEndAt,
+      language,
+      input.timeZone,
+    );
+    if (delivery) {
+      lines.push(`${t.delivery}: ${delivery}`);
     }
   }
 
@@ -280,6 +380,11 @@ export function buildPurchaseOrderMessage(
     lines.push("", `${t.notes}: ${input.notes.trim()}`);
   }
   lines.push("", t.confirm);
+  if (language === "he") {
+    // WhatsApp decides direction per line. A right-to-left mark keeps bullets,
+    // punctuation and quantities stable even when names contain Latin text.
+    return lines.map((line) => (line ? `\u200F${line}` : line)).join("\n");
+  }
   return lines.join("\n");
 }
 

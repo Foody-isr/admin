@@ -18,6 +18,7 @@ import {
   receivePurchaseOrder,
   refreshPurchaseOrderTranslations,
   sendOrderEmail,
+  updatePurchaseOrder,
   updatePurchaseOrderStatus,
   updateSupplier,
   updateSupplierProduct,
@@ -132,7 +133,9 @@ function packagingLabel(
     );
   }
   if (packaging.unitSize > 0) {
-    parts.push(`× ${packaging.unitSize} ${packaging.unitSizeUnit}`);
+    parts.push(
+      `× ${packaging.unitSize} ${labelForRaw(packaging.unitSizeUnit, t)}`,
+    );
   }
   return parts.join(" ");
 }
@@ -160,14 +163,34 @@ function dateTimeLabel(value: string | null | undefined, locale: string) {
   }).format(new Date(value));
 }
 
-function nextSchedule(
+function dateTimeLocalValue(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}
+
+function localizedSupplierName(
   supplier: Supplier,
-): { schedule: SupplierDeliverySchedule; delivery: Date; cutoff: Date } | null {
+  language: SupplierOrderLanguage,
+) {
+  return supplier.translations?.name?.[language]?.trim() || supplier.name;
+}
+
+function nextSchedule(supplier: Supplier): {
+  schedule: SupplierDeliverySchedule;
+  delivery: Date;
+  deliveryEnd: Date;
+  cutoff: Date;
+} | null {
   const now = new Date();
   const candidates = (supplier.schedules ?? []).flatMap((schedule) => {
     const values: {
       schedule: SupplierDeliverySchedule;
       delivery: Date;
+      deliveryEnd: Date;
       cutoff: Date;
     }[] = [];
     for (let offset = 0; offset < 14; offset += 1) {
@@ -183,7 +206,10 @@ function nextSchedule(
         .split(":")
         .map(Number);
       cutoff.setHours(cutoffHours, cutoffMinutes, 0, 0);
-      values.push({ schedule, delivery, cutoff });
+      const deliveryEnd = new Date(delivery);
+      const [endHours, endMinutes] = schedule.window_end.split(":").map(Number);
+      deliveryEnd.setHours(endHours, endMinutes, 0, 0);
+      values.push({ schedule, delivery, deliveryEnd, cutoff });
       break;
     }
     return values;
@@ -348,6 +374,7 @@ export default function SuppliersPage() {
       {supplierModal.open && (
         <SupplierFormModal
           editing={supplierModal.editing}
+          sourceLocale={sourceLocale}
           onClose={() => setSupplierModal({ open: false })}
           onSave={async (input) => {
             if (supplierModal.editing)
@@ -928,15 +955,20 @@ function OrdersTab({
 
 function SupplierFormModal({
   editing,
+  sourceLocale,
   onClose,
   onSave,
 }: {
   editing?: Supplier;
+  sourceLocale: Locale;
   onClose: () => void;
   onSave: (input: Parameters<typeof createSupplier>[1]) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? "");
+  const [translations, setTranslations] = useState<TranslationMap>(
+    editing?.translations ?? {},
+  );
   const [contactName, setContactName] = useState(editing?.contact_name ?? "");
   const [phone, setPhone] = useState(editing?.phone ?? "");
   const [email, setEmail] = useState(editing?.email ?? "");
@@ -978,6 +1010,7 @@ function SupplierFormModal({
     try {
       await onSave({
         name: name.trim(),
+        translations,
         contact_name: contactName,
         phone,
         email,
@@ -998,12 +1031,15 @@ function SupplierFormModal({
     >
       <div className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field
-            label={t("supplierName")}
-            value={name}
-            onChange={setName}
-            required
-          />
+          <div className="sm:col-span-2">
+            <LocalizedOrderNameField
+              sourceLocale={sourceLocale}
+              name={name}
+              translations={translations}
+              onNameChange={setName}
+              onTranslationsChange={setTranslations}
+            />
+          </div>
           <Field
             label={t("contactName")}
             value={contactName}
@@ -1202,6 +1238,8 @@ function OrderComposer({
   );
   const [notes, setNotes] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
+  const [expectedDeliveryEnd, setExpectedDeliveryEnd] = useState("");
+  const [deliveryError, setDeliveryError] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const supplier = suppliers.find((item) => item.id === supplierId);
@@ -1287,14 +1325,15 @@ function OrderComposer({
     if (!supplier) return;
     const upcoming = nextSchedule(supplier);
     if (upcoming) {
-      const local = new Date(
-        upcoming.delivery.getTime() -
-          upcoming.delivery.getTimezoneOffset() * 60_000,
-      )
-        .toISOString()
-        .slice(0, 16);
-      setExpectedDelivery(local);
-    } else setExpectedDelivery("");
+      setExpectedDelivery(dateTimeLocalValue(upcoming.delivery.toISOString()));
+      setExpectedDeliveryEnd(
+        dateTimeLocalValue(upcoming.deliveryEnd.toISOString()),
+      );
+    } else {
+      setExpectedDelivery("");
+      setExpectedDeliveryEnd("");
+    }
+    setDeliveryError("");
   }, [supplier]);
   const linkedStockIds = new Set(
     products.flatMap((product) =>
@@ -1344,6 +1383,19 @@ function OrderComposer({
     }));
   const create = async (continueToSend: boolean) => {
     if (!supplier || selectedRows.length === 0) return;
+    setDeliveryError("");
+    if (continueToSend && !expectedDelivery) {
+      setDeliveryError(t("deliveryDateRequired"));
+      return;
+    }
+    if (
+      expectedDeliveryEnd &&
+      (!expectedDelivery ||
+        new Date(expectedDeliveryEnd) <= new Date(expectedDelivery))
+    ) {
+      setDeliveryError(t("deliveryWindowInvalid"));
+      return;
+    }
     setSaving(true);
     try {
       const items: PurchaseOrderItemInput[] = selectedRows.map((row) => {
@@ -1396,6 +1448,9 @@ function OrderComposer({
         expected_delivery_at: expectedDelivery
           ? new Date(expectedDelivery).toISOString()
           : null,
+        expected_delivery_end_at: expectedDeliveryEnd
+          ? new Date(expectedDeliveryEnd).toISOString()
+          : null,
         notes,
         items,
       });
@@ -1434,7 +1489,7 @@ function OrderComposer({
           </button>
         </div>
         <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-5 sm:p-6">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <SelectField
               label={t("supplier")}
               value={String(supplierId)}
@@ -1442,12 +1497,32 @@ function OrderComposer({
               options={suppliers.map((item) => [String(item.id), item.name])}
             />
             <Field
-              label={t("expectedDelivery")}
+              label={t("deliveryWindowStart")}
               value={expectedDelivery}
-              onChange={setExpectedDelivery}
+              onChange={(value) => {
+                setExpectedDelivery(value);
+                setDeliveryError("");
+              }}
+              type="datetime-local"
+            />
+            <Field
+              label={t("deliveryWindowEnd")}
+              value={expectedDeliveryEnd}
+              onChange={(value) => {
+                setExpectedDeliveryEnd(value);
+                setDeliveryError("");
+              }}
               type="datetime-local"
             />
           </div>
+          <p className="-mt-2 text-fs-xs text-[var(--fg-muted)]">
+            {t("deliveryTimingHint")}
+          </p>
+          {deliveryError && (
+            <p role="alert" className="text-fs-sm text-[var(--danger-500)]">
+              {deliveryError}
+            </p>
+          )}
           <div>
             <label className="relative mb-3 block">
               <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
@@ -1551,7 +1626,8 @@ function OrderComposer({
                           <span>{t("quantity")}</span>
                           {showEquivalent && (
                             <span>
-                              = {numberFormatter.format(baseQuantity)} {row.unit}
+                              = {numberFormatter.format(baseQuantity)}{" "}
+                              {labelForRaw(row.unit, t)}
                             </span>
                           )}
                         </span>
@@ -1590,7 +1666,8 @@ function OrderComposer({
                           <div className="mt-1 hidden text-fs-xs font-medium text-[var(--fg-muted)] sm:block">
                             {numberFormatter.format(amount)}{" "}
                             {labelForRaw(selectedUnit, t)} ={" "}
-                            {numberFormatter.format(baseQuantity)} {row.unit}
+                            {numberFormatter.format(baseQuantity)}{" "}
+                            {labelForRaw(row.unit, t)}
                           </div>
                         )}
                       </label>
@@ -1819,6 +1896,12 @@ function SendOrderModal({
   const [channel, setChannel] = useState<SupplierOrderChannel>(
     order.supplier.preferred_channel || "whatsapp",
   );
+  const [expectedDelivery, setExpectedDelivery] = useState(
+    dateTimeLocalValue(order.expected_delivery_at),
+  );
+  const [expectedDeliveryEnd, setExpectedDeliveryEnd] = useState(
+    dateTimeLocalValue(order.expected_delivery_end_at),
+  );
   const [message, setMessage] = useState("");
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [preparing, setPreparing] = useState(true);
@@ -1827,10 +1910,20 @@ function SendOrderModal({
   useEffect(() => {
     let active = true;
     setPreparedOrder(order);
+    setExpectedDelivery(dateTimeLocalValue(order.expected_delivery_at));
+    setExpectedDeliveryEnd(dateTimeLocalValue(order.expected_delivery_end_at));
     setPreparing(true);
     refreshPurchaseOrderTranslations(rid, order.id)
       .then((refreshed) => {
-        if (active) setPreparedOrder(refreshed);
+        if (active) {
+          setPreparedOrder(refreshed);
+          setExpectedDelivery(
+            dateTimeLocalValue(refreshed.expected_delivery_at),
+          );
+          setExpectedDeliveryEnd(
+            dateTimeLocalValue(refreshed.expected_delivery_end_at),
+          );
+        }
       })
       .catch(() => {
         if (active) setError(t("translationPreparationFailed"));
@@ -1848,19 +1941,75 @@ function SendOrderModal({
         buildPurchaseOrderMessage(
           {
             restaurantName,
-            supplierName: supplier.name,
-            expectedDeliveryAt: preparedOrder.expected_delivery_at,
+            supplierName: localizedSupplierName(supplier, language),
+            expectedDeliveryAt: expectedDelivery
+              ? new Date(expectedDelivery).toISOString()
+              : null,
+            expectedDeliveryEndAt: expectedDeliveryEnd
+              ? new Date(expectedDeliveryEnd).toISOString()
+              : null,
             items: preparedOrder.items,
             notes: preparedOrder.notes,
           },
           language,
         ),
       ),
-    [language, preparedOrder, restaurantName, supplier.name],
+    [
+      expectedDelivery,
+      expectedDeliveryEnd,
+      language,
+      preparedOrder,
+      restaurantName,
+      supplier,
+    ],
   );
+  const validateDelivery = () => {
+    if (!expectedDelivery) {
+      setError(t("deliveryDateRequired"));
+      return false;
+    }
+    if (
+      expectedDeliveryEnd &&
+      new Date(expectedDeliveryEnd) <= new Date(expectedDelivery)
+    ) {
+      setError(t("deliveryWindowInvalid"));
+      return false;
+    }
+    return true;
+  };
+  const persistDelivery = async () => {
+    if (!validateDelivery()) return null;
+    return await updatePurchaseOrder(rid, preparedOrder.id, {
+      supplier_id: preparedOrder.supplier_id,
+      expected_delivery_at: new Date(expectedDelivery).toISOString(),
+      expected_delivery_end_at: expectedDeliveryEnd
+        ? new Date(expectedDeliveryEnd).toISOString()
+        : null,
+      notes: preparedOrder.notes,
+      items: preparedOrder.items.map((item) => ({
+        supplier_product_id: item.supplier_product_id,
+        stock_item_id: item.stock_item_id,
+        name: item.name,
+        unit: item.unit,
+        quantity: item.quantity,
+        order_quantity: item.order_quantity,
+        order_unit: item.order_unit,
+        packaging_set: item.packaging_set,
+        package_count: item.package_count,
+        units_per_pack: item.units_per_pack,
+        unit_size: item.unit_size,
+        unit_size_unit: item.unit_size_unit,
+        container_type: item.container_type,
+        unit_type: item.unit_type,
+        translations: item.translations,
+        price_per_unit: item.price_per_unit,
+      })),
+    });
+  };
   const send = async () => {
     setError("");
     if (channel === "whatsapp") {
+      if (!validateDelivery()) return;
       const url = buildWhatsAppUrl(supplier.phone, message);
       if (!url) {
         setError(t("invalidWhatsAppPhone"));
@@ -1876,6 +2025,7 @@ function SendOrderModal({
     }
     setSending(true);
     try {
+      if (!(await persistDelivery())) return;
       await sendOrderEmail(rid, preparedOrder.id, { language });
       await onSent();
     } catch (err) {
@@ -1885,13 +2035,17 @@ function SendOrderModal({
     }
   };
   const confirmWhatsApp = async () => {
+    setError("");
     setSending(true);
     try {
+      if (!(await persistDelivery())) return;
       await updatePurchaseOrderStatus(rid, preparedOrder.id, "sent", {
         channel: "whatsapp",
         language,
       });
       await onSent();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("sendOrderFailed"));
     } finally {
       setSending(false);
     }
@@ -1932,6 +2086,31 @@ function SendOrderModal({
             </div>
           </button>
         </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label={t("deliveryWindowStart")}
+            value={expectedDelivery}
+            onChange={(value) => {
+              setExpectedDelivery(value);
+              setAwaitingConfirmation(false);
+              setError("");
+            }}
+            type="datetime-local"
+          />
+          <Field
+            label={t("deliveryWindowEnd")}
+            value={expectedDeliveryEnd}
+            onChange={(value) => {
+              setExpectedDeliveryEnd(value);
+              setAwaitingConfirmation(false);
+              setError("");
+            }}
+            type="datetime-local"
+          />
+        </div>
+        <p className="-mt-2 text-fs-xs text-[var(--fg-muted)]">
+          {t("deliveryTimingHint")}
+        </p>
         <SelectField
           label={t("messageLanguage")}
           value={language}
@@ -1956,10 +2135,11 @@ function SendOrderModal({
           </span>
           <textarea
             dir={language === "he" ? "rtl" : "ltr"}
+            lang={language}
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             rows={9}
-            className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface-2)] px-3 py-3 text-base leading-relaxed outline-none focus:bg-[var(--surface)] focus:shadow-ring sm:text-fs-sm"
+            className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface-2)] px-3 py-3 text-base leading-relaxed [unicode-bidi:plaintext] outline-none focus:bg-[var(--surface)] focus:shadow-ring sm:text-fs-sm"
           />
         </label>
         {error && (
