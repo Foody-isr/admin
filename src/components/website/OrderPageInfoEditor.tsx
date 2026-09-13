@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import type { OrderPageInfo, OrderPageBarItem, OrderPageModalSection } from '@/lib/api';
+import type {
+  OrderPageInfo,
+  OrderPageBarItem,
+  OrderPageModalSection,
+  OrderPageNavigation,
+  OrderPageNavigationStyle,
+} from '@/lib/api';
 
 type Mode = 'pickup' | 'delivery' | 'dine_in';
 
@@ -17,6 +23,24 @@ const DEFAULT_INFO: OrderPageInfo = {
   modal_text: '',
 };
 
+const DEFAULT_NAVIGATION: OrderPageNavigation = {
+  desktop_style: 'hidden',
+  mobile_style: 'hidden',
+  featured_page_slug: '',
+  featured_label: '',
+  featured_description: '',
+  discover_enabled: false,
+  discover_label: '',
+  discover_page_slugs: [],
+};
+
+export type OrderPageNavigationPageOption = {
+  slug: string;
+  label: string;
+  type: 'landing' | 'content' | 'order' | 'catering';
+  visible?: boolean;
+};
+
 function normalizeOrderPageInfo(value: OrderPageInfo | null): OrderPageInfo {
   const bar = value?.bar;
   return {
@@ -27,8 +51,29 @@ function normalizeOrderPageInfo(value: OrderPageInfo | null): OrderPageInfo {
     },
     modal: Array.isArray(value?.modal) ? value.modal : DEFAULT_INFO.modal,
     modal_text: typeof value?.modal_text === 'string' ? value.modal_text : '',
+    ...(value?.navigation
+      ? {
+          navigation: {
+            ...DEFAULT_NAVIGATION,
+            ...value.navigation,
+            discover_page_slugs: Array.isArray(value.navigation.discover_page_slugs)
+              ? value.navigation.discover_page_slugs
+              : [],
+          },
+        }
+      : {}),
   };
 }
+
+const NAVIGATION_STYLE_OPTIONS: Array<{
+  value: OrderPageNavigationStyle;
+  label: string;
+}> = [
+  { value: 'hidden', label: 'Masquée — rendu actuel' },
+  { value: 'inline', label: 'Dans la ligne d’infos' },
+  { value: 'buttons', label: 'Boutons séparés' },
+  { value: 'banner', label: 'Bandeau promotionnel' },
+];
 
 const MODE_LABEL: Record<Mode, string> = {
   pickup: 'Retrait',
@@ -113,6 +158,7 @@ export function OrderPageInfoEditor({
   onChange,
   availableModes,
   locked,
+  pages = [],
 }: {
   value: OrderPageInfo | null;
   onChange: (v: OrderPageInfo) => void;
@@ -121,6 +167,8 @@ export function OrderPageInfoEditor({
   /** True when the order type is chosen at checkout (the menu page shows one
    *  fixed default bar, so per-mode tabs don't apply). */
   locked: boolean;
+  /** Published/draft pages that may be promoted from the order page. */
+  pages?: OrderPageNavigationPageOption[];
 }) {
   const modes = availableModes.length ? availableModes : (['pickup'] as Mode[]);
   // One fixed bar when the customer can't switch mode on the page (locked) or
@@ -129,6 +177,19 @@ export function OrderPageInfoEditor({
   const [selected, setSelected] = useState<Mode>(modes[0]);
   const mode: Mode = single ? modes[0] : modes.includes(selected) ? selected : modes[0];
   const v = normalizeOrderPageInfo(value);
+  const navigation: OrderPageNavigation = {
+    ...DEFAULT_NAVIGATION,
+    ...v.navigation,
+  };
+  const destinationPages = pages.filter(
+    (page, index) =>
+      page.type !== 'order' &&
+      page.visible !== false &&
+      pages.findIndex((candidate) => candidate.slug === page.slug) === index,
+  );
+  const navigationEnabled =
+    navigation.desktop_style !== 'hidden' ||
+    navigation.mobile_style !== 'hidden';
 
   const toggleBar = (key: OrderPageBarItem) => {
     const list = v.bar[mode];
@@ -141,6 +202,39 @@ export function OrderPageInfoEditor({
   const toggleModal = (key: OrderPageModalSection) => {
     const next = v.modal.includes(key) ? v.modal.filter((k) => k !== key) : [...v.modal, key];
     onChange({ ...v, modal: next });
+  };
+  const updateNavigation = (patch: Partial<OrderPageNavigation>) => {
+    onChange({
+      ...v,
+      navigation: { ...navigation, ...patch },
+    });
+  };
+  const updateNavigationStyle = (
+    device: 'desktop' | 'mobile',
+    style: OrderPageNavigationStyle,
+  ) => {
+    const key = device === 'desktop' ? 'desktop_style' : 'mobile_style';
+    const suggested =
+      destinationPages.find((page) => page.type === 'catering') ??
+      destinationPages[0];
+    updateNavigation({
+      [key]: style,
+      ...(
+        style !== 'hidden' &&
+        !navigation.featured_page_slug &&
+        suggested
+          ? { featured_page_slug: suggested.slug }
+          : {}
+      ),
+    });
+  };
+  const toggleDiscoverPage = (slug: string) => {
+    const selectedSlugs = navigation.discover_page_slugs;
+    updateNavigation({
+      discover_page_slugs: selectedSlugs.includes(slug)
+        ? selectedSlugs.filter((candidate) => candidate !== slug)
+        : [...selectedSlugs, slug],
+    });
   };
 
   return (
@@ -191,12 +285,138 @@ export function OrderPageInfoEditor({
         </div>
       </section>
 
+      {/* Published-page discovery */}
+      <section className="rounded-lg border border-[var(--divider)] p-3">
+        <div className="mb-3">
+          <h3 className="text-xs font-semibold mb-0.5">Navigation depuis la commande</h3>
+          <p className="text-[11px] text-fg-secondary leading-snug">
+            Mettez une page en avant sans modifier l&apos;adresse habituelle de commande. Chaque appareil peut conserver le rendu actuel.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-medium text-fg-primary">Ordinateur</span>
+            <select
+              value={navigation.desktop_style}
+              onChange={(event) => updateNavigationStyle('desktop', event.target.value as OrderPageNavigationStyle)}
+              className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+            >
+              {NAVIGATION_STYLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-medium text-fg-primary">Mobile</span>
+            <select
+              value={navigation.mobile_style}
+              onChange={(event) => updateNavigationStyle('mobile', event.target.value as OrderPageNavigationStyle)}
+              className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+            >
+              {NAVIGATION_STYLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {destinationPages.length === 0 ? (
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-800">
+            Publiez au moins une autre page visible dans la navigation pour l&apos;afficher ici.
+          </p>
+        ) : navigationEnabled ? (
+          <div className="mt-4 space-y-3 border-t border-[var(--divider)] pt-3">
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-medium text-fg-primary">Page mise en avant</span>
+              <select
+                value={navigation.featured_page_slug ?? ''}
+                onChange={(event) => updateNavigation({ featured_page_slug: event.target.value })}
+                className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+              >
+                <option value="">Aucune page directe</option>
+                {destinationPages.map((page) => (
+                  <option key={page.slug} value={page.slug}>{page.label}</option>
+                ))}
+              </select>
+            </label>
+
+            {navigation.featured_page_slug ? (
+              <div className="grid gap-2">
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-medium text-fg-primary">Libellé personnalisé</span>
+                  <input
+                    value={navigation.featured_label ?? ''}
+                    onChange={(event) => updateNavigation({ featured_label: event.target.value })}
+                    placeholder={destinationPages.find((page) => page.slug === navigation.featured_page_slug)?.label ?? 'Titre de la page'}
+                    className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-medium text-fg-primary">Accroche du bandeau</span>
+                  <input
+                    value={navigation.featured_description ?? ''}
+                    onChange={(event) => updateNavigation({ featured_description: event.target.value })}
+                    placeholder="Ex. Vous organisez un événement ?"
+                    className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            <div className="border-t border-[var(--divider)] pt-2">
+              <Row
+                label="Afficher le bouton « Découvrir »"
+                on={navigation.discover_enabled}
+                onToggle={() => updateNavigation({
+                  discover_enabled: !navigation.discover_enabled,
+                  ...(!navigation.discover_enabled && navigation.discover_page_slugs.length === 0
+                    ? { discover_page_slugs: destinationPages.map((page) => page.slug) }
+                    : {}),
+                })}
+              />
+            </div>
+
+            {navigation.discover_enabled ? (
+              <div className="space-y-2">
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-medium text-fg-primary">Texte du bouton</span>
+                  <input
+                    value={navigation.discover_label ?? ''}
+                    onChange={(event) => updateNavigation({ discover_label: event.target.value })}
+                    placeholder="Découvrir"
+                    className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+                  />
+                </label>
+                <div>
+                  <p className="text-[11px] font-medium text-fg-primary">Pages dans la fenêtre</p>
+                  <div className="mt-1">
+                    {destinationPages.map((page) => (
+                      <Row
+                        key={page.slug}
+                        label={page.label}
+                        on={navigation.discover_page_slugs.includes(page.slug)}
+                        onToggle={() => toggleDiscoverPage(page.slug)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <p className="rounded-lg bg-[var(--surface-subtle)] px-2.5 py-2 text-[10.5px] leading-snug text-fg-secondary">
+              Quand « Découvrir » est visible, il remplace le bouton « Plus » historique sur l&apos;appareil concerné. Le réglage « Plus » reste utile sur les appareils conservant le rendu actuel.
+            </p>
+          </div>
+        ) : null}
+      </section>
+
       {/* Plus modal */}
       <section className="rounded-lg border border-[var(--divider)] p-3">
         <div className="mb-2">
-          <h3 className="text-xs font-semibold mb-0.5">Page « Plus »</h3>
+          <h3 className="text-xs font-semibold mb-0.5">Fenêtre d&apos;informations</h3>
           <p className="text-[11px] text-fg-secondary leading-snug">
-            Les sections affichées dans la fenêtre ouverte par le bouton « Plus ».
+            Les sections affichées par « Plus » ou « Découvrir », en dessous des liens de pages.
           </p>
         </div>
         <div>

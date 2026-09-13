@@ -23,6 +23,7 @@ import {
   listCateringServices,
   updateCateringService,
   type CateringCatalogItem,
+  type CateringDateSelectionTiming,
   type CateringPricingModel,
   type CateringService,
 } from '@/lib/api';
@@ -180,6 +181,9 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
   const [name, setName] = useState(editing?.name ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [pricingModel, setPricingModel] = useState<CateringPricingModel>(editing?.pricing_model ?? 'per_person');
+  const [dateSelectionTiming, setDateSelectionTiming] = useState<CateringDateSelectionTiming>(
+    editing?.date_selection_timing ?? (editing?.pricing_model === 'per_unit' ? 'checkout' : 'before_catalog'),
+  );
   const [quoteMode, setQuoteMode] = useState<'auto' | 'review'>(editing?.quote_mode ?? 'review');
   const [depositPct, setDepositPct] = useState(String(editing?.deposit_pct ?? 0));
   const [selectionMode, setSelectionMode] = useState<'single' | 'multiple'>(editing?.selection_mode === 'single' ? 'single' : 'multiple');
@@ -198,6 +202,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
         name: name.trim(),
         description,
         pricing_model: pricingModel,
+        date_selection_timing: dateSelectionTiming,
         quote_mode: quoteMode,
         selection_mode: selectionMode,
         allow_extra_sessions: allowExtraSessions,
@@ -236,11 +241,35 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
                   key={model}
                   type="button"
                   aria-pressed={active}
-                  onClick={() => setPricingModel(model)}
+                  onClick={() => {
+                    setPricingModel(model);
+                    if (!editing) setDateSelectionTiming(model === 'per_unit' ? 'checkout' : 'before_catalog');
+                  }}
                   className={`rounded-xl border p-4 text-start transition ${active ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500' : 'border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand-400'}`}
                 >
                   <span className="font-semibold text-fg-primary">{t(`catering_pricing_${model === 'custom_quote' ? 'custom' : model}`)}</span>
                   <span className="mt-1 block text-xs leading-5 text-fg-secondary">{t(`catering_offer_group_sales_${model}_hint`)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend className="text-sm font-medium text-fg-secondary">{t('catering_offer_group_date_timing')}</legend>
+          <p className="mt-1 text-sm text-fg-tertiary">{t('catering_offer_group_date_timing_hint')}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(['before_catalog', 'checkout'] as const).map((timing) => {
+              const active = dateSelectionTiming === timing;
+              return (
+                <button
+                  key={timing}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setDateSelectionTiming(timing)}
+                  className={`rounded-xl border p-4 text-start transition ${active ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500' : 'border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand-400'}`}
+                >
+                  <span className="font-semibold text-fg-primary">{t(`catering_offer_group_date_${timing}`)}</span>
+                  <span className="mt-1 block text-xs leading-5 text-fg-secondary">{t(`catering_offer_group_date_${timing}_hint`)}</span>
                 </button>
               );
             })}

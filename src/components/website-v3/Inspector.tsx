@@ -232,6 +232,9 @@ export function Inspector({
       ) : page ? (
         <PageInspector
           page={page}
+          pages={state.pages.filter(
+            (candidate) => !isTechnicalSitePage(candidate),
+          )}
           tab={tab}
           surface={surface}
           onSurfaceChange={onSurfaceChange}

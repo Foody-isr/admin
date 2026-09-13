@@ -47,6 +47,7 @@ import { ChainOrderEntryEditor } from "./ChainOrderEntryEditor";
 
 export function PageInspector({
   page,
+  pages = [],
   tab,
   surface,
   onSurfaceChange,
@@ -65,6 +66,7 @@ export function PageInspector({
   onMakeHomepage,
 }: {
   page: DraftPagePayload;
+  pages?: DraftPagePayload[];
   tab: InspectorTab;
   /** The preview surface on screen. An order page has two — the menu and the
    *  checkout route — and most settings apply to exactly one of them. */
@@ -682,6 +684,12 @@ export function PageInspector({
         >
           <OrderPageInfoEditor
             value={pageVisualConfig.order_page_info ?? null}
+            pages={pages.map((candidate) => ({
+              slug: candidate.slug,
+              label: candidate.title,
+              type: candidate.type,
+              visible: candidate.nav_visible,
+            }))}
             availableModes={[
               ...(restaurant.pickup_enabled ? (["pickup"] as const) : []),
               ...(restaurant.delivery_enabled ? (["delivery"] as const) : []),

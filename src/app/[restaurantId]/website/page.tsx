@@ -1252,6 +1252,8 @@ export default function WebsitePage() {
               orderPageInfo={orderPageInfo}
               onOrderPageInfoChange={setOrderPageInfo}
               lockOrderType={!!checkoutConfig?.lock_order_type}
+              pages={pages}
+              cateringEnabled={canManageCatering}
             />
           )}
         </div>
@@ -1902,7 +1904,7 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   );
 }
 
-function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange, lockOrderType }: {
+function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange, lockOrderType, pages, cateringEnabled }: {
   subMode: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo';
   onSubModeChange: (m: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo') => void;
   restaurant: Restaurant | null;
@@ -1921,6 +1923,8 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, showA
   orderPageInfo: OrderPageInfo | null;
   onOrderPageInfoChange: (v: OrderPageInfo) => void;
   lockOrderType: boolean;
+  pages: WebsitePageMeta[];
+  cateringEnabled: boolean;
 }) {
   const tabs: { id: typeof subMode; label: string }[] = [
     { id: 'general', label: 'Général' },
@@ -2105,6 +2109,20 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, showA
           <OrderPageInfoEditor
             value={orderPageInfo}
             onChange={onOrderPageInfoChange}
+            pages={[
+              ...(landingEnabled
+                ? [{ slug: 'home', label: 'Accueil', type: 'landing' as const, visible: true }]
+                : []),
+              ...(cateringEnabled
+                ? [{ slug: 'catering', label: 'Traiteur', type: 'catering' as const, visible: true }]
+                : []),
+              ...pages.map((page) => ({
+                slug: page.slug,
+                label: page.label,
+                type: 'content' as const,
+                visible: page.show_in_nav !== false,
+              })),
+            ]}
             availableModes={[
               ...(restaurant?.pickup_enabled ? (['pickup'] as const) : []),
               ...(restaurant?.delivery_enabled ? (['delivery'] as const) : []),
