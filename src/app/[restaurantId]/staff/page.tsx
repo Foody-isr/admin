@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   listStaff, inviteStaff, updateStaffRole, removeStaff,
-  listRoles, StaffMember, RestaurantRole,
+  resendStaffInvite, listRoles, StaffMember, RestaurantRole,
 } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { roleDisplayName, roleDisplayLabel } from '@/lib/permission-i18n';
-import { PlusIcon, TrashIcon } from 'lucide-react';
+import { Clock3Icon, MailIcon, PlusIcon, TrashIcon } from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
 import Modal from '@/components/Modal';
 import {
@@ -39,7 +40,6 @@ export default function StaffPage() {
     full_name: '',
     email: '',
     phone: '',
-    password: '',
     role_id: 0,
   });
   const [formError, setFormError] = useState('');
@@ -69,7 +69,6 @@ export default function StaffPage() {
         full_name: form.full_name,
         email: form.email,
         phone: form.phone || undefined,
-        password: form.password,
         role_id: form.role_id,
       });
       setInviteOpen(false);
@@ -81,7 +80,7 @@ export default function StaffPage() {
         : emailStatus === 'failed' ? 'invitationEmailFailed'
         : 'memberAdded';
       setSuccessMsg(t(msgKey).replace('{email}', email));
-      setForm({ full_name: '', email: '', phone: '', password: '', role_id: roles[0]?.id || 0 });
+      setForm({ full_name: '', email: '', phone: '', role_id: roles[0]?.id || 0 });
       reload();
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : t('failedToInvite'));
@@ -113,6 +112,21 @@ export default function StaffPage() {
     }
   };
 
+  const handleResendInvite = async (member: StaffMember) => {
+    setActionLoading(member.id);
+    try {
+      const emailStatus = await resendStaffInvite(rid, member.id);
+      const msgKey =
+        emailStatus === 'sent' ? 'invitationSent'
+        : emailStatus === 'not_configured' ? 'invitationEmailNotConfigured'
+        : 'invitationEmailFailed';
+      setSuccessMsg(t(msgKey).replace('{email}', member.email));
+      reload();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -127,12 +141,19 @@ export default function StaffPage() {
         title={t('staff') || 'Équipe'}
         desc={`${staff.length} ${t('staffMembersCount') || 'membres'}`}
         actions={
-          canManage && (
-            <Button variant="primary" size="md" onClick={() => setInviteOpen(true)}>
-              <PlusIcon />
-              {t('inviteStaff')}
-            </Button>
-          )
+          <div className="flex items-center gap-2">
+            {(hasPermission('shifts.view') || hasPermission('shifts.manage')) && (
+              <Button variant="secondary" size="md" asChild>
+                <Link href={`/${rid}/staff/shifts`}><Clock3Icon />{t('shiftReports')}</Link>
+              </Button>
+            )}
+            {canManage && (
+              <Button variant="primary" size="md" onClick={() => setInviteOpen(true)}>
+                <PlusIcon />
+                {t('inviteStaff')}
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -157,6 +178,8 @@ export default function StaffPage() {
           <DataTableHeadCell>{t('name')}</DataTableHeadCell>
           <DataTableHeadCell>{t('email')}</DataTableHeadCell>
           <DataTableHeadCell>{t('role')}</DataTableHeadCell>
+          <DataTableHeadCell>{t('accountStatus')}</DataTableHeadCell>
+          <DataTableHeadCell>{t('posCode')}</DataTableHeadCell>
           {canManage && <DataTableHeadSpacerCell />}
         </DataTableHead>
         <DataTableBody>
@@ -183,16 +206,37 @@ export default function StaffPage() {
                   </span>
                 )}
               </DataTableCell>
+              <DataTableCell>
+                <span className={`badge ${member.invite_status === 'active' ? 'badge-ready' : 'badge-neutral'}`}>
+                  {t(`staffStatus_${member.invite_status ?? 'not_invited'}`)}
+                </span>
+              </DataTableCell>
+              <DataTableCell>
+                <span className={member.pos_pin_configured ? 'text-green-600' : 'text-fg-muted'}>
+                  {member.pos_pin_configured ? t('configured') : t('notConfigured')}
+                </span>
+              </DataTableCell>
               {canManage && (
                 <DataTableCell align="right">
                   {member.role !== 'owner' && (
-                    <button
-                      disabled={actionLoading === member.id}
-                      onClick={() => handleRemove(member)}
-                      className="p-1.5 rounded hover:bg-red-500/10 disabled:opacity-50"
-                    >
-                      <TrashIcon className="w-4 h-4 text-red-400" />
-                    </button>
+                    <div className="flex justify-end gap-1">
+                      <button
+                        disabled={actionLoading === member.id}
+                        onClick={() => handleResendInvite(member)}
+                        className="p-1.5 rounded hover:bg-brand-500/10 disabled:opacity-50"
+                        title={t('resendSetupInvite')}
+                      >
+                        <MailIcon className="w-4 h-4 text-brand-500" />
+                      </button>
+                      <button
+                        disabled={actionLoading === member.id}
+                        onClick={() => handleRemove(member)}
+                        className="p-1.5 rounded hover:bg-red-500/10 disabled:opacity-50"
+                        title={t('remove')}
+                      >
+                        <TrashIcon className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
                   )}
                 </DataTableCell>
               )}
@@ -223,20 +267,6 @@ export default function StaffPage() {
               <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phoneOptional')}</label>
               <input className="input" value={form.phone}
                 onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('temporaryPassword')}</label>
-              <input
-                required
-                minLength={8}
-                type="password"
-                autoComplete="new-password"
-                className="input"
-                value={form.password}
-                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                placeholder={t('atLeast8Chars')}
-              />
-              <p className="mt-1 text-xs text-fg-muted">{t('temporaryPasswordHint')}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-fg-secondary mb-1">{t('role')}</label>

@@ -18,6 +18,7 @@ import {
   ChefHat,
   CreditCard,
   Contact,
+  Clock3,
   KeyRound,
   type LucideIcon,
 } from 'lucide-react';
@@ -55,6 +56,7 @@ const DOMAIN_ICONS: Record<string, LucideIcon> = {
   kitchen: ChefHat,
   payments: CreditCard,
   customers: Contact,
+  shifts: Clock3,
 };
 
 function domainIcon(domain: string): LucideIcon {

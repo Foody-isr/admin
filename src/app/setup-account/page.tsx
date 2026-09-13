@@ -2,7 +2,14 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { validateInviteToken, setupAccount, getPosDownloads, ValidateInviteResponse, POSDownloads } from '@/lib/api';
+import {
+  validateInviteToken,
+  setupAccount,
+  getPosDownloads,
+  logout,
+  ValidateInviteResponse,
+  POSDownloads,
+} from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
 type PosPlatform = 'ipad' | 'macos' | 'both';
@@ -42,6 +49,10 @@ function SetupAccountContent() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
+  // Staff choose their private restaurant-specific POS code during setup.
+  const [posPin, setPosPin] = useState('');
+  const [confirmPosPin, setConfirmPosPin] = useState('');
+
   // Step 3: Restaurant
   const [restaurantName, setRestaurantName] = useState('');
   const [restaurantSlug, setRestaurantSlug] = useState('');
@@ -64,7 +75,7 @@ function SetupAccountContent() {
   // Fall back to the legacy heuristic for older servers that omit `kind`.
   const isStaff = !!inviteData && (inviteData.kind ? inviteData.kind === 'staff_setup' : !inviteData.restaurant);
   const STEPS = isStaff
-    ? [t('stepPassword'), t('stepYourInfo')]
+    ? [t('stepPassword'), t('stepYourInfo'), t('stepPOSCode')]
     : [t('stepPassword'), t('stepYourInfo'), t('stepRestaurant'), t('stepPOS')];
 
   // Validate token on mount
@@ -111,6 +122,9 @@ function SetupAccountContent() {
   }, [restaurantName]);
 
   function canProceed(): boolean {
+    if (isStaff && currentStep === 2) {
+      return /^\d{4,6}$/.test(posPin) && posPin === confirmPosPin;
+    }
     switch (currentStep) {
       case 0: return password.length >= 8 && password === confirmPassword;
       case 1: return fullName.trim().length > 0;
@@ -135,6 +149,7 @@ function SetupAccountContent() {
         restaurant_address: isStaff ? undefined : restaurantAddress || undefined,
         restaurant_phone: isStaff ? undefined : restaurantPhone || undefined,
         pos_platform: isStaff ? undefined : posPlatform,
+        pos_pin: isStaff ? posPin : undefined,
       });
 
       // Determine where to redirect when user clicks "Go to Dashboard"
@@ -144,8 +159,13 @@ function SetupAccountContent() {
         setDashboardUrl('/select-restaurant');
       }
 
-      // Fetch POS download URLs from server
-      getPosDownloads().then(setPosDownloads).catch(() => {});
+      if (isStaff) {
+        // Account setup returns a token, but invited floor staff should not
+        // remain signed in to the administration portal on this browser.
+        logout();
+      } else {
+        getPosDownloads().then(setPosDownloads).catch(() => {});
+      }
 
       setSuccess(true);
     } catch (err: unknown) {
@@ -235,7 +255,9 @@ function SetupAccountContent() {
               </div>
               <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('youreAllSet')}</h2>
               <p className="text-sm text-fg-secondary">
-                {t('yourAccountAnd')} <strong>{restaurantName}</strong> {t('areReady')}
+				{isStaff
+				  ? t('staffSetupReady')
+				  : <>{t('yourAccountAnd')} <strong>{restaurantName}</strong> {t('areReady')}</>}
               </p>
             </div>
 
@@ -265,13 +287,15 @@ function SetupAccountContent() {
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => router.push(dashboardUrl)}
-              className="btn-primary w-full justify-center"
-            >
-              {t('goToDashboard')}
-            </button>
+			{!isStaff && (
+			  <button
+				type="button"
+				onClick={() => router.push(dashboardUrl)}
+				className="btn-primary w-full justify-center"
+			  >
+				{t('goToDashboard')}
+			  </button>
+			)}
           </div>
         </div>
       </div>
@@ -404,8 +428,50 @@ function SetupAccountContent() {
             </div>
           )}
 
-          {/* Step 3: Restaurant */}
-          {currentStep === 2 && (
+		  {/* Staff step 3: private POS code */}
+		  {isStaff && currentStep === 2 && (
+			<div>
+			  <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('createPOSCode')}</h2>
+			  <p className="text-sm text-fg-secondary mb-6">{t('posCodeSetupHint')}</p>
+			  <div className="space-y-4">
+				<div>
+				  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('posCode')}</label>
+				  <input
+					type="password"
+					inputMode="numeric"
+					pattern="[0-9]*"
+					minLength={4}
+					maxLength={6}
+					value={posPin}
+					onChange={(e) => setPosPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+					className="input text-center text-2xl tracking-[0.35em]"
+					autoComplete="new-password"
+					autoFocus
+				  />
+				</div>
+				<div>
+				  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('confirmPOSCode')}</label>
+				  <input
+					type="password"
+					inputMode="numeric"
+					pattern="[0-9]*"
+					minLength={4}
+					maxLength={6}
+					value={confirmPosPin}
+					onChange={(e) => setConfirmPosPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+					className="input text-center text-2xl tracking-[0.35em]"
+					autoComplete="new-password"
+				  />
+				  {confirmPosPin && posPin !== confirmPosPin && (
+					<p className="mt-1 text-xs text-red-400">{t('posCodesMismatch')}</p>
+				  )}
+				</div>
+			  </div>
+			</div>
+		  )}
+
+          {/* Owner step 3: Restaurant */}
+          {!isStaff && currentStep === 2 && (
             <div>
               <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('restaurantDetails')}</h2>
               <p className="text-sm text-fg-secondary mb-6">{t('setupRestaurantInfo')}</p>
@@ -446,7 +512,7 @@ function SetupAccountContent() {
           )}
 
           {/* Step 4: POS Platform */}
-          {currentStep === 3 && (
+          {!isStaff && currentStep === 3 && (
             <div>
               <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('chooseYourPOS')}</h2>
               <p className="text-sm text-fg-secondary mb-6">
