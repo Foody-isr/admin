@@ -2890,6 +2890,14 @@ export async function listMenus(restaurantId: number): Promise<Menu[]> {
   return data.menus ?? [];
 }
 
+/** Persists the complete display order for a restaurant's menus atomically. */
+export async function reorderMenus(restaurantId: number, menuIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/menus/reorder?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ menu_ids: menuIds }) }
+  );
+}
+
 export async function createMenu(restaurantId: number, input: Partial<Menu>): Promise<Menu> {
   const data = await apiFetch<{ menu: Menu }>(
     `/api/v1/menu/menus?restaurant_id=${restaurantId}`, restaurantId,
