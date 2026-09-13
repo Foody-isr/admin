@@ -855,6 +855,18 @@ export type OrderPageBarItem =
   | 'instagram' | 'whatsapp' | 'facebook' | 'tiktok' | 'more';
 export type OrderPageModalSection =
   | 'about' | 'hours' | 'address' | 'contact' | 'social' | 'custom_text';
+export type OrderPageNavigationStyle =
+  | 'hidden' | 'inline' | 'buttons' | 'banner';
+export interface OrderPageNavigation {
+  desktop_style: OrderPageNavigationStyle;
+  mobile_style: OrderPageNavigationStyle;
+  featured_page_slug?: string;
+  featured_label?: string;
+  featured_description?: string;
+  discover_enabled: boolean;
+  discover_label?: string;
+  discover_page_slugs: string[];
+}
 export interface OrderPageInfo {
   bar: {
     pickup: OrderPageBarItem[];
@@ -863,6 +875,7 @@ export interface OrderPageInfo {
   };
   modal: OrderPageModalSection[];
   modal_text?: string;
+  navigation?: OrderPageNavigation;
 }
 
 /** Optional per-section color overrides (hex strings). Any omitted section or
