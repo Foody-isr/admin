@@ -10,7 +10,7 @@ import {
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { roleDisplayName, roleDisplayLabel } from '@/lib/permission-i18n';
-import { Clock3Icon, MailIcon, PlusIcon, TrashIcon } from 'lucide-react';
+import { Clock3Icon, MailIcon, PlusIcon, TabletSmartphoneIcon, TrashIcon } from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
 import Modal from '@/components/Modal';
 import {
@@ -145,6 +145,11 @@ export default function StaffPage() {
             {(hasPermission('shifts.view') || hasPermission('shifts.manage')) && (
               <Button variant="secondary" size="md" asChild>
                 <Link href={`/${rid}/staff/shifts`}><Clock3Icon />{t('shiftReports')}</Link>
+              </Button>
+            )}
+            {hasPermission('shifts.manage') && (
+              <Button variant="secondary" size="md" asChild>
+                <Link href={`/${rid}/staff/devices`}><TabletSmartphoneIcon />{t('posTerminals')}</Link>
               </Button>
             )}
             {canManage && (
