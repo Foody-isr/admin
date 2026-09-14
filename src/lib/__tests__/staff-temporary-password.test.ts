@@ -8,11 +8,8 @@ const staffPage = readFileSync(
   'utf8',
 );
 
-test('staff creation requires and sends the administrator-chosen temporary password', () => {
-  assert.match(staffPage, /password:\s*form\.password/);
-  assert.match(
-    staffPage,
-    /required\s+minLength=\{8\}\s+type="password"\s+autoComplete="new-password"/,
-  );
-  assert.match(staffPage, /temporaryPasswordHint/);
+test('staff creation sends an invitation without an administrator-chosen password', () => {
+  assert.doesNotMatch(staffPage, /password:\s*form\.password/);
+  assert.doesNotMatch(staffPage, /autoComplete="new-password"/);
+  assert.match(staffPage, /await inviteStaff\(rid/);
 });

@@ -815,6 +815,27 @@ export interface StaffMember {
   role_id?: number;
   role_name?: string;
   is_default_courier?: boolean;
+  invite_status?: 'pending' | 'expired' | 'active' | 'not_invited';
+  pos_pin_configured?: boolean;
+  last_login_at?: string;
+}
+
+export interface StaffShiftSummary {
+  id: number;
+  restaurant_id: number;
+  user_id: number;
+  pos_device_id?: number;
+  started_at: string;
+  ended_at?: string;
+  start_method: 'password' | 'pin' | string;
+  end_reason?: string;
+  staff_name: string;
+  staff_email: string;
+  role_name: string;
+  duration_seconds: number;
+  order_count: number;
+  table_count: number;
+  sales_total: number;
 }
 
 export interface Subscription {
@@ -2355,6 +2376,7 @@ export async function setupAccount(input: {
   restaurant_address?: string;
   restaurant_phone?: string;
   pos_platform?: string;
+  pos_pin?: string;
 }): Promise<LoginResponse> {
   const data = await apiFetch<{ token: string; user: User }>('/api/v1/auth/setup-account', undefined, {
     method: 'POST',
@@ -2888,6 +2910,14 @@ export async function listMenus(restaurantId: number): Promise<Menu[]> {
     `/api/v1/menu/menus?restaurant_id=${restaurantId}`, restaurantId
   );
   return data.menus ?? [];
+}
+
+/** Persists the complete display order for a restaurant's menus atomically. */
+export async function reorderMenus(restaurantId: number, menuIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/menus/reorder?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ menu_ids: menuIds }) }
+  );
 }
 
 export async function createMenu(restaurantId: number, input: Partial<Menu>): Promise<Menu> {
@@ -5275,7 +5305,6 @@ export async function inviteStaff(restaurantId: number, input: {
   full_name: string;
   email: string;
   phone?: string;
-  password?: string; // optional — staff set their own password via the email invite link
   role?: Role;
   role_id?: number;
 }): Promise<{ member: StaffMember; emailStatus: InviteEmailStatus }> {
@@ -5311,6 +5340,19 @@ export async function removeStaff(restaurantId: number, userId: number): Promise
     `/api/v1/restaurants/${restaurantId}/staff/${userId}`, restaurantId,
     { method: 'DELETE' }
   );
+}
+
+export async function listStaffShifts(
+  restaurantId: number,
+  params: { from: string; to: string; userId?: number },
+): Promise<StaffShiftSummary[]> {
+  const query = new URLSearchParams({ from: params.from, to: params.to });
+  if (params.userId) query.set('user_id', String(params.userId));
+  const data = await apiFetch<{ shifts: StaffShiftSummary[] }>(
+    `/api/v1/restaurants/${restaurantId}/shifts?${query}`,
+    restaurantId,
+  );
+  return data.shifts ?? [];
 }
 
 // setDefaultCourier marks a staff member as the restaurant's default courier
