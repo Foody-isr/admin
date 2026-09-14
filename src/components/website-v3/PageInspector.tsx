@@ -956,9 +956,29 @@ function CommerceAppearance({
 }) {
   const { t } = useI18n();
   const appearance = page.appearance_overrides;
-  const coverUrl = typeof appearance.cover_url === "string"
-    ? appearance.cover_url
-    : restaurant.cover_url || "";
+  const cateringAppearance = record(appearance.catering_page);
+  const usesDedicatedCateringCover = page.type === "catering";
+  const coverUrl = usesDedicatedCateringCover
+    ? text(cateringAppearance.cover_url)
+    : typeof appearance.cover_url === "string"
+      ? appearance.cover_url
+      : restaurant.cover_url || "";
+  const coverFocalX = usesDedicatedCateringCover
+    ? asNumber(cateringAppearance.cover_focal_x, 50)
+    : appearance.cover_focal_x ?? restaurant.cover_focal_x ?? 50;
+  const coverFocalY = usesDedicatedCateringCover
+    ? asNumber(cateringAppearance.cover_focal_y, 50)
+    : appearance.cover_focal_y ?? restaurant.cover_focal_y ?? 50;
+  const updateCover = (key: "cover_url" | "cover_focal_x" | "cover_focal_y", value: string | number) => {
+    if (usesDedicatedCateringCover) {
+      onChange(["appearance_overrides", "catering_page"], {
+        ...cateringAppearance,
+        [key]: value,
+      });
+      return;
+    }
+    onChange(["appearance_overrides", key], value);
+  };
   const orderTypeSelector = record(appearance.order_type_selector);
   const updateOrderTypeSelector = (patch: Record<string, unknown>) =>
     onChange(["appearance_overrides", "order_type_selector"], {
@@ -981,13 +1001,17 @@ function CommerceAppearance({
         <SectionImageUploader
           restaurantId={restaurantId}
           currentUrl={coverUrl}
-          onUploaded={(url) =>
-            onChange(["appearance_overrides", "cover_url"], url)
-          }
-          onRemove={() =>
-            onChange(["appearance_overrides", "cover_url"], "")
-          }
-          label="Image de couverture"
+          onUploaded={(url) => updateCover("cover_url", url)}
+          onRemove={() => updateCover("cover_url", "")}
+          label={usesDedicatedCateringCover ? t("websiteV3CateringCoverImageLabel") : "Image de couverture"}
+          alwaysShowActions={usesDedicatedCateringCover}
+          mediaField={usesDedicatedCateringCover ? "page.appearance_overrides.catering_page.cover_url" : "page.appearance_overrides.cover_url"}
+          actionLabels={usesDedicatedCateringCover ? {
+            upload: t("websiteV3CateringCoverUpload"),
+            replace: t("websiteV3CateringCoverReplace"),
+            remove: t("websiteV3CateringCoverRemove"),
+            uploading: t("websiteV3CateringCoverUploading"),
+          } : undefined}
         />
         <ColorField
           fieldId={"page.appearance_overrides.background_color"}
@@ -1001,16 +1025,16 @@ function CommerceAppearance({
         {coverUrl ? (
           <>
             <InspectorField
-              label={`Point horizontal · ${appearance.cover_focal_x ?? restaurant.cover_focal_x ?? 50}%`}
+              label={`Point horizontal · ${coverFocalX}%`}
             >
               <input
                 type="range"
                 min={0}
                 max={100}
-                value={appearance.cover_focal_x ?? restaurant.cover_focal_x ?? 50}
+                value={coverFocalX}
                 onChange={(event) =>
-                  onChange(
-                    ["appearance_overrides", "cover_focal_x"],
+                  updateCover(
+                    "cover_focal_x",
                     Number(event.target.value),
                   )
                 }
@@ -1018,16 +1042,16 @@ function CommerceAppearance({
               />
             </InspectorField>
             <InspectorField
-              label={`Point vertical · ${appearance.cover_focal_y ?? restaurant.cover_focal_y ?? 50}%`}
+              label={`Point vertical · ${coverFocalY}%`}
             >
               <input
                 type="range"
                 min={0}
                 max={100}
-                value={appearance.cover_focal_y ?? restaurant.cover_focal_y ?? 50}
+                value={coverFocalY}
                 onChange={(event) =>
-                  onChange(
-                    ["appearance_overrides", "cover_focal_y"],
+                  updateCover(
+                    "cover_focal_y",
                     Number(event.target.value),
                   )
                 }

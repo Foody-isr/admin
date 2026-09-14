@@ -47,7 +47,7 @@ function page(type: WebsitePageType): DraftPagePayload {
       checkout_text_colors: { heading: "#ffffff" },
       cart_text_colors: { heading: "#111827" },
       order_type_selector: { shape: "pill" as const },
-      cover_url: "https://example.com/cover.jpg",
+      cover_url: "https://example.com/order-cover.jpg",
     },
   };
   if (type === "order") {
@@ -163,6 +163,17 @@ test("the catering content tab exposes page copy and per-service subtitles", () 
   assert.match(markup, /catering_page\.chooser_subtitle/);
   assert.match(markup, /catering_page\.service_subtitles\.7/);
   assert.match(markup, /catering_page\.show_steps/);
+});
+
+test("the catering cover has its own visible upload control", () => {
+  const markup = renderInspector("catering", "appearance", "page");
+
+  assert.match(
+    markup,
+    /data-media-field="page\.appearance_overrides\.catering_page\.cover_url"/,
+  );
+  assert.match(markup, /Choose and upload a photo/);
+  assert.doesNotMatch(markup, /order-cover\.jpg/);
 });
 
 test("the page surface offers no checkout colours but keeps the cart", () => {
