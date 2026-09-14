@@ -9310,6 +9310,7 @@ export interface CateringLibraryItem {
   name: string;
   description: string;
   image_url: string;
+  price: number;
   is_active: boolean;
   translations?: TranslationMap;
 }
@@ -9319,6 +9320,8 @@ export interface CateringCatalogItem {
   restaurant_id: number;
   service_id: number;
   group_id?: number;
+  menu_item_id?: number;
+  menu_item?: CateringLibraryItem;
   name: string;
   slug: string;
   /** Short marketing intro shown under the title (1-2 sentences), distinct from
@@ -9348,6 +9351,7 @@ export interface CateringCatalogItem {
 export interface CateringCatalogItemInput {
   name: string;
   group_id?: number;
+  menu_item_id?: number;
   overview?: string;
   description?: string;
   image_url?: string;
@@ -9447,6 +9451,7 @@ export async function listCateringArticleLibrary(restaurantId: number): Promise<
       name: item.name,
       description: item.description,
       image_url: item.image_url,
+      price: item.price,
       is_active: item.is_active,
       translations: item.translations,
     })));
