@@ -838,6 +838,19 @@ export interface StaffShiftSummary {
   sales_total: number;
 }
 
+export interface POSDevice {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  enrolled_by_user_id: number;
+  enrolled_by_name: string;
+  last_used_at?: string;
+  expires_at: string;
+  revoked_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Subscription {
   id: number;
   restaurant_id: number;
@@ -5378,6 +5391,22 @@ export async function listStaffShifts(
     restaurantId,
   );
   return data.shifts ?? [];
+}
+
+export async function listPOSDevices(restaurantId: number): Promise<POSDevice[]> {
+  const data = await apiFetch<{ devices: POSDevice[] }>(
+    `/api/v1/restaurants/${restaurantId}/pos-devices`,
+    restaurantId,
+  );
+  return data.devices ?? [];
+}
+
+export async function revokePOSDevice(restaurantId: number, deviceId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/pos-devices/${deviceId}`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
 }
 
 // setDefaultCourier marks a staff member as the restaurant's default courier

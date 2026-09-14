@@ -40,5 +40,8 @@ export function requiredPermissionsForPath(pathname: string): string[] {
   if (section === 'staff' && segments[2] === 'shifts') {
     return ['shifts.view', 'shifts.manage'];
   }
+  if (section === 'staff' && segments[2] === 'devices') {
+    return ['shifts.manage'];
+  }
   return SECTION_PERMISSIONS[section] ?? [];
 }
