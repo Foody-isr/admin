@@ -527,13 +527,16 @@ export function MenuHighlightsEditor({ content, settings, updateContent, updateS
 }
 
 // ─── Section Image Uploader ──────────────────────────────────────────
-export function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onRemove, label, className }: {
+export function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onRemove, label, className, alwaysShowActions = false, mediaField, actionLabels }: {
   restaurantId: number;
   currentUrl?: string;
   onUploaded: (url: string) => void;
   onRemove?: () => void;
   label?: string;
   className?: string;
+  alwaysShowActions?: boolean;
+  mediaField?: string;
+  actionLabels?: { upload: string; replace: string; remove: string; uploading: string };
 }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -557,14 +560,14 @@ export function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onR
     <div className={className}>
       {label && <label className="text-xs text-fg-secondary mb-1 block">{label}</label>}
       {currentUrl ? (
-        <div className="relative group">
+        <div className={alwaysShowActions ? 'overflow-hidden rounded-lg border border-[var(--divider)]' : 'relative group'}>
           <img src={currentUrl} alt="" className="rounded-lg max-h-32 object-cover w-full" />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+          <div className={alwaysShowActions ? 'flex items-center gap-2 p-2' : 'absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2'}>
             <button type="button" onClick={() => inputRef.current?.click()} className="px-2 py-1 bg-white rounded text-xs font-medium" disabled={uploading}>
-              {uploading ? 'Uploading...' : 'Replace'}
+              {uploading ? actionLabels?.uploading ?? 'Uploading...' : actionLabels?.replace ?? 'Replace'}
             </button>
             {onRemove && (
-              <button type="button" onClick={onRemove} className="px-2 py-1 bg-red-500 text-white rounded text-xs font-medium">Remove</button>
+              <button type="button" onClick={onRemove} className="px-2 py-1 bg-red-500 text-white rounded text-xs font-medium">{actionLabels?.remove ?? 'Remove'}</button>
             )}
           </div>
         </div>
@@ -576,16 +579,16 @@ export function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onR
           className="w-full py-6 border-2 border-dashed border-[var(--divider)] rounded-lg text-xs text-fg-secondary hover:border-[var(--brand)] hover:text-[var(--brand)] transition-all flex flex-col items-center gap-1"
         >
           {uploading ? (
-            <span>Uploading...</span>
+            <span>{actionLabels?.uploading ?? 'Uploading...'}</span>
           ) : (
             <>
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              <span>Click to upload image</span>
+              <span>{actionLabels?.upload ?? 'Click to upload image'}</span>
             </>
           )}
         </button>
       )}
-      <input ref={inputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+      <input ref={inputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" data-media-field={mediaField} />
     </div>
   );
 }
