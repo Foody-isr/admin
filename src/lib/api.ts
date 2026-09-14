@@ -878,6 +878,29 @@ export type OrderPageModalSection =
   | 'about' | 'hours' | 'address' | 'contact' | 'social' | 'custom_text';
 export type OrderPageNavigationStyle =
   | 'hidden' | 'inline' | 'buttons' | 'banner';
+export type OrderPageNavigationShape =
+  | 'square' | 'soft' | 'rounded' | 'pill';
+export type OrderPageNavigationShadow =
+  | 'none' | 'soft' | 'strong';
+export interface OrderPageNavigationAppearance {
+  surface_color?: string;
+  text_color?: string;
+  muted_text_color?: string;
+  border_color?: string;
+  button_background_color?: string;
+  button_text_color?: string;
+  button_border_color?: string;
+  shape?: OrderPageNavigationShape;
+  shadow?: OrderPageNavigationShadow;
+  font_family?: string;
+  font_weight?: number;
+  label_font_size_desktop?: number;
+  label_font_size_mobile?: number;
+  description_font_size_desktop?: number;
+  description_font_size_mobile?: number;
+  letter_spacing?: number;
+  uppercase?: boolean;
+}
 export interface OrderPageNavigation {
   desktop_style: OrderPageNavigationStyle;
   mobile_style: OrderPageNavigationStyle;
@@ -887,6 +910,8 @@ export interface OrderPageNavigation {
   discover_enabled: boolean;
   discover_label?: string;
   discover_page_slugs: string[];
+  /** Optional visual overrides. Missing fields preserve the historical renderer. */
+  appearance?: OrderPageNavigationAppearance;
 }
 export interface OrderPageInfo {
   bar: {
