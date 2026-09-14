@@ -189,6 +189,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
   const [selectionMode, setSelectionMode] = useState<'single' | 'multiple'>(editing?.selection_mode === 'single' ? 'single' : 'multiple');
   const [allowExtraSessions, setAllowExtraSessions] = useState(editing?.allow_extra_sessions ?? false);
   const [maxSessions, setMaxSessions] = useState(Math.max(2, editing?.max_sessions ?? 3));
+  const [minGuests, setMinGuests] = useState(Math.max(0, editing?.min_guests ?? 0));
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
@@ -207,6 +208,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
         selection_mode: selectionMode,
         allow_extra_sessions: allowExtraSessions,
         max_sessions: maxSessions,
+        min_guests: minGuests,
         deposit_pct: parsedDepositPct,
         is_active: isActive,
         display_order: editing?.display_order ?? 0,
@@ -314,6 +316,11 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
             <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-fg-tertiary">%</span>
           </div>
           <p className="mt-1 text-xs text-fg-tertiary">{t('catering_deposit_pct_hint')}</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary">{t('catering_service_min_guests')}</label>
+          <input type="number" min={0} step={1} className="input mt-1 max-w-40" value={minGuests} onChange={(event) => setMinGuests(Math.max(0, Math.floor(Number(event.target.value) || 0)))} />
+          <p className="mt-1 text-xs text-fg-tertiary">{t('catering_service_min_guests_hint')}</p>
         </div>
         <fieldset>
           <legend className="text-sm font-medium text-fg-secondary">{t('catering_offer_group_selection_title')}</legend>
