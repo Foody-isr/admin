@@ -53,6 +53,17 @@ export type ChainOrderEntryOverride = {
   translations?: Partial<Record<"en" | "fr" | "he", ChainOrderEntryLocaleCopy>>;
 };
 
+export type CateringPageOverride = {
+  hero_title?: string;
+  hero_subtitle?: string;
+  show_restaurant_name?: boolean;
+  chooser_title?: string;
+  chooser_subtitle?: string;
+  service_action_label?: string;
+  service_subtitles?: Record<string, string>;
+  show_steps?: boolean;
+};
+
 export type DraftAppearanceOverrides = {
   foody_renderer_version?: number;
   bg?: string;
@@ -129,6 +140,7 @@ export type DraftAppearanceOverrides = {
   order_page_info?: Record<string, unknown> | null;
   order_type_selector?: OrderTypeSelectorOverride | null;
   chain_order_entry?: ChainOrderEntryOverride | null;
+  catering_page?: CateringPageOverride | null;
   group_banners?: Record<
     string,
     {
