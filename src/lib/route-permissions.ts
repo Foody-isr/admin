@@ -34,5 +34,11 @@ export function requiredPermissionsForPath(pathname: string): string[] {
   const segments = pathname.split('/').filter(Boolean);
   const section = segments[1]; // segments[0] is the restaurantId
   if (!section) return [];
+  if (section === 'settings' && segments[2] === 'printers') {
+    return ['printers.view', 'printers.manage'];
+  }
+  if (section === 'staff' && segments[2] === 'shifts') {
+    return ['shifts.view', 'shifts.manage'];
+  }
   return SECTION_PERMISSIONS[section] ?? [];
 }
