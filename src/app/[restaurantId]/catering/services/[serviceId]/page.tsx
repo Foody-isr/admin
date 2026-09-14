@@ -104,7 +104,7 @@ function offerMoney(value: number, money: MoneyFormatter): string {
 
 function priceUnit(model: CateringPricingModel, t: (key: string) => string): string {
   if (model === 'per_person') return t('catering_offer_per_guest');
-  if (model === 'per_unit') return t('catering_offer_per_unit');
+  if (model === 'per_unit' || model === 'mixed') return t('catering_offer_per_unit');
   return '';
 }
 
@@ -490,7 +490,7 @@ function OfferEditor({ restaurantId, service, groups, sourceLocale, editing, onC
           sort_order: index,
         })),
         min_guests: Number(minGuests) || 0,
-        ...(service.pricing_model === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
+        ...(service.pricing_model === 'per_unit' || service.pricing_model === 'mixed' ? { min_quantity: Number(minQuantity) || 0 } : {}),
         ...(service.pricing_model === 'per_person' ? {
           price_tiers: tiers
             .filter((tier) => tier.min_guests.trim() && tier.price.trim())
@@ -677,7 +677,7 @@ function OfferEditor({ restaurantId, service, groups, sourceLocale, editing, onC
               </div>
             </div>
           ) : (
-            <div className={`grid gap-4 ${service.pricing_model === 'per_unit' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+            <div className={`grid gap-4 ${service.pricing_model === 'per_unit' || service.pricing_model === 'mixed' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
               <div>
                 <label className="block text-sm font-medium text-fg-secondary">{service.pricing_model === 'per_person' ? t('catering_offer_base_price_guest') : t('catering_offer_base_price_unit')}</label>
                 <input type="number" min={0} step="0.01" className="input mt-1" value={basePrice} onChange={(event) => setBasePrice(event.target.value)} />
@@ -687,7 +687,7 @@ function OfferEditor({ restaurantId, service, groups, sourceLocale, editing, onC
                 <input type="number" min={0} step="1" className="input mt-1" value={minGuests} onChange={(event) => setMinGuests(event.target.value)} />
                 <p className="mt-1.5 text-xs text-fg-secondary">{t('catering_offer_min_guests_hint')}</p>
               </div>
-              {service.pricing_model === 'per_unit' && <div>
+              {(service.pricing_model === 'per_unit' || service.pricing_model === 'mixed') && <div>
                 <label className="block text-sm font-medium text-fg-secondary">{t('catering_offer_min_quantity')}</label>
                 <input type="number" min={0} step="1" className="input mt-1" value={minQuantity} onChange={(event) => setMinQuantity(event.target.value)} />
               </div>}
