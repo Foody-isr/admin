@@ -81,6 +81,11 @@ interface QuoteConfigFlowSelection {
 interface QuoteConfig {
   guests?: number;
   event_date?: string;
+  event_city?: string;
+  event_type?: string;
+  event_time?: string;
+  preference?: string;
+  notes?: string;
   items?: QuoteConfigLine[];
   options?: QuoteConfigOption[];
   sessions?: QuoteConfigSession[];
@@ -99,6 +104,11 @@ function parseConfig(config: unknown): QuoteConfig {
   return {
     guests: typeof c.guests === 'number' ? c.guests : undefined,
     event_date: typeof c.event_date === 'string' ? c.event_date : undefined,
+    event_city: typeof c.event_city === 'string' ? c.event_city : undefined,
+    event_type: typeof c.event_type === 'string' ? c.event_type : undefined,
+    event_time: typeof c.event_time === 'string' ? c.event_time : undefined,
+    preference: typeof c.preference === 'string' ? c.preference : undefined,
+    notes: typeof c.notes === 'string' ? c.notes : undefined,
     items: Array.isArray(c.items) ? (c.items as QuoteConfigLine[]) : undefined,
     options: Array.isArray(c.options) ? (c.options as QuoteConfigOption[]) : undefined,
     sessions: Array.isArray(c.sessions) ? (c.sessions as QuoteConfigSession[]) : undefined,
@@ -297,7 +307,30 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
             <div className="text-fg-secondary">{t('catering_quote_event_date')}</div>
             <div className="text-fg-primary font-medium">{formatEventDate(config.event_date ?? quote.event_date)}</div>
           </div>
+          <div>
+            <div className="text-fg-secondary">{t('catering_quote_event_time')}</div>
+            <div className="text-fg-primary font-medium">{config.event_time || '—'}</div>
+          </div>
+          <div>
+            <div className="text-fg-secondary">{t('catering_quote_event_type')}</div>
+            <div className="text-fg-primary font-medium">{config.event_type || quote.event_type || '—'}</div>
+          </div>
+          <div>
+            <div className="text-fg-secondary">{t('catering_quote_preference')}</div>
+            <div className="text-fg-primary font-medium">{config.preference || '—'}</div>
+          </div>
+          <div>
+            <div className="text-fg-secondary">{t('catering_quote_event_city')}</div>
+            <div className="text-fg-primary font-medium">{config.event_city || quote.event_city || '—'}</div>
+          </div>
         </div>
+
+        {config.notes && (
+          <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-3 text-sm">
+            <div className="text-fg-secondary">{t('catering_quote_customer_notes')}</div>
+            <div className="mt-1 whitespace-pre-wrap text-fg-primary">{config.notes}</div>
+          </div>
+        )}
 
         {config.sessions && config.sessions.length > 0 && (
           <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-3">

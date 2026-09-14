@@ -8937,6 +8937,7 @@ export interface CateringService {
   selection_mode?: '' | 'single' | 'multiple';
   allow_extra_sessions: boolean;
   max_sessions: number;
+  min_guests: number;
   /** Share of the quote total collected up front, 0-100. 0 disables deposits. */
   deposit_pct: number;
   is_active: boolean;
@@ -8953,6 +8954,7 @@ export interface CateringServiceInput {
   selection_mode?: '' | 'single' | 'multiple';
   allow_extra_sessions?: boolean;
   max_sessions?: number;
+  min_guests?: number;
   deposit_pct?: number;
   is_active?: boolean;
   display_order?: number;

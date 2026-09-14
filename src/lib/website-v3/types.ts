@@ -54,6 +54,9 @@ export type ChainOrderEntryOverride = {
 };
 
 export type CateringPageOverride = {
+  cover_url?: string;
+  cover_focal_x?: number;
+  cover_focal_y?: number;
   hero_title?: string;
   hero_subtitle?: string;
   show_restaurant_name?: boolean;

@@ -46,15 +46,19 @@ import {
 import { type Locale } from '@/components/i18n/LocaleTabs';
 import {
   archiveCateringItem,
+  archiveCateringGroup,
+  createCateringGroup,
   createCateringItem,
   getRestaurant,
   listCateringItems,
+  listCateringGroups,
   listCateringServices,
   reorderCateringItems,
   updateCateringItem,
   updateCateringServiceFlow,
   uploadSectionImage,
   type CateringCatalogItem,
+  type CateringCatalogGroup,
   type CateringCatalogItemImageInput,
   type CateringCatalogItemInput,
   type CateringFlowConfig,
@@ -132,6 +136,7 @@ export default function CateringOfferGroupPage() {
 
   const [service, setService] = useState<CateringService>();
   const [items, setItems] = useState<CateringCatalogItem[]>([]);
+  const [groups, setGroups] = useState<CateringCatalogGroup[]>([]);
   const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [loading, setLoading] = useState(true);
   const [editor, setEditor] = useState<{ open: boolean; item?: CateringCatalogItem }>({ open: false });
@@ -139,13 +144,15 @@ export default function CateringOfferGroupPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [services, nextItems, restaurant] = await Promise.all([
+      const [services, nextItems, nextGroups, restaurant] = await Promise.all([
         listCateringServices(rid),
         listCateringItems(rid, sid),
+        listCateringGroups(rid, sid),
         getRestaurant(rid),
       ]);
       setService(services.find((candidate) => candidate.id === sid));
       setItems(nextItems);
+      setGroups(nextGroups);
       if (restaurant.default_locale === 'en' || restaurant.default_locale === 'he' || restaurant.default_locale === 'fr') {
         setSourceLocale(restaurant.default_locale);
       }
@@ -203,6 +210,7 @@ export default function CateringOfferGroupPage() {
       />
 
       <section className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
+        {canEdit && <CatalogGroupManager restaurantId={rid} serviceId={sid} groups={groups} onChanged={reload} />}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--divider)] px-5 py-4 sm:px-6">
           <div>
             <h2 className="text-lg font-semibold text-fg-primary">{t('catering_offer_list_title')}</h2>
@@ -288,6 +296,7 @@ export default function CateringOfferGroupPage() {
         <OfferEditor
           restaurantId={rid}
           service={service}
+          groups={groups}
           sourceLocale={sourceLocale}
           editing={editor.item}
           onClose={() => setEditor({ open: false })}
@@ -329,9 +338,10 @@ function newServiceMode(modes: ServiceModeDraft[], preferred: string, name: stri
   return { id: nextModeID(modes, preferred), name, description: '', price, translations: {} };
 }
 
-function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, onSaved }: {
+function OfferEditor({ restaurantId, service, groups, sourceLocale, editing, onClose, onSaved }: {
   restaurantId: number;
   service: CateringService;
+  groups: CateringCatalogGroup[];
   sourceLocale: Locale;
   editing?: CateringCatalogItem;
   onClose: () => void;
@@ -342,6 +352,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
   const flow = useMemo(() => normalizeCateringFlowConfig(service.flow_config), [service.flow_config]);
   const [openSection, setOpenSection] = useState<EditorSection>('identity');
   const [name, setName] = useState(editing?.name ?? '');
+  const [groupId, setGroupId] = useState(editing?.group_id ? String(editing.group_id) : '');
   const [overview, setOverview] = useState(editing?.overview ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [translations, setTranslations] = useState<Record<string, Record<string, string>>>(editing?.translations ?? {});
@@ -452,6 +463,7 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
     try {
       const body: CateringCatalogItemInput = {
         name: name.trim(),
+        group_id: groupId ? Number(groupId) : 0,
         overview,
         description,
         base_price: Number(basePrice) || 0,
@@ -548,6 +560,14 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
             descLabel={t('catering_offer_conditions')}
             descHint={t('catering_offer_conditions_hint')}
           />
+          {groups.length > 0 && <label className="mt-4 block">
+            <span className="text-sm font-medium text-fg-secondary">{t('catering_catalog_menu')}</span>
+            <select className="input mt-1" value={groupId} onChange={(event) => setGroupId(event.target.value)}>
+              <option value="">{t('catering_catalog_menu_none')}</option>
+              {groups.filter((group) => group.is_active).map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+            </select>
+            <span className="mt-1 block text-xs text-fg-tertiary">{t('catering_catalog_menu_hint')}</span>
+          </label>}
           <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-brand-500/25 bg-brand-500/5 p-4">
             <input type="checkbox" className="mt-1" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
             <span>
@@ -817,6 +837,49 @@ function OfferEditor({ restaurantId, service, sourceLocale, editing, onClose, on
       </div>
     </Modal>
   );
+}
+
+function CatalogGroupManager({ restaurantId, serviceId, groups, onChanged }: {
+  restaurantId: number;
+  serviceId: number;
+  groups: CateringCatalogGroup[];
+  onChanged: () => void;
+}) {
+  const { t } = useI18n();
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const add = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await createCateringGroup(restaurantId, serviceId, { name: name.trim(), is_active: true, sort_order: groups.length });
+      setName('');
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (group: CateringCatalogGroup) => {
+    if (!confirm(t('catering_catalog_menu_delete_confirm').replace('{name}', group.name))) return;
+    await archiveCateringGroup(restaurantId, group.id);
+    onChanged();
+  };
+
+  return <div className="border-b border-[var(--divider)] bg-[var(--surface-subtle)] p-5 sm:px-6">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 className="font-semibold text-fg-primary">{t('catering_catalog_menus')}</h2>
+        <p className="mt-1 text-sm text-fg-secondary">{t('catering_catalog_menus_hint')}</p>
+      </div>
+      <div className="flex gap-2">
+        <input className="input" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void add(); }} placeholder={t('catering_catalog_menu_example')} />
+        <Button variant="secondary" size="sm" disabled={saving || !name.trim()} onClick={add}><PlusIcon />{t('catering_catalog_menu_add')}</Button>
+      </div>
+    </div>
+    {groups.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{groups.map((group) => <span key={group.id} className="inline-flex items-center gap-2 rounded-full border border-[var(--divider)] bg-[var(--surface)] px-3 py-1.5 text-sm font-medium text-fg-primary">{group.name}<button type="button" onClick={() => void remove(group)} aria-label={t('delete')} className="text-fg-tertiary hover:text-red-500">×</button></span>)}</div>}
+  </div>;
 }
 
 function EditorAccordion({ id, open, onOpen, icon, title, summary, children }: {
