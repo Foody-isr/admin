@@ -8989,6 +8989,43 @@ export interface CateringServiceInput {
   display_order?: number;
 }
 
+export interface CateringOffer {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  name: string;
+  description: string;
+  translations?: Record<string, Record<string, string>>;
+  pricing_model: Exclude<CateringPricingModel, 'mixed'>;
+  date_selection_timing: CateringDateSelectionTiming;
+  quote_mode: 'auto' | 'review';
+  selection_mode: '' | 'single' | 'multiple';
+  allow_extra_sessions: boolean;
+  max_sessions: number;
+  min_guests: number;
+  deposit_pct: number;
+  flow_config?: CateringFlowConfig | Record<string, never>;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface CateringOfferInput {
+  name: string;
+  description?: string;
+  translations?: Record<string, Record<string, string>>;
+  pricing_model: Exclude<CateringPricingModel, 'mixed'>;
+  date_selection_timing?: CateringDateSelectionTiming;
+  quote_mode?: 'auto' | 'review';
+  selection_mode?: '' | 'single' | 'multiple';
+  allow_extra_sessions?: boolean;
+  max_sessions?: number;
+  min_guests?: number;
+  deposit_pct?: number;
+  flow_config?: CateringFlowConfig | Record<string, never>;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
 export interface CateringBranch {
   location: {
     id: number;
@@ -9036,6 +9073,27 @@ export async function updateCateringServiceFlow(restaurantId: number, id: number
 /** Archive (soft-delete) a catering service. */
 export async function archiveCateringService(restaurantId: number, id: number): Promise<void> {
   await apiFetch(`/api/v1/catering/services/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+/** List the configurable customer offers under a catering service. */
+export async function listCateringOffers(restaurantId: number, serviceId: number): Promise<CateringOffer[]> {
+  const res = await apiFetch<{ offers: CateringOffer[] }>(`/api/v1/catering/services/${serviceId}/offers`, restaurantId);
+  return res.offers ?? [];
+}
+
+/** Create a customer offer under a catering service. */
+export async function createCateringOffer(restaurantId: number, serviceId: number, body: CateringOfferInput): Promise<CateringOffer> {
+  return apiFetch<CateringOffer>(`/api/v1/catering/services/${serviceId}/offers`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update a customer offer. */
+export async function updateCateringOffer(restaurantId: number, id: number, body: CateringOfferInput): Promise<CateringOffer> {
+  return apiFetch<CateringOffer>(`/api/v1/catering/offers/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Archive a customer offer while retaining its catalog and quote history. */
+export async function archiveCateringOffer(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/offers/${id}`, restaurantId, { method: 'DELETE' });
 }
 
 /** List branches with their catering capabilities. */
@@ -9319,6 +9377,7 @@ export interface CateringCatalogItem {
   id: number;
   restaurant_id: number;
   service_id: number;
+  offer_id?: number;
   group_id?: number;
   menu_item_id?: number;
   menu_item?: CateringLibraryItem;
@@ -9350,6 +9409,7 @@ export interface CateringCatalogItem {
 
 export interface CateringCatalogItemInput {
   name: string;
+  offer_id?: number;
   group_id?: number;
   menu_item_id?: number;
   overview?: string;
@@ -9375,6 +9435,7 @@ export interface CateringCatalogGroup {
   id: number;
   restaurant_id: number;
   service_id: number;
+  offer_id?: number;
   name: string;
   translations?: Record<string, Record<string, string>>;
   is_active: boolean;
@@ -9383,6 +9444,7 @@ export interface CateringCatalogGroup {
 
 export interface CateringCatalogGroupInput {
   name: string;
+  offer_id?: number;
   translations?: Record<string, Record<string, string>>;
   is_active?: boolean;
   sort_order?: number;
