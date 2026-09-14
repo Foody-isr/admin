@@ -79,6 +79,7 @@ interface QuoteConfigFlowSelection {
 }
 
 interface QuoteConfig {
+  request_mode?: string;
   guests?: number;
   event_date?: string;
   event_city?: string;
@@ -102,6 +103,7 @@ function parseConfig(config: unknown): QuoteConfig {
   if (!config || typeof config !== 'object') return {};
   const c = config as Record<string, unknown>;
   return {
+    request_mode: typeof c.request_mode === 'string' ? c.request_mode : undefined,
     guests: typeof c.guests === 'number' ? c.guests : undefined,
     event_date: typeof c.event_date === 'string' ? c.event_date : undefined,
     event_city: typeof c.event_city === 'string' ? c.event_city : undefined,
@@ -299,6 +301,10 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
     <Modal title={quote.customer_name} subtitle={t(STATUS_KEYS[quote.status])} onClose={onClose} size="lg">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4 text-sm">
+          {config.request_mode && <div>
+            <div className="text-fg-secondary">{t('catering_quote_request_mode')}</div>
+            <div className="text-fg-primary font-medium">{t(config.request_mode === 'custom_quote' ? 'catering_quote_request_mode_custom' : 'catering_quote_request_mode_catalog')}</div>
+          </div>}
           <div>
             <div className="text-fg-secondary">{t('catering_quote_guests')}</div>
             <div className="text-fg-primary font-medium">{(config.guests ?? quote.guests) > 0 ? (config.guests ?? quote.guests) : '—'}</div>

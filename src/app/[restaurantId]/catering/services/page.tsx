@@ -36,7 +36,7 @@ function priceLabel(
 ): string {
   if (model === 'custom_quote' && item.base_price <= 0) return t('catering_offer_on_request');
   if (item.base_price <= 0) return t('catering_offer_price_missing');
-  const unit = model === 'per_person' ? t('catering_offer_per_guest') : model === 'per_unit' ? t('catering_offer_per_unit') : '';
+  const unit = model === 'per_person' ? t('catering_offer_per_guest') : model === 'per_unit' || model === 'mixed' ? t('catering_offer_per_unit') : '';
   // Cents only when the price has any, as the catalogue reads better without
   // a column of ".00" — same rule as the offer page.
   const price = money(item.base_price, {
@@ -182,7 +182,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
   const [description, setDescription] = useState(editing?.description ?? '');
   const [pricingModel, setPricingModel] = useState<CateringPricingModel>(editing?.pricing_model ?? 'per_person');
   const [dateSelectionTiming, setDateSelectionTiming] = useState<CateringDateSelectionTiming>(
-    editing?.date_selection_timing ?? (editing?.pricing_model === 'per_unit' ? 'checkout' : 'before_catalog'),
+    editing?.date_selection_timing ?? (editing?.pricing_model === 'per_unit' || editing?.pricing_model === 'mixed' ? 'checkout' : 'before_catalog'),
   );
   const [quoteMode, setQuoteMode] = useState<'auto' | 'review'>(editing?.quote_mode ?? 'review');
   const [depositPct, setDepositPct] = useState(String(editing?.deposit_pct ?? 0));
@@ -204,8 +204,8 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
         description,
         pricing_model: pricingModel,
         date_selection_timing: dateSelectionTiming,
-        quote_mode: quoteMode,
-        selection_mode: selectionMode,
+        quote_mode: pricingModel === 'mixed' ? 'review' as const : quoteMode,
+        selection_mode: pricingModel === 'mixed' ? 'multiple' as const : selectionMode,
         allow_extra_sessions: allowExtraSessions,
         max_sessions: maxSessions,
         min_guests: minGuests,
@@ -235,8 +235,8 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
         <fieldset>
           <legend className="text-sm font-medium text-fg-secondary">{t('catering_offer_group_sales_unit')}</legend>
           <p className="mt-1 text-sm text-fg-tertiary">{t('catering_offer_group_sales_unit_hint')}</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            {(['per_person', 'per_unit', 'custom_quote'] as const).map((model) => {
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(['per_person', 'per_unit', 'custom_quote', 'mixed'] as const).map((model) => {
               const active = pricingModel === model;
               return (
                 <button
@@ -245,7 +245,15 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
                   aria-pressed={active}
                   onClick={() => {
                     setPricingModel(model);
-                    if (!editing) setDateSelectionTiming(model === 'per_unit' ? 'checkout' : 'before_catalog');
+                    if (model === 'mixed') {
+                      setDateSelectionTiming('checkout');
+                      setQuoteMode('review');
+                      setSelectionMode('multiple');
+                      if (minGuests === 0) setMinGuests(15);
+                      if (Number(depositPct) === 0) setDepositPct('100');
+                    } else if (!editing) {
+                      setDateSelectionTiming(model === 'per_unit' ? 'checkout' : 'before_catalog');
+                    }
                   }}
                   className={`rounded-xl border p-4 text-start transition ${active ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500' : 'border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand-400'}`}
                 >
@@ -256,7 +264,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
             })}
           </div>
         </fieldset>
-        <fieldset>
+        {pricingModel !== 'mixed' && <fieldset>
           <legend className="text-sm font-medium text-fg-secondary">{t('catering_offer_group_date_timing')}</legend>
           <p className="mt-1 text-sm text-fg-tertiary">{t('catering_offer_group_date_timing_hint')}</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -276,10 +284,12 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
               );
             })}
           </div>
-        </fieldset>
+        </fieldset>}
         <fieldset>
           <legend className="block text-sm font-medium text-fg-secondary">{t('catering_service_quote_mode')}</legend>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {pricingModel === 'mixed' ? (
+            <p className="mt-2 rounded-xl border border-brand-500/25 bg-brand-500/5 p-3 text-sm text-fg-secondary">{t('catering_mixed_review_required')}</p>
+          ) : <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {(['review', 'auto'] as const).map((mode) => (
               <label
                 key={mode}
@@ -299,7 +309,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
                 </span>
               </label>
             ))}
-          </div>
+          </div>}
         </fieldset>
         <div>
           <label className="block text-sm font-medium text-fg-secondary">{t('catering_field_deposit_pct')}</label>
@@ -322,7 +332,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
           <input type="number" min={0} step={1} className="input mt-1 max-w-40" value={minGuests} onChange={(event) => setMinGuests(Math.max(0, Math.floor(Number(event.target.value) || 0)))} />
           <p className="mt-1 text-xs text-fg-tertiary">{t('catering_service_min_guests_hint')}</p>
         </div>
-        <fieldset>
+        {pricingModel !== 'mixed' && <fieldset>
           <legend className="text-sm font-medium text-fg-secondary">{t('catering_offer_group_selection_title')}</legend>
           <p className="mt-1 text-sm text-fg-tertiary">{t('catering_offer_group_selection_hint')}</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -342,7 +352,7 @@ function OfferGroupEditor({ restaurantId, editing, onClose, onSaved }: {
               );
             })}
           </div>
-        </fieldset>
+        </fieldset>}
         <section className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
           <label className="flex cursor-pointer items-start gap-3">
             <input type="checkbox" className="mt-1" checked={allowExtraSessions} onChange={(event) => setAllowExtraSessions(event.target.checked)} />

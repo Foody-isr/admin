@@ -8837,7 +8837,7 @@ export async function checkDeliverable(
 }
 
 // ---- Catering ----
-export type CateringPricingModel = 'per_unit' | 'per_person' | 'custom_quote';
+export type CateringPricingModel = 'per_unit' | 'per_person' | 'custom_quote' | 'mixed';
 export type CateringDateSelectionTiming = 'before_catalog' | 'checkout';
 
 export type CateringFlowStepKind = 'guest_count' | 'schedule' | 'single_choice' | 'multi_choice' | 'quantity';
