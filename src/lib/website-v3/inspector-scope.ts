@@ -32,6 +32,7 @@ export type InspectorTab = "content" | "appearance" | "settings";
 /** Stable identity of an inspector group, independent of its (localised) title. */
 export type InspectorGroupId =
   | "page.identity"
+  | "page.catering_content"
   | "page.sections"
   | "page.theme"
   | "page.typography"
@@ -76,6 +77,7 @@ const CHECKOUT_ONLY = ["checkout"] as const;
 export const INSPECTOR_GROUP_SCOPES: readonly InspectorGroupScope[] = [
   // ── Contenu ──────────────────────────────────────────────────────────────
   { id: "page.identity", tabs: ["content"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.catering_content", tabs: ["content"], pageTypes: ["catering"], surfaces: PAGE_ONLY },
   { id: "page.sections", tabs: ["content"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
 
   // ── Apparence ────────────────────────────────────────────────────────────
@@ -92,10 +94,8 @@ export const INSPECTOR_GROUP_SCOPES: readonly InspectorGroupScope[] = [
   { id: "cart.surfaces", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
   { id: "cart.buttons", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
   { id: "page.category_bar", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
-  // Cover is inert on catering pages (CateringExperience mounts no
-  // RestaurantHero). Left visible on purpose: hiding a control an owner has
-  // already filled in is a data-visibility regression that needs its own
-  // decision about the stored values.
+  // Catering uses the same page-local cover asset and focal point as order,
+  // but renders it in its editorial left panel rather than RestaurantHero.
   { id: "page.cover", tabs: ["appearance"], pageTypes: ["order", "catering"], surfaces: PAGE_ONLY },
   { id: "page.order_type_selector", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
   { id: "page.catalog", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },

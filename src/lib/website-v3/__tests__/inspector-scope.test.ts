@@ -127,6 +127,17 @@ test("catering pages keep the cover but no order-only appearance", () => {
   );
 });
 
+test("catering content exposes its dedicated editorial controls", () => {
+  assert.deepEqual(
+    visibleInspectorGroups({
+      pageType: "catering",
+      tab: "content",
+      surface: "page",
+    }),
+    ["page.identity", "page.catering_content", "page.sections"],
+  );
+});
+
 test("only commerce pages expose the commerce settings group", () => {
   const exposes = (pageType: WebsitePageType) =>
     showsInspectorGroup("page.commerce", {

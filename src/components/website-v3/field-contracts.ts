@@ -336,6 +336,13 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.accent": "#b42318",
   "page.appearance_overrides.headingFont": "Georgia",
   "page.appearance_overrides.bodyFont": "Inter",
+  "page.appearance_overrides.catering_page.hero_title": "A table made for your celebration",
+  "page.appearance_overrides.catering_page.hero_subtitle": "A connected catering introduction.",
+  "page.appearance_overrides.catering_page.show_restaurant_name": false,
+  "page.appearance_overrides.catering_page.chooser_title": "Choose your reception",
+  "page.appearance_overrides.catering_page.chooser_subtitle": "A connected service-list introduction.",
+  "page.appearance_overrides.catering_page.service_action_label": "Explore",
+  "page.appearance_overrides.catering_page.show_steps": false,
   "page.appearance_overrides.chain_order_entry.logo_url":
     "http://localhost:3000/logo-icon.svg",
   "page.appearance_overrides.chain_order_entry.layout": "cards",
@@ -474,6 +481,9 @@ function editorFor(
   if (scope === "page") {
     const order = id === "page.settings.menu_ids";
     const catering = id === "page.settings.service_ids";
+    const cateringContent = id.startsWith(
+      "page.appearance_overrides.catering_page.",
+    );
     const defaultPage = id === "page.is_default";
     const categoryBar = id.includes(
       "page.appearance_overrides.section_colors.categoryBar",
@@ -486,6 +496,7 @@ function editorFor(
       pageTypes.length === 1 &&
       pageTypes[0] === "order";
     const orderPage = order || categoryBar || orderOnly;
+    const cateringPage = catering || cateringContent;
     const chainSelector = id.startsWith(
       "page.appearance_overrides.chain_order_entry.",
     );
@@ -503,15 +514,15 @@ function editorFor(
     return {
       kind: action,
       scope,
-      tab: id === "page.title" ? "Contenu" :
+      tab: id === "page.title" || cateringContent ? "Contenu" :
         chainSelectorSetting ? "Réglages" :
         id.startsWith("page.appearance_overrides.navbar_cta") ? "Réglages" :
         id === "page.appearance_overrides.hide_navbar_name" ? "Réglages" :
         id === "page.appearance_overrides.navbar_logo_position" ? "Réglages" :
         id.startsWith("page.appearance_overrides.") ? "Apparence" : "Réglages",
-      pageTitle: orderPage ? "Brunch Order" : catering ? "Office Catering" :
+      pageTitle: orderPage ? "Brunch Order" : cateringPage ? "Office Catering" :
         defaultPage ? "Dinner Order" : "About",
-      publicSlug: orderPage ? "brunch-order" : catering ? "office-catering" :
+      publicSlug: orderPage ? "brunch-order" : cateringPage ? "office-catering" :
         defaultPage ? "dinner-order" :
         id === "page.slug" ? String(FIELD_TEST_VALUES[id]) : "about",
       // The checkout text colours only render on the order page's checkout
@@ -775,6 +786,25 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
     ["appearance_overrides", "bodyFont"],
     "body",
     "style",
+  ),
+  ...([
+    "hero_title",
+    "hero_subtitle",
+    "show_restaurant_name",
+    "chooser_title",
+    "chooser_subtitle",
+    "service_action_label",
+    "show_steps",
+  ] as const).map((field) =>
+    page(
+      `page.appearance_overrides.catering_page.${field}`,
+      ["appearance_overrides", "catering_page", field],
+      "main",
+      typeof FIELD_TEST_VALUES[`page.appearance_overrides.catering_page.${field}`] === "boolean"
+        ? "visible"
+        : "text",
+      ["catering"],
+    ),
   ),
   page(
     "page.appearance_overrides.chain_order_entry.logo_url",
