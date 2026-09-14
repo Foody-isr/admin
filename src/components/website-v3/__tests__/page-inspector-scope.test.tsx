@@ -83,7 +83,14 @@ function renderInspector(
         onConfigChange: () => undefined,
         catalog: themeCatalog(),
         menus: [] as Menu[],
-        services: [] as CateringService[],
+        services: [
+          {
+            id: 7,
+            name: "Weekly Event",
+            description: "A weekly reception service",
+            is_active: true,
+          } as CateringService,
+        ],
         errors: [],
         onChange: () => undefined,
         onReplace: () => undefined,
@@ -143,6 +150,19 @@ test("the catering builder delegates offer visibility to the catering catalog", 
   assert.match(markup, /Catering visibility is managed in Catering/);
   assert.doesNotMatch(markup, /Prestations associées/);
   assert.match(markup, /\/24\/catering\/services/);
+});
+
+test("the catering content tab exposes page copy and per-service subtitles", () => {
+  const markup = renderInspector("catering", "content", "page");
+
+  assert.match(markup, /data-inspector-group="page\.catering_content"/);
+  assert.match(markup, /catering_page\.hero_title/);
+  assert.match(markup, /catering_page\.hero_subtitle/);
+  assert.match(markup, /catering_page\.show_restaurant_name/);
+  assert.match(markup, /catering_page\.chooser_title/);
+  assert.match(markup, /catering_page\.chooser_subtitle/);
+  assert.match(markup, /catering_page\.service_subtitles\.7/);
+  assert.match(markup, /catering_page\.show_steps/);
 });
 
 test("the page surface offers no checkout colours but keeps the cart", () => {
@@ -226,7 +246,7 @@ test("landing and content pages keep only the page-wide appearance", () => {
 test("catering pages keep the cover and drop the order-only groups", () => {
   const markup = renderInspector("catering", "appearance", "page");
 
-  assert.match(markup, /Couverture/);
+  assert.match(markup, /Left-side photo/);
   assert.doesNotMatch(markup, /cart_text_colors/);
   assert.doesNotMatch(markup, /order_type_selector/);
   assert.doesNotMatch(markup, /section_colors\.categoryBar\.bg/);

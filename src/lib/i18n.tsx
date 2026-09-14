@@ -127,6 +127,36 @@ const translations: Record<Locale, Record<string, string>> = {
     websiteV3CateringVisibilityTitle: 'Catering visibility is managed in Catering',
     websiteV3CateringVisibilityDescription: '{n} active offer groups will appear automatically. Hide a group or an offer directly from Catering > Services.',
     websiteV3CateringVisibilityAction: 'Manage catering offers',
+    websiteV3CateringContentTitle: "Catering page content",
+    websiteV3CateringContentDescription:
+      "Customize the editorial panel and service list. Empty custom text is intentionally hidden; reset a field to restore its default.",
+    websiteV3CateringHeroTitle: "Main title",
+    websiteV3CateringHeroTitleDefault: "You host. We set the table.",
+    websiteV3CateringHeroSubtitle: "Main subtitle",
+    websiteV3CateringHeroSubtitleDefault:
+      "Discover our services, build a menu around your event and receive a clear quote.",
+    websiteV3CateringShowRestaurantName: "Show restaurant name above the title",
+    websiteV3CateringServicesSection: "Service list",
+    websiteV3CateringChooserTitle: "List title",
+    websiteV3CateringChooserTitleDefault: "Choose a service",
+    websiteV3CateringChooserSubtitle: "List subtitle",
+    websiteV3CateringChooserSubtitleDefault:
+      "Select the experience that fits your event. You can adjust every detail next.",
+    websiteV3CateringActionLabel: "Action label",
+    websiteV3CateringActionLabelDefault: "Discover",
+    websiteV3CateringShowSteps: "Show the 3-step guide",
+    websiteV3CateringShowStepsDescription:
+      "Choose, customize and receive your quote.",
+    websiteV3CateringServiceSubtitles: "Subtitle for each service",
+    websiteV3CateringServiceSubtitlesDescription:
+      "These texts only change this page and do not edit the service catalog.",
+    websiteV3CateringServiceSubtitleDefault:
+      "Uses the service description or its automatic sales hint.",
+    websiteV3CateringResetField: "Use default text",
+    websiteV3CateringResetAll: "Reset all catering content",
+    websiteV3CateringCoverTitle: "Left-side photo",
+    websiteV3CateringCoverDescription:
+      "This image fills the editorial panel on the left. A contrast overlay is applied automatically.",
     websiteV3InheritSite: 'Inherit from site',
     websiteV3ShowRestaurantName: 'Show restaurant name',
     websiteV3HideRestaurantName: 'Hide restaurant name',
@@ -5039,6 +5069,35 @@ const translations: Record<Locale, Record<string, string>> = {
     websiteV3CateringVisibilityTitle: 'הנראות מנוהלת במודול הקייטרינג',
     websiteV3CateringVisibilityDescription: '{n} קבוצות הצעות פעילות יוצגו אוטומטית. מסתירים קבוצה או הצעה ישירות בקייטרינג > שירותים.',
     websiteV3CateringVisibilityAction: 'ניהול הצעות קייטרינג',
+    websiteV3CateringContentTitle: "תוכן דף הקייטרינג",
+    websiteV3CateringContentDescription:
+      "התאימו את אזור הפתיחה ואת רשימת השירותים. טקסט מותאם ריק מוסתר; איפוס שדה מחזיר את ברירת המחדל.",
+    websiteV3CateringHeroTitle: "כותרת ראשית",
+    websiteV3CateringHeroTitleDefault: "אתם מארחים. אנחנו עורכים את השולחן.",
+    websiteV3CateringHeroSubtitle: "כותרת משנה ראשית",
+    websiteV3CateringHeroSubtitleDefault:
+      "גלו את השירותים שלנו, הרכיבו תפריט לאירוע וקבלו הצעת מחיר ברורה.",
+    websiteV3CateringShowRestaurantName: "הצגת שם המסעדה מעל הכותרת",
+    websiteV3CateringServicesSection: "רשימת השירותים",
+    websiteV3CateringChooserTitle: "כותרת הרשימה",
+    websiteV3CateringChooserTitleDefault: "בחירת שירות",
+    websiteV3CateringChooserSubtitle: "כותרת משנה לרשימה",
+    websiteV3CateringChooserSubtitleDefault:
+      "בחרו את החוויה שמתאימה לאירוע. בהמשך תוכלו להתאים כל פרט.",
+    websiteV3CateringActionLabel: "טקסט הפעולה",
+    websiteV3CateringActionLabelDefault: "לפרטים",
+    websiteV3CateringShowSteps: "הצגת מדריך שלושת השלבים",
+    websiteV3CateringShowStepsDescription: "בחירה, התאמה וקבלת הצעת מחיר.",
+    websiteV3CateringServiceSubtitles: "כותרת משנה לכל שירות",
+    websiteV3CateringServiceSubtitlesDescription:
+      "הטקסטים משתנים רק בדף הזה ואינם עורכים את קטלוג השירותים.",
+    websiteV3CateringServiceSubtitleDefault:
+      "נעשה שימוש בתיאור השירות או בהסבר המכירה האוטומטי.",
+    websiteV3CateringResetField: "שימוש בטקסט ברירת המחדל",
+    websiteV3CateringResetAll: "איפוס כל תוכן הקייטרינג",
+    websiteV3CateringCoverTitle: "תמונה בצד שמאל",
+    websiteV3CateringCoverDescription:
+      "התמונה ממלאת את אזור הפתיחה בצד שמאל. שכבת ניגודיות מתווספת אוטומטית.",
     websiteV3InheritSite: 'ירושה מהאתר',
     websiteV3ShowRestaurantName: 'הצגת שם המסעדה',
     websiteV3HideRestaurantName: 'הסתרת שם המסעדה',
@@ -9945,6 +10004,37 @@ const translations: Record<Locale, Record<string, string>> = {
     websiteV3CateringVisibilityTitle: 'La visibilité se gère dans le module Traiteur',
     websiteV3CateringVisibilityDescription: '{n} groupes d’offres actifs apparaîtront automatiquement. Masquez un groupe ou une offre directement depuis Traiteur > Prestations.',
     websiteV3CateringVisibilityAction: 'Gérer les offres traiteur',
+    websiteV3CateringContentTitle: "Contenu de la page traiteur",
+    websiteV3CateringContentDescription:
+      "Personnalisez le panneau éditorial et la liste des prestations. Un texte personnalisé vide est masqué ; réinitialisez un champ pour retrouver son texte par défaut.",
+    websiteV3CateringHeroTitle: "Titre principal",
+    websiteV3CateringHeroTitleDefault: "Vous recevez. Nous dressons la table.",
+    websiteV3CateringHeroSubtitle: "Sous-titre principal",
+    websiteV3CateringHeroSubtitleDefault:
+      "Découvrez nos prestations, composez un menu à votre mesure et recevez un devis clair.",
+    websiteV3CateringShowRestaurantName:
+      "Afficher le nom du restaurant au-dessus du titre",
+    websiteV3CateringServicesSection: "Liste des prestations",
+    websiteV3CateringChooserTitle: "Titre de la liste",
+    websiteV3CateringChooserTitleDefault: "Choisir une prestation",
+    websiteV3CateringChooserSubtitle: "Sous-titre de la liste",
+    websiteV3CateringChooserSubtitleDefault:
+      "Sélectionnez l’expérience qui correspond à votre réception. Vous pourrez ensuite en ajuster chaque détail.",
+    websiteV3CateringActionLabel: "Libellé de l’action",
+    websiteV3CateringActionLabelDefault: "Découvrir",
+    websiteV3CateringShowSteps: "Afficher le guide en 3 étapes",
+    websiteV3CateringShowStepsDescription:
+      "Choisissez, personnalisez et recevez votre devis.",
+    websiteV3CateringServiceSubtitles: "Sous-titre de chaque prestation",
+    websiteV3CateringServiceSubtitlesDescription:
+      "Ces textes changent uniquement cette page, sans modifier le catalogue de la prestation.",
+    websiteV3CateringServiceSubtitleDefault:
+      "Utilise la description de la prestation ou son indication commerciale automatique.",
+    websiteV3CateringResetField: "Réutiliser le texte par défaut",
+    websiteV3CateringResetAll: "Réinitialiser tout le contenu traiteur",
+    websiteV3CateringCoverTitle: "Photo de gauche",
+    websiteV3CateringCoverDescription:
+      "Cette photo occupe le panneau éditorial à gauche. Le dégradé de contraste est appliqué automatiquement.",
     websiteV3InheritSite: 'Hériter du site',
     websiteV3ShowRestaurantName: 'Afficher le nom du restaurant',
     websiteV3HideRestaurantName: 'Masquer le nom du restaurant',
