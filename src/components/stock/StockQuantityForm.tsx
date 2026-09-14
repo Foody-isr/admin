@@ -218,6 +218,16 @@ export function deriveTotals(i: StockInput): Totals {
   };
 }
 
+/** Converts a canonical ex-VAT price to the value shown in the selected entry mode. */
+export function priceForVatMode(exVatPrice: number, vatRate: number, mode: 'ex' | 'inc'): number {
+  return mode === 'inc' ? exVatPrice * (1 + vatRate / 100) : exVatPrice;
+}
+
+/** Converts a typed price back to the canonical ex-VAT value stored by stock. */
+export function priceFromVatMode(enteredPrice: number, vatRate: number, mode: 'ex' | 'inc'): number {
+  return mode === 'inc' ? enteredPrice / (1 + vatRate / 100) : enteredPrice;
+}
+
 /** Convert the union → server-side StockItem fields. */
 export function stockInputToServer(i: StockInput) {
   const d = deriveTotals(i);
@@ -659,8 +669,9 @@ function PriceSentence({
   // value.totalPrice is stored ex-VAT. When the user is typing in TTC mode,
   // inflate the displayed cell by effMult on the way out and deflate the
   // typed number on the way in — totalPrice stays canonical.
-  const toDisplay = (n: number) => (isInc ? n * effMult : n);
-  const fromDisplay = (n: number) => (isInc ? n / effMult : n);
+  const effectiveRate = (effMult - 1) * 100;
+  const toDisplay = (n: number) => priceForVatMode(n, effectiveRate, vatDisplayMode);
+  const fromDisplay = (n: number) => priceFromVatMode(n, effectiveRate, vatDisplayMode);
   const isPackaged = value.type !== 'simple';
   const hasInner = value.type === 'packaged-nested';
   const hasBase = isPackaged
@@ -706,7 +717,7 @@ function PriceSentence({
     setFlash(true);
     const id = setTimeout(() => setFlash(false), 450);
     return () => clearTimeout(id);
-  }, [effective]);
+  }, [effective, vatDisplayMode]);
 
   const displayedEx = (() => {
     switch (effective) {

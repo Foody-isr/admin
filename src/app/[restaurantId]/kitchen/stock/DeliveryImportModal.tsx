@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   importDeliveryStream, importDeliveryVoice, confirmDelivery, listSuppliers, getRestaurantSettings,
   getImportDraft, createImportDraft, deleteImportDraft, chatDeliveryEdit,
+  getStockCategories, createStockCategory,
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
   DeliveryStreamDone, ChatItemSnapshot, ChatTurn, ChatPatch,
 } from '@/lib/api';
@@ -195,6 +196,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const [documentType, setDocumentType] = useState<string>('');
   const [reviewTab, setReviewTab] = useState<'document' | 'items'>('items');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [stockCategoryNames, setStockCategoryNames] = useState<string[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [vatRate, setVatRate] = useState(18);
@@ -229,6 +231,9 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   // Load restaurant suppliers + VAT rate, and resume draft if draftId provided
   useEffect(() => {
     listSuppliers(rid).then(setSuppliers).catch(() => {});
+    getStockCategories(rid)
+      .then((categories) => setStockCategoryNames(categories.map((category) => category.name)))
+      .catch(() => {});
     getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
     if (draftId) {
       getImportDraft(rid, draftId).then((detail) => {
@@ -631,7 +636,27 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     updateItem(idx, stockInputToLinePatch(v));
   };
 
-  const existingCategories = Array.from(new Set(stockItems.map((s) => s.category).filter(Boolean)));
+  const updateVatDisplayMode = (mode: 'ex' | 'inc') => {
+    setVatDisplayMode(mode);
+    try { localStorage.setItem('foody.stock.vatDisplay', mode); } catch { /* ignore */ }
+  };
+
+  const existingCategories = Array.from(new Set([
+    ...stockCategoryNames,
+    ...stockItems.map((s) => s.category).filter(Boolean),
+  ])).sort((a, b) => a.localeCompare(b, locale));
+
+  const handleCreateCategory = async (name: string): Promise<string> => {
+    const trimmedName = name.trim();
+    const existing = existingCategories.find(
+      (category) => category.localeCompare(trimmedName, locale, { sensitivity: 'accent' }) === 0,
+    );
+    if (existing) return existing;
+
+    const created = await createStockCategory(rid, { name: trimmedName });
+    setStockCategoryNames((current) => Array.from(new Set([...current, created.name])));
+    return created.name;
+  };
 
   const stockOptions = [
     { value: '', label: `— ${t('newItem')} —`, sublabel: '' },
@@ -981,6 +1006,8 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             updateFormState={updateFormState}
             vatRate={vatRate}
             vatDisplayMode={vatDisplayMode}
+            onVatDisplayModeChange={updateVatDisplayMode}
+            onCreateCategory={handleCreateCategory}
             t={t}
             reviewedItems={reviewedItems}
             markReviewed={markReviewed}
@@ -1050,6 +1077,8 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               updateFormState={updateFormState}
               vatRate={vatRate}
               vatDisplayMode={vatDisplayMode}
+              onVatDisplayModeChange={updateVatDisplayMode}
+              onCreateCategory={handleCreateCategory}
               t={t}
               reviewedItems={reviewedItems}
               markReviewed={markReviewed}
@@ -1384,7 +1413,7 @@ function StreamingHeader({
 }
 
 function ItemsList({
-  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, vatDisplayMode, t, reviewedItems, markReviewed, streaming,
+  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, vatDisplayMode, onVatDisplayModeChange, onCreateCategory, t, reviewedItems, markReviewed, streaming,
 }: {
   editedItems: ConfirmDeliveryItemInput[];
   formStates: StockInput[];
@@ -1395,6 +1424,8 @@ function ItemsList({
   updateFormState: (idx: number, v: StockInput) => void;
   vatRate: number;
   vatDisplayMode: 'ex' | 'inc';
+  onVatDisplayModeChange: (mode: 'ex' | 'inc') => void;
+  onCreateCategory: (name: string) => Promise<string>;
   t: (key: string) => string;
   reviewedItems: Set<number>;
   markReviewed: (idx: number) => void;
@@ -1402,6 +1433,38 @@ function ItemsList({
 }) {
   return (
     <div className="space-y-3">
+      {editedItems.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-fg-primary">{t('priceEntryMode')}</p>
+            <p className="mt-0.5 text-xs text-fg-tertiary">{t('priceEntryModeHint')}</p>
+          </div>
+          <div
+            className="inline-flex self-start rounded-lg bg-[var(--surface-subtle)] p-1 sm:self-auto"
+            role="group"
+            aria-label={t('priceEntryMode')}
+          >
+            {(['ex', 'inc'] as const).map((mode) => {
+              const selected = vatDisplayMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => onVatDisplayModeChange(mode)}
+                  className={`min-w-14 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                    selected
+                      ? 'bg-[var(--surface)] text-brand-500 shadow-sm'
+                      : 'text-fg-secondary hover:text-fg-primary'
+                  }`}
+                >
+                  {mode === 'ex' ? t('exVat') : t('incVat')}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {editedItems.map((item, idx) => {
         const isExisting = !!item.stock_item_id;
         const isSkipped = !!item.skipped;
@@ -1513,7 +1576,7 @@ function ItemsList({
                 placeholder={t('matchToStockItem')}
               />
               {!isExisting && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('name')}</label>
                     <input
@@ -1524,19 +1587,14 @@ function ItemsList({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
-                    <select
-                      className="input w-full py-1.5 text-sm"
+                    <CategoryPicker
                       value={item.category}
                       disabled={isSkipped}
-                      onChange={(e) => updateItem(idx, { category: e.target.value })}
-                    >
-                      <option value="">{t('category')}</option>
-                      {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-                      {item.category && !existingCategories.includes(item.category) && (
-                        <option value={item.category}>{item.category}</option>
-                      )}
-                    </select>
+                      categories={existingCategories}
+                      onChange={(category) => updateItem(idx, { category })}
+                      onCreateCategory={onCreateCategory}
+                      t={t}
+                    />
                   </div>
                 </div>
               )}
@@ -1568,6 +1626,114 @@ function ItemsList({
           <ItemSkeleton delay={400} />
         </>
       )}
+    </div>
+  );
+}
+
+function CategoryPicker({
+  value, categories, disabled, onChange, onCreateCategory, t,
+}: {
+  value: string;
+  categories: string[];
+  disabled: boolean;
+  onChange: (category: string) => void;
+  onCreateCategory: (name: string) => Promise<string>;
+  t: (key: string) => string;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const closeCreator = () => {
+    setCreating(false);
+    setName('');
+    setError('');
+  };
+
+  const saveCategory = async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName || saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      const createdName = await onCreateCategory(trimmedName);
+      onChange(createdName);
+      closeCreator();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('saveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (creating) {
+    return (
+      <div>
+        <label className="mb-1 block text-xs font-medium text-fg-secondary">{t('newCategory')}</label>
+        <div>
+          <input
+            className="input w-full py-1.5 text-sm"
+            value={name}
+            disabled={saving}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void saveCategory();
+              }
+              if (event.key === 'Escape') closeCreator();
+            }}
+            placeholder={t('categoryName')}
+            autoFocus
+          />
+        </div>
+        <div className="mt-2 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => void saveCategory()}
+            disabled={!name.trim() || saving}
+            className="btn-primary shrink-0 px-3 py-1.5 text-xs"
+          >
+            {saving ? t('creating') : t('create')}
+          </button>
+          <button
+            type="button"
+            onClick={closeCreator}
+            disabled={saving}
+            className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
+          >
+            {t('cancel')}
+          </button>
+        </div>
+        {error && <p className="mt-1 text-xs text-[var(--danger-500)]">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <label className="text-xs font-medium text-fg-secondary">{t('category')}</label>
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          disabled={disabled}
+          className="text-xs font-medium text-brand-500 hover:text-brand-400 disabled:opacity-40"
+        >
+          + {t('createCategory')}
+        </button>
+      </div>
+      <select
+        className="input w-full py-1.5 text-sm"
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">{t('category')}</option>
+        {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+        {value && !categories.includes(value) && <option value={value}>{value}</option>}
+      </select>
     </div>
   );
 }
