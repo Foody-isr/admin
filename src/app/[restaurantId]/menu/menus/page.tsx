@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listMenus, createMenu, updateMenu, deleteMenu, duplicateMenu,
+  listMenus, reorderMenus, createMenu, updateMenu, deleteMenu, duplicateMenu,
   setMenuHours, getMenuHours, getRestaurant,
   Menu, MenuAvailabilityHour, Restaurant,
 } from '@/lib/api';
@@ -88,6 +88,7 @@ export default function MenusPage() {
   const [channelFilter, setChannelFilter] = useState<'all' | 'pos' | 'web'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isReordering, setIsReordering] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
   const [editModal, setEditModal] = useState<{ open: boolean; editing?: Menu }>({ open: false });
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
@@ -131,22 +132,45 @@ export default function MenusPage() {
     }
   };
 
-  // Drag-to-reorder
+  // Reordering stays local until the user clicks "Done". Persisting the whole
+  // ordered ID list through one endpoint avoids partial saves if one request
+  // fails and makes the button's behaviour match what the UI promises.
   const dragSource = useRef<number | null>(null);
-  const handleDragStart = (index: number) => { dragSource.current = index; };
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleDragStart = (menuId: number) => { dragSource.current = menuId; };
+  const handleDragOver = (e: React.DragEvent, targetId: number) => {
     e.preventDefault();
-    const from = dragSource.current;
-    if (from === null || from === index) return;
-    const reordered = [...menus];
-    const [moved] = reordered.splice(from, 1);
-    reordered.splice(index, 0, moved);
-    dragSource.current = index;
-    setMenus(reordered);
+    const sourceId = dragSource.current;
+    if (sourceId === null || sourceId === targetId) return;
+    setMenus((current) => {
+      const from = current.findIndex((menu) => menu.id === sourceId);
+      const to = current.findIndex((menu) => menu.id === targetId);
+      if (from === -1 || to === -1) return current;
+      const reordered = [...current];
+      const [moved] = reordered.splice(from, 1);
+      reordered.splice(to, 0, moved);
+      return reordered;
+    });
   };
-  const handleDrop = async () => {
-    dragSource.current = null;
-    await Promise.all(menus.map((m, i) => updateMenu(rid, m.id, { sort_order: i })));
+
+  const handleReorderToggle = async () => {
+    if (!isReordering) {
+      setViewMode('grid');
+      setSearch('');
+      setChannelFilter('all');
+      setIsReordering(true);
+      return;
+    }
+
+    setSavingOrder(true);
+    try {
+      await reorderMenus(rid, menus.map((menu) => menu.id));
+      await reload();
+      setIsReordering(false);
+    } catch {
+      alert(t('couldNotSave'));
+    } finally {
+      setSavingOrder(false);
+    }
   };
 
   const filtered = menus.filter((m) => {
@@ -175,12 +199,10 @@ export default function MenusPage() {
               <Button
                 variant="secondary"
                 size="md"
-                onClick={() => {
-                  setIsReordering(!isReordering);
-                  if (!isReordering) setViewMode('grid');
-                }}
+                onClick={handleReorderToggle}
+                disabled={savingOrder}
               >
-                {isReordering ? t('doneReordering') : t('reorder')}
+                {savingOrder ? t('saving') : isReordering ? t('doneReordering') : t('reorder')}
               </Button>
               <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
                 <PlusIcon />
@@ -266,13 +288,14 @@ export default function MenusPage() {
       {/* ── Grid mode: stacked full-width cards ── */}
       {filtered.length > 0 && viewMode === 'grid' && (
         <div className="space-y-3">
-          {filtered.map((m, index) => (
+          {filtered.map((m) => (
             <div
               key={m.id}
-              draggable={isReordering}
-              onDragStart={() => handleDragStart(index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDrop={handleDrop}
+              draggable={isReordering && !savingOrder}
+              onDragStart={() => handleDragStart(m.id)}
+              onDragOver={(e) => handleDragOver(e, m.id)}
+              onDrop={() => { dragSource.current = null; }}
+              onDragEnd={() => { dragSource.current = null; }}
               onClick={() => !isReordering && router.push(`/${rid}/menu/menus/${m.id}`)}
               className={`flex items-center gap-4 px-5 py-4 rounded-xl border border-[var(--divider)] bg-[var(--surface)] hover:shadow-sm transition-shadow${isReordering ? ' cursor-grab active:cursor-grabbing' : ' cursor-pointer'}`}
             >
