@@ -36,6 +36,7 @@ import CateringFormulaComposer, {
   type CateringChoiceGroupDraft,
   type CateringIncludedSectionDraft,
 } from '@/components/catering/CateringFormulaComposer';
+import CateringPlateauxComposer, { defaultPlateauxGroups, newPlateauxGroup } from '@/components/catering/CateringPlateauxComposer';
 import {
   applyOfferRateDrafts,
   normalizeCateringFlowConfig,
@@ -201,20 +202,20 @@ export default function CateringOfferGroupPage() {
       <PageHead
         title={service?.name ?? t('catering_offer_group_title')}
         desc={service?.description || t('catering_offer_group_hint')}
-        actions={canEdit ? (
+        actions={canEdit && (service?.pricing_model !== 'mixed' || items.length === 0) ? (
           <Button variant="primary" size="md" onClick={() => setEditor({ open: true })}>
             <PlusIcon />
-            {t('catering_offer_new')}
+            {service?.pricing_model === 'mixed' ? 'Créer une offre Plateaux' : t('catering_offer_new')}
           </Button>
         ) : undefined}
       />
 
       <section className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
-        {canEdit && <CatalogGroupManager restaurantId={rid} serviceId={sid} groups={groups} onChanged={reload} />}
+        {canEdit && service?.pricing_model !== 'mixed' && <CatalogGroupManager restaurantId={rid} serviceId={sid} groups={groups} onChanged={reload} />}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--divider)] px-5 py-4 sm:px-6">
           <div>
-            <h2 className="text-lg font-semibold text-fg-primary">{t('catering_offer_list_title')}</h2>
-            <p className="mt-0.5 text-sm text-fg-secondary">{t('catering_offer_list_hint')}</p>
+            <h2 className="text-lg font-semibold text-fg-primary">{service?.pricing_model === 'mixed' ? 'Offres de la prestation' : t('catering_offer_list_title')}</h2>
+            <p className="mt-0.5 text-sm text-fg-secondary">{service?.pricing_model === 'mixed' ? 'Plateaux contient les groupes Halavi et Bassari, puis leurs articles vendus à l’unité.' : t('catering_offer_list_hint')}</p>
           </div>
           <span className="rounded-full bg-[var(--surface-subtle)] px-3 py-1 text-xs font-semibold text-fg-secondary">
             {t('catering_offer_count').replace('{n}', String(items.length))}
@@ -240,6 +241,7 @@ export default function CateringOfferGroupPage() {
             {items.map((item, index) => {
               const rates = offerRateDrafts(flow, item.id);
               const contentCount = (item.included_sections?.length ?? 0) + (item.choice_groups?.length ?? 0);
+              const plateauxCount = (item.choice_groups ?? []).reduce((count, group) => count + (group.items?.length ?? 0), 0);
               return (
                 <article key={item.id} className="group grid gap-4 p-4 transition-colors hover:bg-[var(--surface-subtle)] sm:grid-cols-[112px_minmax(0,1fr)_auto] sm:p-5">
                   <div className="aspect-[4/3] overflow-hidden rounded-xl bg-[var(--surface-subtle)] sm:aspect-square">
@@ -261,7 +263,9 @@ export default function CateringOfferGroupPage() {
                     </div>
                     {item.overview && <p className="mt-1 line-clamp-2 max-w-2xl text-sm leading-relaxed text-fg-secondary">{item.overview}</p>}
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-fg-secondary">
-                      <span className="font-bold text-brand-600">{offerPriceSummary(item, service?.pricing_model ?? 'per_person', flow, t, money)}</span>
+                      <span className="font-bold text-brand-600">{service?.pricing_model === 'mixed'
+                        ? `${item.choice_groups?.length ?? 0} groupe(s), ${plateauxCount} article(s)`
+                        : offerPriceSummary(item, service?.pricing_model ?? 'per_person', flow, t, money)}</span>
                       {(item.min_guests > 0 || item.min_quantity > 0) && (
                         <span className="inline-flex items-center gap-1"><UsersIcon className="h-3.5 w-3.5" />{t('catering_offer_minimum_short').replace('{n}', String(item.min_guests || item.min_quantity))}</span>
                       )}
@@ -290,10 +294,35 @@ export default function CateringOfferGroupPage() {
             })}
           </div>
         )}
+
+        {service?.pricing_model === 'mixed' && (
+          <div className="border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-5 sm:px-6">
+            <div className="rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-fg-primary">Devis sur mesure</h3>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-fg-secondary">
+                    Le client remplit le formulaire événement. La demande arrive dans le back-office pour préparer et envoyer le devis sous 24 h.
+                  </p>
+                </div>
+                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600">Toujours disponible</span>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {editor.open && service && (
-        <OfferEditor
+        service.pricing_model === 'mixed' ? <PlateauxOfferEditor
+          restaurantId={rid}
+          service={service}
+          editing={editor.item}
+          onClose={() => setEditor({ open: false })}
+          onSaved={() => {
+            setEditor({ open: false });
+            reload();
+          }}
+        /> : <OfferEditor
           restaurantId={rid}
           service={service}
           groups={groups}
@@ -336,6 +365,116 @@ function nextModeID(modes: ServiceModeDraft[], preferred: string): string {
 
 function newServiceMode(modes: ServiceModeDraft[], preferred: string, name: string, price = ''): ServiceModeDraft {
   return { id: nextModeID(modes, preferred), name, description: '', price, translations: {} };
+}
+
+function PlateauxOfferEditor({ restaurantId, service, editing, onClose, onSaved }: {
+  restaurantId: number;
+  service: CateringService;
+  editing?: CateringCatalogItem;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(editing?.name ?? 'Plateaux à l’unité');
+  const [overview, setOverview] = useState(editing?.overview ?? 'Choisissez votre menu Halavi ou Bassari, puis vos plateaux et leurs quantités.');
+  const [isActive, setIsActive] = useState(editing?.is_active ?? true);
+  const [choiceGroups, setChoiceGroups] = useState<CateringChoiceGroupDraft[]>(() => editing?.choice_groups?.length
+    ? editing.choice_groups.map((group, index) => ({
+      ...newPlateauxGroup(index, group.name),
+      description: group.description ?? '',
+      translations: group.translations ?? {},
+      items: (group.items ?? []).map((item) => ({
+        ...(item.menu_item_id ? { menu_item_id: item.menu_item_id, name: item.menu_item?.name || item.name } : { name: item.name }),
+        description: item.description ?? '',
+        price_delta: item.price_delta,
+        default_quantity: 0,
+      })),
+    }))
+    : defaultPlateauxGroups());
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  const valid = name.trim().length > 0
+    && choiceGroups.length > 0
+    && choiceGroups.every((group) => group.name.trim().length > 0
+      && group.items.length > 0
+      && group.items.every((item) => Boolean(item.menu_item_id || item.name?.trim()) && item.price_delta >= 0));
+
+  const save = async () => {
+    if (!valid) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      const body: CateringCatalogItemInput = {
+        name: name.trim(),
+        overview: overview.trim(),
+        description: editing?.description ?? '',
+        base_price: 0,
+        group_id: 0,
+        min_guests: 0,
+        min_quantity: 0,
+        is_active: isActive,
+        available_weekdays: editing?.available_weekdays ?? [],
+        translations: editing?.translations ?? {},
+        service_modes: [],
+        gallery_images: (editing?.gallery_images ?? []).map((image) => ({ image_url: image.image_url, alt_text: image.alt_text, translations: image.translations })),
+        image_url: editing?.image_url ?? '',
+        included_items: [],
+        included_sections: [],
+        options: [],
+        choice_groups: toChoiceGroupInputs(choiceGroups),
+      };
+      if (editing) await updateCateringItem(restaurantId, editing.id, body);
+      else await createCateringItem(restaurantId, service.id, body);
+      onSaved();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Impossible d’enregistrer l’offre.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={editing ? 'Modifier l’offre Plateaux' : 'Créer l’offre Plateaux'}
+      subtitle={`${service.name} → Plateaux → Groupes → Articles`}
+      icon={<PackageOpenIcon />}
+      onClose={onClose}
+      size="5xl"
+      footer={<div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          {!valid && <p className="text-sm text-fg-secondary">Chaque groupe doit contenir au moins un article avec son nom et son prix.</p>}
+          {saveError && <p className="text-sm text-red-500">{saveError}</p>}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="md" onClick={onClose}>Annuler</Button>
+          <Button variant="primary" size="md" disabled={saving || !valid} onClick={save}>{saving ? 'Enregistrement…' : 'Enregistrer l’offre'}</Button>
+        </div>
+      </div>}
+    >
+      <div className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label>
+            <span className="block text-sm font-semibold text-fg-secondary">Nom de l’offre</span>
+            <input className="input mt-1" value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label>
+            <span className="block text-sm font-semibold text-fg-secondary">Présentation courte</span>
+            <input className="input mt-1" value={overview} onChange={(event) => setOverview(event.target.value)} />
+          </label>
+        </div>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-brand-500/25 bg-brand-500/5 p-4">
+          <input type="checkbox" className="mt-1" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
+          <span>
+            <span className="block font-semibold text-fg-primary">Offre visible sur le site</span>
+            <span className="mt-1 block text-sm text-fg-secondary">Désactivez-la pour préparer les groupes sans les montrer aux clients.</span>
+          </span>
+        </label>
+
+        <CateringPlateauxComposer groups={choiceGroups} onChange={setChoiceGroups} />
+      </div>
+    </Modal>
+  );
 }
 
 function OfferEditor({ restaurantId, service, groups, sourceLocale, editing, onClose, onSaved }: {
