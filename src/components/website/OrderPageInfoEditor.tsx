@@ -8,6 +8,7 @@ import type {
   OrderPageNavigation,
   OrderPageNavigationStyle,
 } from '@/lib/api';
+import { WEBSITE_FONT_FAMILIES } from '@/lib/website-fonts';
 
 type Mode = 'pickup' | 'delivery' | 'dine_in';
 
@@ -33,6 +34,55 @@ const DEFAULT_NAVIGATION: OrderPageNavigation = {
   discover_label: '',
   discover_page_slugs: [],
 };
+
+const COLOR_FIELDS = [
+  ['surface_color', 'Fond principal', '#FFFFFF'],
+  ['text_color', 'Texte principal', '#111827'],
+  ['muted_text_color', 'Texte de l’accroche', '#6B7280'],
+  ['border_color', 'Bordure principale', '#D1D5DB'],
+  ['button_background_color', 'Fond du bouton Découvrir', '#111827'],
+  ['button_text_color', 'Texte du bouton Découvrir', '#FFFFFF'],
+  ['button_border_color', 'Bordure du bouton Découvrir', '#111827'],
+] as const;
+
+function validColor(value: string | undefined, fallback: string): string {
+  return /^#[0-9a-f]{6}$/i.test(value ?? '') ? value! : fallback;
+}
+
+function CompactColorField({
+  label,
+  value,
+  fallback,
+  onChange,
+}: {
+  label: string;
+  value?: string;
+  fallback: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-medium text-fg-primary">{label}</span>
+      <span className="flex items-center gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-1.5 focus-within:border-brand-500">
+        <input
+          type="color"
+          aria-label={`${label} — sélecteur`}
+          value={validColor(value, fallback)}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-7 w-8 shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0"
+        />
+        <input
+          type="text"
+          aria-label={label}
+          value={value ?? ''}
+          placeholder={fallback}
+          onChange={(event) => onChange(event.target.value)}
+          className="min-w-0 flex-1 bg-transparent px-1 text-xs uppercase outline-none"
+        />
+      </span>
+    </label>
+  );
+}
 
 export type OrderPageNavigationPageOption = {
   slug: string;
@@ -159,6 +209,7 @@ export function OrderPageInfoEditor({
   availableModes,
   locked,
   pages = [],
+  fontOptions = [],
 }: {
   value: OrderPageInfo | null;
   onChange: (v: OrderPageInfo) => void;
@@ -169,6 +220,8 @@ export function OrderPageInfoEditor({
   locked: boolean;
   /** Published/draft pages that may be promoted from the order page. */
   pages?: OrderPageNavigationPageOption[];
+  /** Page-owned custom fonts, added to the shared curated list. */
+  fontOptions?: string[];
 }) {
   const modes = availableModes.length ? availableModes : (['pickup'] as Mode[]);
   // One fixed bar when the customer can't switch mode on the page (locked) or
@@ -190,6 +243,15 @@ export function OrderPageInfoEditor({
   const navigationEnabled =
     navigation.desktop_style !== 'hidden' ||
     navigation.mobile_style !== 'hidden';
+  const appearance = navigation.appearance ?? {};
+  const [appearanceOpen, setAppearanceOpen] = useState(
+    Object.keys(appearance).length > 0,
+  );
+  const availableFonts = Array.from(new Set([
+    ...WEBSITE_FONT_FAMILIES,
+    ...fontOptions,
+    ...(appearance.font_family ? [appearance.font_family] : []),
+  ]));
 
   const toggleBar = (key: OrderPageBarItem) => {
     const list = v.bar[mode];
@@ -235,6 +297,11 @@ export function OrderPageInfoEditor({
         ? selectedSlugs.filter((candidate) => candidate !== slug)
         : [...selectedSlugs, slug],
     });
+  };
+  const updateAppearance = (
+    patch: Partial<NonNullable<OrderPageNavigation['appearance']>>,
+  ) => {
+    updateNavigation({ appearance: { ...appearance, ...patch } });
   };
 
   return (
@@ -403,6 +470,148 @@ export function OrderPageInfoEditor({
                 </div>
               </div>
             ) : null}
+
+            <details
+              className="border-t border-[var(--divider)] pt-3"
+              open={appearanceOpen}
+              onToggle={(event) => setAppearanceOpen(event.currentTarget.open)}
+            >
+              <summary className="cursor-pointer text-[11px] font-semibold text-fg-primary">
+                Apparence de la navigation
+              </summary>
+              <p className="mt-1 text-[10.5px] leading-snug text-fg-secondary">
+                Les valeurs laissées vides héritent du thème de la page.
+              </p>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {COLOR_FIELDS.map(([key, label, fallback]) => (
+                  <CompactColorField
+                    key={key}
+                    label={label}
+                    value={appearance[key]}
+                    fallback={fallback}
+                    onChange={(value) => updateAppearance({ [key]: value })}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-medium text-fg-primary">Forme</span>
+                  <select
+                    value={appearance.shape ?? ''}
+                    onChange={(event) => updateAppearance({
+                      shape: event.target.value
+                        ? event.target.value as NonNullable<typeof appearance.shape>
+                        : undefined,
+                    })}
+                    className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+                  >
+                    <option value="">Hériter du rendu</option>
+                    <option value="square">Carrée</option>
+                    <option value="soft">Légèrement arrondie</option>
+                    <option value="rounded">Arrondie</option>
+                    <option value="pill">Pilule</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-medium text-fg-primary">Ombre</span>
+                  <select
+                    value={appearance.shadow ?? ''}
+                    onChange={(event) => updateAppearance({
+                      shadow: event.target.value
+                        ? event.target.value as NonNullable<typeof appearance.shadow>
+                        : undefined,
+                    })}
+                    className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+                  >
+                    <option value="">Hériter du rendu</option>
+                    <option value="none">Aucune</option>
+                    <option value="soft">Douce</option>
+                    <option value="strong">Marquée</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-3 border-t border-[var(--divider)] pt-3">
+                <p className="text-[11px] font-semibold text-fg-primary">Typographie</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <label className="block sm:col-span-2">
+                    <span className="mb-1 block text-[11px] font-medium text-fg-primary">Police</span>
+                    <select
+                      value={appearance.font_family ?? ''}
+                      onChange={(event) => updateAppearance({ font_family: event.target.value || undefined })}
+                      className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+                      style={appearance.font_family ? { fontFamily: `"${appearance.font_family}"` } : undefined}
+                    >
+                      <option value="">Police de la page</option>
+                      {availableFonts.map((font) => <option key={font} value={font}>{font}</option>)}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[11px] font-medium text-fg-primary">Graisse</span>
+                    <select
+                      value={appearance.font_weight ?? ''}
+                      onChange={(event) => updateAppearance({
+                        font_weight: event.target.value ? Number(event.target.value) : undefined,
+                      })}
+                      className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+                    >
+                      <option value="">Automatique</option>
+                      <option value="400">Normale</option>
+                      <option value="500">Moyenne</option>
+                      <option value="600">Semi-grasse</option>
+                      <option value="700">Grasse</option>
+                      <option value="800">Très grasse</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 flex items-center justify-between text-[11px] font-medium text-fg-primary">
+                      <span>Interlettrage</span><span className="text-fg-secondary">{appearance.letter_spacing ?? 0}px</span>
+                    </span>
+                    <input
+                      type="range"
+                      min={-1}
+                      max={4}
+                      step={0.25}
+                      value={appearance.letter_spacing ?? 0}
+                      onChange={(event) => updateAppearance({ letter_spacing: Number(event.target.value) })}
+                      className="w-full accent-brand-500"
+                    />
+                  </label>
+                  {([
+                    ['label_font_size_desktop', 'Texte · ordinateur', 14],
+                    ['label_font_size_mobile', 'Texte · mobile', 13],
+                    ['description_font_size_desktop', 'Accroche · ordinateur', 11],
+                    ['description_font_size_mobile', 'Accroche · mobile', 10],
+                  ] as const).map(([key, label, fallback]) => (
+                    <label key={key} className="block">
+                      <span className="mb-1 flex items-center justify-between text-[11px] font-medium text-fg-primary">
+                        <span>{label}</span><span className="text-fg-secondary">{appearance[key] ?? fallback}px</span>
+                      </span>
+                      <input
+                        type="range"
+                        min={key.startsWith('description') ? 8 : 10}
+                        max={key.startsWith('description') ? 18 : 24}
+                        step={1}
+                        value={appearance[key] ?? fallback}
+                        onChange={(event) => updateAppearance({ [key]: Number(event.target.value) })}
+                        className="w-full accent-brand-500"
+                      />
+                    </label>
+                  ))}
+                  <label className="flex items-center gap-2 text-[11px] font-medium text-fg-primary sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={appearance.uppercase === true}
+                      onChange={(event) => updateAppearance({ uppercase: event.target.checked })}
+                      className="accent-brand-500"
+                    />
+                    Afficher les libellés en majuscules
+                  </label>
+                </div>
+              </div>
+            </details>
 
             <p className="rounded-lg bg-[var(--surface-subtle)] px-2.5 py-2 text-[10.5px] leading-snug text-fg-secondary">
               Quand « Découvrir » est visible, il remplace le bouton « Plus » historique sur l&apos;appareil concerné. Le réglage « Plus » reste utile sur les appareils conservant le rendu actuel.

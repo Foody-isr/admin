@@ -705,6 +705,7 @@ export function PageInspector({
             locked={Boolean(
               pageVisualConfig.checkout_config?.lock_order_type,
             )}
+            fontOptions={pageVisualConfig.typography?.extraFonts?.map((font) => font.family)}
             onChange={(value) =>
               onChange(
                 ["appearance_overrides", "order_page_info"],

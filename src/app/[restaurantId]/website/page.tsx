@@ -87,7 +87,12 @@ type PreviewMessage = {
   categoryBannerFit: 'cover' | 'contain' | 'natural';
   categoryBannerFitMobile: '' | 'cover' | 'contain' | 'natural';
   // Order-page info — posted in foodyweb shape (modalText, not modal_text).
-  orderPageInfo: { bar: OrderPageInfo['bar']; modal: OrderPageInfo['modal']; modalText: string } | null;
+  orderPageInfo: {
+    bar: OrderPageInfo['bar'];
+    modal: OrderPageInfo['modal'];
+    modalText: string;
+    navigation?: Record<string, unknown>;
+  } | null;
   direction: 'ltr' | 'rtl';
   typography?: WebsiteConfig['typography'] | null;
 };
@@ -331,7 +336,44 @@ export default function WebsitePage() {
       categoryBannerFit,
       categoryBannerFitMobile,
       orderPageInfo: orderPageInfo
-        ? { bar: orderPageInfo.bar, modal: orderPageInfo.modal, modalText: orderPageInfo.modal_text ?? '' }
+        ? {
+            bar: orderPageInfo.bar,
+            modal: orderPageInfo.modal,
+            modalText: orderPageInfo.modal_text ?? '',
+            navigation: orderPageInfo.navigation
+              ? {
+                  desktopStyle: orderPageInfo.navigation.desktop_style,
+                  mobileStyle: orderPageInfo.navigation.mobile_style,
+                  featuredPageSlug: orderPageInfo.navigation.featured_page_slug,
+                  featuredLabel: orderPageInfo.navigation.featured_label,
+                  featuredDescription: orderPageInfo.navigation.featured_description,
+                  discoverEnabled: orderPageInfo.navigation.discover_enabled,
+                  discoverLabel: orderPageInfo.navigation.discover_label,
+                  discoverPageSlugs: orderPageInfo.navigation.discover_page_slugs,
+                  appearance: orderPageInfo.navigation.appearance
+                    ? {
+                        surfaceColor: orderPageInfo.navigation.appearance.surface_color,
+                        textColor: orderPageInfo.navigation.appearance.text_color,
+                        mutedTextColor: orderPageInfo.navigation.appearance.muted_text_color,
+                        borderColor: orderPageInfo.navigation.appearance.border_color,
+                        buttonBackgroundColor: orderPageInfo.navigation.appearance.button_background_color,
+                        buttonTextColor: orderPageInfo.navigation.appearance.button_text_color,
+                        buttonBorderColor: orderPageInfo.navigation.appearance.button_border_color,
+                        shape: orderPageInfo.navigation.appearance.shape,
+                        shadow: orderPageInfo.navigation.appearance.shadow,
+                        fontFamily: orderPageInfo.navigation.appearance.font_family,
+                        fontWeight: orderPageInfo.navigation.appearance.font_weight,
+                        labelFontSizeDesktop: orderPageInfo.navigation.appearance.label_font_size_desktop,
+                        labelFontSizeMobile: orderPageInfo.navigation.appearance.label_font_size_mobile,
+                        descriptionFontSizeDesktop: orderPageInfo.navigation.appearance.description_font_size_desktop,
+                        descriptionFontSizeMobile: orderPageInfo.navigation.appearance.description_font_size_mobile,
+                        letterSpacing: orderPageInfo.navigation.appearance.letter_spacing,
+                        uppercase: orderPageInfo.navigation.appearance.uppercase,
+                      }
+                    : undefined,
+                }
+              : undefined,
+          }
         : null,
       direction: 'ltr',
       typography: next.typography ?? null,
