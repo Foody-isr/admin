@@ -23,6 +23,8 @@ import {
 type Props = {
   restaurantId: number;
   serviceId: number;
+  offerId: number;
+  pricingModel: 'per_unit' | 'per_person';
   groups: CateringCatalogGroup[];
   items: CateringCatalogItem[];
   canEdit: boolean;
@@ -34,6 +36,8 @@ type ArticleSource = 'library' | 'local';
 export default function CateringGroupArticlesEditor({
   restaurantId,
   serviceId,
+  offerId,
+  pricingModel,
   groups,
   items,
   canEdit,
@@ -64,6 +68,7 @@ export default function CateringGroupArticlesEditor({
     try {
       const group = await createCateringGroup(restaurantId, serviceId, {
         name,
+        offer_id: offerId,
         is_active: true,
         sort_order: groups.length,
       });
@@ -92,7 +97,7 @@ export default function CateringGroupArticlesEditor({
       <section className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
         <div className="border-b border-[var(--divider)] px-5 py-5 sm:px-6">
           <h2 className="text-lg font-semibold text-fg-primary">{t('catering_group_articles_title')}</h2>
-          <p className="mt-1 text-sm text-fg-secondary">{t('catering_group_articles_hint')}</p>
+          <p className="mt-1 text-sm text-fg-secondary">{t(pricingModel === 'per_person' ? 'catering_group_articles_hint_per_person' : 'catering_group_articles_hint')}</p>
         </div>
 
         <div className="border-b border-[var(--divider)] bg-[var(--surface-subtle)] px-5 py-4 sm:px-6">
@@ -158,7 +163,7 @@ export default function CateringGroupArticlesEditor({
                 <h3 className="font-semibold text-fg-primary">
                   {groups.find((group) => group.id === activeGroupId)?.name ?? t('catering_group_articles_ungrouped')}
                 </h3>
-                <p className="mt-0.5 text-sm text-fg-secondary">{t('catering_group_articles_group_hint')}</p>
+                <p className="mt-0.5 text-sm text-fg-secondary">{t(pricingModel === 'per_person' ? 'catering_group_articles_group_hint_per_person' : 'catering_group_articles_group_hint')}</p>
               </div>
               <div className="flex items-center gap-2">
                 {canEdit && activeGroupId !== null && (
@@ -204,7 +209,7 @@ export default function CateringGroupArticlesEditor({
                         {!item.is_active && <EyeOffIcon className="h-4 w-4 text-fg-tertiary" />}
                       </div>
                       <p className="mt-1 line-clamp-1 text-sm text-fg-secondary">{item.menu_item?.description || item.description}</p>
-                      <p className="mt-2 text-sm font-bold text-brand-600">{money(item.base_price)} · {t('catering_offer_per_unit')}</p>
+                      <p className="mt-2 text-sm font-bold text-brand-600">{money(item.base_price)} · {t(pricingModel === 'per_person' ? 'catering_offer_per_guest' : 'catering_offer_per_unit')}</p>
                     </div>
                     {canEdit && (
                       <div className="flex justify-end gap-1">
@@ -224,6 +229,8 @@ export default function CateringGroupArticlesEditor({
         <GroupArticleModal
           restaurantId={restaurantId}
           serviceId={serviceId}
+          offerId={offerId}
+          pricingModel={pricingModel}
           groups={groups}
           initialGroupId={editingItem?.group_id ?? activeGroupId ?? groups[0].id}
           editing={editingItem ?? undefined}
@@ -238,9 +245,11 @@ export default function CateringGroupArticlesEditor({
   );
 }
 
-function GroupArticleModal({ restaurantId, serviceId, groups, initialGroupId, editing, onClose, onSaved }: {
+function GroupArticleModal({ restaurantId, serviceId, offerId, pricingModel, groups, initialGroupId, editing, onClose, onSaved }: {
   restaurantId: number;
   serviceId: number;
+  offerId: number;
+  pricingModel: 'per_unit' | 'per_person';
   groups: CateringCatalogGroup[];
   initialGroupId: number;
   editing?: CateringCatalogItem;
@@ -258,6 +267,7 @@ function GroupArticleModal({ restaurantId, serviceId, groups, initialGroupId, ed
   const [description, setDescription] = useState(editing?.menu_item?.description ?? editing?.description ?? '');
   const [imageURL, setImageURL] = useState(editing?.menu_item?.image_url ?? editing?.image_url ?? '');
   const [price, setPrice] = useState(editing ? String(editing.base_price) : '');
+  const [minimum, setMinimum] = useState(String(pricingModel === 'per_person' ? editing?.min_guests ?? 0 : editing?.min_quantity ?? 0));
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -279,6 +289,7 @@ function GroupArticleModal({ restaurantId, serviceId, groups, initialGroupId, ed
   }, [library, search]);
   const selectedLibraryItem = library.find((item) => item.id === selectedLibraryId);
   const numericPrice = Number(price);
+  const numericMinimum = Math.max(0, Math.floor(Number(minimum) || 0));
   const valid = Number.isFinite(numericPrice) && numericPrice >= 0
     && (source === 'library' ? Boolean(selectedLibraryItem) : name.trim().length > 0);
 
@@ -289,21 +300,16 @@ function GroupArticleModal({ restaurantId, serviceId, groups, initialGroupId, ed
     try {
       const body: CateringCatalogItemInput = {
         name: source === 'library' ? selectedLibraryItem!.name : name.trim(),
+        offer_id: offerId,
         description: source === 'library' ? '' : description.trim(),
         image_url: source === 'library' ? '' : imageURL.trim(),
         menu_item_id: source === 'library' ? selectedLibraryItem!.id : 0,
         group_id: groupId,
         base_price: numericPrice,
-        min_quantity: 0,
-        min_guests: 0,
+        min_quantity: pricingModel === 'per_unit' ? numericMinimum : 0,
+        min_guests: pricingModel === 'per_person' ? numericMinimum : 0,
         is_active: isActive,
-        service_modes: [],
         available_weekdays: editing?.available_weekdays ?? [],
-        price_tiers: [],
-        choice_groups: [],
-        included_items: [],
-        included_sections: [],
-        options: [],
       };
       if (editing) await updateCateringItem(restaurantId, editing.id, body);
       else await createCateringItem(restaurantId, serviceId, body);
@@ -382,7 +388,8 @@ function GroupArticleModal({ restaurantId, serviceId, groups, initialGroupId, ed
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label><span className="text-sm font-semibold text-fg-secondary">{t('catering_group_articles_unit_price')}</span><input type="number" min="0" step="0.01" className="input mt-1" value={price} onChange={(event) => setPrice(event.target.value)} /></label>
+          <label><span className="text-sm font-semibold text-fg-secondary">{t(pricingModel === 'per_person' ? 'catering_group_articles_guest_price' : 'catering_group_articles_unit_price')}</span><input type="number" min="0" step="0.01" className="input mt-1" value={price} onChange={(event) => setPrice(event.target.value)} /></label>
+          <label><span className="text-sm font-semibold text-fg-secondary">{t(pricingModel === 'per_person' ? 'catering_group_articles_min_guests' : 'catering_group_articles_min_quantity')}</span><input type="number" min="0" step="1" className="input mt-1" value={minimum} onChange={(event) => setMinimum(event.target.value)} /></label>
           <label className="flex items-center gap-3 self-end rounded-xl border border-[var(--divider)] px-4 py-3"><input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} /><span className="text-sm font-semibold text-fg-primary">{t('catering_group_articles_visible')}</span></label>
         </div>
       </div>
