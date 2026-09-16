@@ -53,7 +53,11 @@ import {
 import { InfoTip } from '@/components/help/InfoTip';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { useAuth } from '@/lib/auth-context';
-import { orderDetailPath } from '@/lib/orders/routes';
+import {
+  orderDetailPath,
+  ordersListPath,
+  ordersPaymentAttentionPath,
+} from '@/lib/orders/routes';
 import { dashboardLiveOrderScope } from '@/lib/dashboard-live-order-scope';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
@@ -423,6 +427,19 @@ export default function DashboardPage() {
       ? t('vsYesterday')
       : t('vsPreviousPeriod');
 
+  // The operations CTA follows the same priority as OperationsBar. When
+  // payments are the surfaced action, preserve the dashboard's exact scope so
+  // the destination list explains (and matches) the count the user clicked.
+  const operationsOrdersPath = liveSummary
+    && liveSummary.pendingReview === 0
+    && (liveSummary.payments ?? 0) > 0
+    ? ordersPaymentAttentionPath(rid, {
+      from: isoDate(dateRange.from),
+      to: isoDate(dateRange.to),
+      dateField: basis,
+    })
+    : ordersListPath(rid);
+
   // Human label for the active window. `end` is exclusive (next midnight), so the
   // multi-day form shows the inclusive last day.
   const periodRangeLabel = useMemo(() => {
@@ -573,7 +590,7 @@ export default function DashboardPage() {
 
       <OperationsBar
         summary={liveSummary}
-        onOpenOrders={() => router.push(`/${rid}/orders/all`)}
+        onOpenOrders={() => router.push(operationsOrdersPath)}
         t={t}
       />
 
