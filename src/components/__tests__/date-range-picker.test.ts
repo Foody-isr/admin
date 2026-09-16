@@ -27,12 +27,19 @@ test('series selection falls back to the newest available series', () => {
 
 test('date shortcut preferences keep canonical order and discard unknown values', () => {
   assert.deepEqual(
-    normalizeDatePresetKeys(['drThisMonth', 'not-a-preset', 'drToday']),
-    ['drToday', 'drThisMonth'],
+    normalizeDatePresetKeys(['drThisMonth', 'not-a-preset', 'series']),
+    ['series', 'drThisMonth'],
   );
 });
 
-test('date shortcut preferences fall back to the compact default set', () => {
+test('date shortcut preferences support a series-and-month-only menu', () => {
+  assert.deepEqual(
+    normalizeDatePresetKeys(['series', 'drThisMonth']),
+    ['series', 'drThisMonth'],
+  );
+});
+
+test('date shortcut preferences preserve the complete menu by default', () => {
   assert.deepEqual(normalizeDatePresetKeys(undefined), DEFAULT_DATE_PRESET_KEYS);
   assert.deepEqual(normalizeDatePresetKeys([]), DEFAULT_DATE_PRESET_KEYS);
 });

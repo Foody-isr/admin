@@ -127,12 +127,13 @@ function rotatedWeekdays(weekStartDay: WeekStartDay): number[] {
 // A selectable entry in the left rail. `id` is the preset's i18n key, used for
 // active-state matching; `label` is the resolved display string.
 interface Entry {
-  id: DatePresetKey;
+  id: DateRangePresetKey;
   label: string;
   range: DateRange;
 }
 
 export const DATE_PRESET_KEYS = [
+  'series',
   'drToday',
   'drYesterday',
   'drLast7Days',
@@ -144,17 +145,13 @@ export const DATE_PRESET_KEYS = [
   'drThisYear',
   'drLastYear',
   'drAllTime',
+  'custom',
 ] as const;
 
 export type DatePresetKey = (typeof DATE_PRESET_KEYS)[number];
+type DateRangePresetKey = Exclude<DatePresetKey, 'series' | 'custom'>;
 
-export const DEFAULT_DATE_PRESET_KEYS: DatePresetKey[] = [
-  'drToday',
-  'drYesterday',
-  'drLast7Days',
-  'drLast30Days',
-  'drThisMonth',
-];
+export const DEFAULT_DATE_PRESET_KEYS: DatePresetKey[] = [...DATE_PRESET_KEYS];
 
 /** Filters unknown server values and restores canonical shortcut ordering. */
 export function normalizeDatePresetKeys(values: string[] | undefined): DatePresetKey[] {
@@ -174,7 +171,7 @@ function matchEntry(value: DateRange, entries: Entry[]): string | null {
 
 // Built-in presets, each keyed by its i18n string. Rolling windows mirror the
 // dashboard's "Last 7 / 30 days" (today included) so the surfaces compare cleanly.
-function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: DatePresetKey; range: DateRange }[] {
+function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: DateRangePresetKey; range: DateRange }[] {
   const today = startOfDay(now);
 
   const yesterday = new Date(today);
@@ -314,8 +311,11 @@ export default function DateRangePicker({
     .format(new Date(viewYear, viewMonth, 1));
 
   const builtinEntries: Entry[] = builtinPresets(wsd, now).map((p) => ({ id: p.key, label: t(p.key), range: p.range }));
+  const hasBasisControl = basis !== undefined && onBasisChange !== undefined;
   const visiblePresetSet = new Set(visiblePresetKeys);
   const visibleEntries = builtinEntries.filter((entry) => visiblePresetSet.has(entry.id));
+  const seriesShortcutVisible = hasBasisControl && visiblePresetSet.has('series');
+  const customShortcutVisible = visiblePresetSet.has('custom');
   const activeId = matchEntry(value, builtinEntries);
   const activeEntry = builtinEntries.find((e) => e.id === activeId) ?? null;
   const isCustomActive = activeId === null;
@@ -324,7 +324,6 @@ export default function DateRangePicker({
     : sameDay(value.from, value.to)
       ? fmt(value.from)
       : `${fmt(value.from)} – ${fmt(value.to)}`;
-  const hasBasisControl = basis !== undefined && onBasisChange !== undefined;
   const serieMode = basis === 'serie';
   const triggerLabel = hasBasisControl
     ? `${t(serieMode ? 'dateBasisSerieShort' : 'dateBasisCreatedShort')} · ${rangeLabel}`
@@ -543,8 +542,7 @@ export default function DateRangePicker({
               {hasBasisControl && (
                 <div className="hidden px-4 pb-1 text-[11px] font-medium text-[var(--fg-muted)] sm:block">{t('dashboardDateRange')}</div>
               )}
-              {visibleEntries.slice(0, 2).map(presetButton)}
-              {hasBasisControl && (
+              {seriesShortcutVisible && (
                 <button
                   type="button"
                   onClick={activateSeries}
@@ -560,20 +558,22 @@ export default function DateRangePicker({
                   {t('dashboardSeries')}
                 </button>
               )}
-              {visibleEntries.slice(2).map(presetButton)}
+              {visibleEntries.map(presetButton)}
 
               {/* Custom (fallback) — highlights when the range matches no preset.
                   Pick a custom window by clicking two days on the calendar. */}
-              <button
-                type="button"
-                onClick={activateCustom}
-                className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-subtle)] sm:w-full sm:px-4 ${
-                  !serieMode && isCustomActive ? 'font-semibold text-fg-primary' : 'font-medium text-fg-primary'
-                }`}
-                style={!serieMode && isCustomActive ? { background: 'var(--surface-subtle)' } : undefined}
-              >
-                {t('drCustom')}
-              </button>
+              {customShortcutVisible && (
+                <button
+                  type="button"
+                  onClick={activateCustom}
+                  className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-subtle)] sm:w-full sm:px-4 ${
+                    !serieMode && isCustomActive ? 'font-semibold text-fg-primary' : 'font-medium text-fg-primary'
+                  }`}
+                  style={!serieMode && isCustomActive ? { background: 'var(--surface-subtle)' } : undefined}
+                >
+                  {t('drCustom')}
+                </button>
+              )}
               </div>
               {restaurantId && (
                 <button
@@ -605,17 +605,22 @@ export default function DateRangePicker({
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-2">
-                    {builtinEntries.map((entry) => {
-                      const selected = draftPresetKeys.includes(entry.id);
+                    {DATE_PRESET_KEYS.map((key) => {
+                      const selected = draftPresetKeys.includes(key);
                       const isLastSelected = selected && draftPresetKeys.length === 1;
+                      const label = key === 'series'
+                        ? t('dashboardSeries')
+                        : key === 'custom'
+                          ? t('drCustom')
+                          : t(key);
                       return (
                         <button
-                          key={entry.id}
+                          key={key}
                           type="button"
                           role="checkbox"
                           aria-checked={selected}
                           disabled={isLastSelected}
-                          onClick={() => togglePreset(entry.id)}
+                          onClick={() => togglePreset(key)}
                           className={cn(
                             'flex min-h-11 items-center gap-2 rounded-standard border px-2.5 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:shadow-ring',
                             selected
@@ -634,7 +639,7 @@ export default function DateRangePicker({
                           >
                             {selected && <CheckIcon className="size-3" strokeWidth={3} />}
                           </span>
-                          <span>{entry.label}</span>
+                          <span>{label}</span>
                         </button>
                       );
                     })}
