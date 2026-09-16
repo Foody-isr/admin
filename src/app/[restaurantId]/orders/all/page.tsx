@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   listOrders, getOrder, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus, overrideOrderStatus,
@@ -64,7 +64,13 @@ import {
   type OperationsQueueKey,
 } from '@/lib/orders/operations-board';
 import { defaultOrdersTabForBasis } from '@/lib/orders/orders-list-preferences';
-import { orderDetailPath, ordersListPath, parseOrderIdParam } from '@/lib/orders/routes';
+import {
+  PAYMENT_ATTENTION_FILTER,
+  orderDetailPath,
+  ordersListPath,
+  parseOrderIdParam,
+  parseOrdersPaymentAttentionQuery,
+} from '@/lib/orders/routes';
 import {
   DataTable,
   DataTableHead,
@@ -145,8 +151,16 @@ export default function OrdersPage() {
   const canOverride = isOwner || roleName === 'Manager';
   const params = useParams<{ restaurantId: string; orderId?: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const rid = Number(params.restaurantId);
   const detailId = parseOrderIdParam(params.orderId);
+  const searchQuery = searchParams.toString();
+  // Capture the entry preset for this page lifetime. Manual filter changes can
+  // then remove or replace the URL query without the preference-loading effect
+  // unexpectedly restoring the dashboard preset.
+  const paymentAttentionScope = useRef(
+    parseOrdersPaymentAttentionQuery(new URLSearchParams(searchQuery)),
+  ).current;
   const { status: wsStatus, lastEvent, addProcessingGuard, removeProcessingGuard, isProcessing } = useWs();
 
   const { play: playSound, isEnabled: isSoundEnabled, toggle: toggleSound } = useOrderSound();
@@ -165,11 +179,18 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [searchSubmitted, setSearchSubmitted] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState('');
-  const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
+  const [paymentFilter, setPaymentFilter] = useState(
+    paymentAttentionScope ? PAYMENT_ATTENTION_FILTER : '',
+  );
+  const [dateRange, setDateRange] = useState<DateRange>(() => paymentAttentionScope
+    ? {
+      from: new Date(`${paymentAttentionScope.from}T00:00:00`),
+      to: new Date(`${paymentAttentionScope.to}T23:59:59.999`),
+    }
+    : defaultDateRange());
   // The shared picker owns both calendar ranges and série ranges. `dateField`
   // only tells the API which order date the selected window applies to.
-  const [dateField, setDateField] = useState<DateBasis>('created');
+  const [dateField, setDateField] = useState<DateBasis>(paymentAttentionScope?.dateField ?? 'created');
   const [defaultDateField, setDefaultDateField] = useState<DateBasis>('created');
   const [filtersReady, setFiltersReady] = useState(false);
   const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
@@ -199,12 +220,14 @@ export default function OrdersPage() {
     : orders.find((o) => o.id === detailId) ?? null;
 
   const closeOrderDetail = useCallback(() => {
-    router.replace(ordersListPath(rid));
-  }, [rid, router]);
+    const listPath = ordersListPath(rid);
+    router.replace(searchQuery ? `${listPath}?${searchQuery}` : listPath);
+  }, [rid, router, searchQuery]);
 
   const openOrder = useCallback((orderId: number) => {
-    router.push(orderDetailPath(rid, orderId));
-  }, [rid, router]);
+    const detailPath = orderDetailPath(rid, orderId);
+    router.push(searchQuery ? `${detailPath}?${searchQuery}` : detailPath);
+  }, [rid, router, searchQuery]);
 
   useEffect(() => {
     if (!rid || detailId == null) {
@@ -268,17 +291,37 @@ export default function OrdersPage() {
     getDisplayPreferences(rid)
       .then((preferences) => {
         if (!active) return;
-        setDateField(preferences.orders_date_basis);
         setDefaultDateField(preferences.orders_date_basis);
-        setActiveTab(defaultOrdersTabForBasis(preferences.orders_date_basis));
+        if (paymentAttentionScope) {
+          setDateField(paymentAttentionScope.dateField);
+          setDateRange({
+            from: new Date(`${paymentAttentionScope.from}T00:00:00`),
+            to: new Date(`${paymentAttentionScope.to}T23:59:59.999`),
+          });
+          setPaymentFilter(PAYMENT_ATTENTION_FILTER);
+          setActiveTab('active');
+        } else {
+          setDateField(preferences.orders_date_basis);
+          setActiveTab(defaultOrdersTabForBasis(preferences.orders_date_basis));
+        }
         setPage(0);
         setPreferenceSaveFailed(false);
       })
       .catch(() => {
         if (!active) return;
-        setDateField('created');
         setDefaultDateField('created');
-        setActiveTab(defaultOrdersTabForBasis('created'));
+        if (paymentAttentionScope) {
+          setDateField(paymentAttentionScope.dateField);
+          setDateRange({
+            from: new Date(`${paymentAttentionScope.from}T00:00:00`),
+            to: new Date(`${paymentAttentionScope.to}T23:59:59.999`),
+          });
+          setPaymentFilter(PAYMENT_ATTENTION_FILTER);
+          setActiveTab('active');
+        } else {
+          setDateField('created');
+          setActiveTab(defaultOrdersTabForBasis('created'));
+        }
         setPage(0);
         setPreferenceSaveFailed(true);
       })
@@ -286,7 +329,7 @@ export default function OrdersPage() {
         if (active) setFiltersReady(true);
       });
     return () => { active = false; };
-  }, [rid]);
+  }, [rid, paymentAttentionScope]);
 
   // Which columns the table shows, and in what order. Shared by every staff
   // account of this restaurant; editing it is a settings change.
@@ -373,7 +416,7 @@ export default function OrdersPage() {
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
       sort_by: 'created_at',
-      sort_dir: 'desc',
+      sort_dir: paymentFilter === PAYMENT_ATTENTION_FILTER ? 'asc' : 'desc',
     };
     if (dateField === 'serie') {
       params.from = isoDate(dateRange.from);
@@ -803,7 +846,7 @@ export default function OrdersPage() {
     setDateField(defaultDateField);
     setActiveTab(defaultOrdersTabForBasis(defaultDateField));
     setPage(0);
-    closeOrderDetail();
+    router.replace(ordersListPath(rid));
   };
 
   const changeDateField = useCallback((nextBasis: DateBasis) => {
@@ -1057,6 +1100,7 @@ export default function OrdersPage() {
             onChange={(v) => { setPaymentFilter(v); setPage(0); }}
             options={[
               { value: '', label: t('ordersAllPayments') },
+              { value: PAYMENT_ATTENTION_FILTER, label: t('ordersPaymentsToProcess') },
               { value: 'paid', label: t('paid') },
               { value: 'partially_paid', label: t('partiallyPaid') },
               { value: 'pending', label: t('pending') },
