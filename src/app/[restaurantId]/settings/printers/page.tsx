@@ -1,218 +1,564 @@
 'use client';
 
-/**
- * Imprimantes & KDS — settings sub-page.
- * Layout matches design-reference/screens/settings.jsx SettingsPrinters:
- *   - Imprimantes: card per printer with status, jobs as chips, test button
- *   - Écran de cuisine (KDS): list of connected screens with status badge
- *
- * Backend persistence is not yet wired; state lives client-side until the
- * dedicated printer/KDS endpoints land.
- */
-
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { AlertTriangle, Check, ClipboardList, Plus, Printer, RefreshCw, Route, Send, Trash2 } from 'lucide-react';
 import {
-  ClipboardList,
-  Flame,
-  MoreHorizontal,
-  Plus,
-  AlertTriangle,
-} from 'lucide-react';
+  API_URL,
+  deletePrinter, deletePrintStation, getAllCategories, getPrintingOverview,
+  getRestaurantSettings, listAllItems, registerPrinter, replacePrintRoutingRules,
+  reprintOrder, savePrintStation, testPrinter, updatePrinter, updateRestaurantSettings,
+  type MenuCategory, type MenuItem, type PrintPrinter, type PrintRoutingRule,
+  type PrintStation, type PrinterRegistration,
+  type PrinterVendor, type PrintingOverview, type RestaurantSettings,
+} from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Badge, Button, Chip, PageHead, Section } from '@/components/ds';
+import {
+  Badge, Button, Drawer, EmptyState, Field, Input, NumberField, PageHead,
+  Section, Select, Tab, Tabs, TabsContent, TabsList,
+} from '@/components/ds';
 
-interface PrinterDraft {
-  id: number;
-  name: string;
-  model: string;
-  conn: string;
-  status: 'online' | 'offline';
-  jobs: string[];
+const EMPTY_OVERVIEW: PrintingOverview = { printers: [], stations: [], routing_rules: [], jobs: [], summary: { queued: 0, claimed: 0, printed: 0, failed: 0 } };
+
+const newStation = (): Omit<PrintStation, 'id' | 'restaurant_id'> => ({
+  name: '',
+  primary_printer_id: undefined,
+  fallback_printer_id: undefined,
+  receives_full_order: false,
+  copies: 1,
+  cut_mode: 'full',
+  buzzer: false,
+  font_size: 28,
+  locale: 'he',
+  enabled: true,
+});
+
+const newPrinter = () => ({
+  name: '', vendor: 'epson' as PrinterVendor, identifier: 'local_printer',
+  epson_polling_id: '', gateway_printer_id: '', protocol: 'http' as 'http' | 'mqtt',
+  model: 'TM-U220IIB-i', paper_width_dots: 384 as 384 | 576,
+  expected_poll_seconds: 2, station_id: '', new_station_name: '',
+});
+
+function statusTone(status: PrintPrinter['status']): 'success' | 'danger' | 'warning' | 'neutral' {
+  if (status === 'online') return 'success';
+  if (status === 'error') return 'danger';
+  if (status === 'offline') return 'warning';
+  return 'neutral';
 }
 
-interface KdsScreen {
-  id: number;
-  name: string;
-  device: string;
-  connected: boolean;
+function formatSeen(value?: string) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
 }
-
-const SAMPLE_PRINTERS: PrinterDraft[] = [
-  {
-    id: 1,
-    name: 'Cuisine principale',
-    model: 'Epson TM-T88VI',
-    conn: '192.168.1.48',
-    status: 'online',
-    jobs: ['Plats chauds', 'Grill', 'Fritures'],
-  },
-  {
-    id: 2,
-    name: 'Salade / Froid',
-    model: 'Epson TM-T20III',
-    conn: '192.168.1.52',
-    status: 'online',
-    jobs: ['Entrées froides', 'Salades'],
-  },
-  {
-    id: 3,
-    name: 'Bar',
-    model: 'Star TSP100',
-    conn: '192.168.1.55',
-    status: 'offline',
-    jobs: ['Boissons', 'Cocktails'],
-  },
-  {
-    id: 4,
-    name: 'Ticket client',
-    model: 'Epson TM-m30II',
-    conn: 'USB',
-    status: 'online',
-    jobs: ['Factures'],
-  },
-];
-
-const SAMPLE_KDS: KdsScreen[] = [
-  { id: 1, name: 'KDS Cuisine', device: 'iPad Pro 12.9" · Salle', connected: true },
-  { id: 2, name: 'KDS Bar', device: 'iPad Air · Bar', connected: true },
-];
 
 export default function PrintersSettingsPage() {
+  const { restaurantId } = useParams();
+  const rid = Number(restaurantId);
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
-  const canEdit = hasAnyPermission('settings.edit');
-  const [printers, setPrinters] = useState<PrinterDraft[]>(SAMPLE_PRINTERS);
-  const [kds] = useState<KdsScreen[]>(SAMPLE_KDS);
+  const canManage = hasAnyPermission('printers.manage');
 
-  const addPrinter = () =>
-    setPrinters((p) => [
-      ...p,
-      {
-        id: Date.now(),
-        name: t('newPrinter') || 'Nouvelle imprimante',
-        model: 'Epson TM-T88VI',
-        conn: '192.168.1.0',
-        status: 'offline',
-        jobs: [],
-      },
+  const [overview, setOverview] = useState<PrintingOverview>(EMPTY_OVERVIEW);
+  const [settings, setSettings] = useState<RestaurantSettings | null>(null);
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [printerOpen, setPrinterOpen] = useState(false);
+  const [stationOpen, setStationOpen] = useState(false);
+  const [editingStationId, setEditingStationId] = useState<string>();
+  const [credentials, setCredentials] = useState<PrinterRegistration | null>(null);
+  const [stationDraft, setStationDraft] = useState(newStation);
+  const [rulesDraft, setRulesDraft] = useState<PrintRoutingRule[]>([]);
+  const [printerDraft, setPrinterDraft] = useState(newPrinter);
+  const [overrideDraft, setOverrideDraft] = useState({
+    component: 'item' as 'item' | 'modifier' | 'option', component_id: '', station_id: '', channel: '',
+  });
+
+  const load = useCallback(async (quiet = false) => {
+    if (!rid) return;
+    if (!quiet) setLoading(true);
+    try {
+      if (quiet) {
+        const nextOverview = await getPrintingOverview(rid);
+        setOverview(nextOverview);
+        setError(null);
+        return;
+      }
+      const [nextOverview, nextSettings, nextCategories, nextItems] = await Promise.all([
+        getPrintingOverview(rid), getRestaurantSettings(rid), getAllCategories(rid), listAllItems(rid),
+      ]);
+      setOverview(nextOverview);
+      setSettings(nextSettings);
+      setCategories(nextCategories);
+      setItems(nextItems);
+      setRulesDraft(nextOverview.routing_rules);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t('printingLoadFailed'));
+    } finally {
+      if (!quiet) setLoading(false);
+    }
+  }, [rid, t]);
+
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(true), 5000);
+    return () => window.clearInterval(timer);
+  }, [load]);
+
+  const modifiers = useMemo(
+    () => items.flatMap((item) => (item.modifiers ?? []).map((modifier) => ({ ...modifier, itemName: item.name }))),
+    [items],
+  );
+
+  const options = useMemo(() => items.flatMap((item) => [
+    ...(item.variant_groups ?? []).flatMap((group) => group.variants.map((option) => ({ id: option.id, name: `${item.name} · ${group.title} · ${option.name}` }))),
+    ...(item.option_sets ?? []).flatMap((set) => (set.options ?? []).map((option) => ({ id: option.id, name: `${item.name} · ${set.name} · ${option.name}` }))),
+  ]), [items]);
+
+  const epsonGateways = useMemo(
+    () => overview.printers.filter((printer) => printer.vendor === 'epson' && !printer.gateway_printer_id),
+    [overview.printers],
+  );
+
+  const enabledPrinters = useMemo(
+    () => overview.printers.filter((printer) => printer.enabled),
+    [overview.printers],
+  );
+
+  const testedPrinterCount = useMemo(
+    () => enabledPrinters.filter((printer) => printer.last_test_succeeded_at).length,
+    [enabledPrinters],
+  );
+
+  const enabledStations = useMemo(
+    () => overview.stations.filter((station) => station.enabled),
+    [overview.stations],
+  );
+
+  const assignedStationCount = useMemo(
+    () => enabledStations.filter((station) => station.primary_printer_id).length,
+    [enabledStations],
+  );
+
+  const categoryHasDestination = useCallback((categoryId: number) => (
+    overview.stations.some((station) => station.enabled && station.receives_full_order)
+    || rulesDraft.some((rule) => rule.component_type === 'category' && rule.category_id === categoryId)
+  ), [overview.stations, rulesDraft]);
+
+  const routedCategoryCount = useMemo(
+    () => categories.filter((category) => categoryHasDestination(category.id)).length,
+    [categories, categoryHasDestination],
+  );
+
+  const unroutedCategories = useMemo(
+    () => categories.filter((category) => !categoryHasDestination(category.id)),
+    [categories, categoryHasDestination],
+  );
+
+  const setupSteps = [
+    {
+      label: t('printingSetupHardware'),
+      detail: `${testedPrinterCount}/${enabledPrinters.length} ${t('printingPrintersTested')}`,
+      ready: enabledPrinters.length > 0 && testedPrinterCount === enabledPrinters.length,
+    },
+    {
+      label: t('printingSetupPasses'),
+      detail: `${assignedStationCount}/${enabledStations.length} ${t('printingPassesAssigned')}`,
+      ready: enabledStations.length > 0 && assignedStationCount === enabledStations.length,
+    },
+    {
+      label: t('printingSetupRouting'),
+      detail: `${routedCategoryCount}/${categories.length} ${t('printingCategoriesRouted')}`,
+      ready: categories.length > 0 && routedCategoryCount === categories.length,
+    },
+    {
+      label: t('printingSetupActivation'),
+      detail: settings?.server_printing_enabled ? t('printingActivationOn') : t('printingActivationOff'),
+      ready: settings?.server_printing_enabled ?? false,
+    },
+  ];
+
+  const run = async (action: () => Promise<void>) => {
+    setSaving(true);
+    setError(null);
+    try {
+      await action();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t('printingSaveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveRollout = (enabled: boolean, interval: number) => run(async () => {
+    const next = await updateRestaurantSettings(rid, {
+      server_printing_enabled: enabled,
+      print_poll_interval_seconds: interval,
+    });
+    setSettings(next);
+  });
+
+  const submitPrinter = () => run(async () => {
+    const registration = await registerPrinter(rid, {
+      name: printerDraft.name,
+      identifier: printerDraft.identifier,
+      vendor: printerDraft.vendor,
+      protocol: printerDraft.protocol,
+      model: printerDraft.model || undefined,
+      paper_width_dots: printerDraft.paper_width_dots,
+      expected_poll_seconds: printerDraft.expected_poll_seconds,
+      epson_polling_id: printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id ? printerDraft.epson_polling_id : undefined,
+      gateway_printer_id: printerDraft.vendor === 'epson' && printerDraft.gateway_printer_id ? printerDraft.gateway_printer_id : undefined,
+    });
+    if (printerDraft.station_id) {
+      const station = overview.stations.find((value) => value.id === printerDraft.station_id);
+      if (station) {
+        const { id, restaurant_id: _restaurantId, ...input } = station;
+        void _restaurantId;
+        await savePrintStation(rid, { ...input, primary_printer_id: registration.printer.id }, id);
+      }
+    } else if (printerDraft.new_station_name.trim()) {
+      await savePrintStation(rid, {
+        ...newStation(), name: printerDraft.new_station_name.trim(), primary_printer_id: registration.printer.id,
+      });
+    }
+    setCredentials(registration.password ? registration : null);
+    setPrinterOpen(false);
+    setPrinterDraft({ ...newPrinter(), expected_poll_seconds: settings?.print_poll_interval_seconds ?? 2 });
+    await load();
+  });
+
+  const openStation = (station?: PrintStation) => {
+    if (station) {
+      const { id, restaurant_id: _restaurantId, ...input } = station;
+      void _restaurantId;
+      setEditingStationId(id);
+      setStationDraft(input);
+    } else {
+      setEditingStationId(undefined);
+      setStationDraft(newStation());
+    }
+    setStationOpen(true);
+  };
+
+  const submitStation = () => run(async () => {
+    await savePrintStation(rid, stationDraft, editingStationId);
+    setStationOpen(false);
+    await load();
+  });
+
+  const hasCategoryRoute = (categoryId: number, stationId: string) => rulesDraft.some(
+    (rule) => rule.component_type === 'category' && rule.category_id === categoryId && rule.station_id === stationId,
+  );
+
+  const toggleCategoryRoute = (categoryId: number, stationId: string) => {
+    const exists = hasCategoryRoute(categoryId, stationId);
+    setRulesDraft((current) => exists
+      ? current.filter((rule) => !(rule.component_type === 'category' && rule.category_id === categoryId && rule.station_id === stationId))
+      : [...current, { component_type: 'category', category_id: categoryId, station_id: stationId }]);
+  };
+
+  const addOverride = () => {
+    const componentId = Number(overrideDraft.component_id);
+    if (!componentId || !overrideDraft.station_id) return;
+    const shared = { station_id: overrideDraft.station_id, channel: overrideDraft.channel || undefined };
+    const rule: PrintRoutingRule = overrideDraft.component === 'item'
+      ? { component_type: 'item', menu_item_id: componentId, ...shared }
+      : overrideDraft.component === 'modifier'
+        ? { component_type: 'modifier', menu_item_modifier_id: componentId, ...shared }
+        : { component_type: 'option', option_id: componentId, ...shared };
+    setRulesDraft((current) => [
+      ...current.filter((value) => !(value.component_type === rule.component_type
+        && value.menu_item_id === rule.menu_item_id
+        && value.menu_item_modifier_id === rule.menu_item_modifier_id
+        && value.option_id === rule.option_id
+        && (value.channel ?? '') === (rule.channel ?? ''))),
+      rule,
     ]);
+    setOverrideDraft((current) => ({ ...current, component_id: '', station_id: '' }));
+  };
+
+  const saveRules = () => run(async () => {
+    const routing_rules = await replacePrintRoutingRules(rid, rulesDraft.map(({ id: _id, ...rule }) => rule));
+    setOverview((current) => ({ ...current, routing_rules }));
+    setRulesDraft(routing_rules);
+  });
+
+  if (loading) {
+    return <div className="py-[var(--s-16)] text-center text-fs-sm text-[var(--fg-muted)]">{t('loading')}</div>;
+  }
 
   return (
-    <div className="max-w-[880px]">
-      <PageHead
-        title={t('printersAndKds') || 'Imprimantes & KDS'}
-        desc={t('printersDescNew') || 'Routage des tickets vers les imprimantes et écrans de cuisine.'}
-        actions={
-          canEdit && (
-            <Button variant="primary" size="md" onClick={addPrinter}>
-              <Plus />
-              {t('add') || 'Ajouter'}
-            </Button>
-          )
-        }
-      />
+    <div className="max-w-[1120px]">
+      <PageHead title={t('printingTitle')} desc={t('printingDescription')} actions={canManage && (
+        <Button onClick={() => setPrinterOpen(true)}><Plus />{t('printingRegister')}</Button>
+      )} />
 
-      <Section title={t('printers') || 'Imprimantes'}>
-        <div className="flex flex-col gap-[var(--s-3)]">
-          {printers.map((p) => (
-            <div
-              key={p.id}
-              className="p-[var(--s-4)] bg-[var(--surface)] border border-[var(--line)] rounded-r-md"
-            >
-              <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-3)]">
-                <div className="flex items-center gap-[var(--s-3)] min-w-0">
-                  <div className="w-10 h-10 rounded-r-sm bg-[var(--surface-2)] grid place-items-center text-[var(--fg-muted)] shrink-0">
-                    <ClipboardList className="w-[18px] h-[18px]" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-fs-sm font-semibold text-[var(--fg)] truncate">
-                      {p.name}
-                    </div>
-                    <div className="text-fs-xs text-[var(--fg-subtle)] font-mono truncate">
-                      {p.model} · {p.conn}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-[var(--s-2)] shrink-0">
-                  {p.status === 'online' ? (
-                    <Badge tone="success" dot>
-                      {t('online') || 'En ligne'}
-                    </Badge>
-                  ) : (
-                    <Badge tone="danger">
-                      <AlertTriangle className="w-2.5 h-2.5" />
-                      {t('offline') || 'Hors ligne'}
-                    </Badge>
-                  )}
-                  {canEdit && (
-                    <>
-                      <Button variant="ghost" size="sm">
-                        {t('test') || 'Test'}
-                      </Button>
-                      <button
-                        type="button"
-                        className="h-8 w-8 grid place-items-center rounded-r-md text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
-                        aria-label={t('moreActions') || 'Plus'}
-                      >
-                        <MoreHorizontal className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
-                </div>
+      {error && (
+        <div role="alert" className="mb-[var(--s-4)] flex items-start gap-[var(--s-3)] rounded-r-md border border-[var(--danger-500)]/30 bg-[var(--danger-50)] p-[var(--s-3)] text-fs-sm text-[var(--danger-700)]">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <Button variant="ghost" size="sm" onClick={() => void load()}>{t('retry')}</Button>
+        </div>
+      )}
+
+      <Section title={t('printingRollout')} desc={t('printingRolloutHint')}>
+        <div className="flex flex-wrap items-end gap-[var(--s-4)]">
+          <label className="flex h-9 items-center gap-[var(--s-2)] text-fs-sm font-medium">
+            <input type="checkbox" checked={settings?.server_printing_enabled ?? false} disabled={!canManage || saving}
+              onChange={(event) => void saveRollout(event.target.checked, settings?.print_poll_interval_seconds ?? 2)} />
+            {t('printingServerEnabled')}
+          </label>
+          <Field label={t('printingPollInterval')} className="w-44">
+            <Select value={settings?.print_poll_interval_seconds ?? 2} disabled={!canManage || saving}
+              onChange={(event) => void saveRollout(settings?.server_printing_enabled ?? false, Number(event.target.value))}>
+              {[1, 2, 3, 5, 10].map((seconds) => <option key={seconds} value={seconds}>{seconds}s</option>)}
+            </Select>
+          </Field>
+          <div className="ms-auto flex items-center gap-2 text-fs-xs text-[var(--fg-subtle)]">
+            <span className="h-2 w-2 rounded-full bg-[var(--success-500)]" />
+            {overview.printers.filter((printer) => printer.status === 'online').length} / {overview.printers.length} {t('printingOnline')}
+          </div>
+        </div>
+        <p className="mt-3 text-fs-xs text-[var(--fg-muted)]">{t('printingActivationGate')}</p>
+      </Section>
+
+      <section aria-labelledby="printing-setup-title" className="mb-[var(--s-5)] overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface-1)]">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
+          <div>
+            <h2 id="printing-setup-title" className="font-semibold text-[var(--fg)]">{t('printingSetupTitle')}</h2>
+            <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">{t('printingSetupHint')}</p>
+          </div>
+          <Badge tone={setupSteps.every((step) => step.ready) ? 'success' : 'warning'} dot>
+            {setupSteps.filter((step) => step.ready).length}/{setupSteps.length} {t('printingStepsReady')}
+          </Badge>
+        </div>
+        <div className="grid gap-px bg-[var(--line)] sm:grid-cols-2 lg:grid-cols-4">
+          {setupSteps.map((step, index) => (
+            <div key={step.label} className="flex min-h-20 items-center gap-3 bg-[var(--surface-1)] px-4 py-3">
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-fs-sm font-semibold ${step.ready ? 'border-[var(--success-500)] bg-[var(--success-50)] text-[var(--success-700)]' : 'border-[var(--warning-500)]/50 bg-[var(--warning-50)] text-[var(--warning-800)]'}`}>
+                {step.ready ? <Check className="h-4 w-4" /> : index + 1}
+              </span>
+              <div className="min-w-0">
+                <div className="text-fs-sm font-semibold text-[var(--fg)]">{step.label}</div>
+                <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">{step.detail}</div>
               </div>
-              <div className="flex flex-wrap items-center gap-1">
-                {p.jobs.map((j) => (
-                  <Chip key={j}>{j}</Chip>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="mb-[var(--s-5)] grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {(['queued', 'claimed', 'printed', 'failed'] as const).map((state) => (
+          <div key={state} className="rounded-r-md border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2">
+            <div className="text-fs-xs text-[var(--fg-muted)]">{t(`printingJob_${state}`)}</div>
+            <div className="mt-1 text-xl font-semibold tabular-nums text-[var(--fg)]">{overview.summary[state]}</div>
+          </div>
+        ))}
+      </div>
+
+      <Tabs defaultValue="printers" variant="underline">
+        <TabsList>
+          <Tab value="printers"><Printer />{t('printers')}</Tab>
+          <Tab value="stations"><ClipboardList />{t('printingStations')}</Tab>
+          <Tab value="routing"><Route />{t('printingRouting')}</Tab>
+          <Tab value="jobs"><Send />{t('printingJobs')}</Tab>
+        </TabsList>
+
+        <TabsContent value="printers">
+          <Section title={t('printingLivePrinters')} desc={t('printingLiveHint')}>
+            {overview.printers.length === 0 ? (
+              <EmptyState icon={<Printer />} title={t('printingNoPrinters')} desc={t('printingNoPrintersHint')}
+                action={canManage ? <Button size="sm" onClick={() => setPrinterOpen(true)}><Plus />{t('printingRegister')}</Button> : undefined} />
+            ) : (
+              <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
+                {overview.printers.map((printer) => (
+                  <div key={printer.id} className="grid gap-[var(--s-3)] py-[var(--s-4)] md:grid-cols-[1fr_auto] md:items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-[var(--fg)]">{printer.name}</span>
+                        <Badge tone={statusTone(printer.status)} dot>{t(`printingStatus_${printer.status}`)}</Badge>
+                        {!printer.enabled && <Badge tone="neutral">{t('disabled')}</Badge>}
+                      </div>
+                      <div className="mt-1 font-mono text-fs-xs text-[var(--fg-subtle)]">
+                        {printer.vendor === 'epson' ? 'EPSON SDP' : 'STAR'} · {printer.protocol.toUpperCase()} · {printer.model || printer.identifier} · {printer.paper_width_dots}px
+                      </div>
+                      {printer.vendor === 'epson' && <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+                        {printer.gateway_printer_id
+                          ? `${t('printingEpsonDeviceId')}: ${printer.identifier} · ${t('printingEpsonViaGateway')}`
+                          : `${t('printingEpsonPollingId')}: ${printer.epson_polling_id} · ${t('printingEpsonDeviceId')}: ${printer.identifier}`}
+                      </div>}
+                      <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+                        {t('printingLastSeen')}: {formatSeen(printer.last_seen_at)}
+                        <span className="ms-3">{t('printingLastTest')}: {formatSeen(printer.last_test_succeeded_at)}</span>
+                        {printer.last_error && <span className="ms-3 text-[var(--danger-600)]">{printer.last_error}</span>}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-fs-xs text-[var(--fg-muted)]">
+                        <span>{t('printingAssignedPasses')}:</span>
+                        {overview.stations.filter((station) => station.primary_printer_id === printer.id || station.fallback_printer_id === printer.id).length === 0
+                          ? <Badge tone="warning">{t('printingUnassigned')}</Badge>
+                          : overview.stations.filter((station) => station.primary_printer_id === printer.id || station.fallback_printer_id === printer.id).map((station) => (
+                            <Badge key={station.id} tone="neutral">{station.name}</Badge>
+                          ))}
+                      </div>
+                    </div>
+                    {canManage && <div className="flex gap-2">
+                      <Button variant="secondary" size="sm" disabled={saving} onClick={() => void run(async () => { await testPrinter(rid, printer.id); await load(true); })}>{t('test')}</Button>
+                      <Button variant="ghost" size="sm" disabled={saving} onClick={() => void run(async () => { await updatePrinter(rid, printer.id, { enabled: !printer.enabled }); await load(); })}>{printer.enabled ? t('disable') : t('enable')}</Button>
+                      <Button icon variant="ghost" size="sm" aria-label={t('delete')} disabled={saving} onClick={() => {
+                        if (window.confirm(t('printingDeletePrinterConfirm'))) void run(async () => { await deletePrinter(rid, printer.id); await load(); });
+                      }}><Trash2 /></Button>
+                    </div>}
+                  </div>
                 ))}
-                {canEdit && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 h-[22px] px-2 rounded-r-sm text-fs-xs text-[var(--fg-muted)] border border-dashed border-[var(--line-strong)] hover:text-[var(--fg)] hover:border-[var(--fg-subtle)]"
-                    onClick={() => {
-                      const job = window.prompt(t('addJobPrompt') || 'Nom du flux :');
-                      if (!job) return;
-                      setPrinters((prev) =>
-                        prev.map((x) =>
-                          x.id === p.id ? { ...x, jobs: [...x.jobs, job] } : x,
-                        ),
-                      );
-                    }}
-                  >
-                    <Plus className="w-2.5 h-2.5" />
-                    {t('add') || 'Ajouter'}
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
-        </div>
-      </Section>
+            )}
+          </Section>
+        </TabsContent>
 
-      <Section
-        title={t('kdsTitle') || 'Écran de cuisine (KDS)'}
-        desc={t('kdsScreensDesc') || 'Écrans connectés affichant les commandes en cours.'}
-      >
-        <div className="flex flex-col gap-[var(--s-2)]">
-          {kds.map((k) => (
-            <div
-              key={k.id}
-              className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] bg-[var(--surface)] border border-[var(--line)] rounded-r-md"
-            >
-              <div className="flex items-center gap-[var(--s-3)] min-w-0">
-                <Flame className="w-4 h-4 text-[var(--brand-500)] shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-fs-sm font-medium text-[var(--fg)] truncate">{k.name}</div>
-                  <div className="text-fs-xs text-[var(--fg-subtle)] truncate">{k.device}</div>
+        <TabsContent value="stations">
+          <Section title={t('printingStations')} desc={t('printingStationsHint')}
+            aside={canManage ? <Button size="sm" variant="secondary" onClick={() => openStation()}><Plus />{t('printingAddStation')}</Button> : undefined}>
+            {overview.stations.length === 0 ? (
+              <EmptyState icon={<ClipboardList />} title={t('printingNoStations')} desc={t('printingNoStationsHint')} />
+            ) : <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
+              {overview.stations.map((station) => {
+                const primary = overview.printers.find((printer) => printer.id === station.primary_printer_id);
+                const fallback = overview.printers.find((printer) => printer.id === station.fallback_printer_id);
+                const categoryCount = station.receives_full_order ? categories.length : new Set(rulesDraft.filter((rule) => rule.component_type === 'category' && rule.station_id === station.id).map((rule) => rule.category_id)).size;
+                return <div key={station.id} className="flex flex-wrap items-center gap-[var(--s-3)] py-[var(--s-4)]">
+                  <div className="min-w-64 flex-1"><div className="font-semibold text-[var(--fg)]">{station.name}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{primary?.name ?? t('printingUnassigned')}{fallback && ` → ${fallback.name}`} · {station.copies}× · {station.cut_mode} · {station.locale?.toUpperCase() ?? 'HE'}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{categoryCount}/{categories.length} {t('printingCategoriesRouted')}</div></div>
+                  {station.receives_full_order && <Badge tone="neutral">{t('printingFullOrder')}</Badge>}
+                  {canManage && <>{primary && <Button size="sm" variant="secondary" disabled={saving} onClick={() => void run(async () => { await testPrinter(rid, primary.id); await load(true); })}>{t('printingTestTicket')}</Button>}<Button size="sm" variant="ghost" onClick={() => openStation(station)}>{t('edit')}</Button><Button icon size="sm" variant="ghost" aria-label={t('delete')} onClick={() => {
+                    if (window.confirm(t('printingDeleteStationConfirm'))) void run(async () => { await deletePrintStation(rid, station.id); await load(); });
+                  }}><Trash2 /></Button></>}
+                </div>;
+              })}
+            </div>}
+          </Section>
+        </TabsContent>
+
+        <TabsContent value="routing">
+          <Section title={t('printingCategoryMatrix')} desc={t('printingCategoryMatrixHint')}
+            aside={canManage ? <Button size="sm" disabled={saving} onClick={() => void saveRules()}><Check />{t('save')}</Button> : undefined}>
+            {overview.stations.length === 0 ? <EmptyState icon={<Route />} title={t('printingNoStations')} desc={t('printingRoutingNeedsStations')} /> : (
+              <div>
+                <div className={`mb-4 flex items-start gap-3 rounded-r-md border p-3 text-fs-sm ${unroutedCategories.length > 0 ? 'border-[var(--warning-500)]/40 bg-[var(--warning-50)] text-[var(--warning-800)]' : 'border-[var(--success-500)]/30 bg-[var(--success-50)] text-[var(--success-700)]'}`}>
+                  {unroutedCategories.length > 0 ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> : <Check className="mt-0.5 h-4 w-4 shrink-0" />}
+                  <div>
+                    <div className="font-semibold">{unroutedCategories.length > 0 ? `${unroutedCategories.length} ${t('printingCategoriesWithoutRoute')}` : t('printingAllCategoriesRouted')}</div>
+                    {unroutedCategories.length > 0 && <div className="mt-1 text-fs-xs">{unroutedCategories.slice(0, 6).map((category) => category.name).join(' · ')}{unroutedCategories.length > 6 ? '…' : ''}</div>}
+                  </div>
                 </div>
+                <div className="overflow-x-auto rounded-r-md border border-[var(--line)]">
+                  <table className="w-full min-w-[720px] border-collapse text-fs-sm">
+                    <thead className="bg-[var(--surface-2)] text-[var(--fg-muted)]"><tr><th className="sticky start-0 z-10 min-w-48 border-e border-[var(--line)] bg-[var(--surface-2)] p-3 text-start font-medium">{t('category')}</th>{overview.stations.map((station) => {
+                      const primary = overview.printers.find((printer) => printer.id === station.primary_printer_id);
+                      return <th key={station.id} className="min-w-40 p-3 text-center font-medium"><div className="font-semibold text-[var(--fg)]">{station.name}</div><div className="mt-1 flex items-center justify-center gap-1.5 text-fs-xs font-normal"><span className={`h-1.5 w-1.5 rounded-full ${primary?.status === 'online' ? 'bg-[var(--success-500)]' : primary?.status === 'error' ? 'bg-[var(--danger-500)]' : 'bg-[var(--warning-500)]'}`} />{primary?.name ?? t('printingUnassigned')}</div>{station.receives_full_order && <div className="mt-1"><Badge tone="neutral">{t('printingFullOrder')}</Badge></div>}</th>;
+                    })}</tr></thead>
+                    <tbody className="divide-y divide-[var(--line)]">{categories.map((category) => <tr key={category.id} className="hover:bg-[var(--surface-2)]/50"><td className="sticky start-0 z-[5] border-e border-[var(--line)] bg-[var(--surface-1)] p-3 font-medium text-[var(--fg)]">{category.name}</td>{overview.stations.map((station) => {
+                      const explicit = hasCategoryRoute(category.id, station.id);
+                      const selected = station.receives_full_order || explicit;
+                      return <td key={station.id} className="p-3 text-center"><button type="button" disabled={!canManage || station.receives_full_order} aria-pressed={selected} aria-label={`${category.name} → ${station.name}`} onClick={() => toggleCategoryRoute(category.id, station.id)} className={`mx-auto flex h-9 w-9 items-center justify-center rounded-r-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-500)] disabled:cursor-not-allowed ${selected ? 'border-[var(--primary-500)] bg-[var(--primary-500)] text-white' : 'border-[var(--line-strong)] bg-[var(--surface-1)] text-transparent hover:border-[var(--primary-400)]'}`}><Check className="h-4 w-4" /></button></td>;
+                    })}</tr>)}</tbody>
+                  </table>
+                </div>
+                <p className="mt-3 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('printingMultiPrinterHint')}</p>
               </div>
-              <Badge tone={k.connected ? 'success' : 'neutral'} dot>
-                {k.connected ? t('connected') || 'Connecté' : t('disconnected') || 'Déconnecté'}
-              </Badge>
+            )}
+          </Section>
+
+          <Section title={t('printingOverrides')} desc={t('printingOverridesHint')}>
+            {canManage && <div className="mb-4 grid gap-3 md:grid-cols-[140px_1fr_140px_1fr_auto] md:items-end">
+              <Field label={t('printingOverrideType')}><Select value={overrideDraft.component} onChange={(event) => setOverrideDraft((current) => ({ ...current, component: event.target.value as 'item' | 'modifier' | 'option', component_id: '' }))}><option value="item">{t('item')}</option><option value="modifier">{t('modifier')}</option><option value="option">{t('printingOption')}</option></Select></Field>
+              <Field label={t('printingComponent')}><Select value={overrideDraft.component_id} onChange={(event) => setOverrideDraft((current) => ({ ...current, component_id: event.target.value }))}><option value="">{t('select')}</option>{overrideDraft.component === 'item' ? items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>) : overrideDraft.component === 'modifier' ? modifiers.map((modifier) => <option key={modifier.id} value={modifier.id}>{modifier.itemName} · {modifier.kitchen_name || modifier.name}</option>) : options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Select></Field>
+              <Field label={t('printingChannel')}><Select value={overrideDraft.channel} onChange={(event) => setOverrideDraft((current) => ({ ...current, channel: event.target.value }))}><option value="">{t('printingAllChannels')}</option><option value="dine_in">{t('dineIn')}</option><option value="pickup">{t('pickup')}</option><option value="delivery">{t('delivery')}</option></Select></Field>
+              <Field label={t('printingStation')}><Select value={overrideDraft.station_id} onChange={(event) => setOverrideDraft((current) => ({ ...current, station_id: event.target.value }))}><option value="">{t('select')}</option>{overview.stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}</Select></Field>
+              <Button variant="secondary" disabled={!overrideDraft.component_id || !overrideDraft.station_id} onClick={addOverride}>{t('add')}</Button>
+            </div>}
+            <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
+              {rulesDraft.filter((rule) => rule.component_type !== 'category').map((rule, index) => {
+                const label = rule.component_type === 'item' ? items.find((item) => item.id === rule.menu_item_id)?.name : rule.component_type === 'modifier' ? modifiers.find((modifier) => modifier.id === rule.menu_item_modifier_id)?.kitchen_name : options.find((option) => option.id === rule.option_id)?.name;
+                const station = overview.stations.find((value) => value.id === rule.station_id)?.name;
+                return <div key={rule.id ?? `${rule.component_type}-${index}`} className="flex items-center gap-3 py-3"><Badge tone="neutral">{t(rule.component_type)}</Badge><span className="flex-1">{label ?? '—'} → {station ?? '—'}{rule.channel ? ` · ${rule.channel}` : ''}</span>{canManage && <Button icon size="sm" variant="ghost" aria-label={t('delete')} onClick={() => setRulesDraft((current) => current.filter((value) => value !== rule))}><Trash2 /></Button>}</div>;
+              })}
             </div>
-          ))}
+          </Section>
+        </TabsContent>
+
+        <TabsContent value="jobs">
+          <Section title={t('printingRecentJobs')} desc={t('printingRecentJobsHint')} aside={<Button size="sm" variant="ghost" onClick={() => void load(true)}><RefreshCw />{t('refresh')}</Button>}>
+            {overview.jobs.length === 0 ? <EmptyState icon={<Send />} title={t('printingNoJobs')} /> : <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
+              {overview.jobs.map((job) => <div key={job.id} className="grid gap-2 py-3 md:grid-cols-[1fr_auto] md:items-center"><div><div className="font-mono text-fs-xs text-[var(--fg)]">{job.order_id ? `#${job.order_id} · ` : ''}{job.id}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{formatSeen(job.created_at)} · {job.attempts} {t('printingAttempts')}</div>{job.last_error && <div className="mt-1 text-fs-xs text-[var(--danger-600)]">{job.last_error}</div>}</div><div className="flex items-center gap-2"><Badge tone={job.state === 'printed' ? 'success' : job.state === 'failed' ? 'danger' : job.state === 'claimed' ? 'warning' : 'neutral'} dot>{t(`printingJob_${job.state}`)}</Badge>{canManage && job.kind === 'production' && job.order_id && <Button size="sm" variant="ghost" disabled={saving} onClick={() => void run(async () => { await reprintOrder(rid, job.order_id!); await load(true); })}>{t('printingReprint')}</Button>}</div></div>)}
+            </div>}
+          </Section>
+        </TabsContent>
+      </Tabs>
+
+      <Drawer open={printerOpen} onOpenChange={setPrinterOpen} title={t('printingRegister')} subtitle={t('printingRegisterHint')}
+        onSave={() => void submitPrinter()} saveLabel={t('register')}
+        saveDisabled={saving || !printerDraft.name.trim() || !printerDraft.identifier.trim()
+          || (printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id && !printerDraft.epson_polling_id.trim())}>
+        <div className="grid gap-4">
+          <Field label={t('name')}><Input value={printerDraft.name} onChange={(event) => setPrinterDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t('printingVendor')}><Select value={printerDraft.vendor} onChange={(event) => {
+              const vendor = event.target.value as PrinterVendor;
+              setPrinterDraft((current) => ({
+                ...current, vendor, protocol: 'http', gateway_printer_id: '', epson_polling_id: '',
+                identifier: vendor === 'epson' ? 'local_printer' : '',
+                model: vendor === 'epson' ? 'TM-U220IIB-i' : '',
+                paper_width_dots: vendor === 'epson' ? 384 : 576,
+              }));
+            }}><option value="epson">Epson Server Direct Print</option><option value="star">Star CloudPRNT</option></Select></Field>
+            <Field label={t('model')}><Input value={printerDraft.model} onChange={(event) => setPrinterDraft((current) => ({ ...current, model: event.target.value }))} /></Field>
+          </div>
+          {printerDraft.vendor === 'epson' && <div role="note" className="rounded-r-md border border-[var(--warning-500)]/35 bg-[var(--warning-50)] p-3 text-fs-sm text-[var(--warning-800)]">
+            <div className="font-semibold">{t('printingEpsonModelWarningTitle')}</div>
+            <div className="mt-1 text-fs-xs leading-relaxed">{t('printingEpsonModelWarning')}</div>
+          </div>}
+          {printerDraft.vendor === 'epson' && <div role="note" className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-3 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('printingServerDirectNoIp')}</div>}
+          {printerDraft.vendor === 'epson' && <Field label={t('printingEpsonGateway')} hint={t('printingEpsonGatewayHint')}><Select value={printerDraft.gateway_printer_id} onChange={(event) => setPrinterDraft((current) => ({ ...current, gateway_printer_id: event.target.value, epson_polling_id: '' }))}><option value="">{t('printingEpsonDirect')}</option>{epsonGateways.map((gateway) => <option key={gateway.id} value={gateway.id}>{gateway.name} · {gateway.epson_polling_id}</option>)}</Select></Field>}
+          <Field label={t('printingProtocol')} hint={printerDraft.vendor === 'epson' ? t('printingEpsonProtocolHint') : t('printingProtocolHint')}>
+            {printerDraft.vendor === 'epson' ? <Input readOnly value="Server Direct Print · HTTP(S)" /> : <Select value={printerDraft.protocol} onChange={(event) => setPrinterDraft((current) => ({ ...current, protocol: event.target.value as 'http' | 'mqtt' }))}><option value="http">HTTP polling</option><option value="mqtt">MQTT Trigger POST + HTTP fallback</option></Select>}
+          </Field>
+          {printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id && <Field label={t('printingEpsonPollingId')} hint={t('printingEpsonPollingIdHint')}><Input value={printerDraft.epson_polling_id} placeholder="restaurant-kitchen-01" onChange={(event) => setPrinterDraft((current) => ({ ...current, epson_polling_id: event.target.value }))} /></Field>}
+          <Field label={printerDraft.vendor === 'epson' ? t('printingEpsonDeviceId') : t('printingIdentifier')} hint={printerDraft.vendor === 'epson' ? t('printingEpsonDeviceIdHint') : t('printingIdentifierHint')}><Input value={printerDraft.identifier} onChange={(event) => setPrinterDraft((current) => ({ ...current, identifier: event.target.value }))} /></Field>
+          <div className="grid gap-4 sm:grid-cols-2"><Field label={t('printingPaperWidth')}><Select value={printerDraft.paper_width_dots} onChange={(event) => setPrinterDraft((current) => ({ ...current, paper_width_dots: Number(event.target.value) as 384 | 576 }))}>{printerDraft.vendor === 'epson' ? <><option value={384}>TM-U220 · 76 mm · 384 dots</option><option value={576}>Epson thermal · 576 dots</option></> : <><option value={384}>58 mm · 384 px</option><option value={576}>80 mm · 576 px</option></>}</Select></Field><Field label={t('printingPollInterval')}><NumberField min={1} max={60} value={printerDraft.expected_poll_seconds} onChange={(value) => setPrinterDraft((current) => ({ ...current, expected_poll_seconds: value }))} /></Field></div>
+          <Field label={t('printingAssignStation')}><Select value={printerDraft.station_id} onChange={(event) => setPrinterDraft((current) => ({ ...current, station_id: event.target.value, new_station_name: '' }))}><option value="">{t('printingCreateStationBelow')}</option>{overview.stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}</Select></Field>
+          {!printerDraft.station_id && <Field label={t('printingNewStationName')} hint={t('printingPassNameHint')}><Input value={printerDraft.new_station_name} placeholder={t('printingPassNamePlaceholder')} onChange={(event) => setPrinterDraft((current) => ({ ...current, new_station_name: event.target.value }))} /></Field>}
         </div>
-      </Section>
+      </Drawer>
+
+      <Drawer open={stationOpen} onOpenChange={setStationOpen} title={editingStationId ? t('printingEditStation') : t('printingAddStation')}
+        onSave={() => void submitStation()} saveLabel={t('save')} saveDisabled={saving || !stationDraft.name.trim()}>
+        <div className="grid gap-4">
+          <Field label={t('name')}><Input value={stationDraft.name} onChange={(event) => setStationDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
+          <Field label={t('printingPrimaryPrinter')}><Select value={stationDraft.primary_printer_id ?? ''} onChange={(event) => setStationDraft((current) => ({ ...current, primary_printer_id: event.target.value || undefined }))}><option value="">{t('printingUnassigned')}</option>{overview.printers.map((printer) => <option key={printer.id} value={printer.id}>{printer.name}</option>)}</Select></Field>
+          <Field label={t('printingFallbackPrinter')}><Select value={stationDraft.fallback_printer_id ?? ''} onChange={(event) => setStationDraft((current) => ({ ...current, fallback_printer_id: event.target.value || undefined }))}><option value="">{t('printingUnassigned')}</option>{overview.printers.filter((printer) => printer.id !== stationDraft.primary_printer_id).map((printer) => <option key={printer.id} value={printer.id}>{printer.name}</option>)}</Select></Field>
+          <div className="grid gap-4 sm:grid-cols-3"><Field label={t('printingCopies')}><NumberField min={1} max={5} value={stationDraft.copies} onChange={(value) => setStationDraft((current) => ({ ...current, copies: value }))} /></Field><Field label={t('printingFontSize')}><NumberField min={18} max={40} value={stationDraft.font_size} onChange={(value) => setStationDraft((current) => ({ ...current, font_size: value }))} /></Field><Field label={t('language')}><Select value={stationDraft.locale ?? 'he'} onChange={(event) => setStationDraft((current) => ({ ...current, locale: event.target.value as 'he' | 'fr' | 'en' }))}><option value="he">עברית</option><option value="fr">Français</option><option value="en">English</option></Select></Field></div>
+          <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={stationDraft.receives_full_order} onChange={(event) => setStationDraft((current) => ({ ...current, receives_full_order: event.target.checked }))} />{t('printingFullOrder')}</label>
+          <Field label={t('printingCutMode')}><Select value={stationDraft.cut_mode} onChange={(event) => setStationDraft((current) => ({ ...current, cut_mode: event.target.value as 'none' | 'partial' | 'full' }))}><option value="none">{t('printingCutNone')}</option><option value="partial">{t('printingCutPartial')}</option><option value="full">{t('printingCutFull')}</option></Select></Field>
+          <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={stationDraft.buzzer} onChange={(event) => setStationDraft((current) => ({ ...current, buzzer: event.target.checked }))} />{t('printingBuzzer')}</label>
+        </div>
+      </Drawer>
+
+      <Drawer open={credentials !== null} onOpenChange={(open) => { if (!open) setCredentials(null); }} title={t('printingCredentials')}
+        subtitle={t('printingCredentialsOnce')} footer={<Button className="w-full" onClick={() => setCredentials(null)}>{t('done')}</Button>}>
+        {credentials && <div className="grid gap-4">
+          {credentials.printer.vendor === 'epson' && <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-3 text-fs-sm leading-relaxed text-[var(--fg-muted)]">{t('printingEpsonWebConfigSteps')}</div>}
+          {credentials.printer.vendor === 'epson' && <Field label={t('printingEpsonPrintUrl')}><Input readOnly className="font-mono" value={`${API_URL.replace(/\/$/, '')}/api/v1/public/printing/epson/server-direct-print`} /></Field>}
+          {credentials.printer.vendor === 'epson' && <Field label={t('printingEpsonStatusUrl')}><Input readOnly className="font-mono" value={`${API_URL.replace(/\/$/, '')}/api/v1/public/printing/epson/status`} /></Field>}
+          <Field label={credentials.printer.vendor === 'epson' ? t('printingEpsonPollingId') : t('username')}><Input readOnly className="font-mono" value={credentials.username} /></Field>
+          <Field label={t('password')}><Input readOnly className="font-mono" value={credentials.password} /></Field>
+          <Field label={t('printingRealm')}><Input readOnly className="font-mono" value={credentials.realm} /></Field>
+        </div>}
+      </Drawer>
     </div>
   );
 }
