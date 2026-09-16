@@ -2,10 +2,11 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from 'react';
-import { EyeOffIcon, LibraryIcon, PackageOpenIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon, UtensilsCrossedIcon } from 'lucide-react';
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { EyeOffIcon, ImagePlusIcon, LibraryIcon, PackageOpenIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon, UtensilsCrossedIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button } from '@/components/ds';
+import CateringItemGalleryEditor from '@/components/catering/CateringItemGalleryEditor';
 import { useCurrency, useI18n } from '@/lib/i18n';
 import {
   archiveCateringGroup,
@@ -14,8 +15,10 @@ import {
   createCateringItem,
   listCateringArticleLibrary,
   updateCateringItem,
+  uploadSectionImage,
   type CateringCatalogGroup,
   type CateringCatalogItem,
+  type CateringCatalogItemImageInput,
   type CateringCatalogItemInput,
   type CateringLibraryItem,
 } from '@/lib/api';
@@ -265,12 +268,23 @@ function GroupArticleModal({ restaurantId, serviceId, offerId, pricingModel, gro
   const [selectedLibraryId, setSelectedLibraryId] = useState<number | undefined>(editing?.menu_item_id);
   const [name, setName] = useState(editing?.menu_item?.name ?? editing?.name ?? '');
   const [description, setDescription] = useState(editing?.menu_item?.description ?? editing?.description ?? '');
+  const [portion, setPortion] = useState(editing?.portion || editing?.menu_item?.portion || '');
   const [imageURL, setImageURL] = useState(editing?.menu_item?.image_url ?? editing?.image_url ?? '');
+  const [galleryImages, setGalleryImages] = useState<CateringCatalogItemImageInput[]>(() => (
+    editing?.gallery_images?.map((image) => ({
+      image_url: image.image_url,
+      alt_text: image.alt_text,
+      translations: image.translations,
+    })) ?? []
+  ));
   const [price, setPrice] = useState(editing ? String(editing.base_price) : '');
   const [minimum, setMinimum] = useState(String(pricingModel === 'per_person' ? editing?.min_guests ?? 0 : editing?.min_quantity ?? 0));
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let live = true;
@@ -291,7 +305,23 @@ function GroupArticleModal({ restaurantId, serviceId, offerId, pricingModel, gro
   const numericPrice = Number(price);
   const numericMinimum = Math.max(0, Math.floor(Number(minimum) || 0));
   const valid = Number.isFinite(numericPrice) && numericPrice >= 0
+    && (pricingModel !== 'per_unit' || portion.trim().length > 0)
     && (source === 'library' ? Boolean(selectedLibraryItem) : name.trim().length > 0);
+
+  const uploadCover = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    setError('');
+    try {
+      setImageURL(await uploadSectionImage(restaurantId, file));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('catering_group_articles_image_upload_error'));
+    } finally {
+      setUploadingCover(false);
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
+  };
 
   const save = async () => {
     if (!valid) return;
@@ -302,6 +332,7 @@ function GroupArticleModal({ restaurantId, serviceId, offerId, pricingModel, gro
         name: source === 'library' ? selectedLibraryItem!.name : name.trim(),
         offer_id: offerId,
         description: source === 'library' ? '' : description.trim(),
+        portion: portion.trim(),
         image_url: source === 'library' ? '' : imageURL.trim(),
         menu_item_id: source === 'library' ? selectedLibraryItem!.id : 0,
         group_id: groupId,
@@ -310,6 +341,7 @@ function GroupArticleModal({ restaurantId, serviceId, offerId, pricingModel, gro
         min_guests: pricingModel === 'per_person' ? numericMinimum : 0,
         is_active: isActive,
         available_weekdays: editing?.available_weekdays ?? [],
+        gallery_images: galleryImages,
       };
       if (editing) await updateCateringItem(restaurantId, editing.id, body);
       else await createCateringItem(restaurantId, serviceId, body);
@@ -332,7 +364,7 @@ function GroupArticleModal({ restaurantId, serviceId, offerId, pricingModel, gro
         <p className="text-sm text-red-500">{error}</p>
         <div className="ms-auto flex gap-2">
           <Button variant="secondary" size="md" onClick={onClose}>{t('cancel')}</Button>
-          <Button variant="primary" size="md" disabled={!valid || saving} onClick={save}>{saving ? t('saving') : t('save')}</Button>
+          <Button variant="primary" size="md" disabled={!valid || saving || uploadingCover || uploadingGallery} onClick={save}>{saving ? t('saving') : t('save')}</Button>
         </div>
       </div>}
     >
@@ -367,6 +399,7 @@ function GroupArticleModal({ restaurantId, serviceId, offerId, pricingModel, gro
                   onClick={() => {
                     setSelectedLibraryId(item.id);
                     if (!price) setPrice(String(item.price ?? 0));
+                    if (!portion && item.portion) setPortion(item.portion);
                   }}
                   className={`flex w-full items-center gap-3 p-3 text-start transition hover:bg-[var(--surface-subtle)] ${selectedLibraryId === item.id ? 'bg-brand-500/10' : ''}`}
                 >
@@ -383,9 +416,64 @@ function GroupArticleModal({ restaurantId, serviceId, offerId, pricingModel, gro
           <div className="grid gap-4">
             <label><span className="text-sm font-semibold text-fg-secondary">{t('catering_group_articles_item_name')}</span><input className="input mt-1" value={name} onChange={(event) => setName(event.target.value)} /></label>
             <label><span className="text-sm font-semibold text-fg-secondary">{t('description')}</span><textarea className="input mt-1 min-h-24" value={description} onChange={(event) => setDescription(event.target.value)} /></label>
-            <label><span className="text-sm font-semibold text-fg-secondary">{t('catering_group_articles_image_url')}</span><input className="input mt-1" value={imageURL} onChange={(event) => setImageURL(event.target.value)} /></label>
+            <div>
+              <span className="text-sm font-semibold text-fg-secondary">{t('catering_group_articles_cover_image')}</span>
+              {imageURL ? (
+                <div className="mt-2 overflow-hidden rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] sm:grid sm:grid-cols-[180px_minmax(0,1fr)]">
+                  <img src={imageURL} alt="" className="aspect-[4/3] h-full w-full object-cover" />
+                  <div className="flex flex-col justify-center gap-2 p-4">
+                    <p className="text-sm text-fg-secondary">{t('catering_group_articles_cover_hint')}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="secondary" size="sm" disabled={uploadingCover} onClick={() => coverInputRef.current?.click()}>
+                        <ImagePlusIcon />{uploadingCover ? t('catering_group_articles_image_uploading') : t('catering_group_articles_replace_image')}
+                      </Button>
+                      <Button variant="ghost" size="sm" disabled={uploadingCover} onClick={() => setImageURL('')}>
+                        <TrashIcon />{t('catering_remove_image')}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={uploadingCover}
+                  onClick={() => coverInputRef.current?.click()}
+                  className="mt-2 flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--divider)] bg-[var(--surface-subtle)] px-4 text-sm font-semibold text-fg-secondary transition hover:border-brand-500 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ImagePlusIcon className="h-6 w-6" />
+                  {uploadingCover ? t('catering_group_articles_image_uploading') : t('catering_upload_image')}
+                </button>
+              )}
+              <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={uploadCover} />
+              <label className="mt-3 block">
+                <span className="text-xs font-medium text-fg-secondary">{t('catering_group_articles_image_url')}</span>
+                <input className="input mt-1" value={imageURL} onChange={(event) => setImageURL(event.target.value)} />
+              </label>
+            </div>
           </div>
         )}
+
+        {pricingModel === 'per_unit' && (
+          <label>
+            <span className="text-sm font-semibold text-fg-secondary">{t('catering_group_articles_portion')} *</span>
+            <input
+              className="input mt-1"
+              required
+              value={portion}
+              onChange={(event) => setPortion(event.target.value)}
+              placeholder={t('catering_group_articles_portion_placeholder')}
+            />
+            <span className="mt-1 block text-xs text-fg-tertiary">{t('catering_group_articles_portion_hint')}</span>
+          </label>
+        )}
+
+        <CateringItemGalleryEditor
+          restaurantId={restaurantId}
+          coverUrl={source === 'library' ? selectedLibraryItem?.image_url ?? '' : imageURL}
+          images={galleryImages}
+          onChange={setGalleryImages}
+          onUploadingChange={setUploadingGallery}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label><span className="text-sm font-semibold text-fg-secondary">{t(pricingModel === 'per_person' ? 'catering_group_articles_guest_price' : 'catering_group_articles_unit_price')}</span><input type="number" min="0" step="0.01" className="input mt-1" value={price} onChange={(event) => setPrice(event.target.value)} /></label>
