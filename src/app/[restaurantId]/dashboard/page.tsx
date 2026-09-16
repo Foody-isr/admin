@@ -54,6 +54,7 @@ import { InfoTip } from '@/components/help/InfoTip';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { useAuth } from '@/lib/auth-context';
 import { orderDetailPath } from '@/lib/orders/routes';
+import { dashboardLiveOrderScope } from '@/lib/dashboard-live-order-scope';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
@@ -337,6 +338,7 @@ export default function DashboardPage() {
     // then groups those matching orders by created_at so it shows when customers
     // actually placed them rather than one bar on the fulfillment Friday.
     const scope = { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
+    const liveOrderScope = dashboardLiveOrderScope(scope, basis);
     const days = daysInclusive(dateRange);
     const previousEnd = isoDate(addDays(dateRange.from, -1));
     Promise.allSettled([
@@ -350,11 +352,11 @@ export default function DashboardPage() {
         : getDailySeries(rid, days, previousEnd, basis),
       getBreakdown(rid, { dimension: 'order_type', scope, basis }),
       listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
-      listOrders(rid, { status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' }),
-      listOrders(rid, { status: 'pending_review', limit: 1 }),
-      listOrders(rid, { status: 'ready,ready_for_pickup,ready_for_delivery', limit: 1 }),
-      listOrders(rid, { status: LIVE_ORDER_STATUSES, payment_status: 'unpaid', limit: 1 }),
-      listOrders(rid, { status: LIVE_ORDER_STATUSES, payment_status: 'pending', limit: 1 }),
+      listOrders(rid, { ...liveOrderScope, status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' }),
+      listOrders(rid, { ...liveOrderScope, status: 'pending_review', limit: 1 }),
+      listOrders(rid, { ...liveOrderScope, status: 'ready,ready_for_pickup,ready_for_delivery', limit: 1 }),
+      listOrders(rid, { ...liveOrderScope, status: LIVE_ORDER_STATUSES, payment_status: 'unpaid', limit: 1 }),
+      listOrders(rid, { ...liveOrderScope, status: LIVE_ORDER_STATUSES, payment_status: 'pending', limit: 1 }),
     ])
       .then(([per, top, daily, previousDaily, breakdown, orders, active, review, readyOrders, unpaid, pending]) => {
         // A basis and range can now be changed within the same open popover.

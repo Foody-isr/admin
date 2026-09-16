@@ -2,13 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  SlidersHorizontalIcon,
 } from 'lucide-react';
 import { clampWeekStartDay, type WeekStartDay } from '@/lib/weeks';
 import { useI18n } from '@/lib/i18n';
-import type { DateBasis } from '@/lib/api';
+import {
+  getDisplayPreferences,
+  updateDisplayPreferences,
+  type DateBasis,
+} from '@/lib/api';
 import { buttonVariants } from '@/components/ds';
 import { cn } from '@/lib/utils';
 
@@ -34,9 +40,7 @@ interface DateRangePickerProps {
    *  day-of-week is not in this list are visually muted (still selectable).
    *  Omit to keep every cell at full opacity. */
   workdays?: number[];
-  /** Reserved: previously enabled per-restaurant saved ranges. The saved-range
-   *  UI is parked (backend kept dormant), so this is accepted but ignored for
-   *  now — callers can keep passing it until saved ranges are re-wired. */
+  /** Enables per-member shortcut visibility preferences for this restaurant. */
   restaurantId?: number;
   /** Which edge of the trigger the dropdown aligns to. Default 'left' (opens
    *  toward the right — correct for a left-aligned filter bar). Use 'right' when
@@ -123,9 +127,41 @@ function rotatedWeekdays(weekStartDay: WeekStartDay): number[] {
 // A selectable entry in the left rail. `id` is the preset's i18n key, used for
 // active-state matching; `label` is the resolved display string.
 interface Entry {
-  id: string;
+  id: DatePresetKey;
   label: string;
   range: DateRange;
+}
+
+export const DATE_PRESET_KEYS = [
+  'drToday',
+  'drYesterday',
+  'drLast7Days',
+  'drLast30Days',
+  'drThisWeek',
+  'drLastWeek',
+  'drThisMonth',
+  'drLastMonth',
+  'drThisYear',
+  'drLastYear',
+  'drAllTime',
+] as const;
+
+export type DatePresetKey = (typeof DATE_PRESET_KEYS)[number];
+
+export const DEFAULT_DATE_PRESET_KEYS: DatePresetKey[] = [
+  'drToday',
+  'drYesterday',
+  'drLast7Days',
+  'drLast30Days',
+  'drThisMonth',
+];
+
+/** Filters unknown server values and restores canonical shortcut ordering. */
+export function normalizeDatePresetKeys(values: string[] | undefined): DatePresetKey[] {
+  if (!values) return [...DEFAULT_DATE_PRESET_KEYS];
+  const selected = new Set(values);
+  const normalized = DATE_PRESET_KEYS.filter((key) => selected.has(key));
+  return normalized.length > 0 ? normalized : [...DEFAULT_DATE_PRESET_KEYS];
 }
 
 /** Returns the id of the entry whose window equals `value`, else null. */
@@ -138,7 +174,7 @@ function matchEntry(value: DateRange, entries: Entry[]): string | null {
 
 // Built-in presets, each keyed by its i18n string. Rolling windows mirror the
 // dashboard's "Last 7 / 30 days" (today included) so the surfaces compare cleanly.
-function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: string; range: DateRange }[] {
+function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: DatePresetKey; range: DateRange }[] {
   const today = startOfDay(now);
 
   const yesterday = new Date(today);
@@ -194,6 +230,7 @@ export default function DateRangePicker({
   onChange,
   weekStartDay,
   workdays,
+  restaurantId,
   align = 'left',
   basis,
   onBasisChange,
@@ -207,6 +244,11 @@ export default function DateRangePicker({
   // keeping the rendered output identical to the pre-workday version.
   const workdaySet = workdays && workdays.length > 0 ? new Set(workdays) : null;
   const [open, setOpen] = useState(false);
+  const [customizingPresets, setCustomizingPresets] = useState(false);
+  const [visiblePresetKeys, setVisiblePresetKeys] = useState<DatePresetKey[]>(DEFAULT_DATE_PRESET_KEYS);
+  const [draftPresetKeys, setDraftPresetKeys] = useState<DatePresetKey[]>(DEFAULT_DATE_PRESET_KEYS);
+  const [presetPreferenceSaving, setPresetPreferenceSaving] = useState(false);
+  const [presetPreferenceFailed, setPresetPreferenceFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Calendar state
@@ -223,16 +265,43 @@ export default function DateRangePicker({
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', keyHandler);
+    };
   }, []);
 
   // Closing after the first série click deliberately keeps that single-day
   // value, but reopening must begin a fresh selection rather than unexpectedly
   // treating the next click as the old range's second endpoint.
   useEffect(() => {
-    if (!open) setPicking('idle');
+    if (!open) {
+      setPicking('idle');
+      setCustomizingPresets(false);
+    }
   }, [open]);
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    let active = true;
+    setPresetPreferenceFailed(false);
+    getDisplayPreferences(restaurantId)
+      .then((preferences) => {
+        if (!active) return;
+        const normalized = normalizeDatePresetKeys(preferences.date_preset_keys);
+        setVisiblePresetKeys(normalized);
+        setDraftPresetKeys(normalized);
+      })
+      .catch(() => {
+        if (active) setPresetPreferenceFailed(true);
+      });
+    return () => { active = false; };
+  }, [restaurantId]);
 
   // Sync temp values when value prop changes
   useEffect(() => {
@@ -245,6 +314,8 @@ export default function DateRangePicker({
     .format(new Date(viewYear, viewMonth, 1));
 
   const builtinEntries: Entry[] = builtinPresets(wsd, now).map((p) => ({ id: p.key, label: t(p.key), range: p.range }));
+  const visiblePresetSet = new Set(visiblePresetKeys);
+  const visibleEntries = builtinEntries.filter((entry) => visiblePresetSet.has(entry.id));
   const activeId = matchEntry(value, builtinEntries);
   const activeEntry = builtinEntries.find((e) => e.id === activeId) ?? null;
   const isCustomActive = activeId === null;
@@ -316,6 +387,42 @@ export default function DateRangePicker({
     setPicking('idle');
   };
 
+  const openPresetCustomization = () => {
+    setDraftPresetKeys(visiblePresetKeys);
+    setPresetPreferenceFailed(false);
+    setCustomizingPresets(true);
+  };
+
+  const togglePreset = (key: DatePresetKey) => {
+    setDraftPresetKeys((current) => {
+      if (current.includes(key)) {
+        if (current.length === 1) return current;
+        return current.filter((candidate) => candidate !== key);
+      }
+      const selected = new Set([...current, key]);
+      return DATE_PRESET_KEYS.filter((candidate) => selected.has(candidate));
+    });
+  };
+
+  const savePresetCustomization = async () => {
+    if (!restaurantId || draftPresetKeys.length === 0) return;
+    setPresetPreferenceSaving(true);
+    setPresetPreferenceFailed(false);
+    try {
+      const preferences = await updateDisplayPreferences(restaurantId, {
+        date_preset_keys: draftPresetKeys,
+      });
+      const normalized = normalizeDatePresetKeys(preferences.date_preset_keys);
+      setVisiblePresetKeys(normalized);
+      setDraftPresetKeys(normalized);
+      setCustomizingPresets(false);
+    } catch {
+      setPresetPreferenceFailed(true);
+    } finally {
+      setPresetPreferenceSaving(false);
+    }
+  };
+
   const handleDayClick = (day: number) => {
     const clicked = new Date(viewYear, viewMonth, day);
 
@@ -372,7 +479,9 @@ export default function DateRangePicker({
 
   // 'right' aligns the wide dropdown to the trigger's end so it opens inward
   // (used in right-aligned headers). Mirrored under RTL. Default stays left-0.
-  const dropdownAlignClass = align === 'right' ? (direction === 'rtl' ? 'left-0' : 'right-0') : 'left-0';
+  const dropdownAlignClass = align === 'right'
+    ? (direction === 'rtl' ? 'sm:left-0' : 'sm:right-0')
+    : 'sm:left-0';
 
   const presetButton = (entry: Entry) => {
     const isActive = !serieMode && activeId === entry.id;
@@ -414,19 +523,27 @@ export default function DateRangePicker({
 
       {/* Dropdown */}
       {open && (
-        <div
-          role="dialog"
-          aria-label={hasBasisControl ? t('dashboardDateFilter') : t('dateBasisAria')}
-          className={`absolute top-full ${dropdownAlignClass} mt-1 z-50 flex w-[470px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-card shadow-xl`}
-          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
-        >
-          <div className="flex flex-col sm:flex-row">
-            {/* Left: presets */}
-            <div className="flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-[var(--divider)] py-3 sm:block sm:max-h-[380px] sm:w-36 sm:overflow-y-auto sm:border-b-0 sm:border-e">
+        <>
+          <button
+            type="button"
+            aria-label={t('close')}
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 bg-black/20 sm:hidden"
+          />
+          <div
+            role="dialog"
+            aria-label={hasBasisControl ? t('dashboardDateFilter') : t('dateBasisAria')}
+            className={`fixed inset-x-3 bottom-[calc(var(--safe-bottom)+0.75rem)] z-50 flex max-h-[calc(100dvh-var(--safe-top)-1.5rem)] w-auto max-w-none flex-col overflow-y-auto overscroll-contain rounded-card shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:top-full sm:mt-1 sm:max-h-none sm:w-[470px] sm:max-w-[calc(100vw-2rem)] sm:overflow-hidden ${dropdownAlignClass}`}
+            style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+          >
+            <div className="flex flex-col sm:flex-row">
+              {/* Left: presets */}
+              <div className="flex w-full flex-shrink-0 border-b border-[var(--divider)] sm:block sm:max-h-[380px] sm:w-36 sm:border-b-0 sm:border-e">
+              <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto py-3 sm:block sm:max-h-[330px] sm:overflow-y-auto">
               {hasBasisControl && (
                 <div className="hidden px-4 pb-1 text-[11px] font-medium text-[var(--fg-muted)] sm:block">{t('dashboardDateRange')}</div>
               )}
-              {builtinEntries.slice(0, 2).map(presetButton)}
+              {visibleEntries.slice(0, 2).map(presetButton)}
               {hasBasisControl && (
                 <button
                   type="button"
@@ -443,7 +560,7 @@ export default function DateRangePicker({
                   {t('dashboardSeries')}
                 </button>
               )}
-              {builtinEntries.slice(2).map(presetButton)}
+              {visibleEntries.slice(2).map(presetButton)}
 
               {/* Custom (fallback) — highlights when the range matches no preset.
                   Pick a custom window by clicking two days on the calendar. */}
@@ -457,10 +574,99 @@ export default function DateRangePicker({
               >
                 {t('drCustom')}
               </button>
-            </div>
+              </div>
+              {restaurantId && (
+                <button
+                  type="button"
+                  onClick={openPresetCustomization}
+                  className={cn(
+                    'flex w-12 shrink-0 items-center justify-center gap-2 border-s border-[var(--divider)] px-3 text-left text-sm transition-colors sm:w-full sm:justify-start sm:border-s-0 sm:border-t sm:py-2 sm:px-4',
+                    customizingPresets
+                      ? 'bg-[var(--brand-50)] font-semibold text-[var(--brand-700)]'
+                      : 'text-fg-secondary hover:bg-[var(--surface-subtle)] hover:text-fg-primary',
+                  )}
+                >
+                  <SlidersHorizontalIcon className="size-3.5 shrink-0" />
+                  <span className="sr-only sm:not-sr-only">{t('datePresetCustomize')}</span>
+                </button>
+              )}
+              </div>
 
-            {/* Right: calendar */}
-            <div className="mx-auto w-[320px] p-4">
+              {/* Right: calendar */}
+              {customizingPresets ? (
+                <div className="flex w-full flex-col p-4 sm:w-[326px]">
+                  <div>
+                    <h3 className="text-base font-semibold text-fg-primary">
+                      {t('datePresetCustomizeTitle')}
+                    </h3>
+                    <p className="mt-1 text-xs leading-relaxed text-fg-secondary">
+                      {t('datePresetCustomizeDesc')}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {builtinEntries.map((entry) => {
+                      const selected = draftPresetKeys.includes(entry.id);
+                      const isLastSelected = selected && draftPresetKeys.length === 1;
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={selected}
+                          disabled={isLastSelected}
+                          onClick={() => togglePreset(entry.id)}
+                          className={cn(
+                            'flex min-h-11 items-center gap-2 rounded-standard border px-2.5 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:shadow-ring',
+                            selected
+                              ? 'border-[var(--brand-300)] bg-[var(--brand-50)] font-medium text-[var(--brand-800)]'
+                              : 'border-[var(--divider)] text-fg-secondary hover:bg-[var(--surface-subtle)] hover:text-fg-primary',
+                            isLastSelected && 'cursor-not-allowed',
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
+                              selected
+                                ? 'border-[var(--brand-600)] bg-[var(--brand-600)] text-white'
+                                : 'border-[var(--line-strong)] bg-[var(--surface)]',
+                            )}
+                          >
+                            {selected && <CheckIcon className="size-3" strokeWidth={3} />}
+                          </span>
+                          <span>{entry.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {presetPreferenceFailed && (
+                    <p className="mt-3 text-xs text-[var(--danger-600)]" role="status">
+                      {t('displayPreferenceSaveFailed')}
+                    </p>
+                  )}
+
+                  <div className="mt-4 flex justify-end gap-2 border-t border-[var(--divider)] pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setCustomizingPresets(false)}
+                      disabled={presetPreferenceSaving}
+                      className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+                    >
+                      {t('cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void savePresetCustomization()}
+                      disabled={presetPreferenceSaving}
+                      className={buttonVariants({ variant: 'primary', size: 'sm' })}
+                    >
+                      {t('save')}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+              <div className="mx-auto w-full max-w-[320px] p-3 sm:p-4">
             {/* Month/year nav */}
             <div className="flex items-center justify-between mb-4">
               <button
@@ -514,7 +720,7 @@ export default function DateRangePicker({
                     type="button"
                     disabled={disabled}
                     onClick={() => handleDayClick(day)}
-                    className={`relative mx-auto flex h-10 w-10 items-center justify-center rounded-full text-sm transition-colors ${
+                    className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors sm:h-10 sm:w-10 ${
                       isSelected
                         ? 'bg-fg-primary text-[var(--surface)] font-bold'
                         : disabled
@@ -549,9 +755,11 @@ export default function DateRangePicker({
                 <div className="text-sm text-fg-primary mt-0.5">{fmt(tempTo)}</div>
               </div>
             </div>
+              </div>
+              )}
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
