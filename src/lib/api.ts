@@ -9513,6 +9513,7 @@ export interface CateringLibraryItem {
   category_name: string;
   name: string;
   description: string;
+  portion: string;
   image_url: string;
   price: number;
   is_active: boolean;
@@ -9533,6 +9534,7 @@ export interface CateringCatalogItem {
    *  the itemized `description`. Translatable via the translations map. */
   overview: string;
   description: string;
+  portion: string;
   image_url: string;
   base_price: number;
   service_modes?: CateringOfferServiceMode[];
@@ -9560,6 +9562,7 @@ export interface CateringCatalogItemInput {
   menu_item_id?: number;
   overview?: string;
   description?: string;
+  portion?: string;
   image_url?: string;
   base_price: number;
   service_modes?: CateringOfferServiceMode[];
@@ -9658,6 +9661,7 @@ export async function listCateringArticleLibrary(restaurantId: number): Promise<
       category_name: category.name,
       name: item.name,
       description: item.description,
+      portion: item.portion ?? '',
       image_url: item.image_url,
       price: item.price,
       is_active: item.is_active,
