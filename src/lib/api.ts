@@ -129,6 +129,7 @@ export interface Restaurant {
 export interface DisplayPreferences {
   orders_date_basis: DateBasis;
   dashboard_date_basis: DateBasis;
+  date_preset_keys: string[];
   orders_date_basis_override?: DateBasis | null;
   dashboard_date_basis_override?: DateBasis | null;
   orders_restaurant_default: DateBasis;
@@ -138,6 +139,7 @@ export interface DisplayPreferences {
 export interface DisplayPreferencePatch {
   orders_date_basis?: DateBasis;
   dashboard_date_basis?: DateBasis;
+  date_preset_keys?: string[];
   reset_orders_date_basis?: boolean;
   reset_dashboard_date_basis?: boolean;
 }

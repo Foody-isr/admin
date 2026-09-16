@@ -198,6 +198,7 @@ export default function AnalyticsOverviewPage() {
               value={dateRange}
               onChange={onPickRange}
               weekStartDay={wsd}
+              restaurantId={rid}
               align="right"
               basis={basis}
               onBasisChange={onChangeBasis}
