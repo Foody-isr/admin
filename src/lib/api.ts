@@ -178,6 +178,11 @@ export interface RestaurantSettings {
   tips_enabled: boolean;
   auto_accept_prepaid: boolean;
   auto_send_to_kitchen: boolean;
+  /** Existing POS-side automatic kitchen print preference. */
+  auto_print_kitchen_ticket?: boolean;
+  /** Server owns automatic kitchen printing when enabled. */
+  server_printing_enabled?: boolean;
+  print_poll_interval_seconds?: number;
   rush_mode: boolean;
   // Order-lifecycle profile. "full" (default) keeps the manual step-by-step
   // flow; "simple" auto-marks an order ready when it is ticked done on the
@@ -2640,6 +2645,145 @@ export async function updateRestaurantSettings(
     { method: 'PUT', body: JSON.stringify(input) }
   );
   return data.settings;
+}
+
+// ─── Server printing ─────────────────────────────────────────────────────────
+
+export type PrinterVendor = 'star' | 'epson';
+export type PrinterStatus = 'unknown' | 'online' | 'offline' | 'error';
+export type PrintJobState = 'queued' | 'claimed' | 'printed' | 'failed';
+export type PrintRoutingComponent = 'category' | 'item' | 'modifier' | 'option';
+
+export interface PrintPrinter {
+  id: string;
+  restaurant_id: number;
+  name: string;
+  identifier: string;
+  vendor: PrinterVendor;
+  model?: string;
+  protocol: 'http' | 'mqtt';
+  enabled: boolean;
+  epson_polling_id?: string;
+  gateway_printer_id?: string;
+  status: PrinterStatus;
+  last_seen_at?: string;
+  last_error?: string;
+  expected_poll_seconds: number;
+  offline_after_seconds: number;
+  paper_width_dots: number;
+  mqtt_username?: string;
+  mqtt_credentials_configured?: boolean;
+  last_test_succeeded_at?: string;
+}
+
+export interface PrintStation {
+  id: string;
+  restaurant_id: number;
+  name: string;
+  primary_printer_id?: string;
+  fallback_printer_id?: string;
+  receives_full_order: boolean;
+  copies: number;
+  cut_mode: 'none' | 'partial' | 'full';
+  buzzer: boolean;
+  font_size: number;
+  locale?: 'he' | 'fr' | 'en';
+  enabled: boolean;
+}
+
+export interface PrintRoutingRule {
+  id?: string;
+  station_id: string;
+  component_type: PrintRoutingComponent;
+  category_id?: number;
+  menu_item_id?: number;
+  menu_item_modifier_id?: number;
+  option_id?: number;
+  channel?: string;
+}
+
+export interface PrintJob {
+  id: string;
+  kind: 'production' | 'test';
+  station_id?: string;
+  order_id?: number;
+  current_printer_id: string;
+  state: PrintJobState;
+  attempts: number;
+  last_error?: string;
+  created_at: string;
+  printed_at?: string;
+}
+
+export interface PrintingOverview {
+  printers: PrintPrinter[];
+  stations: PrintStation[];
+  routing_rules: PrintRoutingRule[];
+  jobs: PrintJob[];
+  summary: { queued: number; claimed: number; printed: number; failed: number };
+}
+
+export interface RegisterPrinterInput {
+  name: string;
+  identifier: string;
+  vendor?: PrinterVendor;
+  model?: string;
+  protocol?: 'http' | 'mqtt';
+  paper_width_dots?: 384 | 576;
+  expected_poll_seconds?: number;
+  epson_polling_id?: string;
+  gateway_printer_id?: string;
+}
+
+export interface PrinterRegistration {
+  printer: PrintPrinter;
+  username: string;
+  password: string;
+  realm: string;
+  mqtt_username?: string;
+  mqtt_password?: string;
+}
+
+export async function getPrintingOverview(restaurantId: number): Promise<PrintingOverview> {
+  return apiFetch<PrintingOverview>(`/api/v1/restaurants/${restaurantId}/printing`, restaurantId);
+}
+
+export async function registerPrinter(restaurantId: number, input: RegisterPrinterInput): Promise<PrinterRegistration> {
+  return apiFetch<PrinterRegistration>(`/api/v1/restaurants/${restaurantId}/printing/printers`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function updatePrinter(restaurantId: number, printerId: string, input: Partial<RegisterPrinterInput> & { enabled?: boolean }): Promise<PrintPrinter> {
+  const data = await apiFetch<{ printer: PrintPrinter }>(`/api/v1/restaurants/${restaurantId}/printing/printers/${printerId}`, restaurantId, { method: 'PUT', body: JSON.stringify(input) });
+  return data.printer;
+}
+
+export async function deletePrinter(restaurantId: number, printerId: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/restaurants/${restaurantId}/printing/printers/${printerId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function testPrinter(restaurantId: number, printerId: string, locale?: string): Promise<PrintJob> {
+  const data = await apiFetch<{ job: PrintJob }>(`/api/v1/restaurants/${restaurantId}/printing/printers/${printerId}/test`, restaurantId, { method: 'POST', body: JSON.stringify({ locale }) });
+  return data.job;
+}
+
+export async function savePrintStation(restaurantId: number, input: Omit<PrintStation, 'id' | 'restaurant_id'>, stationId?: string): Promise<PrintStation> {
+  const path = stationId ? `/api/v1/restaurants/${restaurantId}/printing/stations/${stationId}` : `/api/v1/restaurants/${restaurantId}/printing/stations`;
+  const data = await apiFetch<{ station: PrintStation }>(path, restaurantId, { method: stationId ? 'PUT' : 'POST', body: JSON.stringify(input) });
+  return data.station;
+}
+
+export async function deletePrintStation(restaurantId: number, stationId: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/restaurants/${restaurantId}/printing/stations/${stationId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function replacePrintRoutingRules(restaurantId: number, rules: PrintRoutingRule[]): Promise<PrintRoutingRule[]> {
+  const data = await apiFetch<{ routing_rules: PrintRoutingRule[] }>(`/api/v1/restaurants/${restaurantId}/printing/routing-rules`, restaurantId, { method: 'PUT', body: JSON.stringify({ rules }) });
+  return data.routing_rules;
+}
+
+export async function reprintOrder(restaurantId: number, orderId: number): Promise<string[]> {
+  const data = await apiFetch<{ job_ids: string[] }>(`/api/v1/restaurants/${restaurantId}/printing/orders/${orderId}/reprint`, restaurantId, { method: 'POST' });
+  return data.job_ids;
 }
 
 // ─── Cibus (Pluxee) terminal credentials (merchant self-serve) ──────────────

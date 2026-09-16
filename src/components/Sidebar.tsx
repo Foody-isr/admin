@@ -311,7 +311,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     pathname.startsWith(`${base}/restaurant/table-status`) ||
     pathname.startsWith(`${base}/restaurant/table-qr`) ||
     pathname.startsWith(`${base}/restaurant/workflow`);
-  const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon; desktopOnly?: boolean }[] }[] = [
+  const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon; desktopOnly?: boolean; perm?: string[] }[] }[] = [
     {
       groupKey: 'settingsGroupAccount',
       items: [
@@ -331,7 +331,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { id: 'stock', href: `${base}/settings/stock`, labelKey: 'stockSettings', icon: Package },
         { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
         { id: 'cibus', href: `${base}/settings/cibus`, labelKey: 'cibusSettings', icon: CreditCard, desktopOnly: true },
-        { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
+        { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds', icon: Printer, desktopOnly: true, perm: ['printers.view', 'printers.manage'] },
         { id: 'ai-assistant', href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant', icon: Sparkles },
         { id: 'delivery', href: `${base}/settings/delivery`, labelKey: 'deliveryZones', icon: MapPin },
         { id: 'tours', href: `${base}/delivery/tours`, labelKey: 'tours', icon: Truck },
@@ -440,7 +440,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                 </div>
               )}
               {settingsSections.map((s) => {
-                const allDesktopOnly = s.items.every((it) => it.desktopOnly);
+                const visibleItems = s.items.filter((it) => !it.perm || hasAnyPermission(...it.perm));
+                if (visibleItems.length === 0) return null;
+                const allDesktopOnly = visibleItems.every((it) => it.desktopOnly);
                 return (
                 <div
                   key={s.groupKey}
@@ -451,7 +453,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                       {t(s.groupKey)}
                     </div>
                   )}
-                  {s.items.map((it) => {
+                  {visibleItems.map((it) => {
                     const active = isSettingsItemActive(it.href);
                     const Icon = it.icon;
                     return (
