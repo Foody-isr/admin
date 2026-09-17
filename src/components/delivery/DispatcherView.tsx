@@ -203,6 +203,12 @@ function RouteRibbon({
             <div className="text-[11px] text-[var(--fg-subtle)]">{t('deliveryPlanDistance')}</div>
           </div>
         </div>
+        {unresolved > 0 && (
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] leading-snug text-[var(--warning-500)]">
+            <AlertCircleIcon className="h-3 w-3 shrink-0" />
+            {t('routeEstimatePartial')}
+          </p>
+        )}
 
         <div className="mb-2 h-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
           <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: color }} />
