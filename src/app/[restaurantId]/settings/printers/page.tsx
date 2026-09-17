@@ -17,6 +17,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { LearnMore } from '@/components/help/LearnMore';
 import {
   Button, ConfirmDialog, Drawer, EmptyState, Field, FullScreenEditor, Input,
   Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, PageHead, Section,
@@ -175,7 +176,14 @@ export default function PrinterProfilesPage() {
   };
 
   return <div className="max-w-[1240px]">
-    <PageHead title={t('printerProfilesTitle')} desc={t('printerProfilesDesc')} actions={canEdit ? <Button variant="primary" size="md" onClick={createProfile}><Plus />{t('printerProfileCreate')}</Button> : undefined} />
+    <PageHead
+      title={t('printerProfilesTitle')}
+      desc={t('printerProfilesDesc')}
+      actions={<div className="flex flex-wrap items-center gap-3">
+        <LearnMore feature="printers" label={t('printingSetupGuide')} />
+        {canEdit && <Button variant="primary" size="md" onClick={createProfile}><Plus />{t('printerProfileCreate')}</Button>}
+      </div>}
+    />
     {notice && <div className="mb-4"><Feedback tone="success" text={notice} /></div>}
     {error && !editor && !assignmentProfile && <div className="mb-4"><Feedback tone="danger" text={error} /></div>}
     {loading ? <Section><div className="flex items-center justify-center gap-2 py-12 text-fs-sm text-[var(--fg-muted)]"><RefreshCw className="h-4 w-4 animate-spin" />{t('loading')}</div></Section> : profiles.length === 0 && !search ? <Section><EmptyState icon={<Settings2 />} title={t('printerProfileEmptyTitle')} desc={t('printerProfileEmptyDesc')} action={canEdit ? <Button variant="primary" size="md" onClick={createProfile}><Plus />{t('printerProfileCreate')}</Button> : undefined} /></Section> : <>
