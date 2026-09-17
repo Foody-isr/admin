@@ -8970,21 +8970,22 @@ export async function validateDiscount(restaurantId: number, req: ValidateDiscou
 
 /**
  * Geocode an address or city name via the server's free Nominatim-backed endpoint.
- * Returns `{found: false}` on failure so callers can always destructure safely.
+ * Distinguishes a genuine no-result from a temporary provider/network failure
+ * so address editors do not tell staff to rewrite a valid address during an outage.
  */
 export async function geocodeAddress(
   _restaurantId: number,
   address: string,
   city?: string,
-): Promise<{ found: boolean; lat?: number; lng?: number }> {
+): Promise<{ found: boolean; lat?: number; lng?: number; unavailable?: boolean }> {
   const q = new URLSearchParams({ address });
   if (city) q.set('city', city);
   try {
     const res = await fetch(`${API_URL}/api/v1/public/geocode?${q.toString()}`);
-    if (!res.ok) return { found: false };
+    if (!res.ok) return { found: false, unavailable: res.status >= 500 };
     return res.json();
   } catch {
-    return { found: false };
+    return { found: false, unavailable: true };
   }
 }
 

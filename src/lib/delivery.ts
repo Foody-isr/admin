@@ -60,6 +60,13 @@ export interface RouteSettingsInput {
   end_address: string;
 }
 
+export interface StopAddressInput {
+  address: string;
+  city: string;
+  lat?: number;
+  lng?: number;
+}
+
 function q(restaurantId: number, extra?: Record<string, string>): string {
   const sp = new URLSearchParams({ restaurant_id: String(restaurantId), ...(extra ?? {}) });
   return sp.toString();
@@ -140,11 +147,31 @@ export async function reorderStops(restaurantId: number, routeId: number, stopId
 }
 
 export async function optimizeRoute(
-  restaurantId: number, routeId: number, from?: { lat: number; lng: number },
+  restaurantId: number,
+  routeId: number,
+  from?: { lat: number; lng: number },
+  ownRoute = false,
+): Promise<DeliveryRoute> {
+  const action = ownRoute ? 'my-optimize' : 'optimize';
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}/${action}?${q(restaurantId)}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(from ? { from } : {}) },
+  );
+  return data.route;
+}
+
+/** Correct and locate a stop on the current courier's own route. The server
+ * persists the order correction and safely recalculates the remaining route. */
+export async function updateMyStopAddress(
+  restaurantId: number,
+  routeId: number,
+  stopId: number,
+  input: StopAddressInput,
 ): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/optimize?${q(restaurantId)}`, restaurantId,
-    { method: 'POST', body: JSON.stringify(from ? { from } : {}) },
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/my-address?${q(restaurantId)}`,
+    restaurantId,
+    { method: 'PATCH', body: JSON.stringify(input) },
   );
   return data.route;
 }

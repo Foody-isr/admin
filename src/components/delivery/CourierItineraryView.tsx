@@ -6,13 +6,14 @@ import { useI18n, useCurrency } from '@/lib/i18n';
 import { useWs } from '@/lib/ws-context';
 import {
   getMyRoute, startRoute, markArrived, markStopDelivered, reorderStops, optimizeRoute,
-  listAvailableDeliveries, addStops, updateRouteSettings,
-  type DeliveryRoute, type RouteSettingsInput, type RouteStop,
+  listAvailableDeliveries, addStops, updateRouteSettings, updateMyStopAddress,
+  type DeliveryRoute, type RouteSettingsInput, type RouteStop, type StopAddressInput,
 } from '@/lib/delivery';
 import { ApiError, type Order } from '@/lib/api';
 import { callUrl, whatsappUrl } from '@/lib/delivery-links';
 import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
 import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
+import { CourierAddressEditor } from '@/components/delivery/CourierAddressEditor';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 import {
   buildDeliveryEtaLabel,
@@ -30,6 +31,7 @@ import {
   TabsList,
   Tab,
   TabsContent,
+  ConfirmDialog,
 } from '@/components/ds';
 import {
   PhoneIcon,
@@ -47,6 +49,7 @@ import {
   PackageIcon,
   UserRoundIcon,
   MessageCircleIcon,
+  PencilIcon,
 } from 'lucide-react';
 
 // ── Dynamic import: Leaflet crashes on SSR ────────────────────────────────────
@@ -204,11 +207,15 @@ function CurrentStopCard({
   stop,
   etaWindow,
   hasFollowing,
+  busy,
+  onEditAddress,
   t,
 }: {
   stop: RouteStop;
   etaWindow: DeliveryEtaWindow | null;
   hasFollowing: boolean;
+  busy: boolean;
+  onEditAddress: () => void;
   t: (k: string) => string;
 }) {
   const { money } = useCurrency();
@@ -279,6 +286,25 @@ function CurrentStopCard({
           </p>
         )}
 
+        <div className="mt-3 flex flex-wrap items-center gap-1">
+          <NavigationAppMenu destination={stop} variant="ghost" size="sm" label={t('navigate')} t={t} />
+          <Button variant="ghost" size="sm" onClick={onEditAddress} disabled={busy}>
+            <PencilIcon />
+            {t('correctAddress')}
+          </Button>
+          {stop.customer_phone && (
+            <a
+              href={whatsappUrl(stop.customer_phone, stopWhatsappMessage(stop, etaWindow, t))}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t('deliveryPlanWhatsApp')}
+              title={t('deliveryPlanWhatsApp')}
+            >
+              <Button variant="ghost" size="sm" icon><MessageCircleIcon /></Button>
+            </a>
+          )}
+        </div>
+
         {deliveryNotes && (
           <div className="mt-3 rounded-r-md border-s-2 border-[var(--brand-300)] bg-[var(--surface-2)] px-3 py-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--fg-subtle)]">{t('deliveryNotes')}</p>
@@ -299,6 +325,7 @@ function StopRow({
   busy,
   onMoveUp,
   onMoveDown,
+  onEditAddress,
   hasFollowingEndpoint,
   t,
 }: {
@@ -309,6 +336,7 @@ function StopRow({
   busy: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onEditAddress: () => void;
   hasFollowingEndpoint: boolean;
   t: (k: string) => string;
 }) {
@@ -378,6 +406,9 @@ function StopRow({
         {!isDelivered && (
           <div className="mt-3 flex items-center gap-1">
             <NavigationAppMenu destination={stop} variant="ghost" size="sm" label={t('navigate')} t={t} />
+            <Button variant="ghost" size="sm" icon onClick={onEditAddress} disabled={busy} aria-label={t('correctAddress')} title={t('correctAddress')}>
+              <PencilIcon />
+            </Button>
             {stop.customer_phone && (
               <a
                 href={whatsappUrl(stop.customer_phone, stopWhatsappMessage(stop, etaWindow, t))}
@@ -483,6 +514,8 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const [error, setError] = useState<string | null>(null);
   const [available, setAvailable] = useState<Order[]>([]);
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [addressEditorStop, setAddressEditorStop] = useState<RouteStop | null>(null);
+  const [startConfirmOpen, setStartConfirmOpen] = useState(false);
   const prevEvent = useRef(lastEvent);
   const loadRequestId = useRef(0);
   const { denied: locationDenied } = useLocationReporter(rid, route?.status === 'active');
@@ -522,6 +555,8 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   );
   const currentStop = stops.find((s) => s.status !== 'delivered' && s.status !== 'skipped') ?? null;
   const delivered = stops.filter((s) => s.status === 'delivered').length;
+  const unresolvedStops = stops.filter((s) => s.needs_geocode && s.status !== 'delivered' && s.status !== 'skipped');
+  const locatedStops = stops.length - unresolvedStops.length;
 
   async function withBusy<T>(fn: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);
@@ -538,14 +573,29 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const onReoptimize = () =>
     withBusy(async () => {
       if (!route) return;
-      setRoute(await optimizeRoute(rid, route.id));
+      setRoute(await optimizeRoute(rid, route.id, undefined, true));
     });
 
-  const onStart = () =>
+  const startNow = () =>
     withBusy(async () => {
       if (!route) return;
       setRoute(await startRoute(rid, route.id));
     });
+
+  const onStart = () => {
+    if (unresolvedStops.length > 0) {
+      setStartConfirmOpen(true);
+      return;
+    }
+    void startNow();
+  };
+
+  const onSaveStopAddress = async (input: StopAddressInput) => {
+    if (!route || !addressEditorStop) return;
+    setError(null);
+    const updated = await updateMyStopAddress(rid, route.id, addressEditorStop.id, input);
+    setRoute(updated);
+  };
 
   const onSaveSettings = async (input: RouteSettingsInput) => {
     if (!route) return;
@@ -730,8 +780,11 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
                 <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
                   <div className="min-w-0">
                     <p className="whitespace-nowrap text-fs-sm font-semibold text-[var(--fg)]">
-                      {formatEta(route.est_duration_s, t) || '—'} · {stops.length} {t('deliveryPlanStops')}
+                      {formatEta(route.est_duration_s, t) || '—'} · {unresolvedStops.length > 0 ? `${locatedStops}/${stops.length}` : stops.length} {t('deliveryPlanStops')}
                     </p>
+                    {unresolvedStops.length > 0 && (
+                      <p className="mt-0.5 text-[11px] text-[var(--warning-500)]">{t('routeEstimatePartial')}</p>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
@@ -759,6 +812,21 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
             {/* Progress bar */}
             {stops.length > 0 && (
               <RouteProgress delivered={delivered} total={stops.length} />
+            )}
+
+            {unresolvedStops.length > 0 && (
+              <div className="flex items-start gap-3 rounded-r-lg border border-[var(--warning-500)]/30 bg-[var(--warning-50)] px-4 py-3">
+                <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--warning-500)]" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-fs-sm font-medium text-[var(--fg)]">
+                    {t('unlocatedStopsCount').replace('{count}', String(unresolvedStops.length))}
+                  </p>
+                  <p className="mt-0.5 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('unlocatedStopsExplanation')}</p>
+                </div>
+                <Button variant="ghost" size="sm" className="shrink-0" disabled={busy} onClick={onReoptimize}>
+                  {t('retry')}
+                </Button>
+              </div>
             )}
 
             {route.status === 'draft' && stops.length > 0 && (
@@ -794,6 +862,8 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
                       stop={stop}
                       etaWindow={deliveryEtaWindow(route, stop, locale)}
                       hasFollowing={index < stops.length - 1 || !!route.end_address}
+                      busy={busy}
+                      onEditAddress={() => setAddressEditorStop(stop)}
                       t={t}
                     />
                   ) : (
@@ -806,6 +876,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
                       busy={busy}
                       onMoveUp={() => move(stop, -1)}
                       onMoveDown={() => move(stop, 1)}
+                      onEditAddress={() => setAddressEditorStop(stop)}
                       hasFollowingEndpoint={!!route.end_address}
                       t={t}
                     />
@@ -923,6 +994,25 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
           />
         </div>
       )}
+
+      <CourierAddressEditor
+        open={addressEditorStop != null}
+        onOpenChange={(open) => { if (!open) setAddressEditorStop(null); }}
+        restaurantId={rid}
+        stop={addressEditorStop}
+        onSave={onSaveStopAddress}
+        t={t}
+      />
+
+      <ConfirmDialog
+        open={startConfirmOpen}
+        onOpenChange={setStartConfirmOpen}
+        title={t('startRouteWithUnlocatedTitle')}
+        description={t('startRouteWithUnlocatedDescription').replace('{count}', String(unresolvedStops.length))}
+        confirmLabel={t('startAnyway')}
+        cancelLabel={t('back')}
+        onConfirm={() => { setStartConfirmOpen(false); void startNow(); }}
+      />
     </div>
   );
 }
