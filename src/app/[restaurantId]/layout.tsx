@@ -29,6 +29,7 @@ const PAGE_SLUGS = [
   'kitchen',
   'orders',
   'deliveries',
+  'courierMode',
   'staff',
   'roles',
   'customers',
@@ -66,7 +67,9 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const segments = pathname.split('/');
   const pageSlug = pathname.startsWith(`/${restaurantId}/orders/deliveries`)
     ? 'deliveries'
-    : segments[2] || 'dashboard';
+    : pathname.startsWith(`/${restaurantId}/orders/courier-mode`)
+      ? 'courierMode'
+      : segments[2] || 'dashboard';
   const pageName = (PAGE_SLUGS as readonly string[]).includes(pageSlug)
     ? t(pageSlug)
     : pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1);
