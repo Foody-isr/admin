@@ -2,24 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, Check, ClipboardList, Plus, Printer, RefreshCw, Route, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, ClipboardList, Network, Plus, Printer, RefreshCw, Route, Send, Trash2 } from 'lucide-react';
 import {
   API_URL,
   deletePrinter, deletePrintStation, getAllCategories, getPrintingOverview,
   getRestaurantSettings, listAllItems, registerPrinter, replacePrintRoutingRules,
   reprintOrder, savePrintStation, testPrinter, updatePrinter, updateRestaurantSettings,
-  type MenuCategory, type MenuItem, type PrintPrinter, type PrintRoutingRule,
+  type MenuCategory, type MenuItem, type PrintJob, type PrintPrinter, type PrintRoutingRule,
   type PrintStation, type PrinterRegistration,
   type PrinterVendor, type PrintingOverview, type RestaurantSettings,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { buildSharedPrinterSimulationStations } from '@/lib/printing-routing';
 import {
   Badge, Button, Drawer, EmptyState, Field, Input, NumberField, PageHead,
   Section, Select, Tab, Tabs, TabsContent, TabsList,
 } from '@/components/ds';
 
-const EMPTY_OVERVIEW: PrintingOverview = { printers: [], stations: [], routing_rules: [], jobs: [], summary: { queued: 0, claimed: 0, printed: 0, failed: 0 } };
+const EMPTY_OVERVIEW: PrintingOverview = { printers: [], stations: [], routing_rules: [], jobs: [], summary: { queued: 0, claimed: 0, printed: 0, failed: 0, uncertain: 0 } };
 
 const newStation = (): Omit<PrintStation, 'id' | 'restaurant_id'> => ({
   name: '',
@@ -51,6 +52,13 @@ function statusTone(status: PrintPrinter['status']): 'success' | 'danger' | 'war
 function formatSeen(value?: string) {
   if (!value) return '—';
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+}
+
+function jobTone(state: PrintJob['state']): 'success' | 'danger' | 'warning' | 'neutral' {
+  if (state === 'printed') return 'success';
+  if (state === 'failed') return 'danger';
+  if (state === 'claimed' || state === 'uncertain') return 'warning';
+  return 'neutral';
 }
 
 export default function PrintersSettingsPage() {
@@ -130,6 +138,19 @@ export default function PrintersSettingsPage() {
     [overview.printers],
   );
 
+  const localSpoolerPrinters = useMemo(
+    () => enabledPrinters.filter((printer) => printer.protocol === 'spooler'),
+    [enabledPrinters],
+  );
+
+  const simulationPrinter = localSpoolerPrinters.length === 1
+    ? localSpoolerPrinters[0]
+    : undefined;
+
+  const missingSimulationStations = simulationPrinter
+    ? buildSharedPrinterSimulationStations(simulationPrinter.id, overview.stations)
+    : [];
+
   const testedPrinterCount = useMemo(
     () => enabledPrinters.filter((printer) => printer.last_test_succeeded_at).length,
     [enabledPrinters],
@@ -198,10 +219,21 @@ export default function PrintersSettingsPage() {
   const saveRollout = (enabled: boolean, interval: number) => run(async () => {
     const next = await updateRestaurantSettings(rid, {
       server_printing_enabled: enabled,
+      ...(enabled ? { auto_print_kitchen_ticket: true } : {}),
       print_poll_interval_seconds: interval,
     });
     setSettings(next);
   });
+
+  const createSimulationStations = () => {
+    if (!simulationPrinter || missingSimulationStations.length === 0) return;
+    void run(async () => {
+      for (const station of missingSimulationStations) {
+        await savePrintStation(rid, station);
+      }
+      await load();
+    });
+  };
 
   const submitPrinter = () => run(async () => {
     const registration = await registerPrinter(rid, {
@@ -296,7 +328,7 @@ export default function PrintersSettingsPage() {
   return (
     <div className="max-w-[1120px]">
       <PageHead title={t('printingTitle')} desc={t('printingDescription')} actions={canManage && (
-        <Button onClick={() => setPrinterOpen(true)}><Plus />{t('printingRegister')}</Button>
+        <Button variant="secondary" onClick={() => setPrinterOpen(true)}><Plus />{t('printingRegisterCloud')}</Button>
       )} />
 
       {error && (
@@ -306,6 +338,37 @@ export default function PrintersSettingsPage() {
           <Button variant="ghost" size="sm" onClick={() => void load()}>{t('retry')}</Button>
         </div>
       )}
+
+      <section className="mb-[var(--s-5)] overflow-hidden rounded-r-lg border border-[var(--primary-500)]/30 bg-[var(--surface-1)]">
+        <div className="flex flex-wrap items-start gap-4 border-s-4 border-[var(--primary-500)] px-4 py-4 sm:px-5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary-50)] text-[var(--primary-700)]">
+            <Network className="h-5 w-5" />
+          </span>
+          <div className="min-w-64 flex-1">
+            <h2 className="font-semibold text-[var(--fg)]">{t('printingSimulationTitle')}</h2>
+            <p className="mt-1 max-w-3xl text-fs-sm leading-relaxed text-[var(--fg-muted)]">
+              {simulationPrinter
+                ? t('printingSimulationReady')
+                : localSpoolerPrinters.length > 1
+                  ? t('printingSimulationMultiple')
+                  : t('printingSimulationMissing')}
+            </p>
+            {simulationPrinter && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-fs-xs text-[var(--fg-muted)]">
+                <Badge tone={simulationPrinter.last_test_succeeded_at ? 'success' : 'warning'} dot>
+                  {simulationPrinter.name}
+                </Badge>
+                <span>{t('printingSharedPrinterFlow')}</span>
+              </div>
+            )}
+          </div>
+          {canManage && simulationPrinter && missingSimulationStations.length > 0 && (
+            <Button disabled={saving} onClick={createSimulationStations}>
+              <Plus />{t('printingCreatePizzaBar')}
+            </Button>
+          )}
+        </div>
+      </section>
 
       <Section title={t('printingRollout')} desc={t('printingRolloutHint')}>
         <div className="flex flex-wrap items-end gap-[var(--s-4)]">
@@ -353,8 +416,8 @@ export default function PrintersSettingsPage() {
         </div>
       </section>
 
-      <div className="mb-[var(--s-5)] grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {(['queued', 'claimed', 'printed', 'failed'] as const).map((state) => (
+      <div className="mb-[var(--s-5)] grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {(['queued', 'claimed', 'printed', 'failed', 'uncertain'] as const).map((state) => (
           <div key={state} className="rounded-r-md border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2">
             <div className="text-fs-xs text-[var(--fg-muted)]">{t(`printingJob_${state}`)}</div>
             <div className="mt-1 text-xl font-semibold tabular-nums text-[var(--fg)]">{overview.summary[state]}</div>
@@ -374,7 +437,7 @@ export default function PrintersSettingsPage() {
           <Section title={t('printingLivePrinters')} desc={t('printingLiveHint')}>
             {overview.printers.length === 0 ? (
               <EmptyState icon={<Printer />} title={t('printingNoPrinters')} desc={t('printingNoPrintersHint')}
-                action={canManage ? <Button size="sm" onClick={() => setPrinterOpen(true)}><Plus />{t('printingRegister')}</Button> : undefined} />
+                action={canManage ? <Button size="sm" variant="secondary" onClick={() => setPrinterOpen(true)}><Plus />{t('printingRegisterCloud')}</Button> : undefined} />
             ) : (
               <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
                 {overview.printers.map((printer) => (
@@ -386,13 +449,19 @@ export default function PrintersSettingsPage() {
                         {!printer.enabled && <Badge tone="neutral">{t('disabled')}</Badge>}
                       </div>
                       <div className="mt-1 font-mono text-fs-xs text-[var(--fg-subtle)]">
-                        {printer.vendor === 'epson' ? 'EPSON SDP' : 'STAR'} · {printer.protocol.toUpperCase()} · {printer.model || printer.identifier} · {printer.paper_width_dots}px
+                        {printer.protocol === 'spooler'
+                          ? `EPSON ePOS · FOODY SPOOLER · LAN · ${printer.model || printer.identifier} · ${printer.paper_width_dots}px`
+                          : `${printer.vendor === 'epson' ? 'EPSON SDP' : 'STAR'} · ${printer.protocol.toUpperCase()} · ${printer.model || printer.identifier} · ${printer.paper_width_dots}px`}
                       </div>
-                      {printer.vendor === 'epson' && <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
-                        {printer.gateway_printer_id
-                          ? `${t('printingEpsonDeviceId')}: ${printer.identifier} · ${t('printingEpsonViaGateway')}`
-                          : `${t('printingEpsonPollingId')}: ${printer.epson_polling_id} · ${t('printingEpsonDeviceId')}: ${printer.identifier}`}
-                      </div>}
+                      {printer.protocol === 'spooler' ? (
+                        <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{t('printingLocalSpoolerNetwork')}</div>
+                      ) : printer.vendor === 'epson' && (
+                        <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+                          {printer.gateway_printer_id
+                            ? `${t('printingEpsonDeviceId')}: ${printer.identifier} · ${t('printingEpsonViaGateway')}`
+                            : `${t('printingEpsonPollingId')}: ${printer.epson_polling_id} · ${t('printingEpsonDeviceId')}: ${printer.identifier}`}
+                        </div>
+                      )}
                       <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
                         {t('printingLastSeen')}: {formatSeen(printer.last_seen_at)}
                         <span className="ms-3">{t('printingLastTest')}: {formatSeen(printer.last_test_succeeded_at)}</span>
@@ -408,7 +477,7 @@ export default function PrintersSettingsPage() {
                       </div>
                     </div>
                     {canManage && <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" disabled={saving} onClick={() => void run(async () => { await testPrinter(rid, printer.id); await load(true); })}>{t('test')}</Button>
+                      <Button variant="secondary" size="sm" disabled={saving} onClick={() => void run(async () => { await testPrinter(rid, printer.id); await load(true); })}>{printer.protocol === 'spooler' ? t('printingCloudTest') : t('test')}</Button>
                       <Button variant="ghost" size="sm" disabled={saving} onClick={() => void run(async () => { await updatePrinter(rid, printer.id, { enabled: !printer.enabled }); await load(); })}>{printer.enabled ? t('disable') : t('enable')}</Button>
                       <Button icon variant="ghost" size="sm" aria-label={t('delete')} disabled={saving} onClick={() => {
                         if (window.confirm(t('printingDeletePrinterConfirm'))) void run(async () => { await deletePrinter(rid, printer.id); await load(); });
@@ -434,7 +503,7 @@ export default function PrintersSettingsPage() {
                 return <div key={station.id} className="flex flex-wrap items-center gap-[var(--s-3)] py-[var(--s-4)]">
                   <div className="min-w-64 flex-1"><div className="font-semibold text-[var(--fg)]">{station.name}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{primary?.name ?? t('printingUnassigned')}{fallback && ` → ${fallback.name}`} · {station.copies}× · {station.cut_mode} · {station.locale?.toUpperCase() ?? 'HE'}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{categoryCount}/{categories.length} {t('printingCategoriesRouted')}</div></div>
                   {station.receives_full_order && <Badge tone="neutral">{t('printingFullOrder')}</Badge>}
-                  {canManage && <>{primary && <Button size="sm" variant="secondary" disabled={saving} onClick={() => void run(async () => { await testPrinter(rid, primary.id); await load(true); })}>{t('printingTestTicket')}</Button>}<Button size="sm" variant="ghost" onClick={() => openStation(station)}>{t('edit')}</Button><Button icon size="sm" variant="ghost" aria-label={t('delete')} onClick={() => {
+                  {canManage && <>{primary && <Button size="sm" variant="secondary" disabled={saving} onClick={() => void run(async () => { await testPrinter(rid, primary.id); await load(true); })}>{primary.protocol === 'spooler' ? t('printingCloudTest') : t('printingTestTicket')}</Button>}<Button size="sm" variant="ghost" onClick={() => openStation(station)}>{t('edit')}</Button><Button icon size="sm" variant="ghost" aria-label={t('delete')} onClick={() => {
                     if (window.confirm(t('printingDeleteStationConfirm'))) void run(async () => { await deletePrintStation(rid, station.id); await load(); });
                   }}><Trash2 /></Button></>}
                 </div>;
@@ -494,7 +563,11 @@ export default function PrintersSettingsPage() {
         <TabsContent value="jobs">
           <Section title={t('printingRecentJobs')} desc={t('printingRecentJobsHint')} aside={<Button size="sm" variant="ghost" onClick={() => void load(true)}><RefreshCw />{t('refresh')}</Button>}>
             {overview.jobs.length === 0 ? <EmptyState icon={<Send />} title={t('printingNoJobs')} /> : <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
-              {overview.jobs.map((job) => <div key={job.id} className="grid gap-2 py-3 md:grid-cols-[1fr_auto] md:items-center"><div><div className="font-mono text-fs-xs text-[var(--fg)]">{job.order_id ? `#${job.order_id} · ` : ''}{job.id}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{formatSeen(job.created_at)} · {job.attempts} {t('printingAttempts')}</div>{job.last_error && <div className="mt-1 text-fs-xs text-[var(--danger-600)]">{job.last_error}</div>}</div><div className="flex items-center gap-2"><Badge tone={job.state === 'printed' ? 'success' : job.state === 'failed' ? 'danger' : job.state === 'claimed' ? 'warning' : 'neutral'} dot>{t(`printingJob_${job.state}`)}</Badge>{canManage && job.kind === 'production' && job.order_id && <Button size="sm" variant="ghost" disabled={saving} onClick={() => void run(async () => { await reprintOrder(rid, job.order_id!); await load(true); })}>{t('printingReprint')}</Button>}</div></div>)}
+              {overview.jobs.map((job) => {
+                const station = overview.stations.find((value) => value.id === job.station_id);
+                const isKitchenTicket = job.kind === 'kitchen_ticket' || job.kind === 'production';
+                return <div key={job.id} className="grid gap-2 py-3 md:grid-cols-[1fr_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-fs-xs text-[var(--fg)]">{job.order_id ? `#${job.order_id} · ` : ''}{job.id}</span>{station && <Badge tone="neutral">{station.name}</Badge>}<span className="text-fs-xs text-[var(--fg-muted)]">{job.kind}</span></div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{formatSeen(job.created_at)} · {job.attempts} {t('printingAttempts')}</div>{job.last_error && <div className="mt-1 text-fs-xs text-[var(--danger-600)]">{job.last_error}</div>}</div><div className="flex items-center gap-2"><Badge tone={jobTone(job.state)} dot>{t(`printingJob_${job.state}`)}</Badge>{canManage && isKitchenTicket && job.order_id && <Button size="sm" variant="ghost" disabled={saving} onClick={() => void run(async () => { await reprintOrder(rid, job.order_id!); await load(true); })}>{t('printingReprint')}</Button>}</div></div>;
+              })}
             </div>}
           </Section>
         </TabsContent>
@@ -540,6 +613,7 @@ export default function PrintersSettingsPage() {
         <div className="grid gap-4">
           <Field label={t('name')}><Input value={stationDraft.name} onChange={(event) => setStationDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
           <Field label={t('printingPrimaryPrinter')}><Select value={stationDraft.primary_printer_id ?? ''} onChange={(event) => setStationDraft((current) => ({ ...current, primary_printer_id: event.target.value || undefined }))}><option value="">{t('printingUnassigned')}</option>{overview.printers.map((printer) => <option key={printer.id} value={printer.id}>{printer.name}</option>)}</Select></Field>
+          <p className="-mt-2 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('printingSharedPrinterHint')}</p>
           <Field label={t('printingFallbackPrinter')}><Select value={stationDraft.fallback_printer_id ?? ''} onChange={(event) => setStationDraft((current) => ({ ...current, fallback_printer_id: event.target.value || undefined }))}><option value="">{t('printingUnassigned')}</option>{overview.printers.filter((printer) => printer.id !== stationDraft.primary_printer_id).map((printer) => <option key={printer.id} value={printer.id}>{printer.name}</option>)}</Select></Field>
           <div className="grid gap-4 sm:grid-cols-3"><Field label={t('printingCopies')}><NumberField min={1} max={5} value={stationDraft.copies} onChange={(value) => setStationDraft((current) => ({ ...current, copies: value }))} /></Field><Field label={t('printingFontSize')}><NumberField min={18} max={40} value={stationDraft.font_size} onChange={(value) => setStationDraft((current) => ({ ...current, font_size: value }))} /></Field><Field label={t('language')}><Select value={stationDraft.locale ?? 'he'} onChange={(event) => setStationDraft((current) => ({ ...current, locale: event.target.value as 'he' | 'fr' | 'en' }))}><option value="he">עברית</option><option value="fr">Français</option><option value="en">English</option></Select></Field></div>
           <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={stationDraft.receives_full_order} onChange={(event) => setStationDraft((current) => ({ ...current, receives_full_order: event.target.checked }))} />{t('printingFullOrder')}</label>
