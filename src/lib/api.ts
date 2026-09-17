@@ -2652,8 +2652,17 @@ export async function updateRestaurantSettings(
 // ─── Server printing ─────────────────────────────────────────────────────────
 
 export type PrinterVendor = 'star' | 'epson';
+export type PrinterProtocol = 'http' | 'mqtt' | 'spooler';
 export type PrinterStatus = 'unknown' | 'online' | 'offline' | 'error';
-export type PrintJobState = 'queued' | 'claimed' | 'printed' | 'failed';
+export type PrintJobState = 'queued' | 'claimed' | 'printed' | 'failed' | 'uncertain';
+export type PrintJobKind =
+  | 'kitchen_ticket'
+  | 'customer_receipt'
+  | 'end_of_day_report'
+  | 'cash_report'
+  | 'duplicate_receipt'
+  | 'test'
+  | 'production';
 export type PrintRoutingComponent = 'category' | 'item' | 'modifier' | 'option';
 
 export interface PrintPrinter {
@@ -2663,7 +2672,7 @@ export interface PrintPrinter {
   identifier: string;
   vendor: PrinterVendor;
   model?: string;
-  protocol: 'http' | 'mqtt';
+  protocol: PrinterProtocol;
   enabled: boolean;
   epson_polling_id?: string;
   gateway_printer_id?: string;
@@ -2706,7 +2715,7 @@ export interface PrintRoutingRule {
 
 export interface PrintJob {
   id: string;
-  kind: 'production' | 'test';
+  kind: PrintJobKind;
   station_id?: string;
   order_id?: number;
   current_printer_id: string;
@@ -2722,7 +2731,7 @@ export interface PrintingOverview {
   stations: PrintStation[];
   routing_rules: PrintRoutingRule[];
   jobs: PrintJob[];
-  summary: { queued: number; claimed: number; printed: number; failed: number };
+  summary: { queued: number; claimed: number; printed: number; failed: number; uncertain: number };
 }
 
 export interface RegisterPrinterInput {
@@ -2730,7 +2739,7 @@ export interface RegisterPrinterInput {
   identifier: string;
   vendor?: PrinterVendor;
   model?: string;
-  protocol?: 'http' | 'mqtt';
+  protocol?: PrinterProtocol;
   paper_width_dots?: 384 | 576;
   expected_poll_seconds?: number;
   epson_polling_id?: string;
