@@ -2654,7 +2654,7 @@ export async function updateRestaurantSettings(
 export type PrinterVendor = 'star' | 'epson';
 export type PrinterProtocol = 'http' | 'mqtt' | 'spooler';
 export type PrinterStatus = 'unknown' | 'online' | 'offline' | 'error';
-export type PrintJobState = 'queued' | 'claimed' | 'printed' | 'failed' | 'uncertain';
+export type PrintJobState = 'queued' | 'claimed' | 'printed' | 'failed' | 'uncertain' | 'cancelled';
 export type PrintJobKind =
   | 'kitchen_ticket'
   | 'customer_receipt'
@@ -2682,6 +2682,7 @@ export interface PrintPrinter {
   expected_poll_seconds: number;
   offline_after_seconds: number;
   paper_width_dots: number;
+  pending_job_count?: number;
   mqtt_username?: string;
   mqtt_credentials_configured?: boolean;
   last_test_succeeded_at?: string;
@@ -2727,6 +2728,9 @@ export interface PrintJob {
   last_error?: string;
   created_at: string;
   printed_at?: string;
+  cancelled_at?: string;
+  cancelled_by_user_id?: number;
+  cancellation_reason?: string;
 }
 
 export interface PrintingOverview {
@@ -2734,7 +2738,7 @@ export interface PrintingOverview {
   stations: PrintStation[];
   routing_rules: PrintRoutingRule[];
   jobs: PrintJob[];
-  summary: { queued: number; claimed: number; printed: number; failed: number; uncertain: number };
+  summary: { queued: number; claimed: number; printed: number; failed: number; uncertain: number; cancelled: number };
 }
 
 export interface RegisterPrinterInput {
@@ -2778,6 +2782,19 @@ export async function deletePrinter(restaurantId: number, printerId: string): Pr
 export async function testPrinter(restaurantId: number, printerId: string, locale?: string): Promise<PrintJob> {
   const data = await apiFetch<{ job: PrintJob }>(`/api/v1/restaurants/${restaurantId}/printing/printers/${printerId}/test`, restaurantId, { method: 'POST', body: JSON.stringify({ locale }) });
   return data.job;
+}
+
+export async function cancelPrintJob(restaurantId: number, jobId: string, reason?: string): Promise<PrintJob> {
+  const data = await apiFetch<{ job: PrintJob }>(`/api/v1/restaurants/${restaurantId}/printing/jobs/${jobId}/cancel`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ reason }),
+  });
+  return data.job;
+}
+
+export async function cancelPendingPrintJobs(restaurantId: number, printerId: string, reason?: string): Promise<{ cancelled_job_ids: string[]; cancelled_count: number }> {
+  return apiFetch<{ cancelled_job_ids: string[]; cancelled_count: number }>(`/api/v1/restaurants/${restaurantId}/printing/printers/${printerId}/cancel-pending`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ reason }),
+  });
 }
 
 export async function savePrintStation(restaurantId: number, input: Omit<PrintStation, 'id' | 'restaurant_id'>, stationId?: string): Promise<PrintStation> {
