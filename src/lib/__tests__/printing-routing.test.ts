@@ -11,6 +11,9 @@ test('home simulation creates two logical stations on one physical printer', () 
     ['printer-u220', 'printer-u220'],
   );
   assert.ok(stations.every((station) => station.receives_full_order === false));
+  assert.ok(stations.every((station) => station.show_table === true));
+  assert.ok(stations.every((station) => station.show_order_type === true));
+  assert.ok(stations.every((station) => station.ticket_split_mode === 'grouped'));
 });
 
 test('home simulation is idempotent and preserves existing stations', () => {

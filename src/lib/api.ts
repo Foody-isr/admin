@@ -2694,6 +2694,9 @@ export interface PrintStation {
   primary_printer_id?: string;
   fallback_printer_id?: string;
   receives_full_order: boolean;
+  show_table: boolean;
+  show_order_type: boolean;
+  ticket_split_mode: 'grouped' | 'item_unit';
   copies: number;
   cut_mode: 'none' | 'partial' | 'full';
   buzzer: boolean;
