@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, Check, ClipboardList, Plus, Printer, RefreshCw, Route, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, ClipboardList, ListX, Plus, Printer, RefreshCw, Route, Send, Trash2, XCircle } from 'lucide-react';
 import {
   API_URL,
+  cancelPendingPrintJobs, cancelPrintJob,
   deletePrinter, deletePrintStation, getAllCategories, getPrintingOverview,
   getRestaurantSettings, listAllItems, registerPrinter, replacePrintRoutingRules,
   reprintOrder, savePrintStation, testPrinter, updatePrinter, updateRestaurantSettings,
@@ -16,11 +17,15 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { isPrintingConfigurationReady } from '@/lib/printing-routing';
 import {
-  Badge, Button, Drawer, EmptyState, Field, Input, NumberField, PageHead,
+  Badge, Button, ConfirmDialog, Drawer, EmptyState, Field, Input, NumberField, PageHead,
   Section, Select, Tab, Tabs, TabsContent, TabsList,
 } from '@/components/ds';
 
-const EMPTY_OVERVIEW: PrintingOverview = { printers: [], stations: [], routing_rules: [], jobs: [], summary: { queued: 0, claimed: 0, printed: 0, failed: 0, uncertain: 0 } };
+const EMPTY_OVERVIEW: PrintingOverview = { printers: [], stations: [], routing_rules: [], jobs: [], summary: { queued: 0, claimed: 0, printed: 0, failed: 0, uncertain: 0, cancelled: 0 } };
+
+type QueueAction =
+  | { kind: 'job'; job: PrintJob }
+  | { kind: 'printer'; printer: PrintPrinter; count: number };
 
 const newStation = (): Omit<PrintStation, 'id' | 'restaurant_id'> => ({
   name: '',
@@ -82,6 +87,7 @@ export default function PrintersSettingsPage() {
   const [stationOpen, setStationOpen] = useState(false);
   const [editingStationId, setEditingStationId] = useState<string>();
   const [credentials, setCredentials] = useState<PrinterRegistration | null>(null);
+  const [queueAction, setQueueAction] = useState<QueueAction | null>(null);
   const [stationDraft, setStationDraft] = useState(newStation);
   const [rulesDraft, setRulesDraft] = useState<PrintRoutingRule[]>([]);
   const [printerDraft, setPrinterDraft] = useState(newPrinter);
@@ -188,6 +194,19 @@ export default function PrintersSettingsPage() {
     }
   };
 
+  const confirmQueueAction = () => {
+    const action = queueAction;
+    if (!action) return;
+    setQueueAction(null);
+    void run(async () => {
+      if (action.kind === 'job') {
+        await cancelPrintJob(rid, action.job.id, t('printingCancelledByOperator'));
+      } else {
+        await cancelPendingPrintJobs(rid, action.printer.id, t('printingQueueClearedByOperator'));
+      }
+      await load(true);
+    });
+  };
   const submitPrinter = () => run(async () => {
     const registration = await registerPrinter(rid, {
       name: printerDraft.name,
@@ -346,7 +365,8 @@ export default function PrintersSettingsPage() {
                           ))}
                       </div>
                     </div>
-                    {canManage && <div className="flex gap-2">
+                    {canManage && <div className="flex flex-wrap gap-2">
+                      {(printer.pending_job_count ?? 0) > 0 && <Button variant="danger" size="sm" disabled={saving} onClick={() => setQueueAction({ kind: 'printer', printer, count: printer.pending_job_count ?? 0 })}><ListX />{t('printingClearQueue')} ({printer.pending_job_count})</Button>}
                       <Button variant="secondary" size="sm" disabled={saving} onClick={() => void run(async () => { await testPrinter(rid, printer.id); await load(true); })}>{t('printingTestTicket')}</Button>
                       <Button variant="ghost" size="sm" disabled={saving} onClick={() => void run(async () => { await updatePrinter(rid, printer.id, { enabled: !printer.enabled }); await load(); })}>{printer.enabled ? t('disable') : t('enable')}</Button>
                       <Button icon variant="ghost" size="sm" aria-label={t('delete')} disabled={saving} onClick={() => {
@@ -430,11 +450,11 @@ export default function PrintersSettingsPage() {
         </TabsContent>
 
         <TabsContent value="jobs">
-          <div className="mb-[var(--s-3)] grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {(['queued', 'claimed', 'printed', 'failed', 'uncertain'] as const).map((state) => (
+          <div className="mb-[var(--s-3)] grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {(['queued', 'claimed', 'printed', 'failed', 'uncertain', 'cancelled'] as const).map((state) => (
               <div key={state} className="rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2">
                 <div className="text-fs-xs text-[var(--fg-muted)]">{t(`printingJob_${state}`)}</div>
-                <div className="mt-1 text-xl font-semibold tabular-nums text-[var(--fg)]">{overview.summary[state]}</div>
+                <div className="mt-1 text-xl font-semibold tabular-nums text-[var(--fg)]">{overview.summary[state] ?? 0}</div>
               </div>
             ))}
           </div>
@@ -443,7 +463,8 @@ export default function PrintersSettingsPage() {
               {overview.jobs.map((job) => {
                 const station = overview.stations.find((value) => value.id === job.station_id);
                 const isKitchenTicket = job.kind === 'kitchen_ticket' || job.kind === 'production';
-                return <div key={job.id} className="grid gap-2 py-3 md:grid-cols-[1fr_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><span className="text-fs-sm font-medium text-[var(--fg)]">{job.order_id ? `#${job.order_id}` : job.kind}</span>{station && <Badge tone="neutral">{station.name}</Badge>}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{formatSeen(job.created_at)}{job.attempts > 1 ? ` · ${job.attempts} ${t('printingAttempts')}` : ''}</div>{job.last_error && <div className="mt-1 text-fs-xs text-[var(--danger-500)] dark:text-[#fb7185]">{job.last_error}</div>}</div><div className="flex items-center gap-2"><Badge tone={jobTone(job.state)} dot>{t(`printingJob_${job.state}`)}</Badge>{canManage && isKitchenTicket && job.order_id && <Button size="sm" variant="ghost" disabled={saving} onClick={() => void run(async () => { await reprintOrder(rid, job.order_id!); await load(true); })}>{t('printingReprint')}</Button>}</div></div>;
+                const isPending = job.state === 'queued' || job.state === 'claimed';
+                return <div key={job.id} className="grid gap-2 py-3 md:grid-cols-[1fr_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><span className="text-fs-sm font-medium text-[var(--fg)]">{job.order_id ? `#${job.order_id}` : job.kind}</span>{station && <Badge tone="neutral">{station.name}</Badge>}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{formatSeen(job.created_at)}{job.attempts > 1 ? ` · ${job.attempts} ${t('printingAttempts')}` : ''}</div>{job.last_error && <div className={`mt-1 text-fs-xs ${job.state === 'cancelled' ? 'text-[var(--fg-muted)]' : 'text-[var(--danger-500)] dark:text-[#fb7185]'}`}>{job.last_error}</div>}</div><div className="flex flex-wrap items-center gap-2"><Badge tone={jobTone(job.state)} dot>{t(`printingJob_${job.state}`)}</Badge>{canManage && isPending && <Button size="sm" variant={job.state === 'claimed' ? 'danger' : 'ghost'} disabled={saving} onClick={() => setQueueAction({ kind: 'job', job })}><XCircle />{job.state === 'claimed' ? t('printingCancelBlockingJob') : t('printingCancelJob')}</Button>}{canManage && isKitchenTicket && job.order_id && !isPending && <Button size="sm" variant="ghost" disabled={saving} onClick={() => void run(async () => { await reprintOrder(rid, job.order_id!); await load(true); })}>{t('printingReprint')}</Button>}</div></div>;
               })}
             </div>}
           </Section>
@@ -519,6 +540,21 @@ export default function PrintersSettingsPage() {
           <Field label={t('printingRealm')}><Input readOnly className="font-mono" value={credentials.realm} /></Field>
         </div>}
       </Drawer>
+
+      <ConfirmDialog
+        open={queueAction !== null}
+        onOpenChange={(open) => { if (!open) setQueueAction(null); }}
+        title={queueAction?.kind === 'printer' ? `${t('printingClearQueueTitle')} (${queueAction.count})` : t('printingCancelJobTitle')}
+        description={queueAction?.kind === 'printer'
+          ? t('printingClearQueueWarning')
+          : queueAction?.job.state === 'claimed'
+            ? t('printingCancelClaimedWarning')
+            : t('printingCancelQueuedWarning')}
+        confirmLabel={queueAction?.kind === 'printer' ? t('printingClearQueue') : t('printingCancelJob')}
+        cancelLabel={t('cancel')}
+        danger
+        onConfirm={confirmQueueAction}
+      />
     </div>
   );
 }
