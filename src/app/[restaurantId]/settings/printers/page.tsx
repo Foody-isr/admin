@@ -27,6 +27,9 @@ const newStation = (): Omit<PrintStation, 'id' | 'restaurant_id'> => ({
   primary_printer_id: undefined,
   fallback_printer_id: undefined,
   receives_full_order: false,
+  show_table: true,
+  show_order_type: true,
+  ticket_split_mode: 'grouped',
   copies: 1,
   cut_mode: 'full',
   buzzer: false,
@@ -270,7 +273,12 @@ export default function PrintersSettingsPage() {
       const { id, restaurant_id: _restaurantId, ...input } = station;
       void _restaurantId;
       setEditingStationId(id);
-      setStationDraft(input);
+      setStationDraft({
+        ...input,
+        show_table: input.show_table ?? true,
+        show_order_type: input.show_order_type ?? true,
+        ticket_split_mode: input.ticket_split_mode ?? 'grouped',
+      });
     } else {
       setEditingStationId(undefined);
       setStationDraft(newStation());
@@ -617,6 +625,15 @@ export default function PrintersSettingsPage() {
           <Field label={t('printingFallbackPrinter')}><Select value={stationDraft.fallback_printer_id ?? ''} onChange={(event) => setStationDraft((current) => ({ ...current, fallback_printer_id: event.target.value || undefined }))}><option value="">{t('printingUnassigned')}</option>{overview.printers.filter((printer) => printer.id !== stationDraft.primary_printer_id).map((printer) => <option key={printer.id} value={printer.id}>{printer.name}</option>)}</Select></Field>
           <div className="grid gap-4 sm:grid-cols-3"><Field label={t('printingCopies')}><NumberField min={1} max={5} value={stationDraft.copies} onChange={(value) => setStationDraft((current) => ({ ...current, copies: value }))} /></Field><Field label={t('printingFontSize')}><NumberField min={18} max={40} value={stationDraft.font_size} onChange={(value) => setStationDraft((current) => ({ ...current, font_size: value }))} /></Field><Field label={t('language')}><Select value={stationDraft.locale ?? 'he'} onChange={(event) => setStationDraft((current) => ({ ...current, locale: event.target.value as 'he' | 'fr' | 'en' }))}><option value="he">עברית</option><option value="fr">Français</option><option value="en">English</option></Select></Field></div>
           <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={stationDraft.receives_full_order} onChange={(event) => setStationDraft((current) => ({ ...current, receives_full_order: event.target.checked }))} />{t('printingFullOrder')}</label>
+          <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
+            <div className="font-semibold text-[var(--fg)]">{t('printingTicketContent')}</div>
+            <p className="mt-1 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('printingTicketContentHint')}</p>
+            <div className="mt-4 grid gap-3">
+              <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={stationDraft.show_table} onChange={(event) => setStationDraft((current) => ({ ...current, show_table: event.target.checked }))} />{t('printingShowTable')}</label>
+              <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={stationDraft.show_order_type} onChange={(event) => setStationDraft((current) => ({ ...current, show_order_type: event.target.checked }))} />{t('printingShowOrderType')}</label>
+            </div>
+          </div>
+          <Field label={t('printingTicketSplitMode')} hint={t('printingTicketSplitHint')}><Select value={stationDraft.ticket_split_mode} onChange={(event) => setStationDraft((current) => ({ ...current, ticket_split_mode: event.target.value as 'grouped' | 'item_unit' }))}><option value="grouped">{t('printingTicketSplitGrouped')}</option><option value="item_unit">{t('printingTicketSplitItemUnit')}</option></Select></Field>
           <Field label={t('printingCutMode')}><Select value={stationDraft.cut_mode} onChange={(event) => setStationDraft((current) => ({ ...current, cut_mode: event.target.value as 'none' | 'partial' | 'full' }))}><option value="none">{t('printingCutNone')}</option><option value="partial">{t('printingCutPartial')}</option><option value="full">{t('printingCutFull')}</option></Select></Field>
           <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={stationDraft.buzzer} onChange={(event) => setStationDraft((current) => ({ ...current, buzzer: event.target.checked }))} />{t('printingBuzzer')}</label>
         </div>
