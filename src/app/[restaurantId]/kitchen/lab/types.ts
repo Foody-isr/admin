@@ -1,5 +1,19 @@
 export type ComponentKind = 'stock_existing' | 'stock_new' | 'prep_existing' | 'prep_new';
 export type DraftStatus = 'generating' | 'ready' | 'error' | 'committed' | 'discarded';
+export type RecipeObjective = 'optimize_profit' | 'refresh_menu' | 'seasonal' | 'use_stock' | 'signature';
+export type StockPolicy = 'existing_only' | 'prefer_existing' | 'allow_new';
+
+export interface RecipeBrief {
+  objective: RecipeObjective;
+  stock_policy: StockPolicy;
+  creativity: number;
+  season?: string;
+  max_prep_time_mins?: number;
+  dietary?: string[];
+  must_use?: string[];
+  exclude?: string[];
+  notes?: string;
+}
 
 export interface Component {
   kind: ComponentKind;
@@ -20,6 +34,10 @@ export interface Component {
   is_price_estimated?: boolean;
   price_confidence?: 'high' | 'medium' | 'low';
   target_cost_per_unit?: number;
+  waste_pct?: number;
+  cost_status?: 'verified' | 'estimated' | 'unknown';
+  cost_source?: 'stock' | 'preparation' | 'market_estimate' | 'missing';
+  available_quantity?: number;
 }
 
 export interface CostSummary {
@@ -30,6 +48,59 @@ export interface CostSummary {
   suggested_min_price?: number;
   target_pct: number;
   verdict: 'ok' | 'over_budget' | 'no_price' | 'loss_making';
+  verified_cost: number;
+  estimated_cost: number;
+  unknown_cost_count: number;
+  cost_status: 'verified' | 'estimated' | 'incomplete';
+  contribution_margin?: number;
+  margin_pct?: number;
+}
+
+export interface MenuContextItem {
+  id: string;
+  name: string;
+  category?: string;
+  price: number;
+  sales_90_days: number;
+  revenue_90_days: number;
+  ingredients?: string[];
+}
+
+export interface MenuContext {
+  restaurant_name?: string;
+  currency: string;
+  average_price: number;
+  min_price: number;
+  max_price: number;
+  items?: MenuContextItem[];
+  top_ingredients?: string[];
+  current_item?: MenuContextItem;
+}
+
+export interface CreativeSummary {
+  rationale?: string;
+  menu_fit_notes?: string;
+  seasonality_notes?: string;
+  plating_notes?: string;
+  alternatives?: string[];
+}
+
+export interface Recommendation {
+  code: string;
+  severity: 'info' | 'warning' | 'critical';
+  title: string;
+  message: string;
+  impact_value?: number;
+}
+
+export interface DraftMetrics {
+  stock_reuse_pct: number;
+  menu_fit_score: number;
+  operational_score: number;
+  complexity_score: number;
+  prep_count: number;
+  ingredient_count: number;
+  recommendations?: Recommendation[];
 }
 
 export interface RecipeStep {
@@ -48,6 +119,12 @@ export interface DraftPayload {
   components: Component[];
   recipe_steps: RecipeStep[];
   cost_summary: CostSummary;
+  brief: RecipeBrief;
+  context: MenuContext;
+  creative: CreativeSummary;
+  metrics: DraftMetrics;
+  revision: number;
+  selected_image_url?: string;
 }
 
 export interface ChatMessage {
@@ -64,11 +141,35 @@ export interface Draft {
   status: DraftStatus;
   error_message?: string;
   payload?: DraftPayload;
+  brief?: RecipeBrief;
   chat_history?: ChatMessage[];
   committed_at?: string;
   committed_menu_item_id?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface RecipeVersion {
+  id: number;
+  restaurant_id: number;
+  menu_item_id: number;
+  draft_id?: number;
+  version: number;
+  objective: RecipeObjective;
+  change_summary: string;
+  payload: DraftPayload;
+  food_cost: number;
+  selling_price: number;
+  cost_status: CostSummary['cost_status'];
+  created_by_id: number;
+  created_at: string;
+}
+
+export interface DraftImageResult {
+  generation_id: number;
+  image_b64: string;
+  rendered_prompt: string;
+  recipe_revision: number;
 }
 
 export interface ChatPatch {
