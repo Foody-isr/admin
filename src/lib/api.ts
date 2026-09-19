@@ -7,6 +7,9 @@ import type {
   ChatPatch as LabChatPatch,
   DraftStatus,
   CommitResult,
+  RecipeBrief,
+  RecipeVersion,
+  DraftImageResult,
 } from '@/app/[restaurantId]/kitchen/lab/types';
 import type { PosDisplayLayout } from './posDisplay';
 import {
@@ -8381,11 +8384,64 @@ export async function importMenuItemsCsv(
 /** Generate one or more recipe drafts by dish name or existing menu item IDs. */
 export async function labGenerateDrafts(
   restaurantId: number,
-  body: { dish_names?: string[]; menu_item_ids?: string[]; locale?: string }
+  body: { dish_names?: string[]; menu_item_ids?: string[]; locale?: string; brief?: RecipeBrief }
 ): Promise<{ drafts: Draft[] }> {
   return apiFetch<{ drafts: Draft[] }>(
     `/api/v1/lab/drafts/generate?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify(body) }
+  );
+}
+
+/** Recalculate all unit conversions, costs, margins and guidance without saving. */
+export async function labSimulateDraft(
+  restaurantId: number,
+  id: number,
+  payload: DraftPayload,
+): Promise<DraftPayload> {
+  return apiFetch<DraftPayload>(
+    `/api/v1/lab/drafts/${id}/simulate?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+}
+
+export async function labGenerateImage(
+  restaurantId: number,
+  id: number,
+  body: { kind: 'commercial' | 'plating'; style: string; angle: string; additional_notes?: string },
+): Promise<DraftImageResult> {
+  return apiFetch<DraftImageResult>(
+    `/api/v1/lab/drafts/${id}/images/generate?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
+export async function labConfirmImage(
+  restaurantId: number,
+  id: number,
+  body: { generation_id: number; image_b64: string },
+): Promise<{ image_url: string; recipe_revision: number }> {
+  return apiFetch(
+    `/api/v1/lab/drafts/${id}/images/confirm?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
+export async function labListRecipeVersions(restaurantId: number, menuItemId: number): Promise<RecipeVersion[]> {
+  const res = await apiFetch<{ versions: RecipeVersion[] }>(
+    `/api/v1/lab/menu-items/${menuItemId}/versions?restaurant_id=${restaurantId}`, restaurantId,
+  );
+  return res.versions ?? [];
+}
+
+export async function labRestoreRecipeVersion(
+  restaurantId: number,
+  menuItemId: number,
+  versionId: number,
+): Promise<DraftPayload> {
+  return apiFetch<DraftPayload>(
+    `/api/v1/lab/menu-items/${menuItemId}/versions/${versionId}/restore?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST' },
   );
 }
 
@@ -8411,13 +8467,13 @@ export async function labGetDraft(
   );
 }
 
-/** Replace the payload of a draft without changing its status. Returns 204. */
+/** Save an edited draft and return server-canonical costs and guidance. */
 export async function labPatchDraft(
   restaurantId: number,
   id: number,
   payload: DraftPayload
-): Promise<void> {
-  await apiFetch<void>(
+): Promise<DraftPayload> {
+  return apiFetch<DraftPayload>(
     `/api/v1/lab/drafts/${id}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'PATCH', body: JSON.stringify(payload) }
   );

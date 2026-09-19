@@ -93,9 +93,19 @@ export function CostSummaryHeader({
         }}
       >
         <Stat
-          label={t('labEstFoodCost')}
+          label={s.cost_status === 'verified' ? t('labExactFoodCost') : t('labEstFoodCost')}
           value={money(s.total_estimated_cost)}
         />
+
+        <Stat label={t('labVerifiedCost')} value={money(s.verified_cost ?? 0)} color="rgb(22,101,52)" />
+
+        {(s.estimated_cost ?? 0) > 0 && (
+          <Stat label={t('labEstimatedPart')} value={money(s.estimated_cost)} color="rgb(161,98,7)" />
+        )}
+
+        {(s.unknown_cost_count ?? 0) > 0 && (
+          <Stat label={t('labUnknownPrices')} value={String(s.unknown_cost_count)} color="rgb(107,114,128)" />
+        )}
 
         {s.food_cost_pct != null && (
           <Stat
@@ -109,6 +119,14 @@ export function CostSummaryHeader({
           <Stat
             label={`${t('labTargetLabel')} (≤${(s.target_pct * 100).toFixed(0)}%)`}
             value={money(s.target_food_cost)}
+          />
+        )}
+
+        {s.contribution_margin != null && (
+          <Stat
+            label={t('labContributionMargin')}
+            value={`${money(s.contribution_margin)}${s.margin_pct != null ? ` · ${(s.margin_pct * 100).toFixed(0)}%` : ''}`}
+            color={s.contribution_margin >= 0 ? 'rgb(22,101,52)' : 'rgb(185,28,28)'}
           />
         )}
 
