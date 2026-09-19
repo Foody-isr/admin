@@ -2672,6 +2672,12 @@ export interface PrintPrinter {
   identifier: string;
   vendor: PrinterVendor;
   model?: string;
+  profile: 'tm_u220iib' | 'tm_m30iii';
+  host: string;
+  port: number;
+  use_https: boolean;
+  device_id: string;
+  compatibility_port: number;
   protocol: PrinterProtocol;
   enabled: boolean;
   epson_polling_id?: string;
@@ -2686,6 +2692,16 @@ export interface PrintPrinter {
   mqtt_username?: string;
   mqtt_credentials_configured?: boolean;
   last_test_succeeded_at?: string;
+}
+
+export interface SavePrinterConfigurationInput {
+  profile: PrintPrinter['profile'];
+  host: string;
+  port?: number;
+  use_https?: boolean;
+  device_id?: string;
+  compatibility_port?: number;
+  enabled?: boolean;
 }
 
 export interface PrintStation {
@@ -2764,6 +2780,43 @@ export interface PrinterRegistration {
 
 export async function getPrintingOverview(restaurantId: number): Promise<PrintingOverview> {
   return apiFetch<PrintingOverview>(`/api/v1/restaurants/${restaurantId}/printing`, restaurantId);
+}
+
+/** Loads the single restaurant printer configuration consumed by FoodyPOS. */
+export async function getPrinterConfiguration(restaurantId: number): Promise<PrintPrinter | null> {
+  const data = await apiFetch<{ printer: PrintPrinter | null }>(
+    `/api/v1/restaurants/${restaurantId}/printing/configuration`, restaurantId,
+  );
+  return data.printer;
+}
+
+/** Creates or updates the restaurant's centrally managed printer. */
+export async function savePrinterConfiguration(
+  restaurantId: number,
+  input: SavePrinterConfigurationInput,
+): Promise<PrintPrinter> {
+  const data = await apiFetch<{ printer: PrintPrinter }>(
+    `/api/v1/restaurants/${restaurantId}/printing/configuration`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+  return data.printer;
+}
+
+/** Removes the central printer and stops automatic printing. */
+export async function deletePrinterConfiguration(restaurantId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/printing/configuration`, restaurantId,
+    { method: 'DELETE' },
+  );
+}
+
+/** Queues an end-to-end test ticket for FoodyPOS to print. */
+export async function testPrinterConfiguration(restaurantId: number, locale?: string): Promise<PrintJob> {
+  const data = await apiFetch<{ job: PrintJob }>(
+    `/api/v1/restaurants/${restaurantId}/printing/configuration/test`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ locale }) },
+  );
+  return data.job;
 }
 
 export async function registerPrinter(restaurantId: number, input: RegisterPrinterInput): Promise<PrinterRegistration> {
