@@ -28,24 +28,21 @@ export function IngredientRow({
   const { money } = useCurrency();
   const { t } = useI18n();
   const isExisting = c.kind === 'stock_existing';
+  const costMeta = costStatusMeta(c.cost_status ?? (isExisting ? 'verified' : 'estimated'), t);
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'auto 1fr 80px 70px 80px 1fr auto',
+        gridTemplateColumns: 'auto minmax(120px,1fr) 76px 68px 64px 82px minmax(80px,auto) auto',
         alignItems: 'center',
         gap: 8,
         padding: '4px 0',
       }}
     >
       {/* Origin badge: "real" for linked stock items, "est" for new/unlinked */}
-      <span>
-        {isExisting ? (
-          <RealBadge />
-        ) : (
-          <EstimatedPriceBadge confidence={c.price_confidence} />
-        )}
+      <span title={costMeta.label}>
+        {c.cost_status === 'unknown' ? <CostBadge label="?" color="rgb(107,114,128)" /> : isExisting && c.cost_status !== 'estimated' ? <RealBadge /> : <EstimatedPriceBadge confidence={c.price_confidence} />}
       </span>
 
       {/* Item name — truncated if too long */}
@@ -75,6 +72,23 @@ export function IngredientRow({
         />
       ) : (
         <span style={{ fontSize: 13, textAlign: 'right' }}>{c.qty}</span>
+      )}
+
+      {canManage ? (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: 'var(--fg-muted)' }} title={t('labWasteHelp')}>
+          <input
+            type="number"
+            value={c.waste_pct ?? 0}
+            min={0}
+            max={99}
+            step={1}
+            onChange={(e) => onChange({ ...c, waste_pct: Math.min(99, Math.max(0, Number(e.target.value))) })}
+            style={{ ...inputStyle, width: 44 }}
+            aria-label={t('labWaste')}
+          />%
+        </label>
+      ) : (
+        <span style={{ fontSize: 11, color: 'var(--fg-muted)' }}>{c.waste_pct ? `${c.waste_pct}%` : '—'}</span>
       )}
 
       {/* Unit select */}
@@ -131,6 +145,16 @@ export function IngredientRow({
       )}
     </div>
   );
+}
+
+function costStatusMeta(status: Component['cost_status'], t: (key: string) => string) {
+  if (status === 'verified') return { label: t('labCostVerified') };
+  if (status === 'estimated') return { label: t('labCostEstimated') };
+  return { label: t('labCostUnknown') };
+}
+
+function CostBadge({ label, color }: { label: string; color: string }) {
+  return <span style={{ borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: `${color}18`, color }}>{label}</span>;
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
