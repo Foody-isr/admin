@@ -157,8 +157,7 @@ export default function PrintersSettingsPage() {
     printers: overview.printers,
     stations: overview.stations,
     routingRules: overview.routing_rules,
-    categoryIds: categories.map((category) => category.id),
-  }), [categories, overview.printers, overview.routing_rules, overview.stations]);
+  }), [overview.printers, overview.routing_rules, overview.stations]);
 
   useEffect(() => {
     if (!canManage || !settings || autoActivationInFlight.current) return;

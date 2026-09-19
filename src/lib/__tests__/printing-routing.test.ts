@@ -15,14 +15,12 @@ const station = {
   receives_full_order: false,
 };
 
-test('printing becomes ready when a tested station covers every category', () => {
+test('printing becomes ready when one category is routed to a tested station', () => {
   assert.equal(isPrintingConfigurationReady({
     printers: [testedPrinter],
     stations: [station],
-    categoryIds: [1, 2],
     routingRules: [
       { station_id: station.id, component_type: 'category', category_id: 1 },
-      { station_id: station.id, component_type: 'category', category_id: 2 },
     ],
   }), true);
 });
@@ -31,24 +29,21 @@ test('a full-order station covers every category', () => {
   assert.equal(isPrintingConfigurationReady({
     printers: [testedPrinter],
     stations: [{ ...station, receives_full_order: true }],
-    categoryIds: [1, 2],
     routingRules: [],
   }), true);
 });
 
-test('printing stays off until the printer is tested and every category is routed', () => {
+test('printing stays off until the printer is tested and at least one route is saved', () => {
   assert.equal(isPrintingConfigurationReady({
     printers: [{ ...testedPrinter, last_test_succeeded_at: undefined }],
     stations: [station],
-    categoryIds: [1, 2],
     routingRules: [{ station_id: station.id, component_type: 'category', category_id: 1 }],
   }), false);
 
   assert.equal(isPrintingConfigurationReady({
     printers: [testedPrinter],
     stations: [station],
-    categoryIds: [1, 2],
-    routingRules: [{ station_id: station.id, component_type: 'category', category_id: 1 }],
+    routingRules: [],
   }), false);
 });
 
@@ -64,10 +59,16 @@ test('routes to an untested station do not activate printing', () => {
       { id: 'printer-bar', enabled: true, last_test_succeeded_at: undefined },
     ],
     stations: [station, untestedStation],
-    categoryIds: [1, 2],
     routingRules: [
-      { station_id: station.id, component_type: 'category', category_id: 1 },
       { station_id: untestedStation.id, component_type: 'category', category_id: 2 },
     ],
   }), false);
+});
+
+test('an item override can activate printing without a category route', () => {
+  assert.equal(isPrintingConfigurationReady({
+    printers: [testedPrinter],
+    stations: [station],
+    routingRules: [{ station_id: station.id, component_type: 'item', menu_item_id: 42 }],
+  }), true);
 });
