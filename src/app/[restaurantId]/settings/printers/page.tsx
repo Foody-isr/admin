@@ -2,23 +2,54 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { CircleAlert, Pencil, Plus, Printer, ReceiptText, RefreshCw, Trash2, Wifi } from 'lucide-react';
 import {
+  AlertTriangle,
+  CheckCircle2,
+  CircleAlert,
+  Clock3,
+  History,
+  ListX,
+  Pencil,
+  Plus,
+  Printer,
+  ReceiptText,
+  RefreshCw,
+  RotateCcw,
+  Trash2,
+  Wifi,
+  XCircle,
+} from 'lucide-react';
+import {
+  cancelPendingPrintJobs,
+  cancelPrintJob,
   deletePrinterConfiguration,
   getPrinterConfiguration,
+  getPrintingOverview,
+  reprintOrder,
   savePrinterConfiguration,
   testPrinterConfiguration,
+  type PrintJob,
   type PrintPrinter,
+  type PrintingOverview,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button, ConfirmDialog, EmptyState, Field, Input, PageHead, Section, Select } from '@/components/ds';
 
 type PrinterProfile = PrintPrinter['profile'];
+type QueueAction = { kind: 'job'; job: PrintJob } | { kind: 'printer' };
 
 const MODELS: Record<PrinterProfile, string> = {
   tm_u220iib: 'Epson TM-U220IIB',
   tm_m30iii: 'Epson TM-m30III',
+};
+
+const EMPTY_OVERVIEW: PrintingOverview = {
+  printers: [],
+  stations: [],
+  routing_rules: [],
+  jobs: [],
+  summary: { queued: 0, claimed: 0, printed: 0, failed: 0, uncertain: 0, cancelled: 0 },
 };
 
 export default function PrintersSettingsPage() {
@@ -29,18 +60,24 @@ export default function PrintersSettingsPage() {
   const canEdit = hasAnyPermission('printers.manage');
 
   const [printer, setPrinter] = useState<PrintPrinter | null>(null);
+  const [overview, setOverview] = useState<PrintingOverview>(EMPTY_OVERVIEW);
   const [loading, setLoading] = useState(true);
+  const [activityLoading, setActivityLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [profile, setProfile] = useState<PrinterProfile>('tm_u220iib');
   const [host, setHost] = useState('');
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [activityBusy, setActivityBusy] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [queueAction, setQueueAction] = useState<QueueAction | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [activityNotice, setActivityNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const loadConfiguration = useCallback(async () => {
     if (!rid) return;
     setLoading(true);
     setError(null);
@@ -53,9 +90,44 @@ export default function PrintersSettingsPage() {
     }
   }, [rid, t]);
 
+  const loadActivity = useCallback(async (quiet = false) => {
+    if (!rid) return;
+    if (!quiet) setActivityLoading(true);
+    try {
+      setOverview(await getPrintingOverview(rid));
+      setActivityError(null);
+    } catch {
+      setActivityError(t('printerActivityLoadError'));
+    } finally {
+      if (!quiet) setActivityLoading(false);
+    }
+  }, [rid, t]);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadConfiguration();
+    void loadActivity();
+    const timer = window.setInterval(() => void loadActivity(true), 5000);
+    return () => window.clearInterval(timer);
+  }, [loadActivity, loadConfiguration]);
+
+  const monitoredPrinter = useMemo(
+    () => overview.printers.find((candidate) => candidate.id === printer?.id) ?? printer,
+    [overview.printers, printer],
+  );
+
+  const jobs = useMemo(
+    () => overview.jobs.filter((job) => !printer || job.current_printer_id === printer.id),
+    [overview.jobs, printer],
+  );
+
+  const recentCounts = useMemo(() => jobs.reduce((counts, job) => {
+    if (job.state === 'queued' || job.state === 'claimed') counts.pending += 1;
+    if (job.state === 'printed') counts.printed += 1;
+    if (job.state === 'failed' || job.state === 'uncertain') counts.attention += 1;
+    return counts;
+  }, { pending: 0, printed: 0, attention: 0 }), [jobs]);
+
+  const pendingCount = monitoredPrinter?.pending_job_count ?? recentCounts.pending;
 
   const startEditing = () => {
     setProfile(printer?.profile ?? 'tm_u220iib');
@@ -87,6 +159,7 @@ export default function PrintersSettingsPage() {
       setPrinter(next);
       setEditing(false);
       setNotice(t('printerSaved'));
+      await loadActivity(true);
     } catch {
       setError(t('printerSaveError'));
     } finally {
@@ -101,6 +174,7 @@ export default function PrintersSettingsPage() {
     try {
       await testPrinterConfiguration(rid, locale);
       setNotice(t('printerTestQueued'));
+      await loadActivity(true);
     } catch {
       setError(t('printerTestError'));
     } finally {
@@ -114,6 +188,7 @@ export default function PrintersSettingsPage() {
     try {
       await deletePrinterConfiguration(rid);
       setPrinter(null);
+      setOverview(EMPTY_OVERVIEW);
       setEditing(false);
       setConfirmDelete(false);
       setNotice(null);
@@ -124,8 +199,46 @@ export default function PrintersSettingsPage() {
     }
   };
 
+  const confirmQueueAction = async () => {
+    const action = queueAction;
+    if (!action || !printer) return;
+    setQueueAction(null);
+    setActivityBusy(action.kind === 'job' ? action.job.id : 'queue');
+    setActivityError(null);
+    setActivityNotice(null);
+    try {
+      if (action.kind === 'job') {
+        await cancelPrintJob(rid, action.job.id, t('printingCancelledByOperator'));
+      } else {
+        await cancelPendingPrintJobs(rid, printer.id, t('printingQueueClearedByOperator'));
+      }
+      setActivityNotice(t('printerQueueActionDone'));
+      await loadActivity(true);
+    } catch {
+      setActivityError(t('printerActivityActionError'));
+    } finally {
+      setActivityBusy(null);
+    }
+  };
+
+  const reprint = async (job: PrintJob) => {
+    if (!job.order_id) return;
+    setActivityBusy(job.id);
+    setActivityError(null);
+    setActivityNotice(null);
+    try {
+      await reprintOrder(rid, job.order_id);
+      setActivityNotice(t('printerReprintQueued'));
+      await loadActivity(true);
+    } catch {
+      setActivityError(t('printerActivityActionError'));
+    } finally {
+      setActivityBusy(null);
+    }
+  };
+
   const status = useMemo(() => {
-    switch (printer?.status) {
+    switch (monitoredPrinter?.status) {
       case 'online':
         return { label: t('printerOnline'), tone: 'success' as const };
       case 'offline':
@@ -135,14 +248,14 @@ export default function PrintersSettingsPage() {
       default:
         return { label: t('printerWaiting'), tone: 'neutral' as const };
     }
-  }, [printer?.status, t]);
+  }, [monitoredPrinter?.status, t]);
 
-  const lastSeen = printer?.last_seen_at
-    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(printer.last_seen_at))
+  const lastSeen = monitoredPrinter?.last_seen_at
+    ? formatDate(monitoredPrinter.last_seen_at, locale)
     : null;
 
   return (
-    <div className="max-w-[760px]">
+    <div className="max-w-[960px]">
       <PageHead
         title={t('printers')}
         desc={t('printerPageDesc')}
@@ -166,7 +279,7 @@ export default function PrintersSettingsPage() {
           <EmptyState
             icon={<CircleAlert />}
             title={error}
-            action={<Button variant="secondary" size="md" onClick={() => void load()}><RefreshCw />{t('retry')}</Button>}
+            action={<Button variant="secondary" size="md" onClick={() => void loadConfiguration()}><RefreshCw />{t('retry')}</Button>}
           />
         </Section>
       ) : !printer && !editing ? (
@@ -231,7 +344,7 @@ export default function PrintersSettingsPage() {
                   <div className="mt-1 text-fs-xs leading-relaxed text-[var(--fg-subtle)]">
                     {lastSeen ? `${t('printerLastSeen')} ${lastSeen}` : t('printerConnectionWaiting')}
                   </div>
-                  {printer.last_error && <div className="mt-2 text-fs-xs text-[var(--danger-500)]">{printer.last_error}</div>}
+                  {monitoredPrinter?.last_error && <div className="mt-2 text-fs-xs text-[var(--danger-500)]">{monitoredPrinter.last_error}</div>}
                 </div>
               </div>
             </div>
@@ -252,6 +365,106 @@ export default function PrintersSettingsPage() {
         </Section>
       ) : null}
 
+      {printer && !editing && (
+        <Section
+          className="mt-[var(--s-5)]"
+          title={t('printingRecentJobs')}
+          desc={t('printerActivityDesc')}
+          aside={(
+            <div className="flex flex-wrap gap-[var(--s-2)]">
+              <Button variant="ghost" size="sm" onClick={() => void loadActivity()} disabled={activityLoading}>
+                <RefreshCw className={activityLoading ? 'animate-spin' : ''} />
+                {t('refresh')}
+              </Button>
+              {canEdit && pendingCount > 0 && (
+                <Button variant="danger" size="sm" onClick={() => setQueueAction({ kind: 'printer' })} disabled={activityBusy !== null}>
+                  <ListX />
+                  {t('printingClearQueue')}
+                </Button>
+              )}
+            </div>
+          )}
+        >
+          <div className="overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]">
+            <div className="grid divide-y divide-[var(--line)] sm:grid-cols-3 sm:divide-x sm:divide-y-0 rtl:sm:divide-x-reverse">
+              <ActivityMetric icon={<Clock3 />} value={pendingCount} label={t('printerActivityPending')} tone="warning" />
+              <ActivityMetric icon={<CheckCircle2 />} value={recentCounts.printed} label={t('printerActivityPrinted')} tone="success" />
+              <ActivityMetric icon={<AlertTriangle />} value={recentCounts.attention} label={t('printerActivityAttention')} tone="danger" />
+            </div>
+          </div>
+
+          {activityNotice && <div className="mt-[var(--s-4)]"><Feedback tone="success" text={activityNotice} /></div>}
+          {activityError && <div className="mt-[var(--s-4)]"><Feedback tone="danger" text={activityError} /></div>}
+
+          {activityLoading && jobs.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 py-[var(--s-10)] text-fs-sm text-[var(--fg-muted)]">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              {t('loading')}
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="py-[var(--s-8)]">
+              <EmptyState icon={<History />} title={t('printingNoJobs')} />
+            </div>
+          ) : (
+            <div className="mt-[var(--s-5)] divide-y divide-[var(--line)] border-y border-[var(--line)]">
+              {jobs.map((job) => {
+                const station = overview.stations.find((candidate) => candidate.id === job.station_id);
+                const pending = job.state === 'queued' || job.state === 'claimed';
+                const kitchenTicket = job.kind === 'kitchen_ticket' || job.kind === 'production';
+                const busy = activityBusy === job.id;
+                return (
+                  <div key={job.id} className="grid gap-[var(--s-3)] py-[var(--s-4)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-fs-sm font-semibold text-[var(--fg)]">
+                          {job.order_id
+                            ? t('orderNumber').replace('{id}', String(job.order_id))
+                            : job.kind === 'test'
+                              ? t('printerTestTicket')
+                              : t('printingJobs')}
+                        </span>
+                        {station && <Badge tone="neutral">{station.name}</Badge>}
+                        <Badge tone={jobTone(job.state)} dot>{t(`printingJob_${job.state}`)}</Badge>
+                      </div>
+                      <div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">
+                        {formatDate(job.created_at, locale)}
+                        {job.attempts > 1 ? ` · ${job.attempts} ${t('printingAttempts')}` : ''}
+                      </div>
+                      {job.last_error && (
+                        <div className={`mt-2 text-fs-xs leading-relaxed ${job.state === 'cancelled' ? 'text-[var(--fg-muted)]' : 'text-[var(--danger-500)] dark:text-[#fb7185]'}`}>
+                          {job.last_error}
+                        </div>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <div className="flex flex-wrap gap-2 md:justify-end">
+                        {pending && (
+                          <Button
+                            variant={job.state === 'claimed' ? 'danger' : 'ghost'}
+                            size="sm"
+                            disabled={busy || activityBusy !== null}
+                            onClick={() => setQueueAction({ kind: 'job', job })}
+                          >
+                            <XCircle />
+                            {job.state === 'claimed' ? t('printerUnblockPrinter') : t('printingCancelJob')}
+                          </Button>
+                        )}
+                        {kitchenTicket && job.order_id && !pending && (
+                          <Button variant="secondary" size="sm" disabled={busy || activityBusy !== null} onClick={() => void reprint(job)}>
+                            <RotateCcw />
+                            {t('printingReprint')}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Section>
+      )}
+
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
@@ -262,8 +475,65 @@ export default function PrintersSettingsPage() {
         danger
         onConfirm={() => void remove()}
       />
+
+      <ConfirmDialog
+        open={queueAction !== null}
+        onOpenChange={(open) => { if (!open) setQueueAction(null); }}
+        title={queueAction?.kind === 'printer' ? t('printingClearQueueTitle') : t('printingCancelJobTitle')}
+        description={queueAction?.kind === 'printer'
+          ? t('printingClearQueueWarning')
+          : queueAction?.job.state === 'claimed'
+            ? t('printingCancelClaimedWarning')
+            : t('printingCancelQueuedWarning')}
+        confirmLabel={queueAction?.kind === 'printer'
+          ? t('printingClearQueue')
+          : queueAction?.job.state === 'claimed'
+            ? t('printerUnblockPrinter')
+            : t('printingCancelJob')}
+        cancelLabel={t('cancel')}
+        danger
+        onConfirm={() => void confirmQueueAction()}
+      />
     </div>
   );
+}
+
+function ActivityMetric({
+  icon,
+  value,
+  label,
+  tone,
+}: {
+  icon: React.ReactNode;
+  value: number;
+  label: string;
+  tone: 'success' | 'warning' | 'danger';
+}) {
+  const toneClass = tone === 'success'
+    ? 'text-[var(--success-500)]'
+    : tone === 'warning'
+      ? 'text-[var(--warning-500)]'
+      : 'text-[var(--danger-500)]';
+  return (
+    <div className="flex min-w-0 items-center gap-2 px-[var(--s-3)] py-[var(--s-4)] sm:px-[var(--s-5)]">
+      <span className={`hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--surface-1)] sm:grid [&>svg]:h-4 [&>svg]:w-4 ${toneClass}`}>{icon}</span>
+      <div className="min-w-0">
+        <div className={`text-fs-lg font-semibold tabular-nums ${toneClass}`}>{value}</div>
+        <div className="truncate text-fs-xs text-[var(--fg-muted)]">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function jobTone(state: PrintJob['state']): 'success' | 'danger' | 'warning' | 'neutral' {
+  if (state === 'printed') return 'success';
+  if (state === 'failed') return 'danger';
+  if (state === 'claimed' || state === 'uncertain') return 'warning';
+  return 'neutral';
+}
+
+function formatDate(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
 function Feedback({ tone, text }: { tone: 'success' | 'danger'; text: string }) {
