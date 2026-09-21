@@ -68,7 +68,9 @@ export function DraftQueue({
               <StatusDot status={d.status} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-[var(--fg)]">{d.dish_name}</span>
-                <span className="mt-0.5 block text-[11px] text-[var(--fg-muted)]">{t(`labDraftStatus_${d.status}`)}</span>
+                <span className="mt-0.5 block text-[11px] text-[var(--fg-muted)]">
+                  {d.payload?.creation_mode === 'manual' ? `${t('labManualDraftLabel')} · ` : ''}{t(`labDraftStatus_${d.status}`)}
+                </span>
               </span>
               <ArrowUpRightIcon className="h-4 w-4 shrink-0 text-[var(--fg-subtle)] transition-colors group-hover:text-[var(--fg)]" />
             </button>

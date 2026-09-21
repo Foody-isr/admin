@@ -6,8 +6,6 @@ import type { Component } from '../types';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { IngredientRow } from './IngredientRow';
 
-const UNITS = ['g', 'kg', 'ml', 'l'];
-
 /** Collapsible preparation row with its own batch ingredients. */
 export function PrepNode({
   c,
@@ -24,6 +22,8 @@ export function PrepNode({
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ingredients = c.ingredients ?? [];
+  const configuredUnits = [...(c.available_units ?? []), c.unit].filter(Boolean);
+  const units = Array.from(new Set(configuredUnits.some((unit) => unit === 'g' || unit === 'kg') ? ['g', 'kg', ...configuredUnits] : configuredUnits.some((unit) => unit === 'ml' || unit === 'l') ? ['ml', 'l', ...configuredUnits] : configuredUnits));
 
   return (
     <div className="rounded-[9px] border border-[var(--line)] bg-[var(--surface-2)] px-2 py-2">
@@ -45,7 +45,7 @@ export function PrepNode({
 
           {canManage ? (
             <select value={c.unit} onChange={(event) => onChange({ ...c, unit: event.target.value })} className={inputClass} aria-label={t('labUnit')}>
-              {UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+              {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
             </select>
           ) : <span className="text-xs">{c.unit}</span>}
 
