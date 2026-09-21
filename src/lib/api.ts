@@ -2681,6 +2681,9 @@ export interface PrintPrinter {
   use_https: boolean;
   device_id: string;
   compatibility_port: number;
+  receives_receipts: boolean;
+  receipt_order_types: Array<'dine_in' | 'pickup' | 'delivery'>;
+  receipt_copies: number;
   protocol: PrinterProtocol;
   enabled: boolean;
   epson_polling_id?: string;
@@ -2771,6 +2774,15 @@ export interface RegisterPrinterInput {
   expected_poll_seconds?: number;
   epson_polling_id?: string;
   gateway_printer_id?: string;
+  profile?: PrintPrinter['profile'];
+  host?: string;
+  port?: number;
+  use_https?: boolean;
+  device_id?: string;
+  compatibility_port?: number;
+  receives_receipts?: boolean;
+  receipt_order_types?: PrintPrinter['receipt_order_types'];
+  receipt_copies?: number;
 }
 
 export interface PrinterRegistration {
