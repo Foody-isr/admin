@@ -5,8 +5,6 @@ import type { Component } from '../types';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { EstimatedPriceBadge } from './EstimatedPriceBadge';
 
-const UNITS = ['g', 'kg', 'ml', 'l', 'piece', 'unit', 'tsp', 'tbsp', 'cup'];
-
 /** Editable stock ingredient row that reflows into two levels on small screens. */
 export function IngredientRow({
   c,
@@ -22,6 +20,7 @@ export function IngredientRow({
   const { money } = useCurrency();
   const { t } = useI18n();
   const isExisting = c.kind === 'stock_existing';
+  const units = unitsFor(c);
   const costLabel = c.cost_status === 'verified' ? t('labCostVerified') : c.cost_status === 'estimated' ? t('labCostEstimated') : t('labCostUnknown');
 
   return (
@@ -64,7 +63,7 @@ export function IngredientRow({
 
         {canManage ? (
           <select value={c.unit} onChange={(event) => onChange({ ...c, unit: event.target.value })} className={inputClass} aria-label={t('labUnit')}>
-            {UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+            {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
           </select>
         ) : <span className="text-xs">{c.unit}</span>}
 
@@ -99,3 +98,10 @@ function RealBadge() {
 }
 
 const inputClass = 'h-8 w-full min-w-0 rounded-[7px] border border-[var(--line)] bg-[var(--surface)] px-2 text-xs tabular-nums text-[var(--fg)] outline-none focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)]';
+
+function unitsFor(component: Component): string[] {
+  const configured = [...(component.available_units ?? []), component.unit].filter(Boolean);
+  if (configured.some((unit) => unit === 'g' || unit === 'kg')) return Array.from(new Set(['g', 'kg', ...configured]));
+  if (configured.some((unit) => unit === 'ml' || unit === 'l')) return Array.from(new Set(['ml', 'l', ...configured]));
+  return Array.from(new Set(configured));
+}

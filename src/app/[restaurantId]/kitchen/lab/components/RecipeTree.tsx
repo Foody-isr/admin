@@ -1,10 +1,12 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import type { DraftPayload, Component } from '../types';
 import { IngredientRow } from './IngredientRow';
 import { PrepNode } from './PrepNode';
-import { PlusIcon } from 'lucide-react';
+import { PackagePlusIcon, PlusIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { IngredientLibraryPicker } from './IngredientLibraryPicker';
 
 /**
  * RecipeTree — top-level renderer mapping a draft's component list
@@ -18,12 +20,17 @@ export function RecipeTree({
   payload,
   onChange,
   canManage,
+  restaurantId,
 }: {
   payload: DraftPayload;
   onChange: (next: DraftPayload) => void;
   canManage: boolean;
+  restaurantId: number;
 }) {
   const { t } = useI18n();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const usedStockIds = useMemo(() => new Set(payload.components.map((component) => component.stock_item_id).filter((id): id is string => Boolean(id))), [payload.components]);
+  const usedPrepIds = useMemo(() => new Set(payload.components.map((component) => component.prep_item_id).filter((id): id is string => Boolean(id))), [payload.components]);
   /** Replace component at `idx` with `next`. */
   const setComponentAt = (idx: number, next: Component) => {
     const components = [...payload.components];
@@ -42,12 +49,19 @@ export function RecipeTree({
   return (
     <div className="space-y-4">
       <section className="rounded-[18px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
-        <div className="flex items-center justify-between border-b border-[var(--line)] px-5 py-4 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-4 sm:px-6">
           <div>
             <h3 className="text-base font-semibold text-[var(--fg)]">{t('labIngredients')}</h3>
             <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{t('labIngredientsHelp')}</p>
           </div>
-          <span className="rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-xs tabular-nums text-[var(--fg-muted)]">{payload.components.length} {t('labLines')}</span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-xs tabular-nums text-[var(--fg-muted)]">{payload.components.length} {t('labLines')}</span>
+            {canManage && (
+              <button type="button" onClick={() => setPickerOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[var(--brand-500)] px-3 text-xs font-semibold text-white hover:bg-[var(--brand-600)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
+                <PackagePlusIcon className="h-3.5 w-3.5" /> {t('labAddIngredient')}
+              </button>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto px-5 py-4 sm:px-6">
           <div className="mb-1 hidden min-w-[720px] grid-cols-[auto_minmax(160px,1fr)_76px_68px_64px_82px_minmax(80px,auto)_auto] gap-2 px-2 text-[10px] font-medium text-[var(--fg-subtle)] md:grid">
@@ -61,6 +75,13 @@ export function RecipeTree({
             <span className="w-7" />
           </div>
           <div className="space-y-1 md:min-w-[720px]">
+        {payload.components.length === 0 && (
+          <button type="button" onClick={() => canManage && setPickerOpen(true)} disabled={!canManage} className="flex w-full flex-col items-center rounded-[12px] border border-dashed border-[var(--line-strong)] px-5 py-10 text-center focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:cursor-default">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--surface-2)] text-[var(--brand-500)]"><PackagePlusIcon className="h-5 w-5" /></span>
+            <span className="mt-3 text-sm font-semibold text-[var(--fg)]">{t('labEmptyRecipeTitle')}</span>
+            <span className="mt-1 max-w-md text-xs leading-5 text-[var(--fg-muted)]">{t('labEmptyRecipeHelp')}</span>
+          </button>
+        )}
         {payload.components.map((c, idx) => {
         const isPrep = c.kind === 'prep_new' || c.kind === 'prep_existing';
         // Build a stable React key: prefer server-assigned IDs over positional fallback.
@@ -120,6 +141,19 @@ export function RecipeTree({
           ))}
         </div>
       </section>
+
+      {pickerOpen && (
+        <IngredientLibraryPicker
+          restaurantId={restaurantId}
+          usedStockIds={usedStockIds}
+          usedPrepIds={usedPrepIds}
+          onAdd={(component) => {
+            onChange({ ...payload, components: [...payload.components, component] });
+            setPickerOpen(false);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }
