@@ -6,12 +6,12 @@ import { AlertTriangle, Check, ClipboardList, ListX, Plus, Printer, RefreshCw, R
 import {
   API_URL,
   cancelPendingPrintJobs, cancelPrintJob,
-  deletePrinter, deletePrintStation, getAllCategories, getPrintingOverview,
+  deletePrinter, deletePrintStation, getAllCategories, getPrintingOverview, getRestaurant,
   getRestaurantSettings, listAllItems, registerPrinter, replacePrintRoutingRules,
   reprintOrder, savePrintStation, testPrinter, updatePrinter, updateRestaurantSettings,
   type MenuCategory, type MenuItem, type PrintJob, type PrintPrinter, type PrintRoutingRule,
   type PrintStation, type PrinterRegistration,
-  type PrinterVendor, type PrintingOverview, type RestaurantSettings,
+  type PrinterVendor, type PrintingOverview, type RestaurantSettings, type TranslationMap,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -20,6 +20,10 @@ import {
   Badge, Button, ConfirmDialog, Drawer, EmptyState, Field, Input, NumberField, PageHead,
   Section, Select, Tab, Tabs, TabsContent, TabsList,
 } from '@/components/ds';
+import { LocaleEditingBanner } from '@/components/i18n/LocaleEditingBanner';
+import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+
+const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 
 const EMPTY_OVERVIEW: PrintingOverview = { printers: [], stations: [], routing_rules: [], jobs: [], summary: { queued: 0, claimed: 0, printed: 0, failed: 0, uncertain: 0, cancelled: 0 } };
 
@@ -29,6 +33,7 @@ type QueueAction =
 
 const newStation = (): Omit<PrintStation, 'id' | 'restaurant_id'> => ({
   name: '',
+  translations: {},
   primary_printer_id: undefined,
   fallback_printer_id: undefined,
   receives_full_order: false,
@@ -69,10 +74,30 @@ function jobTone(state: PrintJob['state']): 'success' | 'danger' | 'warning' | '
   return 'neutral';
 }
 
+function isLocale(value?: string): value is Locale {
+  return value === 'en' || value === 'he' || value === 'fr';
+}
+
+function setStationNameTranslation(
+  translations: TranslationMap | undefined,
+  locale: Locale,
+  value: string,
+): TranslationMap {
+  const names = { ...(translations?.name ?? {}) };
+  if (value === '') delete names[locale];
+  else names[locale] = value;
+  return Object.keys(names).length > 0 ? { ...(translations ?? {}), name: names } : {};
+}
+
+function localizedStationName(station: PrintStation, locale: string): string {
+  const language = locale.split(/[-_]/, 1)[0] as Locale;
+  return station.translations?.name?.[language]?.trim() || station.name;
+}
+
 export default function PrintersSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('printers.manage');
 
@@ -89,6 +114,8 @@ export default function PrintersSettingsPage() {
   const [credentials, setCredentials] = useState<PrinterRegistration | null>(null);
   const [queueAction, setQueueAction] = useState<QueueAction | null>(null);
   const [stationDraft, setStationDraft] = useState(newStation);
+  const [sourceLocale, setSourceLocale] = useState<Locale>('en');
+  const [stationNameLocale, setStationNameLocale] = useState<Locale>('en');
   const [rulesDraft, setRulesDraft] = useState<PrintRoutingRule[]>([]);
   const [printerDraft, setPrinterDraft] = useState(newPrinter);
   const autoActivationInFlight = useRef(false);
@@ -106,14 +133,18 @@ export default function PrintersSettingsPage() {
         setError(null);
         return;
       }
-      const [nextOverview, nextSettings, nextCategories, nextItems] = await Promise.all([
-        getPrintingOverview(rid), getRestaurantSettings(rid), getAllCategories(rid), listAllItems(rid),
+      const [nextOverview, nextSettings, nextCategories, nextItems, restaurant] = await Promise.all([
+        getPrintingOverview(rid), getRestaurantSettings(rid), getAllCategories(rid), listAllItems(rid), getRestaurant(rid),
       ]);
       setOverview(nextOverview);
       setSettings(nextSettings);
       setCategories(nextCategories);
       setItems(nextItems);
       setRulesDraft(nextOverview.routing_rules);
+      if (isLocale(restaurant.default_locale)) {
+        setSourceLocale(restaurant.default_locale);
+        setStationNameLocale(restaurant.default_locale);
+      }
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t('printingLoadFailed'));
@@ -243,6 +274,7 @@ export default function PrintersSettingsPage() {
       setEditingStationId(id);
       setStationDraft({
         ...input,
+        translations: input.translations ?? {},
         show_table: input.show_table ?? true,
         show_order_type: input.show_order_type ?? true,
         ticket_split_mode: input.ticket_split_mode ?? 'grouped',
@@ -251,6 +283,7 @@ export default function PrintersSettingsPage() {
       setEditingStationId(undefined);
       setStationDraft(newStation());
     }
+    setStationNameLocale(sourceLocale);
     setStationOpen(true);
   };
 
@@ -290,6 +323,16 @@ export default function PrintersSettingsPage() {
     ]);
     setOverrideDraft((current) => ({ ...current, component_id: '', station_id: '' }));
   };
+
+  const stationNameValue = stationNameLocale === sourceLocale
+    ? stationDraft.name
+    : stationDraft.translations?.name?.[stationNameLocale] ?? '';
+  const missingStationNames = Object.fromEntries(
+    SUPPORTED_LOCALES.map((language) => [
+      language,
+      language !== sourceLocale && !(stationDraft.translations?.name?.[language] ?? '').trim(),
+    ]),
+  ) as Partial<Record<Locale, boolean>>;
 
   const saveRules = () => run(async () => {
     const routing_rules = await replacePrintRoutingRules(rid, rulesDraft.map(({ id: _id, ...rule }) => rule));
@@ -360,7 +403,7 @@ export default function PrintersSettingsPage() {
                         {overview.stations.filter((station) => station.primary_printer_id === printer.id || station.fallback_printer_id === printer.id).length === 0
                           ? <Badge tone="warning">{t('printingUnassigned')}</Badge>
                           : overview.stations.filter((station) => station.primary_printer_id === printer.id || station.fallback_printer_id === printer.id).map((station) => (
-                            <Badge key={station.id} tone="neutral">{station.name}</Badge>
+                            <Badge key={station.id} tone="neutral">{localizedStationName(station, locale)}</Badge>
                           ))}
                       </div>
                     </div>
@@ -390,7 +433,7 @@ export default function PrintersSettingsPage() {
                 const fallback = overview.printers.find((printer) => printer.id === station.fallback_printer_id);
                 const categoryCount = station.receives_full_order ? categories.length : new Set(rulesDraft.filter((rule) => rule.component_type === 'category' && rule.station_id === station.id).map((rule) => rule.category_id)).size;
                 return <div key={station.id} className="flex flex-wrap items-center gap-[var(--s-3)] py-[var(--s-4)]">
-                  <div className="min-w-64 flex-1"><div className="font-semibold text-[var(--fg)]">{station.name}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{primary?.name ?? t('printingUnassigned')}{fallback && ` → ${fallback.name}`} · {station.copies}× · {station.cut_mode} · {station.locale?.toUpperCase() ?? 'HE'}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{categoryCount}/{categories.length} {t('printingCategoriesRouted')}</div></div>
+                  <div className="min-w-64 flex-1"><div className="font-semibold text-[var(--fg)]">{localizedStationName(station, locale)}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{primary?.name ?? t('printingUnassigned')}{fallback && ` → ${fallback.name}`} · {station.copies}× · {station.cut_mode} · {station.locale?.toUpperCase() ?? 'HE'}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{categoryCount}/{categories.length} {t('printingCategoriesRouted')}</div></div>
                   {station.receives_full_order && <Badge tone="neutral">{t('printingFullOrder')}</Badge>}
                   {canManage && <>{primary && <Button size="sm" variant="secondary" disabled={saving} onClick={() => void run(async () => { await testPrinter(rid, primary.id); await load(true); })}>{t('printingTestTicket')}</Button>}<Button size="sm" variant="ghost" onClick={() => openStation(station)}>{t('edit')}</Button><Button icon size="sm" variant="ghost" aria-label={t('delete')} onClick={() => {
                     if (window.confirm(t('printingDeleteStationConfirm'))) void run(async () => { await deletePrintStation(rid, station.id); await load(); });
@@ -417,12 +460,12 @@ export default function PrintersSettingsPage() {
                   <table className="w-full min-w-[720px] border-collapse text-fs-sm">
                     <thead className="bg-[var(--surface-2)] text-[var(--fg-muted)]"><tr><th className="sticky start-0 z-10 min-w-48 border-e border-[var(--line)] bg-[var(--surface-2)] p-3 text-start font-medium">{t('category')}</th>{overview.stations.map((station) => {
                       const primary = overview.printers.find((printer) => printer.id === station.primary_printer_id);
-                      return <th key={station.id} className="min-w-40 p-3 text-center font-medium"><div className="font-semibold text-[var(--fg)]">{station.name}</div><div className="mt-1 flex items-center justify-center gap-1.5 text-fs-xs font-normal"><span className={`h-1.5 w-1.5 rounded-full ${primary?.status === 'online' ? 'bg-[var(--success-500)]' : primary?.status === 'error' ? 'bg-[var(--danger-500)]' : 'bg-[var(--warning-500)]'}`} />{primary?.name ?? t('printingUnassigned')}</div>{station.receives_full_order && <div className="mt-1"><Badge tone="neutral">{t('printingFullOrder')}</Badge></div>}</th>;
+                      return <th key={station.id} className="min-w-40 p-3 text-center font-medium"><div className="font-semibold text-[var(--fg)]">{localizedStationName(station, locale)}</div><div className="mt-1 flex items-center justify-center gap-1.5 text-fs-xs font-normal"><span className={`h-1.5 w-1.5 rounded-full ${primary?.status === 'online' ? 'bg-[var(--success-500)]' : primary?.status === 'error' ? 'bg-[var(--danger-500)]' : 'bg-[var(--warning-500)]'}`} />{primary?.name ?? t('printingUnassigned')}</div>{station.receives_full_order && <div className="mt-1"><Badge tone="neutral">{t('printingFullOrder')}</Badge></div>}</th>;
                     })}</tr></thead>
                     <tbody className="divide-y divide-[var(--line)]">{categories.map((category) => <tr key={category.id} className="hover:bg-[var(--surface-2)]/50"><td className="sticky start-0 z-[5] border-e border-[var(--line)] bg-[var(--surface)] p-3 font-medium text-[var(--fg)]">{category.name}</td>{overview.stations.map((station) => {
                       const explicit = hasCategoryRoute(category.id, station.id);
                       const selected = station.receives_full_order || explicit;
-                      return <td key={station.id} className="p-3 text-center"><button type="button" disabled={!canManage || station.receives_full_order} aria-pressed={selected} aria-label={`${category.name} → ${station.name}`} onClick={() => toggleCategoryRoute(category.id, station.id)} className={`mx-auto flex h-9 w-9 items-center justify-center rounded-r-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)] disabled:cursor-not-allowed ${selected ? 'border-[var(--brand-500)] bg-[var(--brand-500)] text-white' : 'border-[var(--line-strong)] bg-[var(--surface)] text-transparent hover:border-[var(--brand-400)]'}`}><Check className="h-4 w-4" /></button></td>;
+                      return <td key={station.id} className="p-3 text-center"><button type="button" disabled={!canManage || station.receives_full_order} aria-pressed={selected} aria-label={`${category.name} → ${localizedStationName(station, locale)}`} onClick={() => toggleCategoryRoute(category.id, station.id)} className={`mx-auto flex h-9 w-9 items-center justify-center rounded-r-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)] disabled:cursor-not-allowed ${selected ? 'border-[var(--brand-500)] bg-[var(--brand-500)] text-white' : 'border-[var(--line-strong)] bg-[var(--surface)] text-transparent hover:border-[var(--brand-400)]'}`}><Check className="h-4 w-4" /></button></td>;
                     })}</tr>)}</tbody>
                   </table>
                 </div>
@@ -435,7 +478,7 @@ export default function PrintersSettingsPage() {
               <Field label={t('printingOverrideType')}><Select value={overrideDraft.component} onChange={(event) => setOverrideDraft((current) => ({ ...current, component: event.target.value as 'item' | 'modifier' | 'option', component_id: '' }))}><option value="item">{t('item')}</option><option value="modifier">{t('modifier')}</option><option value="option">{t('printingOption')}</option></Select></Field>
               <Field label={t('printingComponent')}><Select value={overrideDraft.component_id} onChange={(event) => setOverrideDraft((current) => ({ ...current, component_id: event.target.value }))}><option value="">{t('select')}</option>{overrideDraft.component === 'item' ? items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>) : overrideDraft.component === 'modifier' ? modifiers.map((modifier) => <option key={modifier.id} value={modifier.id}>{modifier.itemName} · {modifier.kitchen_name || modifier.name}</option>) : options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</Select></Field>
               <Field label={t('printingChannel')}><Select value={overrideDraft.channel} onChange={(event) => setOverrideDraft((current) => ({ ...current, channel: event.target.value }))}><option value="">{t('printingAllChannels')}</option><option value="dine_in">{t('dineIn')}</option><option value="pickup">{t('pickup')}</option><option value="delivery">{t('delivery')}</option></Select></Field>
-              <Field label={t('printingStation')}><Select value={overrideDraft.station_id} onChange={(event) => setOverrideDraft((current) => ({ ...current, station_id: event.target.value }))}><option value="">{t('select')}</option>{overview.stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}</Select></Field>
+              <Field label={t('printingStation')}><Select value={overrideDraft.station_id} onChange={(event) => setOverrideDraft((current) => ({ ...current, station_id: event.target.value }))}><option value="">{t('select')}</option>{overview.stations.map((station) => <option key={station.id} value={station.id}>{localizedStationName(station, locale)}</option>)}</Select></Field>
               <Button variant="secondary" disabled={!overrideDraft.component_id || !overrideDraft.station_id} onClick={addOverride}>{t('add')}</Button>
             </div>}
             <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
@@ -463,7 +506,7 @@ export default function PrintersSettingsPage() {
                 const station = overview.stations.find((value) => value.id === job.station_id);
                 const isKitchenTicket = job.kind === 'kitchen_ticket' || job.kind === 'production';
                 const isPending = job.state === 'queued' || job.state === 'claimed';
-                return <div key={job.id} className="grid gap-2 py-3 md:grid-cols-[1fr_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><span className="text-fs-sm font-medium text-[var(--fg)]">{job.order_id ? `#${job.order_id}` : job.kind}</span>{station && <Badge tone="neutral">{station.name}</Badge>}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{formatSeen(job.created_at)}{job.attempts > 1 ? ` · ${job.attempts} ${t('printingAttempts')}` : ''}</div>{job.last_error && <div className={`mt-1 text-fs-xs ${job.state === 'cancelled' ? 'text-[var(--fg-muted)]' : 'text-[var(--danger-500)] dark:text-[#fb7185]'}`}>{job.last_error}</div>}</div><div className="flex flex-wrap items-center gap-2"><Badge tone={jobTone(job.state)} dot>{t(`printingJob_${job.state}`)}</Badge>{canManage && isPending && <Button size="sm" variant={job.state === 'claimed' ? 'danger' : 'ghost'} disabled={saving} onClick={() => setQueueAction({ kind: 'job', job })}><XCircle />{job.state === 'claimed' ? t('printingCancelBlockingJob') : t('printingCancelJob')}</Button>}{canManage && isKitchenTicket && job.order_id && !isPending && <Button size="sm" variant="ghost" disabled={saving} onClick={() => void run(async () => { await reprintOrder(rid, job.order_id!); await load(true); })}>{t('printingReprint')}</Button>}</div></div>;
+                return <div key={job.id} className="grid gap-2 py-3 md:grid-cols-[1fr_auto] md:items-center"><div><div className="flex flex-wrap items-center gap-2"><span className="text-fs-sm font-medium text-[var(--fg)]">{job.order_id ? `#${job.order_id}` : job.kind}</span>{station && <Badge tone="neutral">{localizedStationName(station, locale)}</Badge>}</div><div className="mt-1 text-fs-xs text-[var(--fg-subtle)]">{formatSeen(job.created_at)}{job.attempts > 1 ? ` · ${job.attempts} ${t('printingAttempts')}` : ''}</div>{job.last_error && <div className={`mt-1 text-fs-xs ${job.state === 'cancelled' ? 'text-[var(--fg-muted)]' : 'text-[var(--danger-500)] dark:text-[#fb7185]'}`}>{job.last_error}</div>}</div><div className="flex flex-wrap items-center gap-2"><Badge tone={jobTone(job.state)} dot>{t(`printingJob_${job.state}`)}</Badge>{canManage && isPending && <Button size="sm" variant={job.state === 'claimed' ? 'danger' : 'ghost'} disabled={saving} onClick={() => setQueueAction({ kind: 'job', job })}><XCircle />{job.state === 'claimed' ? t('printingCancelBlockingJob') : t('printingCancelJob')}</Button>}{canManage && isKitchenTicket && job.order_id && !isPending && <Button size="sm" variant="ghost" disabled={saving} onClick={() => void run(async () => { await reprintOrder(rid, job.order_id!); await load(true); })}>{t('printingReprint')}</Button>}</div></div>;
               })}
             </div>}
           </Section>
@@ -500,7 +543,7 @@ export default function PrintersSettingsPage() {
           {printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id && <Field label={t('printingEpsonPollingId')} hint={t('printingEpsonPollingIdHint')}><Input value={printerDraft.epson_polling_id} placeholder="restaurant-kitchen-01" onChange={(event) => setPrinterDraft((current) => ({ ...current, epson_polling_id: event.target.value }))} /></Field>}
           <Field label={printerDraft.vendor === 'epson' ? t('printingEpsonDeviceId') : t('printingIdentifier')} hint={printerDraft.vendor === 'epson' ? t('printingEpsonDeviceIdHint') : t('printingIdentifierHint')}><Input value={printerDraft.identifier} onChange={(event) => setPrinterDraft((current) => ({ ...current, identifier: event.target.value }))} /></Field>
           <Field label={t('printingPaperWidth')}><Select value={printerDraft.paper_width_dots} onChange={(event) => setPrinterDraft((current) => ({ ...current, paper_width_dots: Number(event.target.value) as 384 | 576 }))}>{printerDraft.vendor === 'epson' ? <><option value={384}>TM-U220 · 76 mm · 384 dots</option><option value={576}>Epson thermal · 576 dots</option></> : <><option value={384}>58 mm · 384 px</option><option value={576}>80 mm · 576 px</option></>}</Select></Field>
-          <Field label={t('printingAssignStation')}><Select value={printerDraft.station_id} onChange={(event) => setPrinterDraft((current) => ({ ...current, station_id: event.target.value, new_station_name: '' }))}><option value="">{t('printingCreateStationBelow')}</option>{overview.stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}</Select></Field>
+          <Field label={t('printingAssignStation')}><Select value={printerDraft.station_id} onChange={(event) => setPrinterDraft((current) => ({ ...current, station_id: event.target.value, new_station_name: '' }))}><option value="">{t('printingCreateStationBelow')}</option>{overview.stations.map((station) => <option key={station.id} value={station.id}>{localizedStationName(station, locale)}</option>)}</Select></Field>
           {!printerDraft.station_id && <Field label={t('printingNewStationName')} hint={t('printingPassNameHint')}><Input value={printerDraft.new_station_name} placeholder={t('printingPassNamePlaceholder')} onChange={(event) => setPrinterDraft((current) => ({ ...current, new_station_name: event.target.value }))} /></Field>}
         </div>
       </Drawer>
@@ -508,11 +551,24 @@ export default function PrintersSettingsPage() {
       <Drawer open={stationOpen} onOpenChange={setStationOpen} title={editingStationId ? t('printingEditStation') : t('printingAddStation')}
         onSave={() => void submitStation()} saveLabel={t('save')} saveDisabled={saving || !stationDraft.name.trim()}>
         <div className="grid gap-4">
-          <Field label={t('name')}><Input value={stationDraft.name} onChange={(event) => setStationDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
+          <LocaleTabs locales={SUPPORTED_LOCALES} source={sourceLocale} active={stationNameLocale} onChange={setStationNameLocale} missing={missingStationNames} />
+          <LocaleEditingBanner active={stationNameLocale} source={sourceLocale} />
+          <Field label={t('name')} hint={t('printingStationNameHint')}><Input value={stationNameValue} dir={stationNameLocale === 'he' ? 'rtl' : 'ltr'} maxLength={120} onChange={(event) => {
+            const value = event.target.value;
+            if (stationNameLocale === sourceLocale) {
+              setStationDraft((current) => ({ ...current, name: value }));
+            } else {
+              setStationDraft((current) => ({ ...current, translations: setStationNameTranslation(current.translations, stationNameLocale, value) }));
+            }
+          }} /></Field>
           <Field label={t('printingPrimaryPrinter')}><Select value={stationDraft.primary_printer_id ?? ''} onChange={(event) => setStationDraft((current) => ({ ...current, primary_printer_id: event.target.value || undefined }))}><option value="">{t('printingUnassigned')}</option>{overview.printers.map((printer) => <option key={printer.id} value={printer.id}>{printer.name}</option>)}</Select></Field>
           <p className="-mt-2 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('printingSharedPrinterHint')}</p>
           <Field label={t('printingFallbackPrinter')}><Select value={stationDraft.fallback_printer_id ?? ''} onChange={(event) => setStationDraft((current) => ({ ...current, fallback_printer_id: event.target.value || undefined }))}><option value="">{t('printingUnassigned')}</option>{overview.printers.filter((printer) => printer.id !== stationDraft.primary_printer_id).map((printer) => <option key={printer.id} value={printer.id}>{printer.name}</option>)}</Select></Field>
-          <div className="grid gap-4 sm:grid-cols-3"><Field label={t('printingCopies')}><NumberField min={1} max={5} value={stationDraft.copies} onChange={(value) => setStationDraft((current) => ({ ...current, copies: value }))} /></Field><Field label={t('printingFontSize')}><NumberField min={18} max={40} value={stationDraft.font_size} onChange={(value) => setStationDraft((current) => ({ ...current, font_size: value }))} /></Field><Field label={t('language')}><Select value={stationDraft.locale ?? 'he'} onChange={(event) => setStationDraft((current) => ({ ...current, locale: event.target.value as 'he' | 'fr' | 'en' }))}><option value="he">עברית</option><option value="fr">Français</option><option value="en">English</option></Select></Field></div>
+          <div className="grid gap-4 sm:grid-cols-3"><Field label={t('printingCopies')}><NumberField min={1} max={5} value={stationDraft.copies} onChange={(value) => setStationDraft((current) => ({ ...current, copies: value }))} /></Field><Field label={t('printingFontSize')}><NumberField min={18} max={40} value={stationDraft.font_size} onChange={(value) => setStationDraft((current) => ({ ...current, font_size: value }))} /></Field><Field label={t('language')}><Select value={stationDraft.locale ?? 'he'} onChange={(event) => {
+            const nextLocale = event.target.value as Locale;
+            setStationDraft((current) => ({ ...current, locale: nextLocale }));
+            setStationNameLocale(nextLocale);
+          }}><option value="he">עברית</option><option value="fr">Français</option><option value="en">English</option></Select></Field></div>
           <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={stationDraft.receives_full_order} onChange={(event) => setStationDraft((current) => ({ ...current, receives_full_order: event.target.checked }))} />{t('printingFullOrder')}</label>
           <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
             <div className="font-semibold text-[var(--fg)]">{t('printingTicketContent')}</div>
