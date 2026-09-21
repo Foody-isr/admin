@@ -24,6 +24,9 @@ import { FoodCostTargetSetting } from './components/FoodCostTargetSetting';
 import { IntelligencePanel } from './components/IntelligencePanel';
 import { ImageStudio } from './components/ImageStudio';
 import { VersionHistory } from './components/VersionHistory';
+import { LabEntryChoice, type LabEntryMode } from './components/LabEntryChoice';
+import { ManualRecipeStarter } from './components/ManualRecipeStarter';
+import { ManualValidationPanel } from './components/ManualValidationPanel';
 import type { DraftPayload, Draft } from './types';
 
 /** AI-assisted creation and review workspace for profitable restaurant recipes. */
@@ -36,6 +39,7 @@ export default function RecipeLabPage() {
   const { refetch: refetchQueue } = useDraftQueue(restaurantId);
 
   const [activeDraftId, setActiveDraftId] = useState<number | null>(null);
+  const [entryMode, setEntryMode] = useState<LabEntryMode | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [payload, setPayload] = useState<DraftPayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -100,7 +104,7 @@ export default function RecipeLabPage() {
 
   const handleSave = useCallback(async () => {
     if (!payload || activeDraftId == null) return;
-    if (draft?.menu_item_id != null && !window.confirm(t('labReplaceConfirm').replace('{name}', draft.dish_name))) return;
+    if (draft?.menu_item_id != null && payload.has_existing_recipe !== false && !window.confirm(t('labReplaceConfirm').replace('{name}', draft.dish_name))) return;
 
     setSubmitting(true);
     try {
@@ -142,6 +146,8 @@ export default function RecipeLabPage() {
     requestAnimationFrame(() => setActiveDraftId(id));
   };
 
+  const isManual = payload?.creation_mode === 'manual';
+
   return (
     <div className="min-h-full bg-[var(--bg)] text-[var(--fg)]">
       <header className="border-b border-[var(--line)] bg-[var(--surface)]">
@@ -157,8 +163,12 @@ export default function RecipeLabPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-5">
-            <ProgressSteps reviewing={activeDraftId != null} />
-            <div className="hidden h-7 w-px bg-[var(--line)] sm:block" />
+            {(activeDraftId != null || entryMode != null) && (
+              <>
+                <ProgressSteps reviewing={activeDraftId != null} manual={isManual || entryMode === 'manual'} />
+                <div className="hidden h-7 w-px bg-[var(--line)] sm:block" />
+              </>
+            )}
             <FoodCostTargetSetting restaurantId={restaurantId} canManage={canManage} />
           </div>
         </div>
@@ -166,13 +176,33 @@ export default function RecipeLabPage() {
 
       {activeDraftId == null ? (
         <main className="mx-auto max-w-[1320px] px-4 py-7 sm:px-7 sm:py-9">
-          <div className="mb-6 max-w-3xl">
-            <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--fg)] sm:text-4xl">{t('labBriefHeading')}</h2>
-            <p className="mt-2 max-w-2xl text-base leading-7 text-[var(--fg-muted)]">{t('labBriefIntro')}</p>
-          </div>
-
           <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <DraftInputRail restaurantId={restaurantId} onAfterGenerate={refetchQueue} canManage={canManage} />
+            <div>
+              {entryMode == null ? (
+                <LabEntryChoice onChoose={setEntryMode} />
+              ) : (
+                <>
+                  <button type="button" onClick={() => setEntryMode(null)} className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
+                    <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" /> {t('labBackToChoices')}
+                  </button>
+                  {entryMode === 'manual' ? (
+                    <ManualRecipeStarter
+                      restaurantId={restaurantId}
+                      canManage={canManage}
+                      onCreated={(draftId) => { setActiveDraftId(draftId); refetchQueue(); }}
+                    />
+                  ) : (
+                    <>
+                      <div className="mb-6 max-w-3xl">
+                        <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--fg)] sm:text-4xl">{t('labBriefHeading')}</h2>
+                        <p className="mt-2 max-w-2xl text-base leading-7 text-[var(--fg-muted)]">{t('labBriefIntro')}</p>
+                      </div>
+                      <DraftInputRail restaurantId={restaurantId} onAfterGenerate={refetchQueue} canManage={canManage} />
+                    </>
+                  )}
+                </>
+              )}
+            </div>
             <aside className="rounded-[18px] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-1)] xl:sticky xl:top-5">
               <h2 className="text-base font-semibold text-[var(--fg)]">{t('labDraftsTitle')}</h2>
               <p className="mt-1 mb-4 text-xs leading-5 text-[var(--fg-muted)]">{t('labDraftsHelp')}</p>
@@ -209,27 +239,33 @@ export default function RecipeLabPage() {
               </div>
 
               <aside className="order-2 space-y-4 xl:order-3 xl:sticky xl:top-5">
-                <IntelligencePanel
-                  payload={payload}
-                  canManage={canManage}
-                  submitting={submitting}
-                  onSave={handleSave}
-                  onRefine={() => setRefineOpen(true)}
-                />
+                {isManual ? (
+                  <ManualValidationPanel payload={payload} canManage={canManage} submitting={submitting} onSave={handleSave} />
+                ) : (
+                  <IntelligencePanel
+                    payload={payload}
+                    canManage={canManage}
+                    submitting={submitting}
+                    onSave={handleSave}
+                    onRefine={() => setRefineOpen(true)}
+                  />
+                )}
                 {draft?.menu_item_id != null && (
                   <VersionHistory restaurantId={restaurantId} menuItemId={draft.menu_item_id} canManage={canManage} onRestored={(restored) => updatePayload(normalizePayload(restored))} />
                 )}
               </aside>
 
               <div className="order-3 min-w-0 space-y-4 xl:order-2">
-                <RecipeTree payload={payload} onChange={updatePayload} canManage={canManage} />
-                <ImageStudio
-                  restaurantId={restaurantId}
-                  draftId={activeDraftId}
-                  currentImage={payload.selected_image_url}
-                  disabled={!canManage || autosaveState === 'saving'}
-                  onConfirmed={(url) => setPayload((current) => current ? { ...current, selected_image_url: url } : current)}
-                />
+                <RecipeTree restaurantId={restaurantId} payload={payload} onChange={updatePayload} canManage={canManage} />
+                {!isManual && (
+                  <ImageStudio
+                    restaurantId={restaurantId}
+                    draftId={activeDraftId}
+                    currentImage={payload.selected_image_url}
+                    disabled={!canManage || autosaveState === 'saving'}
+                    onConfirmed={(url) => setPayload((current) => current ? { ...current, selected_image_url: url } : current)}
+                  />
+                )}
                 {canManage && (
                   <div className="flex justify-end pt-2">
                     <button type="button" onClick={handleDiscard} disabled={submitting} className="inline-flex items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:opacity-50">
@@ -246,7 +282,7 @@ export default function RecipeLabPage() {
       <RefineDrawer
         restaurantId={restaurantId}
         draftId={activeDraftId}
-        open={refineOpen && canManage}
+        open={refineOpen && canManage && !isManual}
         onClose={() => setRefineOpen(false)}
         onPatches={(patches) => { if (payload) updatePayload(applyPatches(payload, patches)); }}
       />
@@ -254,9 +290,11 @@ export default function RecipeLabPage() {
   );
 }
 
-function ProgressSteps({ reviewing }: { reviewing: boolean }) {
+function ProgressSteps({ reviewing, manual }: { reviewing: boolean; manual: boolean }) {
   const { t } = useI18n();
-  const steps = [t('labStepBrief'), t('labStepProposals'), t('labStepFinalize')];
+  const steps = manual
+    ? [t('labManualStepDish'), t('labManualStepCompose'), t('labManualStepSave')]
+    : [t('labStepBrief'), t('labStepProposals'), t('labStepFinalize')];
   const activeIndex = reviewing ? 1 : 0;
   return (
     <ol className="hidden items-center sm:flex">
@@ -290,6 +328,7 @@ function AutosaveStatus({ state }: { state: 'idle' | 'saving' | 'saved' | 'error
 function normalizePayload(payload: DraftPayload): DraftPayload {
   return {
     ...payload,
+    creation_mode: payload.creation_mode ?? 'ai',
     brief: payload.brief ?? { objective: 'refresh_menu', stock_policy: 'prefer_existing', creativity: 45 },
     context: payload.context ?? { currency: 'ILS', average_price: 0, min_price: 0, max_price: 0 },
     creative: payload.creative ?? {},

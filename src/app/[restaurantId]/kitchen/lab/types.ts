@@ -1,6 +1,6 @@
 export type ComponentKind = 'stock_existing' | 'stock_new' | 'prep_existing' | 'prep_new';
 export type DraftStatus = 'generating' | 'ready' | 'error' | 'committed' | 'discarded';
-export type RecipeObjective = 'optimize_profit' | 'refresh_menu' | 'seasonal' | 'use_stock' | 'signature';
+export type RecipeObjective = 'document_recipe' | 'optimize_profit' | 'refresh_menu' | 'seasonal' | 'use_stock' | 'signature';
 export type StockPolicy = 'existing_only' | 'prefer_existing' | 'allow_new';
 
 export interface RecipeBrief {
@@ -38,6 +38,7 @@ export interface Component {
   cost_status?: 'verified' | 'estimated' | 'unknown';
   cost_source?: 'stock' | 'preparation' | 'market_estimate' | 'missing';
   available_quantity?: number;
+  available_units?: string[];
 }
 
 export interface CostSummary {
@@ -115,6 +116,8 @@ export interface MenuItemHeader {
 }
 
 export interface DraftPayload {
+  creation_mode?: 'ai' | 'manual';
+  has_existing_recipe?: boolean;
   menu_item: MenuItemHeader;
   components: Component[];
   recipe_steps: RecipeStep[];
