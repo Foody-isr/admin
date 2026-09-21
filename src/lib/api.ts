@@ -8405,6 +8405,17 @@ export async function labGenerateDrafts(
   );
 }
 
+/** Open an existing menu item as a ready manual recipe draft. No AI is called. */
+export async function labCreateManualDraft(
+  restaurantId: number,
+  body: { menu_item_id: number; locale?: string },
+): Promise<Draft> {
+  return apiFetch<Draft>(
+    `/api/v1/lab/drafts/manual?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
 /** Recalculate all unit conversions, costs, margins and guidance without saving. */
 export async function labSimulateDraft(
   restaurantId: number,
