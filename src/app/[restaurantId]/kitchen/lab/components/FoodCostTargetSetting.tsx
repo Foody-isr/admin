@@ -44,30 +44,22 @@ export function FoodCostTargetSetting({
   }, [restaurantId]);
 
   return (
-    <label style={{
-      display: 'flex', alignItems: 'center', gap: 8, fontSize: 14,
-      opacity: loading ? 0.5 : 1,
-    }}>
-      <span style={{ color: 'var(--fg-muted)' }}>{t('labTargetSetting')}</span>
+    <label className={`flex items-center gap-2 text-xs ${loading ? 'opacity-50' : ''}`}>
+      <span className="text-[var(--fg-muted)]">{t('labTargetSetting')}</span>
       {canManage ? (
         <select
           value={pct}
           onChange={(e) => handleChange(parseFloat(e.target.value))}
           disabled={loading || saving}
-          style={{
-            padding: '4px 8px', borderRadius: 6,
-            border: '1px solid var(--line)', fontSize: 14,
-            background: 'var(--surface-2, #1f2937)',
-            color: 'var(--fg, inherit)',
-          }}
+          className="h-8 rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface-2)] px-2 text-sm font-semibold tabular-nums text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
         >
-          <option value={0.25}>{'<='} 25%</option>
-          <option value={0.30}>{'<='} 30%</option>
-          <option value={0.35}>{'<='} 35%</option>
-          <option value={0.40}>{'<='} 40%</option>
+          <option value={0.25}>≤ 25%</option>
+          <option value={0.30}>≤ 30%</option>
+          <option value={0.35}>≤ 35%</option>
+          <option value={0.40}>≤ 40%</option>
         </select>
       ) : (
-        <span style={{ fontWeight: 600 }}>{'<='} {(pct * 100).toFixed(0)}%</span>
+        <span className="font-semibold tabular-nums">≤ {(pct * 100).toFixed(0)}%</span>
       )}
     </label>
   );

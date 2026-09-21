@@ -2711,6 +2711,7 @@ export interface PrintStation {
   id: string;
   restaurant_id: number;
   name: string;
+  translations?: TranslationMap;
   primary_printer_id?: string;
   fallback_printer_id?: string;
   receives_full_order: boolean;

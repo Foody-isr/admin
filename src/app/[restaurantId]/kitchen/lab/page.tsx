@@ -2,9 +2,17 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import {
+  ArrowLeftIcon,
+  CheckIcon,
+  FlaskConicalIcon,
+  LoaderCircleIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import { labGetDraft, labCommitDraft, labDiscardDraft, labPatchDraft } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { Button } from '@/components/ds';
 import { useDraftQueue } from './hooks/useDraftQueue';
 import { applyPatches } from './hooks/useDraftPatches';
 import { DraftInputRail } from './components/DraftInputRail';
@@ -18,29 +26,13 @@ import { ImageStudio } from './components/ImageStudio';
 import { VersionHistory } from './components/VersionHistory';
 import type { DraftPayload, Draft } from './types';
 
-/**
- * Recipe Lab — AI-assisted recipe generation entry point.
- *
- * Layout:
- *   ┌──────────────────────────────────────────────────────────┐
- *   │ Header: Recipe Lab title                                  │
- *   ├──────────┬───────────────────────────────────────────────┤
- *   │ Left     │ Main (draft reviewer)                         │
- *   │ aside    │                                               │
- *   │ Input    │  ┌──────────────────────────────────────────┐ │
- *   │ rail     │  │ CostSummaryHeader                        │ │
- *   │ ──────── │  │ RecipeTree                               │ │
- *   │ Drafts   │  │ ── sticky footer: Discard | Save ──      │ │
- *   │ queue    │  └──────────────────────────────────────────┘ │
- *   └──────────┴───────────────────────────────────────────────┘
- */
+/** AI-assisted creation and review workspace for profitable restaurant recipes. */
 export default function RecipeLabPage() {
   const params = useParams<{ restaurantId: string }>();
   const restaurantId = parseInt(params.restaurantId, 10);
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
-
   const { refetch: refetchQueue } = useDraftQueue(restaurantId);
 
   const [activeDraftId, setActiveDraftId] = useState<number | null>(null);
@@ -54,8 +46,6 @@ export default function RecipeLabPage() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveSequence = useRef(0);
 
-  // ── Fetch the active draft whenever the selection changes ──────────────
-
   useEffect(() => {
     if (activeDraftId == null) {
       setDraft(null);
@@ -67,26 +57,21 @@ export default function RecipeLabPage() {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
-
     labGetDraft(restaurantId, activeDraftId)
-      .then((d) => {
+      .then((nextDraft) => {
         if (cancelled) return;
-        setDraft(d);
-        setPayload(d.payload ? normalizePayload(d.payload) : null);
+        setDraft(nextDraft);
+        setPayload(nextDraft.payload ? normalizePayload(nextDraft.payload) : null);
         setAutosaveState('idle');
       })
-      .catch((e: unknown) => {
+      .catch((error: unknown) => {
         if (cancelled) return;
-        console.error('Failed to load draft', e);
-        setLoadError(e instanceof Error ? e.message : 'Failed to load draft');
+        console.error('Failed to load draft', error);
+        setLoadError(error instanceof Error ? error.message : 'Failed to load draft');
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .finally(() => { if (!cancelled) setLoading(false); });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [restaurantId, activeDraftId]);
 
   useEffect(() => () => {
@@ -113,18 +98,9 @@ export default function RecipeLabPage() {
     }, 550);
   }, [activeDraftId, canManage, restaurantId]);
 
-  // ── Commit (save) the current draft ────────────────────────────────────
-
   const handleSave = useCallback(async () => {
     if (!payload || activeDraftId == null) return;
-
-    // Re-running on an existing menu item → confirm replace.
-    if (draft?.menu_item_id != null) {
-      const ok = window.confirm(
-        t('labReplaceConfirm').replace('{name}', draft.dish_name),
-      );
-      if (!ok) return;
-    }
+    if (draft?.menu_item_id != null && !window.confirm(t('labReplaceConfirm').replace('{name}', draft.dish_name))) return;
 
     setSubmitting(true);
     try {
@@ -133,15 +109,13 @@ export default function RecipeLabPage() {
       await labCommitDraft(restaurantId, activeDraftId, recalculated);
       setActiveDraftId(null);
       refetchQueue();
-    } catch (e: unknown) {
-      console.error('Commit failed', e);
+    } catch (error) {
+      console.error('Commit failed', error);
       window.alert(t('labSaveFailed'));
     } finally {
       setSubmitting(false);
     }
   }, [restaurantId, activeDraftId, payload, draft, refetchQueue, t]);
-
-  // ── Discard the current draft ───────────────────────────────────────────
 
   const handleDiscard = useCallback(async () => {
     if (activeDraftId == null) return;
@@ -150,202 +124,105 @@ export default function RecipeLabPage() {
       await labDiscardDraft(restaurantId, activeDraftId);
       setActiveDraftId(null);
       refetchQueue();
-    } catch (e: unknown) {
-      console.error('Discard failed', e);
+    } catch (error) {
+      console.error('Discard failed', error);
     } finally {
       setSubmitting(false);
     }
   }, [restaurantId, activeDraftId, refetchQueue]);
 
-  // ── Selling-price change helper ─────────────────────────────────────────
+  const handleSellingPriceChange = useCallback((sellingPrice: number | undefined) => {
+    if (!payload) return;
+    updatePayload({ ...payload, cost_summary: { ...payload.cost_summary, selling_price: sellingPrice } });
+  }, [payload, updatePayload]);
 
-  const handleSellingPriceChange = useCallback(
-    (sp: number | undefined) => {
-      if (!payload) return;
-      updatePayload({
-        ...payload,
-        cost_summary: { ...payload.cost_summary, selling_price: sp },
-      });
-    },
-    [payload, updatePayload],
-  );
-
-  // ── Render ──────────────────────────────────────────────────────────────
+  const retryLoad = () => {
+    const id = activeDraftId;
+    setActiveDraftId(null);
+    requestAnimationFrame(() => setActiveDraftId(id));
+  };
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4">
-        <h1 className="text-xl font-semibold text-[var(--fg)]">✨ {t('labTitle')}</h1>
-        <FoodCostTargetSetting restaurantId={restaurantId} canManage={canManage} />
+    <div className="min-h-full bg-[var(--bg)] text-[var(--fg)]">
+      <header className="border-b border-[var(--line)] bg-[var(--surface)]">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-5 py-5 sm:px-7 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--brand-500)] text-white shadow-[var(--shadow-1)]">
+              <FlaskConicalIcon className="h-5 w-5" />
+            </span>
+            <div>
+              <h1 className="text-xl font-semibold tracking-[-0.025em]">{t('labTitle')}</h1>
+              <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{t('labSubtitle')}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-5">
+            <ProgressSteps reviewing={activeDraftId != null} />
+            <div className="hidden h-7 w-px bg-[var(--line)] sm:block" />
+            <FoodCostTargetSetting restaurantId={restaurantId} canManage={canManage} />
+          </div>
+        </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left aside: input rail + drafts queue */}
-        <aside className="hidden w-80 shrink-0 overflow-y-auto border-r border-[var(--line)] p-4 lg:block lg:space-y-6">
-          <DraftInputRail
-            restaurantId={restaurantId}
-            onAfterGenerate={refetchQueue}
-            canManage={canManage}
-          />
-
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]">
-              Drafts
-            </p>
-            <DraftQueue
-              restaurantId={restaurantId}
-              activeDraftId={activeDraftId}
-              onSelect={setActiveDraftId}
-            />
+      {activeDraftId == null ? (
+        <main className="mx-auto max-w-[1320px] px-4 py-7 sm:px-7 sm:py-9">
+          <div className="mb-6 max-w-3xl">
+            <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--fg)] sm:text-4xl">{t('labBriefHeading')}</h2>
+            <p className="mt-2 max-w-2xl text-base leading-7 text-[var(--fg-muted)]">{t('labBriefIntro')}</p>
           </div>
-        </aside>
 
-        {/* Main panel: draft reviewer */}
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 md:p-6">
-          <details className="mb-4 rounded-xl border border-[var(--line)] p-3 lg:hidden">
-            <summary className="cursor-pointer text-sm font-semibold text-[var(--fg)]">{t('labAddDishes')}</summary>
-            <div className="mt-4 space-y-5">
-              <DraftInputRail restaurantId={restaurantId} onAfterGenerate={refetchQueue} canManage={canManage} />
+          <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <DraftInputRail restaurantId={restaurantId} onAfterGenerate={refetchQueue} canManage={canManage} />
+            <aside className="rounded-[18px] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-1)] xl:sticky xl:top-5">
+              <h2 className="text-base font-semibold text-[var(--fg)]">{t('labDraftsTitle')}</h2>
+              <p className="mt-1 mb-4 text-xs leading-5 text-[var(--fg-muted)]">{t('labDraftsHelp')}</p>
               <DraftQueue restaurantId={restaurantId} activeDraftId={activeDraftId} onSelect={setActiveDraftId} />
-            </div>
-          </details>
-          {/* Empty state */}
-          {activeDraftId == null && (
-            <div
-              className="flex h-full items-center justify-center"
-              style={{ color: 'var(--fg-muted)' }}
-            >
-              <p className="text-sm">{t('labEmptyState')}</p>
-            </div>
-          )}
+            </aside>
+          </div>
+        </main>
+      ) : (
+        <main className="mx-auto max-w-[1440px] px-4 py-5 sm:px-7 sm:py-7">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <button type="button" onClick={() => setActiveDraftId(null)} className="inline-flex items-center gap-2 text-sm font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
+              <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" /> {t('labBackToBriefs')}
+            </button>
+            <AutosaveStatus state={autosaveState} />
+          </div>
 
-          {/* Loading state */}
-          {activeDraftId != null && loading && (
-            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-              {t('labLoading')}
-            </p>
-          )}
-
-          {/* Error state */}
-          {activeDraftId != null && !loading && loadError && (
-            <div style={{ color: 'rgb(220,38,38)' }}>
-              <p className="text-sm">{loadError}</p>
-              <button
-                onClick={() => {
-                  // Re-trigger the effect by momentarily clearing + restoring.
-                  const id = activeDraftId;
-                  setActiveDraftId(null);
-                  requestAnimationFrame(() => setActiveDraftId(id));
-                }}
-                style={{
-                  marginTop: 8,
-                  padding: '6px 12px',
-                  borderRadius: 6,
-                  border: '1px solid rgb(220,38,38)',
-                  background: 'transparent',
-                  color: 'rgb(220,38,38)',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
-              >
-                Retry
-              </button>
+          {loading && (
+            <div className="flex min-h-[420px] items-center justify-center gap-2 text-sm text-[var(--fg-muted)]">
+              <LoaderCircleIcon className="h-5 w-5 animate-spin" /> {t('labLoading')}
             </div>
           )}
 
-          {/* Loaded state */}
-          {activeDraftId != null && !loading && !loadError && payload && (
-            <div className="mx-auto grid max-w-[1500px] gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="min-w-0">
-                <div className="mb-2 flex justify-end text-[11px] text-[var(--fg-muted)]">
-                  {autosaveState === 'saving' && t('labAutosaving')}
-                  {autosaveState === 'saved' && t('labAutosaved')}
-                  {autosaveState === 'error' && <span className="text-red-600">{t('labAutosaveFailed')}</span>}
-                </div>
-                <CostSummaryHeader
-                  payload={payload}
-                  onSellingPriceChange={handleSellingPriceChange}
-                  canManage={canManage}
-                />
+          {!loading && loadError && (
+            <div className="rounded-[14px] border border-[var(--danger-500)] bg-[var(--danger-50)] p-5 text-sm text-[var(--danger-500)]">
+              <p>{loadError}</p>
+              <Button variant="secondary" size="sm" className="mt-3" onClick={retryLoad}>{t('retry')}</Button>
+            </div>
+          )}
 
-                <RecipeTree payload={payload} onChange={updatePayload} canManage={canManage} />
-
-              {/* Sticky action footer */}
-                <div
-                style={{
-                  position: 'sticky',
-                  bottom: 0,
-                  marginTop: 24,
-                  padding: '12px 0',
-                  borderTop: '1px solid var(--line)',
-                  background: 'var(--bg, white)',
-                  display: 'flex',
-                  gap: 12,
-                  alignItems: 'center',
-                }}
-                >
-                {canManage && (
-                  <button
-                    onClick={() => setRefineOpen(true)}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: 6,
-                      border: '1px solid var(--line)',
-                      background: 'transparent',
-                      cursor: 'pointer',
-                      fontSize: 14,
-                      color: 'var(--fg)',
-                    }}
-                  >
-                    {t('labRefineTitle')}
-                  </button>
-                )}
-
-                <div style={{ flex: 1 }} />
-
-                {canManage && (
-                  <button
-                    onClick={handleDiscard}
-                    disabled={submitting}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: 6,
-                      border: '1px solid var(--line)',
-                      background: 'transparent',
-                      cursor: submitting ? 'not-allowed' : 'pointer',
-                      fontSize: 14,
-                      opacity: submitting ? 0.5 : 1,
-                      color: 'var(--fg)',
-                    }}
-                  >
-                    {t('labDiscard')}
-                  </button>
-                )}
-
-                {canManage && (
-                  <button
-                    onClick={handleSave}
-                    disabled={submitting}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: 6,
-                      background: 'rgb(22,163,74)',
-                      color: 'white',
-                      border: 'none',
-                      cursor: submitting ? 'not-allowed' : 'pointer',
-                      fontSize: 14,
-                      fontWeight: 500,
-                      opacity: submitting ? 0.5 : 1,
-                    }}
-                  >
-                    {submitting ? t('labSaving') : t('labSaveRecipe')}
-                  </button>
-                )}
-                </div>
+          {!loading && !loadError && payload && (
+            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_370px]">
+              <div className="order-1 xl:col-span-2">
+                <CostSummaryHeader payload={payload} onSellingPriceChange={handleSellingPriceChange} canManage={canManage} />
               </div>
 
-              <aside className="space-y-4">
-                <IntelligencePanel payload={payload} />
+              <aside className="order-2 space-y-4 xl:order-3 xl:sticky xl:top-5">
+                <IntelligencePanel
+                  payload={payload}
+                  canManage={canManage}
+                  submitting={submitting}
+                  onSave={handleSave}
+                  onRefine={() => setRefineOpen(true)}
+                />
+                {draft?.menu_item_id != null && (
+                  <VersionHistory restaurantId={restaurantId} menuItemId={draft.menu_item_id} canManage={canManage} onRestored={(restored) => updatePayload(normalizePayload(restored))} />
+                )}
+              </aside>
+
+              <div className="order-3 min-w-0 space-y-4 xl:order-2">
+                <RecipeTree payload={payload} onChange={updatePayload} canManage={canManage} />
                 <ImageStudio
                   restaurantId={restaurantId}
                   draftId={activeDraftId}
@@ -353,30 +230,60 @@ export default function RecipeLabPage() {
                   disabled={!canManage || autosaveState === 'saving'}
                   onConfirmed={(url) => setPayload((current) => current ? { ...current, selected_image_url: url } : current)}
                 />
-                {draft?.menu_item_id != null && (
-                  <VersionHistory
-                    restaurantId={restaurantId}
-                    menuItemId={draft.menu_item_id}
-                    canManage={canManage}
-                    onRestored={(restored) => updatePayload(normalizePayload(restored))}
-                  />
+                {canManage && (
+                  <div className="flex justify-end pt-2">
+                    <button type="button" onClick={handleDiscard} disabled={submitting} className="inline-flex items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:opacity-50">
+                      <Trash2Icon className="h-3.5 w-3.5" /> {t('labDeleteDraft')}
+                    </button>
+                  </div>
                 )}
-              </aside>
+              </div>
             </div>
           )}
         </main>
-      </div>
+      )}
 
       <RefineDrawer
         restaurantId={restaurantId}
         draftId={activeDraftId}
         open={refineOpen && canManage}
         onClose={() => setRefineOpen(false)}
-        onPatches={(patches) => {
-          if (payload) updatePayload(applyPatches(payload, patches));
-        }}
+        onPatches={(patches) => { if (payload) updatePayload(applyPatches(payload, patches)); }}
       />
     </div>
+  );
+}
+
+function ProgressSteps({ reviewing }: { reviewing: boolean }) {
+  const { t } = useI18n();
+  const steps = [t('labStepBrief'), t('labStepProposals'), t('labStepFinalize')];
+  const activeIndex = reviewing ? 1 : 0;
+  return (
+    <ol className="hidden items-center sm:flex">
+      {steps.map((label, index) => (
+        <li key={label} className="flex items-center">
+          {index > 0 && <span className={`mx-2 h-px w-6 ${index <= activeIndex ? 'bg-[var(--brand-500)]' : 'bg-[var(--line-strong)]'}`} />}
+          <span className={`flex items-center gap-1.5 text-xs font-medium ${index === activeIndex ? 'text-[var(--fg)]' : index < activeIndex ? 'text-[var(--brand-500)]' : 'text-[var(--fg-subtle)]'}`}>
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${index === activeIndex ? 'bg-[var(--brand-500)] text-white' : index < activeIndex ? 'bg-[color-mix(in_oklab,var(--brand-500)_12%,var(--surface))] text-[var(--brand-500)]' : 'border border-[var(--line-strong)]'}`}>
+              {index < activeIndex ? <CheckIcon className="h-3 w-3" /> : index + 1}
+            </span>
+            {label}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function AutosaveStatus({ state }: { state: 'idle' | 'saving' | 'saved' | 'error' }) {
+  const { t } = useI18n();
+  if (state === 'idle') return null;
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs ${state === 'error' ? 'text-[var(--danger-500)]' : 'text-[var(--fg-muted)]'}`}>
+      {state === 'saving' && <LoaderCircleIcon className="h-3.5 w-3.5 animate-spin" />}
+      {state === 'saved' && <CheckIcon className="h-3.5 w-3.5 text-[var(--success-500)]" />}
+      {state === 'saving' ? t('labAutosaving') : state === 'saved' ? t('labAutosaved') : t('labAutosaveFailed')}
+    </span>
   );
 }
 
