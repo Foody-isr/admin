@@ -1,19 +1,13 @@
 'use client';
 
+import { CheckIcon, XIcon } from 'lucide-react';
 import type { Component } from '../types';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { EstimatedPriceBadge } from './EstimatedPriceBadge';
 
 const UNITS = ['g', 'kg', 'ml', 'l', 'piece', 'unit', 'tsp', 'tbsp', 'cup'];
 
-/**
- * IngredientRow — a single editable row for a stock ingredient component
- * (kind: `stock_existing` or `stock_new`).
- *
- * Columns: origin badge | name | qty input | unit select | line cost | target hint | remove button.
- *
- * Fully controlled: callers own the component state and propagate edits via `onChange`.
- */
+/** Editable stock ingredient row that reflows into two levels on small screens. */
 export function IngredientRow({
   c,
   onChange,
@@ -28,167 +22,80 @@ export function IngredientRow({
   const { money } = useCurrency();
   const { t } = useI18n();
   const isExisting = c.kind === 'stock_existing';
-  const costMeta = costStatusMeta(c.cost_status ?? (isExisting ? 'verified' : 'estimated'), t);
+  const costLabel = c.cost_status === 'verified' ? t('labCostVerified') : c.cost_status === 'estimated' ? t('labCostEstimated') : t('labCostUnknown');
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'auto minmax(120px,1fr) 76px 68px 64px 82px minmax(80px,auto) auto',
-        alignItems: 'center',
-        gap: 8,
-        padding: '4px 0',
-      }}
-    >
-      {/* Origin badge: "real" for linked stock items, "est" for new/unlinked */}
-      <span title={costMeta.label}>
-        {c.cost_status === 'unknown' ? <CostBadge label="?" color="rgb(107,114,128)" /> : isExisting && c.cost_status !== 'estimated' ? <RealBadge /> : <EstimatedPriceBadge confidence={c.price_confidence} />}
+    <div className="relative grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-2 rounded-[9px] px-2 py-2 hover:bg-[var(--surface-2)] md:grid-cols-[auto_minmax(160px,1fr)_76px_68px_64px_82px_minmax(80px,auto)_auto] md:gap-2 md:py-1">
+      <span className="w-9" title={costLabel}>
+        {c.cost_status === 'unknown' ? <CostBadge label="?" color="var(--fg-muted)" /> : isExisting && c.cost_status !== 'estimated' ? <RealBadge /> : <EstimatedPriceBadge confidence={c.price_confidence} />}
       </span>
 
-      {/* Item name — truncated if too long */}
-      <span
-        style={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          fontSize: 13,
-        }}
-      >
+      <span className="truncate pe-8 text-sm font-medium text-[var(--fg)] md:pe-0 md:text-xs md:font-normal">
         {c.name_primary || c.name_he || '—'}
       </span>
 
-      {/* Quantity input */}
-      {canManage ? (
-        <input
-          type="number"
-          value={c.qty}
-          min={0}
-          step="any"
-          onChange={(e) =>
-            onChange({ ...c, qty: parseFloat(e.target.value) || 0 })
-          }
-          style={inputStyle}
-          aria-label="Quantity"
-        />
-      ) : (
-        <span style={{ fontSize: 13, textAlign: 'right' }}>{c.qty}</span>
-      )}
-
-      {canManage ? (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: 'var(--fg-muted)' }} title={t('labWasteHelp')}>
+      <div className="col-span-2 grid grid-cols-[76px_60px_68px_minmax(70px,1fr)] items-center gap-2 md:contents">
+        {canManage ? (
           <input
             type="number"
-            value={c.waste_pct ?? 0}
+            value={c.qty}
             min={0}
-            max={99}
-            step={1}
-            onChange={(e) => onChange({ ...c, waste_pct: Math.min(99, Math.max(0, Number(e.target.value))) })}
-            style={{ ...inputStyle, width: 44 }}
-            aria-label={t('labWaste')}
-          />%
-        </label>
-      ) : (
-        <span style={{ fontSize: 11, color: 'var(--fg-muted)' }}>{c.waste_pct ? `${c.waste_pct}%` : '—'}</span>
-      )}
+            step="any"
+            onChange={(event) => onChange({ ...c, qty: parseFloat(event.target.value) || 0 })}
+            className={inputClass}
+            aria-label={t('labQuantity')}
+          />
+        ) : <span className="text-end text-xs tabular-nums">{c.qty}</span>}
 
-      {/* Unit select */}
+        {canManage ? (
+          <label className="flex items-center gap-1 text-[10px] text-[var(--fg-muted)]" title={t('labWasteHelp')}>
+            <input
+              type="number"
+              value={c.waste_pct ?? 0}
+              min={0}
+              max={99}
+              step={1}
+              onChange={(event) => onChange({ ...c, waste_pct: Math.min(99, Math.max(0, Number(event.target.value))) })}
+              className={inputClass}
+              aria-label={t('labWaste')}
+            />%
+          </label>
+        ) : <span className="text-xs text-[var(--fg-muted)]">{c.waste_pct ? `${c.waste_pct}%` : '—'}</span>}
+
+        {canManage ? (
+          <select value={c.unit} onChange={(event) => onChange({ ...c, unit: event.target.value })} className={inputClass} aria-label={t('labUnit')}>
+            {UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+          </select>
+        ) : <span className="text-xs">{c.unit}</span>}
+
+        <span className="text-end text-xs font-semibold tabular-nums text-[var(--fg)]">{money(c.line_cost ?? 0)}</span>
+
+        <span className="col-span-4 text-[10px] text-[var(--fg-muted)] md:col-auto">
+          {c.target_cost_per_unit != null && c.cost_per_unit != null && c.target_cost_per_unit < c.cost_per_unit
+            ? `${t('labTargetLeq')} ${money(c.target_cost_per_unit)}/${c.unit}`
+            : null}
+        </span>
+      </div>
+
       {canManage ? (
-        <select
-          value={c.unit}
-          onChange={(e) => onChange({ ...c, unit: e.target.value })}
-          style={inputStyle}
-          aria-label="Unit"
-        >
-          {UNITS.map((u) => (
-            <option key={u} value={u}>
-              {u}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <span style={{ fontSize: 13 }}>{c.unit}</span>
-      )}
-
-      {/* Line cost */}
-      <span style={{ textAlign: 'right', fontWeight: 500, fontSize: 13 }}>
-        {money(c.line_cost ?? 0)}
-      </span>
-
-      {/* Optional target hint — shown when item costs more than its target */}
-      <span style={{ fontSize: 11, color: 'var(--fg-muted)' }}>
-        {c.target_cost_per_unit != null &&
-        c.cost_per_unit != null &&
-        c.target_cost_per_unit < c.cost_per_unit
-          ? `${t('labTargetLeq')} ${money(c.target_cost_per_unit)}/${c.unit}`
-          : null}
-      </span>
-
-      {/* Remove button */}
-      {canManage ? (
-        <button
-          onClick={onRemove}
-          aria-label={t('labRemoveIngredient')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--fg-muted)',
-            fontSize: 18,
-            padding: '0 6px',
-            lineHeight: 1,
-          }}
-        >
-          ×
+        <button onClick={onRemove} aria-label={t('labRemoveIngredient')} className="absolute end-2 top-2 rounded-[6px] p-1 text-[var(--fg-subtle)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] md:static">
+          <XIcon className="h-3.5 w-3.5" />
         </button>
-      ) : (
-        <span />
-      )}
+      ) : <span />}
     </div>
   );
 }
 
-function costStatusMeta(status: Component['cost_status'], t: (key: string) => string) {
-  if (status === 'verified') return { label: t('labCostVerified') };
-  if (status === 'estimated') return { label: t('labCostEstimated') };
-  return { label: t('labCostUnknown') };
-}
-
 function CostBadge({ label, color }: { label: string; color: string }) {
-  return <span style={{ borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: `${color}18`, color }}>{label}</span>;
+  return <span className="inline-flex h-5 min-w-7 items-center justify-center rounded-[5px] px-1.5 text-[10px] font-bold" style={{ background: `color-mix(in oklab, ${color} 12%, transparent)`, color }}>{label}</span>;
 }
 
-// ── Internal helpers ──────────────────────────────────────────────────────────
-
-const inputStyle: React.CSSProperties = {
-  padding: '4px 6px',
-  borderRadius: 6,
-  border: '1px solid var(--line)',
-  fontSize: 13,
-  background: 'var(--surface-2,#fff)',
-  color: 'var(--fg)',
-  width: '100%',
-};
-
-/**
- * RealBadge — green badge indicating the ingredient is linked to an actual
- * stock item with a known cost_per_unit.
- */
 function RealBadge() {
   return (
-    <span
-      style={{
-        display: 'inline-block',
-        borderRadius: 4,
-        padding: '1px 6px',
-        fontSize: 10,
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '.04em',
-        background: 'rgba(16,185,129,.1)',
-        color: 'rgb(4,120,87)',
-      }}
-    >
-      real
+    <span className="inline-flex h-5 min-w-7 items-center justify-center rounded-[5px] bg-[var(--success-50)] px-1 text-[var(--success-500)]" title="Stock">
+      <CheckIcon className="h-3 w-3" />
     </span>
   );
 }
+
+const inputClass = 'h-8 w-full min-w-0 rounded-[7px] border border-[var(--line)] bg-[var(--surface)] px-2 text-xs tabular-nums text-[var(--fg)] outline-none focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)]';

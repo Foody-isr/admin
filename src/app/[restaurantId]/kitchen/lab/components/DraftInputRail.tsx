@@ -1,34 +1,36 @@
 'use client';
 
 import { useState } from 'react';
-import { BookOpenIcon, CalendarDaysIcon, ChefHatIcon, PackageOpenIcon, RefreshCwIcon, SparklesIcon, TrendingUpIcon } from 'lucide-react';
+import {
+  BookOpenIcon,
+  CalendarDaysIcon,
+  ChefHatIcon,
+  ChevronDownIcon,
+  PackageOpenIcon,
+  RefreshCwIcon,
+  SparklesIcon,
+  TrendingUpIcon,
+} from 'lucide-react';
 import { labGenerateDrafts } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ds';
 import { MenuItemPicker } from './MenuItemPicker';
 import type { RecipeBrief, RecipeObjective } from '../types';
 
-const OBJECTIVES: { value: RecipeObjective; icon: typeof TrendingUpIcon; labelKey: string }[] = [
-  { value: 'optimize_profit', icon: TrendingUpIcon, labelKey: 'labObjectiveProfit' },
-  { value: 'refresh_menu', icon: RefreshCwIcon, labelKey: 'labObjectiveRefresh' },
-  { value: 'seasonal', icon: CalendarDaysIcon, labelKey: 'labObjectiveSeasonal' },
-  { value: 'use_stock', icon: PackageOpenIcon, labelKey: 'labObjectiveStock' },
-  { value: 'signature', icon: ChefHatIcon, labelKey: 'labObjectiveSignature' },
+const OBJECTIVES: {
+  value: RecipeObjective;
+  icon: typeof TrendingUpIcon;
+  labelKey: string;
+  descriptionKey: string;
+}[] = [
+  { value: 'optimize_profit', icon: TrendingUpIcon, labelKey: 'labObjectiveProfit', descriptionKey: 'labObjectiveProfitHelp' },
+  { value: 'refresh_menu', icon: RefreshCwIcon, labelKey: 'labObjectiveRefresh', descriptionKey: 'labObjectiveRefreshHelp' },
+  { value: 'seasonal', icon: CalendarDaysIcon, labelKey: 'labObjectiveSeasonal', descriptionKey: 'labObjectiveSeasonalHelp' },
+  { value: 'use_stock', icon: PackageOpenIcon, labelKey: 'labObjectiveStock', descriptionKey: 'labObjectiveStockHelp' },
+  { value: 'signature', icon: ChefHatIcon, labelKey: 'labObjectiveSignature', descriptionKey: 'labObjectiveSignatureHelp' },
 ];
 
-/**
- * DraftInputRail — left-rail input area for the Recipe Lab.
- *
- * Two paths to generate recipe drafts:
- * 1. Free-text: type dish names (one per line) → "Generate" button.
- * 2. Library: pick existing menu items via the MenuItemPicker modal.
- *
- * After a successful generate the polling in useDraftQueue picks up the new
- * drafts within 3 s. onAfterGenerate is called for an explicit refetch when
- * the caller wants faster feedback.
- * // TODO: wire explicit refetch for sub-second feedback once the server
- *           returns the created draft IDs synchronously (#github-issue).
- */
+/** Guided brief builder for a new recipe or an existing menu item. */
 export function DraftInputRail({
   restaurantId,
   onAfterGenerate,
@@ -39,7 +41,6 @@ export function DraftInputRail({
   canManage: boolean;
 }) {
   const { t, locale } = useI18n();
-
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -55,12 +56,8 @@ export function DraftInputRail({
     notes: '',
   });
 
-  /** Parse the textarea into a trimmed, non-empty list of dish names. */
   const parseDishNames = (raw: string): string[] =>
-    raw
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
+    raw.split('\n').map((line) => line.trim()).filter(Boolean);
 
   const handleGenerate = async () => {
     const dishNames = parseDishNames(text);
@@ -79,155 +76,179 @@ export function DraftInputRail({
     setPickerOpen(false);
     setSubmitting(true);
     try {
-      await labGenerateDrafts(restaurantId, {
-        menu_item_ids: ids.map(String),
-        locale,
-        brief,
-      });
+      await labGenerateDrafts(restaurantId, { menu_item_ids: ids.map(String), locale, brief });
       onAfterGenerate?.();
     } finally {
       setSubmitting(false);
     }
   };
 
-  const dishNames = parseDishNames(text);
-  const canGenerate = dishNames.length > 0 && !submitting;
+  const canGenerate = parseDishNames(text).length > 0 && !submitting;
 
   return (
     <>
-      <section className="space-y-3">
-        <div>
-          <p className="text-sm font-semibold text-[var(--fg)]">{t('labIntentTitle')}</p>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--fg-muted)]">{t('labIntentHelp')}</p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-1.5">
-          {OBJECTIVES.map(({ value, icon: Icon, labelKey }) => {
-            const active = brief.objective === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setBrief((b) => ({ ...b, objective: value }))}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${active ? 'border-[var(--brand-500)] bg-[var(--surface-2)] text-[var(--fg)] ring-1 ring-[var(--brand-500)]' : 'border-[var(--line)] text-[var(--fg-muted)] hover:bg-[var(--surface-2)]'}`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{t(labelKey)}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <label className="block text-xs text-[var(--fg-muted)]">
-          {t('labStockPolicy')}
-          <select
-            value={brief.stock_policy}
-            onChange={(e) => setBrief((b) => ({ ...b, stock_policy: e.target.value as RecipeBrief['stock_policy'] }))}
-            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--fg)]"
-          >
-            <option value="existing_only">{t('labStockOnly')}</option>
-            <option value="prefer_existing">{t('labStockPrefer')}</option>
-            <option value="allow_new">{t('labStockAllowNew')}</option>
-          </select>
-        </label>
-
-        <label className="block text-xs text-[var(--fg-muted)]">
-          <span className="flex justify-between"><span>{t('labCreativity')}</span><strong>{brief.creativity}%</strong></span>
-          <input
-            type="range" min={0} max={100} step={5} value={brief.creativity}
-            onChange={(e) => setBrief((b) => ({ ...b, creativity: Number(e.target.value) }))}
-            className="mt-1 w-full accent-[var(--brand-500)]"
-          />
-          <span className="flex justify-between text-[10px]"><span>{t('labFamiliar')}</span><span>{t('labBold')}</span></span>
-        </label>
-
-        {(brief.objective === 'seasonal') && (
-          <input
-            value={brief.season ?? ''}
-            onChange={(e) => setBrief((b) => ({ ...b, season: e.target.value }))}
-            placeholder={t('labSeasonPlaceholder')}
-            className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--fg)]"
-          />
-        )}
-
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs text-[var(--fg-muted)]">
-            {t('labMaxPrep')}
-            <input
-              type="number" min={0} value={brief.max_prep_time_mins ?? 0}
-              onChange={(e) => setBrief((b) => ({ ...b, max_prep_time_mins: Number(e.target.value) }))}
-              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 py-2 text-sm text-[var(--fg)]"
-            />
-          </label>
-          <label className="text-xs text-[var(--fg-muted)]">
-            {t('labMustUse')}
-            <input
-              value={(brief.must_use ?? []).join(', ')}
-              onChange={(e) => setBrief((b) => ({ ...b, must_use: e.target.value.split(',').map((v) => v.trim()).filter(Boolean) }))}
-              placeholder={t('labIngredientsPlaceholder')}
-              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 py-2 text-sm text-[var(--fg)]"
-            />
-          </label>
-        </div>
-
-        <textarea
-          value={brief.notes ?? ''}
-          onChange={(e) => setBrief((b) => ({ ...b, notes: e.target.value }))}
-          placeholder={t('labConstraintsPlaceholder')}
-          rows={2}
-          className="w-full resize-none rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--fg)]"
-        />
-
-        <div className="border-t border-[var(--line)] pt-3">
-          <p className="mb-2 text-sm font-semibold text-[var(--fg)]">{t('labDishTitle')}</p>
-
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={t('labDishNamesPlaceholder')}
-          rows={6}
-          disabled={submitting}
-          className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--fg)] placeholder:text-[var(--fg-muted)] resize-none focus:outline-none focus:border-[var(--brand-500)] transition-colors disabled:opacity-50"
-        />
-
-        </div>
-
-        {canManage && (
-          <div className="flex flex-col gap-2">
-            {/* Primary CTA: generate from typed dish names */}
-            <Button
-              variant="primary"
-              size="sm"
-              className="w-full justify-center"
-              onClick={handleGenerate}
-              disabled={!canGenerate}
-            >
-              <SparklesIcon />
-              {submitting ? t('labLoading') : t('labGenerate')}
-            </Button>
-
-            {/* Secondary CTA: open library picker */}
-            <Button
-              variant="secondary"
-              size="sm"
-              className="w-full justify-center"
-              onClick={() => setPickerOpen(true)}
-              disabled={submitting}
-            >
-              <BookOpenIcon />
-              {t('labFromLibrary')}
-            </Button>
+      <section className="overflow-hidden rounded-[18px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
+        <div className="border-b border-[var(--line)] px-5 py-5 sm:px-7 sm:py-6">
+          <div className="flex items-start gap-4">
+            <StepNumber value="1" />
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold tracking-[-0.025em] text-[var(--fg)]">{t('labIntentTitle')}</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">{t('labIntentHelp')}</p>
+            </div>
           </div>
-        )}
+
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {OBJECTIVES.map(({ value, icon: Icon, labelKey, descriptionKey }) => {
+              const active = brief.objective === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setBrief((current) => ({ ...current, objective: value }))}
+                  className={`group flex min-h-[92px] items-start gap-3 rounded-[12px] border p-4 text-start transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${active ? 'border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_8%,var(--surface))] shadow-[inset_3px_0_0_var(--brand-500)]' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'}`}
+                >
+                  <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] ${active ? 'bg-[var(--brand-500)] text-white' : 'bg-[var(--surface-2)] text-[var(--fg-muted)] group-hover:text-[var(--fg)]'}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-[var(--fg)]">{t(labelKey)}</span>
+                    <span className="mt-1 block text-xs leading-5 text-[var(--fg-muted)]">{t(descriptionKey)}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="px-5 py-5 sm:px-7 sm:py-6">
+          <div className="flex items-start gap-4">
+            <StepNumber value="2" />
+            <div className="min-w-0 flex-1">
+              <label htmlFor="lab-dish-ideas" className="text-base font-semibold text-[var(--fg)]">{t('labDescribeDish')}</label>
+              <p className="mt-1 text-sm leading-6 text-[var(--fg-muted)]">{t('labDescribeDishHelp')}</p>
+              <textarea
+                id="lab-dish-ideas"
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                placeholder={t('labDishNamesPlaceholder')}
+                rows={3}
+                disabled={submitting}
+                className="mt-4 w-full resize-none rounded-[12px] border border-[var(--line-strong)] bg-[var(--surface)] px-4 py-3 text-base leading-6 text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:outline-none focus:shadow-[var(--focus-ring)] disabled:opacity-50"
+              />
+
+              {canManage && (
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button size="lg" className="sm:min-w-56" onClick={handleGenerate} disabled={!canGenerate}>
+                    <SparklesIcon />
+                    {submitting ? t('labLoading') : t('labCreateProposals')}
+                  </Button>
+                  <span className="px-1 text-center text-xs text-[var(--fg-subtle)]">{t('labOr')}</span>
+                  <Button variant="secondary" size="lg" onClick={() => setPickerOpen(true)} disabled={submitting}>
+                    <BookOpenIcon />
+                    {t('labStartFromMenu')}
+                  </Button>
+                </div>
+              )}
+
+              <details className="group mt-4 rounded-[10px] border border-[var(--line)] bg-[var(--surface-2)]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] [&::-webkit-details-marker]:hidden">
+                  <span>
+                    {t('labOptionalSettings')}
+                    <span className="ms-2 font-normal text-[var(--fg-muted)]">{t('labOptionalSettingsHelp')}</span>
+                  </span>
+                  <ChevronDownIcon className="h-4 w-4 shrink-0 text-[var(--fg-muted)] transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="grid gap-4 border-t border-[var(--line)] p-4 sm:grid-cols-2">
+                  <label className="text-xs font-medium text-[var(--fg-muted)]">
+                    {t('labStockPolicy')}
+                    <select
+                      value={brief.stock_policy}
+                      onChange={(event) => setBrief((current) => ({ ...current, stock_policy: event.target.value as RecipeBrief['stock_policy'] }))}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+                    >
+                      <option value="existing_only">{t('labStockOnly')}</option>
+                      <option value="prefer_existing">{t('labStockPrefer')}</option>
+                      <option value="allow_new">{t('labStockAllowNew')}</option>
+                    </select>
+                  </label>
+
+                  <label className="text-xs font-medium text-[var(--fg-muted)]">
+                    <span className="flex justify-between"><span>{t('labCreativity')}</span><strong className="text-[var(--fg)]">{brief.creativity}%</strong></span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={brief.creativity}
+                      onChange={(event) => setBrief((current) => ({ ...current, creativity: Number(event.target.value) }))}
+                      className="mt-2 w-full accent-[var(--brand-500)]"
+                    />
+                    <span className="flex justify-between text-[10px] font-normal"><span>{t('labFamiliar')}</span><span>{t('labBold')}</span></span>
+                  </label>
+
+                  {brief.objective === 'seasonal' && (
+                    <label className="text-xs font-medium text-[var(--fg-muted)]">
+                      {t('labObjectiveSeasonal')}
+                      <input
+                        value={brief.season ?? ''}
+                        onChange={(event) => setBrief((current) => ({ ...current, season: event.target.value }))}
+                        placeholder={t('labSeasonPlaceholder')}
+                        className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+                      />
+                    </label>
+                  )}
+
+                  <label className="text-xs font-medium text-[var(--fg-muted)]">
+                    {t('labMaxPrep')}
+                    <input
+                      type="number"
+                      min={0}
+                      value={brief.max_prep_time_mins ?? 0}
+                      onChange={(event) => setBrief((current) => ({ ...current, max_prep_time_mins: Number(event.target.value) }))}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-[var(--fg-muted)]">
+                    {t('labMustUse')}
+                    <input
+                      value={(brief.must_use ?? []).join(', ')}
+                      onChange={(event) => setBrief((current) => ({ ...current, must_use: event.target.value.split(',').map((value) => value.trim()).filter(Boolean) }))}
+                      placeholder={t('labIngredientsPlaceholder')}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-[var(--fg-muted)] sm:col-span-2">
+                    {t('labConstraints')}
+                    <textarea
+                      value={brief.notes ?? ''}
+                      onChange={(event) => setBrief((current) => ({ ...current, notes: event.target.value }))}
+                      placeholder={t('labConstraintsPlaceholder')}
+                      rows={2}
+                      className="mt-1.5 w-full resize-none rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+                    />
+                  </label>
+                </div>
+              </details>
+
+            </div>
+          </div>
+        </div>
       </section>
 
       {canManage && pickerOpen && (
-        <MenuItemPicker
-          restaurantId={restaurantId}
-          onPick={handlePickConfirm}
-          onClose={() => setPickerOpen(false)}
-        />
+        <MenuItemPicker restaurantId={restaurantId} onPick={handlePickConfirm} onClose={() => setPickerOpen(false)} />
       )}
     </>
+  );
+}
+
+function StepNumber({ value }: { value: string }) {
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--line-strong)] bg-[var(--surface)] text-xs font-semibold tabular-nums text-[var(--fg-muted)]">
+      {value}
+    </span>
   );
 }
