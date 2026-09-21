@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, Check, ClipboardList, ListX, Plus, Printer, RefreshCw, Route, Send, Trash2, XCircle } from 'lucide-react';
+import { AlertTriangle, Check, ClipboardList, ListX, Pencil, Plus, Printer, ReceiptText, RefreshCw, Route, Send, Trash2, XCircle } from 'lucide-react';
 import {
   API_URL,
   cancelPendingPrintJobs, cancelPrintJob,
@@ -11,7 +11,7 @@ import {
   reprintOrder, savePrintStation, testPrinter, updatePrinter, updateRestaurantSettings,
   type MenuCategory, type MenuItem, type PrintJob, type PrintPrinter, type PrintRoutingRule,
   type PrintStation, type PrinterRegistration,
-  type PrinterVendor, type PrintingOverview, type RestaurantSettings, type TranslationMap,
+  type PrinterProtocol, type PrinterVendor, type PrintingOverview, type RestaurantSettings, type TranslationMap,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -24,6 +24,7 @@ import { LocaleEditingBanner } from '@/components/i18n/LocaleEditingBanner';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 
 const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
+const RECEIPT_ORDER_TYPES = ['dine_in', 'pickup', 'delivery'] as const;
 
 const EMPTY_OVERVIEW: PrintingOverview = { printers: [], stations: [], routing_rules: [], jobs: [], summary: { queued: 0, claimed: 0, printed: 0, failed: 0, uncertain: 0, cancelled: 0 } };
 
@@ -49,9 +50,12 @@ const newStation = (): Omit<PrintStation, 'id' | 'restaurant_id'> => ({
 });
 
 const newPrinter = () => ({
-  name: '', vendor: 'epson' as PrinterVendor, identifier: 'local_printer',
-  epson_polling_id: '', gateway_printer_id: '', protocol: 'http' as 'http' | 'mqtt',
-  model: 'TM-U220IIB-i', paper_width_dots: 384 as 384 | 576,
+  connection: 'lan' as 'lan' | 'cloud', name: '', vendor: 'epson' as PrinterVendor,
+  identifier: `foody_lan_${Date.now()}`, epson_polling_id: '', gateway_printer_id: '',
+  protocol: 'spooler' as PrinterProtocol, model: 'Epson TM-m30III', profile: 'tm_m30iii' as PrintPrinter['profile'],
+  host: '', port: 80, compatibility_port: 9100, receives_receipts: true,
+  receipt_order_types: [] as PrintPrinter['receipt_order_types'], receipt_copies: 1,
+  paper_width_dots: 576 as 384 | 576,
   expected_poll_seconds: 2, station_id: '', new_station_name: '',
 });
 
@@ -109,6 +113,7 @@ export default function PrintersSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [printerOpen, setPrinterOpen] = useState(false);
+  const [editingPrinterId, setEditingPrinterId] = useState<string>();
   const [stationOpen, setStationOpen] = useState(false);
   const [editingStationId, setEditingStationId] = useState<string>();
   const [credentials, setCredentials] = useState<PrinterRegistration | null>(null);
@@ -237,18 +242,51 @@ export default function PrintersSettingsPage() {
       await load(true);
     });
   };
+  const openPrinter = (printer?: PrintPrinter) => {
+    if (!printer) {
+      setEditingPrinterId(undefined);
+      setPrinterDraft(newPrinter());
+    } else {
+      setEditingPrinterId(printer.id);
+      setPrinterDraft({
+        ...newPrinter(), connection: printer.protocol === 'spooler' ? 'lan' : 'cloud',
+        name: printer.name, identifier: printer.identifier, vendor: printer.vendor,
+        epson_polling_id: printer.epson_polling_id ?? '', gateway_printer_id: printer.gateway_printer_id ?? '',
+        protocol: printer.protocol, model: printer.model ?? '', profile: printer.profile,
+        host: printer.host, port: printer.port, compatibility_port: printer.compatibility_port,
+        receives_receipts: printer.receives_receipts ?? false,
+        receipt_order_types: printer.receipt_order_types ?? [], receipt_copies: printer.receipt_copies || 1,
+        paper_width_dots: printer.paper_width_dots as 384 | 576,
+        station_id: overview.stations.find((station) => station.primary_printer_id === printer.id)?.id ?? '',
+      });
+    }
+    setPrinterOpen(true);
+  };
+
   const submitPrinter = () => run(async () => {
-    const registration = await registerPrinter(rid, {
+    const input = {
       name: printerDraft.name,
       identifier: printerDraft.identifier,
       vendor: printerDraft.vendor,
-      protocol: printerDraft.protocol,
+      protocol: editingPrinterId ? undefined : printerDraft.protocol,
       model: printerDraft.model || undefined,
+      profile: printerDraft.profile,
+      host: printerDraft.host,
+      port: printerDraft.port,
+      use_https: false,
+      device_id: 'local_printer',
+      compatibility_port: printerDraft.compatibility_port,
+      receives_receipts: printerDraft.receives_receipts,
+      receipt_order_types: printerDraft.receipt_order_types,
+      receipt_copies: printerDraft.receipt_copies,
       paper_width_dots: printerDraft.paper_width_dots,
       expected_poll_seconds: printerDraft.expected_poll_seconds,
       epson_polling_id: printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id ? printerDraft.epson_polling_id : undefined,
       gateway_printer_id: printerDraft.vendor === 'epson' && printerDraft.gateway_printer_id ? printerDraft.gateway_printer_id : undefined,
-    });
+    };
+    const registration = editingPrinterId
+      ? { printer: await updatePrinter(rid, editingPrinterId, input), username: '', password: '', realm: '' }
+      : await registerPrinter(rid, input);
     if (printerDraft.station_id) {
       const station = overview.stations.find((value) => value.id === printerDraft.station_id);
       if (station) {
@@ -261,8 +299,9 @@ export default function PrintersSettingsPage() {
         ...newStation(), name: printerDraft.new_station_name.trim(), primary_printer_id: registration.printer.id,
       });
     }
-    setCredentials(registration.password ? registration : null);
+    setCredentials(!editingPrinterId && registration.password ? registration : null);
     setPrinterOpen(false);
+    setEditingPrinterId(undefined);
     setPrinterDraft(newPrinter());
     await load();
   });
@@ -366,7 +405,7 @@ export default function PrintersSettingsPage() {
 
         <TabsContent value="printers">
           <Section title={t('printingLivePrinters')} desc={t('printingLiveHint')}
-            aside={canManage ? <Button size="sm" variant="secondary" onClick={() => setPrinterOpen(true)}><Plus />{t('printingRegisterCloud')}</Button> : undefined}>
+            aside={canManage ? <Button size="sm" variant="secondary" onClick={() => openPrinter()}><Plus />{t('printingAddPrinter')}</Button> : undefined}>
             {overview.printers.length === 0 ? (
               <EmptyState icon={<Printer />} title={t('printingNoPrinters')} desc={t('printingNoPrintersHint')} />
             ) : (
@@ -385,7 +424,9 @@ export default function PrintersSettingsPage() {
                           : `${printer.vendor === 'epson' ? 'EPSON SDP' : 'STAR'} · ${printer.protocol.toUpperCase()} · ${printer.model || printer.identifier} · ${printer.paper_width_dots}px`}
                       </div>
                       {printer.protocol === 'spooler' ? (
-                        <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{t('printingLocalSpoolerNetwork')}</div>
+                        <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+                          {printer.host}:{printer.compatibility_port} · {printer.receives_receipts ? t('printingReceiptPrinter') : t('printingKitchenOnly')}
+                        </div>
                       ) : printer.vendor === 'epson' && (
                         <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
                           {printer.gateway_printer_id
@@ -410,6 +451,7 @@ export default function PrintersSettingsPage() {
                     {canManage && <div className="flex flex-wrap gap-2">
                       {(printer.pending_job_count ?? 0) > 0 && <Button variant="danger" size="sm" disabled={saving} onClick={() => setQueueAction({ kind: 'printer', printer, count: printer.pending_job_count ?? 0 })}><ListX />{t('printingClearQueue')} ({printer.pending_job_count})</Button>}
                       <Button variant="secondary" size="sm" disabled={saving} onClick={() => void run(async () => { await testPrinter(rid, printer.id); await load(true); })}>{t('printingTestTicket')}</Button>
+                      {printer.protocol === 'spooler' && <Button variant="ghost" size="sm" disabled={saving} onClick={() => openPrinter(printer)}><Pencil />{t('edit')}</Button>}
                       <Button variant="ghost" size="sm" disabled={saving} onClick={() => void run(async () => { await updatePrinter(rid, printer.id, { enabled: !printer.enabled }); await load(); })}>{printer.enabled ? t('disable') : t('enable')}</Button>
                       <Button icon variant="ghost" size="sm" aria-label={t('delete')} disabled={saving} onClick={() => {
                         if (window.confirm(t('printingDeletePrinterConfirm'))) void run(async () => { await deletePrinter(rid, printer.id); await load(); });
@@ -513,13 +555,32 @@ export default function PrintersSettingsPage() {
         </TabsContent>
       </Tabs>
 
-      <Drawer open={printerOpen} onOpenChange={setPrinterOpen} title={t('printingRegister')} subtitle={t('printingRegisterHint')}
-        onSave={() => void submitPrinter()} saveLabel={t('register')}
+      <Drawer open={printerOpen} onOpenChange={setPrinterOpen} title={editingPrinterId ? t('printingEditPrinter') : t('printingAddPrinter')} subtitle={t('printingRegisterHint')}
+        onSave={() => void submitPrinter()} saveLabel={editingPrinterId ? t('save') : t('register')}
         saveDisabled={saving || !printerDraft.name.trim() || !printerDraft.identifier.trim()
-          || (printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id && !printerDraft.epson_polling_id.trim())}>
+          || (printerDraft.connection === 'lan' ? !printerDraft.host.trim() : printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id && !printerDraft.epson_polling_id.trim())}>
         <div className="grid gap-4">
           <Field label={t('name')}><Input value={printerDraft.name} onChange={(event) => setPrinterDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t('printingConnectionMode')}><Select disabled={Boolean(editingPrinterId)} value={printerDraft.connection} onChange={(event) => {
+            const connection = event.target.value as 'lan' | 'cloud';
+            setPrinterDraft((current) => ({ ...current, connection, protocol: connection === 'lan' ? 'spooler' : 'http', receives_receipts: connection === 'lan' }));
+          }}><option value="lan">{t('printingFoodyLan')}</option><option value="cloud">{t('printingCloudDevice')}</option></Select></Field>
+          {printerDraft.connection === 'lan' ? <>
+            <Field label={t('model')}><Select value={printerDraft.profile} onChange={(event) => {
+              const profile = event.target.value as PrintPrinter['profile'];
+              setPrinterDraft((current) => ({ ...current, profile, model: profile === 'tm_m30iii' ? 'Epson TM-m30III' : 'Epson TM-U220IIB', paper_width_dots: profile === 'tm_m30iii' ? 576 : 384 }));
+            }}><option value="tm_m30iii">Epson TM-m30III · 80 mm</option><option value="tm_u220iib">Epson TM-U220IIB · 76 mm</option></Select></Field>
+            <Field label={t('printingLanAddress')} hint={t('printingLanAddressHint')}><Input value={printerDraft.host} placeholder="192.168.1.48" inputMode="url" autoCapitalize="none" onChange={(event) => setPrinterDraft((current) => ({ ...current, host: event.target.value }))} /></Field>
+            <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
+              <label className="flex items-center gap-2 text-fs-sm font-semibold text-[var(--fg)]"><input type="checkbox" checked={printerDraft.receives_receipts} onChange={(event) => setPrinterDraft((current) => ({ ...current, receives_receipts: event.target.checked }))} /><ReceiptText className="h-4 w-4" />{t('printingReceiptPrinter')}</label>
+              {printerDraft.receives_receipts && <div className="mt-4 grid gap-3">
+                <div className="text-fs-xs text-[var(--fg-muted)]">{t('printingReceiptChannelsHint')}</div>
+                <div className="flex flex-wrap gap-4">{RECEIPT_ORDER_TYPES.map((orderType) => <label key={orderType} className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={printerDraft.receipt_order_types.includes(orderType)} onChange={(event) => setPrinterDraft((current) => ({ ...current, receipt_order_types: event.target.checked ? [...current.receipt_order_types, orderType] : current.receipt_order_types.filter((value) => value !== orderType) }))} />{t(`printingOrderType_${orderType}`)}</label>)}</div>
+                <Field label={t('printingReceiptCopies')}><NumberField min={1} max={5} value={printerDraft.receipt_copies} onChange={(value) => setPrinterDraft((current) => ({ ...current, receipt_copies: value }))} /></Field>
+              </div>}
+            </div>
+          </> : <>
+            <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t('printingVendor')}><Select value={printerDraft.vendor} onChange={(event) => {
               const vendor = event.target.value as PrinterVendor;
               setPrinterDraft((current) => ({
@@ -543,6 +604,7 @@ export default function PrintersSettingsPage() {
           {printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id && <Field label={t('printingEpsonPollingId')} hint={t('printingEpsonPollingIdHint')}><Input value={printerDraft.epson_polling_id} placeholder="restaurant-kitchen-01" onChange={(event) => setPrinterDraft((current) => ({ ...current, epson_polling_id: event.target.value }))} /></Field>}
           <Field label={printerDraft.vendor === 'epson' ? t('printingEpsonDeviceId') : t('printingIdentifier')} hint={printerDraft.vendor === 'epson' ? t('printingEpsonDeviceIdHint') : t('printingIdentifierHint')}><Input value={printerDraft.identifier} onChange={(event) => setPrinterDraft((current) => ({ ...current, identifier: event.target.value }))} /></Field>
           <Field label={t('printingPaperWidth')}><Select value={printerDraft.paper_width_dots} onChange={(event) => setPrinterDraft((current) => ({ ...current, paper_width_dots: Number(event.target.value) as 384 | 576 }))}>{printerDraft.vendor === 'epson' ? <><option value={384}>TM-U220 · 76 mm · 384 dots</option><option value={576}>Epson thermal · 576 dots</option></> : <><option value={384}>58 mm · 384 px</option><option value={576}>80 mm · 576 px</option></>}</Select></Field>
+          </>}
           <Field label={t('printingAssignStation')}><Select value={printerDraft.station_id} onChange={(event) => setPrinterDraft((current) => ({ ...current, station_id: event.target.value, new_station_name: '' }))}><option value="">{t('printingCreateStationBelow')}</option>{overview.stations.map((station) => <option key={station.id} value={station.id}>{localizedStationName(station, locale)}</option>)}</Select></Field>
           {!printerDraft.station_id && <Field label={t('printingNewStationName')} hint={t('printingPassNameHint')}><Input value={printerDraft.new_station_name} placeholder={t('printingPassNamePlaceholder')} onChange={(event) => setPrinterDraft((current) => ({ ...current, new_station_name: event.target.value }))} /></Field>}
         </div>
