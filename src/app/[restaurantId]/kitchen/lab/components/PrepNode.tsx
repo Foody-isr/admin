@@ -1,21 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { ChevronDownIcon, ChevronRightIcon, XIcon } from 'lucide-react';
 import type { Component } from '../types';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { IngredientRow } from './IngredientRow';
 
 const UNITS = ['g', 'kg', 'ml', 'l'];
 
-/**
- * PrepNode — a collapsible card for a preparation component
- * (kind: `prep_existing` or `prep_new`).
- *
- * When collapsed: shows header row with name, qty, unit, and line cost.
- * When expanded: reveals nested ingredients, each rendered as an `IngredientRow`.
- *
- * Fully controlled: callers own state and propagate edits via `onChange`.
- */
+/** Collapsible preparation row with its own batch ingredients. */
 export function PrepNode({
   c,
   onChange,
@@ -30,164 +23,59 @@ export function PrepNode({
   const { money } = useCurrency();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const ings = c.ingredients ?? [];
+  const ingredients = c.ingredients ?? [];
 
   return (
-    <div
-      style={{
-        borderRadius: 8,
-        border: '1px solid var(--line)',
-        background: 'var(--bg-subtle,var(--surface-2,#f9fafb))',
-        padding: 8,
-      }}
-    >
-      {/* Header row — always visible */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* Expand/collapse toggle */}
-        <button
-          onClick={() => setOpen(!open)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--fg-muted)',
-            fontSize: 12,
-            padding: '0 4px',
-            lineHeight: 1,
-          }}
-          aria-label={open ? 'Collapse' : 'Expand'}
-          aria-expanded={open}
-        >
-          {open ? '▾' : '▸'}
+    <div className="rounded-[9px] border border-[var(--line)] bg-[var(--surface-2)] px-2 py-2">
+      <div className="relative grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-2 md:grid-cols-[auto_minmax(160px,1fr)_76px_68px_64px_82px_minmax(80px,auto)_auto] md:gap-2">
+        <button type="button" onClick={() => setOpen((current) => !current)} aria-label={open ? 'Collapse' : 'Expand'} aria-expanded={open} className="flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
+          {open ? <ChevronDownIcon className="h-3.5 w-3.5" /> : <ChevronRightIcon className="h-3.5 w-3.5 rtl:rotate-180" />}
         </button>
 
-        {/* Prep name + "(prep)" label */}
-        <span style={{ flex: 1, fontWeight: 500, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {c.name_primary || c.name_he}{' '}
-          <span style={{ fontWeight: 400, color: 'var(--fg-muted)' }}>
-            ({t('labPrep')})
-          </span>
+        <span className="truncate pe-8 text-sm font-semibold text-[var(--fg)] md:pe-0 md:text-xs">
+          {c.name_primary || c.name_he} <span className="font-normal text-[var(--fg-muted)]">({t('labPrep')})</span>
         </span>
 
-        {/* Quantity input */}
-        {canManage ? (
-          <input
-            type="number"
-            value={c.qty}
-            min={0}
-            step="any"
-            onChange={(e) =>
-              onChange({ ...c, qty: parseFloat(e.target.value) || 0 })
-            }
-            style={{
-              width: 80,
-              padding: '4px 6px',
-              borderRadius: 6,
-              border: '1px solid var(--line)',
-              fontSize: 13,
-              background: 'var(--surface-2,#fff)',
-              color: 'var(--fg)',
-            }}
-            aria-label="Quantity"
-          />
-        ) : (
-          <span style={{ width: 80, textAlign: 'right', fontSize: 13 }}>{c.qty}</span>
-        )}
+        <div className="col-span-2 ms-9 grid grid-cols-[76px_68px_minmax(70px,1fr)] items-center gap-2 md:contents">
+          {canManage ? (
+            <input type="number" value={c.qty} min={0} step="any" onChange={(event) => onChange({ ...c, qty: parseFloat(event.target.value) || 0 })} className={inputClass} aria-label={t('labQuantity')} />
+          ) : <span className="text-end text-xs tabular-nums">{c.qty}</span>}
 
-        {/* Unit select */}
-        {canManage ? (
-          <select
-            value={c.unit}
-            onChange={(e) => onChange({ ...c, unit: e.target.value })}
-            style={{
-              width: 70,
-              padding: '4px 6px',
-              borderRadius: 6,
-              border: '1px solid var(--line)',
-              fontSize: 13,
-              background: 'var(--surface-2,#fff)',
-              color: 'var(--fg)',
-            }}
-            aria-label="Unit"
-          >
-            {UNITS.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span style={{ width: 70, fontSize: 13 }}>{c.unit}</span>
-        )}
+          <span className="hidden md:block" />
 
-        {/* Line cost */}
-        <span
-          style={{
-            width: 80,
-            textAlign: 'right',
-            fontWeight: 500,
-            fontSize: 13,
-            flexShrink: 0,
-          }}
-        >
-          {money(c.line_cost ?? 0)}
-        </span>
+          {canManage ? (
+            <select value={c.unit} onChange={(event) => onChange({ ...c, unit: event.target.value })} className={inputClass} aria-label={t('labUnit')}>
+              {UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+            </select>
+          ) : <span className="text-xs">{c.unit}</span>}
 
-        {/* Remove button */}
+          <span className="text-end text-xs font-semibold tabular-nums text-[var(--fg)]">{money(c.line_cost ?? 0)}</span>
+          <span className="hidden md:block" />
+        </div>
+
         {canManage && (
-          <button
-            onClick={onRemove}
-            aria-label={t('labRemoveIngredient')}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--fg-muted)',
-              fontSize: 18,
-              padding: '0 6px',
-              lineHeight: 1,
-            }}
-          >
-            ×
+          <button onClick={onRemove} aria-label={t('labRemoveIngredient')} className="absolute end-0 top-0 rounded-[6px] p-1.5 text-[var(--fg-subtle)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] md:static">
+            <XIcon className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
 
-      {/* Expanded body: batch info + nested ingredient rows */}
       {open && (
-        <div style={{ marginTop: 8, paddingLeft: 24 }}>
-          {/* Batch yield hint */}
-          <p
-            style={{
-              marginBottom: 4,
-              fontSize: 11,
-              color: 'var(--fg-muted)',
-            }}
-          >
-            {t('labForBatch')
-              .replace('{qty}', String(c.yield_per_batch ?? '?'))
-              .replace('{unit}', c.yield_unit ?? c.unit)}
+        <div className="mt-3 border-t border-[var(--line)] pt-3 md:ms-9">
+          <p className="mb-2 text-[11px] text-[var(--fg-muted)]">
+            {t('labForBatch').replace('{qty}', String(c.yield_per_batch ?? '?')).replace('{unit}', c.yield_unit ?? c.unit)}
           </p>
-
-          {/* Nested ingredient rows */}
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {ings.map((ing, idx) => (
+          <div className="space-y-1">
+            {ingredients.map((ingredient, index) => (
               <IngredientRow
-                key={
-                  ing.tmp_id ??
-                  ing.stock_item_id ??
-                  `${idx}-${ing.name_primary ?? ing.name_he}`
-                }
-                c={ing}
+                key={ingredient.tmp_id ?? ingredient.stock_item_id ?? `${index}-${ingredient.name_primary ?? ingredient.name_he}`}
+                c={ingredient}
                 onChange={(next) => {
-                  const newIngs = [...ings];
-                  newIngs[idx] = next;
-                  onChange({ ...c, ingredients: newIngs });
+                  const nextIngredients = [...ingredients];
+                  nextIngredients[index] = next;
+                  onChange({ ...c, ingredients: nextIngredients });
                 }}
-                onRemove={() => {
-                  const newIngs = ings.filter((_, i) => i !== idx);
-                  onChange({ ...c, ingredients: newIngs });
-                }}
+                onRemove={() => onChange({ ...c, ingredients: ingredients.filter((_, itemIndex) => itemIndex !== index) })}
                 canManage={canManage}
               />
             ))}
@@ -197,3 +85,5 @@ export function PrepNode({
     </div>
   );
 }
+
+const inputClass = 'h-8 w-full min-w-0 rounded-[7px] border border-[var(--line)] bg-[var(--surface)] px-2 text-xs tabular-nums text-[var(--fg)] outline-none focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)]';

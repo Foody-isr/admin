@@ -3,6 +3,7 @@
 import { useDraftQueue } from '../hooks/useDraftQueue';
 import type { Draft } from '../types';
 import { useI18n } from '@/lib/i18n';
+import { ArrowUpRightIcon, LoaderCircleIcon } from 'lucide-react';
 
 /** StatusDot — small colored dot indicating a draft's current lifecycle state. */
 function StatusDot({ status }: { status: Draft['status'] }) {
@@ -13,21 +14,7 @@ function StatusDot({ status }: { status: Draft['status'] }) {
     committed: 'var(--accent-blue, #3b82f6)',
     discarded: 'var(--fg-muted, #9ca3af)',
   };
-  return (
-    <span
-      aria-hidden
-      style={{
-        display: 'inline-block',
-        height: 8,
-        width: 8,
-        borderRadius: 9999,
-        flexShrink: 0,
-        background: colorMap[status],
-        animation:
-          status === 'generating' ? 'pulse 1.5s ease-in-out infinite' : undefined,
-      }}
-    />
-  );
+  return <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorMap[status] }} />;
 }
 
 /**
@@ -51,27 +38,23 @@ export function DraftQueue({
 
   if (loading) {
     return (
-      <p className="text-sm text-[var(--fg-muted)]">{t('labLoading')}</p>
+      <p className="flex items-center gap-2 py-4 text-sm text-[var(--fg-muted)]">
+        <LoaderCircleIcon className="h-4 w-4 animate-spin" /> {t('labLoading')}
+      </p>
     );
   }
 
   if (drafts.length === 0) {
     return (
-      <p className="text-sm text-[var(--fg-muted)]">{t('labNoDraftsYet')}</p>
+      <div className="rounded-[12px] border border-dashed border-[var(--line-strong)] px-4 py-8 text-center">
+        <p className="text-sm font-medium text-[var(--fg)]">{t('labNoDraftsYet')}</p>
+        <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">{t('labNoDraftsHelp')}</p>
+      </div>
     );
   }
 
   return (
-    <ul
-      style={{
-        listStyle: 'none',
-        padding: 0,
-        margin: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '.25rem',
-      }}
-    >
+    <ul className="m-0 flex list-none flex-col gap-2 p-0">
       {drafts.map((d) => {
         const isActive = activeDraftId === d.id;
         return (
@@ -80,36 +63,14 @@ export function DraftQueue({
               type="button"
               onClick={() => onSelect(d.id)}
               title={d.dish_name}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '.5rem',
-                width: '100%',
-                padding: '.4rem .5rem',
-                borderRadius: 6,
-                textAlign: 'left',
-                background: isActive
-                  ? 'var(--bg-subtle, var(--surface-2, #f3f4f6))'
-                  : 'transparent',
-                fontWeight: isActive ? 500 : 400,
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--fg)',
-                fontSize: '.875rem',
-                transition: 'background 120ms ease',
-              }}
+              className={`group flex w-full items-center gap-3 rounded-[10px] border px-3 py-3 text-start transition-[border-color,background-color] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${isActive ? 'border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_8%,var(--surface))]' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'}`}
             >
               <StatusDot status={d.status} />
-              <span
-                style={{
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {d.dish_name}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-[var(--fg)]">{d.dish_name}</span>
+                <span className="mt-0.5 block text-[11px] text-[var(--fg-muted)]">{t(`labDraftStatus_${d.status}`)}</span>
               </span>
+              <ArrowUpRightIcon className="h-4 w-4 shrink-0 text-[var(--fg-subtle)] transition-colors group-hover:text-[var(--fg)]" />
             </button>
           </li>
         );
