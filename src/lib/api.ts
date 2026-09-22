@@ -171,6 +171,8 @@ export interface RestaurantSettings {
    *  exceeds the authorized hold. Percent (e.g. 20 = +20%). Default 20. */
   weight_hold_buffer_percent?: number;
   require_dine_in_prepayment: boolean;
+  require_pickup_prepayment?: boolean;
+  require_delivery_prepayment?: boolean;
   service_mode: string;
   scheduling_enabled: boolean;
   // Slot-based scheduling detail (mutually exclusive with batch fulfillment).
@@ -183,6 +185,9 @@ export interface RestaurantSettings {
   tips_enabled: boolean;
   auto_accept_prepaid: boolean;
   auto_send_to_kitchen: boolean;
+  auto_send_dine_in_to_kitchen?: boolean | null;
+  auto_send_pickup_to_kitchen?: boolean | null;
+  auto_send_delivery_to_kitchen?: boolean | null;
   /** Existing POS-side automatic kitchen print preference. */
   auto_print_kitchen_ticket?: boolean;
   /** Server owns automatic kitchen printing when enabled. */
