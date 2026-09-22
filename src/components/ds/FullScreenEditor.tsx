@@ -120,13 +120,25 @@ export function FullScreenEditor({
           {/* Body — on mobile the rail stacks above the main content (so the
               image upload + summary stay reachable); on md+ it sits as a
               280px sidebar to the start of the main content. */}
-          <div className="flex-1 flex flex-col md:grid overflow-y-auto md:overflow-hidden min-h-0 md:[grid-template-columns:280px_1fr]">
+          <div
+            className={cn(
+              'flex-1 min-h-0',
+              rail
+                ? 'flex flex-col overflow-y-auto md:grid md:overflow-hidden md:[grid-template-columns:280px_1fr]'
+                : 'overflow-y-auto',
+            )}
+          >
             {rail && (
               <div className="md:border-e border-[var(--line)] md:bg-[var(--surface)] p-[var(--s-4)] md:p-[var(--s-5)] md:overflow-y-auto md:max-w-[280px]">
                 {rail}
               </div>
             )}
-            <div className="md:overflow-y-auto p-[var(--s-4)] md:p-[var(--s-6)_var(--s-8)] min-w-0">
+            <div
+              className={cn(
+                'p-[var(--s-4)] md:p-[var(--s-6)_var(--s-8)] min-w-0',
+                rail && 'md:overflow-y-auto',
+              )}
+            >
               {children}
             </div>
           </div>
