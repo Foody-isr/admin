@@ -73,8 +73,8 @@ export default function POSDevicesPage() {
   return (
     <div className="space-y-[var(--s-5)]">
       <PageHead
-        title={t('posTerminals')}
-        desc={t('posTerminalsDesc')}
+        title={t('posAccess')}
+        desc={t('posAccessDesc')}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="md" asChild>

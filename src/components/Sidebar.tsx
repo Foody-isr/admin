@@ -50,6 +50,7 @@ import {
   Truck,
   Fingerprint,
   PartyPopper,
+  MonitorSmartphone,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -230,7 +231,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { href: `${base}/staff`, labelKey: 'staffMembers', perm: ['staff.view', 'staff.manage'] },
         { href: `${base}/roles`, labelKey: 'rolesPermissions', perm: ['roles.manage', 'staff.manage'] },
         { href: `${base}/staff/shifts`, labelKey: 'shiftReports', perm: ['shifts.view', 'shifts.manage'] },
-        { href: `${base}/staff/devices`, labelKey: 'posTerminals', perm: ['shifts.manage'] },
+        { href: `${base}/staff/devices`, labelKey: 'posAccess', perm: ['shifts.manage'] },
       ],
     },
     {
@@ -336,10 +337,16 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { id: 'stock', href: `${base}/settings/stock`, labelKey: 'stockSettings', icon: Package },
         { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
         { id: 'cibus', href: `${base}/settings/cibus`, labelKey: 'cibusSettings', icon: CreditCard, desktopOnly: true },
-        { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds', icon: Printer, desktopOnly: true, perm: ['printers.view', 'printers.manage'] },
         { id: 'ai-assistant', href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant', icon: Sparkles },
         { id: 'delivery', href: `${base}/settings/delivery`, labelKey: 'deliveryZones', icon: MapPin },
         { id: 'tours', href: `${base}/delivery/tours`, labelKey: 'tours', icon: Truck },
+      ],
+    },
+    {
+      groupKey: 'settingsGroupDevices',
+      items: [
+        { id: 'devices', href: `${base}/settings/devices`, labelKey: 'deviceManagementTitle', icon: MonitorSmartphone, desktopOnly: true, perm: ['printers.view', 'printers.manage'] },
+        { id: 'printer-profiles', href: `${base}/settings/printers`, labelKey: 'printerProfilesTitle', icon: Printer, desktopOnly: true, perm: ['printers.view', 'printers.manage'] },
       ],
     },
     {
