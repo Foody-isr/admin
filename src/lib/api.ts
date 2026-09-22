@@ -10,6 +10,7 @@ import type {
   RecipeBrief,
   RecipeVersion,
   DraftImageResult,
+  ManualRecipeImportResult,
 } from '@/app/[restaurantId]/kitchen/lab/types';
 import type { PosDisplayLayout } from './posDisplay';
 import {
@@ -8422,6 +8423,18 @@ export async function labCreateManualDraft(
 ): Promise<Draft> {
   return apiFetch<Draft>(
     `/api/v1/lab/drafts/manual?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
+/** Parse chef-authored text against the restaurant library without calling AI. */
+export async function labImportManualRecipeText(
+  restaurantId: number,
+  id: number,
+  body: { text: string; locale?: string },
+): Promise<ManualRecipeImportResult> {
+  return apiFetch<ManualRecipeImportResult>(
+    `/api/v1/lab/drafts/${id}/import-text?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify(body) },
   );
 }
