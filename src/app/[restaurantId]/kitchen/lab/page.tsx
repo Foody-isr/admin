@@ -29,6 +29,7 @@ import { LabEntryChoice, type LabEntryMode } from './components/LabEntryChoice';
 import { ManualRecipeStarter } from './components/ManualRecipeStarter';
 import { ManualValidationPanel } from './components/ManualValidationPanel';
 import { RecipeTextImporter } from './components/RecipeTextImporter';
+import { normalizeLabDraftPayload } from './normalizePayload';
 import type { DraftPayload, Draft } from './types';
 
 /** AI-assisted creation and review workspace for profitable restaurant recipes. */
@@ -68,7 +69,7 @@ export default function RecipeLabPage() {
       .then((nextDraft) => {
         if (cancelled) return;
         setDraft(nextDraft);
-        setPayload(nextDraft.payload ? normalizePayload(nextDraft.payload) : null);
+        setPayload(nextDraft.payload ? normalizeLabDraftPayload(nextDraft.payload) : null);
         setAutosaveState('idle');
       })
       .catch((error: unknown) => {
@@ -95,7 +96,7 @@ export default function RecipeLabPage() {
       try {
         const recalculated = await labPatchDraft(restaurantId, activeDraftId, next);
         if (saveSequence.current === sequence) {
-          setPayload(normalizePayload(recalculated));
+          setPayload(normalizeLabDraftPayload(recalculated));
           setAutosaveState('saved');
         }
       } catch (error) {
@@ -283,7 +284,7 @@ export default function RecipeLabPage() {
                   />
                 )}
                 {draft?.menu_item_id != null && (
-                  <VersionHistory restaurantId={restaurantId} menuItemId={draft.menu_item_id} canManage={canManage} onRestored={(restored) => updatePayload(normalizePayload(restored))} />
+                  <VersionHistory restaurantId={restaurantId} menuItemId={draft.menu_item_id} canManage={canManage} onRestored={(restored) => updatePayload(normalizeLabDraftPayload(restored))} />
                 )}
               </aside>
 
@@ -364,23 +365,4 @@ function AutosaveStatus({ state }: { state: 'idle' | 'saving' | 'saved' | 'error
       {state === 'saving' ? t('labAutosaving') : state === 'saved' ? t('labAutosaved') : t('labAutosaveFailed')}
     </span>
   );
-}
-
-function normalizePayload(payload: DraftPayload): DraftPayload {
-  return {
-    ...payload,
-    creation_mode: payload.creation_mode ?? 'ai',
-    brief: payload.brief ?? { objective: 'refresh_menu', stock_policy: 'prefer_existing', creativity: 45 },
-    context: payload.context ?? { currency: 'ILS', average_price: 0, min_price: 0, max_price: 0 },
-    creative: payload.creative ?? {},
-    metrics: payload.metrics ?? { stock_reuse_pct: 0, menu_fit_score: 0, operational_score: 0, complexity_score: 0, prep_count: 0, ingredient_count: payload.components?.length ?? 0 },
-    revision: payload.revision ?? 0,
-    cost_summary: {
-      ...payload.cost_summary,
-      verified_cost: payload.cost_summary.verified_cost ?? payload.cost_summary.total_estimated_cost,
-      estimated_cost: payload.cost_summary.estimated_cost ?? 0,
-      unknown_cost_count: payload.cost_summary.unknown_cost_count ?? 0,
-      cost_status: payload.cost_summary.cost_status ?? 'verified',
-    },
-  };
 }
