@@ -139,12 +139,12 @@ export function DraftInputRail({
 
               {canManage && (
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Button size="lg" className="sm:min-w-56" onClick={handleGenerate} disabled={!canGenerate}>
+                  <Button size="lg" className="min-h-11 w-full sm:w-auto sm:min-w-56" onClick={handleGenerate} disabled={!canGenerate}>
                     <SparklesIcon />
                     {submitting ? t('labLoading') : t('labCreateProposals')}
                   </Button>
                   <span className="px-1 text-center text-xs text-[var(--fg-subtle)]">{t('labOr')}</span>
-                  <Button variant="secondary" size="lg" onClick={() => setPickerOpen(true)} disabled={submitting}>
+                  <Button variant="secondary" size="lg" className="min-h-11 w-full sm:w-auto" onClick={() => setPickerOpen(true)} disabled={submitting}>
                     <BookOpenIcon />
                     {t('labStartFromMenu')}
                   </Button>

@@ -72,64 +72,25 @@ export function RefineDrawer({
   if (!open) return null;
 
   return (
-    <aside
-      style={{
-        position: 'fixed',
-        right: 0,
-        top: 0,
-        height: '100%',
-        width: 384,
-        background: 'var(--surface-1, white)',
-        borderLeft: '1px solid var(--line)',
-        boxShadow: '-4px 0 24px rgba(0,0,0,.08)',
-        zIndex: 30,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {/* Header */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 16px',
-          borderBottom: '1px solid var(--line)',
-          flexShrink: 0,
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>{t('labRefineTitle')}</h2>
+    <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px]" onClick={onClose}>
+      <aside className="absolute inset-0 flex flex-col bg-[var(--surface)] pb-[var(--safe-bottom)] pt-[var(--safe-top)] shadow-2xl sm:inset-y-0 sm:start-auto sm:w-96 sm:border-s sm:border-[var(--line)]" onClick={(event) => event.stopPropagation()}>
+      <header className="flex min-h-14 shrink-0 items-center justify-between border-b border-[var(--line)] px-4 py-3">
+        <h2 className="m-0 text-base font-semibold text-[var(--fg)]">{t('labRefineTitle')}</h2>
         <button
           onClick={onClose}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--fg-muted)',
-            fontSize: 20,
-            lineHeight: 1,
-            padding: '0 4px',
-          }}
+          className="flex h-11 w-11 items-center justify-center rounded-[9px] text-xl leading-none text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
           aria-label={t('labRefineClose')}
         >
           ×
         </button>
       </header>
 
-      {/* Message history */}
       <div
         ref={scrollRef}
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: 16,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
+        className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
       >
         {history.length === 0 && (
-          <p style={{ fontSize: 13, color: 'var(--fg-muted)', margin: 0 }}>
+          <p className="m-0 text-sm leading-6 text-[var(--fg-muted)]">
             {t('labRefineExamples')}
           </p>
         )}
@@ -137,40 +98,20 @@ export function RefineDrawer({
         {history.map((m, i) => (
           <div
             key={i}
-            style={{
-              padding: '8px 10px',
-              borderRadius: 8,
-              fontSize: 14,
-              lineHeight: 1.45,
-              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '85%',
-              background:
-                m.role === 'user'
-                  ? 'rgba(59,130,246,.1)'
-                  : 'var(--bg-subtle, #f3f4f6)',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
+            className={`max-w-[88%] whitespace-pre-wrap break-words rounded-[12px] px-3 py-2.5 text-sm leading-6 ${m.role === 'user' ? 'self-end bg-[color-mix(in_oklab,var(--brand-500)_10%,var(--surface))]' : 'self-start bg-[var(--surface-2)]'}`}
           >
             {m.content}
           </div>
         ))}
 
         {submitting && (
-          <p style={{ fontSize: 13, color: 'var(--fg-muted)', margin: 0 }}>
+          <p className="m-0 text-sm text-[var(--fg-muted)]">
             {t('labRefineThinking')}
           </p>
         )}
       </div>
 
-      {/* Input area */}
-      <div
-        style={{
-          padding: 12,
-          borderTop: '1px solid var(--line)',
-          flexShrink: 0,
-        }}
-      >
+      <div className="shrink-0 border-t border-[var(--line)] p-3">
         <textarea
           rows={2}
           value={text}
@@ -182,39 +123,17 @@ export function RefineDrawer({
             }
           }}
           placeholder={t('labRefinePlaceholder')}
-          style={{
-            width: '100%',
-            padding: 8,
-            borderRadius: 6,
-            border: '1px solid var(--line)',
-            fontSize: 14,
-            resize: 'vertical',
-            boxSizing: 'border-box',
-            fontFamily: 'inherit',
-            color: 'var(--fg)',
-            background: 'var(--bg, white)',
-          }}
+          className="w-full resize-y rounded-[10px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-base text-[var(--fg)] outline-none focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)] sm:text-sm"
         />
         <button
           onClick={() => void send()}
           disabled={!text.trim() || submitting}
-          style={{
-            marginTop: 8,
-            width: '100%',
-            padding: '8px 0',
-            borderRadius: 6,
-            background: 'rgb(249,115,22)',
-            color: 'white',
-            border: 'none',
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: !text.trim() || submitting ? 'not-allowed' : 'pointer',
-            opacity: !text.trim() || submitting ? 0.5 : 1,
-          }}
+          className="mt-2 min-h-11 w-full rounded-[9px] bg-[var(--brand-500)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-600)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t('labRefineSend')}
         </button>
       </div>
-    </aside>
+      </aside>
+    </div>
   );
 }
