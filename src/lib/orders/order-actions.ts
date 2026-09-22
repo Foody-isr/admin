@@ -113,8 +113,14 @@ export function deriveOrderCapabilities(
   const isHeld = order.settlement_status === 'held';
   const canConfirmWeights = isHeld && !!handlers.onConfirmWeights && !isCancelled;
 
+  // A paid order can become collectible again after staff add items: the raw
+  // status remains `paid`, while `balance_due` exposes the supplement still
+  // owed. Treat that state like `partially_paid` so the manual cash/card/
+  // transfer dialog remains available alongside the hosted payment link.
   const canTakePayment =
-    !isCancelled && order.payment_status !== 'paid' && order.payment_status !== 'refunded';
+    !isCancelled &&
+    order.payment_status !== 'refunded' &&
+    (order.payment_status !== 'paid' || (order.balance_due ?? 0) > 0.01);
 
   // "Close order" moves a paid in-progress order to served/delivered. Once
   // terminal there is nothing to do, and clicking it was a silent no-op that

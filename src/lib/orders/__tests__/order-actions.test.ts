@@ -122,11 +122,19 @@ test("both canonical and legacy cancellation statuses count as cancelled", () =>
 
 // ─── Payment guards ──────────────────────────────────────────────────────────
 
-test("take payment is offered until the order is paid or refunded", () => {
+test("take payment is offered until the order is fully paid or refunded", () => {
   assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "unpaid" }), OWNER).canTakePayment, true);
   assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "pending" }), OWNER).canTakePayment, true);
   assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "partially_paid" }), OWNER).canTakePayment, true);
   assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "paid" }), OWNER).canTakePayment, false);
+  assert.equal(
+    deriveOrderCapabilities(
+      makeOrder({ payment_status: "paid", balance_due: 30 }),
+      OWNER,
+    ).canTakePayment,
+    true,
+    "a post-payment supplement remains manually collectible",
+  );
   assert.equal(deriveOrderCapabilities(makeOrder({ payment_status: "refunded" }), OWNER).canTakePayment, false);
 });
 
