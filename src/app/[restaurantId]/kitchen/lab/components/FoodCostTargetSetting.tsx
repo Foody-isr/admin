@@ -51,7 +51,7 @@ export function FoodCostTargetSetting({
           value={pct}
           onChange={(e) => handleChange(parseFloat(e.target.value))}
           disabled={loading || saving}
-          className="h-8 rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface-2)] px-2 text-sm font-semibold tabular-nums text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+          className="h-11 rounded-[9px] border border-[var(--line-strong)] bg-[var(--surface-2)] px-3 text-base font-semibold tabular-nums text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none sm:h-8 sm:px-2 sm:text-sm"
         >
           <option value={0.25}>≤ 25%</option>
           <option value={0.30}>≤ 30%</option>

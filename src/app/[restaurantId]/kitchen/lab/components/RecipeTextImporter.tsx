@@ -201,12 +201,12 @@ export function RecipeTextImporter({
   if (!canManage) return null;
 
   return (
-    <section className="overflow-hidden rounded-[18px] border border-[color-mix(in_oklab,var(--brand-500)_28%,var(--line))] bg-[var(--surface)] shadow-[var(--shadow-1)]">
+    <section className="@container overflow-hidden rounded-[18px] border border-[color-mix(in_oklab,var(--brand-500)_28%,var(--line))] bg-[var(--surface)] shadow-[var(--shadow-1)]">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full items-center gap-4 px-5 py-4 text-start focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] sm:px-6"
+        className="flex min-h-16 w-full items-center gap-3 px-4 py-4 text-start focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] sm:gap-4 sm:px-6"
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-[color-mix(in_oklab,var(--brand-500)_12%,var(--surface))] text-[var(--brand-500)]">
           <FilePenLineIcon className="h-5 w-5" />
@@ -221,8 +221,8 @@ export function RecipeTextImporter({
 
       {open && (
         <div className="border-t border-[var(--line)]">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,.8fr)]">
-            <div className="p-5 sm:p-6 lg:border-e lg:border-[var(--line)]">
+          <div className="grid gap-0 @4xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,.8fr)]">
+            <div className="p-4 sm:p-6 @4xl:border-e @4xl:border-[var(--line)]">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <label htmlFor="manual-recipe-text" className="text-sm font-semibold text-[var(--fg)]">{t('labRecipeWriteLabel')}</label>
                 <span className="text-[11px] text-[var(--fg-subtle)]">{text.length}/16000</span>
@@ -235,16 +235,16 @@ export function RecipeTextImporter({
                   rows={9}
                   maxLength={16000}
                   placeholder={t('labRecipeWritePlaceholder')}
-                  className="block w-full resize-y rounded-t-[13px] bg-transparent px-4 py-3 text-sm leading-6 text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)]"
+                  className="block w-full resize-y rounded-t-[13px] bg-transparent px-4 py-3 text-base leading-6 text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] sm:text-sm"
                 />
                 {interimText && <p className="border-t border-dashed border-[var(--line)] px-4 py-2 text-xs italic text-[var(--fg-muted)]">{interimText}</p>}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] px-3 py-2.5">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col items-stretch justify-between gap-3 border-t border-[var(--line)] px-3 py-2.5 sm:flex-row sm:items-center">
+                  <div className="flex flex-wrap items-center gap-2">
                     {speechSupported ? (
                       <button
                         type="button"
                         onClick={listening ? stopDictation : startDictation}
-                        className={`inline-flex h-9 items-center gap-2 rounded-[9px] px-3 text-xs font-semibold focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${listening ? 'bg-[var(--danger-500)] text-white' : 'bg-[var(--surface-2)] text-[var(--fg)] hover:bg-[var(--line)]'}`}
+                        className={`inline-flex h-11 items-center gap-2 rounded-[9px] px-3 text-xs font-semibold focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] sm:h-9 ${listening ? 'bg-[var(--danger-500)] text-white' : 'bg-[var(--surface-2)] text-[var(--fg)] hover:bg-[var(--line)]'}`}
                       >
                         {listening ? <SquareIcon className="h-3.5 w-3.5 fill-current" /> : <MicIcon className="h-4 w-4 text-[var(--brand-500)]" />}
                         {listening ? t('labRecipeStopDictation') : t('labRecipeStartDictation')}
@@ -265,7 +265,7 @@ export function RecipeTextImporter({
               </Button>
             </div>
 
-            <div className="border-t border-[var(--line)] bg-[var(--surface-2)] p-5 sm:p-6 lg:border-t-0">
+            <div className="border-t border-[var(--line)] bg-[var(--surface-2)] p-4 sm:p-6 @4xl:border-t-0">
               {!result ? (
                 <div className="flex min-h-[250px] flex-col items-center justify-center text-center">
                   <span className="flex h-11 w-11 items-center justify-center rounded-[12px] border border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)]"><PackageCheckIcon className="h-5 w-5" /></span>
@@ -282,7 +282,7 @@ export function RecipeTextImporter({
                     <span className="shrink-0 rounded-full bg-[var(--success-50)] px-2.5 py-1 text-[11px] font-semibold text-[var(--success-500)]">{result.summary.matched_count} {t('labRecipeMatchedShort')}</span>
                   </div>
 
-                  <div className="mt-4 max-h-[330px] space-y-2 overflow-y-auto pe-1">
+                  <div className="mt-4 space-y-2 pe-1 @4xl:max-h-[330px] @4xl:overflow-y-auto">
                     {componentEntries.map((entry, index) => (
                       <ImportEntryRow key={`${entry.source}-${index}`} entry={entry} checked={selected.has(index)} onToggle={() => toggleSelected(index)} />
                     ))}
@@ -355,7 +355,7 @@ function ImportEntryRow({ entry, checked, onToggle }: { entry: ManualRecipeImpor
 }
 
 function ModeButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
-  return <button type="button" onClick={onClick} className={`rounded-[7px] px-2 py-2 text-xs font-semibold focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${active ? 'bg-[var(--fg)] text-[var(--surface)]' : 'text-[var(--fg-muted)]'}`}>{label}</button>;
+  return <button type="button" onClick={onClick} className={`min-h-11 rounded-[7px] px-2 py-2 text-xs font-semibold focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${active ? 'bg-[var(--fg)] text-[var(--surface)]' : 'text-[var(--fg-muted)]'}`}>{label}</button>;
 }
 
 function formatQuantity(quantity?: number, unit?: string): string {
