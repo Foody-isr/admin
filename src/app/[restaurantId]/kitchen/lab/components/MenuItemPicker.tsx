@@ -76,7 +76,7 @@ export function MenuItemPicker({
   return (
     /* Backdrop */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 pt-[var(--safe-top)] backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       {/* Card — stop backdrop propagation */}
@@ -84,7 +84,7 @@ export function MenuItemPicker({
         role="dialog"
         aria-modal="true"
         aria-labelledby="lab-menu-picker-title"
-        className="relative mx-4 flex max-h-[82vh] w-full max-w-xl flex-col overflow-hidden rounded-[18px] bg-[var(--surface)] shadow-2xl"
+        className="relative flex max-h-[calc(100svh-var(--safe-top))] w-full max-w-xl flex-col overflow-hidden rounded-t-[22px] bg-[var(--surface)] pb-[var(--safe-bottom)] shadow-2xl sm:max-h-[82svh] sm:rounded-[18px] sm:pb-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -97,7 +97,7 @@ export function MenuItemPicker({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[9px] text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
             aria-label={t('cancel')}
           >
             <XIcon className="w-4 h-4" />
@@ -113,7 +113,7 @@ export function MenuItemPicker({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('labSearchMenuItem')}
-              className="h-10 w-full rounded-[9px] border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)]"
+              className="h-11 w-full rounded-[9px] border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-3 text-base text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)] sm:h-10 sm:text-sm"
             />
           </label>
         </div>
@@ -147,7 +147,7 @@ export function MenuItemPicker({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[var(--line)]">
+        <div className="grid grid-cols-2 gap-2 border-t border-[var(--line)] px-4 py-4 sm:flex sm:items-center sm:justify-end sm:px-5">
           <Button variant="secondary" size="sm" onClick={onClose}>
             {t('cancel')}
           </Button>

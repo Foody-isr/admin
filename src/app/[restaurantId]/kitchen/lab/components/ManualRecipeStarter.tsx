@@ -54,12 +54,12 @@ export function ManualRecipeStarter({
           </div>
         </div>
 
-        <div className="grid gap-0 sm:grid-cols-2">
-          <div className="border-b border-[var(--line)] p-5 sm:border-b-0 sm:border-e sm:p-7">
+        <div className="grid gap-0 md:grid-cols-2">
+          <div className="border-b border-[var(--line)] p-5 md:border-b-0 md:border-e md:p-7">
             <p className="text-sm font-semibold text-[var(--fg)]">{t('labManualStepChoose')}</p>
             <p className="mt-1 text-sm leading-6 text-[var(--fg-muted)]">{t('labManualStepChooseHelp')}</p>
             {canManage && (
-              <Button size="lg" className="mt-5 w-full sm:w-auto sm:min-w-56" onClick={() => setPickerOpen(true)} disabled={submitting}>
+              <Button size="lg" className="mt-5 min-h-11 w-full md:w-auto md:min-w-56" onClick={() => setPickerOpen(true)} disabled={submitting}>
                 {submitting ? <LoaderCircleIcon className="animate-spin" /> : <PackagePlusIcon />}
                 {submitting ? t('labOpeningRecipe') : t('labChooseExistingDish')}
               </Button>
@@ -67,7 +67,7 @@ export function ManualRecipeStarter({
             {error && <p role="alert" className="mt-3 text-sm text-[var(--danger-500)]">{error}</p>}
           </div>
 
-          <div className="bg-[var(--surface-2)] p-5 sm:p-7">
+          <div className="bg-[var(--surface-2)] p-5 md:p-7">
             <p className="flex items-center gap-2 text-sm font-semibold text-[var(--fg)]">
               <CalculatorIcon className="h-4 w-4 text-[var(--success-500)]" /> {t('labManualAutomationTitle')}
             </p>
