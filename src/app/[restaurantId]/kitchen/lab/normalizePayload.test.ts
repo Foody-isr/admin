@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { normalizeLabDraftPayload } from './normalizePayload';
+import { normalizeLabDraftPayload, safeRecipeSteps } from './normalizePayload';
 import type { DraftPayload } from './types';
 
 test('normalizes nullable fields from historic recipe drafts', () => {
@@ -56,4 +56,9 @@ test('preserves populated recipe steps and commercial values', () => {
   assert.deepEqual(normalized.recipe_steps, payload.recipe_steps);
   assert.equal(normalized.cost_summary.selling_price, 60);
   assert.equal(normalized.revision, 2);
+});
+
+test('keeps recipe-step consumers safe when a runtime response contains null', () => {
+  assert.deepEqual(safeRecipeSteps(null), []);
+  assert.deepEqual(safeRecipeSteps(undefined), []);
 });

@@ -23,6 +23,7 @@ import type {
   ManualRecipeImportResult,
   ManualRecipeImportWarning,
 } from '../types';
+import { safeRecipeSteps } from '../normalizePayload';
 
 type ApplyMode = 'replace' | 'append';
 
@@ -173,15 +174,17 @@ export function RecipeTextImporter({
 
   const apply = () => {
     if (!result) return;
+    const currentRecipeSteps = safeRecipeSteps(payload.recipe_steps);
+    const importedRecipeSteps = safeRecipeSteps(result.recipe_steps);
     const importedComponents = result.components.filter((_, index) => selected.has(index));
     const components = applyMode === 'replace'
       ? importedComponents
       : [...payload.components, ...importedComponents];
-    const recipeSteps = result.recipe_steps.length === 0
-      ? payload.recipe_steps
+    const recipeSteps = importedRecipeSteps.length === 0
+      ? currentRecipeSteps
       : applyMode === 'replace'
-        ? result.recipe_steps
-        : [...payload.recipe_steps, ...result.recipe_steps].map((step, index) => ({ ...step, order: index + 1 }));
+        ? importedRecipeSteps
+        : [...currentRecipeSteps, ...importedRecipeSteps].map((step, index) => ({ ...step, order: index + 1 }));
     const containsNew = components.some(hasNewComponent);
     onChange({
       ...payload,
@@ -286,7 +289,7 @@ export function RecipeTextImporter({
                     {componentEntries.map((entry, index) => (
                       <ImportEntryRow key={`${entry.source}-${index}`} entry={entry} checked={selected.has(index)} onToggle={() => toggleSelected(index)} />
                     ))}
-                    {result.recipe_steps.map((step) => (
+                    {safeRecipeSteps(result.recipe_steps).map((step) => (
                       <div key={`step-${step.order}`} className="rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5">
                         <p className="text-[11px] font-semibold text-[var(--fg-muted)]">{t('labRecipeStep')} {step.order}</p>
                         <p className="mt-0.5 text-xs leading-5 text-[var(--fg)]">{step.instruction_primary || step.instruction_he}</p>
@@ -309,7 +312,7 @@ export function RecipeTextImporter({
                       <ModeButton active={applyMode === 'append'} onClick={() => setApplyMode('append')} label={t('labRecipeAppend')} />
                     </div>
                   )}
-                  <Button className="mt-3 w-full" onClick={apply} disabled={selected.size === 0 && result.recipe_steps.length === 0}>
+                  <Button className="mt-3 w-full" onClick={apply} disabled={selected.size === 0 && safeRecipeSteps(result.recipe_steps).length === 0}>
                     <CheckCircle2Icon />{applyMode === 'replace' ? t('labRecipeApplyReplace') : t('labRecipeApplyAppend')}
                   </Button>
                   <p className="mt-2 text-center text-[10px] leading-4 text-[var(--fg-subtle)]">{t('labRecipeApplyNotice')}</p>

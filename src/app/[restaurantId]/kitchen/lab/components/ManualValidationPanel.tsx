@@ -4,6 +4,7 @@ import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, SaveIcon } from 'lucid
 import { Button } from '@/components/ds';
 import { useCurrency, useI18n } from '@/lib/i18n';
 import type { DraftPayload } from '../types';
+import { safeRecipeSteps } from '../normalizePayload';
 
 /** Deterministic completion and margin guidance for the no-AI manual flow. */
 export function ManualValidationPanel({
@@ -20,6 +21,7 @@ export function ManualValidationPanel({
   const { t } = useI18n();
   const { money } = useCurrency();
   const summary = payload.cost_summary;
+  const recipeSteps = safeRecipeSteps(payload.recipe_steps);
   const hasIngredients = payload.components.length > 0;
   const hasSellingPrice = (summary.selling_price ?? 0) > 0;
   const costsComplete = summary.unknown_cost_count === 0;
@@ -59,7 +61,7 @@ export function ManualValidationPanel({
           <CheckRow done={hasIngredients} label={hasIngredients ? t('labManualIngredientsDone').replace('{count}', String(payload.components.length)) : t('labManualIngredientsMissing')} />
           <CheckRow done={costsComplete && hasIngredients} label={costsComplete && hasIngredients ? t('labManualCostsDone') : t('labManualCostsMissing').replace('{count}', String(summary.unknown_cost_count))} warning={hasIngredients && !costsComplete} />
           <CheckRow done={hasSellingPrice} label={hasSellingPrice ? t('labManualPriceDone') : t('labManualPriceMissing')} />
-          <CheckRow done={payload.recipe_steps.length > 0} label={payload.recipe_steps.length > 0 ? t('labManualMethodDone').replace('{count}', String(payload.recipe_steps.length)) : t('labManualMethodOptional')} />
+          <CheckRow done={recipeSteps.length > 0} label={recipeSteps.length > 0 ? t('labManualMethodDone').replace('{count}', String(recipeSteps.length)) : t('labManualMethodOptional')} />
         </div>
       </div>
 
