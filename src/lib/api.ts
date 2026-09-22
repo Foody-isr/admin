@@ -2866,7 +2866,12 @@ export async function cancelPendingPrintJobs(restaurantId: number, printerId: st
   });
 }
 
-export async function savePrintStation(restaurantId: number, input: Omit<PrintStation, 'id' | 'restaurant_id'>, stationId?: string): Promise<PrintStation> {
+export type SavePrintStationInput = Omit<PrintStation, 'id' | 'restaurant_id' | 'primary_printer_id' | 'fallback_printer_id'> & {
+  primary_printer_id?: string | null;
+  fallback_printer_id?: string | null;
+};
+
+export async function savePrintStation(restaurantId: number, input: SavePrintStationInput, stationId?: string): Promise<PrintStation> {
   const path = stationId ? `/api/v1/restaurants/${restaurantId}/printing/stations/${stationId}` : `/api/v1/restaurants/${restaurantId}/printing/stations`;
   const data = await apiFetch<{ station: PrintStation }>(path, restaurantId, { method: stationId ? 'PUT' : 'POST', body: JSON.stringify(input) });
   return data.station;

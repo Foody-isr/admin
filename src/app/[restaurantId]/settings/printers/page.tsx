@@ -25,6 +25,7 @@ import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 
 const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 const RECEIPT_ORDER_TYPES = ['dine_in', 'pickup', 'delivery'] as const;
+type PrinterUsage = 'receipt' | 'kitchen' | 'both';
 
 const EMPTY_OVERVIEW: PrintingOverview = { printers: [], stations: [], routing_rules: [], jobs: [], summary: { queued: 0, claimed: 0, printed: 0, failed: 0, uncertain: 0, cancelled: 0 } };
 
@@ -53,10 +54,10 @@ const newPrinter = () => ({
   connection: 'lan' as 'lan' | 'cloud', name: '', vendor: 'epson' as PrinterVendor,
   identifier: `foody_lan_${Date.now()}`, epson_polling_id: '', gateway_printer_id: '',
   protocol: 'spooler' as PrinterProtocol, model: 'Epson TM-m30III', profile: 'tm_m30iii' as PrintPrinter['profile'],
-  host: '', port: 80, compatibility_port: 9100, receives_receipts: true,
+  host: '', port: 80, compatibility_port: 9100, usage: 'receipt' as PrinterUsage,
   receipt_order_types: [] as PrintPrinter['receipt_order_types'], receipt_copies: 1,
   paper_width_dots: 576 as 384 | 576,
-  expected_poll_seconds: 2, station_id: '', new_station_name: '',
+  expected_poll_seconds: 2, station_id: '', new_station_name: '', original_station_id: '', original_station_role: '' as '' | 'primary' | 'fallback',
 });
 
 function statusTone(status: PrintPrinter['status']): 'success' | 'danger' | 'warning' | 'neutral' {
@@ -247,6 +248,12 @@ export default function PrintersSettingsPage() {
       setEditingPrinterId(undefined);
       setPrinterDraft(newPrinter());
     } else {
+      const primaryStation = overview.stations.find((station) => station.primary_printer_id === printer.id);
+      const fallbackStation = overview.stations.find((station) => station.fallback_printer_id === printer.id);
+      const assignedStation = primaryStation ?? fallbackStation;
+      const usage: PrinterUsage = printer.receives_receipts
+        ? (assignedStation ? 'both' : 'receipt')
+        : 'kitchen';
       setEditingPrinterId(printer.id);
       setPrinterDraft({
         ...newPrinter(), connection: printer.protocol === 'spooler' ? 'lan' : 'cloud',
@@ -254,16 +261,20 @@ export default function PrintersSettingsPage() {
         epson_polling_id: printer.epson_polling_id ?? '', gateway_printer_id: printer.gateway_printer_id ?? '',
         protocol: printer.protocol, model: printer.model ?? '', profile: printer.profile,
         host: printer.host, port: printer.port, compatibility_port: printer.compatibility_port,
-        receives_receipts: printer.receives_receipts ?? false,
+        usage,
         receipt_order_types: printer.receipt_order_types ?? [], receipt_copies: printer.receipt_copies || 1,
         paper_width_dots: printer.paper_width_dots as 384 | 576,
-        station_id: overview.stations.find((station) => station.primary_printer_id === printer.id)?.id ?? '',
+        station_id: assignedStation?.id ?? '',
+        original_station_id: assignedStation?.id ?? '',
+        original_station_role: primaryStation ? 'primary' : fallbackStation ? 'fallback' : '',
       });
     }
     setPrinterOpen(true);
   };
 
   const submitPrinter = () => run(async () => {
+    const receivesReceipts = printerDraft.connection === 'lan' && printerDraft.usage !== 'kitchen';
+    const servesKitchen = printerDraft.connection === 'cloud' || printerDraft.usage !== 'receipt';
     const input = {
       name: printerDraft.name,
       identifier: printerDraft.identifier,
@@ -276,8 +287,8 @@ export default function PrintersSettingsPage() {
       use_https: false,
       device_id: 'local_printer',
       compatibility_port: printerDraft.compatibility_port,
-      receives_receipts: printerDraft.receives_receipts,
-      receipt_order_types: printerDraft.receipt_order_types,
+      receives_receipts: receivesReceipts,
+      receipt_order_types: receivesReceipts ? printerDraft.receipt_order_types : [],
       receipt_copies: printerDraft.receipt_copies,
       paper_width_dots: printerDraft.paper_width_dots,
       expected_poll_seconds: printerDraft.expected_poll_seconds,
@@ -287,14 +298,34 @@ export default function PrintersSettingsPage() {
     const registration = editingPrinterId
       ? { printer: await updatePrinter(rid, editingPrinterId, input), username: '', password: '', realm: '' }
       : await registerPrinter(rid, input);
-    if (printerDraft.station_id) {
+    if (editingPrinterId) {
+      const stationAssignmentChanged = printerDraft.station_id !== printerDraft.original_station_id;
+      const previousAssignments = overview.stations.filter((station) => (
+        (station.primary_printer_id === editingPrinterId || station.fallback_printer_id === editingPrinterId)
+        && (!servesKitchen || (stationAssignmentChanged && station.id === printerDraft.original_station_id))
+      ));
+      for (const station of previousAssignments) {
+        const { id, restaurant_id: _restaurantId, ...stationInput } = station;
+        void _restaurantId;
+        await savePrintStation(rid, {
+          ...stationInput,
+          primary_printer_id: station.primary_printer_id === editingPrinterId ? null : station.primary_printer_id,
+          fallback_printer_id: station.fallback_printer_id === editingPrinterId ? null : station.fallback_printer_id,
+        }, id);
+      }
+    }
+    if (servesKitchen && printerDraft.station_id) {
       const station = overview.stations.find((value) => value.id === printerDraft.station_id);
       if (station) {
         const { id, restaurant_id: _restaurantId, ...input } = station;
         void _restaurantId;
-        await savePrintStation(rid, { ...input, primary_printer_id: registration.printer.id }, id);
+        const keepsFallbackAssignment = printerDraft.original_station_role === 'fallback'
+          && printerDraft.original_station_id === id;
+        if (!keepsFallbackAssignment) {
+          await savePrintStation(rid, { ...input, primary_printer_id: registration.printer.id }, id);
+        }
       }
-    } else if (printerDraft.new_station_name.trim()) {
+    } else if (servesKitchen && printerDraft.new_station_name.trim()) {
       await savePrintStation(rid, {
         ...newStation(), name: printerDraft.new_station_name.trim(), primary_printer_id: registration.printer.id,
       });
@@ -379,6 +410,9 @@ export default function PrintersSettingsPage() {
     setRulesDraft(routing_rules);
   });
 
+  const receiptUsageEnabled = printerDraft.connection === 'lan' && printerDraft.usage !== 'kitchen';
+  const kitchenUsageEnabled = printerDraft.connection === 'cloud' || printerDraft.usage !== 'receipt';
+
   if (loading) {
     return <div className="py-[var(--s-16)] text-center text-fs-sm text-[var(--fg-muted)]">{t('loading')}</div>;
   }
@@ -410,12 +444,17 @@ export default function PrintersSettingsPage() {
               <EmptyState icon={<Printer />} title={t('printingNoPrinters')} desc={t('printingNoPrintersHint')} />
             ) : (
               <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
-                {overview.printers.map((printer) => (
+                {overview.printers.map((printer) => {
+                  const assignedStations = overview.stations.filter((station) => station.primary_printer_id === printer.id || station.fallback_printer_id === printer.id);
+                  const hasKitchenPurpose = assignedStations.length > 0 || !printer.receives_receipts;
+                  return (
                   <div key={printer.id} className="grid gap-[var(--s-3)] py-[var(--s-4)] md:grid-cols-[1fr_auto] md:items-center">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold text-[var(--fg)]">{printer.name}</span>
                         <Badge tone={statusTone(printer.status)} dot>{t(`printingStatus_${printer.status}`)}</Badge>
+                        {printer.receives_receipts && <Badge tone="neutral">{t('printingUsage_receipt')}</Badge>}
+                        {hasKitchenPurpose && <Badge tone="neutral">{t('printingUsage_kitchen')}</Badge>}
                         {!printer.enabled && <Badge tone="neutral">{t('disabled')}</Badge>}
                       </div>
                       <div className="mt-1 font-mono text-fs-xs text-[var(--fg-subtle)]">
@@ -425,7 +464,7 @@ export default function PrintersSettingsPage() {
                       </div>
                       {printer.protocol === 'spooler' ? (
                         <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
-                          {printer.host}:{printer.compatibility_port} · {printer.receives_receipts ? t('printingReceiptPrinter') : t('printingKitchenOnly')}
+                          {printer.host}:{printer.compatibility_port}
                         </div>
                       ) : printer.vendor === 'epson' && (
                         <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
@@ -439,14 +478,14 @@ export default function PrintersSettingsPage() {
                         <span className="ms-3">{t('printingLastTest')}: {formatSeen(printer.last_test_succeeded_at)}</span>
                         {printer.last_error && <span className="ms-3 text-[var(--danger-500)] dark:text-[#fb7185]">{printer.last_error}</span>}
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-fs-xs text-[var(--fg-muted)]">
+                      {hasKitchenPurpose && <div className="mt-2 flex flex-wrap items-center gap-1.5 text-fs-xs text-[var(--fg-muted)]">
                         <span>{t('printingAssignedPasses')}:</span>
-                        {overview.stations.filter((station) => station.primary_printer_id === printer.id || station.fallback_printer_id === printer.id).length === 0
+                        {assignedStations.length === 0
                           ? <Badge tone="warning">{t('printingUnassigned')}</Badge>
-                          : overview.stations.filter((station) => station.primary_printer_id === printer.id || station.fallback_printer_id === printer.id).map((station) => (
+                          : assignedStations.map((station) => (
                             <Badge key={station.id} tone="neutral">{localizedStationName(station, locale)}</Badge>
                           ))}
-                      </div>
+                      </div>}
                     </div>
                     {canManage && <div className="flex flex-wrap gap-2">
                       {(printer.pending_job_count ?? 0) > 0 && <Button variant="danger" size="sm" disabled={saving} onClick={() => setQueueAction({ kind: 'printer', printer, count: printer.pending_job_count ?? 0 })}><ListX />{t('printingClearQueue')} ({printer.pending_job_count})</Button>}
@@ -458,7 +497,8 @@ export default function PrintersSettingsPage() {
                       }}><Trash2 /></Button>
                     </div>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Section>
@@ -558,27 +598,50 @@ export default function PrintersSettingsPage() {
       <Drawer open={printerOpen} onOpenChange={setPrinterOpen} title={editingPrinterId ? t('printingEditPrinter') : t('printingAddPrinter')} subtitle={t('printingRegisterHint')}
         onSave={() => void submitPrinter()} saveLabel={editingPrinterId ? t('save') : t('register')}
         saveDisabled={saving || !printerDraft.name.trim() || !printerDraft.identifier.trim()
-          || (printerDraft.connection === 'lan' ? !printerDraft.host.trim() : printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id && !printerDraft.epson_polling_id.trim())}>
+          || (printerDraft.connection === 'lan' ? !printerDraft.host.trim() : printerDraft.vendor === 'epson' && !printerDraft.gateway_printer_id && !printerDraft.epson_polling_id.trim())
+          || (kitchenUsageEnabled && !printerDraft.station_id && !printerDraft.new_station_name.trim())}>
         <div className="grid gap-4">
           <Field label={t('name')}><Input value={printerDraft.name} onChange={(event) => setPrinterDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
           <Field label={t('printingConnectionMode')}><Select disabled={Boolean(editingPrinterId)} value={printerDraft.connection} onChange={(event) => {
             const connection = event.target.value as 'lan' | 'cloud';
-            setPrinterDraft((current) => ({ ...current, connection, protocol: connection === 'lan' ? 'spooler' : 'http', receives_receipts: connection === 'lan' }));
+            setPrinterDraft((current) => ({ ...current, connection, protocol: connection === 'lan' ? 'spooler' : 'http', usage: connection === 'lan' ? 'receipt' : 'kitchen' }));
           }}><option value="lan">{t('printingFoodyLan')}</option><option value="cloud">{t('printingCloudDevice')}</option></Select></Field>
+          {printerDraft.connection === 'lan' ? (
+            <Field label={t('printingUsage')} hint={t('printingUsageHint')}>
+              <div role="radiogroup" aria-label={t('printingUsage')} className="grid gap-2 sm:grid-cols-3">
+                {(['receipt', 'kitchen', 'both'] as PrinterUsage[]).map((usage) => {
+                  const selected = printerDraft.usage === usage;
+                  return (
+                    <label key={usage} className={`flex cursor-pointer items-start gap-2 rounded-r-md border p-3 transition-colors ${selected ? 'border-[var(--brand-500)] bg-[var(--brand-50)]' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line-strong)]'}`}>
+                      <input type="radio" name="printer-usage" value={usage} checked={selected} className="mt-0.5 accent-[var(--brand-500)]" onChange={() => setPrinterDraft((current) => ({ ...current, usage }))} />
+                      <span className="min-w-0">
+                        <span className="block text-fs-sm font-semibold text-[var(--fg)]">{t(`printingUsage_${usage}`)}</span>
+                        <span className="mt-1 block text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t(`printingUsage_${usage}Hint`)}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </Field>
+          ) : (
+            <Field label={t('printingUsage')} hint={t('printingCloudKitchenOnlyHint')}>
+              <Input readOnly value={t('printingUsage_kitchen')} />
+            </Field>
+          )}
           {printerDraft.connection === 'lan' ? <>
             <Field label={t('model')}><Select value={printerDraft.profile} onChange={(event) => {
               const profile = event.target.value as PrintPrinter['profile'];
               setPrinterDraft((current) => ({ ...current, profile, model: profile === 'tm_m30iii' ? 'Epson TM-m30III' : 'Epson TM-U220IIB', paper_width_dots: profile === 'tm_m30iii' ? 576 : 384 }));
             }}><option value="tm_m30iii">Epson TM-m30III · 80 mm</option><option value="tm_u220iib">Epson TM-U220IIB · 76 mm</option></Select></Field>
             <Field label={t('printingLanAddress')} hint={t('printingLanAddressHint')}><Input value={printerDraft.host} placeholder="192.168.1.48" inputMode="url" autoCapitalize="none" onChange={(event) => setPrinterDraft((current) => ({ ...current, host: event.target.value }))} /></Field>
-            <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
-              <label className="flex items-center gap-2 text-fs-sm font-semibold text-[var(--fg)]"><input type="checkbox" checked={printerDraft.receives_receipts} onChange={(event) => setPrinterDraft((current) => ({ ...current, receives_receipts: event.target.checked }))} /><ReceiptText className="h-4 w-4" />{t('printingReceiptPrinter')}</label>
-              {printerDraft.receives_receipts && <div className="mt-4 grid gap-3">
+            {receiptUsageEnabled && <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
+              <div className="flex items-center gap-2 text-fs-sm font-semibold text-[var(--fg)]"><ReceiptText className="h-4 w-4" />{t('printingReceiptSettings')}</div>
+              <div className="mt-4 grid gap-3">
                 <div className="text-fs-xs text-[var(--fg-muted)]">{t('printingReceiptChannelsHint')}</div>
                 <div className="flex flex-wrap gap-4">{RECEIPT_ORDER_TYPES.map((orderType) => <label key={orderType} className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={printerDraft.receipt_order_types.includes(orderType)} onChange={(event) => setPrinterDraft((current) => ({ ...current, receipt_order_types: event.target.checked ? [...current.receipt_order_types, orderType] : current.receipt_order_types.filter((value) => value !== orderType) }))} />{t(`printingOrderType_${orderType}`)}</label>)}</div>
                 <Field label={t('printingReceiptCopies')}><NumberField min={1} max={5} value={printerDraft.receipt_copies} onChange={(value) => setPrinterDraft((current) => ({ ...current, receipt_copies: value }))} /></Field>
-              </div>}
-            </div>
+              </div>
+            </div>}
           </> : <>
             <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t('printingVendor')}><Select value={printerDraft.vendor} onChange={(event) => {
@@ -605,8 +668,10 @@ export default function PrintersSettingsPage() {
           <Field label={printerDraft.vendor === 'epson' ? t('printingEpsonDeviceId') : t('printingIdentifier')} hint={printerDraft.vendor === 'epson' ? t('printingEpsonDeviceIdHint') : t('printingIdentifierHint')}><Input value={printerDraft.identifier} onChange={(event) => setPrinterDraft((current) => ({ ...current, identifier: event.target.value }))} /></Field>
           <Field label={t('printingPaperWidth')}><Select value={printerDraft.paper_width_dots} onChange={(event) => setPrinterDraft((current) => ({ ...current, paper_width_dots: Number(event.target.value) as 384 | 576 }))}>{printerDraft.vendor === 'epson' ? <><option value={384}>TM-U220 · 76 mm · 384 dots</option><option value={576}>Epson thermal · 576 dots</option></> : <><option value={384}>58 mm · 384 px</option><option value={576}>80 mm · 576 px</option></>}</Select></Field>
           </>}
-          <Field label={t('printingAssignStation')}><Select value={printerDraft.station_id} onChange={(event) => setPrinterDraft((current) => ({ ...current, station_id: event.target.value, new_station_name: '' }))}><option value="">{t('printingCreateStationBelow')}</option>{overview.stations.map((station) => <option key={station.id} value={station.id}>{localizedStationName(station, locale)}</option>)}</Select></Field>
-          {!printerDraft.station_id && <Field label={t('printingNewStationName')} hint={t('printingPassNameHint')}><Input value={printerDraft.new_station_name} placeholder={t('printingPassNamePlaceholder')} onChange={(event) => setPrinterDraft((current) => ({ ...current, new_station_name: event.target.value }))} /></Field>}
+          {kitchenUsageEnabled && <>
+            <Field label={t('printingAssignStation')} hint={t('printingKitchenStationRequiredHint')}><Select value={printerDraft.station_id} onChange={(event) => setPrinterDraft((current) => ({ ...current, station_id: event.target.value, new_station_name: '' }))}><option value="">{t('printingCreateStationBelow')}</option>{overview.stations.map((station) => <option key={station.id} value={station.id}>{localizedStationName(station, locale)}</option>)}</Select></Field>
+            {!printerDraft.station_id && <Field label={t('printingNewStationName')} hint={t('printingPassNameHint')}><Input value={printerDraft.new_station_name} placeholder={t('printingPassNamePlaceholder')} onChange={(event) => setPrinterDraft((current) => ({ ...current, new_station_name: event.target.value }))} /></Field>}
+          </>}
         </div>
       </Drawer>
 
