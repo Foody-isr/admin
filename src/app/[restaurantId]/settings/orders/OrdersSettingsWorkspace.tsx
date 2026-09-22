@@ -5,8 +5,10 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   CalendarDays,
+  ChefHat,
   ChevronRight,
   Clock3,
+  CreditCard,
   Info,
   ListChecks,
   PackageCheck,
@@ -15,6 +17,7 @@ import {
   RefreshCw,
   Settings2,
   ShoppingBag,
+  Truck,
   UtensilsCrossed,
 } from 'lucide-react';
 import {
@@ -63,6 +66,11 @@ const DAY_SHORT_FALLBACKS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const ORDER_TYPES = ['pickup', 'dine_in', 'delivery'] as const;
 type OrderType = typeof ORDER_TYPES[number];
+
+type OrderFlowPolicy = {
+  requirePrepayment: boolean;
+  autoSendToKitchen: boolean;
+};
 
 type PreorderMode = 'off' | 'slots' | 'batch';
 export type OrdersSettingsView = 'overview' | 'availability' | 'preorders' | 'processing' | 'workflow';
@@ -150,6 +158,11 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
   // ── Service rules (RestaurantSettings) ────────────────────────────────────
   const [serviceMode, setServiceMode] = useState('table');
   const [prepTime, setPrepTime] = useState(20);
+  const [flowPolicies, setFlowPolicies] = useState<Record<OrderType, OrderFlowPolicy>>({
+    dine_in: { requirePrepayment: false, autoSendToKitchen: true },
+    pickup: { requirePrepayment: true, autoSendToKitchen: true },
+    delivery: { requirePrepayment: true, autoSendToKitchen: true },
+  });
 
   useEffect(() => {
     setLoading(true);
@@ -200,6 +213,20 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
         // Service rules
         setServiceMode(s.service_mode || 'table');
         setPrepTime(s.pickup_prep_time_minutes ?? 20);
+        setFlowPolicies({
+          dine_in: {
+            requirePrepayment: s.require_dine_in_prepayment ?? false,
+            autoSendToKitchen: s.auto_send_dine_in_to_kitchen ?? s.auto_send_to_kitchen ?? true,
+          },
+          pickup: {
+            requirePrepayment: s.require_pickup_prepayment ?? true,
+            autoSendToKitchen: s.auto_send_pickup_to_kitchen ?? s.auto_send_to_kitchen ?? true,
+          },
+          delivery: {
+            requirePrepayment: s.require_delivery_prepayment ?? true,
+            autoSendToKitchen: s.auto_send_delivery_to_kitchen ?? s.auto_send_to_kitchen ?? true,
+          },
+        });
       })
       .catch((error) => {
         setLoadError(error instanceof Error ? error.message : t('ordersLoadError'));
@@ -266,7 +293,7 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
   ];
   const tabs = allTabs.filter((tb) => isServiceEnabled(tb.key));
   const noServiceEnabled = tabs.length === 0;
-  const hasProcessingSettings = dineInEnabled || pickupEnabled;
+  const hasProcessingSettings = dineInEnabled || pickupEnabled || deliveryEnabled;
   const effectiveActiveTab: OrderType = isServiceEnabled(activeTab) ? activeTab : tabs[0]?.key ?? activeTab;
   const weeklyHours = config[effectiveActiveTab] ?? defaultWeek();
   const openSomewhere = tabs.some((tb) => isScheduleOpenNow(tb.key));
@@ -366,6 +393,12 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
         await updateRestaurantSettings(rid, {
           service_mode: serviceMode,
           pickup_prep_time_minutes: prepTime,
+          require_dine_in_prepayment: flowPolicies.dine_in.requirePrepayment,
+          require_pickup_prepayment: flowPolicies.pickup.requirePrepayment,
+          require_delivery_prepayment: flowPolicies.delivery.requirePrepayment,
+          auto_send_dine_in_to_kitchen: flowPolicies.dine_in.autoSendToKitchen,
+          auto_send_pickup_to_kitchen: flowPolicies.pickup.autoSendToKitchen,
+          auto_send_delivery_to_kitchen: flowPolicies.delivery.autoSendToKitchen,
         });
       }
       setSaved(true);
@@ -1057,6 +1090,42 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
             title={t('ordersProcessingSettingsTitle') || 'Réglages par mode de commande'}
             desc={t('ordersProcessingSettingsDesc') || 'Chaque réglage s’applique uniquement au mode indiqué.'}
           >
+            <div className="mb-[var(--s-5)] grid gap-[var(--s-4)] xl:grid-cols-3">
+              <OrderFlowPolicyCard
+                icon={<UtensilsCrossed className="h-5 w-5" />}
+                title={t('ordersProcessingDineInTitle') || 'Commandes sur place'}
+                enabled={dineInEnabled}
+                policy={flowPolicies.dine_in}
+                onChange={(policy) => setFlowPolicies((current) => ({ ...current, dine_in: policy }))}
+                canEdit={canEdit}
+                rid={rid}
+                t={t}
+              />
+              <OrderFlowPolicyCard
+                icon={<ShoppingBag className="h-5 w-5" />}
+                title={t('ordersProcessingPickupTitle') || 'Commandes à emporter'}
+                enabled={pickupEnabled}
+                policy={flowPolicies.pickup}
+                onChange={(policy) => setFlowPolicies((current) => ({ ...current, pickup: policy }))}
+                canEdit={canEdit}
+                rid={rid}
+                t={t}
+              />
+              <OrderFlowPolicyCard
+                icon={<Truck className="h-5 w-5" />}
+                title={t('delivery') || 'Livraison'}
+                enabled={deliveryEnabled}
+                policy={flowPolicies.delivery}
+                onChange={(policy) => setFlowPolicies((current) => ({ ...current, delivery: policy }))}
+                canEdit={canEdit}
+                rid={rid}
+                t={t}
+              />
+            </div>
+
+            <div className="mb-[var(--s-3)] text-fs-xs font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">
+              {t('ordersProcessingOperationalDetails') || 'Détails opérationnels'}
+            </div>
             <div className="divide-y divide-[var(--line)] overflow-hidden rounded-r-lg border border-[var(--line)]">
               <div className="grid gap-[var(--s-4)] p-[var(--s-4)] sm:grid-cols-[minmax(0,1fr)_260px] sm:items-center">
                 <div className="flex items-start gap-[var(--s-3)]">
@@ -1185,6 +1254,147 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
             </div>
           )}
     </SettingsWorkspace>
+  );
+}
+
+function OrderFlowPolicyCard({
+  icon,
+  title,
+  enabled,
+  policy,
+  onChange,
+  canEdit,
+  rid,
+  t,
+}: {
+  icon: ReactNode;
+  title: string;
+  enabled: boolean;
+  policy: OrderFlowPolicy;
+  onChange: (policy: OrderFlowPolicy) => void;
+  canEdit: boolean;
+  rid: number;
+  t: (key: string) => string;
+}) {
+  if (!enabled) {
+    return (
+      <div className="rounded-r-xl border border-dashed border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-4)]">
+        <div className="flex items-center gap-[var(--s-3)] text-[var(--fg-muted)]">
+          {icon}
+          <span className="text-fs-sm font-semibold">{title}</span>
+        </div>
+        <div className="mt-[var(--s-5)]"><InactiveOrderMode rid={rid} t={t} /></div>
+      </div>
+    );
+  }
+
+  const kitchenLabel = policy.autoSendToKitchen
+    ? t('ordersFlowKitchenAutomatic') || 'Envoi automatique'
+    : t('ordersFlowKitchenManual') || 'Après validation';
+
+  return (
+    <article className="overflow-hidden rounded-r-xl border border-[var(--line)] bg-[var(--surface)] shadow-1">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)]">
+        <div className="flex items-center gap-[var(--s-3)]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-r-lg bg-[color-mix(in_oklab,var(--brand-500)_10%,var(--surface))] text-[var(--brand-500)]">
+            {icon}
+          </span>
+          <div>
+            <h3 className="text-fs-sm font-semibold text-[var(--fg)]">{title}</h3>
+            <p className="text-fs-xs text-[var(--fg-subtle)]">
+              {policy.requirePrepayment
+                ? t('ordersFlowSummaryPayFirst') || 'Paiement → cuisine'
+                : t('ordersFlowSummaryKitchenFirst') || 'Cuisine → paiement'}
+            </p>
+          </div>
+        </div>
+        <span className="rounded-full bg-[color-mix(in_oklab,var(--success-500)_12%,var(--surface))] px-2.5 py-1 text-[11px] font-semibold text-[var(--success-500)]">
+          {t('active') || 'Actif'}
+        </span>
+      </div>
+
+      <div className="space-y-[var(--s-4)] p-[var(--s-4)]">
+        <PolicyChoice
+          icon={<CreditCard className="h-4 w-4" />}
+          label={t('ordersFlowPaymentLabel') || 'Quand encaisser ?'}
+          value={policy.requirePrepayment ? 'before' : 'after'}
+          options={[
+            { value: 'before', label: t('ordersFlowPayBefore') || 'Avant préparation' },
+            { value: 'after', label: t('ordersFlowPayAfter') || 'Après préparation' },
+          ]}
+          disabled={!canEdit}
+          onChange={(value) => onChange({ ...policy, requirePrepayment: value === 'before' })}
+        />
+        <PolicyChoice
+          icon={<ChefHat className="h-4 w-4" />}
+          label={t('ordersFlowKitchenLabel') || 'Quand prévenir la cuisine ?'}
+          value={policy.autoSendToKitchen ? 'automatic' : 'manual'}
+          options={[
+            { value: 'automatic', label: t('ordersFlowKitchenAutomatic') || 'Automatiquement' },
+            { value: 'manual', label: t('ordersFlowKitchenManual') || 'Après validation' },
+          ]}
+          disabled={!canEdit}
+          onChange={(value) => onChange({ ...policy, autoSendToKitchen: value === 'automatic' })}
+        />
+        <p className="rounded-r-md bg-[var(--surface-2)] px-[var(--s-3)] py-2 text-fs-xs leading-[var(--lh-base)] text-[var(--fg-muted)]">
+          {policy.requirePrepayment
+            ? policy.autoSendToKitchen
+              ? t('ordersFlowResultPaidAuto') || `Après paiement, la commande part directement en cuisine.`
+              : t('ordersFlowResultPaidManual') || `Après paiement, l'équipe doit valider l'envoi en cuisine.`
+            : policy.autoSendToKitchen
+              ? t('ordersFlowResultLaterAuto') || `La commande part immédiatement en cuisine et sera encaissée plus tard.`
+              : t('ordersFlowResultLaterManual') || `L'équipe valide la commande avant la cuisine ; le paiement se fait plus tard.`}
+          <span className="sr-only">{kitchenLabel}</span>
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function PolicyChoice({
+  icon,
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <fieldset disabled={disabled}>
+      <legend className="mb-2 flex items-center gap-2 text-fs-xs font-semibold text-[var(--fg-muted)]">
+        {icon}
+        {label}
+      </legend>
+      <div className="grid grid-cols-2 overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-1">
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={selected}
+              disabled={disabled}
+              onClick={() => onChange(option.value)}
+              className="min-h-9 rounded-r-sm px-2 text-[11px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--brand-500)] disabled:cursor-not-allowed disabled:opacity-55"
+              style={{
+                color: selected ? 'var(--fg)' : 'var(--fg-subtle)',
+                background: selected ? 'var(--surface)' : 'transparent',
+                boxShadow: selected ? 'var(--shadow-1)' : 'none',
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 
