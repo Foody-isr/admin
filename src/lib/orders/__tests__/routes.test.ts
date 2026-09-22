@@ -5,6 +5,7 @@ import {
   orderDetailUrl,
   ordersListPath,
   ordersPaymentAttentionPath,
+  PAYMENT_ATTENTION_FILTER,
   parseOrderIdParam,
   parseOrdersPaymentAttentionQuery,
 } from '@/lib/orders/routes';
@@ -32,6 +33,13 @@ test('round-trips the dashboard payment-attention scope', () => {
     to: '2026-09-18',
     dateField: 'serie',
   });
+});
+
+test('payment-attention filter includes every collectible incomplete status', () => {
+  assert.deepEqual(
+    new Set(PAYMENT_ATTENTION_FILTER.split(',')),
+    new Set(['unpaid', 'pending', 'partially_paid']),
+  );
 });
 
 test('rejects malformed payment-attention links', () => {
