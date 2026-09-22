@@ -4,11 +4,18 @@ type LooseDraftPayload = Partial<{
   [Key in keyof DraftPayload]: DraftPayload[Key] | null;
 }>;
 
+/** Return recipe steps as a render-safe array at every runtime boundary. */
+export function safeRecipeSteps(
+  value: DraftPayload['recipe_steps'] | null | undefined,
+): DraftPayload['recipe_steps'] {
+  return Array.isArray(value) ? value : [];
+}
+
 /** Normalize historic or partially generated recipe drafts before rendering them. */
 export function normalizeLabDraftPayload(payload: DraftPayload): DraftPayload {
   const source = payload as LooseDraftPayload;
   const components = Array.isArray(source.components) ? source.components : [];
-  const recipeSteps = Array.isArray(source.recipe_steps) ? source.recipe_steps : [];
+  const recipeSteps = safeRecipeSteps(source.recipe_steps);
   const summary: Partial<DraftPayload['cost_summary']> = source.cost_summary ?? {};
   const totalEstimatedCost = summary.total_estimated_cost ?? 0;
 
