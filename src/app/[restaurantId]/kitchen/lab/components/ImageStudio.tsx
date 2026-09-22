@@ -52,28 +52,28 @@ export function ImageStudio({ restaurantId, draftId, currentImage, disabled, onC
   };
 
   return (
-    <section className="overflow-hidden rounded-[18px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
+    <section className="@container overflow-hidden rounded-[18px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
       <div className="border-b border-[var(--line)] px-5 py-4 sm:px-6">
         <h3 className="flex items-center gap-2 text-base font-semibold text-[var(--fg)]"><ImageIcon className="h-4 w-4 text-[var(--brand-500)]" />{t('labImageStudio')}</h3>
         <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">{t('labImageHelp')}</p>
       </div>
 
-      <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <div className="grid gap-5 p-4 sm:p-6 @3xl:grid-cols-[220px_minmax(0,1fr)]">
         {currentImage ? (
-          <Image src={currentImage} alt={t('labGeneratedDish')} width={640} height={640} unoptimized className="aspect-square w-full rounded-[12px] object-cover" />
+          <Image src={currentImage} alt={t('labGeneratedDish')} width={640} height={640} unoptimized className="mx-auto aspect-square w-full max-w-[320px] rounded-[12px] object-cover @3xl:max-w-none" />
         ) : (
-          <div className="flex aspect-square w-full flex-col items-center justify-center rounded-[12px] border border-dashed border-[var(--line-strong)] bg-[var(--surface-2)] text-center">
+          <div className="mx-auto flex aspect-square w-full max-w-[320px] flex-col items-center justify-center rounded-[12px] border border-dashed border-[var(--line-strong)] bg-[var(--surface-2)] text-center @3xl:max-w-none">
             <ImageIcon className="h-7 w-7 text-[var(--fg-subtle)]" />
             <p className="mt-2 px-4 text-xs leading-5 text-[var(--fg-muted)]">{t('labImageEmpty')}</p>
           </div>
         )}
 
         <div className="min-w-0">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 @md:grid-cols-2">
             <Select value={kind} onChange={(v) => setKind(v as 'commercial' | 'plating')} options={[['commercial', t('labImageCommercial')], ['plating', t('labImagePlating')]]} />
             <Select value={style} onChange={setStyle} options={[['natural', t('labStyleNatural')], ['brasserie', 'Brasserie'], ['street_food', 'Street food'], ['fine_dining', 'Fine dining'], ['delivery', t('labStyleDelivery')]]} />
             <Select value={angle} onChange={setAngle} options={[['45', '45°'], ['top_down', t('labTopDown')], ['close_up', t('labCloseUp')]]} />
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('labImageNotes')} className="h-10 rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none" />
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('labImageNotes')} className="h-11 rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none sm:h-10 sm:text-sm" />
           </div>
 
           <Button type="button" size="lg" onClick={generate} disabled={disabled || loading} className="mt-4 w-full sm:w-auto">
@@ -82,7 +82,7 @@ export function ImageStudio({ restaurantId, draftId, currentImage, disabled, onC
 
       {error && <p className="mt-3 text-xs text-[var(--danger-500)]">{error}</p>}
       {images.length > 0 && (
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
           {images.map((image) => (
             <button key={image.generation_id} type="button" onClick={() => confirm(image)} disabled={confirming != null} className="group relative overflow-hidden rounded-[10px] border border-[var(--line)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:opacity-50">
               <Image src={`data:image/png;base64,${image.image_b64}`} alt={t('labGeneratedDish')} width={320} height={320} unoptimized className="aspect-square w-full object-cover" />
@@ -98,5 +98,5 @@ export function ImageStudio({ restaurantId, draftId, currentImage, disabled, onC
 }
 
 function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: [string, string][] }) {
-  return <select value={value} onChange={(e) => onChange(e.target.value)} className="h-10 rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none">{options.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select>;
+  return <select value={value} onChange={(e) => onChange(e.target.value)} className="h-11 rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none sm:h-10 sm:text-sm">{options.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select>;
 }

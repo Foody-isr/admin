@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import {
   ArrowLeftIcon,
   CheckIcon,
+  ChevronDownIcon,
   FlaskConicalIcon,
   LoaderCircleIcon,
   Trash2Icon,
@@ -47,6 +48,7 @@ export default function RecipeLabPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [refineOpen, setRefineOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveSequence = useRef(0);
@@ -150,9 +152,9 @@ export default function RecipeLabPage() {
   const isManual = payload?.creation_mode === 'manual';
 
   return (
-    <div className="min-h-full bg-[var(--bg)] text-[var(--fg)]">
+    <div className="min-h-full min-w-0 overflow-x-clip bg-[var(--bg)] text-[var(--fg)]">
       <header className="border-b border-[var(--line)] bg-[var(--surface)]">
-        <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-5 py-5 sm:px-7 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--brand-500)] text-white shadow-[var(--shadow-1)]">
               <FlaskConicalIcon className="h-5 w-5" />
@@ -163,7 +165,7 @@ export default function RecipeLabPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-5">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-start sm:gap-5">
             {(activeDraftId != null || entryMode != null) && (
               <>
                 <ProgressSteps reviewing={activeDraftId != null} manual={isManual || entryMode === 'manual'} />
@@ -176,14 +178,14 @@ export default function RecipeLabPage() {
       </header>
 
       {activeDraftId == null ? (
-        <main className="mx-auto max-w-[1320px] px-4 py-7 sm:px-7 sm:py-9">
+        <main className="mx-auto max-w-[1320px] py-6 sm:px-1 sm:py-8">
           <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div>
               {entryMode == null ? (
                 <LabEntryChoice onChoose={setEntryMode} />
               ) : (
                 <>
-                  <button type="button" onClick={() => setEntryMode(null)} className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
+                  <button type="button" onClick={() => setEntryMode(null)} className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-[8px] pe-2 text-sm font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
                     <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" /> {t('labBackToChoices')}
                   </button>
                   {entryMode === 'manual' ? (
@@ -204,17 +206,29 @@ export default function RecipeLabPage() {
                 </>
               )}
             </div>
-            <aside className="rounded-[18px] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-1)] xl:sticky xl:top-5">
-              <h2 className="text-base font-semibold text-[var(--fg)]">{t('labDraftsTitle')}</h2>
-              <p className="mt-1 mb-4 text-xs leading-5 text-[var(--fg-muted)]">{t('labDraftsHelp')}</p>
-              <DraftQueue restaurantId={restaurantId} activeDraftId={activeDraftId} onSelect={setActiveDraftId} />
+            <aside className="overflow-hidden rounded-[18px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-1)] xl:sticky xl:top-5">
+              <button
+                type="button"
+                onClick={() => setQueueOpen((current) => !current)}
+                aria-expanded={queueOpen}
+                className="flex min-h-14 w-full items-center justify-between gap-3 px-5 py-4 text-start focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] xl:pointer-events-none xl:min-h-0 xl:items-start xl:pb-0"
+              >
+                <span>
+                  <span className="block text-base font-semibold text-[var(--fg)]">{t('labDraftsTitle')}</span>
+                  <span className="mt-1 block text-xs leading-5 text-[var(--fg-muted)]">{t('labDraftsHelp')}</span>
+                </span>
+                <ChevronDownIcon className={`h-4 w-4 shrink-0 text-[var(--fg-muted)] transition-transform xl:hidden ${queueOpen ? 'rotate-180' : ''}`} />
+              </button>
+              <div className={`${queueOpen ? 'block' : 'hidden'} border-t border-[var(--line)] p-4 xl:block xl:border-t-0 xl:p-5 xl:pt-4`}>
+                <DraftQueue restaurantId={restaurantId} activeDraftId={activeDraftId} onSelect={setActiveDraftId} />
+              </div>
             </aside>
           </div>
         </main>
       ) : (
-        <main className="mx-auto max-w-[1440px] px-4 py-5 sm:px-7 sm:py-7">
+        <main className="mx-auto max-w-[1440px] pb-6 pt-4 sm:px-1 sm:pb-8 sm:pt-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <button type="button" onClick={() => setActiveDraftId(null)} className="inline-flex items-center gap-2 text-sm font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
+            <button type="button" onClick={() => setActiveDraftId(null)} className="inline-flex min-h-11 items-center gap-2 rounded-[8px] pe-2 text-sm font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
               <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" /> {t('labBackToBriefs')}
             </button>
             <AutosaveStatus state={autosaveState} />
@@ -239,7 +253,24 @@ export default function RecipeLabPage() {
                 <CostSummaryHeader payload={payload} onSellingPriceChange={handleSellingPriceChange} canManage={canManage} />
               </div>
 
-              <aside className="order-2 space-y-4 xl:order-3 xl:sticky xl:top-5">
+              {canManage && (
+                <div className="sticky z-10 order-2 rounded-[14px] border border-[var(--line-strong)] bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] p-2 shadow-[var(--shadow-2)] backdrop-blur-xl xl:hidden" style={{ top: 'calc(var(--topbar-total-h) + 8px)' }}>
+                  <div className="flex items-center gap-3">
+                    <span className="min-w-0 flex-1 px-2">
+                      <span className="block text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--fg-muted)]">{t('labFoodCostPct')}</span>
+                      <span className={`block text-lg font-semibold tabular-nums ${payload.cost_summary.verdict === 'ok' ? 'text-[var(--success-500)]' : 'text-[var(--fg)]'}`}>
+                        {payload.cost_summary.food_cost_pct == null ? '—' : `${(payload.cost_summary.food_cost_pct * 100).toFixed(0)}%`}
+                      </span>
+                    </span>
+                    <Button size="lg" onClick={handleSave} disabled={submitting || (isManual && payload.components.length === 0)}>
+                      {submitting ? <LoaderCircleIcon className="animate-spin" /> : <CheckIcon />}
+                      {submitting ? t('labSaving') : isManual ? t('labSaveManualRecipe') : t('labSaveRecipe')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <aside className="order-4 space-y-4 xl:order-3 xl:sticky xl:top-5">
                 {isManual ? (
                   <ManualValidationPanel payload={payload} canManage={canManage} submitting={submitting} onSave={handleSave} />
                 ) : (
@@ -278,7 +309,7 @@ export default function RecipeLabPage() {
                 )}
                 {canManage && (
                   <div className="flex justify-end pt-2">
-                    <button type="button" onClick={handleDiscard} disabled={submitting} className="inline-flex items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:opacity-50">
+                    <button type="button" onClick={handleDiscard} disabled={submitting} className="inline-flex min-h-11 items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:opacity-50">
                       <Trash2Icon className="h-3.5 w-3.5" /> {t('labDeleteDraft')}
                     </button>
                   </div>
@@ -307,15 +338,15 @@ function ProgressSteps({ reviewing, manual }: { reviewing: boolean; manual: bool
     : [t('labStepBrief'), t('labStepProposals'), t('labStepFinalize')];
   const activeIndex = reviewing ? 1 : 0;
   return (
-    <ol className="hidden items-center sm:flex">
+    <ol className="flex min-w-0 items-center" aria-label={steps[activeIndex]}>
       {steps.map((label, index) => (
-        <li key={label} className="flex items-center">
-          {index > 0 && <span className={`mx-2 h-px w-6 ${index <= activeIndex ? 'bg-[var(--brand-500)]' : 'bg-[var(--line-strong)]'}`} />}
+        <li key={label} className="flex min-w-0 items-center">
+          {index > 0 && <span className={`mx-1.5 h-px w-4 sm:mx-2 sm:w-6 ${index <= activeIndex ? 'bg-[var(--brand-500)]' : 'bg-[var(--line-strong)]'}`} />}
           <span className={`flex items-center gap-1.5 text-xs font-medium ${index === activeIndex ? 'text-[var(--fg)]' : index < activeIndex ? 'text-[var(--brand-500)]' : 'text-[var(--fg-subtle)]'}`}>
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${index === activeIndex ? 'bg-[var(--brand-500)] text-white' : index < activeIndex ? 'bg-[color-mix(in_oklab,var(--brand-500)_12%,var(--surface))] text-[var(--brand-500)]' : 'border border-[var(--line-strong)]'}`}>
+            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:h-5 sm:w-5 ${index === activeIndex ? 'bg-[var(--brand-500)] text-white' : index < activeIndex ? 'bg-[color-mix(in_oklab,var(--brand-500)_12%,var(--surface))] text-[var(--brand-500)]' : 'border border-[var(--line-strong)]'}`}>
               {index < activeIndex ? <CheckIcon className="h-3 w-3" /> : index + 1}
             </span>
-            {label}
+            <span className={`${index === activeIndex ? 'max-w-28 truncate' : 'hidden'} sm:inline sm:max-w-none`}>{label}</span>
           </span>
         </li>
       ))}

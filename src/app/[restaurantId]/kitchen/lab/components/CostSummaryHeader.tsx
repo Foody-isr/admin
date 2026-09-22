@@ -25,7 +25,7 @@ export function CostSummaryHeader({
         <p className="text-xs font-medium text-[var(--fg-muted)]">{t('labReviewLabel')}</p>
         <div className="mt-2 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <h2 className="truncate text-3xl font-semibold tracking-[-0.04em] text-[var(--fg)] sm:text-4xl">
+            <h2 className="break-words text-2xl font-semibold tracking-[-0.04em] text-[var(--fg)] sm:text-4xl md:truncate">
               {payload.menu_item.name_primary || payload.menu_item.name_he}
             </h2>
           </div>
@@ -47,7 +47,7 @@ export function CostSummaryHeader({
         )}
       </div>
 
-      <div className="grid border-t border-[var(--line)] bg-[var(--surface-2)] sm:grid-cols-3">
+      <div className="grid grid-cols-3 border-t border-[var(--line)] bg-[var(--surface-2)]">
         <SummaryMetric
           icon={<CircleDollarSignIcon className="h-4 w-4" />}
           label={summary.cost_status === 'verified' ? t('labExactFoodCost') : t('labEstFoodCost')}
@@ -86,12 +86,12 @@ function SummaryMetric({
   last?: boolean;
 }) {
   return (
-    <div className={`flex items-start gap-3 px-5 py-4 sm:px-6 ${last ? '' : 'border-b border-[var(--line)] sm:border-b-0 sm:border-e'}`}>
-      <span className="mt-0.5 text-[var(--fg-muted)]">{icon}</span>
+    <div className={`flex min-w-0 flex-col gap-1 px-3 py-3 sm:flex-row sm:items-start sm:gap-3 sm:px-6 sm:py-4 ${last ? '' : 'border-e border-[var(--line)]'}`}>
+      <span className="mt-0.5 hidden text-[var(--fg-muted)] sm:block">{icon}</span>
       <span className="min-w-0">
-        <span className="block text-xs text-[var(--fg-muted)]">{label}</span>
-        <span className="mt-0.5 block text-lg font-semibold tabular-nums text-[var(--fg)]">{value}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-[var(--fg-subtle)]">{detail}</span>
+        <span className="block text-[10px] leading-4 text-[var(--fg-muted)] sm:text-xs">{label}</span>
+        <span className="mt-0.5 block text-base font-semibold tabular-nums text-[var(--fg)] sm:text-lg">{value}</span>
+        <span className="mt-0.5 hidden truncate text-[11px] text-[var(--fg-subtle)] sm:block">{detail}</span>
       </span>
     </div>
   );
@@ -113,7 +113,7 @@ function SellingPriceField({ value, onChange }: { value?: number; onChange: (val
           onChange(Number.isNaN(parsed) ? undefined : parsed);
         }}
         placeholder="—"
-        className="h-full w-28 bg-transparent px-3 text-xl font-semibold tabular-nums text-[var(--fg)] outline-none"
+        className="h-full w-28 bg-transparent px-3 text-base font-semibold tabular-nums text-[var(--fg)] outline-none sm:text-xl"
       />
     </span>
   );

@@ -92,14 +92,14 @@ export function IngredientLibraryPicker({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-labelledby="ingredient-picker-title" className="flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-[20px] bg-[var(--surface)] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 pt-[var(--safe-top)] backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-labelledby="ingredient-picker-title" className="flex max-h-[calc(100svh-var(--safe-top))] w-full max-w-2xl flex-col overflow-hidden rounded-t-[22px] bg-[var(--surface)] pb-[var(--safe-bottom)] shadow-2xl sm:max-h-[86svh] sm:rounded-[20px] sm:pb-0" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 border-b border-[var(--line)] px-5 py-5 sm:px-6">
           <div>
             <h3 id="ingredient-picker-title" className="text-lg font-semibold tracking-[-0.02em] text-[var(--fg)]">{t('labAddFromLibrary')}</h3>
             <p className="mt-1 text-sm leading-5 text-[var(--fg-muted)]">{t('labAddFromLibraryHelp')}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label={t('cancel')} className="rounded-[7px] p-1.5 text-[var(--fg-muted)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"><XIcon className="h-4 w-4" /></button>
+          <button type="button" onClick={onClose} aria-label={t('cancel')} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[9px] text-[var(--fg-muted)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"><XIcon className="h-4 w-4" /></button>
         </div>
 
         <div className="border-b border-[var(--line)] px-5 pt-4 sm:px-6">
@@ -109,7 +109,7 @@ export function IngredientLibraryPicker({
           </div>
           <label className="relative my-4 block">
             <SearchIcon className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
-            <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('labSearchIngredient')} className="h-10 w-full rounded-[9px] border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)]" />
+            <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('labSearchIngredient')} className="h-11 w-full rounded-[9px] border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-3 text-base text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)] sm:h-10 sm:text-sm" />
           </label>
         </div>
 
@@ -128,7 +128,7 @@ export function IngredientLibraryPicker({
 }
 
 function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return <button type="button" role="tab" aria-selected={active} onClick={onClick} className={`flex items-center gap-2 border-b-2 pb-3 text-sm font-semibold focus-visible:outline-none ${active ? 'border-[var(--brand-500)] text-[var(--fg)]' : 'border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]'}`}>{icon}{label}</button>;
+  return <button type="button" role="tab" aria-selected={active} onClick={onClick} className={`flex min-h-11 items-center gap-2 border-b-2 pb-3 text-sm font-semibold focus-visible:outline-none ${active ? 'border-[var(--brand-500)] text-[var(--fg)]' : 'border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]'}`}>{icon}{label}</button>;
 }
 
 function LibraryList<T extends StockItem | PrepItem>({ items, usedIds, money, emptyLabel, addedLabel, addLabel, onAdd }: { items: T[]; usedIds: Set<string>; money: (amount: number, options?: { decimals?: number }) => string; emptyLabel: string; addedLabel: string; addLabel: string; onAdd: (item: T) => void }) {
