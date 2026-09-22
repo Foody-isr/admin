@@ -188,3 +188,43 @@ export interface CommitResult {
   created: { stock_items: string[]; prep_items: string[] };
   linked: { stock_items: string[]; prep_items: string[] };
 }
+
+export interface ManualRecipeImportEntry {
+  source: string;
+  name: string;
+  kind: 'stock' | 'preparation' | 'step';
+  status: 'matched' | 'new' | 'unresolved';
+  matched_name?: string;
+  quantity?: number;
+  unit?: string;
+  children?: ManualRecipeImportEntry[];
+}
+
+export interface ManualRecipeImportWarning {
+  code:
+    | 'quantity_defaulted'
+    | 'unit_adjusted'
+    | 'new_stock_item'
+    | 'existing_preparation_definition'
+    | 'preparation_yield_defaulted'
+    | 'preparation_ingredients_missing'
+    | 'preparation_definition_required'
+    | 'unrecognized_line';
+  source?: string;
+  name?: string;
+}
+
+export interface ManualRecipeImportResult {
+  components: Component[];
+  recipe_steps: RecipeStep[];
+  entries: ManualRecipeImportEntry[];
+  warnings?: ManualRecipeImportWarning[];
+  summary: {
+    component_count: number;
+    preparation_count: number;
+    ingredient_count: number;
+    matched_count: number;
+    new_count: number;
+    step_count: number;
+  };
+}

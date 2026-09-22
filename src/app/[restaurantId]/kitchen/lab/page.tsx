@@ -27,6 +27,7 @@ import { VersionHistory } from './components/VersionHistory';
 import { LabEntryChoice, type LabEntryMode } from './components/LabEntryChoice';
 import { ManualRecipeStarter } from './components/ManualRecipeStarter';
 import { ManualValidationPanel } from './components/ManualValidationPanel';
+import { RecipeTextImporter } from './components/RecipeTextImporter';
 import type { DraftPayload, Draft } from './types';
 
 /** AI-assisted creation and review workspace for profitable restaurant recipes. */
@@ -256,6 +257,15 @@ export default function RecipeLabPage() {
               </aside>
 
               <div className="order-3 min-w-0 space-y-4 xl:order-2">
+                {isManual && activeDraftId != null && (
+                  <RecipeTextImporter
+                    restaurantId={restaurantId}
+                    draftId={activeDraftId}
+                    payload={payload}
+                    canManage={canManage}
+                    onChange={updatePayload}
+                  />
+                )}
                 <RecipeTree restaurantId={restaurantId} payload={payload} onChange={updatePayload} canManage={canManage} />
                 {!isManual && (
                   <ImageStudio
