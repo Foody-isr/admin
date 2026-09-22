@@ -54,7 +54,7 @@ const newPrinter = () => ({
   connection: 'lan' as 'lan' | 'cloud', name: '', vendor: 'epson' as PrinterVendor,
   identifier: `foody_lan_${Date.now()}`, epson_polling_id: '', gateway_printer_id: '',
   protocol: 'spooler' as PrinterProtocol, model: 'Epson TM-m30III', profile: 'tm_m30iii' as PrintPrinter['profile'],
-  host: '', port: 80, compatibility_port: 9100, usage: 'receipt' as PrinterUsage,
+  host: '', port: 443, use_https: true, compatibility_port: 9100, usage: 'receipt' as PrinterUsage,
   receipt_order_types: [] as PrintPrinter['receipt_order_types'], receipt_copies: 1,
   paper_width_dots: 576 as 384 | 576,
   expected_poll_seconds: 2, station_id: '', new_station_name: '', original_station_id: '', original_station_role: '' as '' | 'primary' | 'fallback',
@@ -260,7 +260,7 @@ export default function PrintersSettingsPage() {
         name: printer.name, identifier: printer.identifier, vendor: printer.vendor,
         epson_polling_id: printer.epson_polling_id ?? '', gateway_printer_id: printer.gateway_printer_id ?? '',
         protocol: printer.protocol, model: printer.model ?? '', profile: printer.profile,
-        host: printer.host, port: printer.port, compatibility_port: printer.compatibility_port,
+        host: printer.host, port: printer.port, use_https: printer.use_https, compatibility_port: printer.compatibility_port,
         usage,
         receipt_order_types: printer.receipt_order_types ?? [], receipt_copies: printer.receipt_copies || 1,
         paper_width_dots: printer.paper_width_dots as 384 | 576,
@@ -284,7 +284,7 @@ export default function PrintersSettingsPage() {
       profile: printerDraft.profile,
       host: printerDraft.host,
       port: printerDraft.port,
-      use_https: false,
+      use_https: printerDraft.use_https,
       device_id: 'local_printer',
       compatibility_port: printerDraft.compatibility_port,
       receives_receipts: receivesReceipts,
@@ -459,7 +459,7 @@ export default function PrintersSettingsPage() {
                       </div>
                       <div className="mt-1 font-mono text-fs-xs text-[var(--fg-subtle)]">
                         {printer.protocol === 'spooler'
-                          ? `EPSON ePOS · FOODY SPOOLER · LAN · ${printer.model || printer.identifier} · ${printer.paper_width_dots}px`
+                          ? `EPSON ePOS · FOODY SPOOLER · LAN · ${printer.use_https ? 'HTTPS' : 'HTTP'} · ${printer.model || printer.identifier} · ${printer.paper_width_dots}px`
                           : `${printer.vendor === 'epson' ? 'EPSON SDP' : 'STAR'} · ${printer.protocol.toUpperCase()} · ${printer.model || printer.identifier} · ${printer.paper_width_dots}px`}
                       </div>
                       {printer.protocol === 'spooler' ? (
@@ -631,9 +631,14 @@ export default function PrintersSettingsPage() {
           {printerDraft.connection === 'lan' ? <>
             <Field label={t('model')}><Select value={printerDraft.profile} onChange={(event) => {
               const profile = event.target.value as PrintPrinter['profile'];
-              setPrinterDraft((current) => ({ ...current, profile, model: profile === 'tm_m30iii' ? 'Epson TM-m30III' : 'Epson TM-U220IIB', paper_width_dots: profile === 'tm_m30iii' ? 576 : 384 }));
+              const useHttps = profile === 'tm_m30iii';
+              setPrinterDraft((current) => ({ ...current, profile, model: useHttps ? 'Epson TM-m30III' : 'Epson TM-U220IIB', paper_width_dots: useHttps ? 576 : 384, use_https: useHttps, port: useHttps ? 443 : 80 }));
             }}><option value="tm_m30iii">Epson TM-m30III · 80 mm</option><option value="tm_u220iib">Epson TM-U220IIB · 76 mm</option></Select></Field>
             <Field label={t('printingLanAddress')} hint={t('printingLanAddressHint')}><Input value={printerDraft.host} placeholder="192.168.1.48" inputMode="url" autoCapitalize="none" onChange={(event) => setPrinterDraft((current) => ({ ...current, host: event.target.value }))} /></Field>
+            <Field label={t('printingLanProtocol')} hint={t('printingLanProtocolHint')}><Select value={printerDraft.use_https ? 'https' : 'http'} onChange={(event) => {
+              const useHttps = event.target.value === 'https';
+              setPrinterDraft((current) => ({ ...current, use_https: useHttps, port: useHttps ? 443 : 80 }));
+            }}><option value="https">{t('printingHttps')}</option><option value="http">{t('printingHttp')}</option></Select></Field>
             {receiptUsageEnabled && <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
               <div className="flex items-center gap-2 text-fs-sm font-semibold text-[var(--fg)]"><ReceiptText className="h-4 w-4" />{t('printingReceiptSettings')}</div>
               <div className="mt-4 grid gap-3">
