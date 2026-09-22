@@ -125,16 +125,19 @@ export default function PrintersSettingsPage() {
   const [rulesDraft, setRulesDraft] = useState<PrintRoutingRule[]>([]);
   const [printerDraft, setPrinterDraft] = useState(newPrinter);
   const autoActivationInFlight = useRef(false);
+  const loadRequestSequence = useRef(0);
   const [overrideDraft, setOverrideDraft] = useState({
     component: 'item' as 'item' | 'modifier' | 'option', component_id: '', station_id: '', channel: '',
   });
 
   const load = useCallback(async (quiet = false) => {
     if (!rid) return;
+    const requestSequence = ++loadRequestSequence.current;
     if (!quiet) setLoading(true);
     try {
       if (quiet) {
         const nextOverview = await getPrintingOverview(rid);
+        if (requestSequence !== loadRequestSequence.current) return;
         setOverview(nextOverview);
         setError(null);
         return;
@@ -142,6 +145,7 @@ export default function PrintersSettingsPage() {
       const [nextOverview, nextSettings, nextCategories, nextItems, restaurant] = await Promise.all([
         getPrintingOverview(rid), getRestaurantSettings(rid), getAllCategories(rid), listAllItems(rid), getRestaurant(rid),
       ]);
+      if (requestSequence !== loadRequestSequence.current) return;
       setOverview(nextOverview);
       setSettings(nextSettings);
       setCategories(nextCategories);
@@ -153,9 +157,10 @@ export default function PrintersSettingsPage() {
       }
       setError(null);
     } catch (cause) {
+      if (requestSequence !== loadRequestSequence.current) return;
       setError(cause instanceof Error ? cause.message : t('printingLoadFailed'));
     } finally {
-      if (!quiet) setLoading(false);
+      if (!quiet && requestSequence === loadRequestSequence.current) setLoading(false);
     }
   }, [rid, t]);
 
@@ -298,6 +303,9 @@ export default function PrintersSettingsPage() {
     const registration = editingPrinterId
       ? { printer: await updatePrinter(rid, editingPrinterId, input), username: '', password: '', realm: '' }
       : await registerPrinter(rid, input);
+    if (registration.printer.use_https !== printerDraft.use_https) {
+      throw new Error(t('printingConnectionSaveMismatch'));
+    }
     if (editingPrinterId) {
       const stationAssignmentChanged = printerDraft.station_id !== printerDraft.original_station_id;
       const previousAssignments = overview.stations.filter((station) => (
