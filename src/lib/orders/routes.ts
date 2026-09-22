@@ -3,7 +3,7 @@ export function ordersListPath(restaurantId: number): string {
   return `/${restaurantId}/orders/all`;
 }
 
-export const PAYMENT_ATTENTION_FILTER = 'unpaid,pending';
+export const PAYMENT_ATTENTION_FILTER = 'unpaid,pending,partially_paid';
 
 export interface OrdersPaymentAttentionScope {
   from: string;
