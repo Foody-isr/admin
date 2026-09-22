@@ -2801,7 +2801,7 @@ export interface PrinterRegistration {
 }
 
 export async function getPrintingOverview(restaurantId: number): Promise<PrintingOverview> {
-  return apiFetch<PrintingOverview>(`/api/v1/restaurants/${restaurantId}/printing`, restaurantId);
+  return apiFetch<PrintingOverview>(`/api/v1/restaurants/${restaurantId}/printing`, restaurantId, { cache: 'no-store' });
 }
 
 /** Loads the single restaurant printer configuration consumed by FoodyPOS. */
