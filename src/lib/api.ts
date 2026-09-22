@@ -2804,6 +2804,158 @@ export async function getPrintingOverview(restaurantId: number): Promise<Printin
   return apiFetch<PrintingOverview>(`/api/v1/restaurants/${restaurantId}/printing`, restaurantId, { cache: 'no-store' });
 }
 
+export interface PrinterConfiguration extends PrintPrinter {
+  profiles?: PrinterProfile[];
+}
+
+export async function listPrinterConfigurations(id: number): Promise<PrinterConfiguration[]> {
+  const data = await apiFetch<{ printers: PrinterConfiguration[] }>(
+    `/api/v1/restaurants/${id}/printing/printers`, id,
+  );
+  return data.printers ?? [];
+}
+
+export type PrinterProfileJobType =
+  | 'receipts'
+  | 'dine_in_tickets'
+  | 'online_tickets'
+  | 'order_stubs'
+  | 'void_tickets'
+  | 'barcode_labels';
+
+export type PrinterTicketMargins = 'none' | 'top' | 'bottom' | 'both';
+export type PrinterTicketLayout = 'classic' | 'compact';
+export type PrinterTicketFontSize = 'small' | 'medium' | 'large';
+export type PrinterItemSortOrder =
+  | 'default'
+  | 'alphabetical'
+  | 'category_alphabetical'
+  | 'category_custom'
+  | 'seat';
+
+export interface PrinterProfileAssignment {
+  id: string;
+  device_id: string;
+  device_name: string;
+  printer_id: string;
+  printer_name: string;
+  printer_model: string;
+}
+
+export interface PrinterProfile {
+  id: string;
+  restaurant_id: number;
+  name: string;
+  job_types: PrinterProfileJobType[];
+  dine_in_category_ids: number[];
+  online_category_ids: number[];
+  auto_print_new_categories: boolean;
+  one_item_per_ticket: boolean;
+  print_recipient_information: boolean;
+  hide_ticket_footer: boolean;
+  ticket_margins: PrinterTicketMargins;
+  print_kitchen_names: boolean;
+  combine_identical_items: boolean;
+  ticket_layout: PrinterTicketLayout;
+  font_size: PrinterTicketFontSize;
+  item_sort_order: PrinterItemSortOrder;
+  copies: number;
+  enabled: boolean;
+  assignments: PrinterProfileAssignment[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavePrinterProfileInput {
+  name: string;
+  job_types: PrinterProfileJobType[];
+  dine_in_category_ids: number[];
+  online_category_ids: number[];
+  auto_print_new_categories: boolean;
+  one_item_per_ticket: boolean;
+  print_recipient_information: boolean;
+  hide_ticket_footer: boolean;
+  ticket_margins: PrinterTicketMargins;
+  print_kitchen_names: boolean;
+  combine_identical_items: boolean;
+  ticket_layout: PrinterTicketLayout;
+  font_size: PrinterTicketFontSize;
+  item_sort_order: PrinterItemSortOrder;
+  copies: number;
+  enabled: boolean;
+}
+
+export interface SavePrinterProfileAssignmentInput {
+  device_id: string;
+  device_name: string;
+  printer_id: string;
+}
+
+export interface PrintAgent {
+  id: string;
+  restaurant_id: number;
+  spooler_id: string;
+  name: string;
+  platform?: string;
+  model?: string;
+  last_seen_at: string;
+  printer_ids: string[];
+}
+
+export async function listPrinterProfiles(id: number): Promise<PrinterProfile[]> {
+  const data = await apiFetch<{ profiles: PrinterProfile[] }>(
+    `/api/v1/restaurants/${id}/printing/profiles`, id,
+  );
+  return data.profiles ?? [];
+}
+
+export async function createPrinterProfile(id: number, input: SavePrinterProfileInput): Promise<PrinterProfile> {
+  const data = await apiFetch<{ profile: PrinterProfile }>(
+    `/api/v1/restaurants/${id}/printing/profiles`, id,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  return data.profile;
+}
+
+export async function updatePrinterProfile(id: number, profileId: string, input: SavePrinterProfileInput): Promise<PrinterProfile> {
+  const data = await apiFetch<{ profile: PrinterProfile }>(
+    `/api/v1/restaurants/${id}/printing/profiles/${profileId}`, id,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+  return data.profile;
+}
+
+export async function duplicatePrinterProfile(id: number, profileId: string): Promise<PrinterProfile> {
+  const data = await apiFetch<{ profile: PrinterProfile }>(
+    `/api/v1/restaurants/${id}/printing/profiles/${profileId}/duplicate`, id,
+    { method: 'POST' },
+  );
+  return data.profile;
+}
+
+export async function deletePrinterProfile(id: number, profileId: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/restaurants/${id}/printing/profiles/${profileId}`, id, { method: 'DELETE' });
+}
+
+export async function replacePrinterProfileAssignments(
+  id: number,
+  profileId: string,
+  assignments: SavePrinterProfileAssignmentInput[],
+): Promise<PrinterProfile> {
+  const data = await apiFetch<{ profile: PrinterProfile }>(
+    `/api/v1/restaurants/${id}/printing/profiles/${profileId}/assignments`, id,
+    { method: 'PUT', body: JSON.stringify({ assignments }) },
+  );
+  return data.profile;
+}
+
+export async function listPrintAgents(id: number): Promise<PrintAgent[]> {
+  const data = await apiFetch<{ agents: PrintAgent[] }>(
+    `/api/v1/restaurants/${id}/printing/agents`, id,
+  );
+  return data.agents ?? [];
+}
+
 /** Loads the single restaurant printer configuration consumed by FoodyPOS. */
 export async function getPrinterConfiguration(restaurantId: number): Promise<PrintPrinter | null> {
   const data = await apiFetch<{ printer: PrintPrinter | null }>(
