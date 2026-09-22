@@ -57,6 +57,7 @@ import {
   orderDetailPath,
   ordersListPath,
   ordersPaymentAttentionPath,
+  PAYMENT_ATTENTION_FILTER,
 } from '@/lib/orders/routes';
 import { dashboardLiveOrderScope } from '@/lib/dashboard-live-order-scope';
 
@@ -359,10 +360,14 @@ export default function DashboardPage() {
       listOrders(rid, { ...liveOrderScope, status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' }),
       listOrders(rid, { ...liveOrderScope, status: 'pending_review', limit: 1 }),
       listOrders(rid, { ...liveOrderScope, status: 'ready,ready_for_pickup,ready_for_delivery', limit: 1 }),
-      listOrders(rid, { ...liveOrderScope, status: LIVE_ORDER_STATUSES, payment_status: 'unpaid', limit: 1 }),
-      listOrders(rid, { ...liveOrderScope, status: LIVE_ORDER_STATUSES, payment_status: 'pending', limit: 1 }),
+      listOrders(rid, {
+        ...liveOrderScope,
+        status: LIVE_ORDER_STATUSES,
+        payment_status: PAYMENT_ATTENTION_FILTER,
+        limit: 1,
+      }),
     ])
-      .then(([per, top, daily, previousDaily, breakdown, orders, active, review, readyOrders, unpaid, pending]) => {
+      .then(([per, top, daily, previousDaily, breakdown, orders, active, review, readyOrders, payments]) => {
         // A basis and range can now be changed within the same open popover.
         // Ignore a slower response for an earlier selection.
         if (requestId !== loadSequence.current) return;
@@ -373,12 +378,9 @@ export default function DashboardPage() {
         setChannelRows(breakdown.status === 'fulfilled' ? breakdown.value.rows : []);
         if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
         if (active.status === 'fulfilled' && review.status === 'fulfilled' && readyOrders.status === 'fulfilled') {
-          const payments = unpaid.status === 'fulfilled' && pending.status === 'fulfilled'
-            ? unpaid.value.total + pending.value.total
-            : undefined;
           setLiveSummary({
             active: active.value.total,
-            payments,
+            payments: payments.status === 'fulfilled' ? payments.value.total : undefined,
             pendingReview: review.value.total,
             ready: readyOrders.value.total,
             oldestCreatedAt: active.value.orders[0]?.created_at,
