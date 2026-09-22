@@ -6,6 +6,7 @@ import { IngredientRow } from './IngredientRow';
 import { PrepNode } from './PrepNode';
 import { PackagePlusIcon, PlusIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { safeRecipeSteps } from '../normalizePayload';
 import { IngredientLibraryPicker } from './IngredientLibraryPicker';
 
 /**
@@ -29,6 +30,7 @@ export function RecipeTree({
 }) {
   const { t } = useI18n();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const recipeSteps = safeRecipeSteps(payload.recipe_steps);
   const usedStockIds = useMemo(() => new Set(payload.components.map((component) => component.stock_item_id).filter((id): id is string => Boolean(id))), [payload.components]);
   const usedPrepIds = useMemo(() => new Set(payload.components.map((component) => component.prep_item_id).filter((id): id is string => Boolean(id))), [payload.components]);
   /** Replace component at `idx` with `next`. */
@@ -120,23 +122,23 @@ export function RecipeTree({
             <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{t('labMethodHelp')}</p>
           </div>
           {canManage && (
-            <button type="button" onClick={() => onChange({ ...payload, recipe_steps: [...payload.recipe_steps, { order: payload.recipe_steps.length + 1, instruction_primary: '', instruction_he: '' }] })} className="flex min-h-11 shrink-0 items-center gap-1 rounded-[8px] px-2 text-xs font-medium text-[var(--brand-500)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
+            <button type="button" onClick={() => onChange({ ...payload, recipe_steps: [...recipeSteps, { order: recipeSteps.length + 1, instruction_primary: '', instruction_he: '' }] })} className="flex min-h-11 shrink-0 items-center gap-1 rounded-[8px] px-2 text-xs font-medium text-[var(--brand-500)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
               <PlusIcon className="h-3.5 w-3.5" />{t('labAddStep')}
             </button>
           )}
         </div>
         <div className="space-y-3 px-5 py-5 sm:px-6">
-          {payload.recipe_steps.map((step, index) => (
+          {recipeSteps.map((step, index) => (
             <div key={`${step.order}-${index}`} className="flex items-start gap-2">
               <span className="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface-2)] text-xs font-semibold tabular-nums text-[var(--fg-muted)]">{index + 1}</span>
               {canManage ? (
                 <textarea value={step.instruction_primary || step.instruction_he} onChange={(e) => {
-                  const recipe_steps = [...payload.recipe_steps];
+                  const recipe_steps = [...recipeSteps];
                   recipe_steps[index] = { ...step, order: index + 1, instruction_primary: e.target.value };
                   onChange({ ...payload, recipe_steps });
                 }} rows={2} className="min-w-0 flex-1 resize-y rounded-[9px] border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-base leading-6 text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none focus:shadow-[var(--focus-ring)] sm:text-sm" />
               ) : <p className="py-2 text-sm text-[var(--fg)]">{step.instruction_primary || step.instruction_he}</p>}
-              {canManage && <button type="button" onClick={() => onChange({ ...payload, recipe_steps: payload.recipe_steps.filter((_, i) => i !== index).map((s, i) => ({ ...s, order: i + 1 })) })} className="flex h-11 w-9 shrink-0 items-center justify-center rounded-[8px] text-lg text-[var(--fg-muted)] hover:bg-[var(--surface-2)]" aria-label={t('labRemoveStep')}>×</button>}
+              {canManage && <button type="button" onClick={() => onChange({ ...payload, recipe_steps: recipeSteps.filter((_, i) => i !== index).map((s, i) => ({ ...s, order: i + 1 })) })} className="flex h-11 w-9 shrink-0 items-center justify-center rounded-[8px] text-lg text-[var(--fg-muted)] hover:bg-[var(--surface-2)]" aria-label={t('labRemoveStep')}>×</button>}
             </div>
           ))}
         </div>
