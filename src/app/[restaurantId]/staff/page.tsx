@@ -149,7 +149,7 @@ export default function StaffPage() {
             )}
             {hasPermission('shifts.manage') && (
               <Button variant="secondary" size="md" asChild>
-                <Link href={`/${rid}/staff/devices`}><TabletSmartphoneIcon />{t('posTerminals')}</Link>
+                <Link href={`/${rid}/staff/devices`}><TabletSmartphoneIcon />{t('posAccess')}</Link>
               </Button>
             )}
             {canManage && (
