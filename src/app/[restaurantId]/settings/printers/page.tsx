@@ -9,10 +9,9 @@ import {
 } from 'lucide-react';
 import {
   createPrinterProfile, deletePrinterProfile, duplicatePrinterProfile, getAllCategories,
-  getPrintingCenter,
+  listPrintAgents, listPrinterConfigurations, listPrinterProfiles,
   replacePrinterProfileAssignments, updatePrinterProfile,
   type MenuCategory, type PrintAgent, type PrinterConfiguration, type PrinterProfile,
-  type PrintingCenterSnapshot,
   type PrinterItemSortOrder, type PrinterProfileJobType, type PrinterTicketFontSize,
   type PrinterTicketLayout, type PrinterTicketMargins, type SavePrinterProfileInput,
 } from '@/lib/api';
@@ -21,11 +20,10 @@ import { usePermissions } from '@/lib/permissions-context';
 import {
   Button, ConfirmDialog, Drawer, EmptyState, Field, FullScreenEditor, Input,
   Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, PageHead, Section,
-  Select, Tab, Table, TableShell, Tabs, TabsContent, TabsList, Tbody, Td, Th, Thead, Tr,
+  Select, Table, TableShell, Tbody, Td, Th, Thead, Tr,
 } from '@/components/ds';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import PrintingCenterPanel, { type PrintingCenterTab } from './PrintingCenterPanel';
 
 type T = (key: string) => string;
 const JOB_TYPES: Array<{ type: PrinterProfileJobType; title: string; desc: string; icon: typeof Printer }> = [
@@ -68,8 +66,6 @@ export default function PrinterProfilesPage() {
   const { locale, t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('printers.manage');
-  const [activeTab, setActiveTab] = useState<PrintingCenterTab>('overview');
-  const [center, setCenter] = useState<PrintingCenterSnapshot | null>(null);
   const [profiles, setProfiles] = useState<PrinterProfile[]>([]);
   const [printers, setPrinters] = useState<PrinterConfiguration[]>([]);
   const [agents, setAgents] = useState<PrintAgent[]>([]);
@@ -85,31 +81,18 @@ export default function PrinterProfilesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const applyCenter = useCallback((snapshot: PrintingCenterSnapshot) => {
-    setCenter(snapshot); setProfiles(snapshot.profiles); setPrinters(snapshot.printers); setAgents(snapshot.agents);
-  }, []);
-  const refreshCenter = useCallback(async () => {
-    try {
-      const snapshot = await getPrintingCenter(rid);
-      applyCenter(snapshot); setError(null);
-    } catch { setError(t('printerLoadError')); }
-  }, [applyCenter, rid, t]);
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [snapshot, menuCategories] = await Promise.all([
-        getPrintingCenter(rid), getAllCategories(rid),
+      const [savedProfiles, physicalPrinters, knownAgents, menuCategories] = await Promise.all([
+        listPrinterProfiles(rid), listPrinterConfigurations(rid),
+        listPrintAgents(rid), getAllCategories(rid),
       ]);
-      applyCenter(snapshot); setCategories(menuCategories);
+      setProfiles(savedProfiles); setPrinters(physicalPrinters);
+      setAgents(knownAgents); setCategories(menuCategories);
     } catch { setError(t('printerLoadError')); } finally { setLoading(false); }
-  }, [applyCenter, rid, t]);
+  }, [rid, t]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && activeTab !== 'profiles') void refreshCenter();
-    }, 15000);
-    return () => window.clearInterval(timer);
-  }, [activeTab, refreshCenter]);
 
   const filteredProfiles = useMemo(() => {
     const query = search.trim().toLocaleLowerCase(locale);
@@ -157,14 +140,14 @@ export default function PrinterProfilesPage() {
       setProfiles((current) => editor.id
         ? current.map((profile) => profile.id === saved.id ? saved : profile)
         : [...current, saved]);
-      setEditor(null); setNotice(t('printerProfileSaved')); await refreshCenter();
+      setEditor(null); setNotice(t('printerProfileSaved'));
     } catch { setError(t('printerProfileSaveError')); } finally { setSaving(false); }
   };
   const duplicateProfile = async (profile: PrinterProfile) => {
     setError(null);
     try {
       const copy = await duplicatePrinterProfile(rid, profile.id);
-      setProfiles((current) => [...current, copy]); setNotice(t('printerProfileDuplicated')); await refreshCenter();
+      setProfiles((current) => [...current, copy]); setNotice(t('printerProfileDuplicated'));
     } catch { setError(t('printerProfileSaveError')); }
   };
   const editAssignments = (profile: PrinterProfile) => {
@@ -181,7 +164,7 @@ export default function PrinterProfilesPage() {
         return printerId ? [{ device_id: device.spooler_id, device_name: device.name, printer_id: printerId }] : [];
       }));
       setProfiles((current) => current.map((profile) => profile.id === saved.id ? saved : profile));
-      setAssignmentProfile(null); setNotice(t('printerProfileAssignmentsSaved')); await refreshCenter();
+      setAssignmentProfile(null); setNotice(t('printerProfileAssignmentsSaved'));
     } catch { setError(t('printerProfileAssignmentsError')); } finally { setSaving(false); }
   };
   const removeProfile = async () => {
@@ -190,25 +173,19 @@ export default function PrinterProfilesPage() {
     try {
       await deletePrinterProfile(rid, deleteTarget.id);
       setProfiles((current) => current.filter((profile) => profile.id !== deleteTarget.id));
-      setSelected(null); setDeleteTarget(null); await refreshCenter();
+      setSelected(null); setDeleteTarget(null);
     } catch { setError(t('printerProfileDeleteError')); } finally { setSaving(false); }
   };
 
-  const headerActions = <div className="flex gap-2"><Button variant="secondary" size="md" onClick={() => void refreshCenter()}><RefreshCw />{t('refresh')}</Button>{activeTab === 'profiles' && canEdit && <Button variant="primary" size="md" onClick={createProfile}><Plus />{t('printerProfileCreate')}</Button>}</div>;
-
   return <div className="max-w-[1240px]">
-    <PageHead title={t('printingCenterTitle')} desc={t('printingCenterDesc')} actions={headerActions} />
+    <PageHead title={t('printerProfilesTitle')} desc={t('printerProfilesDesc')} actions={canEdit ? <Button variant="primary" size="md" onClick={createProfile}><Plus />{t('printerProfileCreate')}</Button> : undefined} />
     {notice && <div className="mb-4"><Feedback tone="success" text={notice} /></div>}
     {error && !editor && !assignmentProfile && <div className="mb-4"><Feedback tone="danger" text={error} /></div>}
-    <Tabs variant="underline" value={activeTab} onValueChange={(value) => setActiveTab(value as PrintingCenterTab)}>
-      <TabsList className="mb-5"><Tab value="overview">{t('printingCenterTabOverview')}</Tab><Tab value="printers">{t('printers')}</Tab><Tab value="profiles">{t('printerProfilesTitle')}</Tab><Tab value="queue">{t('printingCenterTabQueue')}</Tab></TabsList>
-      {loading || !center ? <Section><div className="flex items-center justify-center gap-2 py-12 text-fs-sm text-[var(--fg-muted)]"><RefreshCw className="h-4 w-4 animate-spin" />{t('loading')}</div></Section> : <>
-        <TabsContent value="overview"><PrintingCenterPanel restaurantId={rid} center={center} tab="overview" canEdit={canEdit} locale={locale} t={t} onNavigate={setActiveTab} onRefresh={refreshCenter} /></TabsContent>
-        <TabsContent value="printers"><PrintingCenterPanel restaurantId={rid} center={center} tab="printers" canEdit={canEdit} locale={locale} t={t} onNavigate={setActiveTab} onRefresh={refreshCenter} /></TabsContent>
-        <TabsContent value="queue"><PrintingCenterPanel restaurantId={rid} center={center} tab="queue" canEdit={canEdit} locale={locale} t={t} onNavigate={setActiveTab} onRefresh={refreshCenter} /></TabsContent>
-        <TabsContent value="profiles">{profiles.length === 0 && !search ? <Section><EmptyState icon={<Settings2 />} title={t('printerProfileEmptyTitle')} desc={t('printerProfileEmptyDesc')} action={canEdit ? <Button variant="primary" size="md" onClick={createProfile}><Plus />{t('printerProfileCreate')}</Button> : undefined} /></Section> : <><div className="relative mb-4 max-w-[420px]"><Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-subtle)]" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('printerProfileSearch')} className="ps-10" /></div><TableShell className="overflow-x-auto"><Table className="min-w-[820px]"><Thead><Tr><Th>{t('name')}</Th><Th>{t('printerProfileAssignedPrinters')}</Th><Th>{t('printerProfilePrintedCategories')}</Th><Th className="w-14"><span className="sr-only">{t('actions')}</span></Th></Tr></Thead><Tbody>{filteredProfiles.map((profile) => <Tr key={profile.id} className="cursor-pointer" onClick={() => setSelected(profile)}><Td><div className="font-semibold">{profile.name}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{profile.job_types.map((type) => jobTypeLabel(type, t)).join(', ')}</div></Td><Td>{profile.assignments.length ? <div className="space-y-1">{profile.assignments.slice(0, 2).map((assignment) => <div key={assignment.id} className="text-fs-xs"><span className="font-medium">{assignment.device_name}:</span> {assignment.printer_name}</div>)}{profile.assignments.length > 2 && <div className="text-fs-xs text-[var(--fg-subtle)]">+{profile.assignments.length - 2}</div>}</div> : <span className="text-[var(--fg-subtle)]">{t('printerProfileNoPrinter')}</span>}</Td><Td><span className="text-fs-xs leading-relaxed text-[var(--fg-muted)]">{categorySummary(profile, categories, t)}</span></Td><Td onClick={(event) => event.stopPropagation()}>{canEdit && <ProfileMenu profile={profile} t={t} onEdit={editProfile} onDuplicate={(item) => void duplicateProfile(item)} onAssignments={editAssignments} onDelete={setDeleteTarget} />}</Td></Tr>)}</Tbody></Table></TableShell>{filteredProfiles.length === 0 && <div className="py-10 text-center text-fs-sm text-[var(--fg-muted)]">{t('printerProfileNoSearchResults')}</div>}</>}</TabsContent>
-      </>}
-    </Tabs>
+    {loading ? <Section><div className="flex items-center justify-center gap-2 py-12 text-fs-sm text-[var(--fg-muted)]"><RefreshCw className="h-4 w-4 animate-spin" />{t('loading')}</div></Section> : profiles.length === 0 && !search ? <Section><EmptyState icon={<Settings2 />} title={t('printerProfileEmptyTitle')} desc={t('printerProfileEmptyDesc')} action={canEdit ? <Button variant="primary" size="md" onClick={createProfile}><Plus />{t('printerProfileCreate')}</Button> : undefined} /></Section> : <>
+      <div className="relative mb-4 max-w-[420px]"><Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-subtle)]" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('printerProfileSearch')} className="ps-10" /></div>
+      <TableShell className="overflow-x-auto"><Table className="min-w-[820px]"><Thead><Tr><Th>{t('name')}</Th><Th>{t('printerProfileAssignedPrinters')}</Th><Th>{t('printerProfilePrintedCategories')}</Th><Th className="w-14"><span className="sr-only">{t('actions')}</span></Th></Tr></Thead><Tbody>{filteredProfiles.map((profile) => <Tr key={profile.id} className="cursor-pointer" onClick={() => setSelected(profile)}><Td><div className="font-semibold">{profile.name}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{profile.job_types.map((type) => jobTypeLabel(type, t)).join(', ')}</div></Td><Td>{profile.assignments.length ? <div className="space-y-1">{profile.assignments.slice(0, 2).map((assignment) => <div key={assignment.id} className="text-fs-xs"><span className="font-medium">{assignment.device_name}:</span> {assignment.printer_name}</div>)}{profile.assignments.length > 2 && <div className="text-fs-xs text-[var(--fg-subtle)]">+{profile.assignments.length - 2}</div>}</div> : <span className="text-[var(--fg-subtle)]">{t('printerProfileNoPrinter')}</span>}</Td><Td><span className="text-fs-xs leading-relaxed text-[var(--fg-muted)]">{categorySummary(profile, categories, t)}</span></Td><Td onClick={(event) => event.stopPropagation()}>{canEdit && <ProfileMenu profile={profile} t={t} onEdit={editProfile} onDuplicate={(item) => void duplicateProfile(item)} onAssignments={editAssignments} onDelete={setDeleteTarget} />}</Td></Tr>)}</Tbody></Table></TableShell>
+      {filteredProfiles.length === 0 && <div className="py-10 text-center text-fs-sm text-[var(--fg-muted)]">{t('printerProfileNoSearchResults')}</div>}
+    </>}
     <ProfileDrawer profile={selected} categories={categories} canEdit={canEdit} t={t} onClose={() => setSelected(null)} onEdit={editProfile} onAssignments={editAssignments} />
     <ProfileEditor editor={editor} categories={categories} saving={saving} error={error} t={t} onChange={setEditor} onSave={() => void saveProfile()} onAssign={() => { const profile = profiles.find((item) => item.id === editor?.id); if (profile) { setEditor(null); editAssignments(profile); } }} onClose={() => { setEditor(null); setError(null); }} />
     <AssignmentEditor profile={assignmentProfile} agents={agents} printers={printers} assignments={assignments} saving={saving} error={error} t={t} onChange={setAssignments} onSave={() => void saveAssignments()} onClose={() => { setAssignmentProfile(null); setError(null); }} />

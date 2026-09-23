@@ -2902,65 +2902,6 @@ export interface PrintAgent {
   printer_ids: string[];
 }
 
-export type PrintingCenterStatus = 'ready' | 'attention' | 'blocked';
-
-export interface PrintingCenterStage {
-  key: 'configuration' | 'routing' | 'agent' | 'delivery';
-  status: PrintingCenterStatus;
-  issue_count: number;
-  evidence_at?: string;
-}
-
-export interface PrintingCenterIssue {
-  code: string;
-  severity: PrintingCenterStatus;
-  action: string;
-  count?: number;
-  printer_id?: string;
-  spooler_id?: string;
-}
-
-export interface PrintingCenterPrinter extends PrintPrinter {
-  health: PrintingCenterStatus;
-  profile_ids: string[];
-  profile_names: string[];
-  spooler_ids: string[];
-  agent_names: string[];
-  last_observed_at?: string;
-  last_printed_at?: string;
-  issue_codes: string[];
-}
-
-export interface PrintingCenterAgent extends PrintAgent {
-  health: PrintingCenterStatus;
-}
-
-export interface PrintingCenterSnapshot {
-  generated_at: string;
-  health: PrintingCenterStatus;
-  stages: PrintingCenterStage[];
-  issues: PrintingCenterIssue[];
-  printers: PrintingCenterPrinter[];
-  agents: PrintingCenterAgent[];
-  profiles: PrinterProfile[];
-  jobs: PrintJob[];
-  summary: {
-    queued: number;
-    claimed: number;
-    printed_24h: number;
-    failed_24h: number;
-    uncertain_24h: number;
-    cancelled_24h: number;
-  };
-}
-
-/** Loads the shared evidence-based printing health used by Admin and FoodyPOS. */
-export async function getPrintingCenter(id: number): Promise<PrintingCenterSnapshot> {
-  return apiFetch<PrintingCenterSnapshot>(
-    `/api/v1/restaurants/${id}/printing/center`, id, { cache: 'no-store' },
-  );
-}
-
 export async function listPrinterProfiles(id: number): Promise<PrinterProfile[]> {
   const data = await apiFetch<{ profiles: PrinterProfile[] }>(
     `/api/v1/restaurants/${id}/printing/profiles`, id,
