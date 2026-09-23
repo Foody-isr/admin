@@ -1,117 +1,92 @@
-import type {
-  PrintAgent,
-  PrinterConfiguration,
-  PrinterProfile,
-  PrinterStatus,
-} from '@/lib/api';
+import type { DeviceKind, DeviceStatus, RestaurantDevice } from '@/lib/api';
 
-export type ManagedDeviceKind = 'pos' | 'printer';
-export type ManagedDeviceStatus = 'online' | 'offline' | 'attention' | 'unconfigured';
+export type ManagedDeviceKind = DeviceKind;
+export type ManagedDeviceStatus = Exclude<DeviceStatus, 'unknown'>;
 
 export interface ManagedDevice {
   id: string;
   kind: ManagedDeviceKind;
-  name: string;
+  deviceName: string;
+  displayName: string;
   status: ManagedDeviceStatus;
   model?: string;
   platform?: string;
   lastSeenAt?: string;
   profileNames: string[];
+  applicationNames: string[];
+  printerResourceId?: string;
   printerIds: string[];
   printerNames: string[];
+  connectedDeviceIds: string[];
+  connectedDeviceNames: string[];
   host?: string;
   port?: number;
   protocol?: string;
+  identifier?: string;
+  vendor?: string;
+  paperWidthDots?: number;
   enabled?: boolean;
   lastError?: string;
 }
 
 export interface BuildManagedDevicesInput {
-  agents: PrintAgent[];
-  printers: PrinterConfiguration[];
-  profiles: PrinterProfile[];
-  now?: Date;
-  agentOnlineWindowMs?: number;
+  devices: RestaurantDevice[];
 }
 
-const DEFAULT_AGENT_ONLINE_WINDOW_MS = 60_000;
-
-function unique(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean)));
+function stringDetail(details: Record<string, unknown>, key: string): string | undefined {
+  const value = details[key];
+  return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
-function printerStatus(status: PrinterStatus, enabled: boolean): ManagedDeviceStatus {
-  if (!enabled || status === 'unknown') return 'unconfigured';
-  if (status === 'error') return 'attention';
-  return status;
+function numberDetail(details: Record<string, unknown>, key: string): number | undefined {
+  const value = details[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-/** Builds the single device inventory shown by Admin from POS heartbeats and printers. */
-export function buildManagedDevices({
-  agents,
-  printers,
-  profiles,
-  now = new Date(),
-  agentOnlineWindowMs = DEFAULT_AGENT_ONLINE_WINDOW_MS,
-}: BuildManagedDevicesInput): ManagedDevice[] {
-  const printerById = new Map(printers.map((printer) => [printer.id, printer]));
-  const profileNamesByAgent = new Map<string, string[]>();
-  const profileNamesByPrinter = new Map<string, string[]>();
+function booleanDetail(details: Record<string, unknown>, key: string): boolean | undefined {
+  const value = details[key];
+  return typeof value === 'boolean' ? value : undefined;
+}
 
-  for (const profile of profiles) {
-    for (const assignment of profile.assignments) {
-      profileNamesByAgent.set(
-        assignment.device_id,
-        unique([...(profileNamesByAgent.get(assignment.device_id) ?? []), profile.name]),
-      );
-      profileNamesByPrinter.set(
-        assignment.printer_id,
-        unique([...(profileNamesByPrinter.get(assignment.printer_id) ?? []), profile.name]),
-      );
-    }
-  }
+function normalizedStatus(status: DeviceStatus): ManagedDeviceStatus {
+  return status === 'unknown' ? 'unconfigured' : status;
+}
 
-  const posDevices = agents.map<ManagedDevice>((agent) => {
-    const lastSeen = Date.parse(agent.last_seen_at);
-    const online = Number.isFinite(lastSeen) && now.getTime() - lastSeen <= agentOnlineWindowMs;
-    const linkedPrinters = agent.printer_ids
-      .map((id) => printerById.get(id))
-      .filter((printer): printer is PrinterConfiguration => Boolean(printer));
+/** Maps the server's physical-device inventory to the Square-style table view. */
+export function buildManagedDevices({ devices }: BuildManagedDevicesInput): ManagedDevice[] {
+  return devices.map<ManagedDevice>((device) => {
+    const printer = device.components.find((component) => component.type === 'printer');
+    const network = device.components.find((component) => component.type === 'network');
+    const applications = device.components.filter((component) => component.type === 'application');
+    const printerConnections = device.connections.filter((connection) => connection.kind === 'printer');
     return {
-      id: `pos:${agent.spooler_id}`,
-      kind: 'pos',
-      name: agent.name,
-      status: online ? 'online' : 'offline',
-      model: agent.model,
-      platform: agent.platform,
-      lastSeenAt: agent.last_seen_at,
-      profileNames: unique(profileNamesByAgent.get(agent.spooler_id) ?? []),
-      printerIds: linkedPrinters.map((printer) => printer.id),
-      printerNames: linkedPrinters.map((printer) => printer.name),
+      id: device.id,
+      kind: device.kind,
+      deviceName: device.system_name,
+      displayName: device.display_name?.trim() ?? '',
+      status: normalizedStatus(device.status),
+      model: device.model || undefined,
+      platform: applications.map((application) => stringDetail(application.details, 'platform')).find(Boolean),
+      lastSeenAt: device.last_seen_at,
+      profileNames: device.profile_names ?? [],
+      applicationNames: applications
+        .map((application) => stringDetail(application.details, 'application'))
+        .filter((application): application is string => Boolean(application)),
+      printerResourceId: printer ? stringDetail(printer.details, 'printer_id') : undefined,
+      printerIds: printerConnections.map((connection) => connection.id),
+      printerNames: printerConnections.map((connection) => connection.display_name?.trim() || connection.system_name),
+      connectedDeviceIds: device.connections.map((connection) => connection.id),
+      connectedDeviceNames: device.connections.map((connection) => connection.display_name?.trim() || connection.system_name),
+      host: network ? stringDetail(network.details, 'ip_address') : undefined,
+      port: network ? numberDetail(network.details, 'port') : undefined,
+      protocol: printer ? stringDetail(printer.details, 'protocol') : undefined,
+      identifier: device.identifier || undefined,
+      vendor: device.manufacturer || (printer ? stringDetail(printer.details, 'vendor') : undefined),
+      paperWidthDots: printer ? numberDetail(printer.details, 'paper_width_dots') : undefined,
+      enabled: printer ? booleanDetail(printer.details, 'enabled') : undefined,
+      lastError: printer ? stringDetail(printer.details, 'last_error') : undefined,
     };
-  });
-
-  const physicalPrinters = printers.map<ManagedDevice>((printer) => ({
-    id: `printer:${printer.id}`,
-    kind: 'printer',
-    name: printer.name,
-    status: printerStatus(printer.status, printer.enabled),
-    model: printer.model,
-    lastSeenAt: printer.last_seen_at,
-    profileNames: unique([
-      ...(profileNamesByPrinter.get(printer.id) ?? []),
-      ...(printer.profiles ?? []).map((profile) => profile.name),
-    ]),
-    printerIds: [printer.id],
-    printerNames: [printer.name],
-    host: printer.host,
-    port: printer.port,
-    protocol: printer.protocol,
-    enabled: printer.enabled,
-    lastError: printer.last_error,
-  }));
-
-  return [...posDevices, ...physicalPrinters].sort((left, right) =>
-    left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
+  }).sort((left, right) =>
+    left.deviceName.localeCompare(right.deviceName, undefined, { sensitivity: 'base' }),
   );
 }

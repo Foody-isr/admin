@@ -2678,6 +2678,7 @@ export interface PrintPrinter {
   id: string;
   restaurant_id: number;
   name: string;
+  display_name?: string;
   identifier: string;
   vendor: PrinterVendor;
   model?: string;
@@ -2772,6 +2773,7 @@ export interface PrintingOverview {
 
 export interface RegisterPrinterInput {
   name: string;
+  display_name?: string;
   identifier: string;
   vendor?: PrinterVendor;
   model?: string;
@@ -2896,10 +2898,75 @@ export interface PrintAgent {
   restaurant_id: number;
   spooler_id: string;
   name: string;
+  display_name?: string;
   platform?: string;
   model?: string;
   last_seen_at: string;
   printer_ids: string[];
+}
+
+export type DeviceKind = 'pos' | 'printer' | 'payment_terminal' | 'kitchen_display' | 'customer_display';
+export type DeviceStatus = 'unknown' | 'online' | 'offline' | 'attention' | 'unconfigured';
+
+export interface DeviceComponent {
+  type: 'application' | 'network' | 'printer' | string;
+  status: string;
+  details: Record<string, unknown>;
+}
+
+export interface DeviceConnection {
+  id: string;
+  kind: DeviceKind;
+  system_name: string;
+  display_name: string;
+  status: DeviceStatus;
+}
+
+/** One physical restaurant device with its installed capabilities. */
+export interface RestaurantDevice {
+  id: string;
+  restaurant_id: number;
+  kind: DeviceKind;
+  system_name: string;
+  display_name: string;
+  manufacturer: string;
+  model: string;
+  identifier: string;
+  status: DeviceStatus;
+  last_seen_at?: string;
+  created_at: string;
+  updated_at: string;
+  components: DeviceComponent[];
+  connections: DeviceConnection[];
+  profile_names: string[];
+}
+
+export async function listDevices(restaurantId: number): Promise<RestaurantDevice[]> {
+  const data = await apiFetch<{ devices: RestaurantDevice[] }>(
+    `/api/v1/restaurants/${restaurantId}/devices`, restaurantId,
+  );
+  return data.devices ?? [];
+}
+
+export async function updateDeviceDisplayName(
+  restaurantId: number,
+  deviceId: string,
+  displayName: string,
+): Promise<RestaurantDevice> {
+  const data = await apiFetch<{ device: RestaurantDevice }>(
+    `/api/v1/restaurants/${restaurantId}/devices/${encodeURIComponent(deviceId)}`,
+    restaurantId,
+    { method: 'PATCH', body: JSON.stringify({ display_name: displayName }) },
+  );
+  return data.device;
+}
+
+export async function forgetDevice(restaurantId: number, deviceId: string): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/devices/${encodeURIComponent(deviceId)}`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
 }
 
 export async function listPrinterProfiles(id: number): Promise<PrinterProfile[]> {
@@ -2954,6 +3021,27 @@ export async function listPrintAgents(id: number): Promise<PrintAgent[]> {
     `/api/v1/restaurants/${id}/printing/agents`, id,
   );
   return data.agents ?? [];
+}
+
+export async function updatePrintAgentDisplayName(
+  restaurantId: number,
+  spoolerId: string,
+  displayName: string,
+): Promise<PrintAgent> {
+  const data = await apiFetch<{ agent: PrintAgent }>(
+    `/api/v1/restaurants/${restaurantId}/printing/agents/${encodeURIComponent(spoolerId)}`,
+    restaurantId,
+    { method: 'PATCH', body: JSON.stringify({ display_name: displayName }) },
+  );
+  return data.agent;
+}
+
+export async function deletePrintAgent(restaurantId: number, spoolerId: string): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/printing/agents/${encodeURIComponent(spoolerId)}`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
 }
 
 /** Loads the single restaurant printer configuration consumed by FoodyPOS. */
