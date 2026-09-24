@@ -73,6 +73,13 @@ export const FEATURE_HELP: Record<string, FeatureHelp> = {
     titleKey: 'helpMenusTitle',
     blurbKey: 'helpMenusBlurb',
   },
+  printers: {
+    key: 'printers',
+    landingTopic: 'printers',
+    landingSlug: 'epson-tm-u220iib',
+    titleKey: 'helpPrintersTitle',
+    blurbKey: 'helpPrintersBlurb',
+  },
 };
 
 const HELP_LANGS = ['en', 'fr', 'he'];
