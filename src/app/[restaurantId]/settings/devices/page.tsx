@@ -8,13 +8,14 @@ import {
   ArrowUp,
   ArrowUpDown,
   Check,
-  ChefHat,
+  BatteryMedium,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
   CreditCard,
   Filter,
   Globe2,
+  Laptop,
   MonitorSmartphone,
   MonitorUp,
   Plus,
@@ -24,9 +25,12 @@ import {
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
+  Smartphone,
+  Tablet,
   Trash2,
 } from 'lucide-react';
 import {
+  cancelPendingPrintJobs,
   forgetDevice,
   getRestaurant,
   listDevices,
@@ -38,7 +42,10 @@ import {
   buildManagedDevices,
   deviceForgetErrorMessage,
   hasDeviceCapability,
+  hasInstalledApplication,
+  latestDeviceApplication,
   type ManagedDevice,
+  type ManagedDeviceApplication,
   type ManagedDeviceKind,
   type ManagedDeviceStatus,
 } from '@/lib/device-management';
@@ -70,14 +77,14 @@ import {
 } from '@/components/ds';
 import Modal from '@/components/Modal';
 
-type TypeFilter = 'all' | 'pos' | 'printer';
+type TypeFilter = 'all' | ManagedDeviceKind;
 type StatusFilter = 'all' | ManagedDeviceStatus;
-type AppFilter = 'all' | 'foodypos' | 'foodyprint';
-type SortKey = 'name' | 'status' | 'battery' | 'mode' | 'lastSeen' | 'displayName' | 'identifier';
+type AppFilter = 'all' | 'foodypos';
+type SortKey = 'name' | 'status' | 'battery' | 'application' | 'lastSeen' | 'displayName' | 'identifier';
 type SortDirection = 'asc' | 'desc';
-type ColumnId = 'status' | 'battery' | 'location' | 'mode' | 'lastSeen' | 'displayName' | 'identifier';
+type ColumnId = 'status' | 'battery' | 'location' | 'lastApplication' | 'applications' | 'lastSeen' | 'displayName' | 'identifier';
 
-const COLUMN_IDS: ColumnId[] = ['status', 'battery', 'location', 'mode', 'lastSeen', 'displayName', 'identifier'];
+const COLUMN_IDS: ColumnId[] = ['status', 'battery', 'location', 'lastApplication', 'applications', 'lastSeen', 'displayName', 'identifier'];
 const STATUS_TONES: Record<ManagedDeviceStatus, 'success' | 'neutral' | 'warning' | 'danger'> = {
   online: 'success',
   offline: 'neutral',
@@ -114,7 +121,8 @@ export default function DeviceManagementPage() {
     status: true,
     battery: true,
     location: true,
-    mode: true,
+    lastApplication: true,
+    applications: true,
     lastSeen: true,
     displayName: true,
     identifier: true,
@@ -127,6 +135,8 @@ export default function DeviceManagementPage() {
   const [testingPrinter, setTestingPrinter] = useState(false);
   const [deleteTargets, setDeleteTargets] = useState<ManagedDevice[] | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [queueCancelTarget, setQueueCancelTarget] = useState<ManagedDevice | null>(null);
+  const [cancellingQueue, setCancellingQueue] = useState(false);
 
   const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
@@ -166,16 +176,20 @@ export default function DeviceManagementPage() {
     [devices, selectedIds],
   );
   const canManageDevice = useCallback((device: ManagedDevice) => {
-    return device.capabilities.length > 0 && device.capabilities.every((capability) => {
+    const capabilitiesAllowed = device.capabilities.every((capability) => {
       switch (capability) {
-        case 'printer':
-        case 'print_spooler': return canManagePrinters;
-        case 'pos': return canManagePosAccess;
+        case 'printer': return canManagePrinters;
         case 'payment_terminal': return canManagePayments;
         case 'kitchen_display': return canManageKitchen;
         case 'customer_display': return canEditSettings;
       }
     });
+    const applicationsAllowed = device.applications.every((application) =>
+      application.name !== 'foody_pos' || canManagePosAccess,
+    );
+    return (device.capabilities.length > 0 || device.applications.length > 0)
+      && capabilitiesAllowed
+      && applicationsAllowed;
   }, [canEditSettings, canManageKitchen, canManagePayments, canManagePosAccess, canManagePrinters]);
 
   useEffect(() => {
@@ -185,12 +199,11 @@ export default function DeviceManagementPage() {
   const filteredDevices = useMemo(() => {
     const query = search.trim().toLocaleLowerCase(locale);
     return devices.filter((device) => {
-      if (typeFilter !== 'all' && !hasDeviceCapability(device, typeFilter)) return false;
+      if (typeFilter !== 'all' && device.kind !== typeFilter) return false;
       if (statusFilter !== 'all' && device.status !== statusFilter) return false;
-      if (appFilter === 'foodypos' && !device.applicationNames.includes('foody_pos')) return false;
-      if (appFilter === 'foodyprint' && !hasDeviceCapability(device, 'printer') && !hasDeviceCapability(device, 'print_spooler')) return false;
+      if (appFilter === 'foodypos' && !hasInstalledApplication(device, 'foody_pos')) return false;
       if (!query) return true;
-      return [device.deviceName, device.displayName, device.model, device.platform, device.host, device.identifier, ...device.profileNames]
+      return [device.deviceName, device.displayName, device.model, device.osName, device.osVersion, device.platform, device.host, device.identifier, ...device.profileNames, ...device.applicationNames]
         .filter(Boolean)
         .some((value) => value!.toLocaleLowerCase(locale).includes(query));
     });
@@ -240,6 +253,22 @@ export default function DeviceManagementPage() {
       setError(cause instanceof Error ? cause.message : t('deviceManagementTestError'));
     } finally {
       setTestingPrinter(false);
+    }
+  };
+
+  const cancelSelectedPrinterJobs = async () => {
+    if (!queueCancelTarget?.printerResourceId) return;
+    setCancellingQueue(true);
+    setError(null);
+    try {
+      const result = await cancelPendingPrintJobs(rid, queueCancelTarget.printerResourceId);
+      setQueueCancelTarget(null);
+      setNotice(`${result.cancelled_count} ${t(result.cancelled_count === 1 ? 'deviceManagementPendingJobCancelled' : 'deviceManagementPendingJobsCancelled')}`);
+      await load(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t('deviceManagementCancelPendingJobsError'));
+    } finally {
+      setCancellingQueue(false);
     }
   };
 
@@ -304,7 +333,8 @@ export default function DeviceManagementPage() {
     status: t('status'),
     battery: t('deviceManagementBattery'),
     location: t('deviceManagementLocation'),
-    mode: t('deviceManagementActiveMode'),
+    lastApplication: t('deviceManagementLastApplication'),
+    applications: t('deviceManagementInstalledApplications'),
     lastSeen: t('deviceManagementLastUpdated'),
     displayName: t('displayName'),
     identifier: t('deviceManagementIdentifier'),
@@ -353,13 +383,17 @@ export default function DeviceManagementPage() {
         </Select>
         <Select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TypeFilter)} className="h-11 w-auto min-w-48 rounded-r-lg">
           <option value="all">{t('deviceManagementTypeAll')}</option>
-          <option value="pos">{t('deviceManagementPosDevices')}</option>
+          <option value="tablet">{t('deviceTypeTablet')}</option>
+          <option value="phone">{t('deviceTypePhone')}</option>
+          <option value="payment_terminal">{t('deviceTypePaymentTerminal')}</option>
           <option value="printer">{t('deviceManagementPrinters')}</option>
+          <option value="computer">{t('deviceTypeComputer')}</option>
+          <option value="display">{t('deviceTypeDisplay')}</option>
+          <option value="unknown">{t('deviceTypeUnknown')}</option>
         </Select>
         <Select value={appFilter} onChange={(event) => setAppFilter(event.target.value as AppFilter)} className="h-11 w-auto min-w-52 rounded-r-lg">
           <option value="all">{t('deviceManagementAppsAll')}</option>
           <option value="foodypos">FoodyPOS</option>
-          <option value="foodyprint">Foody Print</option>
         </Select>
         <Button variant="ghost" size="lg" icon className="relative shrink-0 rounded-full bg-[var(--surface-2)]" aria-label={t('deviceManagementFilters')} title={activeFilterCount ? t('reset') : t('deviceManagementFilters')} disabled={activeFilterCount === 0} onClick={resetFilters}>
           <Filter />
@@ -376,7 +410,7 @@ export default function DeviceManagementPage() {
       ) : (
         <>
           <TableShell className="hidden overflow-x-auto rounded-none border-x-0 md:block">
-            <Table className="min-w-[1120px]">
+            <Table className="min-w-[1420px]">
               <Thead className="[&_th]:bg-transparent [&_th]:py-5 [&_th]:text-fs-sm [&_th]:font-semibold [&_th]:normal-case [&_th]:tracking-normal [&_th]:text-[var(--fg)]">
                 <Tr>
                   <Th className="w-12 px-3"><SelectionCheckbox checked={allPageSelected} indeterminate={pageSelectedCount > 0 && !allPageSelected} onChange={togglePage} label={t('selectAll')} /></Th>
@@ -384,7 +418,8 @@ export default function DeviceManagementPage() {
                   {visibleColumns.status && <SortableHeader label={t('status')} column="status" active={sortKey} direction={sortDirection} onSort={toggleSort} />}
                   {visibleColumns.battery && <SortableHeader label={t('deviceManagementBattery')} column="battery" active={sortKey} direction={sortDirection} onSort={toggleSort} />}
                   {visibleColumns.location && <Th>{t('deviceManagementLocation')}</Th>}
-                  {visibleColumns.mode && <SortableHeader label={t('deviceManagementActiveMode')} column="mode" active={sortKey} direction={sortDirection} onSort={toggleSort} />}
+                  {visibleColumns.lastApplication && <SortableHeader label={t('deviceManagementLastApplication')} column="application" active={sortKey} direction={sortDirection} onSort={toggleSort} />}
+                  {visibleColumns.applications && <Th>{t('deviceManagementInstalledApplications')}</Th>}
                   {visibleColumns.lastSeen && <SortableHeader label={t('deviceManagementLastUpdated')} column="lastSeen" active={sortKey} direction={sortDirection} onSort={toggleSort} />}
                   {visibleColumns.displayName && <SortableHeader label={t('displayName')} column="displayName" active={sortKey} direction={sortDirection} onSort={toggleSort} />}
                   {visibleColumns.identifier && <SortableHeader label={t('deviceManagementIdentifier')} column="identifier" active={sortKey} direction={sortDirection} onSort={toggleSort} />}
@@ -394,14 +429,16 @@ export default function DeviceManagementPage() {
                 {pageDevices.map((device) => {
                   const primaryName = devicePrimaryName(device);
                   const displayName = deviceDisplayName(device);
+                  const latestApplication = latestDeviceApplication(device);
                   return (
                     <Tr key={device.id} className="cursor-pointer" onClick={() => setSelectedId(device.id)}>
                       <Td className="w-12 px-3" onClick={(event) => event.stopPropagation()}><SelectionCheckbox checked={selectedIds.has(device.id)} onChange={() => toggleDevice(device.id)} label={`${t('select')} ${primaryName}`} /></Td>
                       <Td><div className="flex min-w-[190px] items-center gap-3"><DeviceIcon kind={device.kind} /><div className="min-w-0"><button type="button" className="text-start font-semibold underline underline-offset-4" onClick={() => setSelectedId(device.id)}>{primaryName}</button><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{deviceCapabilitySummary(device, t)}</div></div></div></Td>
-                      {visibleColumns.status && <Td><DeviceStatusBadge status={device.status} t={t} /></Td>}
-                      {visibleColumns.battery && <Td className="text-[var(--fg-subtle)]" title={t('deviceManagementBatteryUnavailable')}>—</Td>}
+                      {visibleColumns.status && <Td><div className="flex flex-col items-start gap-1.5"><DeviceStatusBadge status={device.status} t={t} /><PendingPrintJobsBadge count={device.pendingJobCount} t={t} /></div></Td>}
+                      {visibleColumns.battery && <Td className="whitespace-nowrap"><BatteryValue device={device} fallback={t('deviceManagementBatteryUnavailable')} /></Td>}
                       {visibleColumns.location && <Td className="min-w-[150px]">{restaurantName || '—'}</Td>}
-                      {visibleColumns.mode && <Td className="min-w-[180px]">{device.profileNames.length ? <ProfileSummary names={device.profileNames} /> : <span className="text-[var(--fg-subtle)]">—</span>}</Td>}
+                      {visibleColumns.lastApplication && <Td className="min-w-[210px]"><ApplicationActivity application={latestApplication} dateTime={dateTime} fallback={t('never')} /></Td>}
+                      {visibleColumns.applications && <Td className="min-w-[180px]"><ApplicationBadges names={device.applicationNames} /></Td>}
                       {visibleColumns.lastSeen && <Td className="min-w-[180px] whitespace-nowrap">{formatDate(device.lastSeenAt, dateTime, t('never'))}</Td>}
                       {visibleColumns.displayName && <Td className="min-w-[170px]">{displayName || <span className="text-[var(--fg-subtle)]">—</span>}</Td>}
                       {visibleColumns.identifier && <Td className="max-w-[220px] break-all font-mono text-fs-xs">{device.identifier || <span className="text-[var(--fg-subtle)]">—</span>}</Td>}
@@ -418,7 +455,7 @@ export default function DeviceManagementPage() {
                 <div onClick={(event) => event.stopPropagation()}><SelectionCheckbox checked={selectedIds.has(device.id)} onChange={() => toggleDevice(device.id)} label={`${t('select')} ${devicePrimaryName(device)}`} /></div>
                 <DeviceIcon kind={device.kind} />
                 <button type="button" className="min-w-0 flex-1 text-start"><span className="block font-semibold underline underline-offset-4">{devicePrimaryName(device)}</span><span className="mt-1 block text-fs-xs text-[var(--fg-muted)]">{deviceDisplayName(device) || deviceCapabilitySummary(device, t)}</span><span className="mt-2 block text-fs-xs text-[var(--fg-muted)]">{formatDate(device.lastSeenAt, dateTime, t('never'))}</span></button>
-                <DeviceStatusBadge status={device.status} t={t} />
+                <div className="flex shrink-0 flex-col items-end gap-1.5"><DeviceStatusBadge status={device.status} t={t} /><PendingPrintJobsBadge count={device.pendingJobCount} t={t} /></div>
               </div>
             ))}
           </div>
@@ -435,7 +472,7 @@ export default function DeviceManagementPage() {
       {selectedDevices.length > 0 && <SelectionBar devices={selectedDevices} canManageDevice={canManageDevice} canManagePosAccess={canManagePosAccess} rid={rid} t={t} onForget={setDeleteTargets} onReset={() => setSelectedIds(new Set())} />}
 
       <Drawer open={selected !== null} onOpenChange={(open) => { if (!open) setSelectedId(null); }} title={selected ? deviceDisplayName(selected) || devicePrimaryName(selected) : ''} subtitle={selected && deviceDisplayName(selected) ? devicePrimaryName(selected) : undefined} width={620} primaryAction={selected ? <DeviceActions device={selected} canManagePrinters={canManagePrinters} canManagePosAccess={canManagePosAccess} canManageDevice={canManageDevice(selected)} rid={rid} testing={testingPrinter} t={t} onTest={() => void testSelectedPrinter()} onForget={() => setDeleteTargets([selected])} /> : undefined}>
-        {selected && <DeviceDrawerContent device={selected} devices={devices} dateTime={dateTime} restaurantName={restaurantName} canManageDevice={canManageDevice(selected)} canManagePosAccess={canManagePosAccess} displayName={displayName} savingName={savingName} rid={rid} t={t} onDisplayNameChange={setDisplayName} onRename={() => void saveSelectedDisplayName()} />}
+        {selected && <><DeviceDrawerContent device={selected} devices={devices} dateTime={dateTime} restaurantName={restaurantName} canManageDevice={canManageDevice(selected)} canManagePosAccess={canManagePosAccess} displayName={displayName} savingName={savingName} rid={rid} t={t} onDisplayNameChange={setDisplayName} onRename={() => void saveSelectedDisplayName()} onSelectDevice={setSelectedId} /><PrintQueueSection device={selected} canManage={canManagePrinters} cancelling={cancellingQueue} t={t} onCancel={() => setQueueCancelTarget(selected)} /></>}
       </Drawer>
 
       {showConnectHelp && (
@@ -446,6 +483,7 @@ export default function DeviceManagementPage() {
       )}
 
       <ConfirmDialog open={deleteTargets !== null} onOpenChange={(open) => { if (!open && !deleting) setDeleteTargets(null); }} title={t('deviceManagementForgetTitle')} description={deleteTargets ? `${t('deviceManagementForgetConfirm')} ${deleteTargets.map(devicePrimaryName).join(', ')}` : undefined} confirmLabel={deleting ? t('deviceManagementForgetting') : t('deviceManagementForget')} cancelLabel={t('cancel')} danger onConfirm={() => void forgetDevices()} />
+      <ConfirmDialog open={queueCancelTarget !== null} onOpenChange={(open) => { if (!open && !cancellingQueue) setQueueCancelTarget(null); }} title={t('deviceManagementCancelPendingJobsTitle')} description={queueCancelTarget ? `${pendingPrintJobsLabel(queueCancelTarget.pendingJobCount, t)}. ${t('deviceManagementCancelPendingJobsConfirm')}` : undefined} confirmLabel={cancellingQueue ? t('deviceManagementCancellingPendingJobs') : t('deviceManagementCancelPendingJobs')} cancelLabel={t('cancel')} danger onConfirm={() => void cancelSelectedPrinterJobs()} />
     </div>
   );
 }
@@ -466,46 +504,72 @@ function ColumnMenu({ labels, visible, onChange, t }: { labels: Record<ColumnId,
 }
 
 function SelectionBar({ devices, canManageDevice, canManagePosAccess, rid, t, onForget, onReset }: { devices: ManagedDevice[]; canManageDevice: (device: ManagedDevice) => boolean; canManagePosAccess: boolean; rid: number; t: (key: string) => string; onForget: (devices: ManagedDevice[]) => void; onReset: () => void }) {
-  const hasPos = devices.some((device) => hasDeviceCapability(device, 'pos'));
+  const hasPos = devices.some((device) => hasInstalledApplication(device, 'foody_pos'));
   const canManageAll = devices.every(canManageDevice);
-  return <div className="sticky bottom-4 z-30 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-5 py-4 shadow-3"><strong>{devices.length} {t('selected')}</strong><div className="flex items-center gap-2"><Menu><MenuTrigger asChild><Button variant="secondary" size="lg">{t('actions')}<ArrowUp /></Button></MenuTrigger><MenuContent align="end" side="top">{canManageAll && <MenuItem danger onSelect={() => onForget(devices)}><Trash2 />{t('deviceManagementForget')} ({devices.length})</MenuItem>}{hasPos && canManagePosAccess && <MenuItem asChild><Link href={`/${rid}/staff/devices`}><ShieldCheck />{t('deviceManagementManagePosAccess')}</Link></MenuItem>}</MenuContent></Menu><Button variant="ghost" size="lg" onClick={onReset}>{t('reset')}</Button></div></div>;
+  return <div className="sticky bottom-4 z-30 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-5 py-4 shadow-3"><strong>{devices.length} {t('selected')}</strong><div className="flex items-center gap-2"><Menu><MenuTrigger asChild><Button variant="secondary" size="lg">{t('actions')}<ArrowUp /></Button></MenuTrigger><MenuContent align="end" side="top">{canManageAll && <MenuItem danger onSelect={() => onForget(devices)}><Trash2 />{t('deviceManagementForget')} ({devices.length})</MenuItem>}{hasPos && canManagePosAccess && <MenuItem asChild><Link href={`/${rid}/staff/devices`}><ShieldCheck />{t('deviceManagementManagePosAccess')}</Link></MenuItem>}</MenuContent></Menu><Button variant="ghost" size="lg" onClick={onReset}>{t('deviceManagementClearSelection')}</Button></div></div>;
 }
 
 function DeviceActions({ device, canManagePrinters, canManagePosAccess, canManageDevice, rid, testing, t, onTest, onForget }: { device: ManagedDevice; canManagePrinters: boolean; canManagePosAccess: boolean; canManageDevice: boolean; rid: number; testing: boolean; t: (key: string) => string; onTest: () => void; onForget: () => void }) {
   const isPrinter = hasDeviceCapability(device, 'printer');
-  const isPos = hasDeviceCapability(device, 'pos');
+  const isPos = hasInstalledApplication(device, 'foody_pos');
   return <Menu><MenuTrigger asChild><Button variant="secondary" size="sm">{t('actions')}<ArrowDown /></Button></MenuTrigger><MenuContent align="end">{isPrinter && canManagePrinters && <MenuItem disabled={testing} onSelect={onTest}><Printer />{testing ? t('printerTestSending') : t('printerTestTicket')}</MenuItem>}{isPrinter && <MenuItem asChild><Link href={`/${rid}/settings/printers`}><Settings2 />{t('deviceManagementManageProfiles')}</Link></MenuItem>}{isPos && canManagePosAccess && <MenuItem asChild><Link href={`/${rid}/staff/devices`}><ShieldCheck />{t('deviceManagementManagePosAccess')}</Link></MenuItem>}{canManageDevice && <><MenuSeparator /><MenuItem danger onSelect={onForget}><Trash2 />{t('deviceManagementForget')}</MenuItem></>}</MenuContent></Menu>;
 }
 
-function DeviceDrawerContent({ device, devices, dateTime, restaurantName, canManageDevice, canManagePosAccess, displayName, savingName, rid, t, onDisplayNameChange, onRename }: { device: ManagedDevice; devices: ManagedDevice[]; dateTime: Intl.DateTimeFormat; restaurantName: string; canManageDevice: boolean; canManagePosAccess: boolean; displayName: string; savingName: boolean; rid: number; t: (key: string) => string; onDisplayNameChange: (value: string) => void; onRename: () => void }) {
+function DeviceDrawerContent({ device, devices, dateTime, restaurantName, canManageDevice, canManagePosAccess, displayName, savingName, rid, t, onDisplayNameChange, onRename, onSelectDevice }: { device: ManagedDevice; devices: ManagedDevice[]; dateTime: Intl.DateTimeFormat; restaurantName: string; canManageDevice: boolean; canManagePosAccess: boolean; displayName: string; savingName: boolean; rid: number; t: (key: string) => string; onDisplayNameChange: (value: string) => void; onRename: () => void; onSelectDevice: (id: string) => void }) {
   const connected = device.connectedDeviceIds.map((id) => devices.find((candidate) => candidate.id === id)).filter((candidate): candidate is ManagedDevice => Boolean(candidate));
   const isPrinter = hasDeviceCapability(device, 'printer');
-  const isPos = hasDeviceCapability(device, 'pos');
-  return <div className="-m-[var(--s-5)]"><div className="px-[var(--s-5)] py-5"><p className="text-fs-sm text-[var(--fg-muted)]">{t('deviceManagementDataUpdated')} {formatDate(device.lastSeenAt, dateTime, t('never'))}</p><div className="mt-4"><DeviceStatusBadge status={device.status} t={t} /></div></div><DrawerSection title={t('deviceManagementConnectedDevices')}>{connected.length ? connected.map((candidate) => <div key={candidate.id} className="flex items-center gap-3 border-b border-[var(--line)] py-4 last:border-0"><DeviceIcon kind={candidate.kind} /><div className="min-w-0 flex-1"><div className="font-semibold">{devicePrimaryName(candidate)}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{deviceDisplayName(candidate) || deviceCapabilitySummary(candidate, t)}</div></div><DeviceStatusBadge status={candidate.status} t={t} /></div>) : <p className="py-2 text-fs-sm text-[var(--fg-muted)]">{isPrinter ? t('deviceManagementNoConnectedDevices') : t('deviceManagementNoLinkedPrinter')}</p>}</DrawerSection><DrawerSection title={t('deviceManagementConnectivity')}><div className="flex items-center gap-3 py-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-r-md bg-[var(--surface-2)]"><Globe2 className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="font-semibold">{isPrinter ? t('deviceManagementNetwork') : (device.platform || deviceCapabilitySummary(device, t))}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{isPrinter ? `${t('deviceManagementIpAddress')} ${[device.host, device.port].filter(Boolean).join(':') || '—'}` : `${t('deviceManagementLocation')}: ${restaurantName || '—'}`}</div></div>{device.status === 'online' && <Badge tone="success">{t('active')}</Badge>}</div></DrawerSection><DrawerSection title={isPrinter ? t('deviceManagementPrinterDetails') : t('deviceManagementDetails')}><Property label={t('deviceManagementType')} value={deviceCapabilitySummary(device, t)} /><Property label={t('name')} value={device.deviceName} /><Property label={t('displayName')} value={device.displayName || '—'} />{isPrinter && <Property label={t('deviceManagementPaperWidth')} value={formatPaperWidth(device.paperWidthDots, t('deviceManagementNotAvailable'))} />}<Property label={t('model')} value={device.model || t('deviceManagementUnknownModel')} />{device.vendor && <Property label={t('deviceManagementManufacturer')} value={device.vendor} />}{device.identifier && <Property label={t('deviceManagementIdentifier')} value={device.identifier} />}<Property label={t('deviceManagementActiveMode')} value={device.profileNames.join(', ') || t('deviceManagementNoProfile')} /></DrawerSection>{device.lastError && <div className="mx-[var(--s-5)] my-5 rounded-r-md bg-[var(--danger-50)] px-4 py-3 text-fs-xs text-[var(--danger-500)]">{device.lastError}</div>}{canManageDevice && <DrawerSection title={t('deviceManagementRenamePrinter')}><div className="flex items-end gap-3"><Field label={t('displayName')} grow><Input value={displayName} maxLength={120} onChange={(event) => onDisplayNameChange(event.target.value)} /></Field><Button variant="primary" size="md" disabled={savingName || displayName.trim() === device.displayName} onClick={onRename}>{savingName ? t('saving') : t('save')}</Button></div></DrawerSection>}{isPos && canManagePosAccess && <div className="border-t-8 border-[var(--surface-2)] px-[var(--s-5)] py-5"><div className="flex items-start gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface-2)] p-4"><ShieldCheck className="mt-0.5 h-5 w-5 text-[var(--fg-muted)]" /><div className="min-w-0 flex-1"><div className="text-fs-sm font-semibold">{t('posAccess')}</div><p className="mt-1 text-fs-xs text-[var(--fg-muted)]">{t('deviceManagementPosAccessHint')}</p><Button variant="secondary" size="sm" className="mt-3" asChild><Link href={`/${rid}/staff/devices`}>{t('deviceManagementManagePosAccess')}</Link></Button></div></div></div>}</div>;
+  const isPos = hasInstalledApplication(device, 'foody_pos');
+  return <div className="-m-[var(--s-5)]"><div className="px-[var(--s-5)] py-5"><p className="text-fs-sm text-[var(--fg-muted)]">{t('deviceManagementDataUpdated')} {formatDate(device.lastSeenAt, dateTime, t('never'))}</p><div className="mt-4 flex items-center gap-3"><DeviceStatusBadge status={device.status} t={t} /><BatteryValue device={device} fallback={t('deviceManagementBatteryUnavailable')} /></div></div><DrawerSection title={t('deviceManagementConnectedDevices')}>{connected.length ? connected.map((candidate) => <button type="button" key={candidate.id} className="flex w-full items-center gap-3 border-b border-[var(--line)] py-4 text-start last:border-0" onClick={() => onSelectDevice(candidate.id)}><DeviceIcon kind={candidate.kind} /><div className="min-w-0 flex-1"><div className="font-semibold">{devicePrimaryName(candidate)}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{deviceDisplayName(candidate) || deviceCapabilitySummary(candidate, t)}</div></div><DeviceStatusBadge status={candidate.status} t={t} /><ChevronRight className="h-4 w-4 text-[var(--fg-subtle)]" /></button>) : <p className="py-2 text-fs-sm text-[var(--fg-muted)]">{isPrinter ? t('deviceManagementNoConnectedDevices') : t('deviceManagementNoLinkedPrinter')}</p>}</DrawerSection><DrawerSection title={t('deviceManagementConnectivity')}><div className="flex items-center gap-3 py-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-r-md bg-[var(--surface-2)]"><Globe2 className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="font-semibold">{isPrinter ? t('deviceManagementNetwork') : ([device.osName, device.osVersion].filter(Boolean).join(' ') || device.platform || deviceCapabilitySummary(device, t))}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{isPrinter ? `${t('deviceManagementIpAddress')} ${[device.host, device.port].filter(Boolean).join(':') || '—'}` : `${t('deviceManagementLocation')}: ${restaurantName || '—'}`}</div></div>{device.status === 'online' && <Badge tone="success">{t('active')}</Badge>}</div></DrawerSection>{device.applications.length > 0 && <DrawerSection title={t('deviceManagementInstalledApplications')}>{device.applications.map((application) => <ApplicationCard key={application.name} application={application} dateTime={dateTime} fallback={t('never')} t={t} />)}</DrawerSection>}<DrawerSection title={isPrinter ? t('deviceManagementPrinterDetails') : t('deviceManagementDetails')}><Property label={t('deviceManagementType')} value={deviceTypeLabel(device.kind, t)} /><Property label={t('name')} value={device.deviceName} /><Property label={t('displayName')} value={device.displayName || '—'} />{isPrinter && <Property label={t('deviceManagementPaperWidth')} value={formatPaperWidth(device.paperWidthDots, t('deviceManagementNotAvailable'))} />}<Property label={t('model')} value={device.model || t('deviceManagementUnknownModel')} />{device.vendor && <Property label={t('deviceManagementManufacturer')} value={device.vendor} />}{(device.osName || device.osVersion) && <Property label={t('deviceManagementOperatingSystem')} value={[device.osName, device.osVersion].filter(Boolean).join(' ')} />}{device.identifier && <Property label={t('deviceManagementIdentifier')} value={device.identifier} />}{isPrinter && <Property label={t('deviceManagementActiveMode')} value={device.profileNames.join(', ') || t('deviceManagementNoProfile')} />}</DrawerSection>{device.lastError && <div className="mx-[var(--s-5)] my-5 rounded-r-md bg-[var(--danger-50)] px-4 py-3 text-fs-xs text-[var(--danger-500)]">{device.lastError}</div>}{canManageDevice && <DrawerSection title={t('deviceManagementRenamePrinter')}><div className="flex items-end gap-3"><Field label={t('displayName')} grow><Input value={displayName} maxLength={120} onChange={(event) => onDisplayNameChange(event.target.value)} /></Field><Button variant="primary" size="md" disabled={savingName || displayName.trim() === device.displayName} onClick={onRename}>{savingName ? t('saving') : t('save')}</Button></div></DrawerSection>}{isPos && canManagePosAccess && <div className="border-t-8 border-[var(--surface-2)] px-[var(--s-5)] py-5"><div className="flex items-start gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface-2)] p-4"><ShieldCheck className="mt-0.5 h-5 w-5 text-[var(--fg-muted)]" /><div className="min-w-0 flex-1"><div className="text-fs-sm font-semibold">{t('posAccess')}</div><p className="mt-1 text-fs-xs text-[var(--fg-muted)]">{t('deviceManagementPosAccessHint')}</p><Button variant="secondary" size="sm" className="mt-3" asChild><Link href={`/${rid}/staff/devices`}>{t('deviceManagementManagePosAccess')}</Link></Button></div></div></div>}</div>;
+}
+
+function PrintQueueSection({ device, canManage, cancelling, t, onCancel }: { device: ManagedDevice; canManage: boolean; cancelling: boolean; t: (key: string) => string; onCancel: () => void }) {
+  if (!hasDeviceCapability(device, 'printer') || device.pendingJobCount < 1) return null;
+  return <section className="mt-5 rounded-r-lg border border-[var(--warning-500)]/30 bg-[var(--warning-50)] p-4"><div className="flex items-start gap-3"><CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning-500)]" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="text-fs-sm font-semibold">{t('deviceManagementPrintQueue')}</h3><PendingPrintJobsBadge count={device.pendingJobCount} t={t} /></div><p className="mt-2 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('deviceManagementPrintQueueDesc')}</p>{canManage && <Button variant="danger" size="sm" className="mt-3" disabled={cancelling} onClick={onCancel}>{cancelling ? t('deviceManagementCancellingPendingJobs') : t('deviceManagementCancelPendingJobs')}</Button>}</div></div></section>;
 }
 
 function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className="border-t-8 border-[var(--surface-2)] px-[var(--s-5)] py-5"><h3 className="mb-3 text-fs-lg font-semibold">{title}</h3>{children}</section>; }
 function Property({ label, value }: { label: string; value: string }) { return <div className="py-3"><div className="text-fs-sm font-semibold">{label}</div><div className="mt-1 break-words text-fs-sm text-[var(--fg-muted)]">{value}</div></div>; }
-function DeviceIcon({ kind }: { kind: ManagedDeviceKind }) { const Icon = kind === 'pos' ? MonitorSmartphone : kind === 'printer' ? Printer : kind === 'payment_terminal' ? CreditCard : kind === 'kitchen_display' ? ChefHat : MonitorUp; return <div className="grid h-11 w-11 shrink-0 place-items-center rounded-r-md bg-[var(--surface-2)] text-[var(--fg)]"><Icon className="h-5 w-5" /></div>; }
+function DeviceIcon({ kind }: { kind: ManagedDeviceKind }) { const Icon = kind === 'tablet' ? Tablet : kind === 'phone' ? Smartphone : kind === 'computer' ? Laptop : kind === 'printer' ? Printer : kind === 'payment_terminal' ? CreditCard : kind === 'display' ? MonitorUp : MonitorSmartphone; return <div className="grid h-11 w-11 shrink-0 place-items-center rounded-r-md bg-[var(--surface-2)] text-[var(--fg)]"><Icon className="h-5 w-5" /></div>; }
 function DeviceStatusBadge({ status, t }: { status: ManagedDeviceStatus; t: (key: string) => string }) { return <Badge tone={STATUS_TONES[status]} dot>{t(`deviceStatus${status[0].toUpperCase()}${status.slice(1)}`)}</Badge>; }
-function ProfileSummary({ names }: { names: string[] }) { return <div className="flex max-w-[220px] flex-wrap gap-1"><Badge>{names[0]}</Badge>{names.length > 1 && <Badge>+{names.length - 1}</Badge>}</div>; }
+function PendingPrintJobsBadge({ count, t }: { count: number; t: (key: string) => string }) { return count > 0 ? <Badge tone="warning">{pendingPrintJobsLabel(count, t)}</Badge> : null; }
+function pendingPrintJobsLabel(count: number, t: (key: string) => string): string { return `${count} ${t(count === 1 ? 'deviceManagementPendingJob' : 'deviceManagementPendingJobs')}`; }
+function BatteryValue({ device, fallback }: { device: ManagedDevice; fallback: string }) { return device.batteryLevel === undefined ? <span className="text-[var(--fg-subtle)]" title={fallback}>—</span> : <span className="inline-flex items-center gap-1.5" title={device.batteryState}><BatteryMedium className="h-4 w-4" />{device.batteryLevel}%</span>; }
+function ApplicationActivity({ application, dateTime, fallback }: { application: ManagedDeviceApplication | undefined; dateTime: Intl.DateTimeFormat; fallback: string }) { return application ? <div><div className="font-medium">{applicationLabel(application.name)}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{formatDate(application.lastActiveAt, dateTime, fallback)}</div></div> : <span className="text-[var(--fg-subtle)]">—</span>; }
+function ApplicationBadges({ names }: { names: string[] }) { return names.length ? <div className="flex max-w-[220px] flex-wrap gap-1">{names.map((name) => <Badge key={name}>{applicationLabel(name)}</Badge>)}</div> : <span className="text-[var(--fg-subtle)]">—</span>; }
+function ApplicationCard({ application, dateTime, fallback, t }: { application: ManagedDeviceApplication; dateTime: Intl.DateTimeFormat; fallback: string; t: (key: string) => string }) { return <div className="flex items-center gap-3 border-b border-[var(--line)] py-4 last:border-0"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-r-md bg-[var(--surface-2)] font-bold">F</div><div className="min-w-0 flex-1"><div className="font-semibold">{applicationLabel(application.name)}</div><div className="mt-1 text-fs-xs text-[var(--fg-muted)]">{[application.platform, application.version].filter(Boolean).join(' · ') || '—'} · {formatDate(application.lastActiveAt, dateTime, fallback)}</div></div><Badge tone={application.status === 'active' ? 'success' : 'neutral'}>{t(application.status === 'active' ? 'active' : 'inactive')}</Badge></div>; }
 function ConnectStep({ number, title, desc }: { number: string; title: string; desc: string }) { return <li className="grid grid-cols-[36px_minmax(0,1fr)] gap-3"><span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--surface-2)] text-fs-sm font-semibold">{number}</span><div><div className="text-fs-sm font-semibold">{title}</div><p className="mt-1 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{desc}</p></div></li>; }
 
 function devicePrimaryName(device: ManagedDevice): string { return device.deviceName; }
 function deviceDisplayName(device: ManagedDevice): string { return device.displayName; }
 
 function deviceCapabilitySummary(device: ManagedDevice, t: (key: string) => string): string {
-  return device.capabilities.map((capability) => capability === 'print_spooler' ? 'Foody Print' : deviceTypeLabel(capability, t)).join(' · ');
+  const labels = [deviceTypeLabel(device.kind, t)];
+  for (const capability of device.capabilities) {
+    if (capability === device.kind) continue;
+    labels.push(capability === 'kitchen_display'
+      ? t('deviceTypeKitchenDisplay')
+      : capability === 'customer_display'
+        ? t('deviceTypeCustomerDisplay')
+        : deviceTypeLabel(capability, t));
+  }
+  return labels.join(' · ');
 }
 
 function deviceTypeLabel(kind: ManagedDeviceKind, t: (key: string) => string): string {
   switch (kind) {
-    case 'pos': return t('deviceTypePos');
+    case 'unknown': return t('deviceTypeUnknown');
+    case 'tablet': return t('deviceTypeTablet');
+    case 'phone': return t('deviceTypePhone');
+    case 'computer': return t('deviceTypeComputer');
+    case 'display': return t('deviceTypeDisplay');
     case 'printer': return t('deviceTypePrinter');
     case 'payment_terminal': return t('deviceTypePaymentTerminal');
-    case 'kitchen_display': return t('deviceTypeKitchenDisplay');
-    case 'customer_display': return t('deviceTypeCustomerDisplay');
   }
+}
+
+function applicationLabel(application: string): string {
+  if (application === 'foody_pos') return 'FoodyPOS';
+  return application.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function compareDevices(left: ManagedDevice, right: ManagedDevice, key: SortKey, locale: string): number {
@@ -513,11 +577,11 @@ function compareDevices(left: ManagedDevice, right: ManagedDevice, key: SortKey,
   switch (key) {
     case 'name': return text(devicePrimaryName(left), devicePrimaryName(right));
     case 'status': return text(left.status, right.status);
-    case 'mode': return text(left.profileNames.join(' '), right.profileNames.join(' '));
+    case 'application': return text(latestDeviceApplication(left)?.name ?? '', latestDeviceApplication(right)?.name ?? '');
     case 'lastSeen': return (Date.parse(left.lastSeenAt ?? '') || 0) - (Date.parse(right.lastSeenAt ?? '') || 0);
     case 'displayName': return text(deviceDisplayName(left), deviceDisplayName(right));
     case 'identifier': return text(left.identifier ?? '', right.identifier ?? '');
-    case 'battery': return 0;
+    case 'battery': return (left.batteryLevel ?? -1) - (right.batteryLevel ?? -1);
   }
 }
 

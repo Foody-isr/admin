@@ -3,6 +3,14 @@ import { ApiError, type DeviceCapabilityType, type DeviceKind, type DeviceStatus
 export type ManagedDeviceKind = DeviceKind;
 export type ManagedDeviceStatus = Exclude<DeviceStatus, 'unknown'>;
 
+export interface ManagedDeviceApplication {
+  name: string;
+  platform?: string;
+  version?: string;
+  status: string;
+  lastActiveAt?: string;
+}
+
 export interface ManagedDevice {
   id: string;
   kind: ManagedDeviceKind;
@@ -11,10 +19,15 @@ export interface ManagedDevice {
   displayName: string;
   status: ManagedDeviceStatus;
   model?: string;
+  osName?: string;
+  osVersion?: string;
+  batteryLevel?: number;
+  batteryState?: string;
   platform?: string;
   lastSeenAt?: string;
   profileNames: string[];
   applicationNames: string[];
+  applications: ManagedDeviceApplication[];
   printerResourceId?: string;
   printerIds: string[];
   printerNames: string[];
@@ -26,6 +39,7 @@ export interface ManagedDevice {
   identifier?: string;
   vendor?: string;
   paperWidthDots?: number;
+  pendingJobCount: number;
   enabled?: boolean;
   lastError?: string;
 }
@@ -76,6 +90,13 @@ export function buildManagedDevices({ devices }: BuildManagedDevicesInput): Mana
     const printer = device.components.find((component) => component.type === 'printer');
     const network = device.components.find((component) => component.type === 'network');
     const applications = device.components.filter((component) => component.type === 'application');
+    const mappedApplications = applications.map((application) => ({
+      name: stringDetail(application.details, 'application') ?? '',
+      platform: stringDetail(application.details, 'platform'),
+      version: stringDetail(application.details, 'version'),
+      status: application.status,
+      lastActiveAt: stringDetail(application.details, 'last_active_at'),
+    })).filter((application) => application.name);
     const printerConnections = device.connections.filter((connection) => connection.kind === 'printer');
     return {
       id: device.id,
@@ -85,12 +106,15 @@ export function buildManagedDevices({ devices }: BuildManagedDevicesInput): Mana
       displayName: device.display_name?.trim() ?? '',
       status: normalizedStatus(device.status),
       model: device.model || undefined,
+      osName: device.os_name || undefined,
+      osVersion: device.os_version || undefined,
+      batteryLevel: typeof device.battery_level === 'number' ? device.battery_level : undefined,
+      batteryState: device.battery_state || undefined,
       platform: applications.map((application) => stringDetail(application.details, 'platform')).find(Boolean),
       lastSeenAt: device.last_seen_at,
       profileNames: device.profile_names ?? [],
-      applicationNames: applications
-        .map((application) => stringDetail(application.details, 'application'))
-        .filter((application): application is string => Boolean(application)),
+      applicationNames: mappedApplications.map((application) => application.name),
+      applications: mappedApplications,
       printerResourceId: printer ? stringDetail(printer.details, 'printer_id') : undefined,
       printerIds: printerConnections.map((connection) => connection.id),
       printerNames: printerConnections.map((connection) => connection.display_name?.trim() || connection.system_name),
@@ -102,6 +126,7 @@ export function buildManagedDevices({ devices }: BuildManagedDevicesInput): Mana
       identifier: device.identifier || undefined,
       vendor: device.manufacturer || (printer ? stringDetail(printer.details, 'vendor') : undefined),
       paperWidthDots: printer ? numberDetail(printer.details, 'paper_width_dots') : undefined,
+      pendingJobCount: printer ? numberDetail(printer.details, 'pending_job_count') ?? 0 : 0,
       enabled: printer ? booleanDetail(printer.details, 'enabled') : undefined,
       lastError: printer ? stringDetail(printer.details, 'last_error') : undefined,
     };
@@ -113,4 +138,16 @@ export function buildManagedDevices({ devices }: BuildManagedDevicesInput): Mana
 /** Reports whether a physical device provides a specific function. */
 export function hasDeviceCapability(device: ManagedDevice, capability: DeviceCapabilityType): boolean {
   return device.capabilities.includes(capability);
+}
+
+/** Reports whether an application is installed on the physical device. */
+export function hasInstalledApplication(device: ManagedDevice, application: string): boolean {
+  return device.applications.some((candidate) => candidate.name === application);
+}
+
+/** Returns the most recently active application, when one reported activity. */
+export function latestDeviceApplication(device: ManagedDevice): ManagedDeviceApplication | undefined {
+  return [...device.applications].sort((left, right) =>
+    (Date.parse(right.lastActiveAt ?? '') || 0) - (Date.parse(left.lastActiveAt ?? '') || 0),
+  )[0];
 }

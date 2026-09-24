@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, RefreshCw, ShieldOff, TabletSmartphone } from 'lucide-react';
+import { ArrowLeft, KeyRound, RefreshCw, ShieldOff } from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
 import Modal from '@/components/Modal';
 import {
@@ -15,32 +15,36 @@ import {
   DataTableHeadSpacerCell,
   DataTableRow,
 } from '@/components/data-table';
-import { listPOSDevices, POSDevice, revokePOSDevice } from '@/lib/api';
+import {
+  listPOSAccessCredentials,
+  POSAccessCredential,
+  revokePOSAccessCredential,
+} from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
 type DeviceStatus = 'active' | 'expired' | 'revoked';
 
-function statusOf(device: POSDevice): DeviceStatus {
+function statusOf(device: POSAccessCredential): DeviceStatus {
   if (device.revoked_at) return 'revoked';
   if (new Date(device.expires_at).getTime() <= Date.now()) return 'expired';
   return 'active';
 }
 
-export default function POSDevicesPage() {
+export default function POSAccessCredentialsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t, locale } = useI18n();
-  const [devices, setDevices] = useState<POSDevice[]>([]);
+  const [devices, setDevices] = useState<POSAccessCredential[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selected, setSelected] = useState<POSDevice | null>(null);
+  const [selected, setSelected] = useState<POSAccessCredential | null>(null);
   const [revoking, setRevoking] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      setDevices(await listPOSDevices(rid));
+      setDevices(await listPOSAccessCredentials(rid));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t('failedToLoadPOSTerminals'));
     } finally {
@@ -60,7 +64,7 @@ export default function POSDevicesPage() {
     if (!selected) return;
     setRevoking(true);
     try {
-      await revokePOSDevice(rid, selected.id);
+      await revokePOSAccessCredential(rid, selected.id);
       setSelected(null);
       await load();
     } catch (cause) {
@@ -89,7 +93,7 @@ export default function POSDevicesPage() {
 
       <div className="flex items-center gap-4 border-y border-[var(--divider)] py-4">
         <div className="grid h-11 w-11 place-items-center rounded-xl bg-brand-500/10 text-brand-600">
-          <TabletSmartphone className="h-5 w-5" />
+          <KeyRound className="h-5 w-5" />
         </div>
         <div>
           <div className="text-2xl font-semibold text-fg-primary">{activeCount}</div>
