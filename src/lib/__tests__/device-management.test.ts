@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { RestaurantDevice } from '@/lib/api';
-import { buildManagedDevices } from '@/lib/device-management';
+import { ApiError, type RestaurantDevice } from '@/lib/api';
+import { buildManagedDevices, deviceForgetErrorMessage } from '@/lib/device-management';
 
 const pos: RestaurantDevice = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -85,4 +85,50 @@ test('buildManagedDevices uses the server status and normalizes unknown', () => 
   assert.equal(devices.find((device) => device.id === 'offline')?.status, 'offline');
   assert.equal(devices.find((device) => device.id === 'unknown')?.status, 'unconfigured');
   assert.equal(devices.find((device) => device.id === 'error')?.status, 'attention');
+});
+
+test('deviceForgetErrorMessage translates protected printer lifecycle failures', () => {
+  const messages: Record<string, string> = {
+    deviceManagementForgetAssignedStationError: 'Remove the printer from its station first.',
+    deviceManagementForgetGatewayError: 'Choose another gateway first.',
+    deviceManagementForgetPendingJobsError: 'Finish the print jobs first.',
+  };
+  const t = (key: string) => messages[key] ?? key;
+
+  assert.equal(
+    deviceForgetErrorMessage(
+      new ApiError('device operation failed', 400, 'printer is assigned to a station'),
+      'Could not forget the device.',
+      t,
+    ),
+    messages.deviceManagementForgetAssignedStationError,
+  );
+  assert.equal(
+    deviceForgetErrorMessage(
+      new ApiError('device operation failed', 400, 'printer is assigned as an Epson gateway'),
+      'Could not forget the device.',
+      t,
+    ),
+    messages.deviceManagementForgetGatewayError,
+  );
+  assert.equal(
+    deviceForgetErrorMessage(
+      new ApiError('device operation failed', 400, 'printer has unfinished print jobs'),
+      'Could not forget the device.',
+      t,
+    ),
+    messages.deviceManagementForgetPendingJobsError,
+  );
+});
+
+test('deviceForgetErrorMessage does not expose unknown server details', () => {
+  const fallback = 'Could not forget the device.';
+  assert.equal(
+    deviceForgetErrorMessage(
+      new ApiError('device operation failed', 400, 'database connection refused'),
+      fallback,
+      (key) => key,
+    ),
+    fallback,
+  );
 });
