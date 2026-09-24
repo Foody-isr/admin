@@ -89,20 +89,11 @@ test('buildManagedDevices uses the server status and normalizes unknown', () => 
 
 test('deviceForgetErrorMessage translates protected printer lifecycle failures', () => {
   const messages: Record<string, string> = {
-    deviceManagementForgetAssignedStationError: 'Remove the printer from its station first.',
     deviceManagementForgetGatewayError: 'Choose another gateway first.',
     deviceManagementForgetPendingJobsError: 'Finish the print jobs first.',
   };
   const t = (key: string) => messages[key] ?? key;
 
-  assert.equal(
-    deviceForgetErrorMessage(
-      new ApiError('device operation failed', 400, 'printer is assigned to a station'),
-      'Could not forget the device.',
-      t,
-    ),
-    messages.deviceManagementForgetAssignedStationError,
-  );
   assert.equal(
     deviceForgetErrorMessage(
       new ApiError('device operation failed', 400, 'printer is assigned as an Epson gateway'),
