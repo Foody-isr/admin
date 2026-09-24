@@ -1,110 +1,88 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { PrintAgent, PrinterConfiguration, PrinterProfile } from '@/lib/api';
+import type { RestaurantDevice } from '@/lib/api';
 import { buildManagedDevices } from '@/lib/device-management';
 
-const agent: PrintAgent = {
-  id: 'agent-1',
+const pos: RestaurantDevice = {
+  id: '11111111-1111-4111-8111-111111111111',
   restaurant_id: 19,
-  spooler_id: 'ipad-kitchen',
-  name: 'iPad cuisine',
-  platform: 'ios',
-  model: 'iPad',
-  last_seen_at: '2026-09-22T20:00:00.000Z',
-  printer_ids: ['printer-1'],
-};
-
-const printer: PrinterConfiguration = {
-  id: 'printer-1',
-  restaurant_id: 19,
-  name: 'Cuisine chaude',
-  identifier: 'epson-1',
-  vendor: 'epson',
-  model: 'Epson TM-U220II',
-  profile: 'tm_u220iib',
-  host: '192.168.1.150',
-  port: 9100,
-  use_https: false,
-  device_id: 'local_printer',
-  compatibility_port: 0,
-  receives_receipts: false,
-  receipt_order_types: [],
-  receipt_copies: 1,
-  protocol: 'spooler',
-  enabled: true,
+  kind: 'pos',
+  system_name: 'iPad cuisine',
+  display_name: 'Caisse terrasse',
+  manufacturer: 'Apple',
+  model: 'iPad16,3',
+  identifier: 'ipad-kitchen',
   status: 'online',
   last_seen_at: '2026-09-22T20:00:00.000Z',
-  expected_poll_seconds: 5,
-  offline_after_seconds: 30,
-  paper_width_dots: 384,
-};
-
-const profile: PrinterProfile = {
-  id: 'profile-1',
-  restaurant_id: 19,
-  name: 'Cuisine',
-  job_types: ['dine_in_tickets'],
-  dine_in_category_ids: [1],
-  online_category_ids: [],
-  auto_print_new_categories: true,
-  one_item_per_ticket: false,
-  print_recipient_information: true,
-  hide_ticket_footer: true,
-  ticket_margins: 'both',
-  print_kitchen_names: true,
-  combine_identical_items: false,
-  ticket_layout: 'classic',
-  font_size: 'medium',
-  item_sort_order: 'default',
-  copies: 1,
-  enabled: true,
-  assignments: [{
-    id: 'assignment-1',
-    device_id: agent.spooler_id,
-    device_name: agent.name,
-    printer_id: printer.id,
-    printer_name: printer.name,
-    printer_model: printer.model ?? '',
-  }],
   created_at: '2026-09-22T19:00:00.000Z',
-  updated_at: '2026-09-22T19:00:00.000Z',
+  updated_at: '2026-09-22T20:00:00.000Z',
+  profile_names: ['Cuisine'],
+  components: [{
+    type: 'application',
+    status: 'active',
+    details: { application: 'foody_pos', installation_id: 'spooler-1', platform: 'ios' },
+  }],
+  connections: [{
+    id: '22222222-2222-4222-8222-222222222222',
+    kind: 'printer',
+    system_name: 'Cuisine chaude',
+    display_name: 'Imprimante pizza',
+    status: 'online',
+  }],
 };
 
-test('buildManagedDevices links profiles to both the POS and physical printer', () => {
-  const devices = buildManagedDevices({
-    agents: [agent],
-    printers: [printer],
-    profiles: [profile],
-    now: new Date('2026-09-22T20:00:30.000Z'),
-  });
+const printer: RestaurantDevice = {
+  id: '22222222-2222-4222-8222-222222222222',
+  restaurant_id: 19,
+  kind: 'printer',
+  system_name: 'Cuisine chaude',
+  display_name: 'Imprimante pizza',
+  manufacturer: 'epson',
+  model: 'Epson TM-U220II',
+  identifier: 'epson-1',
+  status: 'online',
+  last_seen_at: '2026-09-22T20:00:00.000Z',
+  created_at: '2026-09-22T19:00:00.000Z',
+  updated_at: '2026-09-22T20:00:00.000Z',
+  profile_names: ['Cuisine'],
+  components: [
+    { type: 'network', status: 'active', details: { ip_address: '192.168.1.150', port: 9100 } },
+    { type: 'printer', status: 'online', details: { printer_id: 'legacy-printer-1', protocol: 'spooler', paper_width_dots: 384, enabled: true } },
+  ],
+  connections: [{
+    id: pos.id,
+    kind: 'pos',
+    system_name: pos.system_name,
+    display_name: pos.display_name,
+    status: 'online',
+  }],
+};
+
+test('buildManagedDevices preserves one physical identity and its capabilities', () => {
+  const devices = buildManagedDevices({ devices: [pos, printer] });
 
   assert.equal(devices.length, 2);
   assert.deepEqual(devices.find((device) => device.kind === 'pos')?.profileNames, ['Cuisine']);
   assert.deepEqual(devices.find((device) => device.kind === 'printer')?.profileNames, ['Cuisine']);
-  assert.deepEqual(devices.find((device) => device.kind === 'pos')?.printerNames, ['Cuisine chaude']);
+  assert.deepEqual(devices.find((device) => device.kind === 'pos')?.printerNames, ['Imprimante pizza']);
+  assert.deepEqual(devices.find((device) => device.kind === 'printer')?.connectedDeviceNames, ['Caisse terrasse']);
+  assert.equal(devices.find((device) => device.kind === 'pos')?.deviceName, 'iPad cuisine');
+  assert.equal(devices.find((device) => device.kind === 'pos')?.displayName, 'Caisse terrasse');
+  assert.equal(devices.find((device) => device.kind === 'pos')?.platform, 'ios');
+  assert.equal(devices.find((device) => device.kind === 'printer')?.paperWidthDots, 384);
+  assert.equal(devices.find((device) => device.kind === 'printer')?.printerResourceId, 'legacy-printer-1');
 });
 
-test('buildManagedDevices marks a stale POS heartbeat offline', () => {
-  const [device] = buildManagedDevices({
-    agents: [agent],
-    printers: [],
-    profiles: [],
-    now: new Date('2026-09-22T20:01:01.000Z'),
-  });
-
-  assert.equal(device.status, 'offline');
-});
-
-test('buildManagedDevices exposes disabled and errored printers accurately', () => {
+test('buildManagedDevices uses the server status and normalizes unknown', () => {
   const devices = buildManagedDevices({
-    agents: [],
-    printers: [
-      { ...printer, id: 'disabled', enabled: false },
-      { ...printer, id: 'error', status: 'error', last_error: 'Paper out' },
+    devices: [
+      { ...pos, id: 'offline', status: 'offline' },
+      { ...printer, id: 'unknown', status: 'unknown' },
+      { ...printer, id: 'error', status: 'attention' },
     ],
-    profiles: [],
   });
 
-  assert.equal(devices.find((device) => device.id === 'printer:disabled')?.status, 'unconfigured');
-  assert.equal(devices.find((device) => device.id === 'printer:error')?.status, 'attention');
+  assert.equal(devices.find((device) => device.id === 'offline')?.status, 'offline');
+  assert.equal(devices.find((device) => device.id === 'unknown')?.status, 'unconfigured');
+  assert.equal(devices.find((device) => device.id === 'error')?.status, 'attention');
 });

@@ -4,11 +4,11 @@ Self-service web portal for restaurant owners and managers. Used to manage day-t
 
 ## Environments
 
-| Environment | Domain | API | Branch |
+| Environment | Domain | API | Source |
 |-------------|--------|-----|--------|
-| **Production** | `admin.foody-pos.co.il` | `api.foody-pos.co.il` | `main` |
+| **Production** | `admin.foody-pos.co.il` | `api.foody-pos.co.il` | Manually promoted Vercel deployment from `develop` |
 | **Development** | `dev-admin.foody-pos.co.il` | `dev-api.foody-pos.co.il` | `develop` |
-| **Local** | `localhost:3003` | `localhost:8080` | any |
+| **Local** | `localhost:3003` | `localhost:8080` | any branch |
 
 ## Quick Start
 
@@ -367,9 +367,11 @@ npx tsc --noEmit      # TypeScript type check
 npm run build         # Full production build (catches all errors)
 ```
 
-Always run `npm run build` locally before pushing — CI runs the same command on Vercel.
+Run `npm run build` before marking a PR ready to merge. Iterative feature-branch pushes may use targeted checks.
 
 ## Deployment (Vercel)
+
+Vercel's Git integration deploys `develop` to the development environment. Production is a manual promotion of a verified `develop` deployment; no second PR to `main` and no GitHub Actions rebuild are required.
 
 | Setting | Value |
 |---------|-------|
