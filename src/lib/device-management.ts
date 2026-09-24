@@ -1,4 +1,4 @@
-import type { DeviceKind, DeviceStatus, RestaurantDevice } from '@/lib/api';
+import { ApiError, type DeviceKind, type DeviceStatus, type RestaurantDevice } from '@/lib/api';
 
 export type ManagedDeviceKind = DeviceKind;
 export type ManagedDeviceStatus = Exclude<DeviceStatus, 'unknown'>;
@@ -31,6 +31,24 @@ export interface ManagedDevice {
 
 export interface BuildManagedDevicesInput {
   devices: RestaurantDevice[];
+}
+
+type Translate = (key: string) => string;
+
+const FORGET_ERROR_KEYS: Record<string, string> = {
+  'printer is assigned to a station': 'deviceManagementForgetAssignedStationError',
+  'printer is assigned as an epson gateway': 'deviceManagementForgetGatewayError',
+  'printer has unfinished print jobs': 'deviceManagementForgetPendingJobsError',
+};
+
+/** Converts protected printer lifecycle failures into actionable, localized copy. */
+export function deviceForgetErrorMessage(error: unknown, fallback: string, t: Translate): string {
+  if (error instanceof ApiError) {
+    const detail = error.details?.trim().toLocaleLowerCase();
+    const translationKey = detail ? FORGET_ERROR_KEYS[detail] : undefined;
+    return translationKey ? t(translationKey) : fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
 }
 
 function stringDetail(details: Record<string, unknown>, key: string): string | undefined {
