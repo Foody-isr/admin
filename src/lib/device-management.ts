@@ -36,7 +36,6 @@ export interface BuildManagedDevicesInput {
 type Translate = (key: string) => string;
 
 const FORGET_ERROR_KEYS: Record<string, string> = {
-  'printer is assigned to a station': 'deviceManagementForgetAssignedStationError',
   'printer is assigned as an epson gateway': 'deviceManagementForgetGatewayError',
   'printer has unfinished print jobs': 'deviceManagementForgetPendingJobsError',
 };
