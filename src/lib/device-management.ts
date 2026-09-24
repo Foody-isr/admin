@@ -1,4 +1,4 @@
-import { ApiError, type DeviceKind, type DeviceStatus, type RestaurantDevice } from '@/lib/api';
+import { ApiError, type DeviceCapabilityType, type DeviceKind, type DeviceStatus, type RestaurantDevice } from '@/lib/api';
 
 export type ManagedDeviceKind = DeviceKind;
 export type ManagedDeviceStatus = Exclude<DeviceStatus, 'unknown'>;
@@ -6,6 +6,7 @@ export type ManagedDeviceStatus = Exclude<DeviceStatus, 'unknown'>;
 export interface ManagedDevice {
   id: string;
   kind: ManagedDeviceKind;
+  capabilities: DeviceCapabilityType[];
   deviceName: string;
   displayName: string;
   status: ManagedDeviceStatus;
@@ -79,6 +80,7 @@ export function buildManagedDevices({ devices }: BuildManagedDevicesInput): Mana
     return {
       id: device.id,
       kind: device.kind,
+      capabilities: device.capabilities.map((capability) => capability.type),
       deviceName: device.system_name,
       displayName: device.display_name?.trim() ?? '',
       status: normalizedStatus(device.status),
@@ -106,4 +108,9 @@ export function buildManagedDevices({ devices }: BuildManagedDevicesInput): Mana
   }).sort((left, right) =>
     left.deviceName.localeCompare(right.deviceName, undefined, { sensitivity: 'base' }),
   );
+}
+
+/** Reports whether a physical device provides a specific function. */
+export function hasDeviceCapability(device: ManagedDevice, capability: DeviceCapabilityType): boolean {
+  return device.capabilities.includes(capability);
 }

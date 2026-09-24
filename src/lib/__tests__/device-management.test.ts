@@ -16,6 +16,10 @@ const pos: RestaurantDevice = {
   last_seen_at: '2026-09-22T20:00:00.000Z',
   created_at: '2026-09-22T19:00:00.000Z',
   updated_at: '2026-09-22T20:00:00.000Z',
+  capabilities: [
+    { type: 'pos', status: 'online' },
+    { type: 'print_spooler', status: 'online' },
+  ],
   profile_names: ['Cuisine'],
   components: [{
     type: 'application',
@@ -44,6 +48,7 @@ const printer: RestaurantDevice = {
   last_seen_at: '2026-09-22T20:00:00.000Z',
   created_at: '2026-09-22T19:00:00.000Z',
   updated_at: '2026-09-22T20:00:00.000Z',
+  capabilities: [{ type: 'printer', status: 'online' }],
   profile_names: ['Cuisine'],
   components: [
     { type: 'network', status: 'active', details: { ip_address: '192.168.1.150', port: 9100 } },
@@ -69,6 +74,7 @@ test('buildManagedDevices preserves one physical identity and its capabilities',
   assert.equal(devices.find((device) => device.kind === 'pos')?.deviceName, 'iPad cuisine');
   assert.equal(devices.find((device) => device.kind === 'pos')?.displayName, 'Caisse terrasse');
   assert.equal(devices.find((device) => device.kind === 'pos')?.platform, 'ios');
+  assert.deepEqual(devices.find((device) => device.kind === 'pos')?.capabilities, ['pos', 'print_spooler']);
   assert.equal(devices.find((device) => device.kind === 'printer')?.paperWidthDots, 384);
   assert.equal(devices.find((device) => device.kind === 'printer')?.printerResourceId, 'legacy-printer-1');
 });
