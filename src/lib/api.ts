@@ -2886,6 +2886,23 @@ export async function forgetDevice(restaurantId: number, deviceId: string): Prom
   );
 }
 
+export interface CancelPendingPrintJobsResult {
+  cancelled_job_ids: string[];
+  cancelled_count: number;
+}
+
+export async function cancelPendingPrintJobs(
+  restaurantId: number,
+  printerId: string,
+  reason = 'cancelled from FoodyAdmin device management',
+): Promise<CancelPendingPrintJobsResult> {
+  return apiFetch<CancelPendingPrintJobsResult>(
+    `/api/v1/restaurants/${restaurantId}/printing/printers/${encodeURIComponent(printerId)}/cancel-pending`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify({ reason }) },
+  );
+}
+
 export async function listPrinterProfiles(id: number): Promise<PrinterProfile[]> {
   const data = await apiFetch<{ profiles: PrinterProfile[] }>(
     `/api/v1/restaurants/${id}/printing/profiles`, id,
