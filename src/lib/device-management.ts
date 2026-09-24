@@ -39,6 +39,7 @@ export interface ManagedDevice {
   identifier?: string;
   vendor?: string;
   paperWidthDots?: number;
+  pendingJobCount: number;
   enabled?: boolean;
   lastError?: string;
 }
@@ -125,6 +126,7 @@ export function buildManagedDevices({ devices }: BuildManagedDevicesInput): Mana
       identifier: device.identifier || undefined,
       vendor: device.manufacturer || (printer ? stringDetail(printer.details, 'vendor') : undefined),
       paperWidthDots: printer ? numberDetail(printer.details, 'paper_width_dots') : undefined,
+      pendingJobCount: printer ? numberDetail(printer.details, 'pending_job_count') ?? 0 : 0,
       enabled: printer ? booleanDetail(printer.details, 'enabled') : undefined,
       lastError: printer ? stringDetail(printer.details, 'last_error') : undefined,
     };

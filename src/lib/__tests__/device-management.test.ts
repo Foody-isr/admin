@@ -61,7 +61,7 @@ const printer: RestaurantDevice = {
   profile_names: ['Cuisine'],
   components: [
     { type: 'network', status: 'active', details: { ip_address: '192.168.1.150', port: 9100 } },
-    { type: 'printer', status: 'online', details: { printer_id: 'legacy-printer-1', protocol: 'spooler', paper_width_dots: 384, enabled: true } },
+    { type: 'printer', status: 'online', details: { printer_id: 'legacy-printer-1', protocol: 'spooler', paper_width_dots: 384, pending_job_count: 2, enabled: true } },
   ],
   connections: [{
     id: tablet.id,
@@ -94,6 +94,7 @@ test('buildManagedDevices preserves one physical identity and its capabilities',
     lastActiveAt: '2026-09-22T20:00:00.000Z',
   }]);
   assert.equal(devices.find((device) => device.kind === 'printer')?.paperWidthDots, 384);
+  assert.equal(devices.find((device) => device.kind === 'printer')?.pendingJobCount, 2);
   assert.equal(devices.find((device) => device.kind === 'printer')?.printerResourceId, 'legacy-printer-1');
 });
 
