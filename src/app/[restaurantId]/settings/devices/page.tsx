@@ -36,6 +36,7 @@ import {
 } from '@/lib/api';
 import {
   buildManagedDevices,
+  deviceForgetErrorMessage,
   type ManagedDevice,
   type ManagedDeviceKind,
   type ManagedDeviceStatus,
@@ -255,7 +256,7 @@ export default function DeviceManagementPage() {
       setNotice(t('deviceManagementForgetSuccess'));
       await load(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t('deviceManagementForgetError'));
+      setError(deviceForgetErrorMessage(cause, t('deviceManagementForgetError'), t));
     } finally {
       setDeleting(false);
     }
