@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  Barcode, CircleAlert, ClipboardList, Copy, Globe2, MoreHorizontal, Pencil,
+  CircleAlert, Copy, Globe2, MoreHorizontal, Pencil,
   Minus, Plus, Printer, ReceiptText, RefreshCw, Search, Settings2, Smartphone, Trash2,
   UtensilsCrossed,
 } from 'lucide-react';
@@ -30,9 +30,6 @@ const JOB_TYPES: Array<{ type: PrinterProfileJobType; title: string; desc: strin
   { type: 'receipts', title: 'printerProfileJobReceipts', desc: 'printerProfileJobReceiptsDesc', icon: ReceiptText },
   { type: 'dine_in_tickets', title: 'printerProfileJobDineIn', desc: 'printerProfileJobDineInDesc', icon: UtensilsCrossed },
   { type: 'online_tickets', title: 'printerProfileJobOnline', desc: 'printerProfileJobOnlineDesc', icon: Globe2 },
-  { type: 'order_stubs', title: 'printerProfileJobStubs', desc: 'printerProfileJobStubsDesc', icon: ClipboardList },
-  { type: 'void_tickets', title: 'printerProfileJobVoids', desc: 'printerProfileJobVoidsDesc', icon: CircleAlert },
-  { type: 'barcode_labels', title: 'printerProfileJobLabels', desc: 'printerProfileJobLabelsDesc', icon: Barcode },
 ];
 
 const MARGIN_OPTIONS: Array<{ value: PrinterTicketMargins; label: string }> = [
