@@ -345,7 +345,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     {
       groupKey: 'settingsGroupDevices',
       items: [
-        { id: 'devices', href: `${base}/settings/devices`, labelKey: 'deviceManagementTitle', icon: MonitorSmartphone, desktopOnly: true, perm: ['printers.view', 'printers.manage'] },
+        { id: 'devices', href: `${base}/settings/devices`, labelKey: 'deviceManagementTitle', icon: MonitorSmartphone, desktopOnly: true, perm: ['printers.view', 'printers.manage', 'shifts.view', 'shifts.manage', 'payments.view', 'payments.manage', 'kitchen.view', 'kitchen.manage', 'settings.view', 'settings.edit'] },
         { id: 'printer-profiles', href: `${base}/settings/printers`, labelKey: 'printerProfilesTitle', icon: Printer, desktopOnly: true, perm: ['printers.view', 'printers.manage'] },
       ],
     },

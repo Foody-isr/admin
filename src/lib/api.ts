@@ -849,7 +849,8 @@ export interface StaffShiftSummary {
   sales_total: number;
 }
 
-export interface POSDevice {
+/** A revocable credential that authorizes FoodyPOS access on an installation. */
+export interface POSAccessCredential {
   id: number;
   restaurant_id: number;
   name: string;
@@ -2809,9 +2810,9 @@ export interface PrintAgent {
   printer_ids: string[];
 }
 
-export type DeviceKind = 'pos' | 'printer' | 'payment_terminal' | 'kitchen_display' | 'customer_display';
+export type DeviceKind = 'unknown' | 'tablet' | 'phone' | 'computer' | 'display' | 'printer' | 'payment_terminal';
 export type DeviceStatus = 'unknown' | 'online' | 'offline' | 'attention' | 'unconfigured';
-export type DeviceCapabilityType = DeviceKind | 'print_spooler';
+export type DeviceCapabilityType = 'printer' | 'payment_terminal' | 'kitchen_display' | 'customer_display';
 
 export interface DeviceCapability {
   type: DeviceCapabilityType;
@@ -2842,6 +2843,10 @@ export interface RestaurantDevice {
   display_name: string;
   manufacturer: string;
   model: string;
+  os_name: string;
+  os_version: string;
+  battery_level?: number;
+  battery_state?: string;
   identifier: string;
   status: DeviceStatus;
   last_seen_at?: string;
@@ -5691,15 +5696,15 @@ export async function listStaffShifts(
   return data.shifts ?? [];
 }
 
-export async function listPOSDevices(restaurantId: number): Promise<POSDevice[]> {
-  const data = await apiFetch<{ devices: POSDevice[] }>(
+export async function listPOSAccessCredentials(restaurantId: number): Promise<POSAccessCredential[]> {
+  const data = await apiFetch<{ devices: POSAccessCredential[] }>(
     `/api/v1/restaurants/${restaurantId}/pos-devices`,
     restaurantId,
   );
   return data.devices ?? [];
 }
 
-export async function revokePOSDevice(restaurantId: number, deviceId: number): Promise<void> {
+export async function revokePOSAccessCredential(restaurantId: number, deviceId: number): Promise<void> {
   await apiFetch<void>(
     `/api/v1/restaurants/${restaurantId}/pos-devices/${deviceId}`,
     restaurantId,
