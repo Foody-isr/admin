@@ -28,8 +28,7 @@ const WsContext = createContext<WsContextType>({
 
 function buildWsUrl(restaurantId: number): string {
   const base = API_URL.replace(/^http/, 'ws');
-  const token = getToken();
-  return `${base}/ws?restaurant_id=${restaurantId}${token ? `&token=${token}` : ''}`;
+  return `${base}/ws?restaurant_id=${restaurantId}`;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -55,7 +54,9 @@ export function WsProvider({ restaurantId, children }: { restaurantId: number; c
 
     setStatus('connecting');
     const url = buildWsUrl(restaurantId);
-    const ws = new WebSocket(url);
+    // Browser WebSockets cannot set Authorization. Carry the JWT in the
+    // negotiated subprotocol header so it never appears in URLs/access logs.
+    const ws = new WebSocket(url, ['foody', `foody.jwt.${token}`]);
     wsRef.current = ws;
 
     ws.onopen = () => {

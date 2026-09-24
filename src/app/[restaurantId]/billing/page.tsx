@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import { getSubscription, setupBilling, changePlan, SubscriptionDetail, PlanTier } from '@/lib/api';
+import { useParams } from 'next/navigation';
+import { getSubscription, changePlan, SubscriptionDetail, PlanTier } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { CreditCardIcon, CheckCircleIcon, AlertTriangleIcon } from 'lucide-react';
 import { PageHead } from '@/components/ds';
@@ -39,36 +39,17 @@ const PLANS: { tier: PlanTier; nameKey: string; priceKey: string; featureKeys: s
 export default function BillingPage() {
   const { money } = useCurrency();
   const { restaurantId } = useParams();
-  const searchParams = useSearchParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
 
   const [sub, setSub] = useState<SubscriptionDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [billingLoading, setBillingLoading] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    // Handle redirect back from PayPlus
-    const setup = searchParams.get('setup');
-    if (setup === 'success') setMessage(t('billingSetupSuccess'));
-    else if (setup === 'failed') setMessage(t('billingSetupFailed'));
-
     getSubscription(rid).then(setSub).finally(() => setLoading(false));
-  }, [rid, searchParams]);
-
-  const handleSetupBilling = async () => {
-    setBillingLoading(true);
-    try {
-      const { payment_url } = await setupBilling(rid);
-      window.location.href = payment_url;
-    } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : t('couldNotStartBilling'));
-    } finally {
-      setBillingLoading(false);
-    }
-  };
+  }, [rid]);
 
   const handleChangePlan = async (tier: PlanTier) => {
     if (sub?.plan_tier === tier) return;
@@ -95,8 +76,6 @@ export default function BillingPage() {
   }
 
   const statusCfg = sub ? STATUS_CONFIG[sub.status] : null;
-  const needsBillingSetup = sub && (sub.status === 'trial' || sub.status === 'past_due') && !sub.payplus_recurring_uid;
-
   return (
     <div className="space-y-[var(--s-5)] max-w-3xl">
       <PageHead
@@ -163,20 +142,14 @@ export default function BillingPage() {
             )}
           </div>
 
-          {/* Setup / update billing CTA */}
-          {(needsBillingSetup || sub.status === 'active') && (
-            <button
-              onClick={handleSetupBilling}
-              disabled={billingLoading}
-              className="btn-primary flex items-center gap-2 disabled:opacity-50"
-            >
-              <CreditCardIcon className="w-4 h-4" />
-              {billingLoading
-                ? t('redirecting')
-                : sub.card_last_four
-                ? t('updatePaymentMethod')
-                : t('setupBilling')}
-            </button>
+          {/* PayPlus recurring billing is disabled; support handles billing until a replacement ships. */}
+          {(sub.status === 'trial' || sub.status === 'past_due' || sub.status === 'active') && (
+            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-standard text-sm text-fg-secondary">
+              {t('billingManagedBySupport')}{' '}
+              <a className="font-medium text-brand-500 hover:text-brand-600" href="mailto:support@foody-pos.co.il?subject=Billing">
+                support@foody-pos.co.il
+              </a>
+            </div>
           )}
 
           {sub.status === 'deactivated' && (
