@@ -21,6 +21,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout guest web renderer contract
+        uses: actions/checkout@v4
+        with:
+          repository: Foody-isr/web
+          ref: develop
+          path: foodyweb
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -31,6 +37,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+        env:
+          FOODYWEB_ROOT: ${{ github.workspace }}/foodyweb
       - run: npm run check:i18n
       - name: Build production bundle
         run: npm run build
