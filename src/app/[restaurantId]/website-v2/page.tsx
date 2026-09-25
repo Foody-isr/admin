@@ -13,7 +13,7 @@
 // the v2 server on dev.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   getWebsiteDraft,
   saveWebsiteDraft,
@@ -80,7 +80,8 @@ const SOCIAL_PLATFORMS: { key: string; label: string; placeholder: string }[] = 
   { key: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/…' },
 ];
 
-export default function WebsiteV2Builder({ params }: { params: { restaurantId: string } }) {
+export default function WebsiteV2Builder() {
+  const params = useParams<{ restaurantId: string }>();
   const rid = Number(params.restaurantId);
   const router = useRouter();
   const [draft, setDraft] = useState<DraftResponse | null>(null);

@@ -2,10 +2,11 @@ import { redirect } from 'next/navigation';
 
 // Scheduled / batch pre-orders moved into the Online orders workspace. Keep this
 // route as a redirect so existing bookmarks and links still land.
-export default function ScheduledOrdersRedirect({
+export default async function ScheduledOrdersRedirect({
   params,
 }: {
-  params: { restaurantId: string };
+  params: Promise<{ restaurantId: string }>;
 }) {
-  redirect(`/${params.restaurantId}/settings/orders/preorders`);
+  const { restaurantId } = await params;
+  redirect(`/${restaurantId}/settings/orders/preorders`);
 }

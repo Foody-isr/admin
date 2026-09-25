@@ -38,9 +38,12 @@ test("every statically rendered field ID has a registered contract", () => {
 });
 
 test("every custom contract selector is backed by a foodyweb renderer hook", () => {
+  const webRoot = process.env.FOODYWEB_ROOT
+    ? resolve(process.env.FOODYWEB_ROOT)
+    : resolve(process.cwd(), "../foodyweb");
   const webSources = [
-    ...sourceFiles(resolve(process.cwd(), "../foodyweb/components")),
-    ...sourceFiles(resolve(process.cwd(), "../foodyweb/lib")),
+    ...sourceFiles(resolve(webRoot, "components")),
+    ...sourceFiles(resolve(webRoot, "lib")),
   ].join("\n");
   assert.match(webSources, /websiteV3PageFieldHooks/);
   assert.match(webSources, /websiteV3SectionFieldHooks/);

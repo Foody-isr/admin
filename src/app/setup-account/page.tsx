@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   validateInviteToken,
@@ -220,9 +221,9 @@ function SetupAccountContent() {
             </div>
             <h2 className="text-lg font-semibold text-fg-primary mb-2">{t('invalidInvitation')}</h2>
             <p className="text-sm text-fg-secondary mb-6">{tokenError}</p>
-            <a href="/login" className="text-sm text-brand-500 hover:text-brand-600 font-medium">
+            <Link href="/login" className="text-sm text-brand-500 hover:text-brand-600 font-medium">
               {t('goToLogin')}
-            </a>
+            </Link>
           </div>
         </div>
       </div>

@@ -3,7 +3,8 @@ import OrdersSettingsPage, { type OrdersSettingsView } from '../OrdersSettingsWo
 
 const SECTIONS: OrdersSettingsView[] = ['availability', 'preorders', 'processing', 'workflow'];
 
-export default function OrdersSectionPage({ params }: { params: { section: string } }) {
-  if (!SECTIONS.includes(params.section as OrdersSettingsView)) notFound();
-  return <OrdersSettingsPage view={params.section as OrdersSettingsView} />;
+export default async function OrdersSectionPage({ params }: { params: Promise<{ section: string }> }) {
+  const { section } = await params;
+  if (!SECTIONS.includes(section as OrdersSettingsView)) notFound();
+  return <OrdersSettingsPage view={section as OrdersSettingsView} />;
 }
