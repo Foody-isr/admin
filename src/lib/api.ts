@@ -5750,13 +5750,6 @@ export async function getSubscription(restaurantId: number): Promise<Subscriptio
   return data.subscription;
 }
 
-export async function setupBilling(restaurantId: number): Promise<{ payment_url: string }> {
-  return apiFetch<{ payment_url: string }>(
-    `/api/v1/restaurants/${restaurantId}/subscription/setup-billing`, restaurantId,
-    { method: 'POST' }
-  );
-}
-
 export async function changePlan(restaurantId: number, planTier: PlanTier): Promise<void> {
   await apiFetch<void>(
     `/api/v1/restaurants/${restaurantId}/subscription/change-plan`, restaurantId,

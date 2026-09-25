@@ -1,9 +1,10 @@
 import { WebsiteV3Builder } from "@/components/website-v3/WebsiteV3Builder";
 
-export default function WebsiteV3Page({
+export default async function WebsiteV3Page({
   params,
 }: {
-  params: { restaurantId: string };
+  params: Promise<{ restaurantId: string }>;
 }) {
-  return <WebsiteV3Builder restaurantId={Number(params.restaurantId)} />;
+  const { restaurantId } = await params;
+  return <WebsiteV3Builder restaurantId={Number(restaurantId)} />;
 }

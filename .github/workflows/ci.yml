@@ -1,0 +1,43 @@
+name: Pull Request CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Audit, Test and Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Reject high-severity dependency vulnerabilities
+        run: npm audit --audit-level=high
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Checkout guest web renderer contract
+        run: git clone --depth 1 --branch develop https://github.com/Foody-isr/web.git "$RUNNER_TEMP/foodyweb"
+      - run: npm test
+        env:
+          FOODYWEB_ROOT: ${{ runner.temp }}/foodyweb
+      - run: npm run check:i18n
+      - name: Build production bundle
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://dev-api.foody-pos.co.il
+          NEXT_PUBLIC_WEB_URL: https://dev-app.foody-pos.co.il
