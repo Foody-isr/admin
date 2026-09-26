@@ -162,6 +162,7 @@ export interface BatchFulfillmentDay {
 }
 
 export type PricingMode = 'standard' | 'by_weight';
+export type TableAssignmentMode = 'free' | 'collaborative' | 'strict';
 
 export interface RestaurantSettings {
   id: number;
@@ -175,6 +176,7 @@ export interface RestaurantSettings {
   require_pickup_prepayment?: boolean;
   require_delivery_prepayment?: boolean;
   service_mode: string;
+  table_assignment_mode: TableAssignmentMode;
   scheduling_enabled: boolean;
   // Slot-based scheduling detail (mutually exclusive with batch fulfillment).
   scheduling_min_days_ahead?: number;
@@ -829,6 +831,14 @@ export interface StaffMember {
   invite_status?: 'pending' | 'expired' | 'active' | 'not_invited';
   pos_pin_configured?: boolean;
   last_login_at?: string;
+}
+
+export interface StaffTableAssignment {
+  user_id: number;
+  table_ids: number[];
+  section_ids: number[];
+  floor_plan_ids: number[];
+  effective_table_ids: number[];
 }
 
 export interface StaffShiftSummary {
@@ -5700,6 +5710,46 @@ export async function removeStaff(restaurantId: number, userId: number): Promise
   );
 }
 
+export async function getTableAssignmentMode(restaurantId: number): Promise<TableAssignmentMode> {
+  const data = await apiFetch<{ mode: TableAssignmentMode }>(
+    `/api/v1/restaurants/${restaurantId}/staff/table-assignment-mode`, restaurantId,
+  );
+  return data.mode ?? 'free';
+}
+
+export async function updateTableAssignmentMode(
+  restaurantId: number,
+  mode: TableAssignmentMode,
+): Promise<TableAssignmentMode> {
+  const data = await apiFetch<{ mode: TableAssignmentMode }>(
+    `/api/v1/restaurants/${restaurantId}/staff/table-assignment-mode`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ mode }) },
+  );
+  return data.mode;
+}
+
+export async function getStaffTableAssignments(
+  restaurantId: number,
+  userId: number,
+): Promise<StaffTableAssignment> {
+  const data = await apiFetch<{ assignment: StaffTableAssignment }>(
+    `/api/v1/restaurants/${restaurantId}/staff/${userId}/table-assignments`, restaurantId,
+  );
+  return data.assignment;
+}
+
+export async function updateStaffTableAssignments(
+  restaurantId: number,
+  userId: number,
+  input: Pick<StaffTableAssignment, 'table_ids' | 'section_ids' | 'floor_plan_ids'>,
+): Promise<StaffTableAssignment> {
+  const data = await apiFetch<{ assignment: StaffTableAssignment }>(
+    `/api/v1/restaurants/${restaurantId}/staff/${userId}/table-assignments`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+  return data.assignment;
+}
+
 export async function listStaffShifts(
   restaurantId: number,
   params: { from: string; to: string; userId?: number },
@@ -7562,6 +7612,7 @@ export interface RestaurantTableRef {
   seats: number;
   active: boolean;
   section_id: number | null;
+  assigned_to_me?: boolean;
   /** Locale code (en/he/fr) used when rendering this table's QR card. Empty = inherit restaurant default. */
   language?: string;
 }
