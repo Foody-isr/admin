@@ -6,13 +6,19 @@ import Link from 'next/link';
 import {
   listStaff, inviteStaff, updateStaffRole, removeStaff,
   resendStaffInvite, listRoles, StaffMember, RestaurantRole,
+  FloorPlan, getTableAssignmentMode, listFloorPlans, listSections, listTables,
+  RestaurantTableRef, TableAssignmentMode, TableSection, updateTableAssignmentMode,
 } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { roleDisplayName, roleDisplayLabel } from '@/lib/permission-i18n';
-import { Clock3Icon, MailIcon, PlusIcon, TabletSmartphoneIcon, TrashIcon } from 'lucide-react';
+import {
+  Clock3Icon, HandshakeIcon, MailIcon, MapPinnedIcon, PlusIcon,
+  ShieldCheckIcon, TabletSmartphoneIcon, TrashIcon, UsersRoundIcon,
+} from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
 import Modal from '@/components/Modal';
+import { TableAssignmentModal } from '@/components/staff/TableAssignmentModal';
 import {
   DataTable,
   DataTableHead,
@@ -32,9 +38,15 @@ export default function StaffPage() {
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [roles, setRoles] = useState<RestaurantRole[]>([]);
+  const [assignmentMode, setAssignmentMode] = useState<TableAssignmentMode>('free');
+  const [floorPlans, setFloorPlans] = useState<FloorPlan[]>([]);
+  const [sections, setSections] = useState<TableSection[]>([]);
+  const [tables, setTables] = useState<RestaurantTableRef[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [assignmentMember, setAssignmentMember] = useState<StaffMember | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [modeSaving, setModeSaving] = useState(false);
 
   const [form, setForm] = useState({
     full_name: '',
@@ -45,10 +57,24 @@ export default function StaffPage() {
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [pageError, setPageError] = useState('');
 
   const reload = () => {
-    Promise.all([listStaff(rid), listRoles(rid)])
-      .then(([s, r]) => { setStaff(s); setRoles(r); })
+    Promise.all([
+      listStaff(rid), listRoles(rid), getTableAssignmentMode(rid),
+      listFloorPlans(rid), listSections(rid), listTables(rid),
+    ])
+      .then(([s, r, mode, plans, tableSections, restaurantTables]) => {
+        setStaff(s);
+        setRoles(r);
+        setAssignmentMode(mode);
+        setFloorPlans(plans);
+        setSections(tableSections);
+        setTables(restaurantTables);
+      })
+      .catch((reason: unknown) => {
+        setPageError(reason instanceof Error ? reason.message : t('staffLoadError'));
+      })
       .finally(() => setLoading(false));
   };
   useEffect(() => { reload(); }, [rid]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -127,6 +153,27 @@ export default function StaffPage() {
     }
   };
 
+  const handleAssignmentModeChange = async (mode: TableAssignmentMode) => {
+    if (!canManage || mode === assignmentMode || modeSaving) return;
+    setModeSaving(true);
+    setPageError('');
+    try {
+      const saved = await updateTableAssignmentMode(rid, mode);
+      setAssignmentMode(saved);
+      setSuccessMsg(t('tableAssignmentModeSaved'));
+    } catch (reason: unknown) {
+      setPageError(reason instanceof Error ? reason.message : t('tableAssignmentModeSaveError'));
+    } finally {
+      setModeSaving(false);
+    }
+  };
+
+  const hasUnrestrictedTableAccess = (member: StaffMember) => {
+    if (member.role === 'owner' || member.role === 'manager') return true;
+    const role = roles.find((candidate) => candidate.id === member.role_id);
+    return role?.permissions.some((permission) => permission.permission === 'staff.manage') ?? false;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -178,6 +225,19 @@ export default function StaffPage() {
         </div>
       )}
 
+      {pageError && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+          {pageError}
+        </div>
+      )}
+
+      <TableAssignmentModeSelector
+        mode={assignmentMode}
+        disabled={!canManage || modeSaving}
+        onChange={handleAssignmentModeChange}
+        t={t}
+      />
+
       <DataTable>
         <DataTableHead>
           <DataTableHeadCell>{t('name')}</DataTableHeadCell>
@@ -225,6 +285,16 @@ export default function StaffPage() {
                 <DataTableCell align="right">
                   {member.role !== 'owner' && (
                     <div className="flex justify-end gap-1">
+                      {!hasUnrestrictedTableAccess(member) && (
+                        <button
+                          disabled={actionLoading === member.id}
+                          onClick={() => setAssignmentMember(member)}
+                          className="p-1.5 rounded hover:bg-brand-500/10 disabled:opacity-50"
+                          title={t('manageTableAssignments')}
+                        >
+                          <MapPinnedIcon className="w-4 h-4 text-brand-500" />
+                        </button>
+                      )}
                       <button
                         disabled={actionLoading === member.id}
                         onClick={() => handleResendInvite(member)}
@@ -291,6 +361,99 @@ export default function StaffPage() {
           </form>
         </Modal>
       )}
+
+      {assignmentMember && (
+        <TableAssignmentModal
+          restaurantId={rid}
+          member={assignmentMember}
+          floorPlans={floorPlans}
+          sections={sections}
+          tables={tables}
+          onClose={() => setAssignmentMember(null)}
+          onSaved={() => {
+            setAssignmentMember(null);
+            setSuccessMsg(t('tableAssignmentsSaved'));
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function TableAssignmentModeSelector({
+  mode,
+  disabled,
+  onChange,
+  t,
+}: {
+  mode: TableAssignmentMode;
+  disabled: boolean;
+  onChange: (mode: TableAssignmentMode) => void;
+  t: (key: string) => string;
+}) {
+  const options: Array<{
+    value: TableAssignmentMode;
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+  }> = [
+    {
+      value: 'free',
+      icon: <UsersRoundIcon />,
+      title: t('tableAssignmentModeFree'),
+      description: t('tableAssignmentModeFreeDesc'),
+    },
+    {
+      value: 'collaborative',
+      icon: <HandshakeIcon />,
+      title: t('tableAssignmentModeCollaborative'),
+      description: t('tableAssignmentModeCollaborativeDesc'),
+    },
+    {
+      value: 'strict',
+      icon: <ShieldCheckIcon />,
+      title: t('tableAssignmentModeStrict'),
+      description: t('tableAssignmentModeStrictDesc'),
+    },
+  ];
+
+  return (
+    <section className="border-s-4 border-brand-500 bg-[var(--surface)] px-5 py-4 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 className="text-base font-semibold text-fg-primary">{t('tableAssignmentModeTitle')}</h2>
+          <p className="mt-1 text-sm text-fg-secondary">{t('tableAssignmentModeDesc')}</p>
+        </div>
+        <span className="text-xs font-medium text-fg-muted">{t('tableAssignmentManagersAlwaysSeeAll')}</span>
+      </div>
+      <div className="grid gap-px overflow-hidden rounded-lg border border-divider bg-divider md:grid-cols-3" role="radiogroup">
+        {options.map((option) => {
+          const selected = option.value === mode;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              disabled={disabled}
+              onClick={() => onChange(option.value)}
+              className={`flex min-h-[94px] items-start gap-3 bg-[var(--surface)] px-4 py-3 text-start transition-colors disabled:cursor-default ${
+                selected ? 'shadow-[inset_0_-3px_0_var(--brand-500)]' : 'hover:bg-[var(--surface-subtle)]'
+              }`}
+            >
+              <span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full [&_svg]:h-4 [&_svg]:w-4 ${
+                selected ? 'bg-brand-500 text-white' : 'bg-[var(--surface-subtle)] text-fg-secondary'
+              }`}>
+                {option.icon}
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-fg-primary">{option.title}</span>
+                <span className="mt-1 block text-xs leading-5 text-fg-secondary">{option.description}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
