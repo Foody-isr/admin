@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useParams, useRouter } from 'next/navigation';
 import { ShieldAlert } from 'lucide-react';
 import { usePermissions } from '@/lib/permissions-context';
-import { requiredPermissionsForPath } from '@/lib/route-permissions';
+import { defaultRestaurantPath, requiredPermissionsForPath } from '@/lib/route-permissions';
 import { useI18n } from '@/lib/i18n';
 import { isCourierDeliveryPath, isCourierRoleName } from '@/lib/courier-access';
 
@@ -20,7 +20,7 @@ export default function PermissionRouteGuard({ children }: { children: ReactNode
   const pathname = usePathname();
   const params = useParams();
   const router = useRouter();
-  const { hasAnyPermission, roleName, loading } = usePermissions();
+  const { permissions, hasAnyPermission, roleName, loading } = usePermissions();
   const { t } = useI18n();
   const restaurantId = Number(params.restaurantId);
   const courierOnly = isCourierRoleName(roleName);
@@ -33,9 +33,21 @@ export default function PermissionRouteGuard({ children }: { children: ReactNode
   }, [courierOnly, courierPathAllowed, loading, restaurantId, router]);
 
   const required = requiredPermissionsForPath(pathname);
+  const allowed = required.length === 0 || hasAnyPermission(...required);
+  const fallbackPath = defaultRestaurantPath(restaurantId, permissions);
+
+  useEffect(() => {
+    if (!loading && !courierOnly && !allowed && fallbackPath && fallbackPath !== pathname) {
+      router.replace(fallbackPath);
+    }
+  }, [allowed, courierOnly, fallbackPath, loading, pathname, router]);
 
   // Decide only once the per-restaurant permissions have loaded.
-  if (loading || (courierOnly && !courierPathAllowed)) {
+  if (
+    loading ||
+    (courierOnly && !courierPathAllowed) ||
+    (!allowed && fallbackPath !== null && fallbackPath !== pathname)
+  ) {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
@@ -43,9 +55,9 @@ export default function PermissionRouteGuard({ children }: { children: ReactNode
     );
   }
 
-  if (required.length === 0) return <>{children}</>;
+  if (allowed) return <>{children}</>;
 
-  if (!hasAnyPermission(...required)) {
+  if (!allowed) {
     return (
       <div className="flex flex-col items-center justify-center text-center gap-4 py-24 max-w-md mx-auto">
         <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center">
@@ -60,5 +72,5 @@ export default function PermissionRouteGuard({ children }: { children: ReactNode
     );
   }
 
-  return <>{children}</>;
+  return null;
 }

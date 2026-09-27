@@ -53,6 +53,7 @@ import {
 import { InfoTip } from '@/components/help/InfoTip';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { useAuth } from '@/lib/auth-context';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   orderDetailPath,
   ordersListPath,
@@ -259,6 +260,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const { t, locale } = useI18n();
   const { user } = useAuth();
+  const { hasAnyPermission } = usePermissions();
+  const canViewOrders = hasAnyPermission('orders.view', 'orders.manage');
   const { code: currency } = useCurrency();
   const dateLocale = DATE_LOCALES[locale];
 
@@ -356,16 +359,26 @@ export default function DashboardPage() {
           : Promise.resolve([] as DaySummary[])
         : getDailySeries(rid, days, previousEnd, basis),
       getBreakdown(rid, { dimension: 'order_type', scope, basis }),
-      listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
-      listOrders(rid, { ...liveOrderScope, status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' }),
-      listOrders(rid, { ...liveOrderScope, status: 'pending_review', limit: 1 }),
-      listOrders(rid, { ...liveOrderScope, status: 'ready,ready_for_pickup,ready_for_delivery', limit: 1 }),
-      listOrders(rid, {
-        ...liveOrderScope,
-        status: LIVE_ORDER_STATUSES,
-        payment_status: PAYMENT_ATTENTION_FILTER,
-        limit: 1,
-      }),
+      canViewOrders
+        ? listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' })
+        : Promise.resolve(null),
+      canViewOrders
+        ? listOrders(rid, { ...liveOrderScope, status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' })
+        : Promise.resolve(null),
+      canViewOrders
+        ? listOrders(rid, { ...liveOrderScope, status: 'pending_review', limit: 1 })
+        : Promise.resolve(null),
+      canViewOrders
+        ? listOrders(rid, { ...liveOrderScope, status: 'ready,ready_for_pickup,ready_for_delivery', limit: 1 })
+        : Promise.resolve(null),
+      canViewOrders
+        ? listOrders(rid, {
+          ...liveOrderScope,
+          status: LIVE_ORDER_STATUSES,
+          payment_status: PAYMENT_ATTENTION_FILTER,
+          limit: 1,
+        })
+        : Promise.resolve(null),
     ])
       .then(([per, top, daily, previousDaily, breakdown, orders, active, review, readyOrders, payments]) => {
         // A basis and range can now be changed within the same open popover.
@@ -376,11 +389,15 @@ export default function DashboardPage() {
         if (daily.status === 'fulfilled') setSeries(daily.value ?? []);
         if (previousDaily.status === 'fulfilled') setPreviousSeries(previousDaily.value ?? []);
         setChannelRows(breakdown.status === 'fulfilled' ? breakdown.value.rows : []);
-        if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
-        if (active.status === 'fulfilled' && review.status === 'fulfilled' && readyOrders.status === 'fulfilled') {
+        if (orders.status === 'fulfilled') setRecentOrders(orders.value?.orders ?? []);
+        if (
+          active.status === 'fulfilled' && active.value &&
+          review.status === 'fulfilled' && review.value &&
+          readyOrders.status === 'fulfilled' && readyOrders.value
+        ) {
           setLiveSummary({
             active: active.value.total,
-            payments: payments.status === 'fulfilled' ? payments.value.total : undefined,
+            payments: payments.status === 'fulfilled' ? payments.value?.total : undefined,
             pendingReview: review.value.total,
             ready: readyOrders.value.total,
             oldestCreatedAt: active.value.orders[0]?.created_at,
@@ -392,7 +409,7 @@ export default function DashboardPage() {
       .finally(() => {
         if (requestId === loadSequence.current) setLoading(false);
       });
-  }, [rid, dateRange, basis, serieMode, previousSerieRange]);
+  }, [rid, dateRange, basis, serieMode, previousSerieRange, canViewOrders]);
 
   // Switch the date basis and persist it; the load effect refetches on change.
   const onChangeBasis = useCallback((b: DateBasis) => {
@@ -590,11 +607,13 @@ export default function DashboardPage() {
         }
       />
 
-      <OperationsBar
-        summary={liveSummary}
-        onOpenOrders={() => router.push(operationsOrdersPath)}
-        t={t}
-      />
+      {canViewOrders && (
+        <OperationsBar
+          summary={liveSummary}
+          onOpenOrders={() => router.push(operationsOrdersPath)}
+          t={t}
+        />
+      )}
 
       <div className="grid grid-cols-1 items-start gap-[var(--s-4)] xl:grid-cols-[minmax(0,1fr)_340px]">
         <PerformanceOverview
@@ -629,7 +648,7 @@ export default function DashboardPage() {
         />
 
         <div className="flex min-w-0 flex-col gap-[var(--s-4)]">
-          <Section
+          {canViewOrders && <Section
             title={t('recentOrders')}
             className="mb-0 overflow-hidden shadow-none [&>div:first-child]:px-[var(--s-4)] [&>div:first-child]:pb-[var(--s-2)] [&>div:first-child]:pt-[var(--s-3)] [&>div:last-child]:px-[var(--s-4)] [&>div:last-child]:pb-[var(--s-3)]"
             aside={
@@ -675,7 +694,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
-          </Section>
+          </Section>}
 
           <TopSellersPanel
             sellers={topSellers}
@@ -761,12 +780,23 @@ function DashboardActionsMenu({
   onNavigate: (href: string) => void;
   t: (key: string) => string;
 }) {
+  const { hasAnyPermission, hasPermission } = usePermissions();
+  const canViewOrders = hasAnyPermission('orders.view', 'orders.manage');
   const actions = [
-    { icon: DollarSign, label: t('acceptPayment'), href: `/${restaurantId}/orders/all` },
-    { icon: Edit, label: t('editMenuAction'), href: `/${restaurantId}/menu/menus` },
-    { icon: Plus, label: t('addItemAction'), href: `/${restaurantId}/menu/items/new` },
-    { icon: Package, label: t('receiveDelivery'), href: `/${restaurantId}/kitchen/stock` },
+    ...(canViewOrders && hasPermission('payments.manage')
+      ? [{ icon: DollarSign, label: t('acceptPayment'), href: `/${restaurantId}/orders/all` }]
+      : []),
+    ...(hasPermission('menu.edit')
+      ? [
+        { icon: Edit, label: t('editMenuAction'), href: `/${restaurantId}/menu/menus` },
+        { icon: Plus, label: t('addItemAction'), href: `/${restaurantId}/menu/items/new` },
+      ]
+      : []),
+    ...(hasPermission('kitchen.manage')
+      ? [{ icon: Package, label: t('receiveDelivery'), href: `/${restaurantId}/kitchen/stock` }]
+      : []),
   ];
+  if (actions.length === 0) return null;
   return (
     <Menu>
       <MenuTrigger asChild>

@@ -23,6 +23,7 @@ export function OrderNotesSection({
   onRemove,
   t,
   direction,
+  canManage,
 }: {
   notes: OrderNote[];
   status: 'loading' | 'ready' | 'error';
@@ -32,6 +33,7 @@ export function OrderNotesSection({
   onRemove: (noteId: number) => Promise<boolean>;
   t: (k: string) => string;
   direction: 'ltr' | 'rtl';
+  canManage: boolean;
 }) {
   const [composing, setComposing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -82,14 +84,16 @@ export function OrderNotesSection({
                 <div className="text-fs-xs text-[var(--fg-subtle)]">
                   {[n.author_name, formatNoteTime(n.created_at)].filter(Boolean).join(' · ')}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void remove(n.id)}
-                  aria-label={t('delete') || 'Supprimer'}
-                  className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--danger-500)] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                >
-                  <Trash2Icon className="w-3.5 h-3.5" />
-                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => void remove(n.id)}
+                    aria-label={t('delete') || 'Supprimer'}
+                    className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--danger-500)] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  >
+                    <Trash2Icon className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <div className="text-fs-sm text-[var(--fg)] mt-0.5 whitespace-pre-wrap break-words">{n.body}</div>
             </li>
@@ -97,7 +101,7 @@ export function OrderNotesSection({
         </ul>
       )}
 
-      {composing ? (
+      {canManage && (composing ? (
         <div className="flex flex-col gap-[var(--s-2)]">
           {/* maxLength and the ⌘/Ctrl+Enter shortcut stay on the view: the first
               is an input constraint that also blocks a paste, the second is a
@@ -135,7 +139,7 @@ export function OrderNotesSection({
             <PlusIcon /> {t('addNote')}
           </Button>
         </div>
-      )}
+      ))}
 
       {/* Rendered only when there is something to say — an always-present empty
           line reserved height on every order for a message almost none get. */}
