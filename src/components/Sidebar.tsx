@@ -230,6 +230,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       subItems: [
         { href: `${base}/staff`, labelKey: 'staffMembers', perm: ['staff.view', 'staff.manage'] },
         { href: `${base}/roles`, labelKey: 'rolesPermissions', perm: ['roles.manage', 'staff.manage'] },
+        { href: `${base}/staff/table-service`, labelKey: 'floorService', perm: ['staff.manage'] },
         { href: `${base}/staff/shifts`, labelKey: 'shiftReports', perm: ['shifts.view', 'shifts.manage'] },
         { href: `${base}/staff/devices`, labelKey: 'posAccess', perm: ['shifts.manage'] },
       ],
