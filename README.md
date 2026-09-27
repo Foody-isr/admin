@@ -1,6 +1,6 @@
 # Foody Admin
 
-Permission-aware web portal for restaurant staff. It supports day-to-day operations from any browser while showing each user only the sections granted by their per-restaurant RBAC role. **Not for end customers.**
+Self-service web portal for restaurant owners and managers. Used to manage day-to-day restaurant operations from any browser: view orders, manage the menu, track analytics, invite staff, and handle billing. **Not for end customers** — access is restricted to users with the `owner` or `manager` role.
 
 ## Environments
 
@@ -39,11 +39,11 @@ foodybackoffice  (Foody internal team — superadmins)
        ↓ manages restaurants + billing
   foodyserver (API)
        ↓ serves
-  foodyadmin  ← You are here (permission-scoped restaurant staff)
+  foodyadmin  ← You are here (restaurant owners & managers)
   foodyweb (QR guests) + foodypos (POS tablets)
 ```
 
-Authorized restaurant staff use this portal to:
+Restaurant owners and managers use this portal to:
 - **Monitor** live order activity and today's KPIs without needing the Flutter POS tablet
 - **Manage** the full menu (categories, items, modifiers, images, availability)
 - **Update** restaurant settings (order approval, service mode, tips, scheduling)
@@ -56,7 +56,7 @@ Authorized restaurant staff use this portal to:
 ### Login (`/login`)
 
 - Email + password login using existing `foodyserver` auth
-- Any user assigned to at least one restaurant can authenticate; navigation, deep links, background requests, and server actions are then scoped by that restaurant's permissions
+- Only `owner` and `manager` roles are accepted — any other role (superadmin, cashier, chef, waiter) is rejected at login with a clear error message
 - Multi-restaurant owners (with multiple `restaurant_ids` in their JWT) are redirected to the restaurant picker after login
 - Single-restaurant owners go directly to their dashboard
 
@@ -288,14 +288,14 @@ Onboard → trial (30 days)
 | Icons | Heroicons v2 |
 | State | `useState` + `useEffect` (no external state lib) |
 | API calls | Centralized in `src/lib/api.ts` |
-| Auth | JWT stored in `localStorage`; restaurant membership establishes the tenant and RBAC permissions establish access |
+| Auth | JWT stored in `localStorage`, roles must be `owner` or `manager` |
 
 ## Project Structure
 
 ```
 src/
   app/
-    login/page.tsx              # Login page for restaurant-linked staff
+    login/page.tsx              # Login page (owner/manager only)
     select-restaurant/page.tsx  # Restaurant picker for multi-restaurant owners
     [restaurantId]/
       layout.tsx                # Sidebar + restaurant context
@@ -321,7 +321,7 @@ src/
 
 - Login at `/login` with email + password
 - JWT returned by `POST /api/v1/auth/login`
-- The user must be linked to at least one restaurant; page access is resolved from `/restaurants/:id/permissions/me`
+- Role must be `owner` or `manager` — any other role is rejected at login
 - Token stored in `localStorage` under `foody_restaurant_token`
 - All API calls send `Authorization: Bearer <token>` and `X-Restaurant-ID: <id>` header
 - Multi-restaurant support: `restaurant_ids` array in JWT payload drives the restaurant picker
@@ -393,7 +393,7 @@ DNS: `CNAME admin.foody-pos.co.il → cname.vercel-dns.com`
 ## Security Notes
 
 - JWT is stored in `localStorage` — acceptable for an internal/owner-facing tool on trusted devices
-- Page visibility and deep links are guarded from the server-returned permission set; `foodyserver` remains authoritative for every API action
+- Role check (`owner` or `manager`) is enforced both at login (frontend) and on every API endpoint in `foodyserver`
 - Restaurant scoping (`X-Restaurant-ID` header + JWT claims) is enforced server-side — users cannot access other restaurants' data even if they manually change the URL
 - Never store secrets in this app — it only needs `NEXT_PUBLIC_API_URL`
 - Always use HTTPS in production (enforced by Vercel)

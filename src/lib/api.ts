@@ -127,10 +127,6 @@ export interface Restaurant {
   dashboard_default_date_basis?: DateBasis;
   /** Restaurant-wide population used by the operational dashboard KPIs. */
   dashboard_revenue_mode?: DashboardRevenueMode;
-  /** Operational, public-safe flags included by GET /restaurants/:id. */
-  orders_paused?: boolean;
-  online_payment_only?: boolean;
-  website_config?: WebsiteConfig;
   created_at: string;
 }
 

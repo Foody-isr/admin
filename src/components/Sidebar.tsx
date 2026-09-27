@@ -55,7 +55,6 @@ import {
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
 import { isCourierRoleName } from '@/lib/courier-access';
-import { requiredPermissionsForPath } from '@/lib/route-permissions';
 
 interface SubItem {
   href: string;
@@ -112,13 +111,12 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
-  const canViewKitchen = hasAnyPermission('kitchen.view', 'kitchen.manage');
 
   useEffect(() => {
-    if (permissionsLoading || isCourierRoleName(roleName) || !canViewKitchen) return;
+    if (permissionsLoading || isCourierRoleName(roleName)) return;
     getLowStockCount(restaurantId).then(setLowStockCount).catch(() => {});
     getPrepLowStockCount(restaurantId).then(setLowPrepCount).catch(() => {});
-  }, [canViewKitchen, permissionsLoading, restaurantId, roleName]);
+  }, [permissionsLoading, restaurantId, roleName]);
 
   const base = `/${restaurantId}`;
   const isRtl = direction === 'rtl';
@@ -134,7 +132,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   }
 
   const allNav: NavItem[] = [
-    { href: `${base}/dashboard`, labelKey: 'dashboard', icon: Home, perm: ['analytics.view'] },
+    { href: `${base}/dashboard`, labelKey: 'dashboard', icon: Home },
     {
       href: `${base}/menu`,
       labelKey: 'menu',
@@ -169,27 +167,24 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       href: `${base}/orders/all`,
       labelKey: 'orders',
       icon: ClipboardList,
-      perm: ['orders.view', 'orders.manage', 'kitchen.view', 'kitchen.manage'],
+      perm: ['orders.view', 'orders.manage'],
+      clickHref: `${base}/orders/all`,
       subItems: [
-        { href: `${base}/orders/all`, labelKey: 'orders', perm: ['orders.view', 'orders.manage'] },
-        { href: `${base}/orders/deliveries`, labelKey: 'deliveries', perm: ['orders.view', 'orders.manage'] },
+        { href: `${base}/orders/all`, labelKey: 'orders' },
+        { href: `${base}/orders/deliveries`, labelKey: 'deliveries' },
         {
           href: `${base}/orders/courier-mode`,
           labelKey: 'courierMode',
           perm: ['orders.manage'],
         },
-        {
-          href: `${base}/orders/production`,
-          labelKey: 'productionTitle',
-          perm: ['kitchen.view', 'kitchen.manage'],
-        },
+        { href: `${base}/orders/production`, labelKey: 'productionTitle' },
       ],
     },
     {
       href: `${base}/website-v3`,
       labelKey: 'online',
       icon: Globe,
-      perm: ['settings.view', 'settings.edit'],
+      perm: ['settings.edit'],
       // The group is visible on mobile so an admin can reach Stories (connect
       // Instagram) from a phone. The website builder itself stays desktop-only.
       subItems: [
@@ -198,9 +193,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           labelKey: 'websiteBuilderV3',
           badgeLabelKey: 'betaLabel',
           desktopOnly: true,
-          perm: ['settings.edit'],
         },
-        { href: `${base}/reels`, labelKey: 'reels', perm: ['settings.view', 'settings.edit'] },
+        { href: `${base}/reels`, labelKey: 'reels' },
       ],
     },
     {
@@ -258,9 +252,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       href: `${base}/settings`,
       labelKey: 'settings',
       icon: Settings,
-      clickHref: hasAnyPermission('settings.view', 'settings.edit')
-        ? `${base}/settings`
-        : `${base}/settings/security`,
+      perm: ['settings.view', 'settings.edit', 'tables.manage'],
     },
   ];
   const courierNav: NavItem[] = [
@@ -461,10 +453,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                 </div>
               )}
               {settingsSections.map((s) => {
-                const visibleItems = s.items.filter((it) => {
-                  const required = it.perm ?? requiredPermissionsForPath(it.href);
-                  return required.length === 0 || hasAnyPermission(...required);
-                });
+                const visibleItems = s.items.filter((it) => !it.perm || hasAnyPermission(...it.perm));
                 if (visibleItems.length === 0) return null;
                 const allDesktopOnly = visibleItems.every((it) => it.desktopOnly);
                 return (

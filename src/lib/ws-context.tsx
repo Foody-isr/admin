@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import { API_URL, getToken } from '@/lib/api';
-import { usePermissions } from '@/lib/permissions-context';
 
 export interface WsEvent {
   type: string;
@@ -35,23 +34,6 @@ function buildWsUrl(restaurantId: number): string {
 const MAX_RECONNECT_ATTEMPTS = 10;
 
 export function WsProvider({ restaurantId, children }: { restaurantId: number; children: ReactNode }) {
-  const { permissions, isOwner, loading: permissionsLoading } = usePermissions();
-  const realtimeAllowed = !permissionsLoading && (
-    isOwner || permissions.some((permission) => [
-      'orders.view',
-      'orders.manage',
-      'tables.view',
-      'tables.manage',
-      'kitchen.view',
-      'kitchen.manage',
-      'printers.view',
-      'printers.manage',
-      'menu.view',
-      'menu.edit',
-      'catering.view',
-      'catering.manage',
-    ].includes(permission))
-  );
   const [status, setStatus] = useState<WsStatus>('disconnected');
   const [lastEvent, setLastEvent] = useState<WsEvent | null>(null);
   const processingRef = useRef<Set<number>>(new Set());
@@ -65,7 +47,7 @@ export function WsProvider({ restaurantId, children }: { restaurantId: number; c
     if (disposed.current) return;
 
     const token = getToken();
-    if (!realtimeAllowed || !token || !restaurantId) {
+    if (!token || !restaurantId) {
       setStatus('disconnected');
       return;
     }
@@ -111,7 +93,7 @@ export function WsProvider({ restaurantId, children }: { restaurantId: number; c
     ws.onerror = () => {
       // onclose will fire after this
     };
-  }, [realtimeAllowed, restaurantId]);
+  }, [restaurantId]);
 
   const cleanup = useCallback(() => {
     if (pingTimer.current) {
