@@ -298,14 +298,12 @@ export default function PrepPage() {
               <CalendarDaysIcon />
               {t('dailyPlan') || 'Plan du jour'}
             </Button>
-            {canManage && (
-              <Button asChild variant="secondary" size="md">
-                <Link href={`/${rid}/kitchen/lab`}>
-                  <SparklesIcon />
-                  {t('createWithLab')}
-                </Link>
-              </Button>
-            )}
+            <Button asChild variant="secondary" size="md">
+              <Link href={`/${rid}/kitchen/lab`}>
+                <SparklesIcon />
+                {t('createWithLab')}
+              </Link>
+            </Button>
             {canManage && (
               <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>
                 <PlusIcon />

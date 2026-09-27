@@ -71,8 +71,6 @@ export function OrderReferenceDrawer({
   notes,
   t,
   direction,
-  canManageOrders,
-  canManagePayments,
 }: {
   view: OrderReferenceView | null;
   onOpenChange: (open: boolean) => void;
@@ -82,8 +80,6 @@ export function OrderReferenceDrawer({
   notes: OrderNotesState;
   t: (key: string) => string;
   direction: 'ltr' | 'rtl';
-  canManageOrders: boolean;
-  canManagePayments: boolean;
 }) {
   const title = view === 'invoice'
     ? t('invoiceHeading') || 'Facture'
@@ -107,7 +103,7 @@ export function OrderReferenceDrawer({
           t={t}
         />
       )}
-      {view === 'invoice' && <InvoiceSection order={order} canManage={canManagePayments} />}
+      {view === 'invoice' && <InvoiceSection order={order} />}
       {view === 'notes' && (
         <OrderNotesSection
           notes={notes.notes}
@@ -116,7 +112,6 @@ export function OrderReferenceDrawer({
           onRemove={notes.remove}
           t={t}
           direction={direction}
-          canManage={canManageOrders}
         />
       )}
     </Drawer>

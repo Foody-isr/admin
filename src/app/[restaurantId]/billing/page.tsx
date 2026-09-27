@@ -6,7 +6,6 @@ import { getSubscription, changePlan, SubscriptionDetail, PlanTier } from '@/lib
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { CreditCardIcon, CheckCircleIcon, AlertTriangleIcon } from 'lucide-react';
 import { PageHead } from '@/components/ds';
-import { usePermissions } from '@/lib/permissions-context';
 
 const STATUS_CONFIG = {
   trial: { labelKey: 'freeTrial' as const, color: 'badge-accepted', icon: CheckCircleIcon },
@@ -42,7 +41,6 @@ export default function BillingPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
-  const { isOwner } = usePermissions();
 
   const [sub, setSub] = useState<SubscriptionDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -199,7 +197,7 @@ export default function BillingPage() {
                     </li>
                   ))}
                 </ul>
-                {isOwner && !isCurrent && plan.tier !== 'enterprise' && (
+                {!isCurrent && plan.tier !== 'enterprise' && (
                   <button
                     onClick={() => handleChangePlan(plan.tier)}
                     disabled={planLoading}
