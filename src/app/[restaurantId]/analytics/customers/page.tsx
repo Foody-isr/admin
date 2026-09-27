@@ -8,6 +8,14 @@ import { useI18n, useCurrency } from '@/lib/i18n';
 import CustomerDetailPanel from './CustomerDetailPanel';
 import { PageHead } from '@/components/ds';
 import {
+  failedRestaurantState,
+  loadingRestaurantState,
+  readyRestaurantState,
+  RestaurantRequestGuard,
+  stateForRestaurant,
+  type RestaurantLoadState,
+} from '@/lib/restaurant-request-state';
+import {
   DataTable,
   DataTableHead,
   DataTableHeadCell,
@@ -40,8 +48,11 @@ export default function CustomersInsightsPage() {
   const rid = Number(restaurantId);
   const { t } = useI18n();
 
-  const [data, setData] = useState<CustomerListResult | null>(null);
-  const [loading, setLoading] = useState(true);
+  const requestGuardRef = useRef(new RestaurantRequestGuard());
+  requestGuardRef.current.enterRestaurant(rid);
+  const [loadState, setLoadState] = useState<RestaurantLoadState<CustomerListResult>>(
+    () => loadingRestaurantState(rid),
+  );
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('total_spent');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -50,9 +61,15 @@ export default function CustomersInsightsPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const perPage = 50;
+  const visibleState = stateForRestaurant(loadState, rid);
+  const data = visibleState.data;
+  const loading = visibleState.status === 'loading';
+  const loadFailed = visibleState.status === 'error';
 
   const fetchData = useCallback(async (s: string, sb: SortField, sd: string, p: number) => {
-    setLoading(true);
+    const guard = requestGuardRef.current;
+    const token = guard.begin(rid);
+    setLoadState(loadingRestaurantState(rid));
     try {
       const result = await getAnalyticsCustomers(rid, {
         search: s || undefined,
@@ -61,13 +78,24 @@ export default function CustomersInsightsPage() {
         page: p,
         per_page: perPage,
       });
-      setData(result);
+      if (guard.isCurrent(token)) {
+        setLoadState(readyRestaurantState(rid, result));
+      }
     } catch {
-      // keep stale data
-    } finally {
-      setLoading(false);
+      if (guard.isCurrent(token)) {
+        setLoadState(failedRestaurantState(rid));
+      }
     }
   }, [rid]);
+
+  useEffect(() => {
+    setSelectedPhone(null);
+  }, [rid]);
+
+  useEffect(() => () => {
+    requestGuardRef.current.invalidate();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
 
   useEffect(() => {
     fetchData(search, sortBy, sortDir, page);
@@ -139,7 +167,18 @@ export default function CustomersInsightsPage() {
 
       {/* Table */}
       <div className="space-y-[var(--s-4)]">
-        {loading && !data ? (
+        {loadFailed ? (
+          <div className="flex flex-col items-center gap-3 py-12" role="alert">
+            <p className="text-sm text-[var(--danger-600)]">{t('couldNotLoad')}</p>
+            <button
+              type="button"
+              className="rounded border border-divider px-3 py-1.5 text-sm hover:bg-surface-subtle"
+              onClick={() => fetchData(search, sortBy, sortDir, page)}
+            >
+              {t('retry')}
+            </button>
+          </div>
+        ) : loading && !data ? (
           <div className="flex justify-center py-16">
             <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
           </div>

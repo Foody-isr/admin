@@ -25,6 +25,14 @@ import {
   DataTableRow,
   DataTableCell,
 } from '@/components/data-table';
+import {
+  failedRestaurantState,
+  loadingRestaurantState,
+  readyRestaurantState,
+  RestaurantRequestGuard,
+  stateForRestaurant,
+  type RestaurantLoadState,
+} from '@/lib/restaurant-request-state';
 
 type SortField = 'quantity' | 'revenue' | 'avg_price' | 'order_count' | 'name' | 'category_name' | 'pct_of_revenue';
 
@@ -65,8 +73,11 @@ export default function SalesByItemPage() {
   const rid = Number(restaurantId);
   const { t } = useI18n();
 
-  const [data, setData] = useState<ItemSalesListResult | null>(null);
-  const [loading, setLoading] = useState(true);
+  const requestGuardRef = useRef(new RestaurantRequestGuard());
+  requestGuardRef.current.enterRestaurant(rid);
+  const [loadState, setLoadState] = useState<RestaurantLoadState<ItemSalesListResult>>(
+    () => loadingRestaurantState(rid),
+  );
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('quantity');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -86,28 +97,40 @@ export default function SalesByItemPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const perPage = 50;
+  const visibleState = stateForRestaurant(loadState, rid);
+  const data = visibleState.data;
+  const loading = visibleState.status === 'loading';
+  const loadFailed = visibleState.status === 'error';
 
   // Hydrate week config (drives the picker presets) + persisted selection.
   useEffect(() => {
     if (!rid) return;
+    let active = true;
+    setReady(false);
+    setSelectedItemId(null);
     getRestaurant(rid)
       .then((r) => {
+        if (!active) return;
         setWsd(clampWeekStartDay(r.week_start_day));
         setWorkdays(getEffectiveWorkdays(r));
       })
       .catch(() => {})
       .finally(() => {
+        if (!active) return;
         const storedRange = readStoredRange();
         if (storedRange) setDateRange(storedRange);
         setBasis(readStoredBasis());
         setReady(true);
       });
+    return () => { active = false; };
   }, [rid]);
 
   const scope = { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
 
   const fetchData = useCallback(async (s: string, sb: SortField, sd: string, p: number, from: string, to: string, b: DateBasis) => {
-    setLoading(true);
+    const guard = requestGuardRef.current;
+    const token = guard.begin(rid);
+    setLoadState(loadingRestaurantState(rid));
     try {
       const result = await getAnalyticsItems(rid, { from, to }, b, {
         search: s || undefined,
@@ -116,13 +139,20 @@ export default function SalesByItemPage() {
         page: p,
         per_page: perPage,
       });
-      setData(result);
+      if (guard.isCurrent(token)) {
+        setLoadState(readyRestaurantState(rid, result));
+      }
     } catch {
-      // keep stale data
-    } finally {
-      setLoading(false);
+      if (guard.isCurrent(token)) {
+        setLoadState(failedRestaurantState(rid));
+      }
     }
   }, [rid]);
+
+  useEffect(() => () => {
+    requestGuardRef.current.invalidate();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
 
   // Refetch on sort / page / window / basis changes once hydrated.
   useEffect(() => {
@@ -276,7 +306,18 @@ export default function SalesByItemPage() {
 
       {/* Table */}
       <div className="space-y-[var(--s-4)]">
-        {loading && !data ? (
+        {loadFailed ? (
+          <div className="flex flex-col items-center gap-3 py-12" role="alert">
+            <p className="text-sm text-[var(--danger-600)]">{t('couldNotLoad')}</p>
+            <button
+              type="button"
+              className="rounded border border-divider px-3 py-1.5 text-sm hover:bg-surface-subtle"
+              onClick={() => fetchData(search, sortBy, sortDir, page, scope.from, scope.to, basis)}
+            >
+              {t('retry')}
+            </button>
+          </div>
+        ) : loading && !data ? (
           <div className="flex justify-center py-16">
             <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
           </div>
