@@ -90,7 +90,7 @@ export function CommandBar({
           </Button>
         )}
 
-        {canManage && caps.canConfirmWeights && onConfirmWeights && (
+        {caps.canConfirmWeights && onConfirmWeights && (
           <Button
             variant="secondary"
             size="md"
@@ -106,7 +106,7 @@ export function CommandBar({
           </Button>
         )}
 
-        {canManage && caps.canTakePayment && (
+        {caps.canTakePayment && (
           <Button
             variant="secondary"
             size="md"
@@ -136,7 +136,7 @@ export function CommandBar({
           </Button>
         )}
 
-        {canManage && caps.primary && (
+        {caps.canRunPrimary && caps.primary && (
           <Button
             variant="primary"
             size="md"

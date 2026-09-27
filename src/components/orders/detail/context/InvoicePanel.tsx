@@ -123,7 +123,7 @@ function SupplementInvoiceRow({
   );
 }
 
-export function InvoiceSection({ order }: { order: Order }) {
+export function InvoiceSection({ order, canManage }: { order: Order; canManage: boolean }) {
   const { t } = useI18n();
   const hasPrimary = Boolean(order.external_metadata?.document_number);
   const [loading, setLoading] = useState(hasPrimary);
@@ -250,20 +250,22 @@ export function InvoiceSection({ order }: { order: Order }) {
           {sendOpen && (
             <div className="flex flex-col gap-[var(--s-2)] rounded-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)]">
               <label htmlFor="invoice-recipient" className="text-fs-xs text-[var(--fg-muted)]">{t('invoiceRecipient') || 'Destinataire'}</label>
-              <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-                <input
-                  id="invoice-recipient"
-                  type="email"
-                  value={emailDraft}
-                  onChange={(e) => setEmailDraft(e.target.value)}
-                  placeholder="client@email.com"
-                  className="flex-1 min-w-[180px] rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-2 py-1 text-fs-sm"
-                />
-                <Button variant="primary" size="sm" onClick={doSend} disabled={sendState === 'sending'}>
-                  <MailIcon className="size-3.5" />
-                  {sendState === 'sending' ? (t('invoiceSending') || 'Envoi…') : (t('invoiceSendEmail') || 'Par email (via Summit)')}
-                </Button>
-              </div>
+              {canManage && (
+                <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+                  <input
+                    id="invoice-recipient"
+                    type="email"
+                    value={emailDraft}
+                    onChange={(e) => setEmailDraft(e.target.value)}
+                    placeholder="client@email.com"
+                    className="flex-1 min-w-[180px] rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-2 py-1 text-fs-sm"
+                  />
+                  <Button variant="primary" size="sm" onClick={doSend} disabled={sendState === 'sending'}>
+                    <MailIcon className="size-3.5" />
+                    {sendState === 'sending' ? (t('invoiceSending') || 'Envoi…') : (t('invoiceSendEmail') || 'Par email (via Summit)')}
+                  </Button>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-[var(--s-2)]">
                 {waUrl && (
                   <a href={waUrl} target="_blank" rel="noopener noreferrer" className={shareBtn}>

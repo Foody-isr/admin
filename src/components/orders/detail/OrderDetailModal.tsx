@@ -51,15 +51,19 @@ import {
 export interface OrderDetailModalProps {
   order: Order | null;
   canManage: boolean;
+  canManageKitchen?: boolean;
+  canManagePayments?: boolean;
+  canViewPayments?: boolean;
   canDelete?: boolean;
-  canOverride?: boolean;
+  canCorrectStatus?: boolean;
+  canCorrectPayment?: boolean;
   isLoading: boolean;
   onClose: () => void;
   onAccept: () => void | Promise<AcceptOrderResult | undefined>;
   onReject: () => void;
   onDelete?: () => void;
   onOverride?: () => void;
-  /** Opens the correct-payment dialog (owner/manager, cash/manual orders only). */
+  /** Opens the correct-payment dialog (authorized cash/manual orders only). */
   onCorrectPayment?: () => void;
   /** Opens the correct-payment-METHOD dialog: relabels how a settled order was
    *  paid (cash ⇄ card) without moving its payment status. */
@@ -96,7 +100,8 @@ export interface OrderDetailModalProps {
 }
 
 export function OrderDetailModal({
-  order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete,
+  order, canManage, canManageKitchen, canManagePayments, canViewPayments, canDelete, canCorrectStatus, canCorrectPayment,
+  isLoading, onClose, onAccept, onReject, onDelete,
   onOverride, onCorrectPayment, onCorrectPaymentMethod, onReactivate, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered, onTakePayment, onCloseOrder, onEdit, onConfirmWeights,
   onEditCustomer, onToggleForceProduction, restaurantName, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
@@ -139,7 +144,7 @@ export function OrderDetailModal({
 
   const caps = deriveOrderCapabilities(
     order,
-    { canManage, canOverride, canDelete },
+    { canManage, canManageKitchen, canManagePayments, canCorrectStatus, canCorrectPayment, canDelete },
     {
       onConfirmWeights: !!onConfirmWeights,
       onOverride: !!onOverride,
@@ -210,7 +215,7 @@ export function OrderDetailModal({
   // Decides whether the invoice block exists at all, and labels it when it
   // does. Both come from external_metadata, so neither costs a fetch — the
   // section's own getOrderInvoice is now deferred until someone opens it.
-  const invoiceCount = countOrderInvoices(order);
+  const invoiceCount = canViewPayments ? countOrderInvoices(order) : 0;
 
   // Built here rather than inside the timeline: the folded heading has to say
   // how many rows are inside. `audit.events` is NOT that number — the builder
@@ -359,6 +364,8 @@ export function OrderDetailModal({
         notes={notes}
         t={t}
         direction={direction}
+        canManageOrders={canManage}
+        canManagePayments={!!canManagePayments}
       />
 
       <WhatsAppRecapDialog
