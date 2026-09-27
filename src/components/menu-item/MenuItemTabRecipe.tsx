@@ -77,6 +77,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
+  const canUseLab = hasAnyPermission('kitchen.manage');
 
   // Per-size quantities are an advanced case — most recipes use the same
   // quantity for every size. Default to a single column and only reveal the
@@ -178,13 +179,15 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
         </div>
         {canEdit && (
           <div className="flex flex-wrap items-center justify-end gap-[var(--s-2)]">
-            <Link
-              href={`/${rid}/kitchen/lab`}
-              className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm border border-[var(--line-strong)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors"
-            >
-              <Sparkles className="w-4 h-4" />
-              {t('createWithLab')}
-            </Link>
+            {canUseLab && (
+              <Link
+                href={`/${rid}/kitchen/lab`}
+                className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm border border-[var(--line-strong)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                {t('createWithLab')}
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => setShowImportModal(true)}

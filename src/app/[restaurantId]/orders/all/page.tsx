@@ -9,7 +9,7 @@ import {
   updateOrderCustomerDetails, reactivateOrder,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   setOrderForceProduction,
-  getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
+  getRestaurant, updateRestaurantSettings,
   getDisplayPreferences, updateDisplayPreferences,
   Order, OrderStatus, PaymentStatus, ListOrdersParams, type DateBasis,
   type ManualPaymentMethod,
@@ -144,11 +144,14 @@ function primaryActionLabel(action: PrimaryAction, order: Order, t: (key: string
 export default function OrdersPage() {
   const { money } = useCurrency();
   const { t } = useI18n();
-  const { hasAnyPermission, isOwner, roleName } = usePermissions();
+  const { hasAnyPermission, hasPermission, isOwner } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
-  // Manual status correction is a management action — owner or manager only,
-  // matching the server route (RequireRestaurantRoles owner, manager).
-  const canOverride = isOwner || roleName === 'Manager';
+  const canManageKitchen = hasPermission('kitchen.manage');
+  const canManagePayments = hasPermission('payments.manage');
+  const canViewPayments = hasAnyPermission('payments.view', 'payments.manage');
+  const canEditSettings = hasPermission('settings.edit');
+  const canCorrectStatus = canManage && hasPermission('settings.edit');
+  const canCorrectPayment = canManagePayments && hasPermission('settings.edit');
   const params = useParams<{ restaurantId: string; orderId?: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -278,6 +281,10 @@ export default function OrdersPage() {
         setRestaurantName(r.name);
         setRestaurantLocale(r.default_locale || '');
         setTableConfig(r.orders_table_config ?? null);
+        setPaused(r.orders_paused ?? false);
+        setAllowCash(!(r.online_payment_only ?? false));
+        setCustomFieldLabels(buildCustomFieldLabels(r.website_config?.checkout_config));
+        setCheckoutConfig(r.website_config?.checkout_config ?? null);
       })
       .catch(() => {});
   }, [rid]);
@@ -337,17 +344,10 @@ export default function OrdersPage() {
 
   // Maps custom checkout-field ids → their human label so order custom_fields
   // (e.g. { code_immeuble: "A12" }) render as "Code Immeuble", not the raw id.
+  // GET /restaurants/:id already carries the public-safe website config and
+  // operational payment/pause flags, so order staff never probe settings APIs.
   const [customFieldLabels, setCustomFieldLabels] = useState<Record<string, string>>({});
   const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
-  useEffect(() => {
-    if (!rid) return;
-    getWebsiteConfig(rid)
-      .then((cfg) => {
-        setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config));
-        setCheckoutConfig(cfg.checkout_config ?? null);
-      })
-      .catch(() => {});
-  }, [rid]);
 
   // Online-ordering pause — same kill switch as Settings → Commandes &
   // disponibilité, surfaced here so staff can pause mid-service without leaving
@@ -358,15 +358,6 @@ export default function OrdersPage() {
   const [allowCash, setAllowCash] = useState(true);
   const [pauseSaving, setPauseSaving] = useState(false);
   const [pauseConfirmationOpen, setPauseConfirmationOpen] = useState(false);
-  useEffect(() => {
-    if (!rid) return;
-    getRestaurantSettings(rid)
-      .then((s) => {
-        setPaused(s.orders_paused ?? false);
-        setAllowCash(!(s.online_payment_only ?? false));
-      })
-      .catch(() => {});
-  }, [rid]);
 
   const togglePause = async (next: boolean) => {
     setPauseSaving(true);
@@ -937,7 +928,7 @@ export default function OrdersPage() {
                   </Link>
                 </Button>
               )}
-              {canManage && (
+              {canEditSettings && (
                 <Button
                   variant={paused ? 'secondary' : 'danger'}
                   size="lg"
@@ -983,7 +974,7 @@ export default function OrdersPage() {
                   'Les clients ne peuvent pas commander en ligne. Reprenez quand vous êtes prêt.'}
               </span>
             </div>
-            {canManage && (
+            {canEditSettings && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -1181,7 +1172,7 @@ export default function OrdersPage() {
               <DataTableBody>
                 {orders.map((order, index) => {
                   const timing = getOrderTiming(order);
-                  const capabilities = deriveOrderCapabilities(order, { canManage });
+                  const capabilities = deriveOrderCapabilities(order, { canManage, canManageKitchen });
                   return (
                     <DataTableRow
                       key={order.id}
@@ -1309,8 +1300,12 @@ export default function OrdersPage() {
       <OrderDetailModal
         order={detailOrder}
         canManage={canManage}
+        canManageKitchen={canManageKitchen}
+        canManagePayments={canManagePayments}
+        canViewPayments={canViewPayments}
         canDelete={isOwner}
-        canOverride={canOverride}
+        canCorrectStatus={canCorrectStatus}
+        canCorrectPayment={canCorrectPayment}
         isLoading={detailLoading || (detailOrder != null && actionLoading === detailOrder.id)}
         onClose={closeOrderDetail}
         onAccept={() => {

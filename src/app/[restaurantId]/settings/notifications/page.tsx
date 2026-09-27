@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation';
 import { Bell, BellOff, Smartphone, AlertTriangle, ShoppingCart, XCircle, CreditCard, PackageX, Trash2, Monitor } from 'lucide-react';
 import { Badge, Button, PageHead } from '@/components/ds';
 import { useI18n, i18nOr } from '@/lib/i18n';
-import { usePermissions } from '@/lib/permissions-context';
 import {
   getCurrentSubscription,
   getEnvironment,
@@ -38,8 +37,10 @@ export default function NotificationsSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t, locale } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canEdit = hasAnyPermission('settings.edit');
+  // Push subscriptions and preferences belong to the signed-in user, not to
+  // restaurant configuration. The server scopes every row by user and
+  // restaurant, so any authenticated staff member may manage their own.
+  const canEdit = true;
 
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);

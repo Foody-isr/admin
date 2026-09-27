@@ -69,8 +69,12 @@ export function OrderDetailPreview() {
       <OrderDetailModal
         order={open ? previewOrder : null}
         canManage
+        canManageKitchen
+        canManagePayments
+        canViewPayments
         canDelete
-        canOverride
+        canCorrectStatus
+        canCorrectPayment
         isLoading={false}
         onClose={() => setOpen(false)}
         onAccept={noop}
