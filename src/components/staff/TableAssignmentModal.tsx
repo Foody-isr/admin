@@ -6,6 +6,7 @@ import { Grid3X3Icon, Layers3Icon, MapPinnedIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button } from '@/components/ds';
 import {
+  ApiError,
   FloorPlan,
   getStaffTableAssignments,
   RestaurantTableRef,
@@ -42,12 +43,14 @@ export function TableAssignmentModal({
   const [effectiveCount, setEffectiveCount] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setLoadFailed(false);
     setError('');
     getStaffTableAssignments(restaurantId, member.id)
       .then((assignment) => {
@@ -57,9 +60,12 @@ export function TableAssignmentModal({
         setFloorPlanIds(new Set(assignment.floor_plan_ids));
         setEffectiveCount(assignment.effective_table_ids.length);
         setDirty(false);
+        setLoadFailed(false);
       })
       .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : t('tableAssignmentsLoadError'));
+        if (!active) return;
+        setLoadFailed(true);
+        setError(apiErrorMessage(reason, t('tableAssignmentsLoadError')));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -98,7 +104,7 @@ export function TableAssignmentModal({
       setEffectiveCount(assignment.effective_table_ids.length);
       onSaved(assignment);
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : t('tableAssignmentsSaveError'));
+      setError(apiErrorMessage(reason, t('tableAssignmentsSaveError')));
     } finally {
       setSaving(false);
     }
@@ -122,7 +128,7 @@ export function TableAssignmentModal({
           </p>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose}>{t('cancel')}</Button>
-            <Button variant="primary" disabled={loading || saving} onClick={save}>
+            <Button variant="primary" disabled={loading || loadFailed || saving} onClick={save}>
               {saving ? t('saving') : t('saveChanges')}
             </Button>
           </div>
@@ -139,6 +145,8 @@ export function TableAssignmentModal({
         <div className="flex justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
         </div>
+      ) : loadFailed ? (
+        <p className="py-10 text-center text-sm text-fg-secondary">{t('tableAssignmentsLoadError')}</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1fr_1.25fr]">
           <AssignmentGroup
@@ -180,6 +188,11 @@ export function TableAssignmentModal({
       )}
     </Modal>
   );
+}
+
+function apiErrorMessage(reason: unknown, fallback: string): string {
+  if (reason instanceof ApiError) return reason.details || reason.message;
+  return reason instanceof Error ? reason.message : fallback;
 }
 
 function AssignmentGroup({
