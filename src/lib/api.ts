@@ -830,6 +830,8 @@ export interface StaffMember {
   is_default_courier?: boolean;
   invite_status?: 'pending' | 'expired' | 'active' | 'not_invited';
   pos_pin_configured?: boolean;
+  table_assignment_eligible: boolean;
+  unrestricted_table_access: boolean;
   last_login_at?: string;
 }
 
