@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { XIcon } from 'lucide-react';
 import { getAnalyticsCustomerDetail, CustomerDetailResponse } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
+import {
+  failedRestaurantState,
+  loadingRestaurantState,
+  readyRestaurantState,
+  RestaurantRequestGuard,
+  stateForRestaurant,
+  type RestaurantLoadState,
+} from '@/lib/restaurant-request-state';
 
 const labelKeyMap: Record<string, string> = {
   dine_in: 'labelDineIn',
@@ -107,19 +115,43 @@ export default function CustomerDetailPanel({
   onClose: () => void;
 }) {
   const { money } = useCurrency();
-  const [detail, setDetail] = useState<CustomerDetailResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const requestGuardRef = useRef(new RestaurantRequestGuard());
+  requestGuardRef.current.enterRestaurant(restaurantId);
+  const [loadState, setLoadState] = useState<RestaurantLoadState<{
+    phone: string;
+    detail: CustomerDetailResponse;
+  }>>(() => loadingRestaurantState(restaurantId));
   const { t } = useI18n();
+  const visibleState = stateForRestaurant(loadState, restaurantId);
+  const currentSelection = visibleState.data?.phone === phone
+    ? visibleState.data
+    : null;
+  const detail = currentSelection?.detail ?? null;
+  const loading = visibleState.status === 'loading' || (
+    visibleState.status === 'ready' && currentSelection === null
+  );
+  const loadFailed = visibleState.status === 'error';
 
   const formatLabel = (s: string) => t(labelKeyMap[s] || s);
 
   useEffect(() => {
-    setLoading(true);
+    const guard = requestGuardRef.current;
+    const token = guard.begin(restaurantId);
+    setLoadState(loadingRestaurantState(restaurantId));
     getAnalyticsCustomerDetail(restaurantId, phone)
-      .then(setDetail)
-      .catch(() => setDetail(null))
-      .finally(() => setLoading(false));
+      .then((result) => {
+        if (guard.isCurrent(token)) {
+          setLoadState(readyRestaurantState(restaurantId, { phone, detail: result }));
+        }
+      })
+      .catch(() => {
+        if (guard.isCurrent(token)) {
+          setLoadState(failedRestaurantState(restaurantId));
+        }
+      });
   }, [restaurantId, phone]);
+
+  useEffect(() => () => requestGuardRef.current.invalidate(), []);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -140,7 +172,9 @@ export default function CustomerDetailPanel({
             <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
           </div>
         ) : !detail ? (
-          <p className="text-sm text-fg-secondary p-6">{t('customerNotFound')}</p>
+          <p className="text-sm text-fg-secondary p-6">
+            {loadFailed ? t('couldNotLoad') : t('customerNotFound')}
+          </p>
         ) : (
           <div className="p-4 space-y-6">
             {/* Header */}

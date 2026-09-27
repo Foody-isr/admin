@@ -60,6 +60,14 @@ import {
   PAYMENT_ATTENTION_FILTER,
 } from '@/lib/orders/routes';
 import { dashboardLiveOrderScope } from '@/lib/dashboard-live-order-scope';
+import {
+  failedRestaurantState,
+  loadingRestaurantState,
+  readyRestaurantState,
+  RestaurantRequestGuard,
+  stateForRestaurant,
+  type RestaurantLoadState,
+} from '@/lib/restaurant-request-state';
 
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
@@ -87,6 +95,28 @@ interface ChannelDatum {
   orders: number;
   revenue: number;
   color: string;
+}
+
+interface DashboardData {
+  period: PeriodComparison | null;
+  topSellers: TopSeller[];
+  series: DaySummary[];
+  previousSeries: DaySummary[];
+  channelRows: BreakdownRow[];
+  recentOrders: Order[];
+  liveSummary: LiveSummary | null;
+}
+
+function emptyDashboardData(): DashboardData {
+  return {
+    period: null,
+    topSellers: [],
+    series: [],
+    previousSeries: [],
+    channelRows: [],
+    recentOrders: [],
+    liveSummary: null,
+  };
 }
 
 // The dashboard period is remembered per user and restaurant. Rolling presets
@@ -262,15 +292,24 @@ export default function DashboardPage() {
   const { code: currency } = useCurrency();
   const dateLocale = DATE_LOCALES[locale];
 
-  const [period, setPeriod] = useState<PeriodComparison | null>(null);
-  const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
-  const [series, setSeries] = useState<DaySummary[]>([]);
-  const [previousSeries, setPreviousSeries] = useState<DaySummary[]>([]);
-  const [channelRows, setChannelRows] = useState<BreakdownRow[]>([]);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [liveSummary, setLiveSummary] = useState<LiveSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const loadSequence = useRef(0);
+  const requestGuardRef = useRef(new RestaurantRequestGuard());
+  requestGuardRef.current.enterRestaurant(rid);
+  const [dashboardState, setDashboardState] = useState<RestaurantLoadState<DashboardData>>(
+    () => loadingRestaurantState(rid),
+  );
+  const visibleDashboardState = stateForRestaurant(dashboardState, rid);
+  const dashboardData = visibleDashboardState.data ?? emptyDashboardData();
+  const loading = visibleDashboardState.status === 'loading';
+  const loadFailed = visibleDashboardState.status === 'error';
+  const {
+    period,
+    topSellers,
+    series,
+    previousSeries,
+    channelRows,
+    recentOrders,
+    liveSummary,
+  } = dashboardData;
 
   // First day of week + workdays drive the picker (same config as the orders list).
   const [wsd, setWsd] = useState<WeekStartDay>(1);
@@ -336,8 +375,9 @@ export default function DashboardPage() {
   }, [rid, rangeKey]);
 
   const load = useCallback(() => {
-    const requestId = ++loadSequence.current;
-    setLoading(true);
+    const guard = requestGuardRef.current;
+    const token = guard.begin(rid);
+    setDashboardState(loadingRestaurantState(rid));
     // The same inclusive calendar window drives every endpoint for both date
     // bases. In série mode it filters orders by scheduled_for; the daily chart
     // then groups those matching orders by created_at so it shows when customers
@@ -370,29 +410,47 @@ export default function DashboardPage() {
       .then(([per, top, daily, previousDaily, breakdown, orders, active, review, readyOrders, payments]) => {
         // A basis and range can now be changed within the same open popover.
         // Ignore a slower response for an earlier selection.
-        if (requestId !== loadSequence.current) return;
-        if (per.status === 'fulfilled') setPeriod(per.value);
-        if (top.status === 'fulfilled') setTopSellers(top.value ?? []);
-        if (daily.status === 'fulfilled') setSeries(daily.value ?? []);
-        if (previousDaily.status === 'fulfilled') setPreviousSeries(previousDaily.value ?? []);
-        setChannelRows(breakdown.status === 'fulfilled' ? breakdown.value.rows : []);
-        if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
+        if (!guard.isCurrent(token)) return;
+        let nextLiveSummary: LiveSummary | null = null;
         if (active.status === 'fulfilled' && review.status === 'fulfilled' && readyOrders.status === 'fulfilled') {
-          setLiveSummary({
+          nextLiveSummary = {
             active: active.value.total,
             payments: payments.status === 'fulfilled' ? payments.value.total : undefined,
             pendingReview: review.value.total,
             ready: readyOrders.value.total,
             oldestCreatedAt: active.value.orders[0]?.created_at,
-          });
-        } else {
-          setLiveSummary(null);
+          };
         }
-      })
-      .finally(() => {
-        if (requestId === loadSequence.current) setLoading(false);
+        const nextData: DashboardData = {
+          period: per.status === 'fulfilled' ? per.value : null,
+          topSellers: top.status === 'fulfilled' ? top.value ?? [] : [],
+          series: daily.status === 'fulfilled' ? daily.value ?? [] : [],
+          previousSeries: previousDaily.status === 'fulfilled' ? previousDaily.value ?? [] : [],
+          channelRows: breakdown.status === 'fulfilled' ? breakdown.value.rows : [],
+          recentOrders: orders.status === 'fulfilled' ? orders.value.orders ?? [] : [],
+          liveSummary: nextLiveSummary,
+        };
+        const failed = [
+          per,
+          top,
+          daily,
+          previousDaily,
+          breakdown,
+          orders,
+          active,
+          review,
+          readyOrders,
+          payments,
+        ].some((result) => result.status === 'rejected');
+        setDashboardState(
+          failed
+            ? failedRestaurantState(rid, nextData)
+            : readyRestaurantState(rid, nextData),
+        );
       });
   }, [rid, dateRange, basis, serieMode, previousSerieRange]);
+
+  useEffect(() => () => requestGuardRef.current.invalidate(), []);
 
   // Switch the date basis and persist it; the load effect refetches on change.
   const onChangeBasis = useCallback((b: DateBasis) => {
@@ -589,6 +647,16 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {loadFailed && (
+        <div
+          className="mb-[var(--s-4)] flex items-center justify-between gap-3 rounded-lg border border-[var(--danger-500)] bg-[var(--danger-50)] px-4 py-3"
+          role="alert"
+        >
+          <span className="text-fs-sm text-[var(--danger-500)]">{t('couldNotLoad')}</span>
+          <Button variant="secondary" size="sm" onClick={load}>{t('retry')}</Button>
+        </div>
+      )}
 
       <OperationsBar
         summary={liveSummary}
