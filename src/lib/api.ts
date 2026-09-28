@@ -8221,10 +8221,37 @@ export interface DailyFoodCostItem {
 export interface DailySalesEntry {
   id: number;
   report_id: number;
-  menu_item_id: number;
+  menu_item_id: number | null;
   menu_item_name: string;
+  source_name: string;
+  source_name_key: string;
   quantity: number;
-  source: 'manual' | 'pos';
+  unit_price: number;
+  line_total: number;
+  source: 'manual' | 'pos' | 'aviv';
+}
+
+export interface AvivSalesImportRow {
+  source_name_key: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  suggested_menu_item_id?: number;
+  match_type: 'saved' | 'exact_name' | 'unmatched';
+}
+
+export interface AvivSalesImportPreview {
+  provider: 'aviv';
+  report_from: string;
+  report_to: string;
+  report_date: string;
+  date_mismatch: boolean;
+  total_quantity: number;
+  total_revenue: number;
+  matched_count: number;
+  unmatched_count: number;
+  rows: AvivSalesImportRow[];
 }
 
 export interface IngredientBreakdown {
@@ -8307,6 +8334,63 @@ export async function upsertSalesEntries(restaurantId: number, reportId: number,
     method: 'POST',
     body: JSON.stringify({ entries }),
   });
+}
+
+async function avivSalesImportRequest<T>(
+  restaurantId: number,
+  reportId: number,
+  suffix: string,
+  formData: FormData,
+): Promise<T> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/stock/daily-reports/${reportId}/sales/import/aviv${suffix}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(body.error || body.message || `Import failed (${res.status})`, res.status, body.details);
+  }
+  return res.json();
+}
+
+export async function previewAvivSalesImport(
+  restaurantId: number,
+  reportId: number,
+  file: File,
+): Promise<AvivSalesImportPreview> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await avivSalesImportRequest<{ preview: AvivSalesImportPreview }>(restaurantId, reportId, '/preview', formData);
+  return res.preview;
+}
+
+export async function importAvivSales(
+  restaurantId: number,
+  reportId: number,
+  file: File,
+  mappings: { source_name_key: string; menu_item_id: number | null }[],
+  allowDateMismatch: boolean,
+): Promise<DailyFoodCostReport> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('mappings', JSON.stringify(mappings));
+  formData.append('allow_date_mismatch', String(allowDateMismatch));
+  const res = await avivSalesImportRequest<{ report: DailyFoodCostReport }>(restaurantId, reportId, '', formData);
+  return res.report;
+}
+
+export async function syncFoodyPOSSales(restaurantId: number, reportId: number): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>(
+    `/api/v1/stock/daily-reports/${reportId}/sales/import/foody`,
+    restaurantId,
+    { method: 'POST' },
+  );
+  return res.report;
 }
 
 export async function updateClosingStock(restaurantId: number, reportId: number, items: { stock_item_id?: number; prep_item_id?: number; quantity: number }[]): Promise<void> {
