@@ -1,11 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { XIcon } from 'lucide-react';
 import { getAnalyticsItemDetail, ItemSalesDetail, type DateBasis } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { Badge } from '@/components/ds';
 import { ComboTooltip } from './ComboTooltip';
+import {
+  failedRestaurantState,
+  loadingRestaurantState,
+  readyRestaurantState,
+  RestaurantRequestGuard,
+  stateForRestaurant,
+  type RestaurantLoadState,
+} from '@/lib/restaurant-request-state';
 
 // Combo visual language, reused across the report: violet = sold inside a combo,
 // neutral slate = à la carte. Distinct from the breakdown hues below and from
@@ -142,19 +150,44 @@ export default function ItemDetailPanel({
   onClose: () => void;
 }) {
   const { money } = useCurrency();
-  const [detail, setDetail] = useState<ItemSalesDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const requestGuardRef = useRef(new RestaurantRequestGuard());
+  requestGuardRef.current.enterRestaurant(restaurantId);
+  const requestKey = `${itemId}:${scope.from}:${scope.to}:${basis}`;
+  const [loadState, setLoadState] = useState<RestaurantLoadState<{
+    key: string;
+    detail: ItemSalesDetail;
+  }>>(() => loadingRestaurantState(restaurantId));
   const { t } = useI18n();
+  const visibleState = stateForRestaurant(loadState, restaurantId);
+  const currentSelection = visibleState.data?.key === requestKey
+    ? visibleState.data
+    : null;
+  const detail = currentSelection?.detail ?? null;
+  const loading = visibleState.status === 'loading' || (
+    visibleState.status === 'ready' && currentSelection === null
+  );
+  const loadFailed = visibleState.status === 'error';
 
   useEffect(() => {
-    setLoading(true);
+    const guard = requestGuardRef.current;
+    const token = guard.begin(restaurantId);
+    setLoadState(loadingRestaurantState(restaurantId));
     getAnalyticsItemDetail(restaurantId, itemId, scope, basis)
-      .then(setDetail)
-      .catch(() => setDetail(null))
-      .finally(() => setLoading(false));
+      .then((result) => {
+        if (guard.isCurrent(token)) {
+          setLoadState(readyRestaurantState(restaurantId, { key: requestKey, detail: result }));
+        }
+      })
+      .catch(() => {
+        if (guard.isCurrent(token)) {
+          setLoadState(failedRestaurantState(restaurantId));
+        }
+      });
     // scope is a fresh object each render; depend on its stable fields.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId, itemId, scope.from, scope.to, basis]);
+
+  useEffect(() => () => requestGuardRef.current.invalidate(), []);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -175,7 +208,9 @@ export default function ItemDetailPanel({
             <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
           </div>
         ) : !detail ? (
-          <p className="text-sm text-fg-secondary p-6">{t('itemNotFound')}</p>
+          <p className="text-sm text-fg-secondary p-6">
+            {loadFailed ? t('couldNotLoad') : t('itemNotFound')}
+          </p>
         ) : (
           <div className="p-4 space-y-6">
             {/* Header */}

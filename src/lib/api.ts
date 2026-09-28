@@ -127,10 +127,6 @@ export interface Restaurant {
   dashboard_default_date_basis?: DateBasis;
   /** Restaurant-wide population used by the operational dashboard KPIs. */
   dashboard_revenue_mode?: DashboardRevenueMode;
-  /** Operational, public-safe flags included by GET /restaurants/:id. */
-  orders_paused?: boolean;
-  online_payment_only?: boolean;
-  website_config?: WebsiteConfig;
   created_at: string;
 }
 
@@ -1910,6 +1906,7 @@ export interface ProduceBatchInput {
 export interface IngredientUsed {
   stock_item_id: number;
   stock_item_name: string;
+  unit: StockUnit;
   quantity_used: number;
   remaining: number;
 }
@@ -1917,6 +1914,7 @@ export interface IngredientUsed {
 export interface Shortage {
   stock_item_id: number;
   stock_item_name: string;
+  unit: StockUnit;
   required: number;
   available: number;
 }
@@ -8225,10 +8223,37 @@ export interface DailyFoodCostItem {
 export interface DailySalesEntry {
   id: number;
   report_id: number;
-  menu_item_id: number;
+  menu_item_id: number | null;
   menu_item_name: string;
+  source_name: string;
+  source_name_key: string;
   quantity: number;
-  source: 'manual' | 'pos';
+  unit_price: number;
+  line_total: number;
+  source: 'manual' | 'pos' | 'aviv';
+}
+
+export interface AvivSalesImportRow {
+  source_name_key: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  suggested_menu_item_id?: number;
+  match_type: 'saved' | 'exact_name' | 'unmatched';
+}
+
+export interface AvivSalesImportPreview {
+  provider: 'aviv';
+  report_from: string;
+  report_to: string;
+  report_date: string;
+  date_mismatch: boolean;
+  total_quantity: number;
+  total_revenue: number;
+  matched_count: number;
+  unmatched_count: number;
+  rows: AvivSalesImportRow[];
 }
 
 export interface IngredientBreakdown {
@@ -8313,6 +8338,63 @@ export async function upsertSalesEntries(restaurantId: number, reportId: number,
   });
 }
 
+async function avivSalesImportRequest<T>(
+  restaurantId: number,
+  reportId: number,
+  suffix: string,
+  formData: FormData,
+): Promise<T> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/stock/daily-reports/${reportId}/sales/import/aviv${suffix}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(body.error || body.message || `Import failed (${res.status})`, res.status, body.details);
+  }
+  return res.json();
+}
+
+export async function previewAvivSalesImport(
+  restaurantId: number,
+  reportId: number,
+  file: File,
+): Promise<AvivSalesImportPreview> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await avivSalesImportRequest<{ preview: AvivSalesImportPreview }>(restaurantId, reportId, '/preview', formData);
+  return res.preview;
+}
+
+export async function importAvivSales(
+  restaurantId: number,
+  reportId: number,
+  file: File,
+  mappings: { source_name_key: string; menu_item_id: number | null }[],
+  allowDateMismatch: boolean,
+): Promise<DailyFoodCostReport> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('mappings', JSON.stringify(mappings));
+  formData.append('allow_date_mismatch', String(allowDateMismatch));
+  const res = await avivSalesImportRequest<{ report: DailyFoodCostReport }>(restaurantId, reportId, '', formData);
+  return res.report;
+}
+
+export async function syncFoodyPOSSales(restaurantId: number, reportId: number): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>(
+    `/api/v1/stock/daily-reports/${reportId}/sales/import/foody`,
+    restaurantId,
+    { method: 'POST' },
+  );
+  return res.report;
+}
+
 export async function updateClosingStock(restaurantId: number, reportId: number, items: { stock_item_id?: number; prep_item_id?: number; quantity: number }[]): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/closing-stock`, restaurantId, {
     method: 'PUT',
@@ -8336,6 +8418,12 @@ export async function updateRetrospective(restaurantId: number, reportId: number
 
 export async function closeFoodCostReport(restaurantId: number, reportId: number): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/close`, restaurantId, {
+    method: 'POST',
+  });
+}
+
+export async function reopenFoodCostReport(restaurantId: number, reportId: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/reopen`, restaurantId, {
     method: 'POST',
   });
 }

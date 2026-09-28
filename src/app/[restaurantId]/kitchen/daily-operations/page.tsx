@@ -6,7 +6,8 @@ import Link from 'next/link';
 import {
   getTodayFoodCostReport, getFoodCostReport, computeFoodCostReport,
   upsertSalesEntries, updateClosingStock, updateRetrospective,
-  closeFoodCostReport, createFoodCostReport, listFoodCostReports,
+  previewAvivSalesImport, importAvivSales, syncFoodyPOSSales,
+  closeFoodCostReport, reopenFoodCostReport, createFoodCostReport, listFoodCostReports,
   getFoodCostBreakdown, getFoodCostSummary, deleteSalesEntries, deleteCostItems,
   listStockTransactions, getAllCategories, listStockItems, getRestaurant,
   confirmDelivery, deleteStockTransaction,
@@ -15,6 +16,7 @@ import {
   DailyFoodCostReport, DailyFoodCostItem, DailySalesEntry,
   IngredientBreakdown, StockTransaction, MenuCategory, MenuItem, StockItem,
   ConfirmDeliveryItemInput, PurchaseOrder, DailyPlanItem, OpeningHoursConfig,
+  AvivSalesImportPreview,
 } from '@/lib/api';
 import {
   ChevronDownIcon, ChevronUpIcon, RefreshCwIcon,
@@ -23,6 +25,7 @@ import {
   XIcon, PlusIcon, TrashIcon, InfoIcon,
   MailIcon, SunriseIcon, UtensilsIcon, MoonIcon, ArrowRightIcon,
   PackageIcon, ChefHatIcon, type LucideIcon,
+  UploadIcon, FileTextIcon, RotateCcwIcon,
 } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -171,6 +174,8 @@ export default function DailyOperationsPage() {
   const [loading, setLoading] = useState(true);
   const [computing, setComputing] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   // Section expansion
@@ -210,6 +215,7 @@ export default function DailyOperationsPage() {
 
   // Sales entry modal
   const [showSalesModal, setShowSalesModal] = useState(false);
+  const [showSalesImportModal, setShowSalesImportModal] = useState(false);
 
   // Stock items for reference
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -263,7 +269,9 @@ export default function DailyOperationsPage() {
       // Populate form state from report
       if (rpt.sales) {
         const entries: Record<number, number> = {};
-        rpt.sales.forEach(s => { entries[s.menu_item_id] = s.quantity; });
+        rpt.sales.forEach(s => {
+          if (s.source === 'manual' && s.menu_item_id != null) entries[s.menu_item_id] = s.quantity;
+        });
         setSalesEntries(entries);
       }
       if (rpt.items) {
@@ -353,6 +361,17 @@ export default function DailyOperationsPage() {
     }
   };
 
+  const handlePullFoodySales = async () => {
+    if (!report) return;
+    setComputing(true);
+    try {
+      await syncFoodyPOSSales(rid, report.id);
+      await loadReport();
+    } finally {
+      setComputing(false);
+    }
+  };
+
 
   const handleSaveDraft = async () => {
     if (!report) return;
@@ -375,13 +394,31 @@ export default function DailyOperationsPage() {
 
   const handleClose = async () => {
     if (!report) return;
-    if (!confirm('Close this day\'s report? It will be frozen and cannot be modified.')) return;
+    if (!confirm(t('closeDayConfirm'))) return;
+    setActionError('');
     setClosing(true);
     try {
       await closeFoodCostReport(rid, report.id);
       await loadReport();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : t('closeDayError'));
     } finally {
       setClosing(false);
+    }
+  };
+
+  const handleReopen = async () => {
+    if (!report) return;
+    if (!confirm(t('reopenDayConfirm'))) return;
+    setActionError('');
+    setReopening(true);
+    try {
+      await reopenFoodCostReport(rid, report.id);
+      await loadReport();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : t('reopenDayError'));
+    } finally {
+      setReopening(false);
     }
   };
 
@@ -541,6 +578,17 @@ export default function DailyOperationsPage() {
               {t('today')}
             </h1>
             {report && statusBadge(report.status)}
+            {report?.status === 'closed' && canManage && (
+              <button
+                type="button"
+                onClick={handleReopen}
+                disabled={reopening}
+                className="inline-flex items-center gap-1.5 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--fg)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RotateCcwIcon className={`size-3.5 ${reopening ? 'animate-spin' : ''}`} />
+                {reopening ? t('reopeningDay') : t('reopenDay')}
+              </button>
+            )}
           </div>
           <p className="mt-1 max-w-2xl text-sm text-[var(--fg-secondary)]">
             {t('todayKitchenDesc')}
@@ -569,6 +617,13 @@ export default function DailyOperationsPage() {
           </button>
         </div>
       </header>
+
+      {actionError && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded-r-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError('')} aria-label={t('close')} className="shrink-0 font-semibold hover:opacity-70">×</button>
+        </div>
+      )}
 
       <nav aria-label={t('todayPhases')} className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
         <div className="grid md:grid-cols-3">
@@ -784,7 +839,7 @@ export default function DailyOperationsPage() {
         action={isOpen ? (
           <div className="flex items-center gap-2">
             <button
-              onClick={handleCompute}
+              onClick={() => setShowSalesImportModal(true)}
               disabled={computing}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
             >
@@ -838,10 +893,25 @@ export default function DailyOperationsPage() {
                         <input type="checkbox" checked={selectedSales.has(s.id)} onChange={() => toggleSalesSelection(s.id)} className="rounded" />
                       </td>
                     )}
-                    <td className="py-2 text-fg-primary">{s.menu_item_name}</td>
+                    <td className="py-2 text-fg-primary">
+                      <span className="block">{s.menu_item_name}</span>
+                      {s.source === 'aviv' && (s.menu_item_id == null || (s.source_name && s.source_name !== s.menu_item_name)) && (
+                        <span className="block text-xs text-[var(--fg-secondary)]">
+                          {s.menu_item_id == null
+                            ? t('notLinkedToRecipe')
+                            : `${t('avivItem')}: ${s.source_name}`}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-2 text-right text-fg-primary">{s.quantity}</td>
                     <td className="py-2 text-right">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${s.source === 'pos' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${
+                        s.source === 'pos'
+                          ? 'bg-blue-500/20 text-blue-400'
+                          : s.source === 'aviv'
+                            ? 'bg-purple-500/20 text-purple-400'
+                            : 'bg-gray-500/20 text-gray-400'
+                      }`}>
                         {s.source}
                       </span>
                     </td>
@@ -1349,6 +1419,24 @@ export default function DailyOperationsPage() {
       )}
 
       {/* Quick Sales Modal */}
+      {showSalesImportModal && report && (
+        <SalesImportModal
+          restaurantId={rid}
+          report={report}
+          categories={categories}
+          onPullFoody={async () => {
+            await handlePullFoodySales();
+            setShowSalesImportModal(false);
+          }}
+          onImported={async () => {
+            setShowSalesImportModal(false);
+            await loadReport();
+          }}
+          onClose={() => setShowSalesImportModal(false)}
+          t={t}
+        />
+      )}
+
       {showSalesModal && (
         <QuickSalesModal
           categories={categories}
@@ -1639,6 +1727,298 @@ function QuickReceiveModal({
               : `${t('confirmReceive') || 'Confirm'} (${selectedCount})`
             }
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── POS Sales Import Modal ──────────────────────────────────────────────────
+
+function SalesImportModal({
+  restaurantId, report, categories, onPullFoody, onImported, onClose, t,
+}: {
+  restaurantId: number;
+  report: DailyFoodCostReport;
+  categories: MenuCategory[];
+  onPullFoody: () => Promise<void>;
+  onImported: () => Promise<void>;
+  onClose: () => void;
+  t: (key: string) => string;
+}) {
+  const { money } = useCurrency();
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<AvivSalesImportPreview | null>(null);
+  const [mappings, setMappings] = useState<Record<string, number | null>>({});
+  const [allowDateMismatch, setAllowDateMismatch] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pullingFoody, setPullingFoody] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const allItems = useMemo(
+    () => categories
+      .flatMap(category => category.items || [])
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [categories],
+  );
+
+  const matchedRows = preview?.rows.filter(row => mappings[row.source_name_key] != null).length ?? 0;
+
+  const readFile = async (selected: File) => {
+    const isPDF = selected.type === 'application/pdf' || selected.name.toLowerCase().endsWith('.pdf');
+    if (!isPDF) {
+      setError(t('avivPDFOnly'));
+      return;
+    }
+    setFile(selected);
+    setPreview(null);
+    setMappings({});
+    setAllowDateMismatch(false);
+    setError('');
+    setLoading(true);
+    try {
+      const result = await previewAvivSalesImport(restaurantId, report.id, selected);
+      setPreview(result);
+      const initialMappings: Record<string, number | null> = {};
+      result.rows.forEach(row => {
+        initialMappings[row.source_name_key] = row.suggested_menu_item_id ?? null;
+      });
+      setMappings(initialMappings);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t('avivImportReadError'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pullFoody = async () => {
+    setError('');
+    setPullingFoody(true);
+    try {
+      await onPullFoody();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t('avivImportSaveError'));
+      setPullingFoody(false);
+    }
+  };
+
+  const confirmAviv = async () => {
+    if (!file || !preview) return;
+    setError('');
+    setSubmitting(true);
+    try {
+      await importAvivSales(
+        restaurantId,
+        report.id,
+        file,
+        Object.entries(mappings).map(([sourceNameKey, menuItemId]) => ({
+          source_name_key: sourceNameKey,
+          menu_item_id: menuItemId,
+        })),
+        allowDateMismatch,
+      );
+      await onImported();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t('avivImportSaveError'));
+      setSubmitting(false);
+    }
+  };
+
+  const formatPeriod = (value: string) => new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(value));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="mx-4 flex w-full max-w-5xl flex-col rounded-xl bg-[var(--surface)] p-6 shadow-xl"
+        style={{ maxHeight: '90vh' }}
+        onClick={event => event.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-fg-primary">{t('salesImportTitle')}</h3>
+            <p className="mt-1 text-sm text-[var(--fg-secondary)]">{t('salesImportDesc')}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-[var(--surface-hover)]" aria-label={t('close')}>
+            <XIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        {!preview && (
+          <div className="grid gap-4 md:grid-cols-2">
+            <section className="rounded-xl border border-[var(--divider)] p-5">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-blue-500/10 p-2 text-blue-400">
+                  <RefreshCwIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-fg-primary">{t('foodyPOS')}</h4>
+                  <p className="mt-1 text-sm text-[var(--fg-secondary)]">{t('foodyPOSImportDesc')}</p>
+                </div>
+              </div>
+              <button
+                onClick={pullFoody}
+                disabled={pullingFoody || loading}
+                className="btn-secondary mt-5 inline-flex w-full items-center justify-center gap-2 px-4 py-2 text-sm"
+              >
+                <RefreshCwIcon className={`h-4 w-4 ${pullingFoody ? 'animate-spin' : ''}`} />
+                {pullingFoody ? t('importing') : t('syncFoodyPOS')}
+              </button>
+            </section>
+
+            <section className="rounded-xl border border-[var(--divider)] p-5">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-purple-500/10 p-2 text-purple-400">
+                  <FileTextIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-fg-primary">{t('avivPOS')}</h4>
+                  <p className="mt-1 text-sm text-[var(--fg-secondary)]">{t('avivPOSImportDesc')}</p>
+                </div>
+              </div>
+              <label className={`btn-primary mt-5 inline-flex w-full cursor-pointer items-center justify-center gap-2 px-4 py-2 text-sm ${loading ? 'pointer-events-none opacity-50' : ''}`}>
+                <UploadIcon className="h-4 w-4" />
+                {loading ? t('analyzing') : t('chooseAvivPDF')}
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="hidden"
+                  disabled={loading || pullingFoody}
+                  onChange={event => {
+                    const selected = event.target.files?.[0];
+                    if (selected) void readFile(selected);
+                  }}
+                />
+              </label>
+              {file && loading && <p className="mt-2 truncate text-xs text-[var(--fg-secondary)]">{file.name}</p>}
+            </section>
+          </div>
+        )}
+
+        {preview && (
+          <>
+            <div className="mb-4 grid gap-3 sm:grid-cols-4">
+              <div className="rounded-lg bg-[var(--surface-subtle)] p-3">
+                <p className="text-xs text-[var(--fg-secondary)]">{t('reportPeriod')}</p>
+                <p className="mt-1 text-sm font-medium text-fg-primary">
+                  {formatPeriod(preview.report_from)} – {formatPeriod(preview.report_to)}
+                </p>
+              </div>
+              <div className="rounded-lg bg-[var(--surface-subtle)] p-3">
+                <p className="text-xs text-[var(--fg-secondary)]">{t('salesRows')}</p>
+                <p className="mt-1 text-lg font-semibold text-fg-primary">{preview.rows.length}</p>
+              </div>
+              <div className="rounded-lg bg-[var(--surface-subtle)] p-3">
+                <p className="text-xs text-[var(--fg-secondary)]">{t('qtySold')}</p>
+                <p className="mt-1 text-lg font-semibold text-fg-primary">{preview.total_quantity}</p>
+              </div>
+              <div className="rounded-lg bg-[var(--surface-subtle)] p-3">
+                <p className="text-xs text-[var(--fg-secondary)]">{t('revenue')}</p>
+                <p className="mt-1 text-lg font-semibold text-fg-primary">{money(preview.total_revenue)}</p>
+              </div>
+            </div>
+
+            {preview.date_mismatch && (
+              <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
+                <div className="flex items-start gap-2">
+                  <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="font-medium">{t('avivPeriodMismatchTitle')}</p>
+                    <p className="mt-1 text-amber-200/80">
+                      {t('avivPeriodMismatchDesc').replace('{date}', preview.report_date)}
+                    </p>
+                    <label className="mt-3 flex cursor-pointer items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={allowDateMismatch}
+                        onChange={event => setAllowDateMismatch(event.target.checked)}
+                        className="mt-0.5 rounded"
+                      />
+                      <span>{t('avivPeriodMismatchConfirm')}</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <p className="text-[var(--fg-secondary)]">
+                {t('avivMappingSummary')
+                  .replace('{matched}', String(matchedRows))
+                  .replace('{total}', String(preview.rows.length))}
+                <span className="mt-0.5 block text-xs">{t('avivNamesGrouped')}</span>
+              </p>
+              <button
+                onClick={() => {
+                  setPreview(null);
+                  setFile(null);
+                  setMappings({});
+                  setError('');
+                }}
+                className="text-sm font-medium text-[var(--brand-500)] hover:underline"
+              >
+                {t('chooseAnotherFile')}
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--divider)]">
+              <table className="w-full min-w-[680px] text-sm">
+                <thead className="sticky top-0 z-10 bg-[var(--surface)]">
+                  <tr className="border-b border-[var(--divider)] text-[var(--fg-secondary)]">
+                    <th className="px-3 py-2 text-left font-medium">{t('avivItem')}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t('qtySold')}</th>
+                    <th className="px-3 py-2 text-right font-medium">{t('total')}</th>
+                    <th className="px-3 py-2 text-left font-medium">{t('foodyRecipeMapping')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.rows.map(row => (
+                    <tr key={row.source_name_key} className="border-b border-[var(--divider)]/60">
+                      <td className="px-3 py-2 text-fg-primary" dir="auto">{row.name}</td>
+                      <td className="px-3 py-2 text-right text-fg-primary">{row.quantity}</td>
+                      <td className="px-3 py-2 text-right text-fg-primary">{money(row.line_total)}</td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={mappings[row.source_name_key] ?? ''}
+                          onChange={event => setMappings(current => ({
+                            ...current,
+                            [row.source_name_key]: event.target.value ? Number(event.target.value) : null,
+                          }))}
+                          className={`input w-full px-2 py-1.5 text-sm ${mappings[row.source_name_key] == null ? 'border-amber-500/50' : ''}`}
+                        >
+                          <option value="">{t('revenueOnlyNoRecipe')}</option>
+                          {allItems.map(item => (
+                            <option key={item.id} value={item.id}>{item.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+
+        <div className="mt-4 flex justify-end gap-3">
+          <button onClick={onClose} disabled={submitting} className="btn-secondary px-4 py-2 text-sm">
+            {t('cancel')}
+          </button>
+          {preview && (
+            <button
+              onClick={confirmAviv}
+              disabled={submitting || (preview.date_mismatch && !allowDateMismatch)}
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              {submitting ? t('importing') : t('confirmAvivImport')}
+            </button>
+          )}
         </div>
       </div>
     </div>

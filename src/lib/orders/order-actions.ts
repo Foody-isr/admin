@@ -25,16 +25,10 @@ export type PrimaryAction =
 const TERMINAL_STATUSES = ['served', 'received', 'picked_up', 'delivered', 'rejected', 'cancelled', 'refunded'];
 
 export interface OrderPermissions {
-  /** orders.manage — may edit or advance the service/order workflow. */
+  /** orders.manage — may act on the order at all. */
   canManage: boolean;
-  /** kitchen.manage — may advance kitchen-owned workflow stages. */
-  canManageKitchen?: boolean;
-  /** payments.manage — may collect a payment or confirm held weights. */
-  canManagePayments?: boolean;
-  /** orders.manage + settings.edit — may correct status after the fact. */
-  canCorrectStatus?: boolean;
-  /** payments.manage + settings.edit — may correct payment records. */
-  canCorrectPayment?: boolean;
+  /** Owner or manager — may correct status and payment after the fact. */
+  canOverride?: boolean;
   /** Owner only — may hard-delete. */
   canDelete?: boolean;
 }
@@ -56,8 +50,6 @@ export interface OrderHandlerAvailability {
 export interface OrderCapabilities {
   /** The dominant next-step action, or null when the order is terminal. */
   primary: PrimaryAction | null;
-  /** Whether the user's domain permissions authorize that primary action. */
-  canRunPrimary: boolean;
   isCancelled: boolean;
   isScheduled: boolean;
   isTerminal: boolean;
@@ -116,22 +108,16 @@ export function deriveOrderCapabilities(
   const isCancelled = order.status === 'rejected' || order.status === 'cancelled';
   const isScheduled = order.status === 'scheduled';
   const isTerminal = TERMINAL_STATUSES.includes(order.status);
-  const primary = primaryFor(order);
-  const canRunPrimary = primary === 'sendToKitchen' || primary === 'markReady'
-    ? perms.canManage || !!perms.canManageKitchen
-    : primary !== null && perms.canManage;
 
   // By-weight orders sit on a card hold until staff enter the measured weights.
   const isHeld = order.settlement_status === 'held';
-  const canConfirmWeights =
-    !!perms.canManagePayments && isHeld && !!handlers.onConfirmWeights && !isCancelled;
+  const canConfirmWeights = isHeld && !!handlers.onConfirmWeights && !isCancelled;
 
   // A paid order can become collectible again after staff add items: the raw
   // status remains `paid`, while `balance_due` exposes the supplement still
   // owed. Treat that state like `partially_paid` so the manual cash/card/
   // transfer dialog remains available alongside the hosted payment link.
   const canTakePayment =
-    !!perms.canManagePayments &&
     !isCancelled &&
     order.payment_status !== 'refunded' &&
     (order.payment_status !== 'paid' || (order.balance_due ?? 0) > 0.01);
@@ -140,39 +126,38 @@ export function deriveOrderCapabilities(
   // terminal there is nothing to do, and clicking it was a silent no-op that
   // read as a bug.
   const canCloseOrder =
-    perms.canManage &&
     !isCancelled &&
     !isTerminal &&
     order.payment_status === 'paid' &&
     (order.balance_due ?? 0) <= 0.01;
-  const canCancelOrder = perms.canManage && !isCancelled && !isTerminal;
+  const canCancelOrder = !isCancelled && !isTerminal;
 
   // Manual status correction is offered on any live or completed order, so a
   // terminal order marked served/delivered by mistake can be walked back.
   // Excluded for cancelled and not-yet-started orders, which keep their flows.
-  const canCorrectStatus = !!perms.canCorrectStatus && !isCancelled && !isScheduled;
+  const canCorrectStatus = !!perms.canOverride && !isCancelled && !isScheduled;
 
   // Manual payment correction is for cash/manual orders only. Provider-settled
   // orders moved real money and must be refunded, never data-corrected. The
   // server rejects these anyway; this hides an option that would always fail.
   const providerSettled = isProviderSettled(order);
-  const canCorrectPayment = !!perms.canCorrectPayment && !isCancelled && !providerSettled;
+  const canCorrectPayment = !!perms.canOverride && !isCancelled && !providerSettled;
 
   // Relabelling HOW a settled order was paid is a separate correction from
   // moving its status. Only meaningful once something has actually settled.
   const canCorrectPaymentMethod =
-    !!perms.canCorrectPayment && !isCancelled && !providerSettled && order.payment_status === 'paid';
+    !!perms.canOverride && !isCancelled && !providerSettled && order.payment_status === 'paid';
 
-  // An order manager can pin an order onto the production sheet, including a
-  // dead order. The server restores a dead order when it is pinned.
+  // Any manager can pin an order onto the production sheet, including a dead
+  // order. The server restores a dead order when it is pinned.
   const canForceProduction =
-    !!perms.canManageKitchen && !!handlers.onToggleForceProduction;
+    perms.canManage && !!handlers.onToggleForceProduction;
 
   const canDelete = !!perms.canDelete && !!handlers.onDelete;
   const canReactivate = perms.canManage && isCancelled && !!handlers.onReactivate;
 
   // Items can be edited while the order is still in progress.
-  const canEditOrder = perms.canManage && !isCancelled && !isTerminal;
+  const canEditOrder = !isCancelled && !isTerminal;
 
   // The ⋯ button renders only when something is inside it. Without this guard
   // the production page — which supplies none of the correction handlers —
@@ -187,8 +172,7 @@ export function deriveOrderCapabilities(
     canDelete;
 
   return {
-    primary,
-    canRunPrimary,
+    primary: primaryFor(order),
     isCancelled,
     isScheduled,
     isTerminal,

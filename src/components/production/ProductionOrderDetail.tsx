@@ -10,7 +10,7 @@ import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { ConfirmDialog } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
 import {
-  getOrder, getRestaurant,
+  getOrder, getRestaurant, getWebsiteConfig,
   acceptOrder, rejectOrder, updateOrderStatus, updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   Order,
@@ -35,9 +35,6 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
-  const canManageKitchen = hasAnyPermission('kitchen.manage');
-  const canManagePayments = hasAnyPermission('payments.manage');
-  const canViewPayments = hasAnyPermission('payments.view', 'payments.manage');
 
   const [order, setOrder] = useState<Order | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -60,8 +57,12 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
       .then((r) => {
         setRestaurantName(r.name);
         setRestaurantLocale(r.default_locale || '');
-        setCustomFieldLabels(buildCustomFieldLabels(r.website_config?.checkout_config));
-        setCheckoutConfig(r.website_config?.checkout_config ?? null);
+      })
+      .catch(() => {});
+    getWebsiteConfig(restaurantId)
+      .then((cfg) => {
+        setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config));
+        setCheckoutConfig(cfg.checkout_config ?? null);
       })
       .catch(() => {});
   }, [restaurantId]);
@@ -146,9 +147,6 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
       <OrderDetailModal
         order={order}
         canManage={canManage}
-        canManageKitchen={canManageKitchen}
-        canManagePayments={canManagePayments}
-        canViewPayments={canViewPayments}
         isLoading={actionLoading}
         onClose={onClose}
         onAccept={handleAccept}
