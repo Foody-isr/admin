@@ -8807,12 +8807,25 @@ export interface AvailabilityRule {
 export type AvailabilityRuleInput = Omit<AvailabilityRule, 'id' | 'restaurant_id'>;
 
 /** Live availability of one dish, for the per-dish editor panel. */
+export interface AvailabilityPreviewIngredient {
+  name: string;
+  kind: 'stock' | 'preparation';
+  required_per_sale: number;
+  required_unit: string;
+  available: number;
+  available_unit: string;
+  capacity: number;
+  limiting: boolean;
+}
+
 export interface AvailabilityPreview {
   buildable: number;
   unlimited: boolean;
   bottleneck: string;
   state: AvailabilityState;
   count: number | null;
+  basis: 'recipe' | 'predefined_stock' | 'unlimited';
+  ingredients?: AvailabilityPreviewIngredient[];
 }
 
 /** List the rule library (seeds starter rules on first access). */

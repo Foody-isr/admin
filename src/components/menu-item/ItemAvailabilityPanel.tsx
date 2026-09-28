@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
-import { CheckCircle2, AlertTriangle, XCircle, Info, ArrowRight, Clock3, PackageCheck } from 'lucide-react';
+import { ArrowRight, Clock3, PackageCheck } from 'lucide-react';
 import {
   listAvailabilityRules,
   previewItemAvailability,
@@ -10,7 +10,6 @@ import {
   AvailabilityRule,
   AvailabilityPreview,
   AvailabilityOverride,
-  AvailabilityState,
   ImmediateSaleMode,
   MenuItem,
 } from '@/lib/api';
@@ -22,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { LearnMore } from '@/components/help/LearnMore';
 import { parsePortionGrams } from '@/lib/production';
 import { toBaseUnit, convertQuantity } from '@/lib/units';
+import { AvailabilityCapacityCard } from '@/components/menu-item/AvailabilityCapacityCard';
 
 // Display unit for predefined stock. '' = portion counts; 'g'/'kg' = weight,
 // which maps to the server's "measure" mode (shared) or a portion count derived
@@ -248,6 +248,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     [sizeGrams],
   );
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
   // Immediate-sale channel. Opt-in, needs a plain count stock. It is NOT
   // exclusive with a preparation notice: the notice is the made-to-order
   // promise, immediate sale is the exception counted stock lets a guest skip.
@@ -275,10 +276,12 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
   ];
 
   const loadPreview = useCallback(async () => {
+    setPreviewFailed(false);
     try {
       setPreview(await previewItemAvailability(rid, itemId));
     } catch {
       setPreview(null);
+      setPreviewFailed(true);
     }
   }, [rid, itemId]);
 
@@ -439,20 +442,6 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
   const selectedRule = rules.find((r) => r.id === ruleId);
   const defaultRule = rules.find((r) => r.is_default);
   const resolvedRule = ruleId === 0 ? defaultRule : selectedRule;
-  const state: AvailabilityState | 'loading' =
-    preview == null ? 'loading' : preview.unlimited ? 'available' : preview.state;
-
-  const StatusIcon =
-    state === 'available' ? CheckCircle2 : state === 'low' ? AlertTriangle : state === 'sold_out' ? XCircle : Info;
-  const statusTone: Record<AvailabilityState | 'loading', { fg: string; bgMix: string }> = {
-    available:  { fg: 'var(--success-500)', bgMix: 'color-mix(in oklab, var(--success-500) 14%, transparent)' },
-    low:        { fg: 'var(--warning-500)', bgMix: 'color-mix(in oklab, var(--warning-500) 14%, transparent)' },
-    sold_out:   { fg: 'var(--danger-500)',  bgMix: 'color-mix(in oklab, var(--danger-500) 14%, transparent)' },
-    hidden:     { fg: 'var(--fg-muted)',    bgMix: 'color-mix(in oklab, var(--fg-muted) 14%, transparent)' },
-    loading:    { fg: 'var(--fg-muted)',    bgMix: 'color-mix(in oklab, var(--fg-muted) 14%, transparent)' },
-  };
-  const tone = statusTone[state];
-
   const saleModes: { value: ImmediateSaleMode; label: string; desc: string }[] = [
     { value: '', label: t('saleModePreorderOnly'), desc: t('saleModePreorderOnlyDesc') },
     { value: 'surplus', label: t('saleModeSurplus'), desc: t('saleModeSurplusDesc') },
@@ -470,53 +459,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
         <p className="text-fs-sm text-[var(--fg-muted)]">{t('availabilityPanelIntro')}</p>
       </div>
 
-      {/* État — live status pill. */}
-      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
-        <div className="flex items-center gap-[var(--s-4)]">
-          <div
-            className="w-10 h-10 rounded-r-md grid place-items-center shrink-0"
-            style={{ background: tone.bgMix, color: tone.fg }}
-          >
-            <StatusIcon className="w-[18px] h-[18px]" />
-          </div>
-          <div className="min-w-0">
-            {preview == null ? (
-              <div className="text-fs-sm text-[var(--fg-muted)]">{t('availabilityComputing')}</div>
-            ) : preview.unlimited ? (
-              <>
-                <div className="text-fs-md font-semibold text-[var(--fg)]">
-                  {t('availabilityStateAvailable')}
-                </div>
-                <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-                  {t('availabilityNoRecipeHint')}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-fs-md font-semibold text-[var(--fg)]">
-                  {t(
-                    preview.state === 'low'
-                      ? 'availabilityStateLow'
-                      : preview.state === 'sold_out'
-                        ? 'availabilityStateSoldOut'
-                        : preview.state === 'hidden'
-                          ? 'availabilityStateHidden'
-                          : 'availabilityStateAvailable',
-                  )}
-                </div>
-                <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-                  {t('availabilityBuildableNow')} {preview.buildable} {t('availabilityPortions')}
-                  {preview.bottleneck && (
-                    <>
-                      , {t('availabilityLimitedBy')} {preview.bottleneck}
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </section>
+      {/* The operational answer stays visible; the recipe audit trail expands
+          inline so the editor never stacks a second modal. */}
+      <AvailabilityCapacityCard preview={preview} failed={previewFailed} />
 
       {/* Disponibilité — single 3-option control. The rule picker appears
           inline under "Suivre une règle" only; collapses otherwise. */}
