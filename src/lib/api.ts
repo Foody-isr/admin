@@ -1906,6 +1906,7 @@ export interface ProduceBatchInput {
 export interface IngredientUsed {
   stock_item_id: number;
   stock_item_name: string;
+  unit: StockUnit;
   quantity_used: number;
   remaining: number;
 }
@@ -1913,6 +1914,7 @@ export interface IngredientUsed {
 export interface Shortage {
   stock_item_id: number;
   stock_item_name: string;
+  unit: StockUnit;
   required: number;
   available: number;
 }

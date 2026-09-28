@@ -1275,14 +1275,14 @@ function BatchProduceModal({
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
-  const [batches, setBatches] = useState(1);
+  const [quantity, setQuantity] = useState(item.yield_per_batch);
   const [preview, setPreview] = useState<ProduceBatchResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handlePreview = async () => {
     setLoading(true);
     try {
-      const result = await previewPrepBatch(rid, item.id, { batches });
+      const result = await previewPrepBatch(rid, item.id, { quantity });
       setPreview(result);
     } catch (err: any) {
       alert(err.message);
@@ -1294,7 +1294,7 @@ function BatchProduceModal({
   const handleProduce = async () => {
     setLoading(true);
     try {
-      await producePrepBatch(rid, item.id, { batches });
+      await producePrepBatch(rid, item.id, { quantity });
       onProduced();
       onClose();
     } catch (err: any) {
@@ -1308,11 +1308,20 @@ function BatchProduceModal({
     <Modal title={t('produce').replace('{name}', item.name)} onClose={onClose}>
       <div className="space-y-4">
         <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('numberOfBatches')}</label>
-          <NumberInput integer min={1} className="input w-full py-2 text-sm" value={batches} onChange={(v) => { setBatches(v); setPreview(null); }} />
+          <label className="text-xs text-fg-secondary block mb-1">
+            {t('quantityToProduce').replace('{unit}', item.unit)}
+          </label>
+          <NumberInput
+            integer={item.unit === 'unit'}
+            min={item.unit === 'unit' ? 1 : 0.01}
+            className="input w-full py-2 text-sm"
+            value={quantity}
+            onChange={(value) => { setQuantity(value); setPreview(null); }}
+          />
           <p className="text-xs text-fg-secondary mt-1">
-            {t('willProduce')
-              .replace('{amount}', (batches * item.yield_per_batch).toFixed(1))
+            {t('batchEquivalent')
+              .replace('{batches}', (quantity / item.yield_per_batch).toFixed(2).replace(/\.?0+$/, ''))
+              .replace('{yield}', String(item.yield_per_batch))
               .replace('{unit}', item.unit)}
           </p>
         </div>
@@ -1321,7 +1330,7 @@ function BatchProduceModal({
           <div className="flex justify-end gap-2">
             <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
             {canManage && (
-              <button onClick={handlePreview} disabled={loading} className="btn-primary text-sm">{loading ? t('checking') : t('preview')}</button>
+              <button onClick={handlePreview} disabled={loading} className="btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50">{loading ? t('checking') : t('preview')}</button>
             )}
           </div>
         ) : (
@@ -1335,7 +1344,12 @@ function BatchProduceModal({
                   {previewIngredients.map((ing) => (
                     <div key={ing.stock_item_id} className="flex justify-between text-sm">
                       <span className="text-fg-secondary">{ing.stock_item_name}</span>
-                      <span className="font-mono text-fg-primary">-{ing.quantity_used.toFixed(2)} (rem: {ing.remaining.toFixed(2)})</span>
+                      <span className="font-mono text-fg-primary">
+                        -{ing.quantity_used.toFixed(2)} {ing.unit}{' '}
+                        ({t('remainingAmount')
+                          .replace('{amount}', ing.remaining.toFixed(2))
+                          .replace('{unit}', ing.unit)})
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1350,7 +1364,8 @@ function BatchProduceModal({
                         {t('insufficientDetail')
                           .replace('{name}', s.stock_item_name)
                           .replace('{required}', s.required.toFixed(2))
-                          .replace('{available}', s.available.toFixed(2))}
+                          .replace('{available}', s.available.toFixed(2))
+                          .replaceAll('{unit}', s.unit)}
                       </p>
                     ))}
                   </div>
@@ -1359,7 +1374,7 @@ function BatchProduceModal({
                 <div className="flex justify-end gap-2">
                   <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
                   {canManage && (
-                    <button onClick={handleProduce} disabled={loading || previewInsufficient.length > 0} className="btn-primary text-sm">
+                    <button onClick={handleProduce} disabled={loading || previewInsufficient.length > 0} className="btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50">
                       {loading ? t('producing') : t('confirmProduce')}
                     </button>
                   )}
