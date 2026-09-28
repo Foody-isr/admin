@@ -8420,6 +8420,12 @@ export async function closeFoodCostReport(restaurantId: number, reportId: number
   });
 }
 
+export async function reopenFoodCostReport(restaurantId: number, reportId: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/reopen`, restaurantId, {
+    method: 'POST',
+  });
+}
+
 export async function getFoodCostBreakdown(restaurantId: number, reportId: number, stockItemId: number): Promise<IngredientBreakdown> {
   const res = await apiFetch<{ breakdown: IngredientBreakdown }>(`/api/v1/stock/daily-reports/${reportId}/breakdown?stock_item_id=${stockItemId}`, restaurantId);
   return res.breakdown;

@@ -7,7 +7,7 @@ import {
   getTodayFoodCostReport, getFoodCostReport, computeFoodCostReport,
   upsertSalesEntries, updateClosingStock, updateRetrospective,
   previewAvivSalesImport, importAvivSales, syncFoodyPOSSales,
-  closeFoodCostReport, createFoodCostReport, listFoodCostReports,
+  closeFoodCostReport, reopenFoodCostReport, createFoodCostReport, listFoodCostReports,
   getFoodCostBreakdown, getFoodCostSummary, deleteSalesEntries, deleteCostItems,
   listStockTransactions, getAllCategories, listStockItems, getRestaurant,
   confirmDelivery, deleteStockTransaction,
@@ -25,7 +25,7 @@ import {
   XIcon, PlusIcon, TrashIcon, InfoIcon,
   MailIcon, SunriseIcon, UtensilsIcon, MoonIcon, ArrowRightIcon,
   PackageIcon, ChefHatIcon, type LucideIcon,
-  UploadIcon, FileTextIcon,
+  UploadIcon, FileTextIcon, RotateCcwIcon,
 } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -174,6 +174,8 @@ export default function DailyOperationsPage() {
   const [loading, setLoading] = useState(true);
   const [computing, setComputing] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   // Section expansion
@@ -392,13 +394,31 @@ export default function DailyOperationsPage() {
 
   const handleClose = async () => {
     if (!report) return;
-    if (!confirm('Close this day\'s report? It will be frozen and cannot be modified.')) return;
+    if (!confirm(t('closeDayConfirm'))) return;
+    setActionError('');
     setClosing(true);
     try {
       await closeFoodCostReport(rid, report.id);
       await loadReport();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : t('closeDayError'));
     } finally {
       setClosing(false);
+    }
+  };
+
+  const handleReopen = async () => {
+    if (!report) return;
+    if (!confirm(t('reopenDayConfirm'))) return;
+    setActionError('');
+    setReopening(true);
+    try {
+      await reopenFoodCostReport(rid, report.id);
+      await loadReport();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : t('reopenDayError'));
+    } finally {
+      setReopening(false);
     }
   };
 
@@ -558,6 +578,17 @@ export default function DailyOperationsPage() {
               {t('today')}
             </h1>
             {report && statusBadge(report.status)}
+            {report?.status === 'closed' && canManage && (
+              <button
+                type="button"
+                onClick={handleReopen}
+                disabled={reopening}
+                className="inline-flex items-center gap-1.5 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--fg)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RotateCcwIcon className={`size-3.5 ${reopening ? 'animate-spin' : ''}`} />
+                {reopening ? t('reopeningDay') : t('reopenDay')}
+              </button>
+            )}
           </div>
           <p className="mt-1 max-w-2xl text-sm text-[var(--fg-secondary)]">
             {t('todayKitchenDesc')}
@@ -586,6 +617,13 @@ export default function DailyOperationsPage() {
           </button>
         </div>
       </header>
+
+      {actionError && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded-r-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError('')} aria-label={t('close')} className="shrink-0 font-semibold hover:opacity-70">×</button>
+        </div>
+      )}
 
       <nav aria-label={t('todayPhases')} className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
         <div className="grid md:grid-cols-3">
