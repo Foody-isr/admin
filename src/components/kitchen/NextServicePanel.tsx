@@ -12,13 +12,16 @@ export default function NextServicePanel({ items, canProduce, onProduce }: {
 }) {
   const { t } = useI18n();
   const [targets, setTargets] = useState<Record<number, number>>({});
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const selected = items.find((item) => item.id === selectedId) ?? items[0];
   return (
     <details className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
       <summary className="cursor-pointer px-5 py-4 font-semibold">{t('dailyServiceTitle')}</summary>
       <div className="space-y-3 px-5 pb-5">
         <p className="max-w-3xl text-sm text-fg-secondary">{t('dailyServiceHint')}</p>
-        <div className="divide-y divide-[var(--line)]">
-          {items.map((item) => {
+        <label className="block text-xs text-fg-secondary">{t('preparation')}<select value={selected?.id ?? ''} onChange={(event) => setSelectedId(Number(event.target.value))} className="input mt-1 w-full max-w-md">{items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <div>
+          {selected && [selected].map((item) => {
             const target = targets[item.id];
             const need = target === undefined ? null : serviceProductionNeed(item, target);
             return (
@@ -28,7 +31,7 @@ export default function NextServicePanel({ items, canProduce, onProduce }: {
                   <NumberInput min={0} value={target ?? ''} integer={item.unit === 'unit'} placeholder="—" className="input mt-1 w-full" onChange={(value) => setTargets((current) => ({ ...current, [item.id]: value }))} />
                 </label>
                 <div className="text-sm">{need && <><p className={need.shortfall_qty > 0 ? 'text-[var(--warning-500)]' : 'text-[var(--success-500)]'}>{t('dailyServiceMissing')}: {need.shortfall_qty.toFixed(2)} {item.unit}</p>
-                  {canProduce && need.batches_needed > 0 && <button onClick={() => onProduce(need)} className="btn-secondary mt-2 text-xs">{t('dailyConfirmProduction')}</button>}
+                  {item.quantity < 0 ? <p className="mt-1 text-xs text-[var(--warning-500)]">{t('chefNegativePrep')}</p> : canProduce && need.batches_needed > 0 && <button onClick={() => onProduce(need)} className="btn-secondary mt-2 text-xs">{t('dailyConfirmProduction')}</button>}
                   {need.shortfall_qty > 0 && item.yield_per_batch <= 0 && <p className="mt-1 text-xs text-red-500">{t('yieldPerBatch')}</p>}</>}</div>
               </div>
             );

@@ -6,18 +6,20 @@ import Link from 'next/link';
 import DeliveryImportModal from '../stock/DeliveryImportModal';
 import { DailyProductionModal, DailyReceiptModal } from '@/components/kitchen/DailyActionModals';
 import NextServicePanel from '@/components/kitchen/NextServicePanel';
+import KitchenDayReview from '@/components/kitchen/KitchenDayReview';
+import ProductionObjectives from '@/components/kitchen/ProductionObjectives';
 import {
   getTodayFoodCostReport, getFoodCostReport, computeFoodCostReport,
   upsertSalesEntries, updateClosingStock, updateRetrospective,
   previewAvivSalesImport, importAvivSales, syncFoodyPOSSales,
   closeFoodCostReport, reopenFoodCostReport, createFoodCostReport, listFoodCostReports,
-  getFoodCostBreakdown, getFoodCostSummary, deleteSalesEntries, deleteCostItems,
+  getKitchenSummary, type KitchenSummary, deleteSalesEntries,
   listStockTransactions, getAllCategories, listStockItems, getRestaurant,
   confirmDelivery, deleteStockTransaction,
   getDailyPrepPlan, listPrepItems, type PrepItem,
   generateEstimatedSupplies, sendOrderEmail, listPurchaseOrders, EstimatedSuppliesResult,
-  DailyFoodCostReport, DailyFoodCostItem, DailySalesEntry,
-  IngredientBreakdown, StockTransaction, MenuCategory, MenuItem, StockItem,
+  DailyFoodCostReport, DailySalesEntry,
+  StockTransaction, MenuCategory, MenuItem, StockItem,
   ConfirmDeliveryItemInput, PurchaseOrder, DailyPlanItem, OpeningHoursConfig,
   AvivSalesImportPreview,
 } from '@/lib/api';
@@ -27,14 +29,13 @@ import {
   ChevronLeftIcon, ChevronRightIcon,
   XIcon, PlusIcon, TrashIcon, InfoIcon,
   MailIcon, SunriseIcon, UtensilsIcon, MoonIcon, ArrowRightIcon,
-  PackageIcon, ChefHatIcon, type LucideIcon,
+  ChefHatIcon,
   UploadIcon, FileTextIcon, RotateCcwIcon,
 } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { MoneyFormatter } from '@/lib/currency';
+
 
 function formatDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -66,105 +67,6 @@ function getServiceWindow(config: OpeningHoursConfig | null, date: Date): { open
   };
 }
 
-type VarianceLevel = 'ok' | 'attention' | 'problem';
-
-function varianceLevel(pct: number): VarianceLevel {
-  const abs = Math.abs(pct);
-  if (abs < 5) return 'ok';
-  if (abs < 15) return 'attention';
-  return 'problem';
-}
-
-function varianceColor(pct: number): string {
-  switch (varianceLevel(pct)) {
-    case 'ok': return 'text-green-500';
-    case 'attention': return 'text-yellow-500';
-    case 'problem': return 'text-red-500';
-  }
-}
-
-function varianceBg(pct: number): string {
-  switch (varianceLevel(pct)) {
-    case 'ok': return '';
-    case 'attention': return 'bg-yellow-500/5';
-    case 'problem': return 'bg-red-500/5';
-  }
-}
-
-function VarianceBadge({ pct, t }: { pct: number; t: (k: string) => string }) {
-  const level = varianceLevel(pct);
-  const configs = {
-    ok:        { label: t('badgeOk') || 'OK',              cls: 'bg-green-500/15 text-green-400 border-green-500/20' },
-    attention: { label: t('badgeAttention') || 'Attention', cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20' },
-    problem:   { label: t('badgeProblem') || 'Problem',     cls: 'bg-red-500/15 text-red-400 border-red-500/20' },
-  };
-  const { label, cls } = configs[level];
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-      {label}
-    </span>
-  );
-}
-
-function insightMessage(item: DailyFoodCostItem, t: (k: string) => string, money: MoneyFormatter): string | null {
-  if (!item.closing_stock_counted) return null;
-  if (Math.abs(item.variance) < 0.001) return null;
-  const qty = `${Math.abs(item.variance).toFixed(2)}${item.unit}`;
-  const cost = item.variance_cost !== 0 ? ` (≈ ${money(Math.abs(item.variance_cost), { decimals: 0 })})` : '';
-  if (item.variance > 0) {
-    return t('insightOverUse')
-      .replace('{qty}', qty)
-      .replace('{cost}', cost) ||
-      `Vous avez utilisé ${qty} de trop${cost} → probable perte ou surdosage`;
-  }
-  return t('insightUnderUse')
-    .replace('{qty}', qty) ||
-    `Vous avez utilisé ${qty} de moins → possible erreur de stock ou de saisie`;
-}
-
-function computeRevenueLoss(
-  item: DailyFoodCostItem,
-  breakdown: IngredientBreakdown
-): { dishes: { name: string; servings: number; revenue: number }[]; total: number } | null {
-  const contributions = breakdown.contributions ?? [];
-  if (item.variance <= 0 || contributions.length === 0) return null;
-  const totalExpected = contributions.reduce((sum, c) => sum + c.total_usage_converted, 0);
-  if (totalExpected <= 0) return null;
-
-  const dishes: { name: string; servings: number; revenue: number }[] = [];
-  let totalRevenue = 0;
-  for (const c of contributions) {
-    if (c.total_usage_converted <= 0 || c.menu_item_price <= 0) continue;
-    const share = c.total_usage_converted / totalExpected;
-    const varianceForDish = item.variance * share;
-    const usagePerServing = c.total_usage_converted / c.qty_sold;
-    const servingsLost = varianceForDish / usagePerServing;
-    if (servingsLost >= 0.5) {
-      const revenueLost = servingsLost * c.menu_item_price;
-      dishes.push({ name: c.menu_item_name, servings: Math.round(servingsLost), revenue: revenueLost });
-      totalRevenue += revenueLost;
-    }
-  }
-  if (dishes.length === 0) return null;
-  return { dishes, total: totalRevenue };
-}
-
-function computeKpis(report: DailyFoodCostReport) {
-  const items = report.items || [];
-  const actualCost = items.reduce(
-    (sum, item) => sum + (item.closing_stock_counted ? item.actual_usage : item.theoretical_usage) * item.cost_per_unit,
-    0,
-  );
-  const wasteCost = items.reduce((sum, i) => sum + i.waste_qty * i.cost_per_unit, 0);
-  const varianceCost = items.reduce(
-    (sum, item) => sum + (item.closing_stock_counted ? item.variance_cost : 0),
-    0,
-  );
-  const revenue = report.total_sales_revenue;
-  const foodCostPct = revenue > 0 ? (actualCost / revenue) * 100 : 0;
-  return { foodCostPct, revenue, varianceCost, wasteCost };
-}
-
 function statusBadge(status: string, t: (key: string) => string) {
   switch (status) {
     case 'open': return <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-500">{t('open')}</span>;
@@ -175,7 +77,6 @@ function statusBadge(status: string, t: (key: string) => string) {
 }
 
 export default function DailyOperationsPage() {
-  const { money } = useCurrency();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -192,7 +93,7 @@ export default function DailyOperationsPage() {
 
   // Section expansion
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['sales', 'estimated'])
+    new Set()
   );
 
   // Supplies received today
@@ -202,9 +103,12 @@ export default function DailyOperationsPage() {
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [salesEntries, setSalesEntries] = useState<Record<number, number>>({});
 
-  // Closing stock
-  const [closingStocks, setClosingStocks] = useState<Record<number, number>>({});
   const [closingCountError, setClosingCountError] = useState('');
+  const [phaseSelection, setPhaseSelection] = useState<'opening' | 'service' | 'closing' | null>(null);
+  const [showAllProduction, setShowAllProduction] = useState(false);
+  const [kitchenSummary, setKitchenSummary] = useState<KitchenSummary | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   // Retrospective
   const [wentWell, setWentWell] = useState('');
@@ -214,14 +118,7 @@ export default function DailyOperationsPage() {
 
   // Selection for deletion
   const [selectedSales, setSelectedSales] = useState<Set<number>>(new Set());
-  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [deletingSales, setDeletingSales] = useState(false);
-  const [deletingItems, setDeletingItems] = useState(false);
-
-  // Inline breakdown expand
-  const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
-  const [breakdownCache, setBreakdownCache] = useState<Record<number, IngredientBreakdown>>({});
-  const [breakdownLoading, setBreakdownLoading] = useState<number | null>(null);
 
   // Quick receive modal
   const [showReceiveModal, setShowReceiveModal] = useState(false);
@@ -285,8 +182,6 @@ export default function DailyOperationsPage() {
         }
       }
       setReport(rpt);
-      setBreakdownCache({});
-      setExpandedItemId(null);
 
       // Populate form state from report
       if (rpt.sales) {
@@ -295,13 +190,6 @@ export default function DailyOperationsPage() {
           if (s.source === 'manual' && s.menu_item_id != null) entries[s.menu_item_id] = s.quantity;
         });
         setSalesEntries(entries);
-      }
-      if (rpt.items) {
-        const stocks: Record<number, number> = {};
-        rpt.items.forEach(i => {
-          if (i.stock_item_id && i.closing_stock_counted) stocks[i.stock_item_id] = i.closing_stock;
-        });
-        setClosingStocks(stocks);
       }
       setClosingCountError('');
       setWentWell(rpt.went_well || '');
@@ -361,10 +249,28 @@ export default function DailyOperationsPage() {
     }
   }, [rid, selectedDate, t]);
 
+  const loadKitchenSummary = useCallback(async () => {
+    if (!report) return;
+    setReviewLoading(true); setReviewError('');
+    try { setKitchenSummary(await getKitchenSummary(rid, report.id)); }
+    catch (error) { setReviewError(error instanceof Error ? error.message : t('chefReviewError')); throw error; }
+    finally { setReviewLoading(false); }
+  }, [rid, report, t]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!report) { setKitchenSummary(null); return; }
+    setReviewLoading(true); setReviewError('');
+    getKitchenSummary(rid, report.id).then((summary) => { if (!cancelled) setKitchenSummary(summary); })
+      .catch((error) => { if (!cancelled) { setKitchenSummary(null); setReviewError(error instanceof Error ? error.message : t('chefReviewError')); } })
+      .finally(() => { if (!cancelled) setReviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [rid, report, t]);
+
   useEffect(() => { loadReport(); }, [loadReport]);
   useEffect(() => { loadSupplementary(); }, [loadSupplementary]);
 
   const navigateDate = (delta: number) => {
+    setPhaseSelection(null); setExpandedSections(new Set());
     setSelectedDate(prev => {
       const d = new Date(prev);
       d.setDate(d.getDate() + delta);
@@ -376,26 +282,7 @@ export default function DailyOperationsPage() {
   const recomputeAndReload = useCallback(async (reportId: number) => {
     const updated = await computeFoodCostReport(rid, reportId);
     setReport(updated);
-    setBreakdownCache({});
-    setExpandedItemId(null);
-    if (updated.items) {
-      const stocks: Record<number, number> = {};
-      updated.items.forEach(i => {
-        if (i.stock_item_id && i.closing_stock_counted) stocks[i.stock_item_id] = i.closing_stock;
-      });
-      setClosingStocks(stocks);
-    }
   }, [rid]);
-
-  const handleCompute = async () => {
-    if (!report) return;
-    setComputing(true);
-    try {
-      await recomputeAndReload(report.id);
-    } finally {
-      setComputing(false);
-    }
-  };
 
   const handlePullFoodySales = async () => {
     if (!report) return;
@@ -414,10 +301,7 @@ export default function DailyOperationsPage() {
     setSavingDraft(true);
     setClosingCountError('');
     try {
-      const items = Object.entries(closingStocks)
-        .map(([stockItemId, quantity]) => ({ stock_item_id: Number(stockItemId), quantity }));
       await Promise.all([
-        ...(items.length > 0 ? [updateClosingStock(rid, report.id, items)] : []),
         updateRetrospective(rid, report.id, {
           went_well: wentWell,
           went_wrong: wentWrong,
@@ -439,10 +323,7 @@ export default function DailyOperationsPage() {
     setClosing(true);
     setClosingCountError('');
     try {
-      const items = Object.entries(closingStocks)
-        .map(([stockItemId, quantity]) => ({ stock_item_id: Number(stockItemId), quantity }));
       await Promise.all([
-        ...(items.length > 0 ? [updateClosingStock(rid, report.id, items)] : []),
         updateRetrospective(rid, report.id, {
           went_well: wentWell,
           went_wrong: wentWrong,
@@ -474,21 +355,6 @@ export default function DailyOperationsPage() {
     }
   };
 
-  const handleToggleBreakdown = async (itemId: number, stockItemId: number) => {
-    if (expandedItemId === itemId) { setExpandedItemId(null); return; }
-    setExpandedItemId(itemId);
-    if (breakdownCache[stockItemId]) return;
-    setBreakdownLoading(stockItemId);
-    try {
-      const bd = await getFoodCostBreakdown(rid, report!.id, stockItemId);
-      setBreakdownCache(prev => ({ ...prev, [stockItemId]: bd }));
-    } catch {
-      setExpandedItemId(null);
-    } finally {
-      setBreakdownLoading(null);
-    }
-  };
-
   const handleDeleteSales = async (ids: number[]) => {
     if (!report || ids.length === 0) return;
     setDeletingSales(true);
@@ -501,29 +367,8 @@ export default function DailyOperationsPage() {
     }
   };
 
-  const handleDeleteItems = async (ids: number[]) => {
-    if (!report || ids.length === 0) return;
-    setDeletingItems(true);
-    try {
-      await deleteCostItems(rid, report.id, ids);
-      setSelectedItems(new Set());
-      await recomputeAndReload(report.id);
-    } finally {
-      setDeletingItems(false);
-    }
-  };
-
   const toggleSalesSelection = (id: number) => {
     setSelectedSales(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleItemSelection = (id: number) => {
-    setSelectedItems(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -586,14 +431,21 @@ export default function DailyOperationsPage() {
   }
 
   const isOpen = report?.status === 'open' && canManage;
-  const prepToLaunch = dailyPrepPlan.filter((item) => item.batches_needed > 0);
-  const batchesToLaunch = prepToLaunch.reduce((sum, item) => sum + item.batches_needed, 0);
+  const objectivePlans: DailyPlanItem[] = (kitchenSummary?.preparations ?? []).filter((row) => row.target_qty != null).flatMap((row): DailyPlanItem[] => {
+    const item = prepItems.find((prep) => prep.id === row.prep_item_id);
+    if (!item) return [];
+    const missing = Math.max(0, row.target_qty! - row.produced_qty);
+    return [{ prep_item_id: item.id, prep_item_name: item.name, unit: item.unit, current_qty: item.quantity,
+      required_qty: row.target_qty!, shortfall_qty: missing, batches_needed: item.yield_per_batch > 0 ? Math.ceil(missing / item.yield_per_batch) : 0,
+      yield_per_batch: item.yield_per_batch, shelf_life_hours: item.shelf_life_hours, category: item.category, priority: 'high' }];
+  });
+  const prepToLaunch = [...objectivePlans, ...dailyPrepPlan.filter((item) => !objectivePlans.some((target) => target.prep_item_id === item.prep_item_id))]
+    .filter((item) => item.current_qty < 0 || item.batches_needed > 0 || item.shortfall_qty > 0)
+    .sort((a, b) => Number(b.current_qty < 0) - Number(a.current_qty < 0));
+  const batchesToLaunch = prepToLaunch.filter((item) => item.current_qty >= 0).reduce((sum, item) => sum + item.batches_needed, 0);
   const lowStockItems = stockItems.filter(
     (item) => item.is_active !== false && item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold,
   );
-  const varianceAlerts = (report?.items ?? []).filter(
-    (item) => item.closing_stock_counted && varianceLevel(item.variance_percent) !== 'ok',
-  ).length;
   const selectedIsToday = formatDate(selectedDate) === formatDate(new Date());
   const soldQuantity = (report?.sales ?? []).reduce((sum, sale) => sum + sale.quantity, 0);
   const externalSalesPending = report?.status === 'open' && (report.sales ?? []).some((sale) => sale.source !== 'pos');
@@ -617,12 +469,10 @@ export default function DailyOperationsPage() {
         ? 'service'
         : 'opening';
 
-  const jumpToPhase = (phase: 'opening' | 'service' | 'closing') => {
-    document.getElementById(`phase-${phase}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  const activePhase = phaseSelection ?? (report?.status !== 'open' || !selectedIsToday ? 'closing' : suggestedPhase ?? (now.getHours() >= 17 ? 'closing' : 'opening'));
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-6">
+    <div className="mx-auto max-w-5xl space-y-4 px-4 py-5">
       {/* Today is the kitchen cockpit: one date, three moments, one recommended focus. */}
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
@@ -644,7 +494,7 @@ export default function DailyOperationsPage() {
             )}
           </div>
           <p className="mt-1 max-w-2xl text-sm text-[var(--fg-secondary)]">
-            {t('todayKitchenDesc')}
+            {t('chefPageHint')}
           </p>
         </div>
         <div className="flex items-center gap-2 self-start md:self-auto">
@@ -657,8 +507,9 @@ export default function DailyOperationsPage() {
           </button>
           <input
             type="date"
+            aria-label={t('date')}
             value={formatDate(selectedDate)}
-            onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
+            onChange={(e) => { if (e.target.value) { setPhaseSelection(null); setExpandedSections(new Set()); setSelectedDate(new Date(e.target.value + 'T00:00:00')); } }}
             className="input h-9 px-3 text-sm"
           />
           <button
@@ -672,10 +523,14 @@ export default function DailyOperationsPage() {
       </header>
 
       <div className="grid items-center gap-3 rounded-r-md bg-[var(--surface-2)] px-4 py-3 text-sm text-fg-secondary sm:grid-cols-[minmax(0,1fr)_auto]">
-        <p>{t('dailyAutomaticStockHint')}</p>
+        <p>{t('chefAutomaticStock')}</p>
         <button type="button" disabled={refreshing} className="btn-secondary inline-flex shrink-0 items-center gap-2 text-xs" onClick={async () => {
           setRefreshing(true);
-          try { await loadSupplementary(); if (report?.status === 'open') await recomputeAndReload(report.id); }
+          try {
+            await loadSupplementary();
+            if (report?.status === 'open') await recomputeAndReload(report.id);
+            else await loadKitchenSummary();
+          }
           catch (error) { setActionError(error instanceof Error ? error.message : t('dailyLoadError')); }
           finally { setRefreshing(false); }
         }}><RefreshCwIcon className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />{t('refresh')}</button>
@@ -690,55 +545,23 @@ export default function DailyOperationsPage() {
         </div>
       )}
 
-      <nav aria-label={t('todayPhases')} className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
-        <div className="grid md:grid-cols-3">
-          {([
-            ['opening', t('dayPhaseOpening'), t('dayPhaseOpeningShort'), SunriseIcon],
-            ['service', t('dayPhaseService'), t('dayPhaseServiceShort'), UtensilsIcon],
-            ['closing', t('dayPhaseClosing'), t('dayPhaseClosingShort'), MoonIcon],
-          ] as const).map(([phase, label, desc, Icon], index) => {
-            const recommended = suggestedPhase === phase;
-            return (
-              <button
-                key={phase}
-                type="button"
-                onClick={() => jumpToPhase(phase)}
-                className={`group relative flex min-h-24 items-start gap-3 px-5 py-4 text-start transition-colors md:border-s md:first:border-s-0 md:border-[var(--line)] ${
-                  recommended ? 'bg-[var(--brand-50)]' : 'hover:bg-[var(--surface-2)]'
-                } ${index > 0 ? 'border-t border-[var(--line)] md:border-t-0' : ''}`}
-              >
-                <span className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-full ${
-                  recommended
-                    ? 'bg-[var(--brand-500)] text-white'
-                    : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
-                }`}>
-                  <Icon className="size-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="flex flex-wrap items-center gap-2 font-semibold text-[var(--fg)]">
-                    {label}
-                    {recommended && (
-                      <span className="rounded-full bg-[var(--brand-100)] px-2 py-0.5 text-[11px] font-medium text-[var(--brand-700)]">
-                        {t('recommendedNow')}
-                      </span>
-                    )}
-                  </span>
-                  <span className="mt-1 block text-xs leading-relaxed text-[var(--fg-muted)]">{desc}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <div role="tablist" aria-label={t('todayPhases')} className="grid grid-cols-3 border-b border-[var(--line)]">
+        {([['opening', 'chefOpeningTab', SunriseIcon], ['service', 'chefServiceTab', UtensilsIcon], ['closing', 'chefClosingTab', MoonIcon]] as const).map(([phase, label, Icon], index) => (
+          <button key={phase} id={`tab-${phase}`} type="button" role="tab" aria-controls={`phase-${phase}`} aria-selected={activePhase === phase} tabIndex={activePhase === phase ? 0 : -1}
+            onClick={() => setPhaseSelection(phase)} onKeyDown={(event) => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+              event.preventDefault();
+              const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
+              const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + (event.key === 'ArrowRight' ? direction : -direction) + 3) % 3;
+              setPhaseSelection((['opening', 'service', 'closing'] as const)[next]);
+              (event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next])?.focus();
+            }} className={`flex min-h-14 items-center justify-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 ${activePhase === phase ? 'border-brand-500 text-brand-500' : 'border-transparent text-fg-secondary hover:bg-[var(--surface-2)]'}`}>
+            <Icon className="size-4 shrink-0" /><span className="min-w-0">{t(label)}</span>
+          </button>
+        ))}
+      </div>
 
-      <PhaseHeading
-        id="phase-opening"
-        icon={SunriseIcon}
-        title={t('dayPhaseOpening')}
-        desc={t('dayPhaseOpeningDesc')}
-        recommended={suggestedPhase === 'opening'}
-        t={t}
-      />
+      {activePhase === 'opening' && <div role="tabpanel" id="phase-opening" aria-labelledby="tab-opening" className="space-y-4">
 
       <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
         <div className="flex flex-col gap-3 border-b border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -763,28 +586,30 @@ export default function DailyOperationsPage() {
             </Link>
           </div>
         </div>
-        {dailyPrepPlan.length === 0 ? (
+        {prepToLaunch.length === 0 ? (
           <div className="px-5 py-6 text-sm text-[var(--fg-muted)]">{supplementaryError ? t('dailyLoadError') : t('dailyNoForecast')}</div>
         ) : (
           <div className="divide-y divide-[var(--line)]">
-            {prepToLaunch.map((item) => (
+            {(showAllProduction ? prepToLaunch : prepToLaunch.slice(0, 3)).map((item) => (
               <div key={item.prep_item_id} className="grid gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-[var(--fg)]">{item.prep_item_name}</div>
                   <div className="mt-0.5 text-xs text-[var(--fg-muted)]">{item.category}</div>
                 </div>
                 <div className="text-xs text-[var(--fg-muted)] sm:text-end">
-                  {t('current')}: <span className="font-medium text-[var(--fg)]">{item.current_qty.toFixed(1)} {item.unit}</span>
-                  {' / '}
-                  {t('demand')}: <span className="font-medium text-[var(--fg)]">{item.required_qty.toFixed(1)} {item.unit}</span>
+                  {objectivePlans.some((target) => target.prep_item_id === item.prep_item_id) ? t('chefPlannedQty').replace('{qty}', `${item.required_qty} ${item.unit}`) : `${t('current')}: ${item.current_qty.toFixed(1)} ${item.unit} / ${t('demand')}: ${item.required_qty.toFixed(1)} ${item.unit}`}
                 </div>
-                <div className="flex items-center gap-3"><span className="text-xs font-semibold text-[var(--brand-700)]">{item.batches_needed} {t('batches')}</span>
-                  {canManage && selectedIsToday && !supplementaryError && <button className="btn-primary text-xs" onClick={() => setProductionItem(item)}>{t('dailyConfirmProduction')}</button>}
+                <div className="flex items-center gap-3">
+                  {item.current_qty >= 0 && <span className="text-xs font-semibold text-[var(--brand-700)]">{item.batches_needed} {t('batches')}</span>}
+                  {item.current_qty < 0 || item.yield_per_batch <= 0 ? <Link className="text-xs font-medium text-[var(--warning-500)]" href={`/${rid}/kitchen/prep`}>{t('chefReviewProduction')}</Link> : canManage && selectedIsToday && !supplementaryError && <button className="btn-primary text-xs" onClick={() => setProductionItem(item)}>{t('dailyConfirmProduction')}</button>}
                 </div>
+                {item.current_qty < 0 && <p className="text-xs text-[var(--warning-500)] sm:col-span-3">{t('chefNegativePrep')}</p>}
               </div>
             ))}
           </div>
         )}
+        {prepToLaunch.length > 3 && <button className="px-5 py-3 text-sm text-brand-500" onClick={() => setShowAllProduction(!showAllProduction)}>{showAllProduction ? t('chefShowLess') : t('chefShowAllProduction').replace('{count}', String(prepToLaunch.length))}</button>}
+        {isOpen && selectedIsToday && report && !supplementaryError && <ProductionObjectives rid={rid} reportId={report.id} items={prepItems} summary={kitchenSummary} onSaved={loadKitchenSummary} />}
       </section>
 
       <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
@@ -796,10 +621,10 @@ export default function DailyOperationsPage() {
           </div>}
         </div>
         <div className="divide-y divide-[var(--line)]">
-          {pendingDeliveries.length === 0 ? <p className="px-5 py-4 text-sm text-fg-secondary">{supplementaryError ? t('dailyLoadError') : t('dailyNoDeliveries')}</p> : pendingDeliveries.map((order) => (
+          {pendingDeliveries.length === 0 ? <p className="px-5 py-4 text-sm text-fg-secondary">{supplementaryError ? t('dailyLoadError') : t('dailyNoDeliveries')}</p> : pendingDeliveries.slice(0, 3).map((order) => (
             <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div><p className="text-sm font-medium">{order.supplier?.name} <span className="font-normal text-fg-secondary">PO-{order.id}</span></p>
-                <p className="mt-1 text-xs text-fg-secondary">{order.items.length} {t('items')}{order.expected_delivery_at ? ` · ${new Date(order.expected_delivery_at).toLocaleDateString()}` : ''}</p></div>
+                <p className="mt-1 text-xs text-fg-secondary">{(order.items ?? []).length} {t('items')}{order.expected_delivery_at ? ` · ${new Date(order.expected_delivery_at).toLocaleDateString()}` : ''}</p></div>
               {canManage && selectedIsToday && <button className="btn-primary text-xs" onClick={() => setReceiptOrder(order)}>{t('dailyReviewDelivery')}</button>}
             </div>
           ))}
@@ -828,7 +653,7 @@ export default function DailyOperationsPage() {
         {todayReceives.length === 0 ? (
           <p className="text-sm text-[var(--fg-secondary)] py-4">{t('noSuppliesReceived') || 'No supplies received today.'}</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--divider)]">
                 <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('ingredient') || 'Ingredient'}</th>
@@ -849,8 +674,14 @@ export default function DailyOperationsPage() {
                       <td className="py-2 text-right">
                         <button
                           onClick={async () => {
-                            await deleteStockTransaction(rid, tx.id);
-                            loadSupplementary();
+                            setActionError('');
+                            try {
+                              await deleteStockTransaction(rid, tx.id);
+                              await loadSupplementary();
+                              await loadKitchenSummary();
+                            } catch (error) {
+                              setActionError(error instanceof Error ? error.message : t('saveFailed'));
+                            }
                           }}
                           className="p-1 rounded hover:bg-red-500/10 text-[var(--fg-secondary)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                           title={t('delete') || 'Delete'}
@@ -863,92 +694,45 @@ export default function DailyOperationsPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </CollapsibleSection>
 
-      <PhaseHeading
-        id="phase-service"
-        icon={UtensilsIcon}
-        title={t('dayPhaseService')}
-        desc={t('dayPhaseServiceDesc')}
-        recommended={suggestedPhase === 'service'}
-        t={t}
-      />
-
-      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
-        <div className="grid divide-y divide-[var(--line)] md:grid-cols-3 md:divide-x md:divide-y-0 rtl:md:divide-x-reverse">
-          <OperationalMetric
-            icon={ChefHatIcon}
-            label={t('dailyProductionAlerts')}
-            value={supplementaryError || dailyPrepPlan.length === 0 ? '—' : String(prepToLaunch.length)}
-            detail={prepToLaunch.length > 0
-              ? t('servicePrepRisk').replace('{count}', String(prepToLaunch.length))
-              : t('dailyNoForecast')}
-            tone={prepToLaunch.length > 0 ? 'warning' : 'default'}
-          />
-          <OperationalMetric
-            icon={PackageIcon}
-            label={t('lowStockItems')}
-            value={supplementaryError ? '—' : String(lowStockItems.length)}
-            detail={supplementaryError ? t('dailyLoadError') : lowStockItems.length > 0 ? t('needsAttention') : t('stockCovered')}
-            tone={supplementaryError ? 'default' : lowStockItems.length > 0 ? 'danger' : 'success'}
-          />
-          <OperationalMetric
-            icon={UtensilsIcon}
-            label={t('salesEntry')}
-            value={String(soldQuantity)}
-            detail={externalSalesPending ? t('dailyExternalSalesPending') : t('dailySoldUnits')}
-          />
+      </div>}
+      {activePhase === 'service' && <div role="tabpanel" id="phase-service" aria-labelledby="tab-service" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <p className="font-medium">{t('chefSoldSummary').replace('{qty}', String(soldQuantity))}</p>
+          <Link href={`/${rid}/settings/stock/availability`} className="font-medium text-brand-500">{t('manageAvailability')}</Link>
         </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--line)] px-5 py-3 text-sm">
-          <Link href={`/${rid}/kitchen/prep`} className="inline-flex items-center gap-1 font-medium text-[var(--brand-500)] hover:underline">
-            {t('viewPreparations')} <ArrowRightIcon className="size-3.5" />
-          </Link>
-          <Link href={`/${rid}/kitchen/stock`} className="inline-flex items-center gap-1 font-medium text-[var(--brand-500)] hover:underline">
-            {t('viewStock')} <ArrowRightIcon className="size-3.5" />
-          </Link>
-          <Link href={`/${rid}/settings/stock/availability`} className="inline-flex items-center gap-1 font-medium text-[var(--brand-500)] hover:underline">
-            {t('manageAvailability')} <ArrowRightIcon className="size-3.5" />
-          </Link>
-        </div>
-      </section>
-
+        {externalSalesPending && <p className="text-xs text-fg-secondary">{t('dailyExternalSalesPending')}</p>}
+        {prepToLaunch.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3 rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-4"><p className="text-sm">{t('servicePrepRisk').replace('{count}', String(prepToLaunch.length))}</p><button className="btn-primary text-sm" onClick={() => setPhaseSelection('opening')}>{t('chefReviewProduction')}</button></div>}
       {!supplementaryError && prepItems.length > 0 && <NextServicePanel key={`${rid}-${formatDate(selectedDate)}`} items={prepItems} canProduce={canManage && selectedIsToday} onProduce={setProductionItem} />}
       {!supplementaryError && lowStockItems.length > 0 && <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-5 py-4">
         <h3 className="text-sm font-semibold">{t('dailyStockToOrder')}</h3>
-        <div className="mt-2 divide-y divide-[var(--line)]">{lowStockItems.map((item) => <div key={item.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
+        <div className="mt-2 divide-y divide-[var(--line)]">{lowStockItems.slice(0, 3).map((item) => <div key={item.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
           <span>{item.name}<span className="ml-2 text-xs text-fg-secondary">{item.supplier}</span></span><span className="tabular-nums text-fg-secondary">{item.quantity} {item.unit} / {t('reorderThreshold')}: {item.reorder_threshold}</span>
         </div>)}</div>
         <Link className="mt-3 inline-block text-sm font-medium text-brand-500" href={`/${rid}/kitchen/suppliers?tab=orders`}>{t('dailyManageOrders')}</Link>
       </div>}
 
-      {/* Section 2: Sales */}
+      </div>}
+      {activePhase === 'closing' && <div role="tabpanel" id="phase-closing" aria-labelledby="tab-closing" className="space-y-4">
+        {report && <KitchenDayReview key={`${rid}-${report.id}`} report={report} summary={kitchenSummary} loading={reviewLoading} error={reviewError} canCount={isOpen} onRetry={() => { void loadKitchenSummary().catch(() => {}); }} onCount={async (stockItemId, quantity) => {
+          await updateClosingStock(rid, report.id, [{ stock_item_id: stockItemId, quantity }]);
+          await recomputeAndReload(report.id);
+        }} />}
+        {isOpen && <div className="flex flex-wrap items-center justify-between gap-3 rounded-r-md bg-[var(--surface-2)] px-4 py-3">
+          <p className="max-w-xl text-sm text-fg-secondary">{t('chefSalesHint')}</p>
+          <div className="flex gap-2"><button className="btn-secondary text-sm" onClick={() => setShowSalesImportModal(true)}>{t('chefImportSales')}</button><button className="btn-secondary text-sm" onClick={() => setShowSalesModal(true)}>{t('manualSalesEntry')}</button></div>
+        </div>}
+
+      {/* Sales details are available on demand; they are not the chef's default form. */}
       <CollapsibleSection
         title={t('salesEntry') || 'Sales'}
         sectionKey="sales"
         expanded={expandedSections.has('sales')}
         onToggle={toggleSection}
         badge={report?.sales?.length ? `${report.sales.length} items` : undefined}
-        action={isOpen ? (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowSalesImportModal(true)}
-              disabled={computing}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
-            >
-              <RefreshCwIcon className={`w-3.5 h-3.5 ${computing ? 'animate-spin' : ''}`} />
-              {t('pullFromPOS') || 'Pull from POS'}
-            </button>
-            <button
-              onClick={() => setShowSalesModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 transition-colors"
-            >
-              <PlusIcon className="w-4 h-4" />
-              {t('manualSalesEntry') || 'Manual Entry'}
-            </button>
-          </div>
-        ) : undefined}
       >
         <SectionDesc>{t('salesDesc') || 'Sales data drives the theoretical ingredient usage calculation. Pull from POS or enter manually.'}</SectionDesc>
         {report?.sales && report.sales.length > 0 ? (
@@ -965,7 +749,7 @@ export default function DailyOperationsPage() {
                 </button>
               </div>
             )}
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--divider)]">
                   {isOpen && (
@@ -1023,7 +807,7 @@ export default function DailyOperationsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </div>
         ) : (
           <p className="text-sm text-[var(--fg-secondary)] py-4">
@@ -1032,53 +816,8 @@ export default function DailyOperationsPage() {
         )}
       </CollapsibleSection>
 
-      <PhaseHeading
-        id="phase-closing"
-        icon={MoonIcon}
-        title={t('dayPhaseClosing')}
-        desc={t('dayPhaseClosingDesc')}
-        recommended={suggestedPhase === 'closing'}
-        t={t}
-      />
-
-      {report && (() => {
-        const kpis = computeKpis(report);
-        const hasCounts = (report.items ?? []).some((item) => item.closing_stock_counted);
-        return (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <KpiCard
-              label={t('dailyEstimatedFoodCost')}
-              value={`${kpis.foodCostPct.toFixed(1)}%`}
-              warn={kpis.foodCostPct > 35}
-              tooltip={t('dailyEstimatedFoodCostHint')}
-              explain={t('dailyEstimatedFoodCostHint')}
-            />
-            <KpiCard
-              label={t('revenue') || 'Revenue'}
-              value={money(kpis.revenue, { decimals: 0 })}
-              tooltip={t('revenueTooltip')}
-              explain={t('revenueExplain')}
-            />
-            <KpiCard
-              label={t('variance') || 'Variance'}
-              value={hasCounts ? money(kpis.varianceCost, { decimals: 0 }) : '—'}
-              warn={hasCounts && varianceAlerts > 0}
-              tooltip={t('varianceTooltip')}
-              explain={t('varianceExplain')}
-            />
-            <KpiCard
-              label={t('wasteValue') || 'Waste'}
-              value={money(kpis.wasteCost, { decimals: 0 })}
-              warn={kpis.wasteCost > 0}
-              tooltip={t('wasteTooltip')}
-              explain={t('wasteExplain')}
-            />
-          </div>
-        );
-      })()}
-
-      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
-        <h2 className="font-semibold">{t('dailyTomorrowTitle')}</h2>
+      <details className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
+        <summary className="cursor-pointer font-semibold">{t('dailyTomorrowTitle')}</summary>
         <p className="mt-1 max-w-3xl text-sm text-fg-secondary">{t('dailyTomorrowHint')}</p>
         <div className="mt-3 divide-y divide-[var(--line)]">
           {tomorrowPrepPlan.length === 0 ? <p className="py-3 text-sm text-fg-secondary">{supplementaryError ? t('dailyLoadError') : t('dailyNoForecast')}</p> : tomorrowPrepPlan.map((item) => <div key={item.prep_item_id} className="flex flex-wrap justify-between gap-2 py-3 text-sm">
@@ -1088,294 +827,18 @@ export default function DailyOperationsPage() {
         <div className="mt-3 flex flex-wrap gap-4 text-sm font-medium text-brand-500">
           <Link href={`/${rid}/kitchen/prep`}>{t('viewPreparations')}</Link><Link href={`/${rid}/kitchen/suppliers?tab=orders`}>{t('dailyManageOrders')}</Link>
         </div>
-      </section>
+      </details>
       {isOpen && <section className="flex flex-wrap items-center justify-between gap-4 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
         <div className="max-w-2xl"><h2 className="font-semibold">{t('closeDay')}</h2><p className="mt-1 text-sm text-fg-secondary">{t('dailyCloseHint')}</p>
           {externalSalesPending && <p className="mt-2 text-sm text-[var(--warning-500)]">{t('dailyExternalSalesPending')}</p>}</div>
-        <div className="flex flex-wrap gap-2"><button onClick={handleSaveDraft} disabled={savingDraft || closing} className="btn-secondary">{savingDraft ? t('saving') : t('saveDraft')}</button>
-          <button onClick={handleClose} disabled={closing || savingDraft} className="btn-primary">{closing ? t('closing') : t('closeDay')}</button></div>
+        <div className="flex flex-wrap gap-2"><button onClick={handleClose} disabled={closing || savingDraft} className="btn-primary">{closing ? t('closing') : t('closeDay')}</button></div>
         {closingCountError && <p role="alert" className="w-full text-sm text-red-500">{closingCountError}</p>}
       </section>}
 
-      {/* Section 3: Stock Count & Variance */}
-      <CollapsibleSection
-        title={t('dailyOptionalInventory')}
-        sectionKey="variance"
-        expanded={expandedSections.has('variance')}
-        onToggle={toggleSection}
-      >
-        <div className="space-y-4">
-          <SectionDesc>{t('stockCountVarianceDesc') || 'Compare actual vs theoretical ingredient consumption. Enter your physical end-of-day stock count to see where losses occur.'}</SectionDesc>
-          {isOpen && (
-            <div id="physical-stock-count-help" className="flex items-start gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-3 text-xs leading-relaxed text-[var(--fg-muted)]">
-              <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
-              <div>
-                <p className="font-semibold text-[var(--fg)]">{t('stockCountHelpTitle')}</p>
-                <p className="mt-0.5">{t('dailyOptionalInventoryHint')}</p>
-                <p className="mt-1">{t('stockCountRequiredHint')}</p>
-                <p className="mt-1 font-medium text-[var(--fg)]">{t('stockCountExample')}</p>
-              </div>
-            </div>
-          )}
-          {closingCountError && (
-            <div role="alert" className="flex items-start gap-2 rounded-lg border border-[var(--danger-500)]/30 bg-[var(--danger-50)] px-3 py-2 text-xs leading-relaxed text-[var(--danger-500)]">
-              <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />
-              <span>{closingCountError}</span>
-            </div>
-          )}
-          {/* Variance table */}
-          {report?.items && report.items.length > 0 ? (
-            <div className="space-y-2">
-              {isOpen && selectedItems.size > 0 && (
-                <div className="flex items-center gap-2 py-1">
-                  <button
-                    onClick={() => handleDeleteItems(Array.from(selectedItems))}
-                    disabled={deletingItems}
-                    className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                  >
-                    <TrashIcon className="w-3.5 h-3.5" />
-                    {t('deleteSelected') || `Delete (${selectedItems.size})`}
-                  </button>
-                </div>
-              )}
-              <div className="space-y-1">
-                {/* Table header */}
-                <div className={`grid text-xs font-medium text-[var(--fg-secondary)] px-3 py-2 border-b border-[var(--divider)] ${isOpen ? 'grid-cols-[2rem_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4`}>
-                  {isOpen && <span className="w-8" />}
-                  <span>{t('ingredient') || 'Ingredient'}</span>
-                  <span className="text-right"><ThTooltip label={t('opening') || 'Opening'} tooltip={t('colOpeningTooltip')} explain={t('colOpeningExplain')} /></span>
-                  <span className="text-right"><ThTooltip label={t('received') || 'Received'} tooltip={t('colReceivedTooltip')} explain={t('colReceivedExplain')} /></span>
-                  <span className="text-right"><ThTooltip label={t('colExpectedLabel') || 'Expected'} tooltip={t('colTheoreticalTooltip')} explain={t('colTheoreticalExplain')} /></span>
-                  <span className="text-right"><ThTooltip label={t('remainingStockLabel') || 'Stock remaining'} tooltip={t('colClosingTooltip')} explain={t('colClosingExplain')} /></span>
-                  <span className="text-right"><ThTooltip label={t('colLossLabel') || 'Loss / Over-use'} tooltip={t('colVarianceTooltip')} explain={t('colVarianceExplain')} /></span>
-                  <span className="text-right"><ThTooltip label={t('colImpactLabel') || 'Impact'} tooltip={t('colVariancePctTooltip')} explain={t('colVariancePctExplain')} /></span>
-                  {isOpen && <span />}
-                </div>
-                {/* Rows */}
-                {report.items.map(item => {
-                  const insight = insightMessage(item, t, money);
-                  const isExpanded = expandedItemId === item.id;
-                  const bd = item.stock_item_id ? breakdownCache[item.stock_item_id] : undefined;
-                  return (
-                    <div
-                      key={item.id}
-                      className={`rounded-lg border transition-colors group ${isExpanded ? 'border-[var(--divider)] bg-[var(--surface)]' : 'border-transparent hover:border-[var(--divider)]'} ${item.closing_stock_counted ? varianceBg(item.variance_percent) : ''}`}
-                    >
-                      {/* Main row */}
-                      <div
-                        className={`grid items-center px-3 py-2.5 cursor-pointer ${isOpen ? 'grid-cols-[2rem_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4 text-sm`}
-                        onClick={() => item.stock_item_id && handleToggleBreakdown(item.id, item.stock_item_id)}
-                      >
-                        {isOpen && (
-                          <div className="w-8 flex items-center" onClick={e => e.stopPropagation()}>
-                            <input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => toggleItemSelection(item.id)} className="rounded" />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex items-center gap-1.5">
-                          <span className="font-medium text-fg-primary">{item.item_name}</span>
-                          <span className="text-[var(--fg-secondary)] text-xs">({item.unit})</span>
-                          {item.stock_item_id && (
-                            isExpanded
-                              ? <ChevronUpIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)]" />
-                              : <ChevronDownIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-0 group-hover:opacity-100 transition-opacity" />
-                          )}
-                        </div>
-                        <span className="text-right text-fg-primary">{item.opening_stock.toFixed(2)}</span>
-                        <span className="text-right text-green-400">+{item.received_qty.toFixed(2)}</span>
-                        <span className="text-right text-[var(--fg-secondary)]">{item.theoretical_usage.toFixed(2)}</span>
-                        <div className="flex justify-end" onClick={e => e.stopPropagation()}>
-                          {isOpen ? (
-                            <NumberInput
-                              value={item.stock_item_id ? closingStocks[item.stock_item_id] : undefined}
-                              onChange={(n) => {
-                                if (!item.stock_item_id) return;
-                                setClosingStocks(prev => ({ ...prev, [item.stock_item_id!]: n }));
-                                setClosingCountError('');
-                              }}
-                              format={(n) => String(n)}
-                              placeholder={t('enterClosingCount')}
-                              aria-label={`${t('remainingStockLabel')} — ${item.item_name}`}
-                              aria-describedby="physical-stock-count-help"
-                              className="input w-24 max-w-full px-2 py-0.5 text-sm text-right"
-                            />
-                          ) : item.closing_stock_counted ? (
-                            <span>{item.closing_stock.toFixed(2)}</span>
-                          ) : (
-                            <span className="text-xs text-[var(--fg-muted)]">{t('notCounted')}</span>
-                          )}
-                        </div>
-                        <span className={`text-right font-medium tabular-nums ${item.closing_stock_counted ? varianceColor(item.variance_percent) : 'text-[var(--fg-muted)]'}`}>
-                          {item.closing_stock_counted
-                            ? `${item.variance > 0 ? '+' : ''}${item.variance.toFixed(2)}`
-                            : '—'}
-                        </span>
-                        <span className="text-right">
-                          {item.closing_stock_counted ? (
-                            <VarianceBadge pct={item.variance_percent} t={t} />
-                          ) : (
-                            <span className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 text-xs font-medium text-[var(--fg-muted)]">
-                            {t('notCounted')}
-                            </span>
-                          )}
-                        </span>
-                        {isOpen && (
-                          <div onClick={e => e.stopPropagation()} className="flex justify-end">
-                            <button
-                              onClick={() => handleDeleteItems([item.id])}
-                              className="p-1 rounded hover:bg-red-500/10 text-[var(--fg-secondary)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                              title={t('delete') || 'Delete'}
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      {/* Insight line */}
-                      {insight && (
-                        <div className={`px-3 pb-2 text-xs flex items-center gap-1.5 ${item.variance > 0 ? 'text-red-400' : 'text-yellow-400'}`}>
-                          <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />
-                          {insight}
-                        </div>
-                      )}
-                      {/* Inline breakdown panel */}
-                      {isExpanded && (
-                        <div className="px-4 py-3 border-t border-[var(--divider)]">
-                          {breakdownLoading === item.stock_item_id ? (
-                            <div className="flex items-center gap-2 text-sm text-[var(--fg-secondary)] py-2">
-                              <RefreshCwIcon className="w-4 h-4 animate-spin" />
-                              {t('loadingBreakdown') || 'Loading breakdown...'}
-                            </div>
-                          ) : bd ? (
-                            (bd.contributions ?? []).length === 0 ? (
-                              <p className="text-sm text-[var(--fg-secondary)]">
-                                {t('noContributions') || "No menu items contributed to this ingredient's usage."}
-                              </p>
-                            ) : (
-                              <div>
-                                <h4 className="text-sm font-semibold text-fg-primary mb-2">{t('dishBreakdown') || 'Dish Breakdown'}</h4>
-                                <table className="w-full text-sm">
-                                  <thead>
-                                    <tr className="border-b border-[var(--divider)]">
-                                      <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('menuItem') || 'Menu Item'}</th>
-                                      <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('qtySold') || 'Sold'}</th>
-                                      <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('perUnit') || 'Per Unit'}</th>
-                                      <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('totalUsage') || 'Total'}</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {(bd.contributions ?? []).map((c, i) => {
-                                      const sameUnit = c.recipe_unit === bd.unit;
-                                      return (
-                                        <tr key={i} className="border-b border-[var(--divider)] border-opacity-50">
-                                          <td className="py-2 text-fg-primary">{c.menu_item_name}</td>
-                                          <td className="py-2 text-right">{c.qty_sold}</td>
-                                          <td className="py-2 text-right text-[var(--fg-secondary)]">{c.recipe_qty}{c.recipe_unit}</td>
-                                          <td className="py-2 text-right font-medium">
-                                            {c.total_usage.toFixed(1)}{c.recipe_unit}
-                                            {!sameUnit && (
-                                              <span className="block text-xs text-[var(--fg-secondary)] font-normal">
-                                                ≈ {c.total_usage_converted.toFixed(3)}{bd.unit}
-                                              </span>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                                {/* Revenue loss */}
-                                {(() => {
-                                  const loss = computeRevenueLoss(item, bd);
-                                  if (!loss) return null;
-                                  return (
-                                    <div className="mt-3 pt-3 border-t border-[var(--divider)] border-opacity-50">
-                                      <div className="flex items-start gap-2 text-sm">
-                                        <AlertTriangleIcon className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                                        <span className="text-red-400 font-medium">
-                                          {'≈ '}
-                                          {loss.dishes.map((d, i) => (
-                                            <span key={i}>
-                                              {i > 0 && ' + '}
-                                              {d.servings} {d.name}
-                                            </span>
-                                          ))}
-                                          {` → ${money(loss.total, { decimals: 0 })} `}
-                                          {t('revenueLossSuffix') || 'potential revenue lost'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            )
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--fg-secondary)] py-4">
-              {t('noVarianceData') || 'No variance data yet. Click "Pull from POS" or enter sales to compute.'}
-            </p>
-          )}
-
-          {isOpen && report?.items && report.items.length > 0 && (
-            <div className="flex gap-3">
-              <button onClick={handleCompute} disabled={computing} className="btn-secondary text-sm px-4 py-1.5 flex items-center gap-2">
-                <RefreshCwIcon className={`w-4 h-4 ${computing ? 'animate-spin' : ''}`} />
-                {t('recompute') || 'Recompute'}
-              </button>
-            </div>
-          )}
-        </div>
-      </CollapsibleSection>
-
-      {/* Section 4: Retrospective */}
-      <CollapsibleSection
-        title={t('retrospective') || 'Daily Retrospective'}
-        sectionKey="retro"
-        expanded={expandedSections.has('retro')}
-        onToggle={toggleSection}
-      >
-        <div className="space-y-4">
-          <SectionDesc>{t('retrospectiveDesc') || 'A quick end-of-day reflection to track patterns over time.'}</SectionDesc>
-          <div>
-            <label className="block text-sm font-medium text-fg-primary mb-1">{t('wentWell') || 'What went well?'}</label>
-            <textarea
-              value={wentWell}
-              onChange={(e) => setWentWell(e.target.value)}
-              disabled={!isOpen}
-              rows={2}
-              className="input w-full px-3 py-2 text-sm"
-              placeholder={t('wentWellPlaceholder') || 'e.g., Smooth lunch service, all prep done on time...'}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-fg-primary mb-1">{t('wentWrong') || 'What went wrong?'}</label>
-            <textarea
-              value={wentWrong}
-              onChange={(e) => setWentWrong(e.target.value)}
-              disabled={!isOpen}
-              rows={2}
-              className="input w-full px-3 py-2 text-sm"
-              placeholder={t('wentWrongPlaceholder') || 'e.g., Over-portioning on fish dishes, slow delivery...'}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-fg-primary mb-1">{t('toImprove') || 'What should be improved?'}</label>
-            <textarea
-              value={toImprove}
-              onChange={(e) => setToImprove(e.target.value)}
-              disabled={!isOpen}
-              rows={2}
-              className="input w-full px-3 py-2 text-sm"
-              placeholder={t('toImprovePlaceholder') || 'e.g., Standardize portioning, brief staff on waste...'}
-            />
-          </div>
-        </div>
+      <CollapsibleSection title={t('chefHandoverNote')} sectionKey="retro" expanded={expandedSections.has('retro')} onToggle={toggleSection}>
+        <label className="block text-sm font-medium">{t('chefHandoverHint')}<textarea value={toImprove} onChange={(event) => setToImprove(event.target.value)} disabled={!isOpen} rows={2} className="input mt-2 w-full text-sm" /></label>
+        {(wentWell || wentWrong) && <p className="mt-2 whitespace-pre-line text-xs text-fg-secondary">{[wentWell, wentWrong].filter(Boolean).join('\n')}</p>}
+        {isOpen && <button className="btn-secondary mt-3 text-sm" disabled={savingDraft} onClick={handleSaveDraft}>{savingDraft ? t('saving') : t('saveDraft')}</button>}
       </CollapsibleSection>
 
       {/* Section 5: Estimated Supplies (shown when report is closed) */}
@@ -1487,6 +950,8 @@ export default function DailyOperationsPage() {
         </CollapsibleSection>
       )}
 
+      </div>}
+
       {/* Email modal for sending PO to supplier */}
       {emailModalPO && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setEmailModalPO(null)}>
@@ -1522,16 +987,22 @@ export default function DailyOperationsPage() {
       )}
 
       {/* Quick Receive Modal */}
-      {showScanModal && <DeliveryImportModal rid={rid} stockItems={stockItems} onClose={() => setShowScanModal(false)} onImported={() => { setShowScanModal(false); void loadSupplementary(); }} />}
-      {receiptOrder && <DailyReceiptModal rid={rid} order={receiptOrder} onClose={() => setReceiptOrder(null)} onSaved={loadSupplementary} />}
-      {productionItem && <DailyProductionModal rid={rid} item={productionItem} onClose={() => setProductionItem(null)} onSaved={loadSupplementary} />}
+      {showScanModal && <DeliveryImportModal rid={rid} stockItems={stockItems} onClose={() => setShowScanModal(false)} onImported={() => {
+        setShowScanModal(false);
+        void Promise.all([loadSupplementary(), loadKitchenSummary()]).catch((error) => {
+          setActionError(error instanceof Error ? error.message : t('dailyLoadError'));
+        });
+      }} />}
+      {receiptOrder && <DailyReceiptModal rid={rid} order={receiptOrder} onClose={() => setReceiptOrder(null)} onSaved={async () => { await loadSupplementary(); await loadKitchenSummary(); }} />}
+      {productionItem && <DailyProductionModal rid={rid} item={productionItem} onClose={() => setProductionItem(null)} onSaved={async () => { await loadSupplementary(); await loadKitchenSummary(); }} />}
       {showReceiveModal && (
         <QuickReceiveModal
           stockItems={stockItems}
           onConfirm={async (items, supplierName) => {
             await confirmDelivery(rid, { supplier_name: supplierName, items });
             setShowReceiveModal(false);
-            loadSupplementary();
+            await loadSupplementary();
+            await loadKitchenSummary();
           }}
           onClose={() => setShowReceiveModal(false)}
           t={t}
@@ -1600,8 +1071,8 @@ function SupplierOrderCard({ po, canManage, onSendEmail, sendingEmail, t }: {
   return (
     <div className="border border-[var(--divider)] rounded-xl overflow-hidden bg-[var(--surface)]">
       {/* Header: supplier name + status badge + send button */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--divider)]">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-[var(--divider)]">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="font-medium text-fg-primary">{po.supplier?.name || (t('unknownSupplier') || 'Unknown Supplier')}</span>
           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[po.status] || statusColor.draft}`}>
             {po.status}
@@ -1625,7 +1096,7 @@ function SupplierOrderCard({ po, canManage, onSendEmail, sendingEmail, t }: {
         )}
       </div>
       {/* Items table */}
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--divider)]">
             <th className="text-left py-2 px-4 font-medium text-[var(--fg-secondary)]">Item</th>
@@ -1634,7 +1105,7 @@ function SupplierOrderCard({ po, canManage, onSendEmail, sendingEmail, t }: {
           </tr>
         </thead>
         <tbody>
-          {po.items.map(item => (
+          {(po.items ?? []).map(item => (
             <tr key={item.id} className="border-b border-[var(--divider)] border-opacity-50">
               <td className="py-2 px-4 text-fg-primary">{item.name}</td>
               <td className="py-2 px-4 text-right text-fg-primary font-mono">{item.quantity.toFixed(1)}</td>
@@ -1642,7 +1113,7 @@ function SupplierOrderCard({ po, canManage, onSendEmail, sendingEmail, t }: {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }
@@ -1816,6 +1287,7 @@ function QuickReceiveModal({
                   </div>
                   <NumberInput
                     min={0}
+                    aria-label={`${t('received')}: ${si.name}`}
                     value={qty}
                     onChange={(n) => setQuantities(prev => ({
                       ...prev,
@@ -2328,166 +1800,6 @@ function QuickSalesModal({
     </div>
   );
 }
-
-function ExplainModal({ title, body, onClose }: { title: string; body: string; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-[var(--surface)] rounded-xl p-6 max-w-md w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold text-fg-primary">{title}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg">
-            <XIcon className="w-5 h-5" />
-          </button>
-        </div>
-        <div dir="auto" className="text-sm text-[var(--fg-secondary)] leading-relaxed whitespace-pre-line text-left">{body}</div>
-      </div>
-    </div>
-  );
-}
-
-function PhaseHeading({
-  id,
-  icon: Icon,
-  title,
-  desc,
-  recommended,
-  t,
-}: {
-  id: string;
-  icon: LucideIcon;
-  title: string;
-  desc: string;
-  recommended: boolean;
-  t: (key: string) => string;
-}) {
-  return (
-    <div id={id} className="scroll-mt-24 border-b border-[var(--line)] pb-3 pt-2">
-      <div className="flex items-start gap-3">
-        <span className={`grid size-9 shrink-0 place-items-center rounded-full ${
-          recommended
-            ? 'bg-[var(--brand-500)] text-white'
-            : 'border border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)]'
-        }`}>
-          <Icon className="size-4" />
-        </span>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-semibold text-[var(--fg)]">{title}</h2>
-            {recommended && (
-              <span className="rounded-full bg-[var(--brand-50)] px-2 py-0.5 text-[11px] font-medium text-[var(--brand-700)]">
-                {t('recommendedNow')}
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-sm text-[var(--fg-muted)]">{desc}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OperationalMetric({
-  icon: Icon,
-  label,
-  value,
-  detail,
-  tone = 'default',
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  detail: string;
-  tone?: 'default' | 'danger' | 'warning' | 'success';
-}) {
-  const toneClass = tone === 'danger'
-    ? 'text-[var(--danger-500)]'
-    : tone === 'warning'
-      ? 'text-[var(--warning-500)]'
-      : tone === 'success'
-        ? 'text-[var(--success-500)]'
-        : 'text-[var(--fg)]';
-  return (
-    <div className="flex min-h-28 gap-3 px-5 py-4">
-      <Icon className={`mt-1 size-4 shrink-0 ${toneClass}`} />
-      <div className="min-w-0">
-        <div className="text-xs font-medium text-[var(--fg-muted)]">{label}</div>
-        <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</div>
-        <div className="mt-1 text-xs text-[var(--fg-muted)]">{detail}</div>
-      </div>
-    </div>
-  );
-}
-
-function KpiCard({ label, value, warn, tooltip, explain }: { label: string; value: string; warn?: boolean; tooltip?: string; explain?: string }) {
-  const [showExplain, setShowExplain] = useState(false);
-  return (
-    <>
-      <div className={`rounded-xl p-4 border ${warn ? 'border-red-500/30 bg-red-500/5' : 'border-[var(--divider)] bg-[var(--surface)]'}`}>
-        <div className="flex items-center gap-1 mb-1">
-          <p className="text-xs text-[var(--fg-secondary)]">{label}</p>
-          {(tooltip || explain) && (
-            <HelpTooltip
-              label={label}
-              text={tooltip || explain || ''}
-              onClick={explain ? () => setShowExplain(true) : undefined}
-            />
-          )}
-        </div>
-        <p className={`text-xl font-bold ${warn ? 'text-red-400' : 'text-fg-primary'}`}>{value}</p>
-      </div>
-      {showExplain && explain && (
-        <ExplainModal title={label} body={explain} onClose={() => setShowExplain(false)} />
-      )}
-    </>
-  );
-}
-
-function ThTooltip({ label, tooltip, explain }: { label: string; tooltip: string; explain?: string }) {
-  const [showExplain, setShowExplain] = useState(false);
-  return (
-    <>
-      <div className="inline-flex items-center gap-1">
-        <span>{label}</span>
-        <HelpTooltip
-          label={label}
-          text={tooltip}
-          onClick={explain ? () => setShowExplain(true) : undefined}
-        />
-      </div>
-      {showExplain && explain && (
-        <ExplainModal title={label} body={explain} onClose={() => setShowExplain(false)} />
-      )}
-    </>
-  );
-}
-
-function HelpTooltip({ label, text, onClick }: { label: string; text: string; onClick?: () => void }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={`${label}: ${text}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onClick?.();
-          }}
-          className="inline-flex rounded-full text-[var(--fg-muted)] opacity-70 transition hover:opacity-100 focus-visible:outline-none focus-visible:shadow-ring"
-        >
-          <InfoIcon className="size-3.5" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent
-        side="top"
-        sideOffset={6}
-        className="max-w-xs border border-[var(--line)] bg-popover text-popover-foreground shadow-3 text-left font-normal leading-relaxed"
-      >
-        {text}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 function SectionDesc({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-xs text-[var(--fg-secondary)] mb-4 leading-relaxed">{children}</p>
@@ -2510,6 +1822,7 @@ function CollapsibleSection({
       <div className="flex items-center justify-between px-5 py-3">
         <button
           onClick={() => onToggle(sectionKey)}
+          aria-expanded={expanded}
           className="flex-1 flex items-center gap-3 hover:opacity-80 transition-opacity"
         >
           <h2 className="text-base font-semibold text-fg-primary">{title}</h2>

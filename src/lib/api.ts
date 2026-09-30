@@ -8222,6 +8222,53 @@ export interface DailyFoodCostItem {
   stock_item?: StockItem;
 }
 
+export interface KitchenStockSummary {
+  stock_item_id: number;
+  name: string;
+  unit: string;
+  opening_qty: number;
+  received_qty: number;
+  production_usage: number;
+  order_usage: number;
+  pending_usage: number;
+  waste_qty: number;
+  adjustment_qty: number;
+  recorded_remaining: number;
+  expected_remaining: number;
+  counted_remaining: number | null;
+  unexplained_qty: number | null;
+  recipes: { name: string; produced_qty: number; prep_unit: string; quantity_per_unit: number }[];
+}
+
+export interface KitchenPrepSummary {
+  prep_item_id: number;
+  name: string;
+  unit: string;
+  target_qty: number | null;
+  produced_qty: number;
+  waste_qty: number;
+  remaining_qty: number;
+}
+
+export interface KitchenSummary {
+  stocks: KitchenStockSummary[];
+  preparations: KitchenPrepSummary[];
+  unmapped_sales: number;
+}
+
+/** Loads a day's complete movement-based review, distinct from physical counts. */
+export async function getKitchenSummary(restaurantId: number, reportId: number): Promise<KitchenSummary> {
+  const res = await apiFetch<{ summary: KitchenSummary }>(`/api/v1/stock/daily-reports/${reportId}/kitchen-summary`, restaurantId);
+  return res.summary;
+}
+
+/** Saves a chef-confirmed production objective for one preparation and day. */
+export async function setProductionTarget(restaurantId: number, reportId: number, prepItemId: number, quantity: number): Promise<void> {
+  await apiFetch(`/api/v1/stock/daily-reports/${reportId}/production-target`, restaurantId, {
+    method: 'PUT', body: JSON.stringify({ prep_item_id: prepItemId, quantity }),
+  });
+}
+
 export interface DailySalesEntry {
   id: number;
   report_id: number;
