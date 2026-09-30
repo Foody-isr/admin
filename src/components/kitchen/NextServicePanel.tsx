@@ -1,43 +1,41 @@
 'use client';
 
 import { useState } from 'react';
-import { NumberInput } from '@/components/ui/NumberInput';
+import { Search, ChefHat, Check, Info } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { serviceProductionNeed } from '@/lib/kitchen-service-plan';
 import type { DailyPlanItem, PrepItem } from '@/lib/api';
+import styles from './companion.module.css';
 
-/** Gives the chef a temporary lunch/dinner coverage simulation using live stock. */
+/** Compares temporary service targets with live stock, with an explicit production action. */
 export default function NextServicePanel({ items, canProduce, onProduce }: {
   items: PrepItem[]; canProduce: boolean; onProduce: (item: DailyPlanItem) => void;
 }) {
-  const { t } = useI18n();
-  const [targets, setTargets] = useState<Record<number, number>>({});
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selected = items.find((item) => item.id === selectedId) ?? items[0];
-  return (
-    <details className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
-      <summary className="cursor-pointer px-5 py-4 font-semibold">{t('dailyServiceTitle')}</summary>
-      <div className="space-y-3 px-5 pb-5">
-        <p className="max-w-3xl text-sm text-fg-secondary">{t('dailyServiceHint')}</p>
-        <label className="block text-xs text-fg-secondary">{t('preparation')}<select value={selected?.id ?? ''} onChange={(event) => setSelectedId(Number(event.target.value))} className="input mt-1 w-full max-w-md">{items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <div>
-          {selected && [selected].map((item) => {
-            const target = targets[item.id];
-            const need = target === undefined ? null : serviceProductionNeed(item, target);
-            return (
-              <div key={item.id} className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_150px_180px] sm:items-center">
-                <div><p className="text-sm font-medium">{item.name}</p><p className="mt-1 text-xs text-fg-secondary">{t('current')}: {item.quantity} {item.unit}</p></div>
-                <label className="text-xs text-fg-secondary">{t('dailyServiceTarget')} ({item.unit})
-                  <NumberInput min={0} value={target ?? ''} integer={item.unit === 'unit'} placeholder="—" className="input mt-1 w-full" onChange={(value) => setTargets((current) => ({ ...current, [item.id]: value }))} />
-                </label>
-                <div className="text-sm">{need && <><p className={need.shortfall_qty > 0 ? 'text-[var(--warning-500)]' : 'text-[var(--success-500)]'}>{t('dailyServiceMissing')}: {need.shortfall_qty.toFixed(2)} {item.unit}</p>
-                  {item.quantity < 0 ? <p className="mt-1 text-xs text-[var(--warning-500)]">{t('chefNegativePrep')}</p> : canProduce && need.batches_needed > 0 && <button onClick={() => onProduce(need)} className="btn-secondary mt-2 text-xs">{t('dailyConfirmProduction')}</button>}
-                  {need.shortfall_qty > 0 && item.yield_per_batch <= 0 && <p className="mt-1 text-xs text-red-500">{t('yieldPerBatch')}</p>}</>}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </details>
-  );
+  const { t, locale } = useI18n();
+  const [search, setSearch] = useState('');
+  const [targets, setTargets] = useState<Record<number, string>>({});
+  const visible = items.filter(item => item.name.toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)));
+  return <section className={styles.planner}>
+    <div className={styles.panelHeading}><div><h2>{t('companionPlan')}</h2><p>{t('companionPlanDesc')}</p></div><ChefHat size={22} /></div>
+    <label className={styles.search}><Search size={17} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('search')} aria-label={t('companionSearchPrep')} /></label>
+    <div className={styles.planColumns}><span>{t('preparations')}</span><span>{t('current')}</span><span>{t('companionTarget')}</span><span>{t('companionToProduce')}</span></div>
+    {visible.map(item => {
+      const raw = targets[item.id] ?? '';
+      const target = Number(raw);
+      const need = raw !== '' && Number.isFinite(target) && target >= 0 ? serviceProductionNeed(item, target) : null;
+      return <div key={item.id} className={styles.planRow}>
+        <div><strong>{item.name}</strong><small>{item.unit}</small></div>
+        <span className={styles.quantity}>{item.quantity.toLocaleString(locale)}</span>
+        <input type="number" min="0" step={item.unit === 'unit' ? 1 : 'any'} inputMode="decimal" value={raw} placeholder="—" aria-label={`${t('companionTarget')} — ${item.name}`} onChange={e => setTargets(previous => ({ ...previous, [item.id]: e.target.value }))} />
+        <div>{!need ? '—' : <>
+          {item.quantity < 0 ? <p className="text-xs text-[var(--warning-500)]">{t('chefNegativePrep')}</p>
+            : need.shortfall_qty === 0 ? <span className={styles.covered}><Check size={16} />{t('companionCovered')}</span>
+            : <><span className={styles.quantity}>{need.shortfall_qty.toLocaleString(locale)} {item.unit}</span><small>{item.yield_per_batch > 0 ? `${need.batches_needed} ${t('batches')}` : t('companionCheckYield')}</small>
+              {canProduce && need.batches_needed > 0 && <button className="btn-secondary mt-2 text-xs" onClick={() => onProduce(need)}>{t('dailyConfirmProduction')}</button>}</>}
+        </>}</div>
+      </div>;
+    })}
+    {visible.length === 0 && <p className={styles.empty}>{t(items.length === 0 ? 'companionNoPrep' : 'noResults')}</p>}
+    <footer className={styles.plannerFooter}><span><Info size={15} />{t('companionSimulation')}</span></footer>
+  </section>;
 }
