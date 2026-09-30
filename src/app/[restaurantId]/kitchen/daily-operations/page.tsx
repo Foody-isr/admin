@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import DeliveryImportModal from '../stock/DeliveryImportModal';
@@ -16,12 +16,12 @@ import {
   getKitchenSummary, type KitchenSummary, deleteSalesEntries,
   listStockTransactions, getAllCategories, listStockItems, getRestaurant,
   confirmDelivery, deleteStockTransaction,
-  getDailyPrepPlan, listPrepItems, type PrepItem,
+  getDailyPrepPlan, getDemandForecast, listPrepItems, type PrepItem,
   generateEstimatedSupplies, sendOrderEmail, listPurchaseOrders, EstimatedSuppliesResult,
   DailyFoodCostReport, DailySalesEntry,
   StockTransaction, MenuCategory, MenuItem, StockItem,
   ConfirmDeliveryItemInput, PurchaseOrder, DailyPlanItem, OpeningHoursConfig,
-  AvivSalesImportPreview,
+  AvivSalesImportPreview, type DemandForecast,
 } from '@/lib/api';
 import {
   ChevronDownIcon, ChevronUpIcon, RefreshCwIcon,
@@ -141,6 +141,11 @@ export default function DailyOperationsPage() {
   // Prep coverage for the selected weekday. This powers both the opening
   // production brief and the before-service risk summary.
   const [dailyPrepPlan, setDailyPrepPlan] = useState<DailyPlanItem[]>([]);
+  const [salesForecast, setSalesForecast] = useState<DemandForecast | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastLoadFailed, setForecastLoadFailed] = useState(false);
+  const [showAllForecastItems, setShowAllForecastItems] = useState(false);
+  const forecastRequest = useRef(0);
   const [openingHours, setOpeningHours] = useState<OpeningHoursConfig | null>(null);
 
   // Estimated supplies
@@ -215,6 +220,24 @@ export default function DailyOperationsPage() {
     }
   }, [rid, selectedDate, canManage, t]);
 
+  const loadForecast = useCallback(async () => {
+    const request = ++forecastRequest.current;
+    setShowAllForecastItems(false);
+    setForecastLoading(true);
+    setForecastLoadFailed(false);
+    try {
+      const forecast = await getDemandForecast(rid, { day_of_week: selectedDate.getDay() });
+      if (request === forecastRequest.current) setSalesForecast(forecast);
+    } catch {
+      if (request === forecastRequest.current) {
+        setSalesForecast(null);
+        setForecastLoadFailed(true);
+      }
+    } finally {
+      if (request === forecastRequest.current) setForecastLoading(false);
+    }
+  }, [rid, selectedDate]);
+
   const loadSupplementary = useCallback(async () => {
     setSupplementaryError('');
     try {
@@ -268,6 +291,7 @@ export default function DailyOperationsPage() {
 
   useEffect(() => { loadReport(); }, [loadReport]);
   useEffect(() => { loadSupplementary(); }, [loadSupplementary]);
+  useEffect(() => { void loadForecast(); }, [loadForecast]);
 
   const navigateDate = (delta: number) => {
     setPhaseSelection(null); setExpandedSections(new Set());
@@ -290,6 +314,7 @@ export default function DailyOperationsPage() {
     try {
       await syncFoodyPOSSales(rid, report.id);
       await loadReport();
+      await Promise.all([loadSupplementary(), loadForecast()]);
     } finally {
       setComputing(false);
     }
@@ -478,7 +503,9 @@ export default function DailyOperationsPage() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-semibold tracking-[-0.025em] text-fg-primary">
-              {t('today')}
+              {selectedIsToday
+                ? t('today')
+                : selectedDate.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
             </h1>
             {report && statusBadge(report.status, t)}
             {report?.status === 'closed' && canManage && (
@@ -561,6 +588,46 @@ export default function DailyOperationsPage() {
         ))}
       </div>
 
+      <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+        <div className="border-b border-[var(--line)] px-5 py-4">
+          <h2 className="font-semibold text-[var(--fg)]">{t('salesForecast')}</h2>
+          <p className="mt-1 text-xs text-[var(--fg-muted)]">
+            {salesForecast && salesForecast.sample_days > 0
+              ? t('salesForecastBasis').replace('{count}', String(salesForecast.sample_days))
+              : t('salesForecastDesc')}
+          </p>
+        </div>
+        {forecastLoading ? (
+          <div className="flex items-center gap-2 px-5 py-6 text-sm text-[var(--fg-muted)]">
+            <RefreshCwIcon className="size-4 animate-spin" />{t('loading')}
+          </div>
+        ) : forecastLoadFailed ? (
+          <p role="alert" className="px-5 py-6 text-sm text-[var(--fg-muted)]">{t('forecastUnavailable')}</p>
+        ) : !salesForecast || salesForecast.sample_days === 0 ? (
+          <p className="px-5 py-6 text-sm text-[var(--fg-muted)]">{t('noWeekdayHistory')}</p>
+        ) : (
+          <div className="divide-y divide-[var(--line)]">
+            {(showAllForecastItems ? salesForecast.top_items : salesForecast.top_items.slice(0, 10)).map((item, index) => (
+              <div key={`${item.menu_item_id ?? item.menu_item_name}-${index}`} className="flex items-center justify-between gap-4 px-5 py-3 text-sm">
+                <span className="min-w-0 truncate text-[var(--fg)]">
+                  {item.menu_item_name}
+                  {item.menu_item_id == null && <span className="ms-2 text-xs text-[var(--fg-muted)]">{t('forecastUnmapped')}</span>}
+                </span>
+                <span className="shrink-0 font-medium text-[var(--fg)]">{item.predicted_qty.toFixed(1)} {t('forecastUnits')}</span>
+              </div>
+            ))}
+            {salesForecast.top_items.length > 10 && (
+              <button type="button" onClick={() => setShowAllForecastItems(value => !value)} className="w-full px-5 py-3 text-start text-xs font-medium text-[var(--brand-500)] hover:bg-[var(--surface-2)]">
+                {showAllForecastItems
+                  ? t('forecastShowLess')
+                  : t('forecastMoreItems').replace('{count}', String(salesForecast.top_items.length - 10))}
+              </button>
+            )}
+            <p className="px-5 py-3 text-xs text-[var(--fg-muted)]">{t('forecastRecipeNote')}</p>
+          </div>
+        )}
+      </section>
+
       {activePhase === 'opening' && <div role="tabpanel" id="phase-opening" aria-labelledby="tab-opening" className="space-y-4">
 
       <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
@@ -587,7 +654,9 @@ export default function DailyOperationsPage() {
           </div>
         </div>
         {prepToLaunch.length === 0 ? (
-          <div className="px-5 py-6 text-sm text-[var(--fg-muted)]">{supplementaryError ? t('dailyLoadError') : t('dailyNoForecast')}</div>
+          <div className="px-5 py-6 text-sm text-[var(--fg-muted)]">
+            {supplementaryError ? t('dailyLoadError') : salesForecast?.sample_days === 0 ? t('noWeekdayHistory') : t('dailyNoForecast')}
+          </div>
         ) : (
           <div className="divide-y divide-[var(--line)]">
             {(showAllProduction ? prepToLaunch : prepToLaunch.slice(0, 3)).map((item) => (
@@ -904,10 +973,10 @@ export default function DailyOperationsPage() {
               ) : canManage ? (
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                   <button
-                    onClick={() => handleGenerateOrders('pos')}
+                    onClick={() => handleGenerateOrders('both')}
                     className="px-5 py-2 rounded-xl bg-brand-500 text-white font-medium hover:bg-brand-600 transition-colors text-sm"
                   >
-                    {t('fromPOS') || 'From POS'}
+                    {t('fromBoth')}
                   </button>
                   <button
                     onClick={() => handleGenerateOrders('manual')}
@@ -916,10 +985,10 @@ export default function DailyOperationsPage() {
                     {t('fromManual') || 'From manual sales'}
                   </button>
                   <button
-                    onClick={() => handleGenerateOrders('both')}
+                    onClick={() => handleGenerateOrders('pos')}
                     className="px-5 py-2 rounded-xl bg-[var(--surface)] text-[var(--fg-secondary)] font-medium hover:bg-[var(--surface-hover)] transition-colors text-sm border border-[var(--divider)]"
                   >
-                    {t('fromBoth') || 'Both'}
+                    {t('fromPOS')}
                   </button>
                 </div>
               ) : null}
@@ -1022,6 +1091,7 @@ export default function DailyOperationsPage() {
           onImported={async () => {
             setShowSalesImportModal(false);
             await loadReport();
+            await Promise.all([loadSupplementary(), loadForecast()]);
           }}
           onClose={() => setShowSalesImportModal(false)}
           t={t}

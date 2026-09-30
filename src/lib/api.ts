@@ -2050,10 +2050,19 @@ export interface DailyPlanItem {
 }
 
 export interface DemandForecastItem {
-  menu_item_id: number;
+  menu_item_id: number | null;
   menu_item_name: string;
-  predicted_quantity: number;
+  avg_daily_quantity: number;
+  predicted_qty: number;
   day_of_week: number;
+}
+
+export interface DemandForecast {
+  target_date: string;
+  day_of_week: string;
+  top_items: DemandForecastItem[];
+  weeks_analyzed: number;
+  sample_days: number;
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
@@ -6781,12 +6790,12 @@ export async function confirmPrepRecipe(restaurantId: number, input: ConfirmPrep
 
 export async function getDemandForecast(
   restaurantId: number, params?: { day_of_week?: number; weeks?: number }
-): Promise<DemandForecastItem[]> {
+): Promise<DemandForecast> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (params?.day_of_week !== undefined) qs.set('day_of_week', String(params.day_of_week));
   if (params?.weeks) qs.set('weeks', String(params.weeks));
-  const data = await apiFetch<{ items: DemandForecastItem[] }>(`/api/v1/stock/forecast?${qs}`, restaurantId);
-  return data.items ?? [];
+  const data = await apiFetch<{ forecast: DemandForecast }>(`/api/v1/stock/forecast?${qs}`, restaurantId);
+  return { ...data.forecast, top_items: data.forecast.top_items ?? [] };
 }
 
 // ─── Prep / Recipes ──────────────────────────────────────────────────────────
@@ -7590,7 +7599,7 @@ export interface EstimatedSuppliesResult {
   target_day: string;
 }
 
-export async function generateEstimatedSupplies(restaurantId: number, reportId: number, source: 'pos' | 'manual' | 'both' = 'pos'): Promise<EstimatedSuppliesResult> {
+export async function generateEstimatedSupplies(restaurantId: number, reportId: number, source: 'pos' | 'manual' | 'both' = 'both'): Promise<EstimatedSuppliesResult> {
   const response = await apiFetch<EstimatedSuppliesResult>(`/api/v1/stock/daily-reports/${reportId}/estimated-supplies?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST',
     body: JSON.stringify({ source }),
