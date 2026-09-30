@@ -8210,6 +8210,7 @@ export interface DailyFoodCostItem {
   cost_per_unit: number;
   opening_stock: number;
   closing_stock: number;
+  closing_stock_counted: boolean;
   received_qty: number;
   waste_qty: number;
   actual_usage: number;
