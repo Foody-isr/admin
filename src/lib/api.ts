@@ -8264,6 +8264,18 @@ export interface IngredientBreakdown {
   contributions: IngredientContribution[];
 }
 
+type IngredientBreakdownResponse = Omit<IngredientBreakdown, 'contributions'> & {
+  contributions?: IngredientContribution[] | null;
+};
+
+/** Convert legacy nullable contribution payloads to the stable array contract used by the UI. */
+export function normalizeIngredientBreakdown(breakdown: IngredientBreakdownResponse): IngredientBreakdown {
+  return {
+    ...breakdown,
+    contributions: breakdown.contributions ?? [],
+  };
+}
+
 export interface IngredientContribution {
   menu_item_id: number;
   menu_item_name: string;
@@ -8430,8 +8442,8 @@ export async function reopenFoodCostReport(restaurantId: number, reportId: numbe
 }
 
 export async function getFoodCostBreakdown(restaurantId: number, reportId: number, stockItemId: number): Promise<IngredientBreakdown> {
-  const res = await apiFetch<{ breakdown: IngredientBreakdown }>(`/api/v1/stock/daily-reports/${reportId}/breakdown?stock_item_id=${stockItemId}`, restaurantId);
-  return res.breakdown;
+  const res = await apiFetch<{ breakdown: IngredientBreakdownResponse }>(`/api/v1/stock/daily-reports/${reportId}/breakdown?stock_item_id=${stockItemId}`, restaurantId);
+  return normalizeIngredientBreakdown(res.breakdown);
 }
 
 export async function getFoodCostSummary(restaurantId: number, period: string = 'week'): Promise<FoodCostSummary> {
