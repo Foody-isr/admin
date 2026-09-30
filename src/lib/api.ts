@@ -1843,6 +1843,8 @@ export interface PrepItemIngredient {
   prep_item_id: number;
   stock_item_id: number;
   quantity_needed: number;
+  recipe_quantity: number;
+  recipe_unit: string;
   created_at: string;
   stock_item?: StockItem;
 }
@@ -1963,6 +1965,7 @@ export interface IngredientInput {
 export interface PrepIngredientInput {
   stock_item_id: number;
   quantity_needed: number;
+  unit?: string;
 }
 
 export interface DeliveryItem {
