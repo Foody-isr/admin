@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import DeliveryImportModal from '../stock/DeliveryImportModal';
+import { DailyProductionModal, DailyReceiptModal } from '@/components/kitchen/DailyActionModals';
+import NextServicePanel from '@/components/kitchen/NextServicePanel';
 import {
   getTodayFoodCostReport, getFoodCostReport, computeFoodCostReport,
   upsertSalesEntries, updateClosingStock, updateRetrospective,
@@ -11,7 +14,7 @@ import {
   getFoodCostBreakdown, getFoodCostSummary, deleteSalesEntries, deleteCostItems,
   listStockTransactions, getAllCategories, listStockItems, getRestaurant,
   confirmDelivery, deleteStockTransaction,
-  getDailyPrepPlan,
+  getDailyPrepPlan, listPrepItems, type PrepItem,
   generateEstimatedSupplies, sendOrderEmail, listPurchaseOrders, EstimatedSuppliesResult,
   DailyFoodCostReport, DailyFoodCostItem, DailySalesEntry,
   IngredientBreakdown, StockTransaction, MenuCategory, MenuItem, StockItem,
@@ -34,7 +37,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import type { MoneyFormatter } from '@/lib/currency';
 
 function formatDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const WEEKDAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
@@ -148,7 +151,6 @@ function computeRevenueLoss(
 
 function computeKpis(report: DailyFoodCostReport) {
   const items = report.items || [];
-  const uncountedCount = items.filter((item) => !item.closing_stock_counted).length;
   const actualCost = items.reduce(
     (sum, item) => sum + (item.closing_stock_counted ? item.actual_usage : item.theoretical_usage) * item.cost_per_unit,
     0,
@@ -160,13 +162,13 @@ function computeKpis(report: DailyFoodCostReport) {
   );
   const revenue = report.total_sales_revenue;
   const foodCostPct = revenue > 0 ? (actualCost / revenue) * 100 : 0;
-  return { foodCostPct, revenue, varianceCost, wasteCost, uncountedCount };
+  return { foodCostPct, revenue, varianceCost, wasteCost };
 }
 
-function statusBadge(status: string) {
+function statusBadge(status: string, t: (key: string) => string) {
   switch (status) {
-    case 'open': return <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400">Open</span>;
-    case 'closed': return <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-400">Closed</span>;
+    case 'open': return <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-500">{t('open')}</span>;
+    case 'closed': return <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-600">{t('closed')}</span>;
     case 'reviewed': return <span className="px-2 py-0.5 rounded-full text-xs bg-purple-500/20 text-purple-400">Reviewed</span>;
     default: return null;
   }
@@ -190,7 +192,7 @@ export default function DailyOperationsPage() {
 
   // Section expansion
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['supplies', 'sales', 'variance', 'retro', 'estimated'])
+    new Set(['sales', 'estimated'])
   );
 
   // Supplies received today
@@ -223,6 +225,14 @@ export default function DailyOperationsPage() {
 
   // Quick receive modal
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [receiptOrder, setReceiptOrder] = useState<PurchaseOrder | null>(null);
+  const [productionItem, setProductionItem] = useState<DailyPlanItem | null>(null);
+  const [pendingDeliveries, setPendingDeliveries] = useState<PurchaseOrder[]>([]);
+  const [supplementaryError, setSupplementaryError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [tomorrowPrepPlan, setTomorrowPrepPlan] = useState<DailyPlanItem[]>([]);
+  const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
 
   // Sales entry modal
   const [showSalesModal, setShowSalesModal] = useState(false);
@@ -263,6 +273,7 @@ export default function DailyOperationsPage() {
       let rpt: DailyFoodCostReport;
       if (dateStr === today) {
         rpt = await getTodayFoodCostReport(rid);
+        if (rpt.status === 'open' && canManage) rpt = await computeFoodCostReport(rid, rpt.id);
       } else {
         // Try to find existing report for that date
         const reports = await listFoodCostReports(rid, dateStr, dateStr);
@@ -308,34 +319,47 @@ export default function DailyOperationsPage() {
       }
       setGenerationAttempted(false);
       setGenerationDiag(null);
+    } catch (error) {
+      setReport(null);
+      setActionError(error instanceof Error ? error.message : t('dailyLoadError'));
     } finally {
       setLoading(false);
     }
-  }, [rid, selectedDate]);
+  }, [rid, selectedDate, canManage, t]);
 
   const loadSupplementary = useCallback(async () => {
+    setSupplementaryError('');
     try {
-      const [cats, stock, prepPlan, restaurant] = await Promise.all([
+      const [cats, stock, prepPlan, restaurant, deliveries, nextPlan, preparations] = await Promise.all([
         getAllCategories(rid),
         listStockItems(rid),
-        getDailyPrepPlan(rid, { day_of_week: selectedDate.getDay() }).catch(() => []),
-        getRestaurant(rid).catch(() => null),
+        getDailyPrepPlan(rid, { day_of_week: selectedDate.getDay() }),
+        getRestaurant(rid),
+        listPurchaseOrders(rid, { status: 'sent' }),
+        getDailyPrepPlan(rid, { day_of_week: (selectedDate.getDay() + 1) % 7 }),
+        listPrepItems(rid, { is_active: true }),
       ]);
       setCategories(cats);
       setStockItems(stock);
       setDailyPrepPlan(prepPlan);
       setOpeningHours(restaurant?.opening_hours_config ?? null);
+      setPendingDeliveries(deliveries);
+      setTomorrowPrepPlan(nextPlan);
+      setPrepItems(preparations);
 
       // Load today's receive transactions
       const txns = await listStockTransactions(rid, { type: 'receive' });
       const dateStr = formatDate(selectedDate);
       const filtered = txns.filter(tx => tx.created_at?.startsWith(dateStr));
       setTodayReceives(filtered);
-    } catch {
-      // non-critical
+    } catch (error) {
       setDailyPrepPlan([]);
+      setTomorrowPrepPlan([]);
+      setPendingDeliveries([]);
+      setPrepItems([]);
+      setSupplementaryError(error instanceof Error ? error.message : t('dailyLoadError'));
     }
-  }, [rid, selectedDate]);
+  }, [rid, selectedDate, t]);
 
   useEffect(() => { loadReport(); }, [loadReport]);
   useEffect(() => { loadSupplementary(); }, [loadSupplementary]);
@@ -411,16 +435,7 @@ export default function DailyOperationsPage() {
   const handleClose = async () => {
     if (!report) return;
     setActionError('');
-    const missingCounts = (report.items ?? []).filter(
-      (item) => item.stock_item_id != null && closingStocks[item.stock_item_id] === undefined,
-    ).length;
-    if (missingCounts > 0) {
-      setClosingCountError(
-        t('closingCountRequired').replace('{count}', String(missingCounts)),
-      );
-      return;
-    }
-    if (!confirm(t('closeDayConfirm'))) return;
+    if (!confirm(t('dailyCloseConfirm'))) return;
     setClosing(true);
     setClosingCountError('');
     try {
@@ -436,6 +451,7 @@ export default function DailyOperationsPage() {
       ]);
       await closeFoodCostReport(rid, report.id);
       await loadReport();
+      await loadSupplementary();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : t('closeDayError'));
     } finally {
@@ -535,8 +551,8 @@ export default function DailyOperationsPage() {
       setEstimatedPOs(result.purchase_orders);
       setGenerationDiag(result);
       setGenerationAttempted(true);
-    } catch {
-      setGenerationAttempted(true);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : t('saveFailed'));
     } finally {
       setGeneratingOrders(false);
     }
@@ -554,8 +570,8 @@ export default function DailyOperationsPage() {
       }
       setEmailModalPO(null);
       setEmailTo('');
-    } catch {
-      // silent
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : t('saveFailed'));
     } finally {
       setSendingEmailPO(null);
     }
@@ -571,7 +587,6 @@ export default function DailyOperationsPage() {
 
   const isOpen = report?.status === 'open' && canManage;
   const prepToLaunch = dailyPrepPlan.filter((item) => item.batches_needed > 0);
-  const prepReadyCount = Math.max(0, dailyPrepPlan.length - prepToLaunch.length);
   const batchesToLaunch = prepToLaunch.reduce((sum, item) => sum + item.batches_needed, 0);
   const lowStockItems = stockItems.filter(
     (item) => item.is_active !== false && item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold,
@@ -580,6 +595,8 @@ export default function DailyOperationsPage() {
     (item) => item.closing_stock_counted && varianceLevel(item.variance_percent) !== 'ok',
   ).length;
   const selectedIsToday = formatDate(selectedDate) === formatDate(new Date());
+  const soldQuantity = (report?.sales ?? []).reduce((sum, sale) => sum + sale.quantity, 0);
+  const externalSalesPending = report?.status === 'open' && (report.sales ?? []).some((sale) => sale.source !== 'pos');
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const serviceWindow = getServiceWindow(openingHours, selectedDate);
@@ -592,7 +609,7 @@ export default function DailyOperationsPage() {
   const serviceHasEnded = serviceWindow
     ? operationalNowMinutes > serviceWindow.close
     : nowMinutes >= 17 * 60;
-  const suggestedPhase: 'opening' | 'service' | 'closing' | null = !selectedIsToday
+  const suggestedPhase: 'opening' | 'service' | 'closing' | null = !selectedIsToday || (!serviceWindow && report?.status !== 'closed')
     ? null
     : report?.status === 'closed' || serviceHasEnded
       ? 'closing'
@@ -613,7 +630,7 @@ export default function DailyOperationsPage() {
             <h1 className="text-3xl font-semibold tracking-[-0.025em] text-fg-primary">
               {t('today')}
             </h1>
-            {report && statusBadge(report.status)}
+            {report && statusBadge(report.status, t)}
             {report?.status === 'closed' && canManage && (
               <button
                 type="button"
@@ -653,6 +670,18 @@ export default function DailyOperationsPage() {
           </button>
         </div>
       </header>
+
+      <div className="grid items-center gap-3 rounded-r-md bg-[var(--surface-2)] px-4 py-3 text-sm text-fg-secondary sm:grid-cols-[minmax(0,1fr)_auto]">
+        <p>{t('dailyAutomaticStockHint')}</p>
+        <button type="button" disabled={refreshing} className="btn-secondary inline-flex shrink-0 items-center gap-2 text-xs" onClick={async () => {
+          setRefreshing(true);
+          try { await loadSupplementary(); if (report?.status === 'open') await recomputeAndReload(report.id); }
+          catch (error) { setActionError(error instanceof Error ? error.message : t('dailyLoadError')); }
+          finally { setRefreshing(false); }
+        }}><RefreshCwIcon className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />{t('refresh')}</button>
+      </div>
+      {supplementaryError && <p role="alert" className="rounded-r-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-500">{t('dailyLoadError')} {supplementaryError}</p>}
+      {!selectedIsToday && <p className="text-sm text-fg-secondary">{t('dailyLiveStockHint')}</p>}
 
       {actionError && (
         <div role="alert" className="flex items-start justify-between gap-3 rounded-r-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
@@ -734,11 +763,11 @@ export default function DailyOperationsPage() {
             </Link>
           </div>
         </div>
-        {prepToLaunch.length === 0 ? (
-          <div className="px-5 py-6 text-sm text-[var(--fg-muted)]">{t('noPrepToLaunch')}</div>
+        {dailyPrepPlan.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-[var(--fg-muted)]">{supplementaryError ? t('dailyLoadError') : t('dailyNoForecast')}</div>
         ) : (
           <div className="divide-y divide-[var(--line)]">
-            {prepToLaunch.slice(0, 5).map((item) => (
+            {prepToLaunch.map((item) => (
               <div key={item.prep_item_id} className="grid gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-[var(--fg)]">{item.prep_item_name}</div>
@@ -749,13 +778,33 @@ export default function DailyOperationsPage() {
                   {' / '}
                   {t('demand')}: <span className="font-medium text-[var(--fg)]">{item.required_qty.toFixed(1)} {item.unit}</span>
                 </div>
-                <span className="w-fit rounded-r-md bg-[var(--brand-50)] px-3 py-1.5 text-xs font-semibold text-[var(--brand-700)] sm:min-w-24 sm:text-center">
-                  {item.batches_needed} {t('batches')}
-                </span>
+                <div className="flex items-center gap-3"><span className="text-xs font-semibold text-[var(--brand-700)]">{item.batches_needed} {t('batches')}</span>
+                  {canManage && selectedIsToday && !supplementaryError && <button className="btn-primary text-xs" onClick={() => setProductionItem(item)}>{t('dailyConfirmProduction')}</button>}
+                </div>
               </div>
             ))}
           </div>
         )}
+      </section>
+
+      <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-4">
+          <div><h2 className="font-semibold">{t('dailyDeliveriesToCheck')}</h2><p className="mt-1 text-xs text-fg-secondary">{t('dailyDeliveriesHint')}</p></div>
+          {canManage && selectedIsToday && <div className="flex flex-wrap gap-2">
+            <button className="btn-secondary text-xs" onClick={() => setShowScanModal(true)}><UploadIcon className="mr-1 inline size-4" />{t('dailyScanDelivery')}</button>
+            <button className="btn-secondary text-xs" onClick={() => setShowReceiveModal(true)}><PlusIcon className="mr-1 inline size-4" />{t('dailyManualDelivery')}</button>
+          </div>}
+        </div>
+        <div className="divide-y divide-[var(--line)]">
+          {pendingDeliveries.length === 0 ? <p className="px-5 py-4 text-sm text-fg-secondary">{supplementaryError ? t('dailyLoadError') : t('dailyNoDeliveries')}</p> : pendingDeliveries.map((order) => (
+            <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div><p className="text-sm font-medium">{order.supplier?.name} <span className="font-normal text-fg-secondary">PO-{order.id}</span></p>
+                <p className="mt-1 text-xs text-fg-secondary">{order.items.length} {t('items')}{order.expected_delivery_at ? ` · ${new Date(order.expected_delivery_at).toLocaleDateString()}` : ''}</p></div>
+              {canManage && selectedIsToday && <button className="btn-primary text-xs" onClick={() => setReceiptOrder(order)}>{t('dailyReviewDelivery')}</button>}
+            </div>
+          ))}
+        </div>
+        <Link href={`/${rid}/kitchen/suppliers?tab=orders`} className="block border-t border-[var(--line)] px-5 py-3 text-sm font-medium text-brand-500">{t('dailyManageOrders')}</Link>
       </section>
 
       {/* Section 1: Supplies Received */}
@@ -765,7 +814,7 @@ export default function DailyOperationsPage() {
         expanded={expandedSections.has('supplies')}
         onToggle={toggleSection}
         badge={todayReceives.length > 0 ? `${todayReceives.length} items` : undefined}
-        action={isOpen ? (
+        action={canManage && selectedIsToday ? (
           <button
             onClick={() => setShowReceiveModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 transition-colors"
@@ -831,25 +880,25 @@ export default function DailyOperationsPage() {
         <div className="grid divide-y divide-[var(--line)] md:grid-cols-3 md:divide-x md:divide-y-0 rtl:md:divide-x-reverse">
           <OperationalMetric
             icon={ChefHatIcon}
-            label={t('servicePrepCoverage')}
-            value={`${prepReadyCount}/${dailyPrepPlan.length}`}
+            label={t('dailyProductionAlerts')}
+            value={supplementaryError || dailyPrepPlan.length === 0 ? '—' : String(prepToLaunch.length)}
             detail={prepToLaunch.length > 0
               ? t('servicePrepRisk').replace('{count}', String(prepToLaunch.length))
-              : t('servicePrepReady')}
-            tone={prepToLaunch.length > 0 ? 'warning' : 'success'}
+              : t('dailyNoForecast')}
+            tone={prepToLaunch.length > 0 ? 'warning' : 'default'}
           />
           <OperationalMetric
             icon={PackageIcon}
             label={t('lowStockItems')}
-            value={String(lowStockItems.length)}
-            detail={lowStockItems.length > 0 ? t('needsAttention') : t('stockCovered')}
-            tone={lowStockItems.length > 0 ? 'danger' : 'success'}
+            value={supplementaryError ? '—' : String(lowStockItems.length)}
+            detail={supplementaryError ? t('dailyLoadError') : lowStockItems.length > 0 ? t('needsAttention') : t('stockCovered')}
+            tone={supplementaryError ? 'default' : lowStockItems.length > 0 ? 'danger' : 'success'}
           />
           <OperationalMetric
             icon={UtensilsIcon}
             label={t('salesEntry')}
-            value={String(report?.sales?.length ?? 0)}
-            detail={t('salesTrackedItems')}
+            value={String(soldQuantity)}
+            detail={externalSalesPending ? t('dailyExternalSalesPending') : t('dailySoldUnits')}
           />
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--line)] px-5 py-3 text-sm">
@@ -864,6 +913,15 @@ export default function DailyOperationsPage() {
           </Link>
         </div>
       </section>
+
+      {!supplementaryError && prepItems.length > 0 && <NextServicePanel key={`${rid}-${formatDate(selectedDate)}`} items={prepItems} canProduce={canManage && selectedIsToday} onProduce={setProductionItem} />}
+      {!supplementaryError && lowStockItems.length > 0 && <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-5 py-4">
+        <h3 className="text-sm font-semibold">{t('dailyStockToOrder')}</h3>
+        <div className="mt-2 divide-y divide-[var(--line)]">{lowStockItems.map((item) => <div key={item.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
+          <span>{item.name}<span className="ml-2 text-xs text-fg-secondary">{item.supplier}</span></span><span className="tabular-nums text-fg-secondary">{item.quantity} {item.unit} / {t('reorderThreshold')}: {item.reorder_threshold}</span>
+        </div>)}</div>
+        <Link className="mt-3 inline-block text-sm font-medium text-brand-500" href={`/${rid}/kitchen/suppliers?tab=orders`}>{t('dailyManageOrders')}</Link>
+      </div>}
 
       {/* Section 2: Sales */}
       <CollapsibleSection
@@ -985,15 +1043,15 @@ export default function DailyOperationsPage() {
 
       {report && (() => {
         const kpis = computeKpis(report);
-        const countsComplete = kpis.uncountedCount === 0;
+        const hasCounts = (report.items ?? []).some((item) => item.closing_stock_counted);
         return (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <KpiCard
-              label="Food Cost %"
-              value={countsComplete ? `${kpis.foodCostPct.toFixed(1)}%` : '—'}
-              warn={countsComplete && kpis.foodCostPct > 35}
-              tooltip={t('foodCostPctTooltip')}
-              explain={t('foodCostPctExplain')}
+              label={t('dailyEstimatedFoodCost')}
+              value={`${kpis.foodCostPct.toFixed(1)}%`}
+              warn={kpis.foodCostPct > 35}
+              tooltip={t('dailyEstimatedFoodCostHint')}
+              explain={t('dailyEstimatedFoodCostHint')}
             />
             <KpiCard
               label={t('revenue') || 'Revenue'}
@@ -1003,8 +1061,8 @@ export default function DailyOperationsPage() {
             />
             <KpiCard
               label={t('variance') || 'Variance'}
-              value={countsComplete ? money(kpis.varianceCost, { decimals: 0 }) : '—'}
-              warn={countsComplete && varianceAlerts > 0}
+              value={hasCounts ? money(kpis.varianceCost, { decimals: 0 }) : '—'}
+              warn={hasCounts && varianceAlerts > 0}
               tooltip={t('varianceTooltip')}
               explain={t('varianceExplain')}
             />
@@ -1019,9 +1077,29 @@ export default function DailyOperationsPage() {
         );
       })()}
 
+      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
+        <h2 className="font-semibold">{t('dailyTomorrowTitle')}</h2>
+        <p className="mt-1 max-w-3xl text-sm text-fg-secondary">{t('dailyTomorrowHint')}</p>
+        <div className="mt-3 divide-y divide-[var(--line)]">
+          {tomorrowPrepPlan.length === 0 ? <p className="py-3 text-sm text-fg-secondary">{supplementaryError ? t('dailyLoadError') : t('dailyNoForecast')}</p> : tomorrowPrepPlan.map((item) => <div key={item.prep_item_id} className="flex flex-wrap justify-between gap-2 py-3 text-sm">
+            <span className="font-medium">{item.prep_item_name}</span><span className="text-fg-secondary">{t('current')}: {item.current_qty.toFixed(1)} {item.unit} · {t('demand')}: {item.required_qty.toFixed(1)} {item.unit} · {item.batches_needed} {t('batches')}</span>
+          </div>)}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4 text-sm font-medium text-brand-500">
+          <Link href={`/${rid}/kitchen/prep`}>{t('viewPreparations')}</Link><Link href={`/${rid}/kitchen/suppliers?tab=orders`}>{t('dailyManageOrders')}</Link>
+        </div>
+      </section>
+      {isOpen && <section className="flex flex-wrap items-center justify-between gap-4 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
+        <div className="max-w-2xl"><h2 className="font-semibold">{t('closeDay')}</h2><p className="mt-1 text-sm text-fg-secondary">{t('dailyCloseHint')}</p>
+          {externalSalesPending && <p className="mt-2 text-sm text-[var(--warning-500)]">{t('dailyExternalSalesPending')}</p>}</div>
+        <div className="flex flex-wrap gap-2"><button onClick={handleSaveDraft} disabled={savingDraft || closing} className="btn-secondary">{savingDraft ? t('saving') : t('saveDraft')}</button>
+          <button onClick={handleClose} disabled={closing || savingDraft} className="btn-primary">{closing ? t('closing') : t('closeDay')}</button></div>
+        {closingCountError && <p role="alert" className="w-full text-sm text-red-500">{closingCountError}</p>}
+      </section>}
+
       {/* Section 3: Stock Count & Variance */}
       <CollapsibleSection
-        title={t('stockCountVariance') || 'Stock Count & Variance'}
+        title={t('dailyOptionalInventory')}
         sectionKey="variance"
         expanded={expandedSections.has('variance')}
         onToggle={toggleSection}
@@ -1033,7 +1111,7 @@ export default function DailyOperationsPage() {
               <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
               <div>
                 <p className="font-semibold text-[var(--fg)]">{t('stockCountHelpTitle')}</p>
-                <p className="mt-0.5">{t('stockCountWhen')}</p>
+                <p className="mt-0.5">{t('dailyOptionalInventoryHint')}</p>
                 <p className="mt-1">{t('stockCountRequiredHint')}</p>
                 <p className="mt-1 font-medium text-[var(--fg)]">{t('stockCountExample')}</p>
               </div>
@@ -1136,7 +1214,7 @@ export default function DailyOperationsPage() {
                             <VarianceBadge pct={item.variance_percent} t={t} />
                           ) : (
                             <span className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 text-xs font-medium text-[var(--fg-muted)]">
-                              {t('countRequired')}
+                            {t('notCounted')}
                             </span>
                           )}
                         </span>
@@ -1297,29 +1375,6 @@ export default function DailyOperationsPage() {
               placeholder={t('toImprovePlaceholder') || 'e.g., Standardize portioning, brief staff on waste...'}
             />
           </div>
-          {isOpen && (
-            <div className="space-y-3">
-              <div className="flex gap-3 items-start">
-                <div className="flex-1">
-                  <button onClick={handleSaveDraft} disabled={savingDraft} className="btn-primary text-sm px-4 py-1.5 w-full">
-                    {savingDraft ? t('saving') || 'Saving...' : t('saveDraft') || 'Save Draft'}
-                  </button>
-                  <p className="text-xs text-[var(--fg-secondary)] mt-1">{t('saveDraftDesc') || 'Saves your data without finalizing. You can continue editing.'}</p>
-                </div>
-                <div className="flex-1">
-                  <button
-                    onClick={handleClose}
-                    disabled={closing}
-                    className="text-sm px-4 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2 w-full"
-                  >
-                    <CheckCircleIcon className="w-4 h-4" />
-                    {closing ? t('closing') || 'Closing...' : t('closeDay') || 'Close Day'}
-                  </button>
-                  <p className="text-xs text-[var(--fg-secondary)] mt-1">{t('closeDayDesc') || 'Finalizes the report — it cannot be edited afterward.'}</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </CollapsibleSection>
 
@@ -1467,11 +1522,14 @@ export default function DailyOperationsPage() {
       )}
 
       {/* Quick Receive Modal */}
+      {showScanModal && <DeliveryImportModal rid={rid} stockItems={stockItems} onClose={() => setShowScanModal(false)} onImported={() => { setShowScanModal(false); void loadSupplementary(); }} />}
+      {receiptOrder && <DailyReceiptModal rid={rid} order={receiptOrder} onClose={() => setReceiptOrder(null)} onSaved={loadSupplementary} />}
+      {productionItem && <DailyProductionModal rid={rid} item={productionItem} onClose={() => setProductionItem(null)} onSaved={loadSupplementary} />}
       {showReceiveModal && (
         <QuickReceiveModal
           stockItems={stockItems}
-          onConfirm={async (items) => {
-            await confirmDelivery(rid, { supplier_name: '', items });
+          onConfirm={async (items, supplierName) => {
+            await confirmDelivery(rid, { supplier_name: supplierName, items });
             setShowReceiveModal(false);
             loadSupplementary();
           }}
@@ -1595,12 +1653,13 @@ function QuickReceiveModal({
   stockItems, onConfirm, onClose, t,
 }: {
   stockItems: StockItem[];
-  onConfirm: (items: ConfirmDeliveryItemInput[]) => Promise<void>;
+  onConfirm: (items: ConfirmDeliveryItemInput[], supplierName: string) => Promise<void>;
   onClose: () => void;
   t: (key: string) => string;
 }) {
   const { money } = useCurrency();
   const [search, setSearch] = useState('');
+  const [supplierName, setSupplierName] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -1651,7 +1710,7 @@ function QuickReceiveModal({
           cost_per_unit: si.cost_per_unit || 0,
         };
       });
-      await onConfirm(items);
+      await onConfirm(items, supplierName.trim());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error');
     } finally {
@@ -1681,6 +1740,10 @@ function QuickReceiveModal({
           </button>
         </div>
 
+        <label className="mb-3 block text-sm text-fg-secondary">{t('supplierName')}
+          <input className="input mt-1 w-full" value={supplierName} onChange={(event) => setSupplierName(event.target.value)} list="daily-supplier-names" />
+        </label>
+        <datalist id="daily-supplier-names">{Array.from(new Set(stockItems.map((item) => item.supplier).filter(Boolean))).map((name) => <option key={name} value={name} />)}</datalist>
         {/* Search */}
         <input
           type="text"
