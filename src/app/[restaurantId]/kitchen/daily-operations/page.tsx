@@ -123,13 +123,14 @@ function computeRevenueLoss(
   item: DailyFoodCostItem,
   breakdown: IngredientBreakdown
 ): { dishes: { name: string; servings: number; revenue: number }[]; total: number } | null {
-  if (item.variance <= 0 || breakdown.contributions.length === 0) return null;
-  const totalExpected = breakdown.contributions.reduce((sum, c) => sum + c.total_usage_converted, 0);
+  const contributions = breakdown.contributions ?? [];
+  if (item.variance <= 0 || contributions.length === 0) return null;
+  const totalExpected = contributions.reduce((sum, c) => sum + c.total_usage_converted, 0);
   if (totalExpected <= 0) return null;
 
   const dishes: { name: string; servings: number; revenue: number }[] = [];
   let totalRevenue = 0;
-  for (const c of breakdown.contributions) {
+  for (const c of contributions) {
     if (c.total_usage_converted <= 0 || c.menu_item_price <= 0) continue;
     const share = c.total_usage_converted / totalExpected;
     const varianceForDish = item.variance * share;
@@ -1028,9 +1029,14 @@ export default function DailyOperationsPage() {
         <div className="space-y-4">
           <SectionDesc>{t('stockCountVarianceDesc') || 'Compare actual vs theoretical ingredient consumption. Enter your physical end-of-day stock count to see where losses occur.'}</SectionDesc>
           {isOpen && (
-            <div className="flex items-start gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-xs leading-relaxed text-[var(--fg-muted)]">
+            <div id="physical-stock-count-help" className="flex items-start gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-3 text-xs leading-relaxed text-[var(--fg-muted)]">
               <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
-              <span>{t('stockCountRequiredHint')}</span>
+              <div>
+                <p className="font-semibold text-[var(--fg)]">{t('stockCountHelpTitle')}</p>
+                <p className="mt-0.5">{t('stockCountWhen')}</p>
+                <p className="mt-1">{t('stockCountRequiredHint')}</p>
+                <p className="mt-1 font-medium text-[var(--fg)]">{t('stockCountExample')}</p>
+              </div>
             </div>
           )}
           {closingCountError && (
@@ -1062,7 +1068,7 @@ export default function DailyOperationsPage() {
                   <span className="text-right"><ThTooltip label={t('opening') || 'Opening'} tooltip={t('colOpeningTooltip')} explain={t('colOpeningExplain')} /></span>
                   <span className="text-right"><ThTooltip label={t('received') || 'Received'} tooltip={t('colReceivedTooltip')} explain={t('colReceivedExplain')} /></span>
                   <span className="text-right"><ThTooltip label={t('colExpectedLabel') || 'Expected'} tooltip={t('colTheoreticalTooltip')} explain={t('colTheoreticalExplain')} /></span>
-                  <span className="text-right"><ThTooltip label={t('closing') || 'Closing'} tooltip={t('colClosingTooltip')} explain={t('colClosingExplain')} /></span>
+                  <span className="text-right"><ThTooltip label={t('remainingStockLabel') || 'Stock remaining'} tooltip={t('colClosingTooltip')} explain={t('colClosingExplain')} /></span>
                   <span className="text-right"><ThTooltip label={t('colLossLabel') || 'Loss / Over-use'} tooltip={t('colVarianceTooltip')} explain={t('colVarianceExplain')} /></span>
                   <span className="text-right"><ThTooltip label={t('colImpactLabel') || 'Impact'} tooltip={t('colVariancePctTooltip')} explain={t('colVariancePctExplain')} /></span>
                   {isOpen && <span />}
@@ -1110,8 +1116,9 @@ export default function DailyOperationsPage() {
                               }}
                               format={(n) => String(n)}
                               placeholder={t('enterClosingCount')}
-                              aria-label={`${t('closing')} — ${item.item_name}`}
-                              className="input w-20 px-2 py-0.5 text-sm text-right"
+                              aria-label={`${t('remainingStockLabel')} — ${item.item_name}`}
+                              aria-describedby="physical-stock-count-help"
+                              className="input w-24 max-w-full px-2 py-0.5 text-sm text-right"
                             />
                           ) : item.closing_stock_counted ? (
                             <span>{item.closing_stock.toFixed(2)}</span>
@@ -1161,7 +1168,7 @@ export default function DailyOperationsPage() {
                               {t('loadingBreakdown') || 'Loading breakdown...'}
                             </div>
                           ) : bd ? (
-                            bd.contributions.length === 0 ? (
+                            (bd.contributions ?? []).length === 0 ? (
                               <p className="text-sm text-[var(--fg-secondary)]">
                                 {t('noContributions') || "No menu items contributed to this ingredient's usage."}
                               </p>
@@ -1178,7 +1185,7 @@ export default function DailyOperationsPage() {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {bd.contributions.map((c, i) => {
+                                    {(bd.contributions ?? []).map((c, i) => {
                                       const sameUnit = c.recipe_unit === bd.unit;
                                       return (
                                         <tr key={i} className="border-b border-[var(--divider)] border-opacity-50">
