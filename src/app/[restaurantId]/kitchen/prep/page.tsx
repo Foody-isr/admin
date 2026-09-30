@@ -55,6 +55,7 @@ import { Layers as LayersIcon } from 'lucide-react';
 import RecipeStepsEditor, {
   splitInstruction, joinInstruction, type StepView,
 } from '@/components/recipe/RecipeStepsEditor';
+import { prepIngredientBaseQuantity, prepIngredientUnitOptions } from '@/lib/prep-ingredient-units';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -703,7 +704,8 @@ function PrepItemModal({
       if (item) setPrepTime(item.prep_time_mins ?? 0);
       setIngredients(ings.map((i) => ({
         stock_item_id: i.stock_item_id,
-        quantity_needed: Math.round(i.quantity_needed * 10000) / 10000,
+        quantity_needed: i.recipe_quantity > 0 ? i.recipe_quantity : i.quantity_needed,
+        unit: i.recipe_unit || i.stock_item?.unit || stockItems.find((s) => s.id === i.stock_item_id)?.unit,
       })));
       setSteps((stepData ?? []).map((s) => {
         const parts = splitInstruction(s.instruction);
@@ -713,7 +715,7 @@ function PrepItemModal({
       setLoadingIngs(false);
       setLoadingSteps(false);
     }
-  }, [rid, editing]);
+  }, [rid, editing, stockItems]);
 
   useEffect(() => { void reloadRecipe(); }, [reloadRecipe]);
 
@@ -738,11 +740,14 @@ function PrepItemModal({
   };
   const onPickerConfirm = (ids: number[]) => {
     if (pickerMode === 'swap' && pickerSwapIdx != null) {
-      if (ids[0] != null) updateIngredient(pickerSwapIdx, { stock_item_id: ids[0] });
+      if (ids[0] != null) updateIngredient(pickerSwapIdx, {
+        stock_item_id: ids[0], quantity_needed: 0,
+        unit: stockItems.find((item) => item.id === ids[0])?.unit,
+      });
     } else {
       setIngredients((prev) => [
         ...prev,
-        ...ids.map((id) => ({ stock_item_id: id, quantity_needed: 0 })),
+        ...ids.map((id) => ({ stock_item_id: id, quantity_needed: 0, unit: stockItems.find((item) => item.id === id)?.unit })),
       ]);
     }
   };
@@ -750,6 +755,15 @@ function PrepItemModal({
   const handleSubmit = async () => {
     setSaving(true);
     try {
+      for (const ing of ingredients) {
+        const stockItem = stockItems.find((item) => item.id === ing.stock_item_id);
+        if (!stockItem || !Number.isFinite(ing.quantity_needed) || ing.quantity_needed <= 0) {
+          throw new Error(t('prepIngredientQuantityRequired'));
+        }
+        if (prepIngredientBaseQuantity(stockItem, ing.quantity_needed, ing.unit || stockItem.unit) === null) {
+          throw new Error(t('prepIngredientConversionMissing'));
+        }
+      }
       const payload: PrepItemInput = {
         name, unit, quantity, yield_per_batch: yieldPerBatch,
         reorder_threshold: reorder, shelf_life_hours: shelfLife,
@@ -763,9 +777,7 @@ function PrepItemModal({
         const created = await createPrepItem(rid, payload);
         itemId = created.id;
       }
-      if (ingredients.length > 0) {
-        await setPrepIngredients(rid, itemId, ingredients);
-      }
+      await setPrepIngredients(rid, itemId, ingredients);
       // Persist cooking instructions + prep time. setPrepRecipeSteps replaces
       // the full set (an empty array clears removed steps); recipe-meta carries
       // the prep time (notes is kept in sync via the rail field).
@@ -788,7 +800,9 @@ function PrepItemModal({
   // Per-unit cost estimate for the rail hero
   const costTotal = ingredients.reduce((s, ing) => {
     const si = stockItems.find((x) => x.id === ing.stock_item_id);
-    return s + (si?.cost_per_unit ?? 0) * (ing.quantity_needed ?? 0);
+    if (!si) return s;
+    const baseQuantity = prepIngredientBaseQuantity(si, ing.quantity_needed, ing.unit || si.unit);
+    return s + si.cost_per_unit * (baseQuantity ?? 0);
   }, 0);
   const perUnit = yieldPerBatch > 0 ? costTotal / yieldPerBatch : 0;
 
@@ -1106,6 +1120,7 @@ function PrepItemModal({
                     ? t('rawIngredientsDesc').replace('{yield}', String(yieldPerBatch)).replace('{unit}', unit)
                     : (t('prepIngredientsSubtitle') || 'Saisissez la quantité de chaque ingrédient pour 1 batch.')}
                 </p>
+                <p className="text-fs-xs text-[var(--fg-muted)] mt-1">{t('prepIngredientUnitHint')}</p>
               </div>
               {canManage && (
                 <button
@@ -1135,7 +1150,7 @@ function PrepItemModal({
                       <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
                         Ingrédient
                       </th>
-                      <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider w-[110px]">
+                      <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider w-[140px]">
                         Unité
                       </th>
                       <th className="text-end px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
@@ -1147,6 +1162,9 @@ function PrepItemModal({
                   <tbody>
                     {ingredients.map((ing, idx) => {
                       const si = stockItems.find((s) => s.id === ing.stock_item_id);
+                      const selectedUnit = ing.unit || si?.unit || '';
+                      const options = si ? prepIngredientUnitOptions(si) : [];
+                      const baseQuantity = si ? prepIngredientBaseQuantity(si, ing.quantity_needed, selectedUnit) : null;
                       return (
                         <tr key={idx} className="border-t border-[var(--line)] hover:bg-[var(--surface-2)]/50 transition-colors">
                           <td className="px-[var(--s-3)] py-[var(--s-2)]">
@@ -1169,7 +1187,25 @@ function PrepItemModal({
                             </button>
                           </td>
                           <td className="px-[var(--s-3)] py-[var(--s-2)] text-[var(--fg-muted)]">
-                            {si?.unit || '—'}
+                            <select
+                              value={selectedUnit}
+                              onChange={(event) => updateIngredient(idx, { unit: event.target.value })}
+                              aria-label={t('prepIngredientUnit')}
+                              className="w-full bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm px-1.5 py-1 text-fs-sm text-[var(--fg)]"
+                            >
+                              {!options.some((option) => option.unit === selectedUnit) && selectedUnit && (
+                                <option value={selectedUnit}>{selectedUnit}</option>
+                              )}
+                              {options.map((option) => (
+                                <option key={option.unit} value={option.unit}>
+                                  {['pack', 'carton', 'crate', 'sack', 'case'].includes(option.unit)
+                                    ? t(`ct_${option.unit}`)
+                                    : ['packet', 'box', 'sachet', 'can', 'jar', 'brick'].includes(option.unit)
+                                      ? t(`ut_${option.unit}`)
+                                      : option.unit}
+                                </option>
+                              ))}
+                            </select>
                           </td>
                           <td className="px-[var(--s-3)] py-[var(--s-2)] text-end">
                             <NumberInput
@@ -1179,6 +1215,16 @@ function PrepItemModal({
                               placeholder="0"
                               className="w-full max-w-[100px] px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)]"
                             />
+                            {si && baseQuantity !== null && selectedUnit !== si.unit && ing.quantity_needed > 0 && (
+                              <span className="block mt-1 text-fs-xs text-[var(--fg-muted)] font-mono tabular-nums">
+                                ≈ {Number(baseQuantity.toFixed(4))} {si.unit}
+                              </span>
+                            )}
+                            {si && baseQuantity === null && ing.quantity_needed > 0 && (
+                              <span className="block mt-1 text-fs-xs text-[var(--danger-500)]">
+                                {t('prepIngredientConversionMissing')}
+                              </span>
+                            )}
                           </td>
                           <td className="px-[var(--s-2)] py-[var(--s-2)] text-end">
                             {canManage && (
