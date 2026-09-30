@@ -30,6 +30,7 @@ import {
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { MoneyFormatter } from '@/lib/currency';
 
 function formatDate(d: Date): string {
@@ -103,6 +104,7 @@ function VarianceBadge({ pct, t }: { pct: number; t: (k: string) => string }) {
 }
 
 function insightMessage(item: DailyFoodCostItem, t: (k: string) => string, money: MoneyFormatter): string | null {
+  if (!item.closing_stock_counted) return null;
   if (Math.abs(item.variance) < 0.001) return null;
   const qty = `${Math.abs(item.variance).toFixed(2)}${item.unit}`;
   const cost = item.variance_cost !== 0 ? ` (≈ ${money(Math.abs(item.variance_cost), { decimals: 0 })})` : '';
@@ -145,12 +147,19 @@ function computeRevenueLoss(
 
 function computeKpis(report: DailyFoodCostReport) {
   const items = report.items || [];
-  const actualCost = items.reduce((sum, i) => sum + i.actual_usage * i.cost_per_unit, 0);
+  const uncountedCount = items.filter((item) => !item.closing_stock_counted).length;
+  const actualCost = items.reduce(
+    (sum, item) => sum + (item.closing_stock_counted ? item.actual_usage : item.theoretical_usage) * item.cost_per_unit,
+    0,
+  );
   const wasteCost = items.reduce((sum, i) => sum + i.waste_qty * i.cost_per_unit, 0);
-  const varianceCost = items.reduce((sum, i) => sum + i.variance_cost, 0);
+  const varianceCost = items.reduce(
+    (sum, item) => sum + (item.closing_stock_counted ? item.variance_cost : 0),
+    0,
+  );
   const revenue = report.total_sales_revenue;
   const foodCostPct = revenue > 0 ? (actualCost / revenue) * 100 : 0;
-  return { foodCostPct, revenue, varianceCost, wasteCost };
+  return { foodCostPct, revenue, varianceCost, wasteCost, uncountedCount };
 }
 
 function statusBadge(status: string) {
@@ -192,6 +201,7 @@ export default function DailyOperationsPage() {
 
   // Closing stock
   const [closingStocks, setClosingStocks] = useState<Record<number, number>>({});
+  const [closingCountError, setClosingCountError] = useState('');
 
   // Retrospective
   const [wentWell, setWentWell] = useState('');
@@ -277,10 +287,11 @@ export default function DailyOperationsPage() {
       if (rpt.items) {
         const stocks: Record<number, number> = {};
         rpt.items.forEach(i => {
-          if (i.stock_item_id) stocks[i.stock_item_id] = i.closing_stock;
+          if (i.stock_item_id && i.closing_stock_counted) stocks[i.stock_item_id] = i.closing_stock;
         });
         setClosingStocks(stocks);
       }
+      setClosingCountError('');
       setWentWell(rpt.went_well || '');
       setWentWrong(rpt.went_wrong || '');
       setToImprove(rpt.to_improve || '');
@@ -345,7 +356,7 @@ export default function DailyOperationsPage() {
     if (updated.items) {
       const stocks: Record<number, number> = {};
       updated.items.forEach(i => {
-        if (i.stock_item_id) stocks[i.stock_item_id] = i.closing_stock;
+        if (i.stock_item_id && i.closing_stock_counted) stocks[i.stock_item_id] = i.closing_stock;
       });
       setClosingStocks(stocks);
     }
@@ -376,17 +387,21 @@ export default function DailyOperationsPage() {
   const handleSaveDraft = async () => {
     if (!report) return;
     setSavingDraft(true);
+    setClosingCountError('');
     try {
       const items = Object.entries(closingStocks)
         .map(([stockItemId, quantity]) => ({ stock_item_id: Number(stockItemId), quantity }));
       await Promise.all([
-        updateClosingStock(rid, report.id, items),
+        ...(items.length > 0 ? [updateClosingStock(rid, report.id, items)] : []),
         updateRetrospective(rid, report.id, {
           went_well: wentWell,
           went_wrong: wentWrong,
           to_improve: toImprove,
         }),
       ]);
+      await recomputeAndReload(report.id);
+    } catch (error) {
+      setClosingCountError(error instanceof Error ? error.message : t('saveFailed'));
     } finally {
       setSavingDraft(false);
     }
@@ -394,10 +409,30 @@ export default function DailyOperationsPage() {
 
   const handleClose = async () => {
     if (!report) return;
-    if (!confirm(t('closeDayConfirm'))) return;
     setActionError('');
+    const missingCounts = (report.items ?? []).filter(
+      (item) => item.stock_item_id != null && closingStocks[item.stock_item_id] === undefined,
+    ).length;
+    if (missingCounts > 0) {
+      setClosingCountError(
+        t('closingCountRequired').replace('{count}', String(missingCounts)),
+      );
+      return;
+    }
+    if (!confirm(t('closeDayConfirm'))) return;
     setClosing(true);
+    setClosingCountError('');
     try {
+      const items = Object.entries(closingStocks)
+        .map(([stockItemId, quantity]) => ({ stock_item_id: Number(stockItemId), quantity }));
+      await Promise.all([
+        ...(items.length > 0 ? [updateClosingStock(rid, report.id, items)] : []),
+        updateRetrospective(rid, report.id, {
+          went_well: wentWell,
+          went_wrong: wentWrong,
+          to_improve: toImprove,
+        }),
+      ]);
       await closeFoodCostReport(rid, report.id);
       await loadReport();
     } catch (error) {
@@ -541,7 +576,7 @@ export default function DailyOperationsPage() {
     (item) => item.is_active !== false && item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold,
   );
   const varianceAlerts = (report?.items ?? []).filter(
-    (item) => varianceLevel(item.variance_percent) !== 'ok',
+    (item) => item.closing_stock_counted && varianceLevel(item.variance_percent) !== 'ok',
   ).length;
   const selectedIsToday = formatDate(selectedDate) === formatDate(new Date());
   const now = new Date();
@@ -948,20 +983,14 @@ export default function DailyOperationsPage() {
       />
 
       {report && (() => {
-        const kpis = report.status === 'open'
-          ? computeKpis(report)
-          : {
-              foodCostPct: report.food_cost_percent,
-              revenue: report.total_sales_revenue,
-              varianceCost: report.total_variance_value,
-              wasteCost: report.total_waste_value,
-            };
+        const kpis = computeKpis(report);
+        const countsComplete = kpis.uncountedCount === 0;
         return (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <KpiCard
               label="Food Cost %"
-              value={`${kpis.foodCostPct.toFixed(1)}%`}
-              warn={kpis.foodCostPct > 35}
+              value={countsComplete ? `${kpis.foodCostPct.toFixed(1)}%` : '—'}
+              warn={countsComplete && kpis.foodCostPct > 35}
               tooltip={t('foodCostPctTooltip')}
               explain={t('foodCostPctExplain')}
             />
@@ -973,8 +1002,8 @@ export default function DailyOperationsPage() {
             />
             <KpiCard
               label={t('variance') || 'Variance'}
-              value={money(kpis.varianceCost, { decimals: 0 })}
-              warn={varianceAlerts > 0}
+              value={countsComplete ? money(kpis.varianceCost, { decimals: 0 }) : '—'}
+              warn={countsComplete && varianceAlerts > 0}
               tooltip={t('varianceTooltip')}
               explain={t('varianceExplain')}
             />
@@ -998,6 +1027,18 @@ export default function DailyOperationsPage() {
       >
         <div className="space-y-4">
           <SectionDesc>{t('stockCountVarianceDesc') || 'Compare actual vs theoretical ingredient consumption. Enter your physical end-of-day stock count to see where losses occur.'}</SectionDesc>
+          {isOpen && (
+            <div className="flex items-start gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-xs leading-relaxed text-[var(--fg-muted)]">
+              <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
+              <span>{t('stockCountRequiredHint')}</span>
+            </div>
+          )}
+          {closingCountError && (
+            <div role="alert" className="flex items-start gap-2 rounded-lg border border-[var(--danger-500)]/30 bg-[var(--danger-50)] px-3 py-2 text-xs leading-relaxed text-[var(--danger-500)]">
+              <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />
+              <span>{closingCountError}</span>
+            </div>
+          )}
           {/* Variance table */}
           {report?.items && report.items.length > 0 ? (
             <div className="space-y-2">
@@ -1034,7 +1075,7 @@ export default function DailyOperationsPage() {
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-lg border transition-colors group ${isExpanded ? 'border-[var(--divider)] bg-[var(--surface)]' : 'border-transparent hover:border-[var(--divider)]'} ${varianceBg(item.variance_percent)}`}
+                      className={`rounded-lg border transition-colors group ${isExpanded ? 'border-[var(--divider)] bg-[var(--surface)]' : 'border-transparent hover:border-[var(--divider)]'} ${item.closing_stock_counted ? varianceBg(item.variance_percent) : ''}`}
                     >
                       {/* Main row */}
                       <div
@@ -1061,22 +1102,36 @@ export default function DailyOperationsPage() {
                         <div className="flex justify-end" onClick={e => e.stopPropagation()}>
                           {isOpen ? (
                             <NumberInput
-                              value={closingStocks[item.stock_item_id!] ?? item.closing_stock}
-                              onChange={(n) => item.stock_item_id && setClosingStocks(prev => ({
-                                ...prev,
-                                [item.stock_item_id!]: n,
-                              }))}
+                              value={item.stock_item_id ? closingStocks[item.stock_item_id] : undefined}
+                              onChange={(n) => {
+                                if (!item.stock_item_id) return;
+                                setClosingStocks(prev => ({ ...prev, [item.stock_item_id!]: n }));
+                                setClosingCountError('');
+                              }}
+                              format={(n) => String(n)}
+                              placeholder={t('enterClosingCount')}
+                              aria-label={`${t('closing')} — ${item.item_name}`}
                               className="input w-20 px-2 py-0.5 text-sm text-right"
                             />
-                          ) : (
+                          ) : item.closing_stock_counted ? (
                             <span>{item.closing_stock.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-xs text-[var(--fg-muted)]">{t('notCounted')}</span>
                           )}
                         </div>
-                        <span className={`text-right font-medium tabular-nums ${varianceColor(item.variance_percent)}`}>
-                          {item.variance > 0 ? '+' : ''}{item.variance.toFixed(2)}
+                        <span className={`text-right font-medium tabular-nums ${item.closing_stock_counted ? varianceColor(item.variance_percent) : 'text-[var(--fg-muted)]'}`}>
+                          {item.closing_stock_counted
+                            ? `${item.variance > 0 ? '+' : ''}${item.variance.toFixed(2)}`
+                            : '—'}
                         </span>
                         <span className="text-right">
-                          <VarianceBadge pct={item.variance_percent} t={t} />
+                          {item.closing_stock_counted ? (
+                            <VarianceBadge pct={item.variance_percent} t={t} />
+                          ) : (
+                            <span className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 text-xs font-medium text-[var(--fg-muted)]">
+                              {t('countRequired')}
+                            </span>
+                          )}
                         </span>
                         {isOpen && (
                           <div onClick={e => e.stopPropagation()} className="flex justify-end">
@@ -2301,17 +2356,11 @@ function KpiCard({ label, value, warn, tooltip, explain }: { label: string; valu
         <div className="flex items-center gap-1 mb-1">
           <p className="text-xs text-[var(--fg-secondary)]">{label}</p>
           {(tooltip || explain) && (
-            <div className="relative group/tip">
-              <InfoIcon
-                className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-60 cursor-pointer"
-                onClick={() => explain && setShowExplain(true)}
-              />
-              {tooltip && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-48 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-10 text-left leading-snug">
-                  {tooltip}
-                </div>
-              )}
-            </div>
+            <HelpTooltip
+              label={label}
+              text={tooltip || explain || ''}
+              onClick={explain ? () => setShowExplain(true) : undefined}
+            />
           )}
         </div>
         <p className={`text-xl font-bold ${warn ? 'text-red-400' : 'text-fg-primary'}`}>{value}</p>
@@ -2329,20 +2378,43 @@ function ThTooltip({ label, tooltip, explain }: { label: string; tooltip: string
     <>
       <div className="inline-flex items-center gap-1">
         <span>{label}</span>
-        <div className="relative group/tip">
-          <InfoIcon
-            className={`w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-50 ${explain ? 'cursor-pointer' : 'cursor-help'}`}
-            onClick={explain ? (e) => { e.stopPropagation(); setShowExplain(true); } : undefined}
-          />
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
-            {tooltip}
-          </div>
-        </div>
+        <HelpTooltip
+          label={label}
+          text={tooltip}
+          onClick={explain ? () => setShowExplain(true) : undefined}
+        />
       </div>
       {showExplain && explain && (
         <ExplainModal title={label} body={explain} onClose={() => setShowExplain(false)} />
       )}
     </>
+  );
+}
+
+function HelpTooltip({ label, text, onClick }: { label: string; text: string; onClick?: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={`${label}: ${text}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClick?.();
+          }}
+          className="inline-flex rounded-full text-[var(--fg-muted)] opacity-70 transition hover:opacity-100 focus-visible:outline-none focus-visible:shadow-ring"
+        >
+          <InfoIcon className="size-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        sideOffset={6}
+        className="max-w-xs border border-[var(--line)] bg-popover text-popover-foreground shadow-3 text-left font-normal leading-relaxed"
+      >
+        {text}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
