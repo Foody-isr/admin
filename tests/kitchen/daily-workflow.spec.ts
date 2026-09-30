@@ -99,9 +99,8 @@ test('empty recommendations do not claim service coverage; tablet stays within v
   await mockKitchen(page, { emptyPlan: true });
   await page.getByRole('tab', { name: 'Pendant le service', exact: true }).click();
   await expect(page.getByText('0/0', { exact: true })).toHaveCount(0);
-  await page.getByText('Vérifier le prochain service', { exact: true }).click();
-  await page.getByRole('textbox', { name: 'Besoin pour le prochain service (unit)' }).fill('12');
-  await expect(page.getByText('À produire: 10.00 unit')).toBeVisible();
+  await page.getByRole('spinbutton', { name: 'Besoin du service — Fish pané' }).fill('12');
+  await expect(page.getByText('10 unit', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/kitchen-tablet.png', fullPage: true, animations: 'disabled' });
 });

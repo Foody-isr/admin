@@ -12,7 +12,7 @@ import {
   getTodayFoodCostReport, getFoodCostReport, computeFoodCostReport,
   upsertSalesEntries, updateClosingStock, updateRetrospective,
   previewAvivSalesImport, importAvivSales, syncFoodyPOSSales,
-  closeFoodCostReport, reopenFoodCostReport, createFoodCostReport, listFoodCostReports,
+  closeFoodCostReport, reopenFoodCostReport, listFoodCostReports,
   getKitchenSummary, type KitchenSummary, deleteSalesEntries,
   listStockTransactions, getAllCategories, listStockItems, getRestaurant,
   confirmDelivery, deleteStockTransaction,
@@ -29,11 +29,12 @@ import {
   ChevronLeftIcon, ChevronRightIcon,
   XIcon, PlusIcon, TrashIcon, InfoIcon,
   MailIcon, SunriseIcon, UtensilsIcon, MoonIcon, ArrowRightIcon,
-  ChefHatIcon,
+  ChefHatIcon, PackageIcon,
   UploadIcon, FileTextIcon, RotateCcwIcon,
 } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import styles from '@/components/kitchen/companion.module.css';
 import { NumberInput } from '@/components/ui/NumberInput';
 
 
@@ -79,7 +80,7 @@ function statusBadge(status: string, t: (key: string) => string) {
 export default function DailyOperationsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
 
@@ -128,6 +129,9 @@ export default function DailyOperationsPage() {
   const [pendingDeliveries, setPendingDeliveries] = useState<PurchaseOrder[]>([]);
   const [supplementaryError, setSupplementaryError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [supplementaryLoading, setSupplementaryLoading] = useState(true);
+  const reportRequest = useRef(0);
+  const supplementaryRequest = useRef(0);
   const [tomorrowPrepPlan, setTomorrowPrepPlan] = useState<DailyPlanItem[]>([]);
   const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
 
@@ -167,7 +171,9 @@ export default function DailyOperationsPage() {
   };
 
   const loadReport = useCallback(async () => {
+    const request = ++reportRequest.current;
     setLoading(true);
+    setActionError('');
     try {
       const dateStr = formatDate(selectedDate);
       const today = formatDate(new Date());
@@ -176,16 +182,20 @@ export default function DailyOperationsPage() {
       if (dateStr === today) {
         rpt = await getTodayFoodCostReport(rid);
         if (rpt.status === 'open' && canManage) rpt = await computeFoodCostReport(rid, rpt.id);
+
       } else {
         // Try to find existing report for that date
         const reports = await listFoodCostReports(rid, dateStr, dateStr);
         if (reports.length > 0) {
           rpt = await getFoodCostReport(rid, reports[0].id);
         } else {
-          rpt = await createFoodCostReport(rid, dateStr);
-          rpt = await getFoodCostReport(rid, rpt.id);
+          if (request === reportRequest.current) {
+            setReport(null); setSalesEntries({}); setWentWell(''); setWentWrong(''); setToImprove(''); setEstimatedPOs([]);
+          }
+          return;
         }
       }
+      if (request !== reportRequest.current) return;
       setReport(rpt);
 
       // Populate form state from report
@@ -213,10 +223,11 @@ export default function DailyOperationsPage() {
       setGenerationAttempted(false);
       setGenerationDiag(null);
     } catch (error) {
+      if (request !== reportRequest.current) return;
       setReport(null);
       setActionError(error instanceof Error ? error.message : t('dailyLoadError'));
     } finally {
-      setLoading(false);
+      if (request === reportRequest.current) setLoading(false);
     }
   }, [rid, selectedDate, canManage, t]);
 
@@ -239,6 +250,8 @@ export default function DailyOperationsPage() {
   }, [rid, selectedDate]);
 
   const loadSupplementary = useCallback(async () => {
+    const request = ++supplementaryRequest.current;
+    setSupplementaryLoading(true);
     setSupplementaryError('');
     try {
       const [cats, stock, prepPlan, restaurant, deliveries, nextPlan, preparations] = await Promise.all([
@@ -250,6 +263,7 @@ export default function DailyOperationsPage() {
         getDailyPrepPlan(rid, { day_of_week: (selectedDate.getDay() + 1) % 7 }),
         listPrepItems(rid, { is_active: true }),
       ]);
+      if (request !== supplementaryRequest.current) return;
       setCategories(cats);
       setStockItems(stock);
       setDailyPrepPlan(prepPlan);
@@ -261,14 +275,18 @@ export default function DailyOperationsPage() {
       // Load today's receive transactions
       const txns = await listStockTransactions(rid, { type: 'receive' });
       const dateStr = formatDate(selectedDate);
-      const filtered = txns.filter(tx => tx.created_at?.startsWith(dateStr));
-      setTodayReceives(filtered);
+      const filtered = txns.filter(tx => tx.created_at && formatDate(new Date(tx.created_at)) === dateStr);
+      if (request === supplementaryRequest.current) setTodayReceives(filtered);
     } catch (error) {
+      if (request !== supplementaryRequest.current) return;
+      setStockItems([]); setTodayReceives([]);
       setDailyPrepPlan([]);
       setTomorrowPrepPlan([]);
       setPendingDeliveries([]);
       setPrepItems([]);
       setSupplementaryError(error instanceof Error ? error.message : t('dailyLoadError'));
+    } finally {
+      if (request === supplementaryRequest.current) setSupplementaryLoading(false);
     }
   }, [rid, selectedDate, t]);
 
@@ -293,7 +311,10 @@ export default function DailyOperationsPage() {
   useEffect(() => { loadSupplementary(); }, [loadSupplementary]);
   useEffect(() => { void loadForecast(); }, [loadForecast]);
 
+  const confirmDiscard = () => toImprove === (report?.to_improve ?? '') || confirm(t('companionDiscard'));
+
   const navigateDate = (delta: number) => {
+    if (!confirmDiscard()) return;
     setPhaseSelection(null); setExpandedSections(new Set());
     setSelectedDate(prev => {
       const d = new Date(prev);
@@ -469,7 +490,7 @@ export default function DailyOperationsPage() {
     .sort((a, b) => Number(b.current_qty < 0) - Number(a.current_qty < 0));
   const batchesToLaunch = prepToLaunch.filter((item) => item.current_qty >= 0).reduce((sum, item) => sum + item.batches_needed, 0);
   const lowStockItems = stockItems.filter(
-    (item) => item.is_active !== false && item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold,
+    (item) => item.is_active !== false && (item.quantity < 0 || (item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold)),
   );
   const selectedIsToday = formatDate(selectedDate) === formatDate(new Date());
   const soldQuantity = (report?.sales ?? []).reduce((sum, sale) => sum + sale.quantity, 0);
@@ -494,21 +515,20 @@ export default function DailyOperationsPage() {
         ? 'service'
         : 'opening';
 
-  const activePhase = phaseSelection ?? (report?.status !== 'open' || !selectedIsToday ? 'closing' : suggestedPhase ?? (now.getHours() >= 17 ? 'closing' : 'opening'));
+  const activePhase = phaseSelection ?? (report?.status !== 'open' || !selectedIsToday ? 'closing' : suggestedPhase ?? 'opening');
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 px-4 py-5">
-      {/* Today is the kitchen cockpit: one date, three moments, one recommended focus. */}
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-[-0.025em] text-fg-primary">
-              {selectedIsToday
-                ? t('today')
-                : selectedDate.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
-            </h1>
-            {report && statusBadge(report.status, t)}
-            {report?.status === 'closed' && canManage && (
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.identity}><span className={styles.emblem}><ChefHatIcon size={25} /></span><div><h1>{t('companionTitle')}</h1><p>{t('companionSubtitle')}</p></div></div>
+        <div className={styles.date}>
+          <button onClick={() => navigateDate(-1)} aria-label={t('previousDay')}><ChevronLeftIcon size={17} /></button>
+          <input type="date" aria-label={t('date')} value={formatDate(selectedDate)} onChange={e => { if (e.target.value && confirmDiscard()) setSelectedDate(new Date(e.target.value + 'T12:00:00')); }} />
+          <button onClick={() => navigateDate(1)} aria-label={t('nextDay')}><ChevronRightIcon size={17} /></button>
+          {!selectedIsToday && <button className="px-2 text-xs" onClick={() => { if (confirmDiscard()) setSelectedDate(new Date()); }}>{t('today')}</button>}
+        </div>
+      </header>
+      <div className="mb-3">            {report?.status === 'closed' && canManage && (
               <button
                 type="button"
                 onClick={handleReopen}
@@ -519,76 +539,92 @@ export default function DailyOperationsPage() {
                 {reopening ? t('reopeningDay') : t('reopenDay')}
               </button>
             )}
+      </div>
+      {actionError && <div role="alert" className={styles.error}>{actionError}</div>}
+      {supplementaryError && <p role="alert" className={styles.error}>{t('companionLoadError')} {supplementaryError}</p>}
+      <section className={styles.brief} aria-label={t('companionBrief')}>
+        <div className={styles.briefMain}>
+          <div className={styles.briefTop}><ChefHatIcon size={17} /><span>{selectedDate.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}</span>{report && statusBadge(report.status, t)}<span> / </span><span>{t(report?.status === 'closed' || report?.status === 'reviewed' ? 'companionClosed' : 'companionBrief')}</span></div>
+          <h2>{t(supplementaryLoading ? 'loading' : supplementaryError ? 'companionIncomplete' : prepToLaunch.length || lowStockItems.length ? 'companionAttentionTitle' : 'companionCalmTitle')}</h2>
+          <p>{t(supplementaryError ? 'companionLoadError' : 'companionBriefDesc')}</p>
+          <button className={styles.briefAction} onClick={() => setPhaseSelection(suggestedPhase ?? 'opening')}>{t(suggestedPhase === 'closing' ? 'dayPhaseClosing' : suggestedPhase === 'service' ? 'dayPhaseService' : 'dayPhaseOpening')}<ArrowRightIcon size={16} /></button>
+        </div>
+        <div className={styles.priorities}>
+          <button className={styles.priority} onClick={() => setPhaseSelection('opening')}><span><ChefHatIcon size={19} /></span><span><strong>{t('prepToLaunch')}</strong><small>{t('companionPrepHint')}</small></span><b>{supplementaryLoading || supplementaryError ? '—' : prepToLaunch.length}</b></button>
+          <Link className={styles.priority} href={`/${rid}/kitchen/stock`}><span><PackageIcon size={19} /></span><span><strong>{t('lowStockItems')}</strong><small>{t('companionStockHint')}</small></span><b>{supplementaryLoading || supplementaryError ? '—' : lowStockItems.length}</b></Link>
+          <Link className={styles.priority} href={`/${rid}/kitchen/suppliers?tab=orders`}><span><FileTextIcon size={19} /></span><span><strong>{t('companionDeliveries')}</strong><small>{t('companionDeliveryHint')}</small></span><b>{supplementaryLoading || supplementaryError ? '—' : pendingDeliveries.length}</b></Link>
+        </div>
+      </section>
+      <div className={styles.context}><InfoIcon size={15} /><span>{t(selectedIsToday ? 'companionStockAuto' : 'companionDateContext')}</span><button className={styles.refresh} disabled={refreshing || loading || supplementaryLoading} onClick={() => { if (confirmDiscard()) { setRefreshing(true); void Promise.all([loadReport(), loadSupplementary(), loadForecast()]).finally(() => setRefreshing(false)); } }}><RefreshCwIcon size={14} className={supplementaryLoading ? 'animate-spin' : ''} />{t('refresh')}</button></div>
+      {!loading && !report && !actionError && <p className={styles.context}>{t('companionNoReport')}</p>}
+      <nav role="tablist" aria-label={t('todayPhases')} className={styles.tabs}>
+        {([
+          ['opening', 'companionOpening', 'companionOpeningHint', SunriseIcon],
+          ['service', 'companionService', 'companionServiceHint', UtensilsIcon],
+          ['closing', 'companionClosing', 'companionClosingHint', MoonIcon],
+        ] as const).map(([phase, label, hint, Icon], index) => <button key={phase} role="tab" aria-label={t(label)} id={`tab-${phase}`} aria-selected={activePhase === phase} aria-controls={`phase-${phase}`} tabIndex={activePhase === phase ? 0 : -1} className={styles.tab} onClick={() => setPhaseSelection(phase)} onKeyDown={event => {
+          const phases = ['opening', 'service', 'closing'] as const;
+          const step = event.key === 'ArrowRight' ? (locale === 'he' ? -1 : 1) : event.key === 'ArrowLeft' ? (locale === 'he' ? 1 : -1) : 0;
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + step + 3) % 3;
+          if (!step && event.key !== 'Home' && event.key !== 'End') return;
+          event.preventDefault(); setPhaseSelection(phases[next]); document.getElementById(`tab-${phases[next]}`)?.focus();
+        }}><Icon size={21} /><span><strong>{t(label)}</strong><small>{t(hint)}</small></span></button>)}
+      </nav>
+      <div role="tabpanel" id="phase-opening" aria-labelledby="tab-opening" hidden={activePhase !== 'opening'} className={styles.content}>
+      <div className={styles.columns}>
+
+      <section className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]">
+        <div className="flex flex-col gap-3 border-b border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 font-semibold text-[var(--fg)]">
+              <ChefHatIcon className="size-4 text-[var(--brand-500)]" />
+              {t('prepToLaunch')}
+            </h2>
+            <p className="mt-1 text-xs text-[var(--fg-muted)]">{t('prepToLaunchDesc')}</p>
           </div>
-          <p className="mt-1 max-w-2xl text-sm text-[var(--fg-secondary)]">
-            {t('chefPageHint')}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {batchesToLaunch > 0 && (
+              <span className="rounded-r-md bg-[var(--brand-50)] px-2.5 py-1 text-xs font-semibold text-[var(--brand-700)]">
+                {batchesToLaunch} {t('batches')}
+              </span>
+            )}
+            <Link
+              href={`/${rid}/kitchen/prep`}
+              className="inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-500)] hover:underline"
+            >
+              {t('viewPreparations')} <ArrowRightIcon className="size-3.5" />
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-2 self-start md:self-auto">
-          <button
-            onClick={() => navigateDate(-1)}
-            className="grid size-9 place-items-center rounded-r-md border border-[var(--line)] text-[var(--fg-muted)] hover:bg-[var(--surface-hover)]"
-            aria-label={t('previousDay')}
-          >
-            <ChevronLeftIcon className="size-4" />
-          </button>
-          <input
-            type="date"
-            aria-label={t('date')}
-            value={formatDate(selectedDate)}
-            onChange={(e) => { if (e.target.value) { setPhaseSelection(null); setExpandedSections(new Set()); setSelectedDate(new Date(e.target.value + 'T00:00:00')); } }}
-            className="input h-9 px-3 text-sm"
-          />
-          <button
-            onClick={() => navigateDate(1)}
-            className="grid size-9 place-items-center rounded-r-md border border-[var(--line)] text-[var(--fg-muted)] hover:bg-[var(--surface-hover)]"
-            aria-label={t('nextDay')}
-          >
-            <ChevronRightIcon className="size-4" />
-          </button>
-        </div>
-      </header>
+        {prepToLaunch.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-[var(--fg-muted)]">
+            {supplementaryError ? t('dailyLoadError') : salesForecast?.sample_days === 0 ? t('noWeekdayHistory') : t('dailyNoForecast')}
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--line)]">
+            {(showAllProduction ? prepToLaunch : prepToLaunch.slice(0, 3)).map((item) => (
+              <div key={item.prep_item_id} className={styles.productionRow}>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-[var(--fg)]">{item.prep_item_name}</div>
+                  <div className="mt-0.5 text-xs text-[var(--fg-muted)]">{item.category}</div>
+                </div>
+                <div className="text-xs text-[var(--fg-muted)] sm:text-end">
+                  {objectivePlans.some((target) => target.prep_item_id === item.prep_item_id) ? t('chefPlannedQty').replace('{qty}', `${item.required_qty} ${item.unit}`) : `${t('current')}: ${item.current_qty.toFixed(1)} ${item.unit} / ${t('demand')}: ${item.required_qty.toFixed(1)} ${item.unit}`}
+                </div>
+                <div className="flex items-center gap-3">
+                  {item.current_qty >= 0 && <span className="text-xs font-semibold text-[var(--brand-700)]">{item.batches_needed} {t('batches')}</span>}
+                  {item.current_qty < 0 || item.yield_per_batch <= 0 ? <Link className="text-xs font-medium text-[var(--warning-500)]" href={`/${rid}/kitchen/prep`}>{t('chefReviewProduction')}</Link> : canManage && selectedIsToday && !supplementaryError && <button className="btn-primary text-xs" onClick={() => setProductionItem(item)}>{t('dailyConfirmProduction')}</button>}
+                </div>
+                {item.current_qty < 0 && <p className="text-xs text-[var(--warning-500)] sm:col-span-3">{t('chefNegativePrep')}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+        {prepToLaunch.length > 3 && <button className="px-5 py-3 text-sm text-brand-500" onClick={() => setShowAllProduction(!showAllProduction)}>{showAllProduction ? t('chefShowLess') : t('chefShowAllProduction').replace('{count}', String(prepToLaunch.length))}</button>}
+        {isOpen && selectedIsToday && report && !supplementaryError && <ProductionObjectives rid={rid} reportId={report.id} items={prepItems} summary={kitchenSummary} onSaved={loadKitchenSummary} />}
+      </section>
 
-      <div className="grid items-center gap-3 rounded-r-md bg-[var(--surface-2)] px-4 py-3 text-sm text-fg-secondary sm:grid-cols-[minmax(0,1fr)_auto]">
-        <p>{t('chefAutomaticStock')}</p>
-        <button type="button" disabled={refreshing} className="btn-secondary inline-flex shrink-0 items-center gap-2 text-xs" onClick={async () => {
-          setRefreshing(true);
-          try {
-            await loadSupplementary();
-            if (report?.status === 'open') await recomputeAndReload(report.id);
-            else await loadKitchenSummary();
-          }
-          catch (error) { setActionError(error instanceof Error ? error.message : t('dailyLoadError')); }
-          finally { setRefreshing(false); }
-        }}><RefreshCwIcon className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />{t('refresh')}</button>
-      </div>
-      {supplementaryError && <p role="alert" className="rounded-r-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-500">{t('dailyLoadError')} {supplementaryError}</p>}
-      {!selectedIsToday && <p className="text-sm text-fg-secondary">{t('dailyLiveStockHint')}</p>}
-
-      {actionError && (
-        <div role="alert" className="flex items-start justify-between gap-3 rounded-r-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
-          <span>{actionError}</span>
-          <button type="button" onClick={() => setActionError('')} aria-label={t('close')} className="shrink-0 font-semibold hover:opacity-70">×</button>
-        </div>
-      )}
-
-      <div role="tablist" aria-label={t('todayPhases')} className="grid grid-cols-3 border-b border-[var(--line)]">
-        {([['opening', 'chefOpeningTab', SunriseIcon], ['service', 'chefServiceTab', UtensilsIcon], ['closing', 'chefClosingTab', MoonIcon]] as const).map(([phase, label, Icon], index) => (
-          <button key={phase} id={`tab-${phase}`} type="button" role="tab" aria-controls={`phase-${phase}`} aria-selected={activePhase === phase} tabIndex={activePhase === phase ? 0 : -1}
-            onClick={() => setPhaseSelection(phase)} onKeyDown={(event) => {
-              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-              event.preventDefault();
-              const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
-              const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + (event.key === 'ArrowRight' ? direction : -direction) + 3) % 3;
-              setPhaseSelection((['opening', 'service', 'closing'] as const)[next]);
-              (event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next])?.focus();
-            }} className={`flex min-h-14 items-center justify-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 ${activePhase === phase ? 'border-brand-500 text-brand-500' : 'border-transparent text-fg-secondary hover:bg-[var(--surface-2)]'}`}>
-            <Icon className="size-4 shrink-0" /><span className="min-w-0">{t(label)}</span>
-          </button>
-        ))}
-      </div>
-
-      <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+      <section className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]">
         <div className="border-b border-[var(--line)] px-5 py-4">
           <h2 className="font-semibold text-[var(--fg)]">{t('salesForecast')}</h2>
           <p className="mt-1 text-xs text-[var(--fg-muted)]">
@@ -628,60 +664,9 @@ export default function DailyOperationsPage() {
         )}
       </section>
 
-      {activePhase === 'opening' && <div role="tabpanel" id="phase-opening" aria-labelledby="tab-opening" className="space-y-4">
+      </div>
 
-      <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
-        <div className="flex flex-col gap-3 border-b border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="flex items-center gap-2 font-semibold text-[var(--fg)]">
-              <ChefHatIcon className="size-4 text-[var(--brand-500)]" />
-              {t('prepToLaunch')}
-            </h2>
-            <p className="mt-1 text-xs text-[var(--fg-muted)]">{t('prepToLaunchDesc')}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {batchesToLaunch > 0 && (
-              <span className="rounded-r-md bg-[var(--brand-50)] px-2.5 py-1 text-xs font-semibold text-[var(--brand-700)]">
-                {batchesToLaunch} {t('batches')}
-              </span>
-            )}
-            <Link
-              href={`/${rid}/kitchen/prep`}
-              className="inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-500)] hover:underline"
-            >
-              {t('viewPreparations')} <ArrowRightIcon className="size-3.5" />
-            </Link>
-          </div>
-        </div>
-        {prepToLaunch.length === 0 ? (
-          <div className="px-5 py-6 text-sm text-[var(--fg-muted)]">
-            {supplementaryError ? t('dailyLoadError') : salesForecast?.sample_days === 0 ? t('noWeekdayHistory') : t('dailyNoForecast')}
-          </div>
-        ) : (
-          <div className="divide-y divide-[var(--line)]">
-            {(showAllProduction ? prepToLaunch : prepToLaunch.slice(0, 3)).map((item) => (
-              <div key={item.prep_item_id} className="grid gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-[var(--fg)]">{item.prep_item_name}</div>
-                  <div className="mt-0.5 text-xs text-[var(--fg-muted)]">{item.category}</div>
-                </div>
-                <div className="text-xs text-[var(--fg-muted)] sm:text-end">
-                  {objectivePlans.some((target) => target.prep_item_id === item.prep_item_id) ? t('chefPlannedQty').replace('{qty}', `${item.required_qty} ${item.unit}`) : `${t('current')}: ${item.current_qty.toFixed(1)} ${item.unit} / ${t('demand')}: ${item.required_qty.toFixed(1)} ${item.unit}`}
-                </div>
-                <div className="flex items-center gap-3">
-                  {item.current_qty >= 0 && <span className="text-xs font-semibold text-[var(--brand-700)]">{item.batches_needed} {t('batches')}</span>}
-                  {item.current_qty < 0 || item.yield_per_batch <= 0 ? <Link className="text-xs font-medium text-[var(--warning-500)]" href={`/${rid}/kitchen/prep`}>{t('chefReviewProduction')}</Link> : canManage && selectedIsToday && !supplementaryError && <button className="btn-primary text-xs" onClick={() => setProductionItem(item)}>{t('dailyConfirmProduction')}</button>}
-                </div>
-                {item.current_qty < 0 && <p className="text-xs text-[var(--warning-500)] sm:col-span-3">{t('chefNegativePrep')}</p>}
-              </div>
-            ))}
-          </div>
-        )}
-        {prepToLaunch.length > 3 && <button className="px-5 py-3 text-sm text-brand-500" onClick={() => setShowAllProduction(!showAllProduction)}>{showAllProduction ? t('chefShowLess') : t('chefShowAllProduction').replace('{count}', String(prepToLaunch.length))}</button>}
-        {isOpen && selectedIsToday && report && !supplementaryError && <ProductionObjectives rid={rid} reportId={report.id} items={prepItems} summary={kitchenSummary} onSaved={loadKitchenSummary} />}
-      </section>
-
-      <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+      <section className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-4">
           <div><h2 className="font-semibold">{t('dailyDeliveriesToCheck')}</h2><p className="mt-1 text-xs text-fg-secondary">{t('dailyDeliveriesHint')}</p></div>
           {canManage && selectedIsToday && <div className="flex flex-wrap gap-2">
@@ -767,8 +752,8 @@ export default function DailyOperationsPage() {
         )}
       </CollapsibleSection>
 
-      </div>}
-      {activePhase === 'service' && <div role="tabpanel" id="phase-service" aria-labelledby="tab-service" className="space-y-4">
+      </div>
+      <div role="tabpanel" id="phase-service" aria-labelledby="tab-service" hidden={activePhase !== 'service'} className={styles.content}>
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
           <p className="font-medium">{t('chefSoldSummary').replace('{qty}', String(soldQuantity))}</p>
           <Link href={`/${rid}/settings/stock/availability`} className="font-medium text-brand-500">{t('manageAvailability')}</Link>
@@ -784,8 +769,8 @@ export default function DailyOperationsPage() {
         <Link className="mt-3 inline-block text-sm font-medium text-brand-500" href={`/${rid}/kitchen/suppliers?tab=orders`}>{t('dailyManageOrders')}</Link>
       </div>}
 
-      </div>}
-      {activePhase === 'closing' && <div role="tabpanel" id="phase-closing" aria-labelledby="tab-closing" className="space-y-4">
+      </div>
+      <div role="tabpanel" id="phase-closing" aria-labelledby="tab-closing" hidden={activePhase !== 'closing'} className={styles.content}>
         {report && <KitchenDayReview key={`${rid}-${report.id}`} report={report} summary={kitchenSummary} loading={reviewLoading} error={reviewError} canCount={isOpen} onRetry={() => { void loadKitchenSummary().catch(() => {}); }} onCount={async (stockItemId, quantity) => {
           await updateClosingStock(rid, report.id, [{ stock_item_id: stockItemId, quantity }]);
           await recomputeAndReload(report.id);
@@ -885,7 +870,7 @@ export default function DailyOperationsPage() {
         )}
       </CollapsibleSection>
 
-      <details className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
+      <details className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5">
         <summary className="cursor-pointer font-semibold">{t('dailyTomorrowTitle')}</summary>
         <p className="mt-1 max-w-3xl text-sm text-fg-secondary">{t('dailyTomorrowHint')}</p>
         <div className="mt-3 divide-y divide-[var(--line)]">
@@ -897,7 +882,7 @@ export default function DailyOperationsPage() {
           <Link href={`/${rid}/kitchen/prep`}>{t('viewPreparations')}</Link><Link href={`/${rid}/kitchen/suppliers?tab=orders`}>{t('dailyManageOrders')}</Link>
         </div>
       </details>
-      {isOpen && <section className="flex flex-wrap items-center justify-between gap-4 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
+      {isOpen && <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5">
         <div className="max-w-2xl"><h2 className="font-semibold">{t('closeDay')}</h2><p className="mt-1 text-sm text-fg-secondary">{t('dailyCloseHint')}</p>
           {externalSalesPending && <p className="mt-2 text-sm text-[var(--warning-500)]">{t('dailyExternalSalesPending')}</p>}</div>
         <div className="flex flex-wrap gap-2"><button onClick={handleClose} disabled={closing || savingDraft} className="btn-primary">{closing ? t('closing') : t('closeDay')}</button></div>
@@ -1019,7 +1004,7 @@ export default function DailyOperationsPage() {
         </CollapsibleSection>
       )}
 
-      </div>}
+      </div>
 
       {/* Email modal for sending PO to supplier */}
       {emailModalPO && (
