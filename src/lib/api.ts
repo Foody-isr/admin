@@ -1885,6 +1885,7 @@ export interface PrepTransaction {
   restaurant_id: number;
   type: PrepTransactionType;
   quantity_delta: number;
+  report_id?: number;
   notes: string;
   created_by_id: number;
   created_at: string;
