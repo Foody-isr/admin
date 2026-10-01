@@ -10277,3 +10277,37 @@ export async function resetMessageTemplate(
     { method: 'DELETE' }
   );
 }
+
+export interface SalesLibraryItem {
+  id: number;
+  name: string;
+  image_url: string;
+  category: string;
+  translations: Record<string, Record<string, string>>;
+  has_recipe: boolean;
+}
+export interface SalesLinkStatus {
+  sale_id: number;
+  menu_item_id: number | null;
+  menu_item_name: string;
+  source_name: string;
+  has_recipe: boolean;
+  can_link: boolean;
+}
+export interface SalesLinkContext {
+  items: SalesLibraryItem[];
+  sales: SalesLinkStatus[];
+  report_closed: boolean;
+}
+
+/** Loads the restaurant's complete article library and imported-sale associations. */
+export async function getSalesLinks(restaurantId: number, reportId: number): Promise<SalesLinkContext> {
+  return apiFetch(`/api/v1/stock/daily-reports/${reportId}/sales-links`, restaurantId);
+}
+
+/** Remembers a confirmed library association without changing sold quantities. */
+export async function linkSaleToLibrary(restaurantId: number, reportId: number, saleId: number, itemId: number): Promise<void> {
+  await apiFetch(`/api/v1/stock/daily-reports/${reportId}/sales/${saleId}/link`, restaurantId, {
+    method: 'PUT', body: JSON.stringify({ menu_item_id: itemId }),
+  });
+}

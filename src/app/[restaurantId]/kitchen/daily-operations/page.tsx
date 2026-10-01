@@ -1357,6 +1357,11 @@ export default function DailyOperationsPage() {
           key={report?.id}
           sales={report?.sales ?? []}
           canEdit={isOpen}
+          restaurantId={rid} reportId={report?.id} canLink={canManage}
+          onLinked={async () => {
+            if (report) setReport(await getFoodCostReport(rid, report.id));
+            await Promise.all([loadKitchenSummary(), loadForecast(), loadSupplementary()]);
+          }}
           onClose={() => setWorkspace(null)}
           onDelete={handleDeleteSales}
           onImport={() => {
