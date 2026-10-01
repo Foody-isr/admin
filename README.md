@@ -397,3 +397,18 @@ DNS: `CNAME admin.foody-pos.co.il → cname.vercel-dns.com`
 - Restaurant scoping (`X-Restaurant-ID` header + JWT claims) is enforced server-side — users cannot access other restaurants' data even if they manually change the URL
 - Never store secrets in this app — it only needs `NEXT_PUBLIC_API_URL`
 - Always use HTTPS in production (enforced by Vercel)
+
+### Companion data workspace
+
+Open Cuisine → Companion → **Companion data** (`/[restaurantId]/kitchen/data`).
+Access requires owner status or `kitchen.data_manage`. The four workflows are
+historical imports, isolated simulation, current opening inventory and reset.
+Each operation has a separate review and explicit confirmation. Recovery backups
+remain downloadable; restoration is refused if subsequent activity changed the
+kitchen. All writes use the restaurant from the active route.
+
+The workspace accepts daily Aviv PDFs and dated CSV/XLSX files, reuses library
+matches, skips existing days by default, and never deducts imported historical
+sales from current stock. Historical imports do not reconstruct actual food cost.
+Simulations stay separate from real forecasts and inventory. Resetting is a user
+operation and is never part of installation or deployment.

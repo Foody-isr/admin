@@ -8190,6 +8190,8 @@ export async function getSupplyDetail(restaurantId: number, batchId: string): Pr
 // ─── Daily Food Cost Reports ──────────────────────────────────────────────────
 
 export interface DailyFoodCostReport {
+  historical_only?: boolean;
+  data_operation_id?: string;
   id: number;
   restaurant_id: number;
   report_date: string;
@@ -10310,4 +10312,41 @@ export async function linkSaleToLibrary(restaurantId: number, reportId: number, 
   await apiFetch(`/api/v1/stock/daily-reports/${reportId}/sales/${saleId}/link`, restaurantId, {
     method: 'PUT', body: JSON.stringify({ menu_item_id: itemId }),
   });
+}
+
+// ─── Reviewed kitchen data workspace ─────────────────────────────────────────
+export interface KitchenDataRow { date: string; kind: string; name: string; source: string; item_id: number; quantity: number; unit: string; line_total: number }
+export interface KitchenDataQuantity { kind: 'stock' | 'prep'; item_id: number; name: string; unit: string; before: number; after: number }
+export interface KitchenDataPlan {
+  kind: 'history' | 'simulation' | 'reset' | 'opening'; name: string; from: string; to: string; rows: KitchenDataRow[];
+  all_dates?: boolean; replace_dates: string[]; operation_id?: string; reset_reports: boolean; reset_movements: boolean;
+  default_stock: number | null; default_prep: number | null; unit_defaults: Record<string, number>;
+  overrides: { kind: 'stock' | 'prep'; item_id: number; quantity: number }[];
+  volume: 'quiet' | 'normal' | 'busy'; seed: number; closed_weekdays: number[];
+}
+export interface KitchenDataDay { date: string; status: string; rows: number; sales: number; unlinked: number; receipts: number; production: number; waste: number; stockouts: number; forecast: number; samples: number }
+export interface KitchenDataReview { days: KitchenDataDay[]; quantities: KitchenDataQuantity[]; reports: number; sales: number; movements: number; preserved_movements: number; unlinked: number; warnings: string[]; simulation_rows?: KitchenDataRow[] }
+export interface KitchenDataOperation { id: string; kind: KitchenDataPlan['kind']; name: string; status: 'draft' | 'applied' | 'restored' | 'archived'; created_at: string; applied_at?: string }
+export interface KitchenDataDetail extends KitchenDataOperation { plan: KitchenDataPlan; review: KitchenDataReview }
+export interface KitchenDataCatalog { items: SalesLibraryItem[]; stocks: KitchenDataQuantity[]; preps: KitchenDataQuantity[]; operations: KitchenDataOperation[] }
+const kitchenDataPath = '/api/v1/stock/data-workspace';
+/** Returns owned library items and the recent audit journal. */
+export function getKitchenData(rid: number) { return apiFetch<KitchenDataCatalog>(kitchenDataPath, rid); }
+/** Saves a validated plan for a separate explicit apply step. */
+export function previewKitchenData(rid: number, plan: KitchenDataPlan) { return apiFetch<KitchenDataDetail>(`${kitchenDataPath}/preview`, rid, { method: 'POST', body: JSON.stringify(plan) }); }
+/** Retrieves a previously reviewed operation without exposing its backup. */
+export function getKitchenDataOperation(rid: number, id: string) { return apiFetch<KitchenDataDetail>(`${kitchenDataPath}/operations/${encodeURIComponent(id)}`, rid); }
+/** Applies, restores or archives an immutable reviewed operation. */
+export function actOnKitchenData(rid: number, id: string, action: 'apply' | 'restore' | 'archive') { return apiFetch<KitchenDataDetail>(`${kitchenDataPath}/operations/${encodeURIComponent(id)}/${action}`, rid, { method: 'POST', body: JSON.stringify({ confirm: true }) }); }
+/** Downloads a restaurant-scoped recovery snapshot for an applied operation. */
+export function getKitchenDataBackup(rid: number, id: string) { return apiFetch<unknown>(`${kitchenDataPath}/operations/${encodeURIComponent(id)}/backup`, rid); }
+/** Parses dated files without applying their sales or inventory facts. */
+export async function parseKitchenData(rid: number, files: File[], retried = false): Promise<{ rows: KitchenDataRow[]; skipped_files: number }> {
+  const body = new FormData(); files.forEach(file => body.append('files', file));
+  const token = getToken();
+  const res = await fetch(`${API_URL}${kitchenDataPath}/parse`, { method: 'POST', body, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Restaurant-ID': String(rid) } });
+  if (res.status === 401 && !retried && await refreshToken()) return parseKitchenData(rid, files, true);
+  const result = await res.json();
+  if (!res.ok) throw new ApiError(result.error || result.message || 'data_workspace_failed', res.status);
+  return result;
 }

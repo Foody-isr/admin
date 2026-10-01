@@ -770,10 +770,13 @@ export default function DailyOperationsPage() {
           <div className={styles.titleLine}>
             <h1>{t("companionTitle")}</h1>
             {report && statusBadge(report.status, t)}
+            {report?.historical_only && <span>{t("kdHistorical")}</span>}
           </div>
           <p>{t("kwWorkspaceSubtitle")}</p>
         </div>
         <div className={styles.headerActions}>
+          {hasAnyPermission("kitchen.data_manage") && <Link className={styles.textButton} href={`/${rid}/kitchen/data`}>{t("kdTitle")}</Link>}
+
           <div className={styles.date}>
             <button
               onClick={() => navigateDate(-1)}
@@ -1335,7 +1338,7 @@ export default function DailyOperationsPage() {
               <h2>{t("companionClosed")}</h2>
               <p>{t("kwClosedHint")}</p>
             </div>
-            {canManage && (
+            {canManage && !report?.historical_only && (
               <button
                 className={styles.secondaryButton}
                 disabled={reopening}
