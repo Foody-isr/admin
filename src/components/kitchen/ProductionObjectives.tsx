@@ -1,37 +1,164 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { NumberInput } from '@/components/ui/NumberInput';
-import { setProductionTarget, type KitchenSummary, type PrepItem } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useState } from "react";
+import { SlidersHorizontal, Check } from "lucide-react";
+import {
+  setProductionTarget,
+  type KitchenSummary,
+  type PrepItem,
+} from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import {
+  KitchenDrawer,
+  KitchenPagination,
+  KitchenSearch,
+} from "./KitchenDrawer";
+import styles from "./companion.module.css";
 
-/** Objectives are optional and saved only after the chef explicitly confirms. */
-export default function ProductionObjectives({ rid, reportId, items, summary, onSaved }: {
-  rid: number; reportId: number; items: PrepItem[]; summary: KitchenSummary | null; onSaved: () => Promise<void>;
+/** Edits optional per-preparation goals without treating them as stock or production. */
+export default function ProductionObjectives({
+  rid,
+  reportId,
+  items,
+  summary,
+  onSaved,
+}: {
+  rid: number;
+  reportId: number;
+  items: PrepItem[];
+  summary: KitchenSummary | null;
+  onSaved: () => Promise<void>;
 }) {
-  const { t } = useI18n();
-  const [values, setValues] = useState<Record<number, number>>({});
+  const { t, locale } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [values, setValues] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState<number | null>(null);
-  const [error, setError] = useState('');
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selected = items.find((item) => item.id === selectedId) ?? items[0];
-  if (!selected) return null;
-  return <details className="border-t border-[var(--line)]">
-    <summary className="cursor-pointer px-5 py-3 text-sm font-medium text-brand-500">{t('chefEditObjectives')}</summary>
-    <div className="space-y-2 px-5 pb-4"><p className="max-w-2xl text-xs text-fg-secondary">{t('chefObjectivesHint')}</p>
-      <label className="block text-xs text-fg-secondary">{t('preparation')}<select className="input mt-1 w-full max-w-md" value={selected.id} onChange={(event) => setSelectedId(Number(event.target.value))}>{items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      {[selected].map((item) => {
-        const saved = summary?.preparations?.find((row) => row.prep_item_id === item.id)?.target_qty;
-        const value = values[item.id] ?? saved ?? undefined;
-        return <form key={item.id} className="flex flex-wrap items-end gap-3 py-2" onSubmit={async (event) => {
-          event.preventDefault(); if (value === undefined || !Number.isFinite(value) || value < 0) return;
-          setSaving(item.id); setError('');
-          try { await setProductionTarget(rid, reportId, item.id, value); await onSaved(); }
-          catch { setError(t('saveFailed')); } finally { setSaving(null); }
-        }}><label className="min-w-0 flex-1 text-sm">{item.name}<span className="ms-2 text-xs text-fg-secondary">({item.unit})</span><NumberInput aria-label={`${item.name} (${item.unit})`} value={value} format={String} min={0} onChange={(qty) => setValues((current) => ({ ...current, [item.id]: qty }))} placeholder="—" className="input mt-1 w-full max-w-40" /></label>
-          <button type="submit" disabled={saving !== null || value === undefined} className="btn-secondary text-xs">{saving === item.id ? t('saving') : t('save')}</button></form>;
-      })}
-      {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
-    </div>
-  </details>;
+  const [error, setError] = useState("");
+  const [savedId, setSavedId] = useState<number | null>(null);
+  const visible = items.filter((item) =>
+    item.name
+      .toLocaleLowerCase(locale)
+      .includes(search.toLocaleLowerCase(locale)),
+  );
+  const close = () => {
+    if (Object.keys(values).length && !confirm(t("kwDiscardObjectives")))
+      return;
+    setOpen(false);
+    setValues({});
+  };
+  return (
+    <>
+      <button
+        className={styles.secondaryButton}
+        aria-label={t("chefEditObjectives")}
+        onClick={() => setOpen(true)}
+      >
+        <SlidersHorizontal size={15} />
+        {t("kwObjectives")}
+      </button>
+      {open && (
+        <KitchenDrawer
+          title={t("chefEditObjectives")}
+          description={t("chefObjectivesHint")}
+          busy={saving != null}
+          onClose={close}
+        >
+          <KitchenSearch
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(0);
+            }}
+            label={t("companionSearchPrep")}
+          />
+          {visible.slice(page * 8, page * 8 + 8).map((item) => {
+            const saved = summary?.preparations?.find(
+              (row) => row.prep_item_id === item.id,
+            )?.target_qty;
+            const raw = values[item.id] ?? (saved == null ? "" : String(saved));
+            const value = Number(raw.replace(",", "."));
+            return (
+              <form
+                key={item.id}
+                className={styles.objectiveRow}
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (!raw.trim() || !Number.isFinite(value) || value < 0)
+                    return;
+                  setSaving(item.id);
+                  setError("");
+                  setSavedId(null);
+                  try {
+                    await setProductionTarget(rid, reportId, item.id, value);
+                    await onSaved();
+                    setValues((current) => {
+                      const next = { ...current };
+                      delete next[item.id];
+                      return next;
+                    });
+                    setSavedId(item.id);
+                  } catch {
+                    setError(t("saveFailed"));
+                  } finally {
+                    setSaving(null);
+                  }
+                }}
+              >
+                <label htmlFor={`objective-${item.id}`}>
+                  <strong>{item.name}</strong>
+                  <small>{item.unit}</small>
+                </label>
+                <input
+                  id={`objective-${item.id}`}
+                  inputMode="decimal"
+                  aria-label={`${item.name} (${item.unit})`}
+                  value={raw}
+                  onChange={(event) => {
+                    setValues((current) => ({
+                      ...current,
+                      [item.id]: event.target.value,
+                    }));
+                    setSavedId(null);
+                  }}
+                  placeholder="—"
+                />
+                <button
+                  type="submit"
+                  className={styles.secondaryButton}
+                  disabled={
+                    saving != null ||
+                    !raw.trim() ||
+                    !Number.isFinite(value) ||
+                    value < 0
+                  }
+                >
+                  {savedId === item.id ? (
+                    <Check size={16} />
+                  ) : saving === item.id ? (
+                    t("saving")
+                  ) : (
+                    t("save")
+                  )}
+                </button>
+              </form>
+            );
+          })}
+          {!visible.length && <p className={styles.empty}>{t("noResults")}</p>}
+          <KitchenPagination
+            page={page}
+            count={visible.length}
+            size={8}
+            onChange={setPage}
+          />
+          {error && (
+            <p role="alert" className={styles.error}>
+              {error}
+            </p>
+          )}
+        </KitchenDrawer>
+      )}
+    </>
+  );
 }
