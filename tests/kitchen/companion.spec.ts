@@ -219,6 +219,7 @@ async function fixture(
     else if (path.includes("purchase-orders")) body = { orders: [] };
     else if (path.includes("transactions")) body = { transactions: [] };
     else if (path.includes("item-categories")) body = { categories: [] };
+    if (path.endsWith("/sales-links")) body = { items: [], sales: [], report_closed: false };
     if (many && path.endsWith("/kitchen-summary"))
       body = {
         summary: {
@@ -260,7 +261,7 @@ async function fixture(
           unmapped_sales: 457,
         },
       };
-    if (many && (path.endsWith("/today") || path.endsWith("/compute")))
+    if (many && (path.endsWith("/today") || path.endsWith("/compute") || path === "/api/v1/stock/daily-reports/10"))
       body = {
         report: {
           id: 10,
@@ -551,4 +552,43 @@ test("sales import retains handover drafts and requires explicit acceptance of a
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(note).toHaveValue("Prévoir une réception demain matin.");
   expect(imported).toBe(true);
+});
+
+
+test("Hebrew imports can be linked to the full library, with retry and unchanged quantities", async ({ page }) => {
+  await fixture(page, { many: true });
+  let linked = false;
+  let fail = true;
+  const requests: unknown[] = [];
+  await page.route("**/daily-reports/10/sales-links", route => route.fulfill({ json: {
+    report_closed: true,
+    items: [
+      { id: 8, name: "Café crème", category: "Boissons", image_url: "", translations: { name: { he: "אספרסו" } }, has_recipe: false },
+      { id: 9, name: "Cola Zero", category: "Boissons", image_url: "", translations: { name: { he: "קולה זירו" } }, has_recipe: true },
+    ],
+    sales: [{ sale_id: 1, source_name: "קולה זירו", menu_item_id: linked ? 9 : null, menu_item_name: linked ? "Cola Zero" : "", can_link: true, has_recipe: linked }],
+  }}));
+  await page.route("**/daily-reports/10/sales/1/link", async route => {
+    requests.push(route.request().postDataJSON());
+    if (fail) await route.fulfill({ status: 500, json: { error: "Temporary failure" } });
+    else { linked = true; await route.fulfill({ json: { ok: true } }); }
+  });
+  await page.getByRole("tab", { name: /Bilan du jour/ }).click();
+  await page.getByRole("button", { name: /Journal des ventes/ }).click();
+  await page.getByRole("button", { name: "Relier un article", exact: true }).click();
+  const editor = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Relier à la bibliothèque d’articles" }) });
+  await expect(editor).toContainText("Cette journée est clôturée");
+  expect(requests).toEqual([]);
+  await editor.getByLabel("Rechercher en français, hébreu ou anglais").fill("קולה");
+  await expect(editor.getByRole("radio")).toHaveCount(1);
+  await editor.getByRole("radio", { name: /Cola Zero/ }).click();
+  await editor.getByRole("button", { name: "Enregistrer le lien" }).click();
+  await expect(editor.getByRole("alert")).toContainText("Votre sélection est conservée");
+  await expect(editor.getByRole("radio", { name: /Cola Zero/ })).toHaveAttribute("aria-checked", "true");
+  fail = false;
+  await page.screenshot({ path: "test-results/kitchen/sales-link-library.png", fullPage: true });
+  await editor.getByRole("button", { name: "Enregistrer le lien" }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toContainText("Cola Zero");
+  expect(requests).toEqual([{ menu_item_id: 9 }, { menu_item_id: 9 }]);
 });
