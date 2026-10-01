@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileUp, Plus, Trash2, AlertTriangle } from "lucide-react";
-import type { DailySalesEntry } from "@/lib/api";
+import { getSalesLinks, type DailySalesEntry, type SalesLinkContext, type SalesLinkStatus } from "@/lib/api";
+import { SalesLinkEditor } from "./SalesLinkEditor";
 import { useI18n } from "@/lib/i18n";
 import {
   KitchenDrawer,
@@ -14,6 +15,7 @@ import styles from "./companion.module.css";
 /** Auditable, searchable sales detail with explicit source filters and bounded pages. */
 export default function SalesWorkspace({
   sales,
+  restaurantId, reportId, canLink, onLinked,
   canEdit,
   onImport,
   onManual,
@@ -21,6 +23,7 @@ export default function SalesWorkspace({
   onClose,
 }: {
   sales: DailySalesEntry[];
+  restaurantId: number; reportId?: number; canLink: boolean; onLinked: () => Promise<void>;
   canEdit: boolean;
   onImport: () => void;
   onManual: () => void;
@@ -35,11 +38,24 @@ export default function SalesWorkspace({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [links, setLinks] = useState<SalesLinkContext | null>(null);
+  const [linkError, setLinkError] = useState(false);
+  const [linking, setLinking] = useState<SalesLinkStatus | null>(null);
+  const [linkVersion, setLinkVersion] = useState(0);
+  useEffect(() => {
+    if (!reportId) return;
+    let active = true;
+    setLinkError(false);
+    getSalesLinks(restaurantId, reportId).then(value => { if (active) setLinks(value); })
+      .catch(() => { if (active) setLinkError(true); });
+    return () => { active = false; };
+  }, [restaurantId, reportId, linkVersion]);
+  const statusFor = (id: number) => links?.sales.find(link => link.sale_id === id);
   const rows = sales.filter(
     (sale) =>
       (source === "all" || sale.source === source) &&
-      (!unmapped || sale.menu_item_id == null) &&
-      `${sale.menu_item_name} ${sale.source_name ?? ""}`
+      (!unmapped || (statusFor(sale.id) ? statusFor(sale.id)!.menu_item_id == null : sale.menu_item_id == null)) &&
+      `${sale.menu_item_name} ${sale.source_name ?? ""} ${statusFor(sale.id)?.menu_item_name ?? ""}`
         .toLocaleLowerCase(locale)
         .includes(search.toLocaleLowerCase(locale)),
   );
@@ -69,11 +85,12 @@ export default function SalesWorkspace({
     }
   };
   return (
+    <>
     <KitchenDrawer
       title={t("kwSalesJournal")}
       description={t("chefSalesHint")}
       onClose={onClose}
-      busy={busy}
+      busy={busy || linking != null}
       wide
       footer={
         canEdit && (
@@ -157,6 +174,7 @@ export default function SalesWorkspace({
           {error}
         </p>
       )}
+      {linkError && <p role="alert" className={styles.error}>{t("salesLinkLoadError")} <button onClick={() => setLinkVersion(v => v + 1)}>{t("retry")}</button></p>}
       <div className={styles.salesHead}>
         <span>
           {canEdit && (
@@ -205,16 +223,16 @@ export default function SalesWorkspace({
             )}
           </span>
           <div>
-            <strong>{sale.menu_item_name}</strong>
-            {sale.menu_item_id == null && (
+            <strong dir="auto">{statusFor(sale.id)?.menu_item_name || sale.menu_item_name}</strong>
+            {(statusFor(sale.id) ? statusFor(sale.id)!.menu_item_id == null : sale.menu_item_id == null) && (
               <small className={styles.warning}>
                 <AlertTriangle size={12} />
-                {t("notLinkedToRecipe")}
+                {t("salesLinkUnlinked")}
               </small>
             )}
-            {sale.source_name && sale.source_name !== sale.menu_item_name && (
-              <small>{sale.source_name}</small>
-            )}
+            {sale.source_name && <small dir="auto">{sale.source_name}</small>}
+            {statusFor(sale.id)?.menu_item_id != null && !statusFor(sale.id)?.has_recipe && <small>{t("salesLinkNoRecipe")}</small>}
+            {canLink && statusFor(sale.id)?.can_link && <button className={styles.textButton} onClick={() => setLinking(statusFor(sale.id)!)}>{t(statusFor(sale.id)?.menu_item_id ? "salesLinkChange" : "salesLinkAction")}</button>}
           </div>
           <b>{qty(sale.quantity)}</b>
           <span className={styles.sourceBadge}>
@@ -240,5 +258,11 @@ export default function SalesWorkspace({
         onChange={setPage}
       />
     </KitchenDrawer>
+    {linking && links && reportId && <SalesLinkEditor restaurantId={restaurantId} reportId={reportId} sale={linking} context={links}
+      onClose={() => setLinking(null)} onSaved={async () => {
+        setLinks(await getSalesLinks(restaurantId, reportId));
+        await onLinked();
+      }}/>}
+    </>
   );
 }
