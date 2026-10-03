@@ -6,6 +6,11 @@
   "devCommand": "npm run dev",
   "outputDirectory": ".next",
   "alias": ["admin.foody-pos.co.il"],
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  },
   "github": {
     "silent": false,
     "autoJobCancelation": true

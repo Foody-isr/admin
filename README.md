@@ -373,6 +373,10 @@ Run `npm run build` before marking a PR ready to merge. Iterative feature-branch
 
 Vercel's Git integration deploys `develop` to the development environment. Production is a manual promotion of a verified `develop` deployment; no second PR to `main` and no GitHub Actions rebuild are required.
 
+`vercel.json` disables automatic Git deployments for `main`, so an approved
+history synchronization does not publish another production build. Other
+branches retain their preview/development deployments.
+
 | Setting | Value |
 |---------|-------|
 | Root Directory | `foodyadmin` |
