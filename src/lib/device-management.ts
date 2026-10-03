@@ -29,6 +29,7 @@ export interface ManagedDevice {
   applicationNames: string[];
   applications: ManagedDeviceApplication[];
   printerResourceId?: string;
+  printerConnectionType?: string;
   printerIds: string[];
   printerNames: string[];
   connectedDeviceIds: string[];
@@ -116,6 +117,7 @@ export function buildManagedDevices({ devices }: BuildManagedDevicesInput): Mana
       applicationNames: mappedApplications.map((application) => application.name),
       applications: mappedApplications,
       printerResourceId: printer ? stringDetail(printer.details, 'printer_id') : undefined,
+      printerConnectionType: printer ? stringDetail(printer.details, 'connection_type') : undefined,
       printerIds: printerConnections.map((connection) => connection.id),
       printerNames: printerConnections.map((connection) => connection.display_name?.trim() || connection.system_name),
       connectedDeviceIds: device.connections.map((connection) => connection.id),
@@ -150,4 +152,9 @@ export function latestDeviceApplication(device: ManagedDevice): ManagedDeviceApp
   return [...device.applications].sort((left, right) =>
     (Date.parse(right.lastActiveAt ?? '') || 0) - (Date.parse(left.lastActiveAt ?? '') || 0),
   )[0];
+}
+
+/** Matches a functional category without duplicating the physical inventory row. */
+export function deviceMatchesKind(device: ManagedDevice, kind: ManagedDeviceKind): boolean {
+  return device.kind === kind || device.capabilities.some((capability) => capability === kind);
 }
