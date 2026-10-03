@@ -2683,7 +2683,7 @@ export async function updateRestaurantSettings(
 
 // ─── Server printing ─────────────────────────────────────────────────────────
 
-export type PrinterVendor = 'star' | 'epson';
+export type PrinterVendor = 'star' | 'epson' | 'verifone';
 export type PrinterProtocol = 'http' | 'mqtt' | 'spooler';
 export type PrinterStatus = 'unknown' | 'online' | 'offline' | 'error';
 export type PrintJobState = 'queued' | 'claimed' | 'printed' | 'failed' | 'uncertain' | 'cancelled';
@@ -2703,7 +2703,8 @@ export interface PrintPrinter {
   identifier: string;
   vendor: PrinterVendor;
   model?: string;
-  profile: 'tm_u220iib' | 'tm_m30iii';
+  profile: 'tm_u220iib' | 'tm_m30iii' | 'victa_portable';
+  connection_type?: 'network' | 'integrated';
   host: string;
   port: number;
   use_https: boolean;

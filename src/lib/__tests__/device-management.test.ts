@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ApiError, type RestaurantDevice } from '@/lib/api';
-import { buildManagedDevices, deviceForgetErrorMessage } from '@/lib/device-management';
+import { buildManagedDevices, deviceForgetErrorMessage, deviceMatchesKind } from '@/lib/device-management';
 
 const tablet: RestaurantDevice = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -147,4 +147,19 @@ test('deviceForgetErrorMessage does not expose unknown server details', () => {
     ),
     fallback,
   );
+});
+
+test('Victa remains one physical terminal in both functional filters', () => {
+  const devices = buildManagedDevices({ devices: [{
+    ...tablet, kind: 'payment_terminal', system_name: 'Victa Portable',
+    capabilities: [{ type: 'payment_terminal', status: 'online' }, { type: 'printer', status: 'online' }],
+    components: [{ type: 'printer', status: 'online', details: { printer_id: 'native-printer', connection_type: 'integrated', paper_width_dots: 384, enabled: true } }],
+    connections: [],
+  }] });
+  assert.equal(devices.length, 1);
+  assert.equal(deviceMatchesKind(devices[0], 'payment_terminal'), true);
+  assert.equal(deviceMatchesKind(devices[0], 'printer'), true);
+  assert.equal(deviceMatchesKind(devices[0], 'tablet'), false);
+  assert.equal(devices[0].printerConnectionType, 'integrated');
+  assert.equal(devices[0].printerResourceId, 'native-printer');
 });

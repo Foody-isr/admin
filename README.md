@@ -373,6 +373,10 @@ Run `npm run build` before marking a PR ready to merge. Iterative feature-branch
 
 Vercel's Git integration deploys `develop` to the development environment. Production is a manual promotion of a verified `develop` deployment; no second PR to `main` and no GitHub Actions rebuild are required.
 
+`vercel.json` disables automatic Git deployments for `main`, so an approved
+history synchronization does not publish another production build. Other
+branches retain their preview/development deployments.
+
 | Setting | Value |
 |---------|-------|
 | Root Directory | `foodyadmin` |
@@ -412,3 +416,12 @@ matches, skips existing days by default, and never deducts imported historical
 sales from current stock. Historical imports do not reconstruct actual food cost.
 Simulations stay separate from real forecasts and inventory. Resetting is a user
 operation and is never part of installation or deployment.
+
+## Victa Portable hardware
+
+A Victa Portable is a single physical `payment_terminal` with a `printer`
+capability. Hardware type filters include matching capabilities, so the same
+record is visible under payment terminals and printers. Native printers display
+an integrated connection instead of network connection settings. Receipt profile
+configuration remains attached to the owning POS device. The matching API and
+FoodyPOS versions provide enrollment, native discovery, and local dispatch.
