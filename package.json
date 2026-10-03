@@ -9,6 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test $(find src -type f \\( -name '*.test.ts' -o -name '*.test.tsx' \\))",
+    "test:dependencies": "node --test scripts/braces-security.test.cjs",
     "test:e2e:website-v3": "playwright test tests/website-v3",
     "test:e2e:website-v3:ui": "playwright test tests/website-v3 --ui",
     "check:i18n": "node scripts/check-i18n.cjs",
@@ -64,6 +65,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
+    "braces": "file:vendor/braces",
     "eslint": "^8.57.0",
     "eslint-config-next": "15.5.26",
     "postcss": "^8.5.28",
@@ -73,6 +75,7 @@
     "typescript": "^5.4.5"
   },
   "overrides": {
+    "braces": "$braces",
     "postcss": "$postcss"
   }
 }
