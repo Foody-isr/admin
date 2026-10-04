@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeftFromLine,
   ChevronDown,
@@ -20,7 +20,10 @@ import {
   X,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-import { SECTION_TYPE_META } from "@/components/website/SectionEditors";
+import {
+  LAYOUT_OPTIONS,
+  SECTION_TYPE_META,
+} from "@/components/website/SectionEditors";
 import { isTechnicalSitePage } from "@/lib/website-v3/state";
 import {
   pageKey,
@@ -31,9 +34,23 @@ import {
 } from "@/lib/website-v3/types";
 import type { RailSelection } from "./PageRail";
 import type { InspectorTab } from "./Inspector";
+import { PageLibrary, type PageTemplate } from "./PageLibrary";
+import {
+  ElementInspector,
+  SectionElements,
+  editorElementLabel,
+} from "./ElementInspector";
+import { EDITOR_ELEMENTS } from "@/lib/website-v3/editor-elements";
+import type { StatePath } from "@/lib/website-v3/types";
 import { componentGroupsForPage } from "./PreviewCanvas";
 
-type Panel = "outline" | "pages" | "inspector" | "library" | "design";
+type Panel =
+  | "outline"
+  | "pages"
+  | "inspector"
+  | "library"
+  | "page-library"
+  | "design";
 
 /** A single contextual sidebar for pages, section editing and global design. */
 export function EditorSidebar({
@@ -47,11 +64,21 @@ export function EditorSidebar({
   design,
   alerts,
   onTabChange,
+  hoveredSectionKey,
+  onHoverSection,
+  onSectionChange,
+  onClearSelection,
   onSelectSite,
   onSelectPage,
   onSelectSection,
   onAddPage,
+  onPageSettings,
+  onPreviewPage,
+  onAddPageTemplate,
   onAddSection,
+  onPreviewSection,
+  onDuplicateSection,
+  onReorderSection,
   onDuplicatePage,
   onMovePage,
   onDeletePage,
@@ -69,11 +96,25 @@ export function EditorSidebar({
   design: (onEditShared: () => void) => ReactNode;
   alerts: ReactNode;
   onTabChange: (tab: InspectorTab) => void;
-  onSelectSite: () => void;
+  onSelectSite: (region?: "header" | "footer") => void;
   onSelectPage: (key: string) => void;
-  onSelectSection: (key: string) => void;
+  onSelectSection: (key: string, field?: string) => void;
+  hoveredSectionKey: string | null;
+  onHoverSection: (key: string | null) => void;
+  onSectionChange: (key: string, path: StatePath, value: unknown) => void;
+  onClearSelection: () => void;
   onAddPage: () => void;
-  onAddSection: (type: string) => void;
+  onPageSettings: (key: string) => void;
+  onPreviewPage: (
+    template: PageTemplate | null,
+    title?: string,
+    navigation?: boolean,
+  ) => void;
+  onAddPageTemplate: () => void;
+  onAddSection: (type: string, layout?: string) => void;
+  onPreviewSection: (type: string | null, layout?: string) => void;
+  onDuplicateSection: (key: string) => void;
+  onReorderSection: (source: string, target: string) => void;
   onDuplicatePage: (key: string) => void;
   onMovePage: (key: string, direction: -1 | 1) => void;
   onDeletePage: (key: string) => void;
@@ -88,6 +129,7 @@ export function EditorSidebar({
   const [sectionMenu, setSectionMenu] = useState(false);
   const [search, setSearch] = useState("");
   const [pendingSection, setPendingSection] = useState<string | null>(null);
+  const [pendingLayout, setPendingLayout] = useState<string | null>(null);
   const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [pageMenu, setPageMenu] = useState<string | null>(null);
   const selectedSection =
@@ -97,6 +139,8 @@ export function EditorSidebar({
   const selectedSectionKey = selectedSection
     ? sectionKey(selectedSection)
     : null;
+  const activeField =
+    selection.kind === "section" ? selection.field : undefined;
   const activeKey = pageKey(activePage);
   const sections = state.sections
     .filter((s) =>
@@ -108,13 +152,26 @@ export function EditorSidebar({
     )
     .sort((a, b) => a.sort_order - b.sort_order);
   const groups = componentGroupsForPage(activePage.type, sections);
+  const lastSectionKey = useRef<string | null>(null);
   useEffect(() => {
     if (selectedSectionKey) {
       setPanel("inspector");
-      setSectionContentOpen(false);
-      onTabChange("appearance");
+      if (activeField || lastSectionKey.current !== selectedSectionKey) {
+        setSectionContentOpen(Boolean(activeField));
+        onTabChange(activeField ? "content" : "appearance");
+      }
     }
-  }, [selectedSectionKey, selection, onTabChange]);
+    if (
+      !selectedSectionKey &&
+      lastSectionKey.current &&
+      selection.kind === "page"
+    )
+      setPanel("outline");
+    lastSectionKey.current = selectedSectionKey;
+  }, [selectedSectionKey, activeField, selection.kind, onTabChange]);
+  useEffect(() => {
+    if (selection.kind === "site" && selection.region) setPanel("inspector");
+  }, [selection]);
   useEffect(() => {
     setRowMenu(null);
     setPageMenu(null);
@@ -133,20 +190,19 @@ export function EditorSidebar({
         SECTION_TYPE_META[section.section_type]?.labelKey ??
         section.section_type,
     );
-  const editSite = () => {
-    onSelectSite();
+  const editSite = (region?: "header" | "footer") => {
+    onSelectSite(region);
     onTabChange("settings");
     setPanel("inspector");
   };
-  const editPage = () => {
-    onSelectPage(activeKey);
-    onTabChange("settings");
-    setPanel("inspector");
-  };
+  const editPage = () => onPageSettings(activeKey);
   const done = () => {
     setPanel("outline");
     setRowMenu(null);
     setPendingSection(null);
+    setPendingLayout(null);
+    onPreviewSection(null);
+    onClearSelection();
   };
   const chooseSection = (key: string) => {
     onSelectSection(key);
@@ -191,7 +247,7 @@ export function EditorSidebar({
           <button
             className="sqe-icon-button"
             aria-label={t("editorAddPage")}
-            onClick={onAddPage}
+            onClick={() => setPanel("page-library")}
           >
             <Plus size={24} />
           </button>
@@ -214,9 +270,17 @@ export function EditorSidebar({
             : panel === "library"
               ? t("editorAddSection")
               : selectedSection
-                ? sectionLabel(selectedSection)
+                ? activeField
+                  ? editorElementLabel(activeField, t)
+                  : sectionLabel(selectedSection)
                 : selection.kind === "site"
-                  ? t("editorNavigation")
+                  ? t(
+                      selection.region === "header"
+                        ? "editorHeader"
+                        : selection.region === "footer"
+                          ? "editorFooter"
+                          : "editorSettings",
+                    )
                   : activePage.title}
         </h2>
         {panel === "inspector" && selectedSection && (
@@ -246,6 +310,16 @@ export function EditorSidebar({
                   >
                     {t("editorSettings")}
                   </button>
+                  {selectedSection.section_type !== "footer" && (
+                    <button
+                      onClick={() => {
+                        onDuplicateSection(sectionKey(selectedSection));
+                        setSectionMenu(false);
+                      }}
+                    >
+                      {t("editorDuplicate")}
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       onToggleSection(sectionKey(selectedSection));
@@ -273,10 +347,10 @@ export function EditorSidebar({
         {panel === "library" ? (
           <button
             className="sqe-button"
-            disabled={!pendingSection}
+            disabled={!pendingSection || !pendingLayout}
             onClick={() => {
               if (pendingSection) {
-                onAddSection(pendingSection);
+                onAddSection(pendingSection, pendingLayout ?? "default");
                 setPanel("inspector");
                 setPendingSection(null);
               }
@@ -288,7 +362,11 @@ export function EditorSidebar({
           <button
             className="sqe-button"
             onClick={() => {
-              if (sectionContentOpen && selectedSection) {
+              if (activeField && selectedSection) {
+                onSelectSection(sectionKey(selectedSection));
+                setSectionContentOpen(true);
+                onTabChange("content");
+              } else if (sectionContentOpen && selectedSection) {
                 setSectionContentOpen(false);
                 onTabChange("appearance");
               } else done();
@@ -298,6 +376,15 @@ export function EditorSidebar({
           </button>
         )}
       </div>
+    );
+  if (panel === "page-library")
+    return (
+      <PageLibrary
+        onPreview={onPreviewPage}
+        onAdd={onAddPageTemplate}
+        onClose={() => setPanel("outline")}
+        onCommerce={onAddPage}
+      />
     );
   const pages = state.pages
     .filter(
@@ -315,8 +402,13 @@ export function EditorSidebar({
       {alerts}
       {panel === "outline" && (
         <div className="sqe-outline">
-          <div className="sqe-section-row">
-            <button onClick={editSite}>
+          <div
+            className="sqe-section-row"
+            data-hovered={hoveredSectionKey === "site:header" || undefined}
+            onMouseEnter={() => onHoverSection("site:header")}
+            onMouseLeave={() => onHoverSection(null)}
+          >
+            <button onClick={() => editSite("header")}>
               <PanelTop size={20} />
               {t("editorHeader")}
             </button>
@@ -327,6 +419,24 @@ export function EditorSidebar({
               <div
                 key={sectionKey(s)}
                 className={`sqe-section-row ${s.is_visible ? "" : "sqe-section-row--hidden"}`}
+                data-hovered={hoveredSectionKey === sectionKey(s) || undefined}
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData(
+                    "application/x-foody-section",
+                    sectionKey(s),
+                  )
+                }
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const source = event.dataTransfer.getData(
+                    "application/x-foody-section",
+                  );
+                  if (source) onReorderSection(source, sectionKey(s));
+                }}
+                onMouseEnter={() => onHoverSection(sectionKey(s))}
+                onMouseLeave={() => onHoverSection(null)}
               >
                 <button onClick={() => chooseSection(sectionKey(s))}>
                   <SectionIcon type={s.section_type} />
@@ -403,7 +513,12 @@ export function EditorSidebar({
           {sections.length === 0 && (
             <p className="sqe-panel-body">{t("editorEmptySections")}</p>
           )}
-          <div className="sqe-section-row">
+          <div
+            className="sqe-section-row"
+            data-hovered={hoveredSectionKey === "site:footer" || undefined}
+            onMouseEnter={() => onHoverSection("site:footer")}
+            onMouseLeave={() => onHoverSection(null)}
+          >
             <button
               onClick={() => {
                 const footer = sections.find(
@@ -411,7 +526,7 @@ export function EditorSidebar({
                 );
                 if (footer) chooseSection(sectionKey(footer));
                 else {
-                  onSelectSite();
+                  onSelectSite("footer");
                   onTabChange("content");
                   setPanel("inspector");
                 }
@@ -466,8 +581,8 @@ export function EditorSidebar({
                   >
                     <button
                       onClick={() => {
-                        onSelectPage(pageKey(p));
                         done();
+                        onSelectPage(pageKey(p));
                       }}
                     >
                       {p.title}
@@ -491,9 +606,8 @@ export function EditorSidebar({
                         <div className="sqe-menu">
                           <button
                             onClick={() => {
-                              onSelectPage(pageKey(p));
-                              onTabChange("settings");
-                              setPanel("inspector");
+                              onPageSettings(pageKey(p));
+                              setPageMenu(null);
                             }}
                           >
                             {t("editorPageSettings")}
@@ -518,8 +632,8 @@ export function EditorSidebar({
                             <>
                               <button
                                 onClick={() => {
-                                  onDuplicatePage(pageKey(p));
                                   done();
+                                  onDuplicatePage(pageKey(p));
                                 }}
                               >
                                 {t("editorDuplicate")}
@@ -540,7 +654,10 @@ export function EditorSidebar({
                   </div>
                 ))}
               {label === "editorStandardPages" && (
-                <button className="sqe-page-create" onClick={onAddPage}>
+                <button
+                  className="sqe-page-create"
+                  onClick={() => setPanel("page-library")}
+                >
                   ＋ {t("editorAddPage")}
                 </button>
               )}
@@ -553,52 +670,78 @@ export function EditorSidebar({
       )}
       {panel === "library" && (
         <div className="sqe-section-library">
-          {groups.map((group, index) => (
+          {groups.map((group) => (
             <section key={group.label}>
-              <h3>
-                {t(
-                  ["editorOrganize", "editorSell", "editorInform"][index] ??
-                    "editorContent",
-                )}
-              </h3>
+              <h3>{t(group.label)}</h3>
               {group.items.map((item) => (
-                <button
-                  key={item.type}
-                  className="sqe-library-item"
-                  aria-pressed={pendingSection === item.type}
-                  onClick={() => setPendingSection(item.type)}
-                >
-                  <SectionIcon type={item.type} />
-                  {t(SECTION_TYPE_META[item.type]?.labelKey ?? item.label)}
-                </button>
+                <div key={item.type}>
+                  <button
+                    className="sqe-library-item"
+                    aria-pressed={pendingSection === item.type}
+                    onClick={() => {
+                      setPendingSection(item.type);
+                      setPendingLayout(null);
+                      onPreviewSection(null);
+                    }}
+                  >
+                    <SectionIcon type={item.type} />
+                    {t(SECTION_TYPE_META[item.type]?.labelKey ?? item.label)}
+                  </button>
+                  {pendingSection === item.type && (
+                    <div className="sqe-library-layouts">
+                      <div className="sqe-layout-choices">
+                        {(
+                          LAYOUT_OPTIONS[item.type] ?? [
+                            { value: "default", labelKey: "default" },
+                          ]
+                        ).map((layout) => (
+                          <button
+                            key={layout.value}
+                            className="sqe-layout-choice"
+                            aria-label={t(layout.labelKey)}
+                            aria-pressed={pendingLayout === layout.value}
+                            onClick={() => {
+                              setPendingLayout(layout.value);
+                              onPreviewSection(item.type, layout.value);
+                            }}
+                          >
+                            <LayoutTemplate size={28} />
+                            <span>{t(layout.labelKey)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
             </section>
           ))}
         </div>
       )}
-      {panel === "design" && design(editSite)}
+      {panel === "design" && design(() => editSite())}
       {panel === "inspector" && (
         <>
-          {!selectedSection && (
-            <div className="sqe-tabs" role="tablist">
-              {(
-                [
-                  ["content", "editorContent"],
-                  ["appearance", "editorCustomize"],
-                  ["settings", "editorSettings"],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  role="tab"
-                  aria-selected={tab === value}
-                  key={value}
-                  onClick={() => onTabChange(value)}
-                >
-                  {t(label)}
-                </button>
-              ))}
-            </div>
-          )}
+          {!selectedSection &&
+            !(selection.kind === "site" && selection.region === "header") && (
+              <div className="sqe-tabs" role="tablist">
+                {(
+                  [
+                    ["content", "editorContent"],
+                    ["appearance", "editorCustomize"],
+                    ["settings", "editorSettings"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    role="tab"
+                    aria-selected={tab === value}
+                    key={value}
+                    onClick={() => onTabChange(value)}
+                  >
+                    {t(label)}
+                  </button>
+                ))}
+              </div>
+            )}
           {selectedSection && !sectionContentOpen && (
             <>
               <section className="sqe-section-content">
@@ -645,7 +788,29 @@ export function EditorSidebar({
               selectedSection && !sectionContentOpen && !customizeOpen,
             )}
           >
-            {inspector}
+            {selectedSection && activeField ? (
+              <ElementInspector
+                restaurantId={restaurantId}
+                section={selectedSection}
+                field={activeField}
+                onChange={(path, value) =>
+                  onSectionChange(sectionKey(selectedSection), path, value)
+                }
+              />
+            ) : selectedSection &&
+              sectionContentOpen &&
+              tab === "content" &&
+              EDITOR_ELEMENTS[selectedSection.section_type] ? (
+              <SectionElements
+                section={selectedSection}
+                onSelect={onSelectSection}
+                onChange={(path, value) =>
+                  onSectionChange(sectionKey(selectedSection), path, value)
+                }
+              />
+            ) : (
+              inspector
+            )}
           </div>
         </>
       )}

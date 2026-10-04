@@ -1,5 +1,7 @@
 "use client";
 
+import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   discardWebsiteDraft,
@@ -64,6 +66,16 @@ import type {
   StatePath,
 } from "@/lib/website-v3/types";
 import { pageKey, sectionKey } from "@/lib/website-v3/types";
+import {
+  sectionsForPage,
+  sectionBelongs,
+  insertSection,
+  duplicateSection,
+  reorderSection,
+} from "@/lib/website-v3/section-operations";
+import type { PageTemplate } from "./PageLibrary";
+import { normalizeSlug } from "@/lib/website-v3/state";
+import { PageSettingsDialog } from "./PageSettingsDialog";
 import { EditorSidebar } from "./EditorSidebar";
 import { SiteDesign } from "./SiteDesign";
 import {
@@ -200,6 +212,15 @@ function DesktopWebsiteV3Builder({
     chainOverview.branches.length > 1;
   const historyRef = useRef<DraftHistory>({ past: [], future: [] });
   const [previewOnly, setPreviewOnly] = useState(false);
+  const [hoveredSectionKey, setHoveredSectionKey] = useState<string | null>(
+    null,
+  );
+  const [pageCandidate, setPageCandidate] = useState<{
+    page: DraftPagePayload;
+    sections: DraftSectionPayload[];
+  } | null>(null);
+  const [sectionCandidate, setSectionCandidate] =
+    useState<DraftSectionPayload | null>(null);
   const [themePreview, setThemePreview] = useState<DraftStatePayload | null>(
     null,
   );
@@ -221,6 +242,7 @@ function DesktopWebsiteV3Builder({
   const [serverErrors, setServerErrors] = useState<FieldError[]>([]);
   const [busy, setBusy] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [settingsPageKey, setSettingsPageKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [previewRevision, setPreviewRevision] = useState(0);
   const [contentRevision, setContentRevision] = useState(0);
@@ -437,7 +459,35 @@ function DesktopWebsiteV3Builder({
   // Clamped here, above the early returns, so the value is stable for both the
   // preview and the inspector and no non-order page can resolve to "checkout".
   const previewPage =
-    themePreview?.pages.find((page) => page.is_homepage) ?? activePage;
+    pageCandidate?.page ??
+    themePreview?.pages.find((page) => page.is_homepage) ??
+    activePage;
+  // Hover and selection messages must not resend the entire restaurant draft.
+  const previewState = useMemo(() => {
+    if (!state || !activePage) return null;
+    const candidate =
+      themePreview ??
+      (pageCandidate
+        ? {
+            ...state,
+            pages: [...state.pages, pageCandidate.page],
+            sections: [...state.sections, ...pageCandidate.sections],
+          }
+        : sectionCandidate
+          ? insertSection(state, activePage, sectionCandidate)
+          : state);
+    return withWebsiteV3PreviewNavigationState(
+      candidate,
+      storiesNavigationAvailable,
+    );
+  }, [
+    state,
+    activePage,
+    themePreview,
+    pageCandidate,
+    sectionCandidate,
+    storiesNavigationAvailable,
+  ]);
   const activePageType = previewPage?.type;
   const surface = effectiveSurface(
     activePageType,
@@ -456,13 +506,14 @@ function DesktopWebsiteV3Builder({
   // Why Publish would refuse right now. The button stays clickable and says so:
   // a disabled button explains nothing, and the field errors below live in the
   // inspector of one page and one tab, which is very often not the one on screen.
-  const publishBlockedReason = themePreview
-    ? t("editorThemePending")
-    : allErrors.length > 0
-      ? `Corrigez les champs signalés avant de publier : ${allErrors[0].message}`
-      : previewCovered
-        ? null
-        : `Vérifiez la dernière version sur ${describePreviewDevices(stalePreviews)} avant de publier.`;
+  const publishBlockedReason =
+    themePreview || sectionCandidate || pageCandidate
+      ? t("editorPreviewPending")
+      : allErrors.length > 0
+        ? `Corrigez les champs signalés avant de publier : ${allErrors[0].message}`
+        : previewCovered
+          ? null
+          : `Vérifiez la dernière version sur ${describePreviewDevices(stalePreviews)} avant de publier.`;
 
   useEffect(() => {
     if (
@@ -735,28 +786,128 @@ function DesktopWebsiteV3Builder({
     );
   };
 
-  const addSection = (type: string) => {
-    if (!state || !activePage || busyRef.current) return;
-    const sections = sectionsForPage(state, activePage);
-    const section: DraftSectionPayload = {
+  const previewPageTemplate = (
+    template: PageTemplate | null,
+    title = "",
+    navigation = true,
+  ) => {
+    if (!state || !loaded || busyRef.current) return;
+    if (!template) {
+      setPageCandidate(null);
+      bumpPreview(false);
+      return;
+    }
+    const baseSlug = normalizeSlug(title) || "page";
+    let slug = baseSlug;
+    let suffix = 2;
+    while (state.pages.some((page) => page.slug === slug))
+      slug = `${baseSlug}-${suffix++}`;
+    const tmpId = `page-${crypto.randomUUID()}`;
+    const page: DraftPagePayload = {
+      tmp_id: tmpId,
+      type: "content",
+      title,
+      slug,
+      sort_order: state.pages.length,
+      nav_visible: navigation,
+      is_homepage: false,
+      is_default: false,
+      seo: {},
+      settings: {},
+      appearance_overrides: {},
+    };
+    const types =
+      template === "about"
+        ? ["hero_banner", "text_and_image"]
+        : template === "gallery"
+          ? ["hero_banner", "gallery"]
+          : template === "locations"
+            ? ["text_and_image", "footer"]
+            : [];
+    const sections: DraftSectionPayload[] = types.map((type, index) => ({
       tmp_id: `section-${crypto.randomUUID()}`,
       section_type: type,
-      page: activePage.slug,
-      page_id: activePage.id,
-      page_tmp_id: activePage.tmp_id,
-      sort_order: sections.length,
+      page: slug,
+      page_tmp_id: tmpId,
+      sort_order: index,
       is_visible: true,
       layout: "default",
-      content: getDefaultContent(type),
       settings: getDefaultSettings(type),
+      content: {
+        ...getDefaultContent(type),
+        ...(type === "hero_banner"
+          ? { headline: title, image_url: loaded.restaurant.cover_url || "" }
+          : {}),
+        ...(template === "locations" && type === "text_and_image"
+          ? {
+              title: loaded.restaurant.name,
+              body: loaded.restaurant.address || "",
+              image_url: loaded.restaurant.cover_url || "",
+            }
+          : {}),
+      },
+    }));
+    setPageCandidate({ page, sections });
+    bumpPreview(false);
+  };
+  const addPageTemplate = () => {
+    if (!state || !pageCandidate || busyRef.current) return;
+    setLocalState({
+      ...state,
+      pages: [...state.pages, pageCandidate.page],
+      sections: [...state.sections, ...pageCandidate.sections],
+    });
+    setSelection({ kind: "page", key: pageKey(pageCandidate.page) });
+    setPageCandidate(null);
+  };
+
+  const previewSection = (type: string | null, layout = "default") => {
+    if (!state || !activePage || busyRef.current) return;
+    setSectionCandidate(
+      type
+        ? {
+            tmp_id: "section-preview",
+            section_type: type,
+            page: activePage.slug,
+            page_id: activePage.id,
+            page_tmp_id: activePage.tmp_id,
+            sort_order: 0,
+            is_visible: true,
+            layout,
+            content: getDefaultContent(type),
+            settings: getDefaultSettings(type),
+          }
+        : null,
+    );
+    bumpPreview(false);
+  };
+
+  const addSection = (type: string, layout = "default") => {
+    if (!state || !activePage || busyRef.current) return;
+    const section: DraftSectionPayload = {
+      ...(sectionCandidate?.section_type === type
+        ? sectionCandidate
+        : {
+            section_type: type,
+            page: activePage.slug,
+            page_id: activePage.id,
+            page_tmp_id: activePage.tmp_id,
+            sort_order: 0,
+            is_visible: true,
+            content: getDefaultContent(type),
+            settings: getDefaultSettings(type),
+          }),
+      tmp_id: `section-${crypto.randomUUID()}`,
+      layout,
     };
-    setLocalState({ ...state, sections: [...state.sections, section] });
+    setSectionCandidate(null);
+    setLocalState(insertSection(state, activePage, section));
     setSelection({
       kind: "section",
       pageKey: pageKey(activePage),
       sectionKey: sectionKey(section),
     });
-    setTab("content");
+    setTab("appearance");
   };
 
   const moveSection = (key: string, direction: -1 | 1) => {
@@ -987,6 +1138,9 @@ function DesktopWebsiteV3Builder({
 
   const selectPage = (key: string) => {
     if (busyRef.current || themePreview) return;
+    setSectionCandidate(null);
+    setPageCandidate(null);
+    setHoveredSectionKey(null);
     setSelection({ kind: "page", key });
     setTab("content");
     bumpPreview(false);
@@ -1015,15 +1169,15 @@ function DesktopWebsiteV3Builder({
     });
   };
 
-  const selectSection = (key: string) => {
+  const selectSection = (key: string, field?: string) => {
     if (!activePage || busyRef.current || themePreview) return;
     setSelection({
       kind: "section",
       pageKey: pageKey(activePage),
       sectionKey: key,
+      field,
     });
-    setTab("content");
-    bumpPreview(false);
+    setTab(field ? "content" : "appearance");
   };
 
   if (loading) {
@@ -1067,13 +1221,23 @@ function DesktopWebsiteV3Builder({
         onDiscard={discard}
         onPublish={() => {
           if (themePreview) {
-            setNotice(t("editorThemePending"));
+            setNotice(t("editorPreviewPending"));
             return;
           }
           void publish();
         }}
-        canUndo={!themePreview && historyRef.current.past.length > 0}
-        canRedo={!themePreview && historyRef.current.future.length > 0}
+        canUndo={
+          !themePreview &&
+          !sectionCandidate &&
+          !pageCandidate &&
+          historyRef.current.past.length > 0
+        }
+        canRedo={
+          !themePreview &&
+          !sectionCandidate &&
+          !pageCandidate &&
+          historyRef.current.future.length > 0
+        }
         onUndo={() => travelHistory("undo")}
         onRedo={() => travelHistory("redo")}
         previewOnly={previewOnly}
@@ -1087,14 +1251,36 @@ function DesktopWebsiteV3Builder({
             tab={tab}
             busy={busy}
             onTabChange={setTab}
-            onSelectSite={() => {
-              setSelection({ kind: "site" });
+            onSelectSite={(region) => {
+              setSelection({
+                kind: "site",
+                pageKey: pageKey(activePage),
+                region,
+              });
               setTab("content");
             }}
             onSelectPage={selectPage}
             onSelectSection={selectSection}
+            hoveredSectionKey={hoveredSectionKey}
+            onHoverSection={setHoveredSectionKey}
+            onSectionChange={updateSection}
+            onClearSelection={() =>
+              setSelection({ kind: "page", key: pageKey(activePage) })
+            }
+            onPreviewPage={previewPageTemplate}
+            onAddPageTemplate={addPageTemplate}
+            onPageSettings={setSettingsPageKey}
             onAddPage={() => setDialogOpen(true)}
             onAddSection={addSection}
+            onPreviewSection={previewSection}
+            onDuplicateSection={(key) => {
+              const newKey = `section-${crypto.randomUUID()}`;
+              setLocalState(duplicateSection(state, activePage, key, newKey));
+              selectSection(newKey);
+            }}
+            onReorderSection={(source, target) =>
+              setLocalState(reorderSection(state, activePage, source, target))
+            }
             onDuplicatePage={duplicateSelectedPage}
             onMovePage={(key, direction) =>
               setLocalState(movePage(state, key, direction))
@@ -1184,13 +1370,42 @@ function DesktopWebsiteV3Builder({
             webOrigin={webOrigin}
             restaurantSlug={loaded.restaurant.slug}
             restaurantId={restaurantId}
-            state={withWebsiteV3PreviewNavigationState(
-              themePreview ?? state,
-              storiesNavigationAvailable,
-            )}
+            state={previewState ?? state}
             activePage={previewPage ?? activePage}
-            activeSectionKey={activeSectionKey}
-            previewOnly={previewOnly || Boolean(themePreview)}
+            activeSectionKey={
+              sectionCandidate ? sectionKey(sectionCandidate) : activeSectionKey
+            }
+            activeField={
+              selection.kind === "section" ? selection.field : undefined
+            }
+            activeRegion={
+              selection.kind === "site" ? selection.region : undefined
+            }
+            onSelectRegion={(region) => {
+              setSelection({
+                kind: "site",
+                pageKey: pageKey(activePage),
+                region,
+              });
+              setTab("content");
+            }}
+            hoveredSectionKey={hoveredSectionKey}
+            onHoverSection={setHoveredSectionKey}
+            onEditRejected={() => {
+              setNotice(t("editorEditConflict"));
+              bumpPreview(false);
+            }}
+            onEditElement={(key, field, value) => {
+              setNotice(null);
+              updateSection(key, ["content", field], value);
+            }}
+            onClearSelection={() =>
+              setSelection({ kind: "page", key: pageKey(activePage) })
+            }
+            previewOnly={
+              previewOnly ||
+              Boolean(themePreview || sectionCandidate || pageCandidate)
+            }
             device={device}
             surface={surface}
             showBranchSelector={showBranchSelector}
@@ -1214,6 +1429,38 @@ function DesktopWebsiteV3Builder({
           />
         }
       />
+      {settingsPageKey &&
+        state.pages.find((page) => pageKey(page) === settingsPageKey) && (
+          <PageSettingsDialog
+            key={settingsPageKey}
+            page={
+              state.pages.find((page) => pageKey(page) === settingsPageKey)!
+            }
+            pages={state.pages}
+            restaurantId={restaurantId}
+            onClose={() => setSettingsPageKey(null)}
+            onSave={(page) => {
+              let next = state;
+              for (const field of [
+                "title",
+                "slug",
+                "nav_visible",
+                "seo",
+              ] as const) {
+                next = updateWebsitePageAtPath(
+                  next,
+                  settingsPageKey,
+                  [field],
+                  page[field],
+                  { slugManuallyEdited: true },
+                );
+              }
+              slugManualRef.current.add(settingsPageKey);
+              setLocalState(next);
+              setSettingsPageKey(null);
+            }}
+          />
+        )}
       <PageDialog
         open={dialogOpen && !busy}
         pages={state.pages}
@@ -1223,23 +1470,6 @@ function DesktopWebsiteV3Builder({
         onCreate={createPage}
       />
     </>
-  );
-}
-
-function resolveSelectedPage(
-  state: DraftStatePayload,
-  selection: RailSelection,
-): DraftPagePayload | null {
-  if (selection.kind === "site") {
-    return (
-      state.pages.find((page) => page.type === "landing") ??
-      state.pages[0] ??
-      null
-    );
-  }
-  const key = selection.kind === "page" ? selection.key : selection.pageKey;
-  return (
-    state.pages.find((page) => pageKey(page) === key) ?? state.pages[0] ?? null
   );
 }
 
@@ -1260,28 +1490,6 @@ function selectionAfterReload(
     state.pages.find((candidate) => candidate.type === "landing") ??
     state.pages[0];
   return page ? { kind: "page", key: pageKey(page) } : { kind: "site" };
-}
-
-function sectionsForPage(
-  state: DraftStatePayload,
-  page: DraftPagePayload,
-): DraftSectionPayload[] {
-  return state.sections
-    .filter((section) => sectionBelongs(section, page))
-    .sort((a, b) => a.sort_order - b.sort_order);
-}
-
-function sectionBelongs(
-  section: DraftSectionPayload,
-  page: DraftPagePayload,
-): boolean {
-  if (section.page_id !== undefined || section.page_tmp_id !== undefined) {
-    return (
-      (page.id !== undefined && section.page_id === page.id) ||
-      (!!page.tmp_id && section.page_tmp_id === page.tmp_id)
-    );
-  }
-  return section.page === page.slug;
 }
 
 function readError(error: unknown): string {

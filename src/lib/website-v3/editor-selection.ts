@@ -1,0 +1,26 @@
+import {
+  pageKey,
+  type DraftStatePayload,
+  type DraftPagePayload,
+} from "./types";
+
+export type RailSelection =
+  | { kind: "site"; pageKey?: string; region?: "header" | "footer" }
+  | { kind: "page"; key: string }
+  | { kind: "section"; pageKey: string; sectionKey: string; field?: string };
+
+/** Keeps the current page visible when opening its shared header or footer. */
+export function resolveSelectedPage(
+  state: DraftStatePayload,
+  selection: RailSelection,
+): DraftPagePayload | null {
+  const key = selection.kind === "page" ? selection.key : selection.pageKey;
+  return (
+    state.pages.find((page) => pageKey(page) === key) ??
+    (selection.kind === "site"
+      ? state.pages.find((page) => page.type === "landing")
+      : undefined) ??
+    state.pages[0] ??
+    null
+  );
+}
