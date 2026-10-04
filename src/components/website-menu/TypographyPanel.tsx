@@ -102,7 +102,7 @@ const CASE_OPTIONS: { value: 'uppercase' | 'none' | undefined; label: string }[]
 // Drop defaulted values so the saved blob stays minimal (and the editor's
 // autosave snapshot stays stable when nothing meaningful changed).
 function normalizeTypography(t: TypographyOverrides): TypographyOverrides | null {
-  const out: TypographyOverrides = {};
+  const out: TypographyOverrides = t.site ? { site: t.site } : {};
   const roles: NonNullable<TypographyOverrides['roles']> = {};
   for (const r of ROLES) {
     const o = t.roles?.[r.key];

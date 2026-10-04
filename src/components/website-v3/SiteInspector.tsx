@@ -202,12 +202,10 @@ export function SiteInspector({
       <>
         <InspectorGroup
           title="Éléments visuels partagés"
-          description="Le logo, la navigation et le pied de page sont globaux. Les thèmes, couleurs et typographies se règlent maintenant dans l’onglet Apparence de chaque page."
+          description="Le logo, la navigation et le pied de page sont partagés entre les pages du site."
         >
           <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
-            Sélectionnez une page dans la colonne de gauche pour personnaliser son
-            thème. Ouvrez Réglages ici pour modifier les logos et la barre de
-            navigation partagés.
+            Ouvrez « Design du site » pour modifier les couleurs et les polices de votre site.
           </div>
         </InspectorGroup>
         {footer ? (
@@ -663,8 +661,7 @@ function MissingFooter() {
   return (
     <InspectorGroup title="Pied de page">
       <p className="rounded-xl bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
-        Aucune section footer canonique n’est disponible. Les réglages associés
-        ne sont pas exposés pour éviter une configuration sans effet.
+        Ajoutez une section « Pied de page » pour afficher vos coordonnées, horaires et liens.
       </p>
     </InspectorGroup>
   );

@@ -1,222 +1,167 @@
 'use client';
 
-import { PasswordField } from '@/components/PasswordField';
-
-import AccessShell from '@/components/brand/AccessShell';
-
-import FoodyAdminBrand from '@/components/brand/FoodyAdminBrand';
-
-import { useState, useEffect } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Fingerprint } from 'lucide-react';
+import { ArrowUpRight, KeyRound, UserRound } from 'lucide-react';
+import { PasswordField } from '@/components/PasswordField';
+import FoodyLogo from '@/components/brand/FoodyLogo';
 import {
-  login,
-  loginWithPasskey,
-  passkeysSupported,
-  hasPasskeyOnDevice,
-  isAuthenticated,
-  getStoredRestaurantIds,
-  getStoredUser,
-  canAccessAdmin,
-  logout,
+  login, loginWithPasskey, passkeysSupported, isAuthenticated,
+  getStoredRestaurantIds, getStoredUser, canAccessAdmin, logout,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { restaurantHomePath } from '@/lib/courier-access';
+import styles from './page.module.css';
 
+const featureKeys = [
+  'loginFeatureSales', 'loginFeatureMenus', 'loginFeatureTables',
+  'loginFeaturePayments', 'loginFeatureCustomers', 'loginFeatureOrders',
+  'loginFeatureKitchen', 'loginFeatureOnline', 'loginFeatureTeam',
+  'loginFeatureReports',
+] as const;
+
+/** Two-step sign-in with the existing password and WebAuthn session contracts. */
 export default function LoginPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordStep, setPasswordStep] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
-  const [deviceHasPasskey, setDeviceHasPasskey] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
-  // Reveals the password form when the user opts out of Face ID (or it fails).
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  // Gate the interactive body until the capability check resolves, so passkey
-  // devices don't flash the password form before flipping to Face ID.
-  const [checked, setChecked] = useState(false);
+  const busy = loading || passkeyLoading;
+  const contactUrl = `https://foody-pos.co.il/${locale}/contact`;
 
-  // If already logged in, skip to restaurant selection
   useEffect(() => {
-    if (isAuthenticated()) {
-      const user = getStoredUser();
-      const rids = getStoredRestaurantIds();
-      if (!canAccessAdmin(user, rids)) {
-        logout();
-        return;
-      }
-      if (rids.length === 1) {
-        router.replace(restaurantHomePath(rids[0], user?.role ?? ''));
-      } else if (rids.length > 1) {
-        router.replace('/select-restaurant');
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Lead with Face ID only on devices that both support a platform authenticator
-  // and have previously enrolled/used a passkey here (otherwise the button would
-  // be a dead end). Everyone else gets the password form as before.
-  useEffect(() => {
-    passkeysSupported().then((ok) => {
-      setPasskeyAvailable(ok);
-      setDeviceHasPasskey(ok && hasPasskeyOnDevice());
-      setChecked(true);
-    });
-  }, []);
-
-  const routeAfterLogin = (restaurantIds: number[], roleName: string) => {
-    if (restaurantIds.length === 0) {
-      setError(t('noRestaurantAssigned'));
+    if (!isAuthenticated()) return;
+    const user = getStoredUser();
+    const restaurantIds = getStoredRestaurantIds();
+    if (!canAccessAdmin(user, restaurantIds)) {
+      logout();
       return;
     }
     if (restaurantIds.length === 1) {
-      router.push(restaurantHomePath(restaurantIds[0], roleName));
-    } else {
-      router.push('/select-restaurant');
+      router.replace(restaurantHomePath(restaurantIds[0], user?.role ?? ''));
+    } else if (restaurantIds.length > 1) {
+      router.replace('/select-restaurant');
     }
+  }, [router]);
+
+  useEffect(() => {
+    let active = true;
+    passkeysSupported().then(supported => { if (active) setPasskeyAvailable(supported); });
+    return () => { active = false; };
+  }, []);
+
+  const routeAfterLogin = (restaurantIds: number[], role: string) => {
+    if (restaurantIds.length === 0) setError(t('noRestaurantAssigned'));
+    else router.push(restaurantIds.length === 1 ? restaurantHomePath(restaurantIds[0], role) : '/select-restaurant');
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (busy) return;
     setError('');
+    // Advancing is local: never disclose whether an email has an account.
+    if (!passwordStep) {
+      setEmail(value => value.trim());
+      setPasswordStep(true);
+      return;
+    }
     setLoading(true);
     try {
       const { restaurant_ids, user } = await login(email, password, remember);
       routeAfterLogin(restaurant_ids, user.role);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('loginFailed'));
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : t('loginFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handlePasskeyLogin = async () => {
+    if (busy || !passkeyAvailable) return;
     setError('');
     setPasskeyLoading(true);
     try {
       const { restaurant_ids, user } = await loginWithPasskey(remember);
       routeAfterLogin(restaurant_ids, user.role);
-    } catch (err: unknown) {
-      // Silently ignore the user dismissing the Face ID prompt; on a real
-      // failure, surface the error and fall back to the password form so the
-      // user is never stranded (e.g. a stale device hint after the passkey was
-      // removed elsewhere).
-      const name = (err as { name?: string })?.name;
-      if (name !== 'NotAllowedError' && name !== 'AbortError') {
-        setError(t('passkeyLoginFailed'));
-        setShowPasswordForm(true);
-      }
+    } catch (reason: unknown) {
+      const name = (reason as { name?: string })?.name;
+      if (name !== 'NotAllowedError' && name !== 'AbortError') setError(t('passkeyLoginFailed'));
     } finally {
       setPasskeyLoading(false);
     }
   };
 
-  // Face ID leads and the password form is hidden until the user asks for it.
-  const passkeyFirst = passkeyAvailable && deviceHasPasskey;
-  const showForm = !passkeyFirst || showPasswordForm;
+  const editEmail = () => {
+    setPasswordStep(false);
+    setPassword('');
+    setError('');
+    document.getElementById('login-email')?.focus();
+  };
 
   return (
-    <AccessShell>
-      <div className="w-full max-w-[400px]">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <FoodyAdminBrand subtitle={t('restaurantPortal')} />
-        </div>
-
-        <div className="card">
-          <h1 className="text-2xl font-semibold text-fg-primary">{t('authWelcome')}</h1>
-          <p className="text-sm text-fg-secondary mt-2 mb-8">{t('authSignInHelp')}</p>
-
-          {error && (
-            <div role="alert" id="login-error" className="mb-4 p-3 bg-[var(--danger-50)] border border-[var(--danger-500)] rounded-r-md text-sm text-[var(--danger-500)]">
-              {error}
+    <main className={styles.page}>
+      <section className={styles.authPanel} aria-labelledby="login-heading">
+        <div className={styles.brand}><FoodyLogo variant="lockup" width={90} /></div>
+        <div className={styles.formContent}>
+          <h1 id="login-heading">{t(passwordStep ? 'loginPasswordTitle' : 'signIn')}</h1>
+          <p className={styles.intro}>{t('loginNewToFoody')} <a href={contactUrl}>{t('loginGetStarted')}</a></p>
+          {error && <p id="login-error" className={styles.error} role="alert">{error}</p>}
+          <form onSubmit={handleSubmit} aria-busy={busy} aria-describedby={error ? 'login-error' : undefined}>
+            <div className={`${styles.emailField} ${passwordStep ? styles.emailReadonly : ''}`}>
+              <input id="login-email" name="email" type="email" autoComplete="username" autoCapitalize="none"
+                spellCheck={false} dir="ltr" placeholder=" " required value={email} readOnly={passwordStep}
+                disabled={busy} onChange={event => setEmail(event.target.value)} />
+              <label htmlFor="login-email">{t('email')}</label>
+              {passwordStep && <button type="button" className={styles.editEmail} onClick={editEmail} disabled={busy}>{t('edit')}</button>}
             </div>
-          )}
-
-          {!checked ? (
-            // Brief capability check — keep the card height stable, no flash.
-            <div className="h-11" aria-hidden />
-          ) : passkeyFirst && !showPasswordForm ? (
-            <>
-              <button
-                type="button"
-                onClick={handlePasskeyLogin}
-                disabled={passkeyLoading}
-                className="btn-primary w-full justify-center gap-2 disabled:opacity-50"
-              >
-                <Fingerprint className="w-5 h-5" />
-                {passkeyLoading ? t('signingIn') : t('signInWithPasskey')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPasswordForm(true)}
-                className="mt-4 w-full text-center text-sm text-fg-secondary hover:text-fg-primary"
-              >
-                {t('usePasswordInstead')}
-              </button>
-            </>
-          ) : (
-            <>
-              <form onSubmit={handleSubmit} className="space-y-5" aria-busy={loading} aria-describedby={error ? 'login-error' : undefined}>
-                <div>
-                  <label htmlFor="login-email" className="block text-sm font-medium text-fg-primary mb-2">{t('email')}</label>
-                  <input
-                    type="email" id="login-email" name="email" autoComplete="username" autoCapitalize="none" dir="ltr"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="input"
-                    placeholder={t('emailPlaceholder')}
-                    required
-                    autoFocus={!passkeyFirst}
-                  />
-                </div>
-                <PasswordField id="login-password" name="password" autoComplete="current-password" label={t('password')}
-                  value={password} onChange={event => setPassword(event.target.value)} placeholder={t('passwordPlaceholder')} required />
-                <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                    className="w-4 h-4 rounded border-border accent-brand-500"
-                  />
-                  {t('rememberMe')}
-                </label>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn-primary w-full justify-center disabled:opacity-50"
-                >
-                  {loading ? t('signingIn') : t('signIn')}
-                </button>
-              </form>
-
-              {passkeyAvailable && (
-                <>
-                  <div className="flex items-center gap-3 my-4">
-                    <div className="h-px flex-1 bg-border" />
-                    <span className="text-xs text-fg-secondary">{t('or')}</span>
-                    <div className="h-px flex-1 bg-border" />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handlePasskeyLogin}
-                    disabled={passkeyLoading || loading}
-                    className="btn-secondary w-full justify-center gap-2 disabled:opacity-50"
-                  >
-                    <Fingerprint className="w-4 h-4" />
-                    {passkeyLoading ? t('signingIn') : t('signInWithPasskey')}
-                  </button>
-                </>
-              )}
-            </>
-          )}
+            {passwordStep && <>
+              <div className={styles.passwordField}>
+                <PasswordField id="login-password" name="password" label={t('password')} autoComplete="current-password"
+                  value={password} onChange={event => setPassword(event.target.value)} autoFocus required disabled={busy} />
+              </div>
+              <label className={styles.remember}>
+                <input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} disabled={busy} />
+                {t('rememberMe')}
+              </label>
+            </>}
+            <button type="submit" className={styles.primaryButton} disabled={busy}>
+              {loading ? t('signingIn') : t(passwordStep ? 'signIn' : 'continue')}
+            </button>
+          </form>
+          {passkeyAvailable && <>
+            <div className={styles.separator}><span>{t('or')}</span></div>
+            <button type="button" className={styles.passkeyButton} disabled={busy} onClick={handlePasskeyLogin}>
+              <span className={styles.passkeyIcon} aria-hidden="true"><UserRound /><KeyRound /></span>
+              {passkeyLoading ? t('signingIn') : t('loginWithPasskey')}
+            </button>
+          </>}
         </div>
-      </div>
-    </AccessShell>
+        <div className={styles.preferences}>
+          <label htmlFor="login-locale" className="sr-only">{t('language')}</label>
+          <select id="login-locale" value={locale} onChange={event => setLocale(event.target.value as typeof locale)}>
+            <option value="fr">Français</option><option value="en">English</option><option value="he">עברית</option>
+          </select>
+        </div>
+      </section>
+      <aside className={styles.promotion} aria-labelledby="login-promotion-heading">
+        <div className={styles.promotionVisual} aria-hidden="true">
+          <div className={styles.features}>{featureKeys.map((key, index) => <div key={key} className={index === 4 ? styles.highlight : undefined}>{t(key)}</div>)}</div>
+          {/* Reuses the approved FoodyLanding campaign photograph. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className={styles.promotionImage} src="/images/login/cafe-israel.webp" alt="" width={1536} height={1024} />
+        </div>
+        <h2 id="login-promotion-heading">{t('loginPromotionTitle')}</h2>
+        <p>{t('loginPromotionDescription')}</p>
+        <a href={`https://foody-pos.co.il/${locale}`} className={styles.learnMore}>
+          <ArrowUpRight size={20} aria-hidden="true" />{t('loginExploreFoody')}
+        </a>
+      </aside>
+    </main>
   );
 }
