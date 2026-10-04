@@ -25,6 +25,7 @@ import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
 import { buildAnyCarteItemIdSet } from './webCarte';
 import { useComboStepPreviews } from './useComboStepPreviews';
+import { ConfirmDialog } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
 
 interface Props {
@@ -41,6 +42,7 @@ interface Props {
   onComboAllowQuantityChange: (next: boolean) => void;
 }
 
+/** Compose explicit or group-based choices while preserving the existing price rules. */
 export default function CompositionTab({
   comboName, basePrice, onBasePriceChange,
   steps, onStepsChange,
@@ -86,6 +88,7 @@ export default function CompositionTab({
   // Active step — the one the catalog's clicks target. Null on load (no
   // step opened by default — the operator opens the one they want to edit).
   // Stays in sync with steps[] so a deleted step's key doesn't dangle.
+  const [removingStep, setRemovingStep] = useState<ComboStepDraft | null>(null);
   const [activeStepKey, setActiveStepKey] = useState<string | null>(null);
   const effectiveActiveKey =
     activeStepKey && steps.some((s) => s.key === activeStepKey) ? activeStepKey : null;
@@ -93,10 +96,12 @@ export default function CompositionTab({
     steps.find((s) => s.key === effectiveActiveKey) ?? null;
 
   const updateStep = (key: string, next: ComboStepDraft) => {
-    onStepsChange(steps.map((s) => (s.key === key ? next : s)));
+    if (!canEdit) return;
+    onStepsChange(steps.some(step => step.key === key) ? steps.map(step => step.key === key ? next : step) : [...steps, next]);
   };
 
   const removeStep = (key: string) => {
+    if (!canEdit) return;
     onStepsChange(steps.filter((s) => s.key !== key));
     if (activeStepKey === key) setActiveStepKey(null);
   };
@@ -112,6 +117,7 @@ export default function CompositionTab({
   });
 
   const addStep = () => {
+    if (!canEdit) return;
     const fresh = freshStep();
     onStepsChange([...steps, fresh]);
     setActiveStepKey(fresh.key);
@@ -120,7 +126,6 @@ export default function CompositionTab({
   const ensureActiveStep = (): ComboStepDraft => {
     if (activeStep) return activeStep;
     const fresh = freshStep();
-    onStepsChange([...steps, fresh]);
     setActiveStepKey(fresh.key);
     return fresh;
   };
@@ -160,8 +165,8 @@ export default function CompositionTab({
     });
   };
 
-  const handleSetCategory = (categoryId: number) => {
-    // "tout ajouter" on a catalog category header bulk-imports that category's
+  const handleSetCategory = (categoryId: number, visibleItemIds: number[]) => {
+    // "tout ajouter" adds the visible catalogue matches in this category as
     // items as individual explicit entries. A group-sourced step is converted
     // to explicit first (mixing has no coherent server semantic). Items already
     // present are skipped so repeated clicks are idempotent.
@@ -172,7 +177,7 @@ export default function CompositionTab({
     const existing = new Set(baseItems.map((it) => it.menu_item_id));
     const additions: ComboStepDraftItem[] = [];
     for (const it of cat.items ?? []) {
-      if (!existing.has(it.id)) {
+      if (visibleItemIds.includes(it.id) && !existing.has(it.id)) {
         additions.push({ menu_item_id: it.id, price_delta: 0, pick_key: `item:${it.id}` });
       }
     }
@@ -187,7 +192,7 @@ export default function CompositionTab({
   };
 
   return (
-    <div className="flex flex-col gap-[var(--s-5)]">
+    <div className="flex min-w-0 flex-col gap-[var(--s-5)]">
       {/* Section head + pricing — full-width above the two-pane composer. */}
       <div className="flex items-center gap-[var(--s-3)]">
         <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
@@ -197,6 +202,7 @@ export default function CompositionTab({
 
       <PricingCard
         basePrice={basePrice}
+        readOnly={!canEdit}
         onBasePriceChange={onBasePriceChange}
         steps={steps}
         itemsById={itemsById}
@@ -234,11 +240,12 @@ export default function CompositionTab({
           page; the catalog scrolls internally within its sticky frame.
           `items-start` is required for sticky to engage in a grid (without
           it the grid item stretches to the row height and never sticks). */}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-[var(--s-4)] items-start">
-        <aside
-          className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-3)] flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] min-h-0"
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(240px,300px)_minmax(0,1fr)] gap-[var(--s-4)] items-start">
+        <aside aria-label={t('catalogCarteLabel')}
+          className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-3)] flex flex-col xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] min-h-0"
         >
           <CarteCatalog
+            restaurantId={restaurantId}
             menus={menus}
             categories={categories}
             itemsById={itemsById}
@@ -272,7 +279,7 @@ export default function CompositionTab({
                 isActive={isActive}
                 onActivate={() => setActiveStepKey(isActive ? null : step.key)}
                 onChange={(next) => updateStep(step.key, next)}
-                onRemove={() => removeStep(step.key)}
+                onRemove={() => setRemovingStep(step)}
               />
             );
           })}
@@ -281,7 +288,7 @@ export default function CompositionTab({
             <button
               type="button"
               onClick={addStep}
-              className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
+              className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-ink)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" /> {t('composeNewStep')}
             </button>
@@ -307,6 +314,7 @@ export default function CompositionTab({
         </div>
       )}
 
+      <ConfirmDialog open={removingStep !== null} onOpenChange={open => { if (!open) setRemovingStep(null); }} title={t('composeStepDelete')} description={t('composeStepDeleteHint').replace('{name}',removingStep?.name ?? '')} confirmLabel={t('delete')} cancelLabel={t('cancel')} danger onConfirm={() => { if (removingStep) removeStep(removingStep.key); setRemovingStep(null); }}/>
       <CustomerOutcomePreview
         comboName={comboName}
         basePrice={basePrice}

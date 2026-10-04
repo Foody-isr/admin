@@ -1,319 +1,8 @@
+@import '../styles/fonts.css';
+@import '../styles/tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* ═══════════════════════════════════════════════════════════════════
-   Foody OS Design Tokens — source of truth
-   Verbatim port of design-reference/design/tokens.css.
-   Edit tokens.css and re-sync; do not diverge values here.
-   ═══════════════════════════════════════════════════════════════════ */
-:root {
-  /* Brand */
-  --brand-50:  #fff7ed;
-  --brand-100: #ffedd5;
-  --brand-200: #fed7aa;
-  --brand-300: #fdba74;
-  --brand-400: #fb923c;
-  --brand-500: #f97316;
-  --brand-600: #ea580c;
-  --brand-700: #c2410c;
-  --brand-800: #9a3412;
-  --brand-900: #7c2d12;
-  --brand: var(--brand-500); /* bare brand alias — used by website builder controls */
-
-  /* Categorical (charts, avatars, item tags) */
-  --cat-1: #f97316;
-  --cat-2: #eab308;
-  --cat-3: #16a34a;
-  --cat-4: #0ea5e9;
-  --cat-5: #7c3aed;
-  --cat-6: #e11d48;
-  --cat-7: #0d9488;
-  --cat-8: #a16207;
-
-  /* Semantic */
-  --success-500: #16a34a;
-  --success-50:  #dcfce7;
-  --warning-500: #d97706;
-  --warning-50:  #fef3c7;
-  --danger-500:  #dc2626;
-  --danger-50:   #fee2e2;
-  --info-500:    #2563eb;
-  --info-50:     #dbeafe;
-
-  /* Neutrals — light */
-  --surface-2:   #f5f5f4;
-  --surface-3:   #e7e5e4;
-  --line:        #e7e5e4;
-  --line-strong: #d6d3d1;
-  --fg:          #1c1917;
-  --fg-muted:    #57534e;
-  --fg-subtle:   #a8a29e;
-
-  /* Shadows & focus */
-  --shadow-1: 0 1px 2px rgba(28,25,23,.04), 0 1px 3px rgba(28,25,23,.04);
-  --shadow-2: 0 4px 12px rgba(28,25,23,.06), 0 2px 4px rgba(28,25,23,.04);
-  --shadow-3: 0 16px 40px rgba(28,25,23,.10), 0 4px 12px rgba(28,25,23,.06);
-  --focus-ring: 0 0 0 3px rgba(249,115,22,.25);
-
-  /* Typography — font-family vars are re-set by next/font on <html> */
-  --font-sans:    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono:    ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  --font-display: ui-serif, Georgia, serif;
-
-  --fs-micro: 11px;
-  --fs-xs:    12px;
-  --fs-sm:    13px;
-  --fs-md:    14px;
-  --fs-lg:    16px;
-  --fs-xl:    18px;
-  --fs-2xl:   22px;
-  --fs-3xl:   28px;
-  --fs-4xl:   36px;
-  --fs-5xl:   48px;
-
-  --lh-tight: 1.15;
-  --lh-snug:  1.3;
-  --lh-base:  1.5;
-
-  /* Space (4pt grid) */
-  --s-1:  4px;
-  --s-2:  8px;
-  --s-3:  12px;
-  --s-4:  16px;
-  --s-5:  20px;
-  --s-6:  24px;
-  --s-8:  32px;
-  --s-10: 40px;
-  --s-12: 48px;
-  --s-16: 64px;
-
-  /* Radii */
-  --r-xs:  4px;
-  --r-sm:  6px;
-  --r-md:  10px;
-  --r-lg:  14px;
-  --r-xl:  18px;
-  --r-full: 999px;
-
-  /* Motion */
-  --ease-out:    cubic-bezier(.2,.8,.2,1);
-  --ease-in-out: cubic-bezier(.4,0,.2,1);
-  --dur-fast: 120ms;
-  --dur-base: 200ms;
-  --dur-slow: 320ms;
-
-  /* Layout */
-  --sidebar-w: 260px;
-  --sidebar-w-collapsed: 72px;
-  --topbar-h: 56px;
-
-  /* Mobile safe areas — the app ships with viewport-fit=cover (see app/layout.tsx)
-     so the viewport extends under the iOS notch / status bar and the Android
-     gesture bar. Anything anchored to a viewport edge must offset by these or it
-     renders underneath the system UI. env() falls back to 0px on desktop. */
-  --safe-top:    env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left:   env(safe-area-inset-left, 0px);
-  --safe-right:  env(safe-area-inset-right, 0px);
-
-  /* Full height of the sticky TopBar including the status-bar inset it absorbs.
-     Use this (not --topbar-h) to offset anything that must sit under the bar. */
-  --topbar-total-h: calc(var(--topbar-h) + var(--safe-top));
-}
-
-/* ── Theme tokens (light = default, dark = .dark on <html>) ── */
-:root {
-  --bg: #fafaf9;                       /* adopted from tokens.css (was #F6F6F6) */
-  --surface: #FFFFFF;
-  --surface-subtle: var(--surface-2);  /* @deprecated — use --surface-2 */
-  --divider:        var(--line);       /* @deprecated — use --line */
-  --text-primary:   var(--fg);         /* @deprecated — use --fg */
-  --text-secondary: var(--fg-muted);   /* @deprecated — use --fg-muted */
-  --sidebar-bg: #FFFFFF;
-  --sidebar-active: var(--brand-500);  /* @deprecated — use --brand-500 */
-  --sidebar-hover: #F5F5F5;
-  --topbar-bg: #FFFFFF;                /* adopted from tokens.css (was #000000) */
-  --topbar-fg: var(--fg);              /* topbar text now inherits --fg */
-  --shadow-color: rgba(0, 0, 0, 0.04); /* @deprecated — use --shadow-1/2/3 */
-
-  /* shadcn/ui tokens (HSL triples) — aligned to Foody neutrals above */
-  --background: 60 11% 98%;            /* #fafaf9 */
-  --foreground: 24 10% 10%;            /* #1c1917 */
-  --card: 0 0% 100%;
-  --card-foreground: 24 10% 10%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 24 10% 10%;
-  --primary: 21 94% 53%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 60 5% 96%;              /* #f5f5f4 */
-  --secondary-foreground: 24 10% 10%;
-  --muted: 60 5% 96%;
-  --muted-foreground: 24 6% 31%;       /* #57534e */
-  --accent: 60 5% 96%;
-  --accent-foreground: 24 10% 10%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 24 7% 90%;                 /* #e7e5e4 */
-  --input:  24 9% 83%;                 /* #d6d3d1 */
-  --ring: 21 94% 53%;
-  --radius: 0.625rem;                  /* 10px — matches --r-md */
-}
-
-/* shadcn primitives carry a data-slot attribute — scope border-color to them
-   so the new HSL var doesn't change bare `border` usages in legacy foody pages */
-@layer base {
-  [data-slot] {
-    border-color: hsl(var(--border));
-  }
-}
-
-.dark,
-[data-theme='dark'] {
-  /* Neutrals — dark */
-  --bg:          #0f0e0d;              /* adopted from tokens.css (was #171717) */
-  --surface:     #1a1917;              /* adopted (was #1c1c1c) */
-  --surface-2:   #24221f;
-  --surface-3:   #2d2a26;
-  --line:        #2d2a26;
-  --line-strong: #44403c;
-  --fg:          #fafaf9;
-  --fg-muted:    #a8a29e;
-  --fg-subtle:   #78716c;
-
-  /* Semantic -50 alpha in dark */
-  --success-50: rgba(22,163,74,.14);
-  --warning-50: rgba(217,119,6,.14);
-  --danger-50:  rgba(220,38,38,.14);
-  --info-50:    rgba(37,99,235,.14);
-
-  /* Categorical — lighter hues for dark */
-  --cat-1: #fb923c;
-  --cat-2: #facc15;
-  --cat-3: #4ade80;
-  --cat-4: #38bdf8;
-  --cat-5: #a78bfa;
-  --cat-6: #fb7185;
-  --cat-7: #2dd4bf;
-  --cat-8: #d6b26a;
-
-  /* Shadows & focus — dark */
-  --shadow-1: 0 1px 2px rgba(0,0,0,.4);
-  --shadow-2: 0 4px 12px rgba(0,0,0,.5), 0 2px 4px rgba(0,0,0,.3);
-  --shadow-3: 0 20px 50px rgba(0,0,0,.6);
-  --focus-ring: 0 0 0 3px rgba(249,115,22,.35);
-
-  /* Legacy aliases — @deprecated, resolve to new tokens where possible */
-  --surface-subtle:  var(--surface-2);
-  --surface-elevated: #2a2a2a;         /* @deprecated — use --surface-3 */
-  --divider:         var(--line);
-  --text-primary:    var(--fg);
-  --text-secondary:  var(--fg-muted);
-  --text-muted:      #6b6b6b;          /* @deprecated — use --fg-subtle */
-  --sidebar-bg:      #0a0908;          /* adopted (was #141414) */
-  --sidebar-active:  var(--brand-500);
-  --sidebar-hover:   #1a1917;          /* adopted (was #1c1c1c) */
-  --topbar-bg:       #0a0908;          /* adopted (was #141414); matches sidebar-bg */
-  --topbar-fg:       var(--fg);        /* topbar text inherits --fg in dark too */
-  --shadow-color:    rgba(0, 0, 0, 0.3); /* @deprecated — use --shadow-1/2/3 */
-
-  /* shadcn/ui tokens — aligned to Foody dark neutrals above */
-  --background: 30 8% 5%;              /* #0f0e0d */
-  --foreground: 60 11% 98%;            /* #fafaf9 */
-  --card: 30 7% 10%;                   /* #1a1917 */
-  --card-foreground: 60 11% 98%;
-  --popover: 30 7% 10%;
-  --popover-foreground: 60 11% 98%;
-  --primary: 21 94% 53%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 30 7% 13%;              /* #24221f */
-  --secondary-foreground: 60 11% 98%;
-  --muted: 30 7% 13%;
-  --muted-foreground: 28 6% 64%;       /* #a8a29e */
-  --accent: 30 7% 13%;
-  --accent-foreground: 60 11% 98%;
-  --destructive: 0 62% 50%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 30 7% 16%;                 /* #2d2a26 */
-  --input:  28 5% 25%;                 /* #44403c */
-  --ring: 21 94% 53%;
-}
-
-/* ── Order detail ──────────────────────────────────────────────────────────
-   A denser operational surface with its own neutral/semantic calibration.
-   Menus are portalled outside the dialog, so they opt into the same tokens
-   through .order-detail-menu instead of inheriting them from the dialog. */
-.order-detail-surface,
-.order-detail-menu {
-  --bg: #f3f4f5;
-  --surface: #ffffff;
-  --surface-2: #f6f7f8;
-  --surface-3: #e9ecef;
-  --line: #e3e6e8;
-  --line-strong: #cfd4d9;
-  --fg: #1c1d1f;
-  --fg-muted: #5f6670;
-  --fg-subtle: #737a84;
-
-  --brand-400: #ff8b4a;
-  --brand-500: #ff6b18;
-  --brand-600: #e9580c;
-  --success-500: #168447;
-  --success-50: #e9f8ef;
-  --warning-500: #946200;
-  --warning-600: #865800;
-  --warning-700: #744c00;
-  --warning-50: #fff4ce;
-  --danger-500: #d92d20;
-  --danger-50: #fff0ee;
-  --info-500: #245fdb;
-  --info-50: #eef4ff;
-
-  --shadow-3: 0 24px 70px rgba(20, 24, 28, .20);
-  --focus-ring: 0 0 0 3px rgba(233, 88, 12, .28);
-  font-family: var(--font-order-sans, var(--font-sans));
-  font-variant-numeric: tabular-nums;
-}
-
-.dark .order-detail-surface,
-.dark .order-detail-menu,
-[data-theme='dark'] .order-detail-surface,
-[data-theme='dark'] .order-detail-menu {
-  --bg: #0f1113;
-  --surface: #181b1e;
-  --surface-2: #22262a;
-  --surface-3: #2b3035;
-  --line: #343a40;
-  --line-strong: #4a5159;
-  --fg: #f4f5f6;
-  --fg-muted: #bec4cb;
-  --fg-subtle: #929aa4;
-
-  --brand-400: #ff9b66;
-  --brand-500: #ff7a2f;
-  --brand-600: #ff8b4a;
-  --success-500: #5bd68a;
-  --success-50: #173426;
-  --warning-500: #ffd166;
-  --warning-600: #f2c252;
-  --warning-700: #e7b83f;
-  --warning-50: #3a3018;
-  --danger-500: #ff8178;
-  --danger-50: #401f20;
-  --info-500: #8bb4ff;
-  --info-50: #182a48;
-
-  --shadow-3: 0 28px 80px rgba(0, 0, 0, .45);
-  --focus-ring: 0 0 0 3px rgba(255, 155, 102, .38);
-}
-
-/* Bridge Vercel's `geist` NPM package vars onto our token names.
-   GeistSans.variable sets --font-geist-sans; we alias it so the rest
-   of the app references --font-sans / --font-mono only. */
-html {
-  --font-sans: var(--font-geist-sans, ui-sans-serif, -apple-system, sans-serif);
-  --font-mono: var(--font-geist-mono, ui-monospace, 'SF Mono', monospace);
-}
 
 body {
   color: var(--text-primary);
@@ -323,12 +12,12 @@ body {
 
 /* ── Tabular numerics — every price/qty/count must use one of these ── */
 .mono, [data-mono] {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-feature-settings: 'tnum';
 }
 .tabular { font-variant-numeric: tabular-nums; }
 .num {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
 }
 
@@ -377,7 +66,7 @@ body {
   border: 1px solid var(--divider);
   border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 1px 3px var(--shadow-color);
+  box-shadow: none;
 }
 /* 24px of chrome on each side eats 13% of a 375px screen — the phone gets 16. */
 @media (max-width: 640px) {
@@ -386,15 +75,20 @@ body {
 
 /* ── Buttons ── */
 .btn-primary {
-  @apply bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-standard font-medium transition-colors;
-  font-size: 15px;
+  background: var(--action);
+  color: var(--action-fg);
+  min-height: 44px;
+  @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-standard font-medium transition-colors;
+  font-size: 14px;
 }
+
+.btn-primary:hover { background: var(--action-hover); }
 
 .btn-secondary {
   background: var(--surface-subtle);
   color: var(--text-primary);
   @apply px-5 py-2.5 rounded-standard font-medium transition-colors;
-  font-size: 15px;
+  font-size: 14px;
 }
 .btn-secondary:hover {
   background: var(--divider);
@@ -408,16 +102,16 @@ body {
   .input {
     background: var(--surface);
     color: var(--text-primary);
-    border: 1px solid var(--divider);
+    border: 1px solid var(--line-strong);
     @apply w-full rounded-standard px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
-    font-size: 15px;
+    font-size: 14px;
   }
 
   /* ── Input small variant (time pickers, inline filters) ── */
   .input-sm {
     background: var(--surface);
     color: var(--text-primary);
-    border: 1px solid var(--divider);
+    border: 1px solid var(--line-strong);
     @apply w-full rounded-standard px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
   }
 }
@@ -616,7 +310,7 @@ input::placeholder, textarea::placeholder {
     padding: 14px 16px;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 16px;
+    border-radius: var(--r-lg);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
   }
   .responsive-table[data-density='compact'] > table > tbody {
@@ -653,9 +347,9 @@ input::placeholder, textarea::placeholder {
   .responsive-table > table > tbody > tr > td[data-label]::before {
     content: attr(data-label);
     flex-shrink: 0;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
+    text-transform: none;
     letter-spacing: 0.04em;
     color: var(--fg-secondary, var(--text-secondary));
     text-align: start;
@@ -705,7 +399,7 @@ input::placeholder, textarea::placeholder {
   .operational-table > table > tbody > tr > td[data-mobile-role='detail']::before {
     display: block;
     margin-bottom: 3px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     line-height: 1.2;
     letter-spacing: 0;
@@ -801,4 +495,39 @@ input::placeholder, textarea::placeholder {
   select {
     font-size: 16px !important;
   }
+}
+
+/* Shared interaction contract; selection never replaces keyboard focus. */
+@layer base {
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--brand-ink);
+    outline-offset: 3px;
+  }
+  :where(button, a, input, select, textarea) { -webkit-tap-highlight-color: transparent; }
+  :where(input, select, textarea) { accent-color: var(--action); }
+  :where(input[type="email"], input[type="tel"]) { direction: ltr; text-align: start; }
+  :where(bdi, [data-mono]) { unicode-bidi: isolate; }
+}
+.order-detail-surface, .order-detail-menu { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Access is a calm product surface, sharing the landing's blue and geometry. */
+.access-shell { min-height: 100dvh; display: grid; grid-template-columns: minmax(320px, .8fr) 1.2fr; background: var(--surface); }
+.access-introduction { padding: 48px; background: var(--summary-bg); color: var(--summary-fg); display: flex; flex-direction: column; justify-content: space-between; gap: 64px; }
+.access-message { max-width: 400px; }
+.access-message h2 { margin-top: 28px; font-size: clamp(30px, 3.2vw, 46px); font-weight: 600; line-height: 1.15; letter-spacing: -.03em; }
+.access-message p { margin-top: 24px; font-size: 16px; line-height: 1.7; max-width: 35ch; }
+.access-main { position: relative; min-width: 0; display: flex; flex-direction: column; min-height: 100dvh; padding: max(24px, var(--safe-top)) 40px max(24px, var(--safe-bottom)); }
+.access-preferences { display: flex; align-items: center; justify-content: end; gap: 8px; }
+.access-content { display: flex; justify-content: center; align-items: center; flex: 1; padding-block: 40px; }
+.access-content > div { width: 100%; }
+.access-content .card { border: 0; padding: 0; }
+.access-content .input { min-height: 48px; }
+.access-content .btn-primary, .access-content .btn-secondary { min-height: 48px; }
+@media (max-width: 900px) {
+  .access-shell { display: block; }
+  .access-introduction { display: none; }
+  .access-main { padding-inline: 24px; }
 }

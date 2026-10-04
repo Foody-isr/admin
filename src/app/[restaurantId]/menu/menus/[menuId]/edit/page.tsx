@@ -1,18 +1,21 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { Clock, MapPin, Monitor, Repeat } from 'lucide-react';
 import {
-  listMenus, getRestaurant, updateMenu, getMenuHours, setMenuHours,
-  getLocations, getMenuLocations, setMenuLocations,
-  Menu, MenuAvailabilityHour, Restaurant, Location,
+  listMenus, getRestaurant, updateMenu, getMenuHours, setMenuHours, getLocations, getMenuLocations, setMenuLocations,
+  type Menu, type MenuAvailabilityHour, type Restaurant, type Location,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { XIcon } from 'lucide-react';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
+import { Button, ConfirmDialog, FullScreenEditor } from '@/components/ds';
+import { MenuHoursEditor, menuHoursAreComplete } from '@/components/menu/MenuHoursEditor';
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+type Draft = { name: string; pos: boolean; web: boolean; follows: boolean; rotating: boolean; hours: MenuAvailabilityHour[]; locations: number[] };
 
+/** Edit menu availability only after all persisted scopes and schedules have loaded. */
 export default function MenuEditPage() {
   const { restaurantId, menuId } = useParams();
   const rid = Number(restaurantId);
@@ -21,318 +24,98 @@ export default function MenuEditPage() {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
-
   const [menu, setMenu] = useState<Menu | null>(null);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  // Editable fields
-  const [name, setName] = useState('');
-  const [posEnabled, setPosEnabled] = useState(true);
-  const [webEnabled, setWebEnabled] = useState(true);
-  const [followsRestaurantHours, setFollowsRestaurantHours] = useState(true);
-  const [isWeeklyRotating, setIsWeeklyRotating] = useState(false);
-  const [hours, setHours] = useState<MenuAvailabilityHour[]>([]);
-
-  // Locations
   const [allLocations, setAllLocations] = useState<Location[]>([]);
-  const [selectedLocationIds, setSelectedLocationIds] = useState<number[]>([]);
-  const [showLocationsEditor, setShowLocationsEditor] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const original = useRef('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [discard, setDiscard] = useState(false);
+  const [partialSave, setPartialSave] = useState(false);
+  const requestGuard = useRef(new RestaurantRequestGuard());
+  requestGuard.current.enterRestaurant(rid);
+  const home = `/${rid}/menu/menus/${mid}`;
 
-  // Inline editors visibility
-  const [showChannelsEditor, setShowChannelsEditor] = useState(false);
-  const [showHoursEditor, setShowHoursEditor] = useState(false);
-
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
+    const guard = requestGuard.current;
+    const token = guard.begin(rid);
     setLoading(true);
-    Promise.all([
-      listMenus(rid),
-      getRestaurant(rid).catch(() => null),
-      getLocations(rid).catch(() => []),
-      getMenuLocations(rid, mid).catch(() => []),
-    ]).then(([menus, rest, locs, menuLocs]) => {
-      const found = menus.find((m) => m.id === mid);
+    setLoadError('');
+    try {
+      // Hours and location failures must never become empty replacement arrays.
+      const [menus, rest, locations, assigned, hours] = await Promise.all([
+        listMenus(rid), getRestaurant(rid), getLocations(rid), getMenuLocations(rid, mid), getMenuHours(rid, mid),
+      ]);
+      if (!guard.isCurrent(token)) return;
+      const found = menus.find(value => value.id === mid);
       setMenu(found ?? null);
       setRestaurant(rest);
-      setAllLocations(locs);
-      setSelectedLocationIds(menuLocs.map((l: Location) => l.id));
+      setAllLocations(locations);
       if (found) {
-        setName(found.name);
-        setPosEnabled(found.pos_enabled);
-        setWebEnabled(found.web_enabled);
-        setFollowsRestaurantHours(found.follows_restaurant_hours);
-        setIsWeeklyRotating(found.is_weekly_rotating ?? false);
-        if (!found.follows_restaurant_hours) {
-          getMenuHours(rid, found.id).then(setHours).catch(() => null);
-        }
-      }
-    }).finally(() => setLoading(false));
+        const next = { name: found.name, pos: found.pos_enabled, web: found.web_enabled, follows: found.follows_restaurant_hours, rotating: found.is_weekly_rotating ?? false, hours, locations: assigned.map(location => location.id) };
+        setDraft(next);
+        original.current = JSON.stringify(next);
+      } else setDraft(null);
+    } catch (cause) { if (guard.isCurrent(token)) setLoadError(cause instanceof Error ? cause.message : 'libraryOperationFailed'); }
+    finally { if (guard.isCurrent(token)) setLoading(false); }
   }, [rid, mid]);
+  useEffect(() => { const guard = requestGuard.current; void load(); return () => guard.invalidate(); }, [load]);
+  const dirty = !!draft && JSON.stringify(draft) !== original.current;
+  const close = () => { if (!saving) { if (dirty) setDiscard(true); else router.push(home); } };
+  const patch = (value: Partial<Draft>) => setDraft(current => current ? { ...current, ...value } : current);
 
-  useEffect(() => { load(); }, [load]);
-
-  const handleSave = async () => {
-    if (!name.trim() || !menu) return;
+  const save = async () => {
+    if (!canEdit || !menu || !draft || !draft.name.trim() || loading || loadError || savingRef.current) return;
+    if (!draft.follows && !menuHoursAreComplete(draft.hours)) { setError(t('menuIncompleteHours')); return; }
+    savingRef.current = true;
     setSaving(true);
+    setError('');
+    let updated = false;
     try {
-      await updateMenu(rid, mid, {
-        name,
-        pos_enabled: posEnabled,
-        web_enabled: webEnabled,
-        follows_restaurant_hours: followsRestaurantHours,
-        is_weekly_rotating: isWeeklyRotating,
-      });
-      if (!followsRestaurantHours) {
-        await setMenuHours(rid, mid, hours.map(({ day_of_week, open_time, close_time, is_closed }) => ({
-          day_of_week, open_time, close_time, is_closed,
-        })));
-      }
-      await setMenuLocations(rid, mid, selectedLocationIds);
-      router.push(`/${rid}/menu/menus/${mid}`);
-    } finally {
-      setSaving(false);
-    }
+      await updateMenu(rid, mid, { name: draft.name, pos_enabled: draft.pos, web_enabled: draft.web, follows_restaurant_hours: draft.follows, is_weekly_rotating: draft.rotating });
+      updated = true;
+      setPartialSave(true);
+      if (!draft.follows) await setMenuHours(rid, mid, draft.hours.map(({ day_of_week, open_time, close_time, is_closed }) => ({ day_of_week, open_time, close_time, is_closed })));
+      await setMenuLocations(rid, mid, draft.locations);
+      router.push(home);
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : t('libraryOperationFailed');
+      setError(updated ? `${t('menuSavePartial')} ${detail}` : detail);
+    } finally { savingRef.current = false; setSaving(false); }
   };
 
-  const setHourField = (day: number, field: string, value: string | boolean) => {
-    setHours((prev) => {
-      const existing = prev.find((h) => h.day_of_week === day);
-      if (existing) return prev.map((h) => h.day_of_week === day ? { ...h, [field]: value } : h);
-      return [...prev, { id: 0, menu_id: mid, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false, [field]: value }];
-    });
-  };
-
-  const getHour = (day: number): MenuAvailabilityHour =>
-    hours.find((h) => h.day_of_week === day) ?? { id: 0, menu_id: mid, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+  return <>
+    <FullScreenEditor open onOpenChange={open => { if (!open) close(); }} title={t('editMenuTitle')} subtitle={restaurant?.name}
+      onSave={canEdit && draft && !loading && !loadError ? save : undefined} saveDisabled={saving || !draft?.name.trim()} saveLabel={saving ? t('saving') : t('save')}>
+      <div className="mx-auto max-w-2xl space-y-6">
+        {loading ? <p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p>
+          : loadError ? <div role="alert" className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5"><p className="mb-4 text-[var(--danger-500)]">{t(loadError)}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>
+          : !draft || !menu ? <p role="status" className="py-12 text-center text-fg-secondary">{t('menuNotFound')}</p>
+          : <form id="menu-details-editor" onSubmit={event => { event.preventDefault(); void save(); }} aria-busy={saving} className="space-y-5">
+            {error && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{error}</p>}
+            <fieldset disabled={!canEdit || saving} className="space-y-5">
+              <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5"><label htmlFor="menu-detail-name" className="mb-2 block text-sm font-semibold">{t('menuNameLabel')}</label><input id="menu-detail-name" required className="input" value={draft.name} onChange={event => patch({ name: event.target.value })} /></div>
+              <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+                <div className="rounded-t-r-lg border-b border-[var(--line)] bg-[var(--summary-bg)] p-5 text-[var(--summary-fg)]"><h2 className="text-lg font-semibold">{t('menuAvailability')}</h2><p className="mt-2 text-sm">{t('menuAvailabilityDesc')}</p></div>
+                <div className="space-y-6 p-5">
+                  <fieldset><legend className="mb-3 flex items-center gap-2 text-sm font-semibold"><MapPin aria-hidden className="size-4" />{t('pointOfSale')}</legend>
+                    <p className="mb-3 text-sm text-fg-secondary">{t('noLocationsSelectedMeansAll')}</p>
+                    <div className="space-y-2">{allLocations.filter(location => location.is_active || draft.locations.includes(location.id)).map(location => <label key={location.id} className="flex min-h-11 items-center gap-3 rounded-r-md border border-[var(--line)] px-3 py-2 text-sm"><input type="checkbox" className="size-4 shrink-0" checked={draft.locations.includes(location.id)} onChange={event => patch({ locations: event.target.checked ? [...draft.locations, location.id] : draft.locations.filter(id => id !== location.id) })} /><span className="break-words">{location.name}{!location.is_active && <span className="ms-2 text-xs text-fg-secondary">({t('inactive')})</span>}</span></label>)}</div>
+                    {!allLocations.length && <p className="text-sm text-fg-secondary">{t('noLocations')}</p>}
+                  </fieldset>
+                  <fieldset className="border-t border-[var(--line)] pt-5"><legend className="flex items-center gap-2 text-sm font-semibold"><Monitor aria-hidden className="size-4" />{t('channels')}</legend><div className="flex flex-wrap gap-6"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" className="size-4" checked={draft.pos} onChange={event => patch({ pos: event.target.checked })} />POS</label><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" className="size-4" checked={draft.web} onChange={event => patch({ web: event.target.checked })} />Web</label></div></fieldset>
+                  <label className="flex items-start gap-3 border-t border-[var(--line)] pt-5"><Repeat aria-hidden className="mt-1 size-4 shrink-0 text-fg-secondary" /><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t('rotatingCarte')}</span><span className="mt-2 block text-sm text-fg-secondary">{t('rotatingCarteDesc')}</span></span><input type="checkbox" className="mt-1 size-4 shrink-0" checked={draft.rotating} onChange={event => patch({ rotating: event.target.checked })} /></label>
+                  <div className="border-t border-[var(--line)] pt-5"><h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Clock aria-hidden className="size-4" />{t('hoursLabel')}</h3><p className="mb-4 text-sm text-fg-secondary">{t('hoursAvailabilityDesc')}</p><label className="mb-4 flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" className="size-4 shrink-0" checked={draft.follows} onChange={event => patch({ follows: event.target.checked })} />{t('followsRestaurantHours')}</label>{!draft.follows && <MenuHoursEditor hours={draft.hours} menuId={mid} disabled={!canEdit || saving} onChange={hours => patch({ hours })} />}</div>
+                </div>
+              </section>
+            </fieldset>
+          </form>}
       </div>
-    );
-  }
-
-  if (!menu) {
-    return <div className="text-center py-16 text-fg-secondary">Menu not found.</div>;
-  }
-
-  // Build channel summary
-  const channelNames: string[] = [];
-  if (posEnabled) channelNames.push(t('posSystem'));
-  if (webEnabled) channelNames.push('Web');
-
-  return (
-    <div className="fixed inset-0 z-50 bg-[var(--surface)] overflow-y-auto pb-safe-b">
-      {/* ── Sticky header ── */}
-      <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)] px-4 sm:px-6 pb-3 pt-[max(var(--s-3),var(--safe-top))] flex items-center justify-between gap-3">
-        <button
-          onClick={() => router.push(`/${rid}/menu/menus/${mid}`)}
-          className="p-2 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors"
-        >
-          <XIcon className="w-5 h-5" />
-        </button>
-        <h2 className="text-sm font-bold text-fg-primary">{t('editMenuTitle')}</h2>
-        {canEdit ? (
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn-primary text-sm px-5 py-2 rounded-full"
-          >
-            {saving ? t('saving') : t('save')}
-          </button>
-        ) : <div />}
-      </div>
-
-      {/* ── Content ── */}
-      <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
-        {/* Name */}
-        <div>
-          <label className="block text-xs text-fg-tertiary mb-1 font-medium">{t('menuNameLabel')}</label>
-          <input
-            className="input w-full text-base"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-
-        {/* ── Disponibilité ── */}
-        <div>
-          <h3 className="text-lg font-bold text-fg-primary mb-2">{t('menuAvailability')}</h3>
-          <p className="text-sm text-fg-secondary leading-relaxed mb-6">
-            {t('menuAvailabilityDesc')}
-          </p>
-
-          {/* Locations (points of sale) */}
-          <div className="py-4 border-t border-[var(--divider)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <svg className="w-5 h-5 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
-                </svg>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-fg-primary">{t('pointOfSale')}</p>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-fg-secondary font-medium">
-                      {selectedLocationIds.length === 0 ? t('all') : selectedLocationIds.length}
-                    </span>
-                  </div>
-                  <p className="text-xs text-fg-tertiary mt-0.5">
-                    {selectedLocationIds.length === 0
-                      ? (restaurant?.name ?? '—')
-                      : allLocations.filter((l) => selectedLocationIds.includes(l.id)).map((l) => l.name).join(', ')}
-                  </p>
-                </div>
-              </div>
-              {canEdit && (
-                <button onClick={() => setShowLocationsEditor(!showLocationsEditor)} className="text-sm font-medium underline text-fg-primary">
-                  {t('edit')}
-                </button>
-              )}
-            </div>
-            {showLocationsEditor && (
-              <div className="mt-3 pl-8 space-y-2">
-                {allLocations.length === 0 ? (
-                  <p className="text-xs text-fg-tertiary">{t('noLocations') || 'No locations configured yet.'}</p>
-                ) : (
-                  allLocations.filter((l) => l.is_active).map((loc) => (
-                    <label key={loc.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedLocationIds.includes(loc.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedLocationIds((prev) => [...prev, loc.id]);
-                          } else {
-                            setSelectedLocationIds((prev) => prev.filter((id) => id !== loc.id));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      {loc.name}
-                    </label>
-                  ))
-                )}
-                <p className="text-xs text-fg-tertiary mt-1">{t('noLocationsSelectedMeansAll') || 'No selection = available at all locations.'}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Canaux */}
-          <div className="py-4 border-t border-[var(--divider)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <svg className="w-5 h-5 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 0 0 2.25-2.25V6a2.25 2.25 0 0 0-2.25-2.25H6A2.25 2.25 0 0 0 3.75 6v2.25A2.25 2.25 0 0 0 6 10.5Zm0 9.75h2.25A2.25 2.25 0 0 0 10.5 18v-2.25a2.25 2.25 0 0 0-2.25-2.25H6a2.25 2.25 0 0 0-2.25 2.25V18A2.25 2.25 0 0 0 6 20.25Zm9.75-9.75H18a2.25 2.25 0 0 0 2.25-2.25V6A2.25 2.25 0 0 0 18 3.75h-2.25A2.25 2.25 0 0 0 13.5 6v2.25a2.25 2.25 0 0 0 2.25 2.25Z" />
-                </svg>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-fg-primary">{t('channels')}</p>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-fg-secondary font-medium">{t('all')}</span>
-                  </div>
-                  <p className="text-xs text-fg-tertiary mt-0.5">{channelNames.join(', ') || '—'}</p>
-                </div>
-              </div>
-              {canEdit && (
-                <button onClick={() => setShowChannelsEditor(!showChannelsEditor)} className="text-sm font-medium underline text-fg-primary">
-                  {t('edit')}
-                </button>
-              )}
-            </div>
-            {showChannelsEditor && (
-              <div className="mt-3 pl-8 flex gap-4">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={posEnabled} onChange={(e) => setPosEnabled(e.target.checked)} className="rounded" />
-                  POS
-                </label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={webEnabled} onChange={(e) => setWebEnabled(e.target.checked)} className="rounded" />
-                  Web
-                </label>
-              </div>
-            )}
-          </div>
-
-          {/* Carte tournante — gates the batch-aware picker on the carte page */}
-          <div className="py-4 border-t border-[var(--divider)]">
-            <label className="flex items-center justify-between cursor-pointer">
-              <div className="flex items-center gap-3">
-                <svg className="w-5 h-5 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-fg-primary">
-                    {t('rotatingCarte') || 'Carte tournante'}
-                  </p>
-                  <p className="text-xs text-fg-tertiary mt-0.5 max-w-md">
-                    {t('rotatingCarteDesc') || 'Les articles changent par lot de livraison. Active le sélecteur de semaine sur la page de la carte.'}
-                  </p>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={isWeeklyRotating}
-                onChange={(e) => setIsWeeklyRotating(e.target.checked)}
-                disabled={!canEdit}
-                className="rounded shrink-0 disabled:opacity-50"
-              />
-            </label>
-          </div>
-
-          {/* Heures */}
-          <div className="py-4 border-t border-[var(--divider)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <svg className="w-5 h-5 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-fg-primary">{t('hoursLabel')}</p>
-                  <p className="text-xs text-fg-tertiary mt-0.5 max-w-md">{t('hoursAvailabilityDesc')}</p>
-                </div>
-              </div>
-              {canEdit && (
-                <button onClick={() => { setShowHoursEditor(!showHoursEditor); if (followsRestaurantHours) setFollowsRestaurantHours(false); }} className="text-sm font-medium underline text-fg-primary shrink-0">
-                  {t('edit')}
-                </button>
-              )}
-            </div>
-            {showHoursEditor && (
-              <div className="mt-3 pl-8 space-y-2">
-                <label className="flex items-center gap-2 text-sm mb-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={followsRestaurantHours}
-                    onChange={(e) => setFollowsRestaurantHours(e.target.checked)}
-                    className="rounded"
-                  />
-                  {t('followsRestaurantHours')}
-                </label>
-                {!followsRestaurantHours && DAY_LABELS.map((label, day) => {
-                  const h = getHour(day);
-                  return (
-                    <div key={day} className="flex items-center gap-3 text-sm">
-                      <span className="w-8 text-fg-secondary text-xs">{label}</span>
-                      <label className="flex items-center gap-1 text-xs">
-                        <input type="checkbox" checked={h.is_closed} onChange={(e) => setHourField(day, 'is_closed', e.target.checked)} className="rounded" />
-                        {t('closed')}
-                      </label>
-                      {!h.is_closed && (
-                        <>
-                          <input type="time" value={h.open_time} onChange={(e) => setHourField(day, 'open_time', e.target.value)} className="input py-1 px-2 text-xs w-28" />
-                          <span className="text-fg-secondary text-xs">–</span>
-                          <input type="time" value={h.close_time} onChange={(e) => setHourField(day, 'close_time', e.target.value)} className="input py-1 px-2 text-xs w-28" />
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    </FullScreenEditor>
+    <ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardChanges')} description={t(partialSave ? 'menuPartialClose' : 'libraryDiscardDescription')} danger confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => router.push(home)} />
+  </>;
 }

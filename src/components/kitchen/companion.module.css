@@ -1,8 +1,8 @@
 .page {
-  --k-soft: #faf6f0;
+  --k-soft: var(--summary-bg);
   max-width: 1500px;
   margin: auto;
-  padding: 30px 32px 36px;
+  padding: 0 0 32px;
   color: var(--fg);
   font-size: 13px;
 }
@@ -15,10 +15,10 @@
 }
 .eyebrow {
   display: block;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--fg-muted);
   margin-bottom: 9px;
 }
@@ -29,7 +29,7 @@
 }
 .header h1 {
   font-size: 29px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.9px;
   line-height: 1.25;
 }
@@ -47,7 +47,7 @@
   display: flex;
   align-items: center;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: var(--surface);
   padding: 2px;
 }
@@ -92,7 +92,7 @@
 }
 .statusRail b {
   font-size: 22px;
-  font-weight: 550;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 .statusRail svg {
@@ -121,11 +121,11 @@
 .tab strong {
   display: block;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 .tab small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 4px;
   color: var(--fg-muted);
 }
@@ -137,7 +137,7 @@
   border: 1px solid var(--line);
   border-radius: 50%;
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: 12px;
 }
 .tab[aria-selected="true"] {
   color: var(--fg);
@@ -151,12 +151,12 @@
   background: var(--brand-500);
 }
 .tab[aria-selected="true"] .phaseNumber {
-  background: var(--brand-500);
-  color: white;
+  background: var(--action);
+  color: var(--action-fg);
   border-color: var(--brand-500);
 }
 .tab[aria-selected="true"] > svg {
-  color: var(--brand-600);
+  color: var(--brand-ink);
 }
 .content {
   display: grid;
@@ -182,7 +182,7 @@
   min-width: 0;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   overflow: hidden;
 }
 .sectionHeading,
@@ -195,7 +195,7 @@
 }
 .sectionHeading h2,
 .panelHeading h2 {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.5px;
   line-height: 1.3;
@@ -259,7 +259,7 @@
   min-height: 32px;
   padding: 5px 10px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   white-space: nowrap;
 }
@@ -269,7 +269,7 @@
   box-shadow: 0 1px 4px #0000000a;
 }
 .filters b {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   opacity: 0.7;
 }
@@ -287,8 +287,8 @@
 .prepReviewHead,
 .planColumns {
   background: var(--surface-2);
-  font-size: 10px;
-  font-weight: 550;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--fg-muted);
   padding-block: 11px;
 }
@@ -308,7 +308,7 @@
 .salesRow small,
 .prepReviewRow small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 5px;
   color: var(--fg-muted);
 }
@@ -321,7 +321,7 @@
 }
 .need {
   font-size: 18px;
-  font-weight: 550;
+  font-weight: 600;
   color: var(--brand-700);
 }
 .productionProgress {
@@ -340,14 +340,14 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .warning {
   color: var(--warning-700, #9a5b16) !important;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .muted {
   color: var(--fg-muted);
@@ -362,7 +362,7 @@
   justify-content: center;
   gap: 7px;
   font-size: 12px;
-  font-weight: 550;
+  font-weight: 600;
   line-height: 1.45;
   border-radius: 8px;
   min-height: 40px;
@@ -381,11 +381,11 @@
 .actionButton {
   background: var(--surface-2);
   color: var(--fg);
-  font-size: 11px;
+  font-size: 12px;
   padding: 8px 10px;
 }
 .textButton {
-  color: var(--brand-600);
+  color: var(--brand-ink);
   padding-inline: 0;
 }
 .dangerButton {
@@ -416,7 +416,7 @@
   border-top: 1px solid var(--line);
   padding: 9px 24px;
   color: var(--fg-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .pagination > div {
@@ -448,11 +448,11 @@
 .sidePanel h2,
 .handover h2 {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.5;
 }
 .sidePanel header p {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
   margin-top: 6px;
   color: var(--fg-muted);
@@ -472,8 +472,8 @@
   border-top: 1px solid var(--line);
   padding: 13px 20px;
   text-align: start;
-  font-size: 11px;
-  font-weight: 550;
+  font-size: 12px;
+  font-weight: 600;
 }
 .panelLink:hover {
   background: var(--surface-2);
@@ -483,7 +483,7 @@
   align-items: center;
   gap: 8px;
   color: var(--fg-muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 .forecastRow {
   padding: 8px 20px;
@@ -517,13 +517,13 @@
 }
 .forecastRow small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 4px;
 }
 .hint {
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.75;
   padding: 12px 20px;
 }
@@ -559,7 +559,7 @@
 .empty strong {
   color: var(--fg);
   font-size: 14px;
-  font-weight: 550;
+  font-weight: 600;
 }
 .countBadge {
   background: var(--surface-2);
@@ -584,7 +584,7 @@
 }
 .deliveryRow small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 5px;
 }
@@ -596,7 +596,7 @@
 }
 .receivingActions > button {
   flex: 1;
-  font-size: 11px;
+  font-size: 12px;
 }
 .context,
 .bottomNote {
@@ -604,7 +604,7 @@
   align-items: flex-start;
   gap: 8px;
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
   margin-block: 15px;
 }
@@ -666,7 +666,7 @@
   display: flex;
   gap: 6px;
   align-items: center;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 5px;
 }
@@ -690,11 +690,11 @@
 .coverageNotice strong {
   display: block;
   font-size: 12px;
-  font-weight: 550;
+  font-weight: 600;
 }
 .coverageNotice small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 5px;
 }
@@ -728,7 +728,7 @@
 }
 .largeNumber small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
   font-weight: 400;
   letter-spacing: 0;
@@ -741,7 +741,7 @@
   background: var(--k-soft, var(--surface-2));
 }
 .handover label > span {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   display: block;
   line-height: 1.7;
@@ -761,7 +761,7 @@
 }
 .handover .textButton {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .tomorrowButton,
 .attentionAction {
@@ -788,7 +788,7 @@
 .tomorrowButton small,
 .attentionAction small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
   line-height: 1.6;
   margin-top: 5px;
@@ -812,7 +812,7 @@
 .closeBar p,
 .closeBar small {
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
   margin-top: 5px;
   display: block;
@@ -853,17 +853,17 @@
   font-size: 12px;
 }
 .lowStockRow strong {
-  font-weight: 550;
+  font-weight: 600;
 }
 .lowStockRow small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 5px;
 }
 .lowStockRow > b {
   text-align: end;
-  font-weight: 550;
+  font-weight: 600;
   white-space: nowrap;
 }
 .planColumns,
@@ -885,12 +885,12 @@
 }
 .planRow small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 5px;
 }
 .planRow > span {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 500;
 }
 .planRow input {
@@ -908,7 +908,7 @@
 .plannerFooter {
   padding: 15px 24px;
   border-top: 1px solid var(--line);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
 }
 .plannerFooter span {
@@ -999,7 +999,7 @@
 }
 .drawerSectionTitle {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   margin-block: 25px 12px;
 }
 .balance {
@@ -1037,7 +1037,7 @@
 }
 .ledger dd {
   font-variant-numeric: tabular-nums;
-  font-weight: 550;
+  font-weight: 600;
 }
 .recipeDetails {
   margin-block: 16px;
@@ -1049,7 +1049,7 @@
 }
 .recipeDetails p {
   padding: 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .countPanel {
   margin-top: 24px;
@@ -1106,7 +1106,7 @@
 }
 .salesRow > b {
   font-variant-numeric: tabular-nums;
-  font-weight: 550;
+  font-weight: 600;
 }
 .sourceBadge {
   display: inline-flex;
@@ -1114,7 +1114,7 @@
   padding: 4px 7px;
   border: 1px solid var(--line);
   border-radius: 5px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
 }
 .selectionBar {
@@ -1149,11 +1149,11 @@
 }
 .objectiveRow strong {
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 600;
 }
 .objectiveRow small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 4px;
 }
@@ -1179,7 +1179,7 @@
   font-variant-numeric: tabular-nums;
 }
 .prepReviewRow p {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
   margin-top: 10px;
 }
@@ -1198,7 +1198,7 @@
   margin-top: 15px;
 }
 .tomorrowRow dt {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
 }
 .tomorrowRow dd {
@@ -1219,7 +1219,7 @@
 }
 .receiptHistoryRow small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 5px;
 }
@@ -1378,7 +1378,7 @@
   }
   .statusRail span {
     flex-basis: 100%;
-    font-size: 10px;
+    font-size: 12px;
     min-height: 30px;
   }
   .tabs {
@@ -1391,7 +1391,7 @@
     display: none;
   }
   .tab strong {
-    font-size: 11px;
+    font-size: 12px;
   }
   .tab small {
     font-size: 9px;
@@ -1510,7 +1510,7 @@
 .entryHead {
   background: var(--surface-2);
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 12px;
   padding-block: 10px;
 }
 .entryRow {
@@ -1523,7 +1523,7 @@
 }
 .entryRow small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 6px;
 }
@@ -1579,7 +1579,7 @@
 }
 .batchContext span {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
 }
 .batchContext b {
@@ -1597,7 +1597,7 @@
 }
 .batchStep h3 {
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   padding-bottom: 15px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 18px;
@@ -1619,7 +1619,7 @@
 }
 .batchStep > p {
   margin-top: 10px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
 }
 .receiptProgress {
@@ -1633,7 +1633,7 @@
   font-size: 12px;
 }
 .receiptProgress strong {
-  font-weight: 550;
+  font-weight: 600;
   text-align: end;
 }
 .receiptProgress progress {
@@ -1655,16 +1655,16 @@
 }
 .receiptCheckRow strong {
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 600;
 }
 .receiptCheckRow small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 6px;
 }
 .receiptCheckRow label {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--fg-muted);
 }
 .receiptCheckRow label input {
@@ -1711,7 +1711,7 @@
 .importChoices small {
   grid-column: 2;
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .uploadButton {
   display: inline-flex;
@@ -1723,7 +1723,7 @@
   border-radius: 8px;
   padding: 12px 15px;
   font-size: 12px;
-  font-weight: 550;
+  font-weight: 600;
   cursor: pointer;
 }
 .uploadButton input {
@@ -1752,12 +1752,12 @@
 .importFile strong {
   display: block;
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 .importFile small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-top: 6px;
 }
@@ -1797,7 +1797,7 @@
 .mappingSummary p {
   color: var(--fg-muted);
   margin-top: 7px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .mappingRow {
   display: grid;
@@ -1810,17 +1810,17 @@
 .mappingRow strong {
   display: block;
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 600;
 }
 .mappingRow small {
   display: block;
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 6px;
 }
 .mappingRow label {
   color: var(--fg-muted);
-  font-size: 10px;
+  font-size: 12px;
   min-width: 0;
 }
 .mappingRow select {
@@ -1855,4 +1855,10 @@
   z-index: 5;
   background: var(--bg);
   padding-top: 10px;
+}
+
+.productionWorkspace .sectionHeading {
+  background: var(--summary-bg);
+  color: var(--summary-fg);
+  border-bottom: 1px solid var(--line);
 }

@@ -183,7 +183,7 @@ export function TicketLineRow({
         </span>
         {variantText && (
           <span
-            className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tracking-[-0.005em]"
+            className="inline-flex items-center px-2 py-0.5 rounded-full text-fs-xs font-medium tracking-[-0.005em]"
             style={{
               background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
               color: 'var(--brand-500)',

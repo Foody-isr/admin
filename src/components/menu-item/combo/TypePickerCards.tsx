@@ -4,7 +4,8 @@
 // dropdown with two cards: the form's tab structure adapts to the choice,
 // so the picker is the primary surface for surfacing what each type is for.
 
-import { Box, Boxes, Check } from 'lucide-react';
+import { useId } from 'react';
+import { Box, Boxes } from 'lucide-react';
 import type { ItemType } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -16,13 +17,15 @@ interface Props {
 
 export default function TypePickerCards({ value, onChange }: Props) {
   const { t } = useI18n();
+  const group = useId();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--s-3)]">
       <TypeCard
         selected={value === 'food_and_beverage'}
-        accentColor="#16a34a"
+        name={group}
+        disabled={!canEdit}
         icon={<Box className="w-4 h-4" />}
         title={t('typeArticle')}
         tagline={t('typeArticleTagline')}
@@ -30,7 +33,8 @@ export default function TypePickerCards({ value, onChange }: Props) {
       />
       <TypeCard
         selected={value === 'combo'}
-        accentColor="var(--brand-500)"
+        name={group}
+        disabled={!canEdit}
         icon={<Boxes className="w-4 h-4" />}
         title={t('typeCombo')}
         tagline={t('typeComboTagline')}
@@ -42,46 +46,36 @@ export default function TypePickerCards({ value, onChange }: Props) {
 
 interface CardProps {
   selected: boolean;
-  accentColor: string;
+  name: string;
+  disabled: boolean;
   icon: React.ReactNode;
   title: string;
   tagline: string;
   onClick: () => void;
 }
 
-function TypeCard({ selected, accentColor, icon, title, tagline, onClick }: CardProps) {
+function TypeCard({ selected, name, disabled, icon, title, tagline, onClick }: CardProps) {
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onClick}
-      className={`text-start flex items-center gap-[var(--s-3)] rounded-r-lg p-[var(--s-3)] transition-[border-color,box-shadow] duration-fast ease-out cursor-pointer ${
+    <label
+      className={`text-start flex items-center gap-[var(--s-3)] rounded-r-lg p-[var(--s-3)] transition-[border-color,box-shadow] duration-fast ease-out cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--brand-ink)] ${
         selected
-          ? 'border border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_5%,var(--surface))] shadow-[0_0_0_3px_color-mix(in_oklab,var(--brand-500)_15%,transparent)]'
+          ? 'border border-[var(--action)] bg-[var(--brand-soft)]'
           : 'border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line-strong)]'
       }`}
     >
+      <input className="size-4 shrink-0 accent-[var(--brand-500)]" type="radio" name={name} checked={selected} disabled={disabled} onChange={onClick} />
       <div
-        className="w-8 h-8 rounded-r-md grid place-items-center text-white shrink-0"
-        style={{ background: accentColor }}
+        className="w-8 h-8 rounded-r-md grid place-items-center text-[var(--summary-fg)] bg-[var(--summary-bg)] shrink-0"
       >
         {icon}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-fs-sm font-semibold text-[var(--fg)]">{title}</span>
-          {selected && (
-            <span
-              className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-r-sm text-white shrink-0"
-              style={{ background: accentColor }}
-            >
-              <Check className="w-2.5 h-2.5" strokeWidth={3} />
-            </span>
-          )}
+
         </div>
-        <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5 truncate">{tagline}</p>
+        <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5 leading-relaxed">{tagline}</p>
       </div>
-    </button>
+    </label>
   );
 }

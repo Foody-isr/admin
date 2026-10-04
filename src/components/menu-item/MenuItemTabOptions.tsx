@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -12,7 +12,7 @@ import type {
   OptionSet,
   ItemOptionOverride,
 } from '@/lib/api';
-import { Badge } from '@/components/ds';
+import { Badge, Button } from '@/components/ds';
 
 // Aligned to design-reference/design/screens/item-editor.jsx:318-355 (ModsTab).
 // Section head with 3px brand accent; cards use --surface + --line; actions are
@@ -154,7 +154,7 @@ export default function MenuItemTabOptions({
                   <button
                     type="button"
                     onClick={() => onDeleteModifier(mod.id)}
-                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                    className="px-[var(--s-3)] min-h-11 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
                   >
                     {t('delete') || 'Supprimer'}
                   </button>
@@ -215,14 +215,14 @@ export default function MenuItemTabOptions({
                     <button
                       type="button"
                       onClick={() => onEditVariantGroup(group.id)}
-                      className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
+                      className="px-[var(--s-3)] min-h-11 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
                     >
                       {t('edit') || 'Modifier'}
                     </button>
                     <button
                       type="button"
                       onClick={() => onDeleteVariantGroup(group.id)}
-                      className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                      className="px-[var(--s-3)] min-h-11 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
                     >
                       {t('delete') || 'Supprimer'}
                     </button>
@@ -276,14 +276,14 @@ export default function MenuItemTabOptions({
                     <button
                       type="button"
                       onClick={() => onEditOptionSet(set.id)}
-                      className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
+                      className="px-[var(--s-3)] min-h-11 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
                     >
                       {t('edit') || 'Modifier'}
                     </button>
                     <button
                       type="button"
                       onClick={() => onDetachOptionSet(set.id)}
-                      className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                      className="px-[var(--s-3)] min-h-11 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
                     >
                       {t('detach') || 'Détacher'}
                     </button>
@@ -372,6 +372,8 @@ function ModifierSetCard({
   const canEdit = hasAnyPermission('menu.edit');
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const busy = useRef(false);
 
   // Track which fields are currently overridden (null = inherit, value = pinned).
   const [minOverride, setMinOverride] = useState<number | null>(
@@ -399,8 +401,8 @@ function ModifierSetCard({
     `${t('inherit') || 'Inherit'}${n !== undefined ? ` (${n})` : ''}`;
 
   const save = async () => {
-    if (!onSaveOverrides) return;
-    setSaving(true);
+    if (!onSaveOverrides || busy.current) return;
+    busy.current = true; setSaving(true); setError('');
     try {
       await onSaveOverrides({
         min_selections: minOverride,
@@ -408,8 +410,10 @@ function ModifierSetCard({
         is_required: requiredOverride,
       });
       setOpen(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t('libraryOperationFailed'));
     } finally {
-      setSaving(false);
+      busy.current = false; setSaving(false);
     }
   };
 
@@ -420,8 +424,9 @@ function ModifierSetCard({
   };
 
   return (
-    <div className="bg-[var(--surface)] rounded-r-md border border-[var(--line)] shadow-1">
-      <div className="p-[var(--s-3)_var(--s-4)] flex items-center gap-[var(--s-3)]">
+    <div className="bg-[var(--surface)] rounded-r-md border border-[var(--line)]">
+      {error && <p role="alert" className="m-3 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{error}</p>}
+      <div className="flex flex-wrap items-center gap-3 p-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-[var(--s-2)]">
             <span className="text-fs-sm font-medium text-[var(--fg)]">{set.name}</span>
@@ -436,8 +441,9 @@ function ModifierSetCard({
         {canEdit && canEditOverrides && (
           <button
             type="button"
+            aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors inline-flex items-center gap-1"
+            className="px-[var(--s-3)] min-h-11 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors inline-flex items-center gap-1"
           >
             {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             {t('override') || 'Override'}
@@ -447,7 +453,7 @@ function ModifierSetCard({
           <button
             type="button"
             onClick={onDetach}
-            className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+            className="px-[var(--s-3)] min-h-11 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
           >
             {t('detach') || 'Détacher'}
           </button>
@@ -455,7 +461,7 @@ function ModifierSetCard({
       </div>
 
       {open && (
-        <div className="border-t border-[var(--line)] p-[var(--s-3)_var(--s-4)] bg-[var(--surface-2)] grid grid-cols-1 sm:grid-cols-3 gap-[var(--s-3)]">
+        <fieldset disabled={saving} className="border-t border-[var(--line)] p-4 bg-[var(--surface-2)] grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label className="flex flex-col gap-1">
             <span className="text-fs-xs font-medium text-[var(--fg-muted)]">
               {t('minSelections') || 'Min'}
@@ -468,7 +474,7 @@ function ModifierSetCard({
                 setMinOverride(e.target.value === '' ? null : Number(e.target.value))
               }
               placeholder={defaultsLabel(setDefaults?.min_selections)}
-              className="h-8 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-2)] text-fs-sm"
+              className="input text-sm"
             />
           </label>
           <label className="flex flex-col gap-1">
@@ -483,7 +489,7 @@ function ModifierSetCard({
                 setMaxOverride(e.target.value === '' ? null : Number(e.target.value))
               }
               placeholder={defaultsLabel(setDefaults?.max_selections)}
-              className="h-8 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-2)] text-fs-sm"
+              className="input text-sm"
             />
           </label>
           <label className="flex flex-col gap-1">
@@ -496,7 +502,7 @@ function ModifierSetCard({
                 const v = e.target.value;
                 setRequiredOverride(v === '' ? null : v === 'yes');
               }}
-              className="h-8 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-2)] text-fs-sm"
+              className="input text-sm"
             >
               <option value="">
                 {defaultsLabel(undefined)}
@@ -510,20 +516,13 @@ function ModifierSetCard({
             <button
               type="button"
               onClick={reset}
-              className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface)] hover:text-[var(--fg)] transition-colors"
+              className="px-[var(--s-3)] min-h-11 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface)] hover:text-[var(--fg)] transition-colors"
             >
               {t('resetToInherit') || 'Reset to inherit'}
             </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving}
-              className="px-[var(--s-4)] h-7 rounded-r-md text-fs-xs font-semibold bg-[var(--brand-500)] text-white hover:bg-[var(--brand-600)] disabled:opacity-60 transition-colors"
-            >
-              {saving ? (t('saving') || 'Saving…') : (t('save') || 'Save')}
-            </button>
+            <Button type="button" variant="primary" onClick={() => void save()} disabled={saving}>{t(saving ? 'saving' : 'save')}</Button>
           </div>
-        </div>
+        </fieldset>
       )}
     </div>
   );

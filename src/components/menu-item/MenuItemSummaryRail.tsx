@@ -77,8 +77,8 @@ export default function MenuItemSummaryRail({
   return (
     <>
       {/* Item card */}
-      <div className="bg-[var(--surface)] rounded-r-lg overflow-hidden border border-[var(--line)] shadow-sm">
-        <div className="relative h-48 bg-gradient-to-br from-[color-mix(in_oklab,var(--brand-500)_16%,transparent)] to-[color-mix(in_oklab,var(--brand-500)_7%,transparent)]">
+      <div className="bg-[var(--surface)] rounded-r-lg overflow-hidden border border-[var(--line)] ">
+        <div className="relative h-40 md:h-48 bg-[var(--summary-bg)]">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -109,7 +109,7 @@ export default function MenuItemSummaryRail({
             }
             return (
               <span
-                className={`absolute top-3 right-3 size-3 rounded-full border-2 border-[var(--surface)] ${dotClass}`}
+                className={`absolute top-3 end-3 size-3 rounded-full border-2 border-[var(--surface)] ${dotClass}`}
                 title={dotTitle}
               />
             );
@@ -138,12 +138,12 @@ export default function MenuItemSummaryRail({
         </div>
 
         <div className="p-4">
-          <h3 className="text-lg font-bold text-[var(--fg)] mb-1 truncate" title={name}>
+          <h3 className="text-base font-semibold text-[var(--fg)] mb-1 break-words" title={name}>
             {name || placeholderLabel || '\u2014'}
           </h3>
           <div className="flex items-center gap-2">
             {typeof price === 'number' && price > 0 && (
-              <span className="text-[var(--brand-500)] font-semibold text-base">
+              <span dir="ltr" className="text-[var(--fg)] font-semibold text-base tabular-nums">
                 {price.toFixed(2)} {currency}
               </span>
             )}
@@ -169,7 +169,7 @@ export default function MenuItemSummaryRail({
       {/* Cost summary — Figma:65 */}
       {costSummary && (
         <div className="mt-6 bg-[var(--surface)] rounded-r-lg p-4 border border-[var(--line)]">
-          <h4 className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wider mb-4">
+          <h4 className="text-sm font-semibold text-[var(--fg)] mb-4">
             {t('costSummary')}
           </h4>
           <div className="space-y-3">
@@ -292,7 +292,7 @@ function ComboSavingsPanel({
     );
     return (
       <div className="mt-6 bg-[var(--surface)] rounded-r-lg p-4 border border-[var(--line)]">
-        <h4 className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wider mb-4">
+        <h4 className="text-sm font-semibold text-[var(--fg)] mb-4">
           {t('comboSavingsPanelTitle') || 'Économies pour le client'}
         </h4>
         <div className="space-y-3">
@@ -317,7 +317,7 @@ function ComboSavingsPanel({
 
   return (
     <div className="mt-6 bg-[var(--surface)] rounded-r-lg p-4 border border-[var(--line)]">
-      <h4 className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wider mb-4">
+      <h4 className="text-sm font-semibold text-[var(--fg)] mb-4">
         {t('comboSavingsPanelTitle') || 'Économies pour le client'}
       </h4>
       <div className="space-y-3">

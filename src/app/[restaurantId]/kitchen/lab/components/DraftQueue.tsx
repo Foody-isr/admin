@@ -1,6 +1,7 @@
 'use client';
 
-import { useDraftQueue } from '../hooks/useDraftQueue';
+import type { DraftQueueState } from '../hooks/useDraftQueue';
+import { Button } from '@/components/ds';
 import type { Draft } from '../types';
 import { useI18n } from '@/lib/i18n';
 import { ArrowUpRightIcon, LoaderCircleIcon } from 'lucide-react';
@@ -25,16 +26,20 @@ function StatusDot({ status }: { status: Draft['status'] }) {
  * draft reviewer pane.
  */
 export function DraftQueue({
-  restaurantId,
+  state,
+  disabled,
   activeDraftId,
   onSelect,
 }: {
-  restaurantId: number;
+  state: DraftQueueState;
+  disabled?: boolean;
   activeDraftId: number | null;
   onSelect: (id: number) => void;
 }) {
   const { t } = useI18n();
-  const { drafts, loading } = useDraftQueue(restaurantId);
+  const { drafts, loading, error, refetch } = state;
+
+  if (error) return <div role="alert" className="text-sm text-[var(--danger-500)]"><p>{error}</p><Button variant="secondary" disabled={disabled} onClick={() => void refetch()}>{t('retry')}</Button></div>;
 
   if (loading) {
     return (
@@ -46,7 +51,7 @@ export function DraftQueue({
 
   if (drafts.length === 0) {
     return (
-      <div className="rounded-[12px] border border-dashed border-[var(--line-strong)] px-4 py-8 text-center">
+      <div className="rounded-[8px] border border-dashed border-[var(--line-strong)] px-4 py-8 text-center">
         <p className="text-sm font-medium text-[var(--fg)]">{t('labNoDraftsYet')}</p>
         <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">{t('labNoDraftsHelp')}</p>
       </div>
@@ -61,14 +66,16 @@ export function DraftQueue({
           <li key={d.id}>
             <button
               type="button"
+              disabled={disabled}
+              aria-current={isActive ? 'true' : undefined}
               onClick={() => onSelect(d.id)}
               title={d.dish_name}
-              className={`group flex w-full items-center gap-3 rounded-[10px] border px-3 py-3 text-start transition-[border-color,background-color] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${isActive ? 'border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_8%,var(--surface))]' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'}`}
+              className={`group flex w-full items-center gap-3 rounded-[8px] border px-3 py-3 text-start transition-[border-color,background-color] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${isActive ? 'border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_8%,var(--surface))]' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'}`}
             >
               <StatusDot status={d.status} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-[var(--fg)]">{d.dish_name}</span>
-                <span className="mt-0.5 block text-[11px] text-[var(--fg-muted)]">
+                <span className="block break-words text-sm font-medium text-[var(--fg)]">{d.dish_name}</span>
+                <span className="mt-0.5 block text-xs text-[var(--fg-muted)]">
                   {d.payload?.creation_mode === 'manual' ? `${t('labManualDraftLabel')} · ` : ''}{t(`labDraftStatus_${d.status}`)}
                 </span>
               </span>

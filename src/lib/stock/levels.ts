@@ -30,7 +30,7 @@ export function getPackaging(item: StockItem): Packaging {
 }
 
 function pluralize(word: string, count: number): string {
-  if (!word) return word;
+  if (!word || /[^a-zÀ-ÿ -]/i.test(word)) return word;
   if (count === 1) return word;
   if (word.endsWith('s')) return word;
   return word + 's';
@@ -69,12 +69,12 @@ export function formatQuantityAtLevel(item: StockItem, level: Level, t: (k: stri
   // L1
   if (pack > 0 && content > 0) {
     const count = item.quantity / (pack * content);
-    const descriptor = ` (of ${pack} ${pluralize(inner, pack)} × ${fmtCount(content)}${contentUnit})`;
+    const descriptor = ` (${t('of')} ${pack} ${pluralize(inner, pack)} × ${fmtCount(content)}${contentUnit})`;
     return `${fmtCount(count)} ${pluralize(outer, count)}${descriptor}`;
   }
   if (content > 0) {
     const count = item.quantity / content;
-    const descriptor = ` (of ${fmtCount(content)}${contentUnit})`;
+    const descriptor = ` (${t('of')} ${fmtCount(content)}${contentUnit})`;
     return `${fmtCount(count)} ${pluralize(outer, count)}${descriptor}`;
   }
   return formatBaseAmount(item.quantity, baseUnit);

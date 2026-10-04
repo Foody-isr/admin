@@ -47,7 +47,7 @@ export default function ProductionBoard({
   const qty = (value: number) =>
     value.toLocaleString(locale, { maximumFractionDigits: 2 });
   return (
-    <section className={styles.workspace} aria-label={t("kwProduction")}>
+    <section className={`${styles.workspace} ${styles.productionWorkspace}`} aria-label={t("kwProduction")}>
       <header className={styles.sectionHeading}>
         <div>
           <span className={styles.eyebrow}>{t("kwMiseEnPlace")}</span>

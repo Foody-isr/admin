@@ -2,255 +2,161 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MicIcon, SquareIcon, Trash2Icon, SendHorizonalIcon } from 'lucide-react';
+import { Button } from '@/components/ds';
 
 interface Props {
   /** Called once the user accepts a recording and asks to send it. */
   onSubmit: (blob: Blob, mediaType: string) => void;
-  /** Disabled while an upstream request is in flight. */
+  /** Report a recording or pending microphone request to the containing draft. */
+  onDraftChange?: (dirty: boolean) => void;
   disabled?: boolean;
   t: (key: string) => string;
 }
 
-/**
- * VoiceRecorder — WhatsApp-style audio capture.
- *
- * Phases:
- *   idle        → "Tap to record"
- *   recording   → live timer + waveform-pulse, Stop button
- *   review      → "X seconds captured", Re-record / Send
- *
- * The recorder uses MediaRecorder with the browser's default Opus/WebM
- * encoder. If the browser doesn't support it we surface an inline error
- * instead of throwing.
- */
-export default function VoiceRecorder({ onSubmit, disabled, t }: Props) {
-  const [phase, setPhase] = useState<'idle' | 'recording' | 'review'>('idle');
+/** Capture a local voice note and upload only after the user chooses Send. */
+export default function VoiceRecorder({ onSubmit, onDraftChange, disabled, t }: Props) {
+  const [phase, setPhase] = useState<'idle' | 'requesting' | 'recording' | 'review'>('idle');
   const [elapsedMs, setElapsedMs] = useState(0);
   const [blob, setBlob] = useState<Blob | null>(null);
-  const [mediaType, setMediaType] = useState<string>('audio/webm');
-  const [error, setError] = useState<string>('');
-  const [level, setLevel] = useState(0);
+  const [preview, setPreview] = useState('');
+  const [error, setError] = useState('');
+  const recorder = useRef<MediaRecorder | null>(null);
+  const stream = useRef<MediaStream | null>(null);
+  const timer = useRef<number | null>(null);
+  const startedAt = useRef(0);
+  const generation = useRef(0);
+  const acquiring = useRef(false);
+  const draftChange = useRef(onDraftChange);
+  draftChange.current = onDraftChange;
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const startedAtRef = useRef<number>(0);
-  const tickRef = useRef<number | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const rafRef = useRef<number | null>(null);
-
-  // Stop everything on unmount.
+  const release = () => {
+    if (timer.current !== null) window.clearInterval(timer.current);
+    timer.current = null;
+    stream.current?.getTracks().forEach(track => track.stop());
+    stream.current = null;
+  };
   useEffect(() => {
+    const requestGeneration = generation;
     return () => {
-      stopMeters();
-      stopStream();
+      requestGeneration.current++;
+      const active = recorder.current;
+      if (active && active.state !== 'inactive') active.stop();
+      release();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    if (!blob) { setPreview(''); return; }
+    const url = URL.createObjectURL(blob);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [blob]);
 
-  const stopMeters = () => {
-    if (tickRef.current) {
-      window.clearInterval(tickRef.current);
-      tickRef.current = null;
-    }
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    audioCtxRef.current?.close().catch(() => {});
-    audioCtxRef.current = null;
-    analyserRef.current = null;
-  };
-
-  const stopStream = () => {
-    streamRef.current?.getTracks().forEach((tr) => tr.stop());
-    streamRef.current = null;
-  };
-
-  const startRecording = async () => {
+  const start = async () => {
+    if (disabled || acquiring.current || recorder.current?.state === 'recording') return;
     setError('');
-    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setError(t('voiceUnsupported'));
       return;
     }
+    const request = ++generation.current;
+    acquiring.current = true;
+    setPhase('requesting');
+    draftChange.current?.(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      // Pick a mime type the browser actually supports.
-      const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
-      const mime = candidates.find((m) => MediaRecorder.isTypeSupported(m)) || '';
-      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      mediaRecorderRef.current = rec;
-      chunksRef.current = [];
-      rec.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      rec.onstop = () => {
-        const finalType = rec.mimeType || mime || 'audio/webm';
-        // Strip codec suffix for the upload Content-Type — the backend only
-        // matches on the base mime prefix.
-        const baseType = finalType.split(';')[0];
-        setMediaType(baseType);
-        const out = new Blob(chunksRef.current, { type: finalType });
-        setBlob(out);
-        setPhase('review');
-        stopMeters();
-        stopStream();
-      };
-
-      // Live level meter for the recording pulse animation.
-      try {
-        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        const ctx = new Ctx();
-        audioCtxRef.current = ctx;
-        const src = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        analyserRef.current = analyser;
-        src.connect(analyser);
-        const buf = new Uint8Array(analyser.frequencyBinCount);
-        const sample = () => {
-          if (!analyserRef.current) return;
-          analyserRef.current.getByteTimeDomainData(buf);
-          // Peak deviation from 128 ≈ amplitude.
-          let max = 0;
-          for (let i = 0; i < buf.length; i++) {
-            const v = Math.abs(buf[i] - 128);
-            if (v > max) max = v;
-          }
-          setLevel(Math.min(1, max / 64));
-          rafRef.current = requestAnimationFrame(sample);
-        };
-        sample();
-      } catch {
-        /* metering is decorative — ignore failures */
+      const captured = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (request !== generation.current) {
+        captured.getTracks().forEach(track => track.stop());
+        return;
       }
-
-      rec.start(250);
-      startedAtRef.current = Date.now();
+      stream.current = captured;
+      const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+        .find(type => MediaRecorder.isTypeSupported(type));
+      const active = mime ? new MediaRecorder(captured, { mimeType: mime }) : new MediaRecorder(captured);
+      recorder.current = active;
+      const chunks: Blob[] = [];
+      active.ondataavailable = event => { if (event.data.size > 0) chunks.push(event.data); };
+      active.onerror = () => {
+        if (request !== generation.current) return;
+        generation.current++;
+        if (active.state !== 'inactive') active.stop();
+        release();
+        setPhase('idle');
+        setError(t('voiceRecordingFailed'));
+        draftChange.current?.(false);
+      };
+      active.onstop = () => {
+        if (request !== generation.current) return;
+        release();
+        const result = new Blob(chunks, { type: active.mimeType || mime || 'audio/webm' });
+        if (!result.size) {
+          setPhase('idle');
+          setError(t('voiceRecordingFailed'));
+          draftChange.current?.(false);
+          return;
+        }
+        setBlob(result);
+        setPhase('review');
+      };
+      active.start(250);
+      startedAt.current = Date.now();
       setElapsedMs(0);
-      tickRef.current = window.setInterval(() => {
-        setElapsedMs(Date.now() - startedAtRef.current);
-      }, 200);
+      timer.current = window.setInterval(() => setElapsedMs(Date.now() - startedAt.current), 200);
       setPhase('recording');
-    } catch (err) {
-      const msg = (err as Error).message || String(err);
-      setError(msg.includes('Permission') || msg.includes('denied') ? t('voicePermissionDenied') : msg);
+    } catch (cause) {
+      if (request !== generation.current) return;
+      release();
+      setPhase('idle');
+      const denied = cause instanceof DOMException && ['NotAllowedError', 'PermissionDeniedError'].includes(cause.name);
+      setError(denied ? t('voicePermissionDenied') : t('voiceRecordingFailed'));
+      draftChange.current?.(false);
+    } finally {
+      if (request === generation.current) acquiring.current = false;
     }
   };
-
-  const stopRecording = () => {
-    const rec = mediaRecorderRef.current;
-    if (rec && rec.state !== 'inactive') {
-      rec.stop();
+  const stop = () => {
+    const active = recorder.current;
+    if (active && active.state !== 'inactive') {
+      setElapsedMs(Date.now() - startedAt.current);
+      active.stop();
     }
   };
-
   const reset = () => {
+    if (disabled) return;
     setBlob(null);
     setElapsedMs(0);
-    setLevel(0);
+    setError('');
     setPhase('idle');
+    draftChange.current?.(false);
   };
-
   const send = () => {
-    if (!blob) return;
-    // Below ~1.5s the recording is almost certainly a misclick — too short
-    // for any useful delivery description. Reject locally instead of burning
-    // a Whisper round-trip on a hallucinated transcript.
-    if (elapsedMs < 1500) {
-      setError(t('voiceTooShort'));
-      return;
-    }
-    onSubmit(blob, mediaType);
+    if (!blob || disabled) return;
+    if (elapsedMs < 1500) { setError(t('voiceTooShort')); return; }
+    onSubmit(blob, blob.type.split(';')[0]);
   };
-
   const seconds = Math.floor(elapsedMs / 1000);
-  const mm = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const ss = (seconds % 60).toString().padStart(2, '0');
+  const duration = `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
 
-  if (error) {
-    return (
-      <div className="p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm text-amber-600">
-        {error}
-        <button onClick={() => setError('')} className="ml-3 text-xs underline">{t('retry')}</button>
-      </div>
-    );
-  }
-
-  if (phase === 'idle') {
-    return (
-      <div className="flex flex-col items-center gap-3 py-4">
-        <button
-          type="button"
-          onClick={startRecording}
-          disabled={disabled}
-          aria-label={t('voiceRecord')}
-          className="w-16 h-16 rounded-full bg-brand-500 hover:bg-brand-400 text-white flex items-center justify-center shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <MicIcon className="w-7 h-7" />
-        </button>
-        <p className="text-xs text-fg-tertiary text-center max-w-xs">
-          {t('voiceHint')}
-        </p>
-      </div>
-    );
-  }
-
-  if (phase === 'recording') {
-    // Pulse the mic according to live audio level — visible feedback that we
-    // actually hear them. Falls back to a baseline pulse if metering failed.
-    const scale = 1 + level * 0.6;
-    return (
-      <div className="flex flex-col items-center gap-3 py-4">
-        <button
-          type="button"
-          onClick={stopRecording}
-          aria-label={t('voiceStop')}
-          className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-400 text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-          style={{ transform: `scale(${scale.toFixed(3)})`, transitionDuration: '90ms' }}
-        >
-          <SquareIcon className="w-6 h-6 fill-current" />
-        </button>
-        <div className="flex items-center gap-2 text-sm text-fg-primary">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="tabular-nums font-medium">{mm}:{ss}</span>
-          <span className="text-fg-tertiary">· {t('voiceRecordingHint')}</span>
-        </div>
-      </div>
-    );
-  }
-
-  // review
   return (
-    <div className="flex flex-col items-stretch gap-3 py-2">
-      <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[var(--surface-subtle)] border border-[var(--divider)]">
-        <MicIcon className="w-4 h-4 text-brand-500 shrink-0" />
-        <span className="text-sm text-fg-primary flex-1 truncate">
-          {t('voiceReady').replace('{s}', String(seconds))}
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={reset}
-          disabled={disabled}
-          className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-[var(--divider)] hover:bg-[var(--surface)] text-fg-secondary disabled:opacity-50"
-        >
-          <Trash2Icon className="w-4 h-4" />
-          {t('voiceRerecord')}
-        </button>
-        <button
-          type="button"
-          onClick={send}
-          disabled={disabled || !blob}
-          className="btn-primary text-sm flex-1 inline-flex items-center justify-center gap-2"
-        >
-          <SendHorizonalIcon className="w-4 h-4" />
-          {t('voiceSend')}
-        </button>
-      </div>
+    <div className="space-y-4 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
+      {error && <p role="alert" className="text-sm text-[var(--danger-500)]">{error}</p>}
+      {(phase === 'idle' || phase === 'requesting') && <>
+        <p className="text-sm text-fg-secondary">{t('voiceHint')}</p>
+        <Button type="button" size="lg" className="w-full" disabled={disabled || phase === 'requesting'} onClick={() => void start()}>
+          <MicIcon />{t(phase === 'requesting' ? 'voiceRequesting' : 'voiceRecord')}
+        </Button>
+      </>}
+      {phase === 'recording' && <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 text-sm"><bdi className="tabular-nums text-lg font-semibold">{duration}</bdi><p className="text-fg-secondary">{t('voiceRecordingHint')}</p></div>
+        <Button type="button" size="lg" variant="secondary" onClick={stop}><SquareIcon />{t('voiceStop')}</Button>
+      </div>}
+      {phase === 'review' && <>
+        <p role="status" className="text-sm font-medium">{t('voiceReady').replace('{s}', String(seconds))}</p>
+        {preview && <audio controls src={preview} aria-label={t('voicePreview')} className="w-full min-w-0" />}
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="lg" variant="secondary" onClick={reset} disabled={disabled}><Trash2Icon />{t('voiceRerecord')}</Button>
+          <Button type="button" size="lg" className="flex-1" onClick={send} disabled={disabled || !blob}><SendHorizonalIcon />{t('voiceSend')}</Button>
+        </div>
+      </>}
     </div>
   );
 }

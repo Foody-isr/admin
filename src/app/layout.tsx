@@ -1,24 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Heebo, Instrument_Serif } from 'next/font/google';
-import { GeistSans } from 'geist/font/sans';
-import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { ThemeProvider } from '@/lib/theme-context';
 import { LocaleProvider } from '@/lib/i18n';
 import { ServiceWorkerRegister } from '@/components/common/ServiceWorkerRegister';
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  weight: '400',
-  display: 'swap',
-  variable: '--font-display',
-});
-
-const orderSans = Heebo({
-  subsets: ['latin', 'hebrew'],
-  display: 'swap',
-  variable: '--font-order-sans',
-});
 
 export const metadata: Metadata = {
   title: 'Foody Admin',
@@ -31,20 +15,18 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
   },
   icons: {
-    // Brand PNG icons match foodypos so the home-screen icon looks
-    // identical across the Foody product family. iOS specifically wants
-    // PNG for apple-touch-icon — SVG is allowed in newer Safari but
-    // unreliable. The 192px asset is what iOS uses for the home screen.
+    // C2 artwork; the raster assets are composed for OS-applied icon masks.
     icon: [
-      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/brand/favicon.svg?v=c2', type: 'image/svg+xml' },
+      { url: '/icons/icon-192.png?v=c2', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png?v=c2', sizes: '512x512', type: 'image/png' },
     ],
-    apple: [{ url: '/icons/icon-192.png', sizes: '192x192' }],
+    apple: [{ url: '/icons/apple-touch-icon.png?v=c2', sizes: '180x180' }],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#ea580c',
+  themeColor: '#eb5204',
   // Allow user pinch-zoom (accessibility); the iOS focus-zoom is handled by
   // forcing inputs to 16px on mobile (see globals.css).
   width: 'device-width',
@@ -57,17 +39,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable} ${instrumentSerif.variable} ${orderSans.variable}`}
     >
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                if (!localStorage.getItem('foody_admin_redesign_v2')) {
-                  localStorage.removeItem('foody_admin_theme');
-                  localStorage.setItem('foody_admin_redesign_v2', '1');
-                }
+                var l = localStorage.getItem('foody-admin-locale') || navigator.language.split('-')[0];
+                if (['en', 'fr', 'he'].includes(l)) { document.documentElement.lang = l; document.documentElement.dir = l === 'he' ? 'rtl' : 'ltr'; }
                 var t = localStorage.getItem('foody_admin_theme');
                 if (t === 'dark') document.documentElement.classList.add('dark');
                 else document.documentElement.classList.remove('dark');

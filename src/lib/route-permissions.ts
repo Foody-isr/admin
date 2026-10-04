@@ -9,7 +9,7 @@ const SECTION_PERMISSIONS: Record<string, string[]> = {
   menu: ['menu.view', 'menu.edit'],
   kitchen: ['kitchen.view', 'kitchen.manage'],
   orders: ['orders.view', 'orders.manage'],
-  website: ['settings.edit'],
+  'website-v3': ['settings.edit'],
   customers: ['customers.view', 'customers.manage'],
   analytics: ['analytics.view'],
   staff: ['staff.view', 'staff.manage', 'roles.manage'],
@@ -24,6 +24,13 @@ const SECTION_PERMISSIONS: Record<string, string[]> = {
   chain: ['chain.manage'],
 };
 
+/** Read permissions shared with the server's physical-device inventory policy. */
+export const DEVICE_INVENTORY_READ_PERMISSIONS = [
+  'printers.view', 'printers.manage', 'shifts.view', 'shifts.manage',
+  'payments.view', 'payments.manage', 'kitchen.view', 'kitchen.manage',
+  'settings.view', 'settings.edit', 'tables.view', 'tables.manage',
+];
+
 /**
  * Returns the permissions required to access the given pathname. The caller
  * needs ANY one of them. An empty array means no specific permission is
@@ -35,6 +42,8 @@ export function requiredPermissionsForPath(pathname: string): string[] {
   const section = segments[1]; // segments[0] is the restaurantId
   if (!section) return [];
   if (section === 'kitchen' && segments[2] === 'data') return ['kitchen.data_manage'];
+  if (section === 'settings' && segments[2] === 'delivery') return ['orders.manage', 'settings.view', 'settings.edit'];
+  if (section === 'settings' && segments[2] === 'devices') return DEVICE_INVENTORY_READ_PERMISSIONS;
   if (section === 'settings' && segments[2] === 'printers') {
     return ['printers.view', 'printers.manage'];
   }

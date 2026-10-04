@@ -179,7 +179,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
       <div className="flex flex-col gap-[var(--s-5)]">
         {variants.length > 0 && (
           <div className="flex flex-col gap-2">
-            <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+            <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
               {itemSizeGroupLabel(activeItem) || t('size')}
             </span>
             <div className="flex flex-col gap-1.5">
@@ -204,11 +204,11 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
                       {v.name}
                     </span>
                     {soldOut ? (
-                      <span className="text-fs-xs font-medium uppercase tracking-wide text-[var(--danger-500)]">
+                      <span className="text-fs-xs font-medium text-[var(--danger-500)]">
                         {t('outOfStock')}
                       </span>
                     ) : (
-                      <span className="font-mono tabular-nums text-fs-sm">{money(v.price)}</span>
+                      <span className="tabular-nums text-fs-sm">{money(v.price)}</span>
                     )}
                   </label>
                 );
@@ -220,7 +220,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
         {modifierGroups.map((group) => (
           <div key={group.key} className="flex flex-col gap-2">
             {group.label && (
-              <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+              <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
                 {group.label}
               </span>
             )}
@@ -239,7 +239,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
                     {m.name}
                   </span>
                   {m.price_delta ? (
-                    <span className="font-mono tabular-nums text-fs-sm text-[var(--fg-muted)]">
+                    <span className="tabular-nums text-fs-sm text-[var(--fg-muted)]">
                       {m.price_delta > 0 ? '+' : ''}{money(m.price_delta)}
                     </span>
                   ) : null}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
   ShieldCheck,
@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import Modal from '@/components/Modal';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
@@ -33,7 +34,7 @@ import {
   roleDisplayDescription,
 } from '@/lib/permission-i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Button, PageHead } from '@/components/ds';
+import { Badge, Button, ConfirmDialog, PageHead } from '@/components/ds';
 import {
   listRoles,
   createRole,
@@ -81,7 +82,7 @@ function PermCheck({
       aria-hidden
       className={cn(
         'grid place-items-center w-[18px] h-[18px] rounded-[6px] border shrink-0 transition-all duration-150',
-        on ? 'bg-brand-500 border-brand-500 text-white' : 'bg-[var(--surface)] border-[var(--line-strong)]',
+        on ? 'bg-[var(--action)] border-[var(--action)] text-[var(--action-fg)]' : 'bg-[var(--surface)] border-[var(--line-strong)]',
         !disabled && !on && 'group-hover/r:border-brand-400 group-hover/d:border-brand-400',
         disabled && 'opacity-40',
         className,
@@ -115,15 +116,46 @@ export default function RolesPage() {
   const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<RestaurantRole | null>(null);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const requestGuard = useRef(new RestaurantRequestGuard());
+  requestGuard.current.enterRestaurant(rid);
 
+  const reload = useCallback(async () => {
+    const guard = requestGuard.current;
+    const token = guard.begin(rid);
+    setLoading(true);
+    setLoadError('');
+    try {
+      const [availableRoles, groups] = await Promise.all([listRoles(rid), listPermissions()]);
+      if (guard.isCurrent(token)) {
+        setRoles(availableRoles);
+        setPermissionGroups(groups);
+      }
+    } catch (reason: unknown) {
+      if (guard.isCurrent(token)) setLoadError(reason instanceof Error ? reason.message : t('couldNotLoad'));
+    } finally {
+      if (guard.isCurrent(token)) setLoading(false);
+    }
+  }, [rid, t]);
   useEffect(() => {
-    Promise.all([listRoles(rid), listPermissions()])
-      .then(([r, p]) => {
-        setRoles(r);
-        setPermissionGroups(p);
-      })
-      .finally(() => setLoading(false));
-  }, [rid]);
+    const guard = requestGuard.current;
+    setRoles([]);
+    setPermissionGroups([]);
+    setShowEditor(false);
+    void reload();
+    return () => guard.invalidate();
+  }, [reload]);
+
+  function requestClose() {
+    if (saving) return;
+    const originalPermissions = editingRole?.permissions.map(permission => permission.permission) ?? [];
+    const dirty = name !== (editingRole?.name ?? '') || description !== (editingRole?.description ?? '')
+      || selectedPerms.size !== originalPermissions.length || originalPermissions.some(permission => !selectedPerms.has(permission));
+    if (canManage && dirty) setDiscardOpen(true);
+    else setShowEditor(false);
+  }
 
   function openCreate() {
     setEditingRole(null);
@@ -144,6 +176,7 @@ export default function RolesPage() {
   }
 
   async function handleSave() {
+    if (!canManage || saving) return;
     if (!name.trim()) {
       setError(t('nameIsRequired'));
       return;
@@ -181,12 +214,17 @@ export default function RolesPage() {
   }
 
   async function handleDelete(role: RestaurantRole) {
-    if (!confirm(t('deleteRoleConfirm').replace('{name}', role.name))) return;
+    if (!canManage || saving || role.is_system_default || role.user_count > 0) return;
+    setSaving(true);
+    setError('');
     try {
       await deleteRole(rid, role.id);
-      setRoles((prev) => prev.filter((r) => r.id !== role.id));
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : t('failedToDeleteRole'));
+      setRoles((prev) => prev.filter((entry) => entry.id !== role.id));
+      setShowEditor(false);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : t('failedToDeleteRole'));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -211,7 +249,7 @@ export default function RolesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20" role="status" aria-label={t('loading')}>
         <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
       </div>
     );
@@ -226,36 +264,37 @@ export default function RolesPage() {
   const allOn = availableKeys.length > 0 && availableKeys.every((k) => selectedPerms.has(k));
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHead
         title={t('rolesPermissions') || 'Rôles & permissions'}
         desc={t('manageStaffRoles')}
         actions={
           canManage && (
-            <Button variant="primary" size="md" onClick={openCreate}>
+            <Button variant="primary" size="md" onClick={openCreate} disabled={!!loadError}>
               {t('createRole')}
             </Button>
           )
         }
       />
 
+      {loadError && <div role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)] flex flex-wrap items-center justify-between gap-3"><span>{loadError}</span><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>}
       {/* Role cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {roles.map((role) => (
-          <div
-            key={role.id}
-            className="card p-5 cursor-pointer hover:border-brand-500/50 transition-colors"
+          <button
+            key={role.id} type="button" aria-haspopup="dialog"
+            className="text-start rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5 hover:border-[var(--line-strong)] transition-colors"
             onClick={() => openEdit(role)}
           >
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h2 className="font-semibold break-words" style={{ color: 'var(--text-primary)' }}>
                   {roleDisplayName(t, role.name, role.is_system_default)}
-                </h3>
+                </h2>
                 {role.is_system_default && (
-                  <span className="inline-block text-xs px-2 py-0.5 rounded-full mt-1 bg-brand-500/10 text-brand-500">
+                  <Badge tone="info" className="mt-2">
                     {t('defaultBadge')}
-                  </span>
+                  </Badge>
                 )}
               </div>
             </div>
@@ -268,11 +307,11 @@ export default function RolesPage() {
               <span>{t('permissionsCount').replace('{count}', String(role.permissions.length))}</span>
               <span>{(role.user_count === 1 ? t('userCount') : t('usersCount')).replace('{count}', String(role.user_count))}</span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
-      {roles.length === 0 && (
+      {!loadError && roles.length === 0 && (
         <div className="text-center py-16" style={{ color: 'var(--text-secondary)' }}>
           <p className="text-lg font-medium mb-2">{t('noRolesYet')}</p>
           <p className="text-sm">{t('defaultRolesAutoCreated')}</p>
@@ -288,17 +327,14 @@ export default function RolesPage() {
           subtitle={t('permissionsSelectedSummary')
             .replace('{count}', String(selectedCount))
             .replace('{total}', String(availableKeys.length))}
-          onClose={() => setShowEditor(false)}
+          onClose={requestClose}
           footer={
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               {canManage && editingRole && !editingRole.is_system_default ? (
                 <button
-                  onClick={() => {
-                    handleDelete(editingRole);
-                    setShowEditor(false);
-                  }}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--danger-500)] rounded-lg px-2.5 py-1.5 transition-colors hover:bg-[var(--danger-500)]/10 disabled:opacity-40 disabled:hover:bg-transparent"
-                  disabled={editingRole.user_count > 0}
+                  onClick={() => setDeleteTarget(editingRole)}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--danger-500)] min-h-10 rounded-r-md px-2.5 py-1.5 transition-colors hover:bg-[var(--danger-50)] disabled:opacity-40 disabled:hover:bg-transparent"
+                  disabled={editingRole.user_count > 0 || saving}
                   title={editingRole.user_count > 0 ? t('cannotDeleteWithUsers') : ''}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -307,8 +343,8 @@ export default function RolesPage() {
               ) : (
                 <span />
               )}
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="md" onClick={() => setShowEditor(false)}>
+              <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+                <Button variant="secondary" size="md" onClick={requestClose} disabled={saving}>
                   {t('cancel')}
                 </Button>
                 {canManage && (
@@ -324,14 +360,14 @@ export default function RolesPage() {
             {/* Name + description */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                <label htmlFor="role-name" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
                   {t('name')}
                 </label>
                 <input
                   className="input w-full"
-                  value={isDefault ? roleDisplayName(t, editingRole!.name, true) : name}
+                  id="role-name" value={isDefault ? roleDisplayName(t, editingRole!.name, true) : name}
                   onChange={(e) => setName(e.target.value)}
-                  disabled={fieldsLocked}
+                  disabled={fieldsLocked || saving}
                   placeholder={t('roleNamePlaceholder')}
                 />
                 {isDefault && (
@@ -342,14 +378,14 @@ export default function RolesPage() {
                 )}
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                <label htmlFor="role-description" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
                   {t('description')}
                 </label>
                 <input
                   className="input w-full"
-                  value={isDefault ? roleDisplayDescription(t, editingRole!.name, editingRole!.description, true) : description}
+                  id="role-description" value={isDefault ? roleDisplayDescription(t, editingRole!.name, editingRole!.description, true) : description}
                   onChange={(e) => setDescription(e.target.value)}
-                  disabled={fieldsLocked}
+                  disabled={fieldsLocked || saving}
                   placeholder={t('briefDescription')}
                 />
               </div>
@@ -362,7 +398,7 @@ export default function RolesPage() {
                   <label className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {t('permissions')}
                   </label>
-                  <span className="text-xs font-medium tabular-nums px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600">
+                  <span className="text-xs font-medium tabular-nums px-2 py-0.5 rounded-full bg-[var(--brand-soft)] text-[var(--brand-ink)]">
                     {selectedCount}/{availableKeys.length}
                   </span>
                 </div>
@@ -370,7 +406,7 @@ export default function RolesPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedPerms(allOn ? new Set() : new Set(availableKeys))}
-                    className="text-xs font-semibold text-brand-500 hover:text-brand-600 transition-colors"
+                    disabled={saving} className="text-xs font-semibold text-[var(--brand-ink)] hover:underline min-h-10 transition-colors"
                   >
                     {allOn ? t('deselectAll') : t('selectAll')}
                   </button>
@@ -388,7 +424,7 @@ export default function RolesPage() {
                     <div
                       key={group.domain}
                       className={cn(
-                        'rounded-xl border overflow-hidden transition-colors',
+                        'rounded-r-lg border overflow-hidden transition-colors',
                         someSelected ? 'border-brand-500/40' : 'border-[var(--line)]',
                       )}
                       style={{ background: 'var(--surface)' }}
@@ -405,28 +441,29 @@ export default function RolesPage() {
                           type="checkbox"
                           className="sr-only peer"
                           checked={allSelected}
+                          ref={element => { if (element) element.indeterminate = someSelected && !allSelected; }}
                           onChange={() => toggleDomain(group)}
-                          disabled={!canManage}
+                          disabled={!canManage || saving}
                         />
                         <PermCheck
                           checked={allSelected}
                           indeterminate={someSelected && !allSelected}
-                          disabled={!canManage}
+                          disabled={!canManage || saving}
                           className="peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1 peer-focus-visible:ring-brand-500/50"
                         />
-                        <span className="grid place-items-center w-7 h-7 rounded-lg bg-brand-500/10 text-brand-600 shrink-0">
+                        <span className="grid place-items-center w-7 h-7 rounded-lg bg-[var(--brand-soft)] text-[var(--brand-ink)] shrink-0">
                           <Icon className="w-4 h-4" />
                         </span>
-                        <span className="flex-1 text-[13px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                        <span className="flex-1 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                           {permissionDomainLabel(t, group.domain)}
                         </span>
                         <span
                           className={cn(
-                            'text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full shrink-0',
+                            'text-xs font-semibold tabular-nums px-1.5 py-0.5 rounded-full shrink-0',
                             allSelected
-                              ? 'bg-brand-500 text-white'
+                              ? 'bg-[var(--action)] text-[var(--action-fg)]'
                               : someSelected
-                                ? 'bg-brand-500/15 text-brand-600'
+                                ? 'bg-[var(--brand-soft)] text-[var(--brand-ink)]'
                                 : 'bg-[var(--surface-2)] text-[var(--text-secondary)]',
                           )}
                         >
@@ -442,9 +479,9 @@ export default function RolesPage() {
                             <label
                               key={perm.key}
                               className={cn(
-                                'group/r flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors',
+                                'group/r flex items-start gap-2.5 min-h-11 rounded-r-md px-2 py-2.5 transition-colors',
                                 canManage ? 'cursor-pointer' : 'cursor-default',
-                                sel ? 'bg-brand-500/[0.06]' : canManage && 'hover:bg-[var(--surface-2)]',
+                                sel ? 'bg-[var(--brand-soft)]' : canManage && 'hover:bg-[var(--surface-2)]',
                               )}
                             >
                               <input
@@ -452,18 +489,18 @@ export default function RolesPage() {
                                 className="sr-only peer"
                                 checked={sel}
                                 onChange={() => togglePerm(perm.key)}
-                                disabled={!canManage}
+                                disabled={!canManage || saving}
                               />
                               <PermCheck
                                 checked={sel}
-                                disabled={!canManage}
+                                disabled={!canManage || saving}
                                 className="mt-0.5 peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1 peer-focus-visible:ring-brand-500/50"
                               />
                               <span className="min-w-0">
-                                <span className="block text-[13px] font-medium leading-tight" style={{ color: 'var(--text-primary)' }}>
+                                <span className="block text-sm font-medium leading-tight" style={{ color: 'var(--text-primary)' }}>
                                   {permissionLabel(t, perm.key, perm.label)}
                                 </span>
-                                <span className="block text-[11.5px] leading-snug mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                                <span className="block text-xs leading-snug mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                                   {permissionDescription(t, perm.key, perm.description)}
                                 </span>
                               </span>
@@ -478,7 +515,7 @@ export default function RolesPage() {
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 text-sm rounded-lg px-3 py-2.5 bg-[var(--danger-500)]/10 text-[var(--danger-500)]">
+              <div role="alert" className="flex items-start gap-2 text-sm rounded-r-lg px-3 py-2.5 bg-[var(--danger-50)] text-[var(--danger-500)]">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -486,6 +523,12 @@ export default function RolesPage() {
           </div>
         </Modal>
       )}
+      <ConfirmDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }} title={t('deleteRole')}
+        description={t('deleteRoleConfirm').replace('{name}', deleteTarget?.name ?? '')} confirmLabel={t('deleteRole')} cancelLabel={t('cancel')} danger
+        onConfirm={() => { if (deleteTarget) void handleDelete(deleteTarget); }} />
+      <ConfirmDialog open={discardOpen} onOpenChange={setDiscardOpen} title={t('discardUnsavedChanges')}
+        description={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')}
+        onConfirm={() => setShowEditor(false)} />
     </div>
   );
 }

@@ -18,17 +18,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-[var(--brand-500)] text-white hover:bg-[var(--brand-600)]',
+        primary: 'bg-[var(--action)] text-[var(--action-fg)] hover:bg-[var(--action-hover)]',
         secondary:
           'bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] hover:bg-[var(--surface-2)] hover:border-[var(--fg-subtle)]',
         ghost:
           'bg-transparent text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]',
-        danger: 'bg-[var(--danger-500)] text-white hover:brightness-95',
+        danger: 'bg-[var(--danger-action)] text-[var(--danger-action-fg)] hover:brightness-95',
       },
       size: {
-        sm: 'h-7 px-[var(--s-3)] text-fs-xs',
-        md: 'h-9 px-[var(--s-4)] text-fs-sm',
-        lg: 'h-11 px-[var(--s-5)] text-fs-md',
+        sm: 'min-h-8 px-[var(--s-3)] text-fs-xs',
+        md: 'min-h-10 px-[var(--s-4)] text-fs-sm',
+        lg: 'min-h-11 px-[var(--s-5)] text-fs-md',
       },
       icon: {
         true: 'p-0',
@@ -36,8 +36,8 @@ const buttonVariants = cva(
       },
     },
     compoundVariants: [
-      { icon: true, size: 'sm', class: 'w-7' },
-      { icon: true, size: 'md', class: 'w-9' },
+      { icon: true, size: 'sm', class: 'w-8' },
+      { icon: true, size: 'md', class: 'w-10' },
       { icon: true, size: 'lg', class: 'w-11' },
     ],
     defaultVariants: { variant: 'primary', size: 'md', icon: false },

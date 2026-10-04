@@ -84,7 +84,7 @@ function hasOptions(it: MenuItem): boolean {
 
 export default function NewOrderPage() {
   const { money } = useCurrency();
-  const { t } = useI18n();
+  const { t, direction } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
   const params = useParams();
@@ -96,6 +96,8 @@ export default function NewOrderPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [mobilePane, setMobilePane] = useState<'catalogue' | 'ticket'>('catalogue');
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const [lines, setLines] = useState<NewOrderLine[]>([]);
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
@@ -183,7 +185,7 @@ export default function NewOrderPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [restaurantId]);
+  }, [restaurantId, loadAttempt]);
 
   // Restore a stored draft once the menu has actually loaded. `itemMap` has to
   // be populated first: rehydrateDraftLines tells "this item is gone" from
@@ -603,7 +605,7 @@ export default function NewOrderPage() {
   if (paymentUrl) {
     return (
       <div className="flex items-center justify-center py-[var(--s-12)]">
-        <div className="mx-auto flex w-full max-w-md flex-col items-center gap-[var(--s-5)] rounded-xl border border-[var(--line)] bg-[var(--surface)] p-[var(--s-8)] text-center shadow-2 duration-300 animate-in fade-in zoom-in-95">
+        <div className="mx-auto flex w-full max-w-md flex-col items-center gap-[var(--s-5)] rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-8)] text-center duration-150 animate-in fade-in zoom-in-95">
           <span className="flex size-12 items-center justify-center rounded-full bg-[var(--success-50)] text-[var(--success-500)]">
             <CheckIcon className="size-6" />
           </span>
@@ -613,7 +615,7 @@ export default function NewOrderPage() {
             <p className="text-fs-sm text-[var(--fg-muted)]">{t('paymentLinkHint')}</p>
           </div>
           <div className="flex w-full items-center gap-2 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-2)] p-[var(--s-2)] ps-[var(--s-3)]">
-            <span className="flex-1 truncate text-start font-mono text-fs-xs text-[var(--fg-muted)]">{paymentUrl}</span>
+            <span className="flex-1 truncate text-start text-fs-xs text-[var(--fg-muted)]">{paymentUrl}</span>
             <Button variant="secondary" size="sm" onClick={copyPaymentUrl}>
               {copied ? <CheckIcon /> : <CopyIcon />}
               {copied ? t('copied') : t('copyLink')}
@@ -628,18 +630,22 @@ export default function NewOrderPage() {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100dvh - var(--topbar-total-h) - 64px)' }}>
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--bg)] shadow-1 lg:grid-cols-[1fr_minmax(360px,420px)]">
+    <div className="flex min-h-[420px] flex-col" style={{ height: 'calc(100dvh - var(--topbar-total-h) - 64px)' }}>
+      <div className="mb-3 flex shrink-0 gap-2 lg:hidden" role="group" aria-label={t('newOrder')}>
+        <Button className="flex-1" variant={mobilePane === 'catalogue' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'catalogue'} onClick={() => setMobilePane('catalogue')}>{t('items')}</Button>
+        <Button className="flex-1" variant={mobilePane === 'ticket' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'ticket'} onClick={() => setMobilePane('ticket')}>{t('orderItems')} · {itemCount}</Button>
+      </div>
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--bg)] lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
         {/* ─── Catalog ──────────────────────────────────────────────────── */}
-        <div className="flex min-h-0 min-w-0 flex-col border-[var(--line)] lg:border-e">
+        <div className={cn("min-h-0 min-w-0 flex-col border-[var(--line)] lg:flex lg:border-e", mobilePane === 'catalogue' ? 'flex' : 'hidden')}>
           {/* Header: back + title + carte tabs + search + category chips */}
           <div className="shrink-0 border-b border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-3)]">
             <div className="mb-[var(--s-3)] flex items-center gap-[var(--s-3)]">
               <Button variant="ghost" size="sm" icon onClick={() => router.push(`/${restaurantId}/orders/all`)} aria-label={t('backToOrders')}>
-                <ArrowLeftIcon />
+                <ArrowLeftIcon className={direction === 'rtl' ? 'rotate-180' : undefined} />
               </Button>
               <div className="min-w-0">
-                <h1 className="truncate text-fs-lg font-semibold leading-tight">{t('newOrder')}</h1>
+                <h1 className="text-fs-lg font-semibold leading-tight">{t('newOrder')}</h1>
                 {activeMenu && (
                   <p className="truncate text-fs-xs text-[var(--fg-muted)]">{activeMenu.name}</p>
                 )}
@@ -654,9 +660,10 @@ export default function NewOrderPage() {
                       key={m.id}
                       type="button"
                       onClick={() => setActiveMenuId(m.id)}
+                      aria-pressed={active}
                       className={cn(
                         'relative shrink-0 whitespace-nowrap px-[var(--s-2)] pb-[var(--s-2)] text-fs-sm font-medium transition-colors',
-                        active ? 'text-[var(--brand-600)]' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+                        active ? 'text-[var(--brand-ink)]' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
                       )}
                     >
                       {m.name}
@@ -675,6 +682,7 @@ export default function NewOrderPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t('searchItems')}
+                  aria-label={t('searchItems')}
                   className="h-11 w-full rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-9 text-fs-sm outline-none transition-shadow placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-ring"
                 />
                 {search && (
@@ -697,10 +705,11 @@ export default function NewOrderPage() {
                 <button
                   type="button"
                   onClick={() => setActiveSection('all')}
+                  aria-pressed={activeSection === 'all'}
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-[var(--s-2)] rounded-full border px-[var(--s-3)] py-1.5 text-fs-xs font-semibold transition-colors',
+                    'inline-flex shrink-0 items-center gap-[var(--s-2)] min-h-9 rounded-r-md border px-[var(--s-3)] py-1.5 text-fs-xs font-semibold transition-colors',
                     activeSection === 'all'
-                      ? 'border-transparent bg-[var(--brand-500)] text-white shadow-1'
+                      ? 'border-[var(--brand-ink)] bg-[var(--brand-soft)] text-[var(--brand-ink)]'
                       : 'border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--fg-subtle)] hover:text-[var(--fg)]',
                   )}
                 >
@@ -714,16 +723,17 @@ export default function NewOrderPage() {
                       key={s.id}
                       type="button"
                       onClick={() => setActiveSection(s.id)}
+                      aria-pressed={active}
                       className={cn(
-                        'inline-flex shrink-0 items-center gap-[var(--s-2)] rounded-full border px-[var(--s-3)] py-1.5 text-fs-xs font-semibold transition-colors',
+                        'inline-flex shrink-0 items-center gap-[var(--s-2)] min-h-9 rounded-r-md border px-[var(--s-3)] py-1.5 text-fs-xs font-semibold transition-colors',
                         active
-                          ? 'border-transparent bg-[var(--brand-500)] text-white shadow-1'
+                          ? 'border-[var(--brand-ink)] bg-[var(--brand-soft)] text-[var(--brand-ink)]'
                           : 'border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--fg-subtle)] hover:text-[var(--fg)]',
                       )}
                     >
                       <span
                         className="size-2 rounded-full"
-                        style={{ backgroundColor: active ? 'rgba(255,255,255,.85)' : sectionColorById.get(s.id) }}
+                        style={{ backgroundColor: sectionColorById.get(s.id) }}
                       />
                       {s.name}
                     </button>
@@ -742,7 +752,7 @@ export default function NewOrderPage() {
                 ))}
               </div>
             )}
-            {loadError && <p className="text-fs-sm text-[var(--danger-500)]">{loadError}</p>}
+            {loadError && <div role="alert" className="text-fs-sm text-[var(--danger-500)]"><p>{loadError}</p><Button className="mt-3" onClick={() => setLoadAttempt(n => n + 1)}>{t('retry')}</Button></div>}
             {!loading && !loadError && sections.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-[var(--s-2)] py-[var(--s-12)] text-center">
                 <SearchIcon className="size-7 text-[var(--fg-subtle)]" />
@@ -774,13 +784,13 @@ export default function NewOrderPage() {
                               disabled={soldOut}
                               aria-disabled={soldOut}
                               className={cn(
-                                'group relative flex h-[100px] flex-col justify-between overflow-hidden rounded-lg border bg-[var(--surface)] p-[var(--s-3)] ps-[var(--s-4)] text-start transition-all duration-fast ease-out',
+                                'group relative flex min-h-[112px] flex-col gap-3 justify-between overflow-hidden rounded-lg border bg-[var(--surface)] p-[var(--s-3)] ps-[var(--s-4)] text-start transition-colors duration-fast ease-out',
                                 soldOut
                                   ? 'cursor-not-allowed border-[var(--line)] opacity-55'
                                   : 'active:scale-[0.97] ' +
                                     (selected
-                                      ? 'border-[var(--brand-500)] shadow-1 ring-1 ring-[var(--brand-500)]'
-                                      : 'border-[var(--line)] hover:-translate-y-px hover:border-[var(--brand-300)] hover:shadow-2'),
+                                      ? 'border-[var(--brand-ink)] bg-[var(--brand-soft)]'
+                                      : 'border-[var(--line)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'),
                               )}
                             >
                               {/* category accent edge */}
@@ -789,7 +799,7 @@ export default function NewOrderPage() {
                                 style={{ backgroundColor: selected && !soldOut ? 'var(--brand-500)' : color }}
                               />
                               {soldOut ? null : selected ? (
-                                <span className="absolute end-[var(--s-2)] top-[var(--s-2)] flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand-500)] px-1.5 text-fs-xs font-bold text-white duration-200 animate-in zoom-in-50">
+                                <span className="absolute end-[var(--s-2)] top-[var(--s-2)] flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--action)] px-1.5 text-fs-xs font-bold text-[var(--action-fg)] duration-200 animate-in zoom-in-50">
                                   {qty}
                                 </span>
                               ) : (
@@ -797,17 +807,17 @@ export default function NewOrderPage() {
                                   <PlusIcon className="size-3.5" />
                                 </span>
                               )}
-                              <span className="line-clamp-2 pe-6 text-fs-sm font-semibold leading-tight text-[var(--fg)]">{it.name}</span>
+                              <span className="line-clamp-3 pe-6 text-fs-sm font-semibold leading-tight text-[var(--fg)]">{it.name}</span>
                               <div className="flex flex-wrap items-center gap-x-[var(--s-2)] gap-y-1">
-                                <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
+                                <span className="tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
                                   {money(it.price)}
                                 </span>
                                 {soldOut ? (
-                                  <Badge tone="danger" className="h-[18px] px-1.5 text-[10px] uppercase tracking-wide">
+                                  <Badge tone="danger" className="min-h-6 px-1.5 text-fs-xs">
                                     {t('outOfStock')}
                                   </Badge>
                                 ) : it.item_type === 'combo' ? (
-                                  <Badge tone="brand" className="h-[18px] px-1.5 text-[10px] uppercase tracking-wide">
+                                  <Badge tone="brand" className="min-h-6 px-1.5 text-fs-xs">
                                     {t('comboLabel')}
                                   </Badge>
                                 ) : null}
@@ -825,9 +835,9 @@ export default function NewOrderPage() {
         </div>
 
         {/* ─── Ticket / receipt ─────────────────────────────────────────── */}
-        <aside className="flex min-h-0 min-w-0 flex-col bg-[var(--surface)]">
+        <aside aria-label={t('orderItems')} className={cn("min-h-0 min-w-0 flex-col bg-[var(--surface)] lg:flex", mobilePane === 'ticket' ? 'flex' : 'hidden')}>
           {/* Header */}
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)]">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--summary-bg)] text-[var(--summary-fg)] px-[var(--s-4)] py-[var(--s-3)]">
             <div className="flex items-center gap-[var(--s-2)]">
               <h2 className="text-fs-md font-semibold">{t('orderItems')}</h2>
               {itemCount > 0 && <Badge tone="brand">{itemCount}</Badge>}
@@ -874,7 +884,7 @@ export default function NewOrderPage() {
                   <li key={l.uid} className="flex flex-col gap-[var(--s-2)] py-[var(--s-3)] duration-200 animate-in fade-in slide-in-from-top-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-fs-sm font-semibold">{l.item.name}</p>
+                        <p className="break-words text-fs-sm font-semibold">{l.item.name}</p>
                         {l.selectedVariantName && (
                           <p className="text-fs-xs text-[var(--fg-muted)]">{l.selectedVariantName}</p>
                         )}
@@ -893,20 +903,20 @@ export default function NewOrderPage() {
                         )}
                         {l.notes && <p className="text-fs-xs italic text-[var(--fg-subtle)]">“{l.notes}”</p>}
                       </div>
-                      <span className="shrink-0 font-mono tabular-nums text-fs-sm font-semibold">{money(lineTotal(l))}</span>
+                      <span className="shrink-0 tabular-nums text-fs-sm font-semibold">{money(lineTotal(l))}</span>
                     </div>
                     <div className="flex items-center gap-[var(--s-2)]">
                       <div className="inline-flex items-center overflow-hidden rounded-lg border border-[var(--line-strong)]">
-                        <button type="button" onClick={() => changeQty(l.uid, -1)} aria-label={t('decrease')} className="flex size-8 items-center justify-center text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)]">
+                        <button type="button" onClick={() => changeQty(l.uid, -1)} aria-label={t('decrease')} className="flex size-10 items-center justify-center text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)]">
                           <MinusIcon className="size-4" />
                         </button>
-                        <span className="w-8 text-center font-mono tabular-nums text-fs-sm font-semibold">{l.quantity}</span>
-                        <button type="button" onClick={() => changeQty(l.uid, 1)} aria-label={t('increase')} className="flex size-8 items-center justify-center text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)]">
+                        <span className="w-8 text-center tabular-nums text-fs-sm font-semibold">{l.quantity}</span>
+                        <button type="button" onClick={() => changeQty(l.uid, 1)} aria-label={t('increase')} className="flex size-10 items-center justify-center text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)]">
                           <PlusIcon className="size-4" />
                         </button>
                       </div>
                       <span className="text-fs-xs text-[var(--fg-subtle)]">{money(lineUnitPrice(l))}</span>
-                      <button type="button" onClick={() => removeLine(l.uid)} aria-label={t('remove')} className="ms-auto flex size-8 items-center justify-center rounded-lg text-[var(--fg-subtle)] transition-colors hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]">
+                      <button type="button" onClick={() => removeLine(l.uid)} aria-label={t('remove')} className="ms-auto flex size-10 items-center justify-center rounded-lg text-[var(--fg-subtle)] transition-colors hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]">
                         <Trash2Icon className="size-4" />
                       </button>
                     </div>
@@ -935,7 +945,7 @@ export default function NewOrderPage() {
           <div className="shrink-0 border-t border-[var(--line)] bg-[var(--surface)] p-[var(--s-4)]">
             <div className="mb-[var(--s-3)] flex items-end justify-between">
               <span className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('total')}</span>
-              <span className="font-mono tabular-nums text-fs-2xl font-bold">{money(subtotal)}</span>
+              <span className="tabular-nums text-fs-2xl font-bold">{money(subtotal)}</span>
             </div>
             {canManage && (
               <>
@@ -956,7 +966,7 @@ export default function NewOrderPage() {
                       <CreditCardIcon />
                       {t('checkout')}
                     </span>
-                    <span className="font-mono tabular-nums">{money(subtotal)}</span>
+                    <span className="tabular-nums">{money(subtotal)}</span>
                   </span>
                 </Button>
               </>

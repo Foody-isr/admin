@@ -17,7 +17,8 @@ import { syncSubscription } from '@/lib/push';
  * while the app is open heals immediately rather than on next launch.
  *
  * Renders nothing. `syncSubscription` no-ops when push is unsupported,
- * permission isn't granted, or no service worker is registered (dev), and
+ * permission is not granted, no service worker is registered, or no local
+ * subscription remains. It never creates an opt-in after a user disabled it, and
  * never throws — so this is safe to mount unconditionally.
  */
 export function PushResync({ restaurantId }: { restaurantId: number }) {

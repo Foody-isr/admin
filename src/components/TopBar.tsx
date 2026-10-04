@@ -1,21 +1,13 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, SUPPORTED_LOCALES } from '@/lib/i18n';
 import SearchTriggerButton from '@/components/search/SearchTriggerButton';
 import BranchSwitcher from '@/components/BranchSwitcher';
-import {
-  ChevronRightIcon,
-  ChevronDownIcon,
-  SunIcon,
-  MoonIcon,
-  LogOutIcon,
-  MenuIcon,
-} from 'lucide-react';
+import { Sun, Moon, LogOut, Menu, ChevronDown, Check } from 'lucide-react';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+
 interface TopBarProps {
   restaurantId: number;
   restaurantName: string;
@@ -23,109 +15,44 @@ interface TopBarProps {
   onToggleSidebar: () => void;
 }
 
-/**
- * Topbar — crumbs on the left, search input-group in the middle, actions on the right.
- * Matches chrome.jsx from the design reference.
- */
-export default function TopBar({ restaurantId, restaurantName, pageName, onToggleSidebar }: TopBarProps) {
+/** Active restaurant, actual scoped search and keyboard-accessible account controls. */
+export default function TopBar({ restaurantId, restaurantName, onToggleSidebar }: TopBarProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { t, direction } = useI18n();
-  const isRtl = direction === 'rtl';
-  const pathname = usePathname();
-
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const initials = user?.full_name
-    ? user.full_name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
-    : '?';
-
-  // The restaurant name is rendered as the BranchSwitcher (below); the remaining
-  // crumbs are the page trail after it.
-  const crumbs = [pageName].filter(Boolean);
-
+  const { t, locale, setLocale, direction } = useI18n();
+  const initials = user?.full_name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const languages = { en: 'English', fr: 'Français', he: 'עברית' };
   return (
-    <header
-      className="sticky top-0 z-20 h-[var(--topbar-total-h)] shrink-0 flex items-center gap-[var(--s-2)] sm:gap-[var(--s-4)] pt-safe-t ps-[max(var(--s-3),var(--safe-left))] pe-[max(var(--s-3),var(--safe-right))] sm:ps-[max(var(--s-6),var(--safe-left))] sm:pe-[max(var(--s-6),var(--safe-right))] border-b border-[var(--line)]"
-      style={{ background: 'var(--topbar-bg)', color: 'var(--topbar-fg)' }}
-    >
-      {/* Mobile hamburger */}
-      <button
-        type="button"
-        onClick={onToggleSidebar}
-        className="lg:hidden -ms-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-r-md hover:bg-[var(--sidebar-hover)] transition-colors"
-        aria-label={t('menu') || 'Menu'}
-      >
-        <MenuIcon className="w-5 h-5" />
+    <header className="sticky top-0 z-20 h-[var(--topbar-total-h)] flex items-center gap-3 pt-safe-t px-4 sm:px-6 lg:px-8 border-b border-[var(--line)] bg-[var(--topbar-bg)] text-[var(--fg)]">
+      <button type="button" onClick={onToggleSidebar} className="lg:hidden size-11 shrink-0 grid place-items-center rounded-r-md hover:bg-[var(--sidebar-hover)]" aria-label={t('menu')}>
+        <Menu className="size-5" />
       </button>
-
-      {/* Crumbs: branch switcher (restaurant) → page trail */}
-      <div className="flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)] min-w-0">
-        <BranchSwitcher restaurantId={restaurantId} restaurantName={restaurantName} />
-        {crumbs.map((c, i) => (
-          <span key={`${c}-${i}`} className="flex items-center gap-[var(--s-2)] min-w-0">
-            <ChevronRightIcon
-              className={`w-3 h-3 text-[var(--fg-subtle)] shrink-0 ${isRtl ? 'rotate-180' : ''}`}
-            />
-            <span className="text-[var(--fg)] font-medium truncate">{c}</span>
-          </span>
-        ))}
-      </div>
-
-      <div className="flex-1" />
-
-      {/* Search trigger */}
+      <div className="min-w-0 flex-1 text-sm"><BranchSwitcher restaurantId={restaurantId} restaurantName={restaurantName} /></div>
       <SearchTriggerButton />
-
-      {/* Avatar dropdown */}
-      <div className="relative" ref={menuRef}>
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="flex items-center gap-[var(--s-2)] px-1.5 py-1 rounded-r-md hover:bg-[var(--sidebar-hover)] transition-colors"
-        >
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-fs-xs font-semibold text-white"
-            style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}
-          >
-            {initials}
-          </div>
-          <ChevronDownIcon className="w-3.5 h-3.5 hidden md:block text-[var(--fg-muted)]" />
-        </button>
-
-        {menuOpen && (
-          <div className="absolute end-0 top-full mt-1 w-60 rounded-r-md shadow-3 py-1 z-50 bg-[var(--surface)] border border-[var(--line)]">
-            <div className="px-4 py-3 border-b border-[var(--line)]">
-              <p className="text-fs-sm font-medium text-[var(--fg)] truncate">{user?.full_name}</p>
-              <p className="text-fs-xs mt-0.5 text-[var(--fg-muted)] truncate">{user?.email}</p>
-            </div>
-            <button
-              onClick={() => { toggleTheme(); setMenuOpen(false); }}
-              className="w-full flex items-center gap-[var(--s-3)] px-4 py-2.5 text-fs-sm transition-colors hover:bg-[var(--surface-2)] text-[var(--fg)]"
-            >
-              {theme === 'dark' ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
-              {theme === 'dark' ? t('lightMode') : t('darkMode')}
-            </button>
-            <button
-              onClick={() => { logout(); setMenuOpen(false); }}
-              className="w-full flex items-center gap-[var(--s-3)] px-4 py-2.5 text-fs-sm transition-colors hover:bg-[var(--danger-50)] text-[var(--danger-500)]"
-            >
-              <LogOutIcon className="w-4 h-4" />
-              {t('signOut')}
-            </button>
-          </div>
-        )}
-      </div>
+      <DropdownMenu dir={direction}>
+        <DropdownMenuTrigger asChild>
+          <button className="flex h-11 items-center gap-2 rounded-r-md px-1.5 hover:bg-[var(--surface-2)]" aria-label={t('profile')}>
+            <span className="size-8 grid place-items-center rounded-full bg-[var(--summary-bg)] text-[var(--summary-fg)] text-xs font-semibold" aria-hidden>{initials}</span>
+            <ChevronDown className="size-3.5 hidden sm:block text-[var(--fg-muted)]" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64 max-w-[calc(100vw-2rem)]">
+          <DropdownMenuLabel className="px-3 py-3">
+            <p className="font-semibold break-words">{user?.full_name}</p>
+            <bdi className="block mt-1 text-xs text-[var(--fg-muted)] font-normal truncate">{user?.email}</bdi>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={toggleTheme} className="min-h-11">
+            {theme === 'dark' ? <Sun /> : <Moon />}{theme === 'dark' ? t('lightMode') : t('darkMode')}
+          </DropdownMenuItem>
+          <DropdownMenuLabel className="text-xs font-normal text-[var(--fg-muted)]">{t('language')}</DropdownMenuLabel>
+          {SUPPORTED_LOCALES.map(lang => <DropdownMenuItem key={lang} onSelect={() => setLocale(lang)} className="min-h-10">
+            <span lang={lang} className="flex-1">{languages[lang]}</span>{locale === lang && <Check className="size-4" />}
+          </DropdownMenuItem>)}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={logout} className="min-h-11 text-[var(--danger-500)]"><LogOut />{t('signOut')}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   );
 }

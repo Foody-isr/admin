@@ -219,27 +219,27 @@ export default function SalesByItemPage() {
 
       {/* KPI strip */}
       {data && (
-        <div className="grid grid-cols-3 gap-[var(--s-4)]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 rounded-r-lg bg-[var(--summary-bg)] p-5">
           {[
             {
-              v: money(Math.round(data.total_revenue), { decimals: 0, grouped: true }), l: t('totalRevenue'), c: 'var(--fg)', sub: t('revenueExclHint'),
+              v: money(Math.round(data.total_revenue), { decimals: 0, grouped: true }), l: t('totalRevenue'), c: 'var(--summary-fg)', sub: t('revenueExclHint'),
               // Window-level combo contribution (already inside total_revenue) — the
               // amount the CA hint refers to, shown only when combos are present.
               combo: data.combo_quantity_total > 0
                 ? `${t('combo')} · ${money(Math.round(data.combo_revenue_total), { decimals: 0, grouped: true })} · ${data.combo_quantity_total.toLocaleString()}`
                 : '',
             },
-            { v: data.total_quantity.toLocaleString(), l: t('unitsSold'), c: 'var(--fg)', sub: '', combo: '' },
-            { v: data.items_sold.toLocaleString(), l: t('itemsSoldLabel'), c: 'var(--fg)', sub: '', combo: '' },
+            { v: data.total_quantity.toLocaleString(), l: t('unitsSold'), c: 'var(--summary-fg)', sub: '', combo: '' },
+            { v: data.items_sold.toLocaleString(), l: t('itemsSoldLabel'), c: 'var(--summary-fg)', sub: '', combo: '' },
           ].map((k, i) => (
             <div
               key={i}
-              className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)] flex flex-col gap-[var(--s-2)]"
+              className="min-w-0 flex flex-col gap-2"
             >
-              <div className="text-fs-3xl font-semibold tabular-nums" style={{ color: k.c }}>
+              <div className="text-fs-2xl font-semibold tabular-nums break-words" style={{ color: k.c }}>
                 {k.v}
               </div>
-              <div className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+              <div className="text-fs-sm text-[var(--fg-muted)] font-medium">
                 {k.l}
               </div>
               {k.sub && (
@@ -269,7 +269,7 @@ export default function SalesByItemPage() {
         const absMoney = (n: number) => money(Math.round(Math.abs(n)), { decimals: 0, grouped: true });
         return (
           <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)] space-y-[var(--s-3)]">
-            <div className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+            <div className="text-fs-sm text-[var(--fg-muted)] font-medium">
               {t('reconcileTitle')}
             </div>
             <div className="flex flex-wrap items-baseline gap-x-[var(--s-3)] gap-y-[var(--s-2)] text-fs-sm">
@@ -294,13 +294,14 @@ export default function SalesByItemPage() {
 
       {/* Search */}
       <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-secondary" />
+        <SearchIcon className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-secondary" />
         <input
-          type="text"
+          type="search"
+          aria-label={t('searchByItemName')}
           placeholder={t('searchByItemName')}
           value={search}
           onChange={e => handleSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 rounded-lg border border-divider bg-surface-subtle text-fg-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="w-full h-10 ps-10 pe-4 rounded-r-md border border-[var(--line-strong)] bg-surface text-fg-primary text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)]"
         />
       </div>
 
@@ -308,17 +309,17 @@ export default function SalesByItemPage() {
       <div className="space-y-[var(--s-4)]">
         {loadFailed ? (
           <div className="flex flex-col items-center gap-3 py-12" role="alert">
-            <p className="text-sm text-[var(--danger-600)]">{t('couldNotLoad')}</p>
+            <p className="text-sm text-[var(--danger-500)]">{t('couldNotLoad')}</p>
             <button
               type="button"
-              className="rounded border border-divider px-3 py-1.5 text-sm hover:bg-surface-subtle"
+              className="min-h-10 rounded-r-md border border-[var(--line-strong)] px-4 text-sm hover:bg-surface-subtle"
               onClick={() => fetchData(search, sortBy, sortDir, page, scope.from, scope.to, basis)}
             >
               {t('retry')}
             </button>
           </div>
         ) : loading && !data ? (
-          <div className="flex justify-center py-16">
+          <div className="flex justify-center py-16" role="status" aria-label={t('loading')}>
             <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
           </div>
         ) : !data || data.items.length === 0 ? (
@@ -390,12 +391,12 @@ export default function SalesByItemPage() {
                     className="cursor-pointer"
                     onClick={() => setSelectedItemId(it.menu_item_id)}
                   >
-                    <DataTableCell mobilePrimary className="whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="text-fg-primary font-medium">{it.name}</span>
+                    <DataTableCell mobilePrimary className="min-w-48">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" aria-haspopup="dialog" className="text-start font-semibold text-fg-primary underline-offset-4 hover:underline min-h-10" onClick={event => { event.stopPropagation(); setSelectedItemId(it.menu_item_id); }}>{it.name}</button>
                         {it.combo_quantity > 0 && (
                           <ComboTooltip quantity={it.quantity} revenue={it.revenue} comboQty={it.combo_quantity} comboRevenue={it.combo_revenue}>
-                            <Badge tone="combo" className="h-[18px] px-1.5 cursor-help">
+                            <Badge tone="combo" className="px-2 cursor-help">
                               {t('combo')}
                             </Badge>
                           </ComboTooltip>
@@ -414,7 +415,7 @@ export default function SalesByItemPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm text-fg-secondary">
                   {t('pageXofY').replace('{page}', String(page)).replace('{total}', String(totalPages)).replace('{count}', String(data.total))}
                 </div>
@@ -422,14 +423,14 @@ export default function SalesByItemPage() {
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="px-3 py-1 rounded text-sm border border-divider disabled:opacity-40 hover:bg-surface-subtle"
+                    className="min-h-10 px-4 rounded-r-md text-sm border border-[var(--line-strong)] disabled:opacity-40 hover:bg-surface-subtle"
                   >
                     {t('previous')}
                   </button>
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="px-3 py-1 rounded text-sm border border-divider disabled:opacity-40 hover:bg-surface-subtle"
+                    className="min-h-10 px-4 rounded-r-md text-sm border border-[var(--line-strong)] disabled:opacity-40 hover:bg-surface-subtle"
                   >
                     {t('next')}
                   </button>

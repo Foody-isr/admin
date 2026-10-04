@@ -1,155 +1,44 @@
 'use client';
 
-// Propose les fiches qui désignent probablement la même personne. Rien n'est
-// fusionné sans clic : une suggestion reste une suggestion, parce qu'une fusion
-// erronée mêle deux historiques dans tous les rapports.
-//
-// « Ignorer » est définitif pour la paire concernée, ce qui permet au bandeau de
-// finir par se vider au lieu de proposer éternellement les mêmes faux positifs.
-//
-// Un groupe peut compter plus de deux fiches (même nom porté par 3+ numéros).
-// Le serveur ne masque un groupe que lorsque TOUTES ses paires ont été
-// ignorées (`allPairsDismissed`) : ignorer une seule paire d'un trio le
-// laisserait réapparaître à l'identique au prochain chargement. « Ignorer »
-// ignore donc systématiquement toutes les paires du groupe.
-
-import { useCallback, useEffect, useState } from 'react';
-import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronDownIcon } from 'lucide-react';
 import { Badge, Button } from '@/components/ds';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import {
-  getCustomerDuplicates,
-  dismissCustomerDuplicate,
-  type DuplicateGroup,
-} from '@/lib/api';
-import { MergeCustomersModal, type MergeRow } from './MergeCustomersModal';
+import { usePermissions } from '@/lib/permissions-context';
+import { getCustomerDuplicates, dismissCustomerDuplicate, type DuplicateGroup } from '@/lib/api';
+import { MergeCustomersModal } from './MergeCustomersModal';
 
-interface DuplicateSuggestionsProps {
-  restaurantId: number;
-  /** Appelé après toute fusion, pour que la liste des clients se recharge. */
-  onChanged: () => void;
-}
+interface DuplicateSuggestionsProps {restaurantId:number;onChanged:()=>Promise<void>;}
+const groupKey=(group:DuplicateGroup)=>`${group.reason}|${group.value}|${group.customers.map(customer=>customer.phone).sort().join('|')}`;
 
-const groupKey = (g: DuplicateGroup) => `${g.reason}|${g.value}`;
-
-export function DuplicateSuggestions({ restaurantId, onChanged }: DuplicateSuggestionsProps) {
-  const { money } = useCurrency();
-  const { t } = useI18n();
-  const [groups, setGroups] = useState<DuplicateGroup[]>([]);
-  const [open, setOpen] = useState(false);
-  const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [dismissError, setDismissError] = useState<string | null>(null);
-  // Groupe dont la fusion est en cours de confirmation. Le staff choisit le
-  // numéro principal dans la modale existante : rien n'est présélectionné
-  // silencieusement.
-  const [mergeGroup, setMergeGroup] = useState<DuplicateGroup | null>(null);
-
-  const load = useCallback(() => {
-    getCustomerDuplicates(restaurantId).then(setGroups).catch(() => setGroups([]));
-  }, [restaurantId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  if (groups.length === 0) return null;
-
-  const dismiss = async (g: DuplicateGroup) => {
-    const key = groupKey(g);
-    setBusyKey(key);
-    setDismissError(null);
-    try {
-      for (let i = 0; i < g.customers.length; i++) {
-        for (let j = i + 1; j < g.customers.length; j++) {
-          await dismissCustomerDuplicate(restaurantId, g.customers[i].phone, g.customers[j].phone);
-        }
-      }
-      load();
-    } catch (err) {
-      setDismissError(err instanceof Error ? err.message : t('failedToUpdateCustomer'));
-    } finally {
-      setBusyKey(null);
-    }
-  };
-
-  return (
-    <div className="mb-[var(--s-4)] rounded-r-md border border-[var(--line)] bg-[var(--surface)]">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="w-full flex items-center justify-between px-[var(--s-4)] py-[var(--s-3)] text-start"
-      >
-        <span className="text-fs-sm font-medium text-[var(--fg)]">
-          {t('duplicatesBanner').replace('{n}', String(groups.length))}
-        </span>
-        <span className="flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)]">
-          {open ? t('duplicatesHide') : null}
-          {open ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
-        </span>
-      </button>
-
-      {open && (
-        <div className="flex flex-col divide-y divide-[var(--line)] border-t border-[var(--line)]">
-          {groups.map((g) => {
-            const key = groupKey(g);
-            // Bloque les deux actions de CE groupe pendant un ignorer en cours,
-            // ou pendant que sa propre fusion est en confirmation, pour éviter
-            // un second clic sur des données en train de changer. Les autres
-            // groupes restent utilisables.
-            const rowBusy = busyKey === key || (mergeGroup ? groupKey(mergeGroup) === key : false);
-            return (
-              <div
-                key={key}
-                className="flex flex-wrap items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)]"
-              >
-                <Badge tone="neutral">
-                  {g.reason === 'same_name' ? t('duplicatesReasonSameName') : t('duplicatesReasonSameAddress')}
-                </Badge>
-                <div className="flex-1 min-w-0 flex flex-wrap gap-[var(--s-4)]">
-                  {g.customers.map((c) => (
-                    <div key={c.phone} className="flex flex-col min-w-[9rem]">
-                      <span className="text-fs-sm font-medium text-[var(--fg)] truncate">
-                        {c.name || c.phone}
-                      </span>
-                      <span className="text-fs-xs text-[var(--fg-muted)]">
-                        {c.phone} · {c.order_count} {t('orders')} · {money(c.total_spent, { decimals: 0 })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => dismiss(g)} disabled={rowBusy}>
-                  {t('duplicatesDismiss')}
-                </Button>
-                <Button variant="primary" size="sm" onClick={() => setMergeGroup(g)} disabled={rowBusy}>
-                  {t('mergeCustomersSelected').replace('{n}', String(g.customers.length))}
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {dismissError && (
-        <div className="px-[var(--s-4)] pb-[var(--s-3)] text-fs-sm text-[var(--danger-500)]">
-          {dismissError}
-        </div>
-      )}
-
-      {mergeGroup && (
-        <MergeCustomersModal
-          restaurantId={restaurantId}
-          rows={mergeGroup.customers.map<MergeRow>((c) => ({
-            phone: c.phone,
-            name: c.name,
-            orders: c.order_count,
-          }))}
-          onClose={() => setMergeGroup(null)}
-          onMerged={() => {
-            setMergeGroup(null);
-            load();
-            onChanged();
-          }}
-        />
-      )}
-    </div>
-  );
+/** Review duplicate suggestions and retain each acknowledged dismissal on retry. */
+export function DuplicateSuggestions({restaurantId,onChanged}:DuplicateSuggestionsProps) {
+ const {money}=useCurrency();const {t}=useI18n();const {hasAnyPermission}=usePermissions();
+ const [groups,setGroups]=useState<DuplicateGroup[]>([]);const [open,setOpen]=useState(false);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
+ const [busy,setBusy]=useState(false);const [actionError,setActionError]=useState('');const [mergeGroup,setMergeGroup]=useState<DuplicateGroup|null>(null);
+ const request=useRef({value:0});const lock=useRef(false);const receipts=useRef(new Set<string>());
+ const load=useCallback(async()=>{const sequence=++request.current.value;setLoading(true);setError('');try{const next=await getCustomerDuplicates(restaurantId);if(sequence===request.current.value)setGroups(next);}catch(cause){if(sequence===request.current.value)setError(cause instanceof Error?cause.message:t('customerLoadFailed'));throw cause;}finally{if(sequence===request.current.value)setLoading(false);}},[restaurantId,t]);
+ useEffect(()=>{const scope=request.current;void load().catch(()=>{/* Visible error state below. */});return()=>{scope.value+=1;};},[load]);
+ useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(lock.current){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[]);
+ const dismiss=async(group:DuplicateGroup)=>{
+  if(lock.current||!hasAnyPermission('customers.manage'))return;lock.current=true;setBusy(true);setActionError('');
+  try{
+   for(let i=0;i<group.customers.length;i++)for(let j=i+1;j<group.customers.length;j++){
+    const pair=[group.customers[i].phone,group.customers[j].phone].sort();const key=JSON.stringify(pair);
+    if(!receipts.current.has(key)){await dismissCustomerDuplicate(restaurantId,pair[0],pair[1]);receipts.current.add(key);}
+   }
+   await load();
+  }catch(cause){setActionError(cause instanceof Error?cause.message:t('failedToUpdateCustomer'));}finally{lock.current=false;setBusy(false);}
+ };
+ if(!loading&&!error&&!groups.length&&!mergeGroup)return null;
+ return <section aria-label={t('customerDuplicateSuggestions')} className="rounded-xl border border-[var(--line)] bg-[var(--surface)]">
+  {error?<div role="alert" className="p-4"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button className="mt-2" variant="secondary" disabled={busy} onClick={()=>void load().catch(()=>{/* Visible error state above. */})}>{t('retry')}</Button></div>:loading?<p role="status" className="p-4 text-sm text-[var(--fg-muted)]">{t('loading')}</p>:<button type="button" aria-expanded={open} aria-controls="duplicate-groups" onClick={()=>setOpen(value=>!value)} className="flex min-h-14 w-full items-center justify-between gap-3 p-4 text-start text-sm font-semibold"><span>{t('duplicatesBanner').replace('{n}',String(groups.length))}</span><ChevronDownIcon aria-hidden="true" className={`size-4 shrink-0 ${open?'rotate-180':''}`}/></button>}
+  {open&&<div id="duplicate-groups" className="divide-y divide-[var(--line)] border-t border-[var(--line)]">{groups.map(group=><article key={groupKey(group)} className="space-y-4 p-4">
+   <Badge tone="neutral">{t(group.reason==='same_name'?'duplicatesReasonSameName':'duplicatesReasonSameAddress')}</Badge>
+   <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{group.customers.map(customer=><li key={customer.phone} className="min-w-0"><p dir="auto" className="break-words text-sm font-semibold">{customer.name||customer.phone}</p><p className="mt-1 text-sm text-[var(--fg-muted)]"><bdi dir="ltr">{customer.phone}</bdi> · {customer.order_count} {t('orders')} · <bdi>{money(customer.total_spent,{decimals:0})}</bdi></p></li>)}</ul>
+   <div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" disabled={busy||loading||!!mergeGroup||!hasAnyPermission('customers.manage')} onClick={()=>void dismiss(group)}>{t('duplicatesDismiss')}</Button><Button disabled={busy||loading||!!mergeGroup||!hasAnyPermission('customers.manage')} onClick={()=>setMergeGroup(group)}>{t('mergeCustomersSelected').replace('{n}',String(group.customers.length))}</Button></div>
+  </article>)}</div>}
+  {actionError&&<p role="alert" className="px-4 pb-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
+  {mergeGroup&&<MergeCustomersModal restaurantId={restaurantId} rows={mergeGroup.customers.map(customer=>({phone:customer.phone,name:customer.name,orders:customer.order_count}))} onClose={()=>setMergeGroup(null)} onMerged={async()=>{await Promise.all([load(),onChanged()]);}}/>}
+ </section>;
 }

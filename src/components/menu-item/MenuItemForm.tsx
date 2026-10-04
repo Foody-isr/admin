@@ -24,8 +24,7 @@ export function SectionCard({
     <section className={`max-w-4xl ${className}`}>
       <div className="flex items-center justify-between gap-[var(--s-4)] mb-[var(--s-5)]">
         <div className="flex items-center gap-[var(--s-3)] min-w-0">
-          <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)] shrink-0" />
-          <h3 className="text-fs-xl font-semibold text-[var(--fg)] truncate">
+          <h3 className="text-fs-lg font-semibold text-[var(--fg)] leading-snug">
             {title}
           </h3>
         </div>
@@ -39,16 +38,18 @@ export function SectionCard({
 export function Field({
   label,
   hint,
+  htmlFor,
   children,
 }: {
   label?: string;
   hint?: string;
+  htmlFor?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="min-w-0">
       {label && (
-        <label className="block text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)] mb-1.5">
+        <label htmlFor={htmlFor} className="block text-fs-sm font-medium text-[var(--fg)] mb-1.5">
           {label}
         </label>
       )}
@@ -70,7 +71,7 @@ export const FormInput = React.forwardRef<HTMLInputElement, InputProps>(function
     <input
       ref={ref}
       {...rest}
-      className={`block w-full h-9 px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm transition-colors duration-fast ease-out hover:border-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring placeholder:text-[var(--fg-subtle)] disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`block w-full h-10 px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm transition-colors duration-fast ease-out hover:border-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring placeholder:text-[var(--fg-subtle)] disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     />
   );
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { BookOpenCheckIcon, CalculatorIcon, LoaderCircleIcon, PackagePlusIcon } from 'lucide-react';
 import { labCreateManualDraft } from '@/lib/api';
 import { Button } from '@/components/ds';
@@ -12,19 +12,23 @@ export function ManualRecipeStarter({
   restaurantId,
   canManage,
   onCreated,
+  onBusyChange,
 }: {
   restaurantId: number;
   canManage: boolean;
   onCreated: (draftId: number) => void;
+  onBusyChange: (busy: boolean) => void;
 }) {
   const { t, locale } = useI18n();
+  const lock=useRef(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handlePick = async (ids: number[]) => {
     const menuItemId = ids[0];
-    if (!menuItemId) return;
+    if (!menuItemId || !canManage || lock.current) return;
+    lock.current=true; onBusyChange(true);
     setPickerOpen(false);
     setSubmitting(true);
     setError(null);
@@ -35,16 +39,16 @@ export function ManualRecipeStarter({
       console.error('Failed to create manual recipe draft', cause);
       setError(cause instanceof Error ? cause.message : t('labManualCreateFailed'));
     } finally {
-      setSubmitting(false);
+      lock.current=false; onBusyChange(false); setSubmitting(false);
     }
   };
 
   return (
     <>
-      <section className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
+      <section className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--surface)] ">
         <div className="border-b border-[var(--line)] px-5 py-6 sm:px-7">
           <div className="flex items-start gap-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[color-mix(in_oklab,var(--brand-500)_11%,var(--surface))] text-[var(--brand-500)]">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] bg-[color-mix(in_oklab,var(--brand-500)_11%,var(--surface))] text-[var(--brand-ink)]">
               <BookOpenCheckIcon className="h-5 w-5" />
             </span>
             <div>
@@ -76,7 +80,7 @@ export function ManualRecipeStarter({
               <li>• {t('labManualAutomationMargin')}</li>
               <li>• {t('labManualAutomationSave')}</li>
             </ul>
-            <p className="mt-5 rounded-[9px] border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs leading-5 text-[var(--fg-muted)]">{t('labManualNoAiNotice')}</p>
+            <p className="mt-5 rounded-[8px] border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs leading-5 text-[var(--fg-muted)]">{t('labManualNoAiNotice')}</p>
           </div>
         </div>
       </section>

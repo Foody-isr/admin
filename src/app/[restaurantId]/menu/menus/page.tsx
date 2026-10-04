@@ -1,546 +1,137 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  listMenus, reorderMenus, createMenu, updateMenu, deleteMenu, duplicateMenu,
-  setMenuHours, getMenuHours, getRestaurant,
-  Menu, MenuAvailabilityHour, Restaurant,
-} from '@/lib/api';
+import { ArrowDown, ArrowUp, Copy, LayoutGrid, List, MoreHorizontal, Pencil, Plus, Search, Trash, Utensils, GripVertical } from 'lucide-react';
+import { listMenus, reorderMenus, deleteMenu, duplicateMenu, getRestaurant, type Menu, type Restaurant } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import {
-  PlusIcon,
-  SearchIcon,
-  LayoutGridIcon,
-  ListIcon,
-  MoreHorizontalIcon,
-  MenuIcon,
-  ChevronDownIcon,
-} from 'lucide-react';
-import Modal from '@/components/Modal';
-import { Button, PageHead } from '@/components/ds';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
+import { Badge, Button, ConfirmDialog, EmptyState, PageHead } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
-import {
-  DataTable,
-  DataTableHead,
-  DataTableHeadCell,
-  DataTableHeadSpacerCell,
-  DataTableBody,
-  DataTableRow,
-  DataTableCell,
-} from '@/components/data-table';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableBody, DataTableRow, DataTableCell } from '@/components/data-table';
+import MenuCreateModal from '@/components/menu/MenuCreateModal';
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-type TFn = (k: string) => string;
-
-function menuAbbr(name: string): string {
-  const words = name.trim().split(/\s+/);
-  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function channelCount(m: Menu): number {
-  return (m.pos_enabled ? 1 : 0) + (m.web_enabled ? 1 : 0);
-}
-
-function channelsSummary(m: Menu, t: TFn): string {
-  const n = channelCount(m);
-  if (n === 0) return t('noChannels');
-  return t('nChannels').replace('{n}', String(n));
-}
-
-function channelsMeta(m: Menu, t: TFn): string {
-  const parts = [m.pos_enabled && t('posSystem'), m.web_enabled && 'Web'].filter(Boolean) as string[];
-  if (parts.length === 0) return t('noChannels');
-  if (parts.length === 1) return parts[0];
-  return `${parts[0]}+ ${parts.length - 1} ${t('andNMore').replace('{n}', String(parts.length - 1)).replace(/^\+ \d+ /, '')}`;
-}
-
-function hoursRange(hours: MenuAvailabilityHour[]): string | null {
-  if (!hours || hours.length === 0) return null;
-  const open = hours.filter((h) => !h.is_closed);
-  if (open.length === 0) return null;
-  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-  const first = open[0];
-  const last = open[open.length - 1];
-  const firstName = dayNames[(first.day_of_week + 6) % 7] ?? DAY_LABELS[first.day_of_week];
-  const lastName = dayNames[(last.day_of_week + 6) % 7] ?? DAY_LABELS[last.day_of_week];
-  if (first.day_of_week === last.day_of_week) return `${firstName}, ${first.open_time} - ${first.close_time}`;
-  return `${firstName} - ${lastName}, ${first.open_time} - ${last.close_time}`;
-}
-
-// ─── Main page ────────────────────────────────────────────────────────────────
-
+/** Menus retain their sales channels, ordering and routes to their group editors. */
 export default function MenusPage() {
-  const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
+  const rid = Number(useParams().restaurantId);
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale, direction } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
-
   const [menus, setMenus] = useState<Menu[]>([]);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [contextError, setContextError] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [search, setSearch] = useState('');
-  const [channelFilter, setChannelFilter] = useState<'all' | 'pos' | 'web'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isReordering, setIsReordering] = useState(false);
-  const [savingOrder, setSavingOrder] = useState(false);
-  const [editModal, setEditModal] = useState<{ open: boolean; editing?: Menu }>({ open: false });
-  const [openDropdown, setOpenDropdown] = useState<number | null>(null);
-  const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
-  const [channelDropdownOpen, setChannelDropdownOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<HTMLDivElement>(null);
-
-  const reload = useCallback(() => {
-    return listMenus(rid).then(setMenus).finally(() => setLoading(false));
-  }, [rid]);
-
-  useEffect(() => { reload(); getRestaurant(rid).then(setRestaurant).catch(() => null); }, [reload, rid]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpenDropdown(null);
-      if (channelRef.current && !channelRef.current.contains(e.target as Node)) setChannelDropdownOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const handleDelete = async (m: Menu) => {
-    if (!confirm(`${t('deleteMenu')} "${m.name}"?`)) return;
-    await deleteMenu(rid, m.id);
-    setOpenDropdown(null);
-    reload();
-  };
-
-  // Duplicate a carte, then land on the copy so the user can edit it (the
-  // common "duplicate to tweak" flow). The guard blocks a double-fire.
-  const handleDuplicate = async (m: Menu) => {
-    if (duplicatingId !== null) return;
-    setDuplicatingId(m.id);
-    try {
-      const copy = await duplicateMenu(rid, m.id);
-      router.push(`/${rid}/menu/menus/${copy.id}`);
-    } catch {
-      setDuplicatingId(null);
-      alert(t('duplicateMenuFailed'));
-    }
-  };
-
-  // Reordering stays local until the user clicks "Done". Persisting the whole
-  // ordered ID list through one endpoint avoids partial saves if one request
-  // fails and makes the button's behaviour match what the UI promises.
+  const [channel, setChannel] = useState<'all' | 'pos' | 'web'>('all');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [reordering, setReordering] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const [creating, setCreating] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Menu | null>(null);
+  const requestGuard = useRef(new RestaurantRequestGuard());
   const dragSource = useRef<number | null>(null);
-  const handleDragStart = (menuId: number) => { dragSource.current = menuId; };
-  const handleDragOver = (e: React.DragEvent, targetId: number) => {
-    e.preventDefault();
-    const sourceId = dragSource.current;
-    if (sourceId === null || sourceId === targetId) return;
-    setMenus((current) => {
-      const from = current.findIndex((menu) => menu.id === sourceId);
-      const to = current.findIndex((menu) => menu.id === targetId);
-      if (from === -1 || to === -1) return current;
-      const reordered = [...current];
-      const [moved] = reordered.splice(from, 1);
-      reordered.splice(to, 0, moved);
-      return reordered;
+  const originalOrder = useRef<Menu[]>([]);
+  const deleteReturnFocus = useRef<HTMLButtonElement | null>(null);
+  requestGuard.current.enterRestaurant(rid);
+
+  const reload = useCallback(async () => {
+    const guard = requestGuard.current;
+    const token = guard.begin(rid);
+    setLoading(true);
+    setError('');
+    try {
+      const [menuResult, restaurantResult] = await Promise.allSettled([listMenus(rid), getRestaurant(rid)]);
+      if (!guard.isCurrent(token)) return;
+      if (menuResult.status === 'rejected') throw menuResult.reason;
+      setMenus(menuResult.value);
+      setRestaurant(restaurantResult.status === 'fulfilled' ? restaurantResult.value : null);
+      setContextError(restaurantResult.status === 'rejected');
+    } catch (cause) { if (guard.isCurrent(token)) setError(cause instanceof Error ? cause.message : 'libraryOperationFailed'); }
+    finally { if (guard.isCurrent(token)) setLoading(false); }
+  }, [rid]);
+  useEffect(() => { const guard = requestGuard.current; void reload(); return () => guard.invalidate(); }, [reload]);
+
+  const mutate = async (operation: () => Promise<void>) => {
+    if (!canEdit || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setActionError('');
+    try { await operation(); }
+    catch (cause) { setActionError(cause instanceof Error ? cause.message : t('libraryOperationFailed')); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
+  const moveMenu = (id: number, targetId: number) => {
+    if (!reordering || busy || id === targetId) return;
+    setMenus(current => {
+      const from = current.findIndex(menu => menu.id === id);
+      const to = current.findIndex(menu => menu.id === targetId);
+      if (from < 0 || to < 0) return current;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
     });
   };
-
-  const handleReorderToggle = async () => {
-    if (!isReordering) {
-      setViewMode('grid');
-      setSearch('');
-      setChannelFilter('all');
-      setIsReordering(true);
-      return;
-    }
-
-    setSavingOrder(true);
-    try {
-      await reorderMenus(rid, menus.map((menu) => menu.id));
-      await reload();
-      setIsReordering(false);
-    } catch {
-      alert(t('couldNotSave'));
-    } finally {
-      setSavingOrder(false);
-    }
+  const toggleReorder = () => {
+    if (!reordering) {
+      originalOrder.current = [...menus];
+      setSearch(''); setChannel('all'); setView('grid'); setReordering(true); setActionError('');
+    } else void mutate(async () => { await reorderMenus(rid, menus.map(menu => menu.id)); setReordering(false); await reload(); });
   };
+  const filtered = menus.filter(menu => menu.name.toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)) && (channel === 'all' || (channel === 'pos' ? menu.pos_enabled : menu.web_enabled)));
+  const channels = (menu: Menu) => [menu.pos_enabled ? t('posSystem') : '', menu.web_enabled ? 'Web' : ''].filter(Boolean).join(' · ') || t('noChannels');
+  const dayName = (day: number) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 0, 7 + day)));
+  const hoursSummary = (menu: Menu) => menu.follows_restaurant_hours ? t('followsRestaurantHours') : menu.availability_hours?.filter(hour => !hour.is_closed).map(hour => `${dayName(hour.day_of_week)} ${hour.open_time}–${hour.close_time}`).join(' · ') || t('menuNoCustomHours');
+  const actions = (menu: Menu) => canEdit && !reordering && <DropdownMenu dir={direction}>
+    <DropdownMenuTrigger asChild><button type="button" disabled={busy} onFocus={event => { deleteReturnFocus.current = event.currentTarget; }} aria-label={`${t('actions')} · ${menu.name}`} className="grid size-11 shrink-0 place-items-center rounded-r-md border border-[var(--line)] text-fg-secondary hover:bg-[var(--surface-2)]"><MoreHorizontal className="size-5" /></button></DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="max-w-[calc(100vw-2rem)] min-w-60">
+      <DropdownMenuItem className="min-h-11" onSelect={() => router.push(`/${rid}/menu/menus/${menu.id}/edit`)}><Pencil />{t('editMenuDetails')}</DropdownMenuItem>
+      <DropdownMenuItem className="min-h-11" onSelect={() => void mutate(async () => { const copy = await duplicateMenu(rid, menu.id); router.push(`/${rid}/menu/menus/${copy.id}`); })}><Copy />{t('duplicateMenu')}</DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem className="min-h-11" variant="destructive" onSelect={() => { window.setTimeout(() => setPendingDelete(menu), 0); }}><Trash />{t('deleteMenu')}</DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>;
 
-  const filtered = menus.filter((m) => {
-    if (search && !m.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (channelFilter === 'pos' && !m.pos_enabled) return false;
-    if (channelFilter === 'web' && !m.web_enabled) return false;
-    return true;
-  });
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-[var(--s-5)] max-w-5xl mx-auto" ref={containerRef}>
-      <PageHead
-        title={t('menus')}
-        desc={t('carteDescription')}
-        actions={
-          canEdit ? (
-            <>
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={handleReorderToggle}
-                disabled={savingOrder}
-              >
-                {savingOrder ? t('saving') : isReordering ? t('doneReordering') : t('reorder')}
-              </Button>
-              <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
-                <PlusIcon />
-                {t('createMenu')}
-              </Button>
-            </>
-          ) : null
-        }
-      />
-
-      <FeatureIntro feature="menus" />
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-tertiary pointer-events-none" />
-          <input
-            className="input pl-10 text-sm h-11 w-full rounded-full"
-            placeholder={t('searchByMenuName')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        {/* Channel filter dropdown */}
-        <div className="relative" ref={channelRef}>
-          <button
-            onClick={() => setChannelDropdownOpen(!channelDropdownOpen)}
-            className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
-          >
-            <span>{t('salesChannels')}</span>
-            <span className="font-bold">
-              {channelFilter === 'all' ? t('all') : channelFilter === 'pos' ? 'POS' : 'Web'}
-            </span>
-            <ChevronDownIcon className="w-4 h-4 text-fg-tertiary" />
-          </button>
-          {channelDropdownOpen && (
-            <div className="absolute left-0 top-full mt-1 z-30 w-44 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
-              {(['all', 'pos', 'web'] as const).map((val) => (
-                <button
-                  key={val}
-                  onClick={() => { setChannelFilter(val); setChannelDropdownOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${channelFilter === val ? 'bg-[var(--surface-subtle)] font-medium' : 'hover:bg-[var(--surface-subtle)]'}`}
-                >
-                  {val === 'all' ? t('all') : val === 'pos' ? 'POS' : 'Web'}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        {!isReordering && (
-          <div className="flex items-center border border-[var(--divider)] rounded-full overflow-hidden">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2.5 transition-colors ${viewMode === 'grid' ? 'bg-[var(--surface-subtle)]' : 'hover:bg-[var(--surface-subtle)]'}`}
-            >
-              <LayoutGridIcon className="w-4 h-4 text-fg-secondary" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2.5 border-l border-[var(--divider)] transition-colors ${viewMode === 'list' ? 'bg-[var(--surface-subtle)]' : 'hover:bg-[var(--surface-subtle)]'}`}
-            >
-              <ListIcon className="w-4 h-4 text-fg-secondary" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Empty state */}
-      {filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <svg className="w-12 h-12 text-fg-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-          </svg>
-          <p className="text-base text-fg-secondary text-center max-w-md">{t('noMenusYet')}</p>
-          {canEdit && (
-            <button onClick={() => setEditModal({ open: true })} className="btn-primary mt-2 rounded-full">
-              {t('createMenu')}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ── Grid mode: stacked full-width cards ── */}
-      {filtered.length > 0 && viewMode === 'grid' && (
-        <div className="space-y-3">
-          {filtered.map((m) => (
-            <div
-              key={m.id}
-              draggable={isReordering && !savingOrder}
-              onDragStart={() => handleDragStart(m.id)}
-              onDragOver={(e) => handleDragOver(e, m.id)}
-              onDrop={() => { dragSource.current = null; }}
-              onDragEnd={() => { dragSource.current = null; }}
-              onClick={() => !isReordering && router.push(`/${rid}/menu/menus/${m.id}`)}
-              className={`flex items-center gap-4 px-5 py-4 rounded-xl border border-[var(--divider)] bg-[var(--surface)] hover:shadow-sm transition-shadow${isReordering ? ' cursor-grab active:cursor-grabbing' : ' cursor-pointer'}`}
-            >
-              {isReordering && <MenuIcon className="w-4 h-4 text-fg-tertiary shrink-0" />}
-              {/* Avatar */}
-              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                <span className="text-xs font-semibold text-fg-secondary">{menuAbbr(m.name)}</span>
-              </div>
-              {/* Name + metadata */}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-fg-primary">{m.name}</p>
-                <div className="flex items-center gap-0 mt-0.5 text-xs text-fg-tertiary">
-                  {restaurant?.name && (
-                    <>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
-                        className="flex items-center gap-1 hover:text-fg-primary hover:underline transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>
-                        {restaurant.name}
-                      </button>
-                      <span className="mx-2 text-fg-tertiary">|</span>
-                    </>
-                  )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
-                    className="flex items-center gap-1 hover:text-fg-primary hover:underline transition-colors"
-                  >
-                    <LayoutGridIcon className="w-3.5 h-3.5 shrink-0" />
-                    {channelsMeta(m, t)}
-                  </button>
-                  {!m.follows_restaurant_hours && m.availability_hours && hoursRange(m.availability_hours) && (
-                    <>
-                      <span className="mx-2 text-fg-tertiary">|</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
-                        className="flex items-center gap-1 hover:text-fg-primary hover:underline transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                        {hoursRange(m.availability_hours)}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-              {/* Dropdown */}
-              {!isReordering && canEdit && (
-                <MenuDropdown
-                  menu={m}
-                  isOpen={openDropdown === m.id}
-                  onToggle={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === m.id ? null : m.id); }}
-                  onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
-                  onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDuplicate(m); }}
-                  onDelete={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDelete(m); }}
-                  t={t}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── List mode: table with columns ── */}
-      {filtered.length > 0 && viewMode === 'list' && (
-        <DataTable>
-          <DataTableHead>
-            <DataTableHeadCell>{t('name')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('pointOfSale')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('salesChannels')}</DataTableHeadCell>
-            <DataTableHeadSpacerCell />
-          </DataTableHead>
-          <DataTableBody>
-            {filtered.map((m, index) => (
-              <DataTableRow
-                key={m.id}
-                index={index}
-                onClick={() => router.push(`/${rid}/menu/menus/${m.id}`)}
-                className="cursor-pointer"
-              >
-                <DataTableCell mobilePrimary>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-fg-secondary">{menuAbbr(m.name)}</span>
-                    </div>
-                    <span className="font-medium text-fg-primary">{m.name}</span>
-                  </div>
-                </DataTableCell>
-                <DataTableCell mobileLabel={t('pointOfSale')} className="text-fg-secondary">{restaurant?.name ?? '—'}</DataTableCell>
-                <DataTableCell mobileLabel={t('salesChannels')} className="text-fg-secondary">{channelsSummary(m, t)}</DataTableCell>
-                <DataTableCell>
-                  {canEdit && (
-                  <MenuDropdown
-                    menu={m}
-                    isOpen={openDropdown === m.id}
-                    onToggle={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === m.id ? null : m.id); }}
-                    onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
-                    onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDuplicate(m); }}
-                    onDelete={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDelete(m); }}
-                    t={t}
-                  />
-                  )}
-                </DataTableCell>
-              </DataTableRow>
-            ))}
-          </DataTableBody>
-        </DataTable>
-      )}
-
-      {editModal.open && (
-        <MenuEditModal
-          restaurantId={rid}
-          editing={editModal.editing}
-          onClose={() => setEditModal({ open: false })}
-          onSaved={() => { setEditModal({ open: false }); reload(); }}
-        />
-      )}
+  return <div className="mx-auto max-w-6xl space-y-5">
+    <PageHead title={t('menus')} desc={t('carteDescription')} actions={canEdit && <>
+      {reordering && <Button variant="secondary" disabled={busy} onClick={() => { setMenus(originalOrder.current); setReordering(false); setActionError(''); }}>{t('cancel')}</Button>}
+      <Button variant="secondary" disabled={loading || !!error || busy || menus.length < 2} onClick={toggleReorder}>{busy && reordering ? t('saving') : reordering ? t('doneReordering') : t('reorder')}</Button>
+      <Button variant="primary" disabled={busy || reordering} onClick={() => setCreating(true)}><Plus />{t('createMenu')}</Button>
+    </>} />
+    <FeatureIntro feature="menus" />
+    {actionError && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
+    {contextError && !error && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-r-md bg-[var(--warning-50)] p-3 text-sm text-[var(--warning-500)]"><p className="flex-1">{t('menuRestaurantDetailsUnavailable')}</p><button type="button" disabled={loading || reordering} className="min-h-11 font-semibold underline" onClick={() => void reload()}>{t('retry')}</button></div>}
+    <div className="flex flex-wrap items-end gap-3">
+      <div className="relative min-w-0 flex-[1_1_240px]"><label htmlFor="menu-search" className="sr-only">{t('searchByMenuName')}</label><Search aria-hidden className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-fg-secondary" /><input id="menu-search" className="input ps-10" placeholder={t('searchByMenuName')} disabled={reordering} value={search} onChange={event => setSearch(event.target.value)} /></div>
+      <div className="min-w-0 flex-[1_1_180px] sm:flex-none"><label htmlFor="menu-channel" className="sr-only">{t('salesChannels')}</label><select id="menu-channel" className="input min-w-0" value={channel} disabled={reordering} onChange={event => setChannel(event.target.value as typeof channel)}><option value="all">{t('salesChannels')} · {t('all')}</option><option value="pos">POS</option><option value="web">Web</option></select></div>
+      {!reordering && <div className="flex rounded-r-md border border-[var(--line-strong)]"><button type="button" aria-label={t('menuCardsView')} aria-pressed={view === 'grid'} onClick={() => setView('grid')} className={`grid size-11 place-items-center rounded-r-md ${view === 'grid' ? 'bg-[var(--summary-bg)] text-[var(--summary-fg)]' : 'text-fg-secondary'}`}><LayoutGrid className="size-4" /></button><button type="button" aria-label={t('menuListView')} aria-pressed={view === 'list'} onClick={() => setView('list')} className={`grid size-11 place-items-center rounded-r-md ${view === 'list' ? 'bg-[var(--summary-bg)] text-[var(--summary-fg)]' : 'text-fg-secondary'}`}><List className="size-4" /></button></div>}
     </div>
-  );
-}
-
-// ─── Dropdown component ───────────────────────────────────────────────────────
-
-function MenuDropdown({ menu: m, isOpen, onToggle, onEdit, onDuplicate, onDelete, t }: {
-  menu: Menu;
-  isOpen: boolean;
-  onToggle: (e: React.MouseEvent) => void;
-  onEdit: (e: React.MouseEvent) => void;
-  onDuplicate: (e: React.MouseEvent) => void;
-  onDelete: (e: React.MouseEvent) => void;
-  t: TFn;
-}) {
-  return (
-    <div className="relative shrink-0">
-      <button onClick={onToggle} className="p-1.5 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] text-fg-primary transition-colors">
-        <MoreHorizontalIcon className="w-5 h-5" />
-      </button>
-      {isOpen && (
-        <div className="absolute right-0 top-10 z-30 w-64 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
-          <button onClick={onEdit} className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors">
-            {t('editMenuDetails')}
-          </button>
-          <div className="border-t border-[var(--divider)]" />
-          <button onClick={onDuplicate} className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors">
-            {t('duplicateMenu')}
-          </button>
-          <div className="border-t border-[var(--divider)]" />
-          <button onClick={onDelete} className="w-full text-left px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors">
-            {t('deleteMenu')}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Edit / Create modal ──────────────────────────────────────────────────────
-
-function MenuEditModal({ restaurantId, editing, onClose, onSaved }: {
-  restaurantId: number;
-  editing?: Menu;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const { t } = useI18n();
-  const [name, setName] = useState(editing?.name ?? '');
-  const [isActive, setIsActive] = useState(editing?.is_active ?? true);
-  const [posEnabled, setPosEnabled] = useState(editing?.pos_enabled ?? true);
-  const [webEnabled, setWebEnabled] = useState(editing?.web_enabled ?? true);
-  const [followsRestaurantHours, setFollowsRestaurantHours] = useState(editing?.follows_restaurant_hours ?? true);
-  const [hours, setHours] = useState<MenuAvailabilityHour[]>([]);
-  const [loadingHours, setLoadingHours] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (editing && !followsRestaurantHours) {
-      setLoadingHours(true);
-      getMenuHours(restaurantId, editing.id).then(setHours).finally(() => setLoadingHours(false));
-    }
-  }, [editing, followsRestaurantHours, restaurantId]);
-
-  const setHourField = (day: number, field: keyof Omit<MenuAvailabilityHour, 'id' | 'menu_id'>, value: string | boolean) => {
-    setHours((prev) => {
-      const existing = prev.find((h) => h.day_of_week === day);
-      if (existing) return prev.map((h) => h.day_of_week === day ? { ...h, [field]: value } : h);
-      return [...prev, { id: 0, menu_id: editing?.id ?? 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false, [field]: value }];
-    });
-  };
-
-  const getHour = (day: number): MenuAvailabilityHour =>
-    hours.find((h) => h.day_of_week === day) ?? { id: 0, menu_id: editing?.id ?? 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false };
-
-  const handleSave = async () => {
-    if (!name.trim()) return;
-    setSaving(true);
-    try {
-      const input = { name, is_active: isActive, pos_enabled: posEnabled, web_enabled: webEnabled, follows_restaurant_hours: followsRestaurantHours };
-      const saved = editing ? await updateMenu(restaurantId, editing.id, input) : await createMenu(restaurantId, input);
-      if (!followsRestaurantHours) {
-        await setMenuHours(restaurantId, saved.id, hours.map(({ day_of_week, open_time, close_time, is_closed }) => ({ day_of_week, open_time, close_time, is_closed })));
-      }
-      onSaved();
-    } finally { setSaving(false); }
-  };
-
-  return (
-    <Modal title={editing ? t('editMenu') : t('createMenu')} onClose={onClose}>
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('menuName')}</label>
-          <input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-2">{t('channels')}</label>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={posEnabled} onChange={(e) => setPosEnabled(e.target.checked)} className="rounded" /> POS</label>
-            <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={webEnabled} onChange={(e) => setWebEnabled(e.target.checked)} className="rounded" /> Web</label>
+    {loading ? <p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p>
+      : error ? <div role="alert" className="rounded-r-lg border border-[var(--line)] p-5"><p className="mb-4 text-[var(--danger-500)]">{t(error)}</p><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>
+      : !filtered.length ? <EmptyState icon={<Utensils />} title={t(menus.length ? 'noResults' : 'noMenusYet')} action={canEdit && !menus.length ? <Button variant="primary" onClick={() => setCreating(true)}>{t('createMenu')}</Button> : undefined} />
+      : view === 'grid' ? <div className="space-y-3">
+        {filtered.map((menu, index) => <article key={menu.id} draggable={reordering && !busy}
+          onDragStart={() => { dragSource.current = menu.id; }} onDragOver={event => { event.preventDefault(); if (dragSource.current !== null) moveMenu(dragSource.current, menu.id); }} onDrop={() => { dragSource.current = null; }} onDragEnd={() => { dragSource.current = null; }}
+          className={`flex items-start gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4 sm:gap-4 sm:p-5 ${reordering ? 'cursor-grab' : ''}`}>
+          <span className="hidden size-11 shrink-0 place-items-center rounded-r-md bg-[var(--summary-bg)] text-[var(--summary-fg)] sm:grid">{reordering ? <GripVertical className="size-5" /> : <Utensils className="size-5" />}</span>
+          <div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap items-center gap-2">{reordering ? <h2 className="break-words text-base font-semibold">{menu.name}</h2> : <Link href={`/${rid}/menu/menus/${menu.id}`} className="break-words text-base font-semibold hover:underline">{menu.name}</Link>}{!menu.is_active && <Badge>{t('inactive')}</Badge>}</div>
+            <Link href={`/${rid}/menu/menus/${menu.id}/edit`} tabIndex={reordering ? -1 : undefined} className={`block text-sm text-fg-secondary hover:underline ${reordering ? 'pointer-events-none' : ''}`}>{[restaurant?.name, channels(menu)].filter(Boolean).join(' · ')}</Link>
+            <Link href={`/${rid}/menu/menus/${menu.id}/edit`} tabIndex={reordering ? -1 : undefined} className={`mt-2 block break-words text-xs leading-relaxed text-fg-secondary hover:underline ${reordering ? 'pointer-events-none' : ''}`}>{hoursSummary(menu)}</Link>
           </div>
-        </div>
-        <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded" /> {t('active')}</label>
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-2">{t('availability')}</label>
-          <label className="flex items-center gap-2 cursor-pointer text-sm mb-3">
-            <input type="checkbox" checked={followsRestaurantHours} onChange={(e) => setFollowsRestaurantHours(e.target.checked)} className="rounded" />
-            {t('followsRestaurantHours')}
-          </label>
-          {!followsRestaurantHours && (
-            <div className="space-y-2">
-              {loadingHours ? <div className="text-xs text-fg-secondary">{t('loading')}</div> : DAY_LABELS.map((label, day) => {
-                const h = getHour(day);
-                return (
-                  <div key={day} className="flex items-center gap-3 text-sm">
-                    <span className="w-8 text-fg-secondary text-xs">{label}</span>
-                    <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={h.is_closed} onChange={(e) => setHourField(day, 'is_closed', e.target.checked)} className="rounded" />{t('closed')}</label>
-                    {!h.is_closed && (<><input type="time" value={h.open_time} onChange={(e) => setHourField(day, 'open_time', e.target.value)} className="input py-1 px-2 text-xs w-28" /><span className="text-fg-secondary text-xs">–</span><input type="time" value={h.close_time} onChange={(e) => setHourField(day, 'close_time', e.target.value)} className="input py-1 px-2 text-xs w-28" /></>)}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-secondary" onClick={onClose}>{t('cancel')}</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? t('saving') : t('save')}</button>
-        </div>
-      </div>
-    </Modal>
-  );
+          {reordering ? <div className="flex shrink-0 flex-col gap-1"><button type="button" aria-label={`${t('moveUp')} · ${menu.name}`} disabled={busy || index === 0} onClick={() => moveMenu(menu.id, menus[index - 1].id)} className="grid size-11 place-items-center rounded-r-md border border-[var(--line)] hover:bg-[var(--surface-2)] disabled:opacity-30"><ArrowUp className="size-4" /></button><button type="button" aria-label={`${t('moveDown')} · ${menu.name}`} disabled={busy || index === menus.length - 1} onClick={() => moveMenu(menu.id, menus[index + 1].id)} className="grid size-11 place-items-center rounded-r-md border border-[var(--line)] hover:bg-[var(--surface-2)] disabled:opacity-30"><ArrowDown className="size-4" /></button></div> : actions(menu)}
+        </article>)}
+      </div> : <DataTable>
+        <DataTableHead><DataTableHeadCell>{t('name')}</DataTableHeadCell><DataTableHeadCell>{t('pointOfSale')}</DataTableHeadCell><DataTableHeadCell>{t('salesChannels')}</DataTableHeadCell><DataTableHeadSpacerCell /></DataTableHead>
+        <DataTableBody>{filtered.map((menu, index) => <DataTableRow key={menu.id} index={index}><DataTableCell mobilePrimary><Link href={`/${rid}/menu/menus/${menu.id}`} className="font-semibold hover:underline">{menu.name}</Link></DataTableCell><DataTableCell mobileLabel={t('pointOfSale')} className="text-sm text-fg-secondary">{restaurant?.name ?? '—'}</DataTableCell><DataTableCell mobileLabel={t('salesChannels')} className="text-sm text-fg-secondary">{channels(menu)}</DataTableCell><DataTableCell>{actions(menu)}</DataTableCell></DataTableRow>)}</DataTableBody>
+      </DataTable>}
+    {creating && <MenuCreateModal restaurantId={rid} onClose={created => { setCreating(false); if (created) void reload(); }} onSaved={() => { setCreating(false); void reload(); }} />}
+    <ConfirmDialog returnFocusRef={deleteReturnFocus} open={pendingDelete !== null} onOpenChange={open => { if (!open) setPendingDelete(null); }} title={t('deleteMenu')} description={pendingDelete?.name} danger confirmLabel={t('delete')} cancelLabel={t('cancel')} onConfirm={() => { if (pendingDelete) void mutate(async () => { await deleteMenu(rid, pendingDelete.id); await reload(); }); }} />
+  </div>;
 }

@@ -44,6 +44,7 @@ function applyPatch(payload: DraftPayload, patch: ChatPatch): DraftPayload {
   if (j >= 0) {
     const target = components[i];
     if (!target || !target.ingredients) return payload;
+    if (patch.op !== 'add' && !target.ingredients[j]) return payload;
     const ings = [...target.ingredients];
 
     if (patch.op === 'remove') {
@@ -63,6 +64,8 @@ function applyPatch(payload: DraftPayload, patch: ChatPatch): DraftPayload {
     components[i] = { ...target, ingredients: ings };
     return { ...payload, components };
   }
+
+  if (!components[i]) return payload;
 
   // ── Top-level component ops (i >= 0, j < 0) ────────────────────────────
   if (patch.op === 'remove') {

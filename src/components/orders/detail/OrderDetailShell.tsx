@@ -1,5 +1,7 @@
 'use client';
 
+import { useDialogReturnFocus } from '@/lib/use-dialog-return-focus';
+
 import * as React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
@@ -66,17 +68,18 @@ export function OrderDetailShell({
   footer,
   className,
 }: OrderDetailShellProps) {
+  const focus = useDialogReturnFocus();
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay
           className={cn(
-            'fixed inset-0 z-50 bg-black/55 backdrop-blur-[3px]',
+            'fixed inset-0 z-50 bg-[var(--overlay)]',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
           )}
         />
-        <Dialog.Content
+        <Dialog.Content {...focus}
           aria-describedby={undefined}
           className={cn(
             // Edge-to-edge fullscreen on mobile, inset modal at md+ via
@@ -106,7 +109,6 @@ export function OrderDetailShell({
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
             className,
           )}
-          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           {/* Radix needs a title for the dialog's accessible name; the visible
               head composes its own richer version. */}

@@ -1,399 +1,205 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import { Pencil, Trash, Plus, X, Repeat, Search } from 'lucide-react';
 import {
   getAllCategories, getRestaurant, getRotationSchedules, setRotationSchedule, deleteRotationSchedule,
   renameRotationGroup, deleteRotationGroup, updateMenuItem,
-  MenuCategory, MenuItem, RotationSchedule,
+  type MenuCategory, type MenuItem, type RotationSchedule,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { PencilIcon, TrashIcon, PlusIcon, CheckIcon, XIcon } from 'lucide-react';
 import { clampWeekStartDay, getWeekStart, isoDate, type WeekStartDay } from '@/lib/weeks';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
+import { Button, ConfirmDialog, EmptyState, PageHead } from '@/components/ds';
+import Modal from '@/components/Modal';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Returns `count` consecutive week-start strings beginning from the current
- *  week, using the restaurant's configured first day of the week. */
-function getWeekStarts(weekStartDay: WeekStartDay, count = 4): string[] {
+/** Four consecutive weeks, using the restaurant's configured first day. */
+function getWeekStarts(weekStartDay: WeekStartDay): string[] {
   const start = getWeekStart(new Date(), weekStartDay);
-  const weeks: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i * 7);
-    weeks.push(isoDate(d));
-  }
-  return weeks;
+  return Array.from({ length: 4 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(date.getDate() + index * 7);
+    return isoDate(date);
+  });
 }
-
-/** Formats a YYYY-MM-DD date as "Dec 30" etc. */
-function formatWeekLabel(iso: string): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-}
-
-// ─── Types ─────────────────────────────────────────────────────────────────────
 
 interface RotationGroup {
   name: string;
   items: (MenuItem & { category_name: string })[];
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+type PendingRemoval = { kind: 'group'; name: string } | { kind: 'item'; item: MenuItem };
 
+/** Weekly rotation workspace with explicit mutation feedback and responsive schedules. */
 export default function RotationPage() {
-  const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
-  const { t } = useI18n();
+  const rid = Number(useParams().restaurantId);
+  const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
-
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [schedules, setSchedules] = useState<RotationSchedule[]>([]);
   const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
   const [loading, setLoading] = useState(true);
-
-  const weekStarts = getWeekStarts(weekStartDay, 4);
-
-  // ─── Derived: groups ──────────────────────────────────────────────────────
-
-  const allItems: (MenuItem & { category_name: string })[] = categories.flatMap((c) =>
-    (c.items ?? []).map((i) => ({ ...i, category_name: c.name }))
-  );
-
-  const groupMap = new Map<string, RotationGroup>();
-  for (const item of allItems) {
-    if (!item.rotation_group) continue;
-    if (!groupMap.has(item.rotation_group)) {
-      groupMap.set(item.rotation_group, { name: item.rotation_group, items: [] });
-    }
-    groupMap.get(item.rotation_group)!.items.push(item);
-  }
-  const groups = Array.from(groupMap.values());
-
-  // All items NOT yet in a group (for adding to a new/existing group)
-  const ungroupedItems = allItems.filter((i) => !i.rotation_group);
-
-  // ─── Load ─────────────────────────────────────────────────────────────────
+  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const [groupEditor, setGroupEditor] = useState<{ originalName: string | null } | null>(null);
+  const [groupName, setGroupName] = useState('');
+  const [addingItems, setAddingItems] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null);
+  const [discard, setDiscard] = useState(false);
+  const requestGuard = useRef(new RestaurantRequestGuard());
+  requestGuard.current.enterRestaurant(rid);
 
   const reload = useCallback(async () => {
+    const guard = requestGuard.current;
+    const token = guard.begin(rid);
     setLoading(true);
+    setError('');
     try {
       const [cats, scheds, restaurant] = await Promise.all([
-        getAllCategories(rid),
-        getRotationSchedules(rid, 4),
-        getRestaurant(rid),
+        getAllCategories(rid), getRotationSchedules(rid, 4), getRestaurant(rid),
       ]);
+      if (!guard.isCurrent(token)) return;
       setCategories(cats);
       setSchedules(scheds);
       setWeekStartDay(clampWeekStartDay(restaurant.week_start_day));
-    } finally {
-      setLoading(false);
-    }
-  }, [rid]);
+    } catch (cause) {
+      if (guard.isCurrent(token)) setError(cause instanceof Error ? cause.message : t('libraryOperationFailed'));
+    } finally { if (guard.isCurrent(token)) setLoading(false); }
+  }, [rid, t]);
+  useEffect(() => { const guard = requestGuard.current; void reload(); return () => guard.invalidate(); }, [reload]);
 
-  useEffect(() => { reload(); }, [reload]);
-
-  // ─── Schedule lookup: group + weekStart → schedule ────────────────────────
-
-  const scheduleMap = new Map<string, RotationSchedule>();
-  for (const s of schedules) {
-    const key = `${s.rotation_group}__${s.week_start.split('T')[0]}`;
-    scheduleMap.set(key, s);
+  const allItems = categories.flatMap(category => (category.items ?? []).map(item => ({ ...item, category_name: category.name })));
+  const groupMap = new Map<string, RotationGroup>();
+  for (const item of allItems) {
+    if (!item.rotation_group) continue;
+    if (!groupMap.has(item.rotation_group)) groupMap.set(item.rotation_group, { name: item.rotation_group, items: [] });
+    groupMap.get(item.rotation_group)!.items.push(item);
   }
+  const groups = Array.from(groupMap.values());
+  const ungroupedItems = allItems.filter(item => !item.rotation_group);
+  const visibleItems = ungroupedItems.filter(item => `${item.name} ${item.category_name}`.toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)));
+  const weekStarts = getWeekStarts(weekStartDay);
+  const formatWeek = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString(locale, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const scheduleMap = new Map(schedules.map(schedule => [`${schedule.rotation_group}__${schedule.week_start.split('T')[0]}`, schedule]));
 
-  const getScheduled = (group: string, weekStart: string) =>
-    scheduleMap.get(`${group}__${weekStart}`);
-
-  // ─── Actions ──────────────────────────────────────────────────────────────
-
-  const handleSetSchedule = async (group: string, menuItemId: number, weekStart: string) => {
-    await setRotationSchedule(rid, { rotation_group: group, menu_item_id: menuItemId, week_start: weekStart });
-    reload();
+  const mutate = async (operation: () => Promise<unknown>, onSuccess?: () => void) => {
+    if (!canEdit || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setActionError('');
+    try { await operation(); onSuccess?.(); await reload(); }
+    catch (cause) { setActionError(cause instanceof Error ? cause.message : t('libraryOperationFailed')); }
+    finally { busyRef.current = false; setBusy(false); }
   };
 
-  const handleClearSchedule = async (scheduleId: number) => {
-    await deleteRotationSchedule(rid, scheduleId);
-    reload();
+  const openGroupEditor = (originalName: string | null) => {
+    setActionError('');
+    setGroupName(originalName ?? '');
+    setGroupEditor({ originalName });
   };
-
-  // ─── Group management ─────────────────────────────────────────────────────
-
-  const [editingGroup, setEditingGroup] = useState<string | null>(null);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [addingItems, setAddingItems] = useState<string | null>(null); // group name being added to
-  const [creatingGroup, setCreatingGroup] = useState(false);
-  const [newGroupInput, setNewGroupInput] = useState('');
-
-  const handleRenameGroup = async (oldName: string, newName: string) => {
-    if (!newName.trim() || newName === oldName) { setEditingGroup(null); return; }
-    await renameRotationGroup(rid, oldName, newName.trim());
-    setEditingGroup(null);
-    reload();
+  const closeGroupEditor = () => {
+    if (busy) return;
+    if (groupName !== (groupEditor?.originalName ?? '')) setDiscard(true);
+    else { setGroupEditor(null); setActionError(''); }
   };
-
-  const handleDeleteGroup = async (name: string) => {
-    if (!confirm(`${t('deleteGroupConfirm')} "${name}"?`)) return;
-    await deleteRotationGroup(rid, name);
-    reload();
-  };
-
-  const handleAddItemToGroup = async (item: MenuItem, groupName: string) => {
-    await updateMenuItem(rid, item.id, { rotation_group: groupName } as Partial<MenuItem>);
-    setAddingItems(null);
-    reload();
-  };
-
-  const handleRemoveItemFromGroup = async (item: MenuItem) => {
-    if (!confirm(`${t('removeFromGroupConfirm')} "${item.name}"?`)) return;
-    await updateMenuItem(rid, item.id, { rotation_group: null } as unknown as Partial<MenuItem>);
-    reload();
-  };
-
-  const handleCreateGroup = async () => {
-    if (!newGroupInput.trim()) return;
-    // Groups are created implicitly by assigning the first item
-    // We need at least one item to assign
-    if (ungroupedItems.length === 0) {
-      alert(t('noUngroupedItems'));
-      setCreatingGroup(false);
-      return;
+  const saveGroup = () => {
+    if (!groupEditor || !groupName.trim()) return;
+    const newName = groupName.trim();
+    if (groupEditor.originalName !== null) {
+      if (newName === groupEditor.originalName) { setGroupEditor(null); return; }
+      void mutate(() => renameRotationGroup(rid, groupEditor.originalName!, newName), () => setGroupEditor(null));
+    } else if (ungroupedItems.length > 0) {
+      // Groups still exist implicitly through their first item assignment.
+      void mutate(() => updateMenuItem(rid, ungroupedItems[0].id, { rotation_group: newName }), () => setGroupEditor(null));
     }
-    const item = ungroupedItems[0];
-    await updateMenuItem(rid, item.id, { rotation_group: newGroupInput.trim() } as Partial<MenuItem>);
-    setCreatingGroup(false);
-    setNewGroupInput('');
-    reload();
   };
+  const remove = () => {
+    const target = pendingRemoval;
+    if (!target) return;
+    void mutate(() => target.kind === 'group'
+      ? deleteRotationGroup(rid, target.name)
+      : updateMenuItem(rid, target.item.id, { rotation_group: null } as unknown as Partial<MenuItem>));
+  };
+  const modalOpen = !!groupEditor || addingItems !== null;
+  const actionFeedback = actionError && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{actionError}</p>;
 
-  // ─── Render ────────────────────────────────────────────────────────────────
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-fg-primary">{t('weeklyRotation')}</h1>
-          <p className="text-sm text-fg-secondary mt-1">{t('weeklyRotationDesc')}</p>
+  return <div className="space-y-6">
+    <PageHead title={t('weeklyRotation')} desc={t('weeklyRotationDesc')} actions={canEdit && <Button variant="primary" disabled={loading || busy || !!error} onClick={() => openGroupEditor(null)}><Plus />{t('newGroup')}</Button>} />
+    {!modalOpen && actionFeedback}
+    {loading ? <p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p>
+      : error ? <div role="alert" className="rounded-r-lg border border-[var(--line)] p-5"><p className="mb-4 text-[var(--danger-500)]">{error}</p><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>
+      : groups.length === 0 ? <EmptyState icon={<Repeat />} title={t('noRotationGroups')} desc={t('noRotationGroupsDesc')} />
+      : groups.map(group => <section key={group.name} aria-label={group.name} className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+        <div className="flex items-center gap-3 border-b border-[var(--line)] bg-[var(--summary-bg)] px-4 py-3 text-[var(--summary-fg)] sm:px-5">
+          <h2 className="min-w-0 flex-1 break-words text-lg font-semibold">{group.name}</h2>
+          {canEdit && <div className="flex shrink-0 gap-1">
+            <button type="button" disabled={busy} aria-label={`${t('renameGroup')} · ${group.name}`} onClick={() => openGroupEditor(group.name)} className="grid size-11 place-items-center rounded-r-md hover:bg-[var(--surface)]"><Pencil className="size-4" /></button>
+            <button type="button" disabled={busy} aria-label={`${t('deleteGroup')} · ${group.name}`} onClick={() => setPendingRemoval({ kind: 'group', name: group.name })} className="grid size-11 place-items-center rounded-r-md hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]"><Trash className="size-4" /></button>
+          </div>}
         </div>
-        {canEdit && (
-          <button
-            onClick={() => setCreatingGroup(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <PlusIcon className="w-4 h-4" />
-            {t('newGroup')}
-          </button>
-        )}
-      </div>
-
-      {/* Create group inline form */}
-      {canEdit && creatingGroup && (
-        <div className="card flex items-center gap-3">
-          <input
-            autoFocus
-            className="input flex-1 text-sm"
-            placeholder={t('groupNamePlaceholder')}
-            value={newGroupInput}
-            onChange={(e) => setNewGroupInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleCreateGroup(); if (e.key === 'Escape') setCreatingGroup(false); }}
-          />
-          <button onClick={handleCreateGroup} className="btn-primary text-sm">{t('create')}</button>
-          <button onClick={() => setCreatingGroup(false)} className="btn-secondary text-sm">{t('cancel')}</button>
-        </div>
-      )}
-
-      {groups.length === 0 && !creatingGroup && (
-        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <div className="text-4xl">🔄</div>
-          <h2 className="text-lg font-semibold text-fg-primary">{t('noRotationGroups')}</h2>
-          <p className="text-sm text-fg-secondary max-w-sm text-center">{t('noRotationGroupsDesc')}</p>
-        </div>
-      )}
-
-      {/* Groups + schedule grid */}
-      {groups.map((group) => (
-        <div key={group.name} className="card space-y-4">
-          {/* Group header */}
-          <div className="flex items-center gap-3">
-            {canEdit && editingGroup === group.name ? (
-              <form
-                className="flex items-center gap-2 flex-1"
-                onSubmit={(e) => { e.preventDefault(); handleRenameGroup(group.name, newGroupName); }}
-              >
-                <input
-                  autoFocus
-                  className="input text-sm flex-1"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                />
-                <button type="submit" className="p-1 rounded text-brand-500 hover:bg-[var(--surface-subtle)]">
-                  <CheckIcon className="w-4 h-4" />
-                </button>
-                <button type="button" onClick={() => setEditingGroup(null)} className="p-1 rounded hover:bg-[var(--surface-subtle)]">
-                  <XIcon className="w-4 h-4 text-fg-secondary" />
-                </button>
-              </form>
-            ) : (
-              <>
-                <h2 className="text-base font-semibold text-fg-primary flex-1">{group.name}</h2>
-                {canEdit && (
-                  <>
-                    <button
-                      onClick={() => { setEditingGroup(group.name); setNewGroupName(group.name); }}
-                      className="p-1.5 rounded hover:bg-[var(--surface-subtle)]"
-                      title={t('renameGroup')}
-                    >
-                      <PencilIcon className="w-4 h-4 text-fg-secondary" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteGroup(group.name)}
-                      className="p-1.5 rounded hover:bg-red-500/10 text-red-400"
-                      title={t('deleteGroup')}
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Items in this group */}
+        <div className="space-y-6 p-4 sm:p-5">
           <div>
-            <div className="text-xs text-fg-secondary font-medium mb-2 uppercase tracking-wider">
-              {t('itemsInGroup')}
-            </div>
+            <h3 className="mb-3 text-sm font-semibold">{t('itemsInGroup')}</h3>
             <div className="flex flex-wrap gap-2">
-              {group.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium"
-                  style={{ background: 'var(--surface-subtle)', color: 'var(--text-primary)' }}
-                >
-                  {item.name}
-                  {canEdit && (
-                    <button
-                      onClick={() => handleRemoveItemFromGroup(item)}
-                      className="text-fg-secondary hover:text-red-400"
-                    >
-                      <XIcon className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-              {/* Add item to group */}
-              {canEdit && (
-              <div className="relative">
-                <button
-                  onClick={() => setAddingItems(addingItems === group.name ? null : group.name)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs text-fg-secondary border hover:border-brand-500 hover:text-brand-500 transition-colors"
-                  style={{ borderColor: 'var(--divider)' }}
-                >
-                  <PlusIcon className="w-3 h-3" />
-                  {t('addItem')}
-                </button>
-                {addingItems === group.name && (
-                  <div
-                    className="absolute top-full left-0 mt-1 rounded-standard py-1 w-56 z-50 shadow-lg"
-                    style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
-                  >
-                    {ungroupedItems.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-fg-secondary">{t('noUngroupedItems')}</div>
-                    ) : (
-                      ungroupedItems.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => handleAddItemToGroup(item, group.name)}
-                          className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)]"
-                        >
-                          <span className="flex-1">{item.name}</span>
-                          <span className="text-fg-secondary">{item.category_name}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-              )}
+              {group.items.map(item => <div key={item.id} className="flex min-h-11 max-w-full items-center gap-2 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] ps-3 text-sm">
+                <span className="min-w-0 break-words py-2">{item.name}</span>
+                {canEdit ? <button type="button" disabled={busy} aria-label={`${t('removeFromGroupConfirm')} · ${item.name}`} onClick={() => setPendingRemoval({ kind: 'item', item })} className="grid size-11 shrink-0 place-items-center rounded-r-md text-fg-secondary hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]"><X className="size-4" /></button> : <span className="w-1" />}
+              </div>)}
+              {canEdit && <Button variant="secondary" disabled={busy} onClick={() => { setSearch(''); setActionError(''); setAddingItems(group.name); }}><Plus />{t('addItem')}</Button>}
             </div>
           </div>
-
-          {/* Schedule grid: 4 weeks */}
           <div>
-            <div className="text-xs text-fg-secondary font-medium mb-3 uppercase tracking-wider">
-              {t('weeklySchedule')}
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              {weekStarts.map((weekStart, wi) => {
-                const scheduled = getScheduled(group.name, weekStart);
-                const scheduledItem = scheduled
-                  ? group.items.find((i) => i.id === scheduled.menu_item_id)
-                  : null;
-                const isCurrentWeek = wi === 0;
-
-                return (
-                  <div
-                    key={weekStart}
-                    className="rounded-standard p-3 space-y-2"
-                    style={{
-                      background: isCurrentWeek ? 'var(--brand-subtle, rgba(248,131,121,0.08))' : 'var(--surface-subtle)',
-                      border: isCurrentWeek ? '1px solid var(--brand-200, rgba(248,131,121,0.3))' : '1px solid var(--divider)',
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-fg-secondary">
-                        {isCurrentWeek ? `${t('thisWeek')} ·` : ''} {formatWeekLabel(weekStart)}
-                      </span>
-                      {canEdit && scheduled && (
-                        <button
-                          onClick={() => handleClearSchedule(scheduled.id)}
-                          className="text-fg-secondary hover:text-red-400"
-                          title={t('clear')}
-                        >
-                          <XIcon className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Item selector */}
-                    <select
-                      className="input w-full text-xs py-1"
-                      disabled={!canEdit}
-                      value={scheduled?.menu_item_id ?? ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (!val) {
-                          if (scheduled) handleClearSchedule(scheduled.id);
-                        } else {
-                          handleSetSchedule(group.name, parseInt(val), weekStart);
-                        }
-                      }}
-                    >
-                      <option value="">{t('notScheduled')}</option>
-                      {group.items.map((item) => (
-                        <option key={item.id} value={item.id}>{item.name}</option>
-                      ))}
-                    </select>
-
-                    {scheduledItem && (
-                      <div className="text-xs text-fg-secondary truncate">{scheduledItem.category_name}</div>
-                    )}
+            <h3 className="mb-3 text-sm font-semibold">{t('weeklySchedule')}</h3>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {weekStarts.map((week, index) => {
+                const scheduled = scheduleMap.get(`${group.name}__${week}`);
+                const scheduledItem = group.items.find(item => item.id === scheduled?.menu_item_id);
+                return <div key={week} className={`min-w-0 space-y-3 rounded-r-md border p-3 ${index === 0 ? 'border-[var(--brand-ink)] bg-[var(--brand-soft)]' : 'border-[var(--line)] bg-[var(--surface-2)]'}`}>
+                  <div className="flex min-h-11 items-center justify-between gap-2">
+                    <span className="text-sm font-semibold">{index === 0 && <>{t('thisWeek')} · </>}<time dateTime={week}>{formatWeek(week)}</time></span>
+                    {canEdit && scheduled && <button type="button" disabled={busy} aria-label={`${t('clear')} · ${group.name} · ${formatWeek(week)}`} onClick={() => void mutate(() => deleteRotationSchedule(rid, scheduled.id))} className="grid size-11 shrink-0 place-items-center rounded-r-md text-fg-secondary hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]"><X className="size-4" /></button>}
                   </div>
-                );
+                  <select className="input min-w-0 w-full text-sm" aria-label={`${t('weeklySchedule')} · ${group.name} · ${formatWeek(week)}`} disabled={!canEdit || busy} value={scheduled?.menu_item_id ?? ''}
+                    onChange={event => {
+                      const id = Number(event.target.value);
+                      if (id) void mutate(() => setRotationSchedule(rid, { rotation_group: group.name, menu_item_id: id, week_start: week }));
+                      else if (scheduled) void mutate(() => deleteRotationSchedule(rid, scheduled.id));
+                    }}>
+                    <option value="">{t('notScheduled')}</option>
+                    {group.items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </select>
+                  {scheduledItem && <p className="break-words text-xs text-fg-secondary">{scheduledItem.category_name}</p>}
+                </div>;
               })}
             </div>
           </div>
         </div>
-      ))}
-    </div>
-  );
+      </section>)}
+
+    {groupEditor && <Modal title={t(groupEditor.originalName === null ? 'newGroup' : 'renameGroup')} onClose={closeGroupEditor} footer={<div className="flex justify-end gap-3"><button type="button" disabled={busy} className="btn-secondary" onClick={closeGroupEditor}>{t('cancel')}</button><button type="submit" form="rotation-group-editor" disabled={busy || !groupName.trim() || (groupEditor.originalName === null && !ungroupedItems.length)} className="btn-primary">{busy ? t('saving') : t(groupEditor.originalName === null ? 'create' : 'save')}</button></div>}>
+      <form id="rotation-group-editor" onSubmit={event => { event.preventDefault(); saveGroup(); }} className="space-y-5" aria-busy={busy}>
+        <div><label htmlFor="rotation-group-name" className="mb-2 block text-sm font-medium">{t('rotationGroupName')}</label><input id="rotation-group-name" placeholder={t('groupNamePlaceholder')} autoFocus required disabled={busy} className="input" value={groupName} onChange={event => setGroupName(event.target.value)} /></div>
+        {groupEditor.originalName === null && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{ungroupedItems.length ? t('rotationFirstItem').replace('{name}', ungroupedItems[0].name) : t('noUngroupedItems')}</p>}
+        {actionFeedback}
+      </form>
+    </Modal>}
+    {addingItems !== null && <Modal title={t('addItem')} subtitle={addingItems} onClose={() => { if (!busy) { setAddingItems(null); setActionError(''); } }} size="lg">
+      <div className="space-y-4">
+        <div className="relative"><Search aria-hidden className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-fg-secondary" /><input autoFocus aria-label={t('search')} placeholder={t('search')} value={search} onChange={event => setSearch(event.target.value)} className="input ps-10" disabled={busy} /></div>
+        {actionFeedback}
+        <div className="space-y-2">
+          {visibleItems.map(item => <button type="button" key={item.id} disabled={busy} onClick={() => void mutate(() => updateMenuItem(rid, item.id, { rotation_group: addingItems }), () => setAddingItems(null))} className="flex min-h-14 w-full items-center gap-3 rounded-r-md border border-[var(--line)] px-4 py-3 text-start hover:bg-[var(--surface-2)] disabled:opacity-50"><span className="min-w-0 flex-1 break-words text-sm font-medium">{item.name}</span><span className="text-xs text-fg-secondary">{item.category_name}</span><Plus aria-hidden className="size-4 shrink-0" /></button>)}
+          {!visibleItems.length && <p role="status" className="py-6 text-center text-sm text-fg-secondary">{t(ungroupedItems.length ? 'noResults' : 'noUngroupedItems')}</p>}
+        </div>
+      </div>
+    </Modal>}
+    <ConfirmDialog open={pendingRemoval !== null} onOpenChange={open => { if (!open) setPendingRemoval(null); }} title={t(pendingRemoval?.kind === 'group' ? 'deleteGroupConfirm' : 'removeFromGroupConfirm')} description={pendingRemoval?.kind === 'group' ? pendingRemoval.name : pendingRemoval?.item.name} danger confirmLabel={t(pendingRemoval?.kind === 'group' ? 'delete' : 'remove')} cancelLabel={t('cancel')} onConfirm={remove} />
+    <ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardChanges')} description={t('libraryDiscardDescription')} danger confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { setGroupEditor(null); setActionError(''); }} />
+  </div>;
 }

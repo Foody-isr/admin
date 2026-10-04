@@ -1,753 +1,199 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Bell, Bike, ChevronDown, ClipboardCheck, CreditCard, Info, PackageCheck, Plus, Sparkles, Trash2, X } from 'lucide-react';
-import {
-  getOrderWorkflows,
-  updateOrderWorkflow,
-  resetOrderWorkflow,
-  type WorkflowStage,
-  type WorkflowStageKind,
-  type WorkflowOrderType,
-  type WorkflowGuidedActions,
-} from '@/lib/api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { ArrowDown, ArrowUp, Bell, ChevronDown, Plus, RotateCcw, ShoppingBag, Sparkles, Trash2, Truck, Utensils } from 'lucide-react';
+import { getOrderWorkflows, resetOrderWorkflow, updateOrderWorkflow, type OrderWorkflow, type WorkflowOrderType, type WorkflowStage } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { invalidateOrderWorkflows } from '@/lib/orders/use-order-workflows';
-import { Badge, Button, Input, Select } from '@/components/ds';
+import { Badge, Button, ConfirmDialog, Field, Input, Select } from '@/components/ds';
 import { Switch } from './_components';
+import { ACTIONS, ORDER_TYPES, STAGE_KINDS, TRIGGERS, emptyWorkflow, readWorkflow, validateWorkflow, workflowSignature, type WorkflowDraft, type WorkflowIssue } from './workflow-state';
 
-type TriggerChoice = 'manual' | 'payment' | 'production' | 'courier_assigned' | 'courier_delivered';
+type Flows = Partial<Record<WorkflowOrderType, WorkflowDraft>>;
+type PendingWrite = { type: WorkflowOrderType; operation: 'save' | 'reset'; requested: WorkflowDraft; previous: WorkflowDraft };
+type Confirmation = { action: 'reset' | 'discard' | 'adopt' } | { action: 'leave'; href: string };
+const typeKeys = { pickup: 'pickup', dine_in: 'dineIn', delivery: 'delivery' };
+const typeIcons = { pickup: ShoppingBag, dine_in: Utensils, delivery: Truck };
+const kindKeys = { received: 'wfKindReceived', in_progress: 'wfKindInProgress', ready: 'wfKindReady', out_for_delivery: 'wfKindOutForDelivery', completed: 'wfKindCompleted' };
+const triggerKeys = { trigger_payment_confirmed: 'wfTrigPayment', trigger_production_done: 'wfTrigProduction', trigger_courier_assigned: 'wfTrigCourierAssigned', trigger_courier_delivered: 'wfTrigCourierDelivered' };
+const actionKeys = { accept_sends_to_kitchen: 'wfAcceptSendsKitchen', accept_adds_to_production: 'wfAcceptAddsProduction', accept_prompts_whatsapp: 'wfAcceptPromptsWhatsapp', delivery_reminder_enabled: 'wfDeliveryReminder' };
+const colors = { received: 'var(--fg-muted)', in_progress: 'var(--warning-500)', ready: 'var(--success-500)', out_for_delivery: 'var(--info-500)', completed: 'var(--fg-subtle)' };
+const wrappingButton = 'whitespace-normal py-2 leading-5';
 
-const ORDER_TYPES: WorkflowOrderType[] = ['pickup', 'dine_in', 'delivery'];
-const ALL_KINDS: WorkflowStageKind[] = ['received', 'in_progress', 'ready', 'out_for_delivery', 'completed'];
-
-const DEFAULT_GUIDED_ACTIONS: WorkflowGuidedActions = {
-  accept_sends_to_kitchen: false,
-  accept_adds_to_production: false,
-  accept_prompts_whatsapp: false,
-  delivery_reminder_enabled: false,
-};
-
-function blankStage(): WorkflowStage {
-  return {
-    name: '',
-    kind: 'received',
-    trigger_payment_confirmed: false,
-    trigger_production_done: false,
-    trigger_courier_assigned: false,
-    trigger_courier_delivered: false,
-    notify_customer: false,
-    customer_message: '',
-  };
-}
-
-// The four API booleans map to a single builder trigger.
-function currentTrigger(s: WorkflowStage): TriggerChoice {
-  if (s.trigger_production_done) return 'production';
-  if (s.trigger_payment_confirmed) return 'payment';
-  if (s.trigger_courier_assigned) return 'courier_assigned';
-  if (s.trigger_courier_delivered) return 'courier_delivered';
-  return 'manual';
-}
-function triggerPatch(choice: TriggerChoice): Partial<WorkflowStage> {
-  return {
-    trigger_production_done: choice === 'production',
-    trigger_payment_confirmed: choice === 'payment',
-    trigger_courier_assigned: choice === 'courier_assigned',
-    trigger_courier_delivered: choice === 'courier_delivered',
-  };
-}
-
-// A status color per kind, so the flow reads as a progression: received (slate)
-// → in preparation (amber) → ready (green) → out for delivery (blue) →
-// completed (slate). The color encodes what the step IS, it is not decoration.
-function kindColor(k: WorkflowStageKind): string {
-  switch (k) {
-    case 'in_progress':
-      return 'var(--warning-500)';
-    case 'ready':
-      return 'var(--success-500)';
-    case 'out_for_delivery':
-      return 'var(--info-500)';
-    case 'completed':
-      return 'var(--fg-muted)';
-    default:
-      return 'var(--fg-subtle)';
-  }
-}
-
-/**
- * OrderWorkflowBuilder shows a restaurant's order pipeline per service type as a
- * living flow. Steps are milestones on a color-coded line; between two steps a
- * compact chip shows what advances the order — quiet ("＋ automate") when it is
- * manual, a highlighted chip when an automation is set. A step's own editor
- * holds only its name, role, and customer notification. Saves one type at a time.
- */
+/** Edit each service's stages and guided actions, recovering uncertain writes before retrying. */
 export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: boolean }) {
-  const { t } = useI18n();
-  const [byType, setByType] = useState<Record<string, WorkflowStage[]>>({});
-  const [actionsByType, setActionsByType] = useState<Record<string, WorkflowGuidedActions>>({});
-  const [templateSource, setTemplateSource] = useState<Record<string, string>>({});
+  const { t } = useI18n(), router = useRouter();
+  const [drafts, setDrafts] = useState<Flows>({}), [baselines, setBaselines] = useState<Flows>({});
+  const [sources, setSources] = useState<Partial<Record<WorkflowOrderType, string>>>({});
   const [activeType, setActiveType] = useState<WorkflowOrderType>('pickup');
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-  const [editConn, setEditConn] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [resetting, setResetting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Per order type, because each tab saves on its own. The page footer's
-  // "Save changes" button saves restaurant settings and never PUTs a flow, so
-  // without this marker an edited-but-unsaved flow looks saved after pressing it.
-  const [dirtyTypes, setDirtyTypes] = useState<Record<string, boolean>>({});
-  const dirty = !!dirtyTypes[activeType];
+  const [openIndex, setOpenIndex] = useState<number | null>(null), [issue, setIssue] = useState<WorkflowIssue | null>(null);
+  const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false);
+  const [busy, setBusy] = useState<'save' | 'reset' | 'read' | null>(null);
+  const [pending, setPending] = useState<PendingWrite | null>(null), [review, setReview] = useState<OrderWorkflow | null>(null), [readError, setReadError] = useState(false);
+  const [notices, setNotices] = useState<Partial<Record<WorkflowOrderType, string>>>({});
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const lock = useRef(false), lifetime = useRef({ generation: 0, sequence: 0 });
+  const draft = drafts[activeType] ?? emptyWorkflow();
+  const dirtyTypes = ORDER_TYPES.filter(type => workflowSignature(drafts[type] ?? emptyWorkflow()) !== workflowSignature(baselines[type] ?? emptyWorkflow()));
+  const dirty = dirtyTypes.includes(activeType), guarded = dirtyTypes.length > 0 || !!pending;
+  const frozen = !canEdit || !!busy || !!pending;
 
-  useEffect(() => {
-    getOrderWorkflows(rid)
-      .then((wfs) => {
-        const stages: Record<string, WorkflowStage[]> = {};
-        const actions: Record<string, WorkflowGuidedActions> = {};
-        const tmpl: Record<string, string> = {};
-        for (const wf of wfs) {
-          stages[wf.order_type] = wf.stages;
-          actions[wf.order_type] = {
-            accept_sends_to_kitchen: !!wf.accept_sends_to_kitchen,
-            accept_adds_to_production: !!wf.accept_adds_to_production,
-            accept_prompts_whatsapp: !!wf.accept_prompts_whatsapp,
-            delivery_reminder_enabled: !!wf.delivery_reminder_enabled,
-          };
-          tmpl[wf.order_type] = wf.template_source;
-        }
-        setByType(stages);
-        setActionsByType(actions);
-        setTemplateSource(tmpl);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    const generation = lifetime.current.generation, sequence = ++lifetime.current.sequence;
+    const current = () => generation === lifetime.current.generation && sequence === lifetime.current.sequence;
+    setLoading(true); setLoadError(false);
+    try {
+      const workflows = await getOrderWorkflows(rid), next: Flows = {}, templates: Partial<Record<WorkflowOrderType, string>> = {};
+      for (const wf of workflows) { if (next[wf.order_type]) throw new Error('Duplicate workflow'); next[wf.order_type] = readWorkflow(wf); templates[wf.order_type] = wf.template_source; }
+      if (current()) { setDrafts(next); setBaselines(next); setSources(templates); }
+    } catch { if (current()) setLoadError(true); }
+    finally { if (current()) setLoading(false); }
   }, [rid]);
+  useEffect(() => { const current = lifetime.current; void load(); return () => { current.generation++; }; }, [load]);
+  useEffect(() => {
+    const unload = (event: BeforeUnloadEvent) => { if (guarded || lock.current) { event.preventDefault(); event.returnValue = ''; } };
+    const navigate = (event: MouseEvent) => {
+      if ((!guarded && !lock.current) || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      const anchor = (event.target as Element).closest?.('a[href]');
+      if (!(anchor instanceof HTMLAnchorElement) || anchor.target === '_blank' || anchor.hasAttribute('download') || anchor.origin !== location.origin || anchor.href === location.href) return;
+      event.preventDefault(); event.stopPropagation();
+      if (!lock.current) setConfirmation({ action: 'leave', href: anchor.pathname + anchor.search + anchor.hash });
+    };
+    window.addEventListener('beforeunload', unload); document.addEventListener('click', navigate, true);
+    return () => { window.removeEventListener('beforeunload', unload); document.removeEventListener('click', navigate, true); };
+  }, [guarded]);
+  useEffect(() => {
+    if (issue) (document.getElementById(`workflow-${activeType}-${issue.index}-${issue.field}`) ?? document.getElementById('workflow-issue'))?.focus();
+  }, [issue, activeType]);
 
-  const stages = byType[activeType] ?? [];
-  const guidedActions = actionsByType[activeType] ?? DEFAULT_GUIDED_ACTIONS;
-  const setStages = (next: WorkflowStage[]) => {
-    setByType((w) => ({ ...w, [activeType]: next }));
-    setDirtyTypes((d) => ({ ...d, [activeType]: true }));
-    setSaved(false);
+  const change = (next: WorkflowDraft) => {
+    if (frozen || lock.current) return;
+    setDrafts(previous => ({ ...previous, [activeType]: next })); setIssue(null);
+    setNotices(previous => ({ ...previous, [activeType]: undefined }));
   };
-  const patchStage = (i: number, patch: Partial<WorkflowStage>) =>
-    setStages(stages.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
-  const patchGuidedActions = (patch: Partial<WorkflowGuidedActions>) => {
-    setActionsByType((current) => ({
-      ...current,
-      [activeType]: { ...guidedActions, ...patch },
-    }));
-    setDirtyTypes((d) => ({ ...d, [activeType]: true }));
-    setSaved(false);
+  const patchStage = (index: number, patch: Partial<WorkflowStage>) => change({ ...draft, stages: draft.stages.map((stage, i) => i === index ? { ...stage, ...patch } : stage) });
+  const accept = (wf: OrderWorkflow) => {
+    const next = readWorkflow(wf);
+    setDrafts(previous => ({ ...previous, [wf.order_type]: next }));
+    setBaselines(previous => ({ ...previous, [wf.order_type]: next }));
+    setSources(previous => ({ ...previous, [wf.order_type]: wf.template_source }));
+    setIssue(null); invalidateOrderWorkflows(rid);
   };
-  const removeStage = (i: number) => {
-    setStages(stages.filter((_, idx) => idx !== i));
-    setOpenIndex(null);
-    setEditConn(null);
-  };
-  const moveStage = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
-    if (j < 0 || j >= stages.length) return;
-    const next = [...stages];
-    [next[i], next[j]] = [next[j], next[i]];
-    setStages(next);
-    setOpenIndex(j);
-  };
-  const addStage = () => {
-    setStages([...stages, blankStage()]);
-    setOpenIndex(stages.length);
-  };
-
-  const switchType = (ot: WorkflowOrderType) => {
-    setActiveType(ot);
-    setOpenIndex(null);
-    setEditConn(null);
-    setError(null);
-    setSaved(false);
-  };
-
-  const save = async () => {
-    setSaving(true);
-    setError(null);
+  const mutate = async (operation: 'save' | 'reset') => {
+    if (frozen || lock.current) return;
+    if (operation === 'save') {
+      if (!dirty) return;
+      const problem = validateWorkflow(draft, activeType);
+      if (problem) { setOpenIndex(problem.index); setIssue(problem); return; }
+    }
+    const request: PendingWrite = { type: activeType, operation, requested: draft, previous: baselines[activeType] ?? emptyWorkflow() };
+    const generation = lifetime.current.generation;
+    lock.current = true; setBusy(operation); setNotices(previous => ({ ...previous, [activeType]: undefined }));
     try {
-      const wf = await updateOrderWorkflow(rid, activeType, stages, guidedActions);
-      setByType((w) => ({ ...w, [activeType]: wf.stages }));
-      setActionsByType((current) => ({
-        ...current,
-        [activeType]: {
-          accept_sends_to_kitchen: !!wf.accept_sends_to_kitchen,
-          accept_adds_to_production: !!wf.accept_adds_to_production,
-          accept_prompts_whatsapp: !!wf.accept_prompts_whatsapp,
-          delivery_reminder_enabled: !!wf.delivery_reminder_enabled,
-        },
-      }));
-      setTemplateSource((s) => ({ ...s, [activeType]: wf.template_source }));
-      invalidateOrderWorkflows(rid);
-      setDirtyTypes((d) => ({ ...d, [activeType]: false }));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSaving(false);
-    }
+      const wf = operation === 'save' ? await updateOrderWorkflow(rid, activeType, draft.stages, draft.actions) : await resetOrderWorkflow(rid, activeType);
+      readWorkflow(wf, request.type);
+      if (generation === lifetime.current.generation) { accept(wf); setNotices(previous => ({ ...previous, [request.type]: operation === 'save' ? 'wfFlowSaved' : 'wfResetDone' })); if (operation === 'reset') setOpenIndex(null); }
+    } catch { if (generation === lifetime.current.generation) { setPending(request); setReview(null); setReadError(false); } }
+    finally { if (generation === lifetime.current.generation) { lock.current = false; setBusy(null); } }
   };
-
-  const reset = async () => {
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm(t('wfResetConfirm') || 'Réinitialiser ce parcours au modèle par défaut ? Vos modifications seront perdues.')
-    ) {
-      return;
-    }
-    setResetting(true);
-    setError(null);
+  const verify = async () => {
+    if (!pending || lock.current) return;
+    lock.current = true; setBusy('read'); setReadError(false);
+    const generation = lifetime.current.generation;
     try {
-      const wf = await resetOrderWorkflow(rid, activeType);
-      setByType((w) => ({ ...w, [activeType]: wf.stages }));
-      setActionsByType((current) => ({ ...current, [activeType]: { ...DEFAULT_GUIDED_ACTIONS } }));
-      setTemplateSource((s) => ({ ...s, [activeType]: wf.template_source }));
-      invalidateOrderWorkflows(rid);
-      setOpenIndex(null);
-      setEditConn(null);
-      setDirtyTypes((d) => ({ ...d, [activeType]: false }));
-      setSaved(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setResetting(false);
-    }
+      const workflows = await getOrderWorkflows(rid), matches = workflows.filter(wf => wf.order_type === pending.type);
+      if (matches.length !== 1) throw new Error('Missing workflow');
+      const wf = matches[0], server = readWorkflow(wf, pending.type);
+      if (generation !== lifetime.current.generation) return;
+      if (pending.operation === 'save' && workflowSignature(server, true) === workflowSignature(pending.requested, true)) {
+        accept(wf); setPending(null); setReview(null); setNotices(previous => ({ ...previous, [pending.type]: 'wfVerifiedSaved' }));
+      } else if (workflowSignature(server) === workflowSignature(pending.previous) && wf.template_source === sources[pending.type]) {
+        setPending(null); setReview(null); setNotices(previous => ({ ...previous, [pending.type]: 'wfUnchangedAfterRead' }));
+      } else { setReview(wf); invalidateOrderWorkflows(rid); }
+    } catch { if (generation === lifetime.current.generation) setReadError(true); }
+    finally { if (generation === lifetime.current.generation) { lock.current = false; setBusy(null); } }
+  };
+  const confirm = () => {
+    const action = confirmation; setConfirmation(null);
+    if (lock.current || !action) return;
+    if (action.action === 'reset') void mutate('reset');
+    else if (action.action === 'discard') { setDrafts(previous => ({ ...previous, [activeType]: baselines[activeType] ?? emptyWorkflow() })); setIssue(null); setOpenIndex(null); }
+    else if (action.action === 'adopt' && review) { accept(review); setNotices(previous => ({ ...previous, [review.order_type]: 'wfServerAdopted' })); setReview(null); setPending(null); }
+    else if (action.action === 'leave') router.push(action.href);
   };
 
-  const kinds = activeType === 'delivery' ? ALL_KINDS : ALL_KINDS.filter((k) => k !== 'out_for_delivery');
-  // Only real automations are pickable; "manual" is the absence of one, reached
-  // by removing the automation (✕), never by choosing it from a list.
-  const automationOptions: TriggerChoice[] =
-    activeType === 'delivery'
-      ? ['payment', 'production', 'courier_assigned', 'courier_delivered']
-      : ['payment', 'production'];
-
-  const kindLabel = (k: WorkflowStageKind): string =>
-    ({
-      received: t('wfKindReceived') || 'Reçue',
-      in_progress: t('wfKindInProgress') || 'En préparation',
-      ready: t('wfKindReady') || 'Prête',
-      out_for_delivery: t('wfKindOutForDelivery') || 'En livraison',
-      completed: t('wfKindCompleted') || 'Terminée',
-    })[k];
-  // Full labels for the trigger picker.
-  const triggerLabel = (c: TriggerChoice): string =>
-    ({
-      manual: t('wfTrigManual') || 'Avancement manuel',
-      payment: t('wfTrigPayment') || 'Paiement confirmé',
-      production: t('wfTrigProduction') || 'Coché dans le plan de production',
-      courier_assigned: t('wfTrigCourierAssigned') || 'Livreur assigné',
-      courier_delivered: t('wfTrigCourierDelivered') || 'Livré / récupéré',
-    })[c];
-  // Compact chip (icon + short label) shown on the connector.
-  const triggerChip = (c: TriggerChoice): { muted: boolean; label: string; icon: React.ReactNode } => {
-    switch (c) {
-      case 'payment':
-        return { muted: false, label: t('wfWhenPayment') || 'Quand payé', icon: <CreditCard className="w-3.5 h-3.5" /> };
-      case 'production':
-        return { muted: false, label: t('wfWhenProduction') || 'Coché en prod', icon: <ClipboardCheck className="w-3.5 h-3.5" /> };
-      case 'courier_assigned':
-        return { muted: false, label: t('wfTrigCourierAssigned') || 'Livreur assigné', icon: <Bike className="w-3.5 h-3.5" /> };
-      case 'courier_delivered':
-        return { muted: false, label: t('wfTrigCourierDelivered') || 'Livré / récupéré', icon: <PackageCheck className="w-3.5 h-3.5" /> };
-      default:
-        return { muted: true, label: t('wfAutomate') || 'automatiser', icon: <Plus className="w-3.5 h-3.5" /> };
-    }
-  };
-  const typeLabel = (ot: WorkflowOrderType): string =>
-    ot === 'pickup'
-      ? t('pickup') || 'À emporter'
-      : ot === 'dine_in'
-        ? t('dineIn') || 'Sur place'
-        : t('delivery') || 'Livraison';
-
-  const applyCateringPreset = () => {
-    patchGuidedActions({
-      accept_sends_to_kitchen: true,
-      accept_adds_to_production: true,
-      accept_prompts_whatsapp: true,
-      delivery_reminder_enabled: activeType === 'delivery',
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-8">
-        <div className="animate-spin w-6 h-6 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-[var(--s-4)]">
-      <div
-        className="flex items-start gap-2 px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-xs"
-        style={{ background: 'color-mix(in oklab, var(--info-500) 10%, transparent)', color: 'var(--fg-muted)' }}
-      >
-        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: 'var(--info-500)' }} />
-        <span>
-          {t('workflowBuilderFlowDesc') ||
-            'Le parcours d’une commande. Chaque étape est un jalon ; entre deux étapes, choisissez ce qui fait avancer la commande (paiement, plan de production, livreur… ou manuellement).'}
-        </span>
-      </div>
-
-      {/* Order-type tabs */}
-      <div className="flex gap-1 flex-wrap items-center">
-        {ORDER_TYPES.map((ot) => {
-          const active = ot === activeType;
-          return (
-            <button
-              key={ot}
-              type="button"
-              onClick={() => switchType(ot)}
-              className="px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm font-medium border transition-colors"
-              style={{
-                borderColor: active ? 'var(--brand-500)' : 'var(--line)',
-                background: active ? 'color-mix(in oklab, var(--brand-500) 10%, transparent)' : 'transparent',
-                color: active ? 'var(--brand-600)' : 'var(--fg-muted)',
-              }}
-            >
-              {typeLabel(ot)}
-              {/* Each tab saves on its own, so edits left behind in another tab
-                  are never sent. Mark them rather than let them look applied. */}
-              {dirtyTypes[ot] && (
-                <span
-                  aria-label={t('wfUnsavedFlow') || 'Parcours non enregistré'}
-                  title={t('wfUnsavedFlow') || 'Parcours non enregistré'}
-                  className="ms-[var(--s-2)] inline-block w-[6px] h-[6px] rounded-full align-middle"
-                  style={{ background: 'var(--brand-500)' }}
-                />
-              )}
-            </button>
-          );
-        })}
-        {templateSource[activeType] === 'custom' && (
-          <span className="ms-auto self-center">
-            <Badge>{t('wfCustomized') || 'Personnalisé'}</Badge>
-          </span>
-        )}
-      </div>
-
-      {/* Guided staff actions augment the lifecycle without deleting canonical
-          statuses. A restaurant can collapse its clicks; default workflows keep
-          every switch off and therefore retain the historical full flow. */}
-      <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-4)] flex flex-col gap-[var(--s-3)]">
-        <div className="flex items-start gap-[var(--s-3)] flex-wrap">
-          <div className="flex-1 min-w-[220px]">
-            <div className="text-fs-sm font-semibold text-[var(--fg)]">
-              {t('wfGuidedActionsTitle') || 'Actions guidées du staff'}
-            </div>
-            <p className="text-fs-xs text-[var(--fg-muted)] mt-1">
-              {t('wfGuidedActionsHint') ||
-                'Regroupez les actions répétitives après l’acceptation sans supprimer les statuts techniques.'}
-            </p>
-          </div>
-          {canEdit && (
-            <Button variant="secondary" size="sm" onClick={applyCateringPreset}>
-              <Sparkles className="w-4 h-4" />
-              {t('wfCateringPreset') || 'Appliquer le preset traiteur'}
-            </Button>
-          )}
-        </div>
-
-        <div className="grid gap-[var(--s-2)] md:grid-cols-2">
-          <ToggleRow
-            checked={guidedActions.accept_sends_to_kitchen}
-            onChange={(value) => patchGuidedActions({ accept_sends_to_kitchen: value })}
-            label={t('wfAcceptSendsKitchen') || 'Accepter envoie directement en cuisine'}
-            disabled={!canEdit}
-          />
-          <ToggleRow
-            checked={guidedActions.accept_adds_to_production}
-            onChange={(value) => patchGuidedActions({ accept_adds_to_production: value })}
-            label={t('wfAcceptAddsProduction') || 'Accepter ajoute au plan de production'}
-            disabled={!canEdit}
-          />
-          <ToggleRow
-            checked={guidedActions.accept_prompts_whatsapp}
-            onChange={(value) => patchGuidedActions({ accept_prompts_whatsapp: value })}
-            label={t('wfAcceptPromptsWhatsapp') || 'Ouvrir ensuite le récapitulatif WhatsApp'}
-            disabled={!canEdit}
-          />
-          {activeType === 'delivery' && (
-            <ToggleRow
-              checked={guidedActions.delivery_reminder_enabled}
-              onChange={(value) => patchGuidedActions({ delivery_reminder_enabled: value })}
-              label={t('wfDeliveryReminder') || 'Guider l’envoi WhatsApp la veille de la livraison'}
-              disabled={!canEdit}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Flow */}
-      {stages.length === 0 ? (
-        <div className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-3)]">
-          {t('wfEmpty') || 'Aucune étape. Ajoutez-en une pour commencer.'}
-        </div>
-      ) : (
-        <div className="flex flex-col">
-          {stages.map((stage, i) => {
-            const open = openIndex === i;
-            const isFirst = i === 0;
-            const color = kindColor(stage.kind);
-            const trig = currentTrigger(stage);
-            const chip = triggerChip(trig);
-            return (
-              <React.Fragment key={i}>
-                {/* Connector INTO this step: quiet when manual, highlighted when automated */}
-                {!isFirst && (
-                  <div className="flex gap-[var(--s-3)] items-stretch">
-                    <Rail marker="arrow" topLine bottomLine />
-                    <div className="flex-1 min-w-0 flex items-center py-[var(--s-2)]">
-                      {editConn === i ? (
-                        <>
-                          <div className="flex-1 min-w-0">
-                            <Select
-                              autoFocus
-                              value={trig === 'manual' ? '' : trig}
-                              onChange={(e) => {
-                                const v = e.target.value as TriggerChoice;
-                                if (v) patchStage(i, triggerPatch(v));
-                                setEditConn(null);
-                              }}
-                              onBlur={() => setEditConn(null)}
-                              disabled={!canEdit}
-                            >
-                              {trig === 'manual' && (
-                                <option value="" disabled>
-                                  {t('wfChooseAutomation') || 'Choisir une automatisation…'}
-                                </option>
-                              )}
-                              {automationOptions.map((o) => (
-                                <option key={o} value={o}>
-                                  {triggerLabel(o)}
-                                </option>
-                              ))}
-                            </Select>
-                          </div>
-                          <button
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setEditConn(null);
-                            }}
-                            aria-label={t('cancel')}
-                            title={t('cancel')}
-                            className="ms-1 shrink-0 p-1.5 rounded-r-md text-[var(--fg-subtle)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </>
-                      ) : trig === 'manual' ? (
-                        <button
-                          type="button"
-                          onClick={() => canEdit && setEditConn(i)}
-                          className="inline-flex items-center gap-1.5 rounded-r-full text-fs-xs font-medium px-[var(--s-2)] py-1 text-[var(--fg-subtle)] hover:text-[var(--fg-muted)] transition-colors"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          {t('wfAutomate') || 'automatiser'}
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => canEdit && setEditConn(i)}
-                            className="inline-flex items-center gap-1.5 rounded-r-full text-fs-xs font-medium px-[var(--s-2)] py-1 hover:opacity-80 transition-opacity"
-                            style={{
-                              background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
-                              color: 'var(--brand-600)',
-                            }}
-                          >
-                            {chip.icon}
-                            {chip.label}
-                          </button>
-                          {canEdit && (
-                            <button
-                              type="button"
-                              onClick={() => patchStage(i, triggerPatch('manual'))}
-                              aria-label={t('wfRemoveAutomation') || 'Retirer l’automatisation'}
-                              title={t('wfRemoveAutomation') || 'Retirer l’automatisation'}
-                              className="p-0.5 rounded-full text-[var(--fg-subtle)] hover:text-[var(--danger-500)] hover:bg-[var(--surface-2)]"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Step node */}
-                <div className="flex gap-[var(--s-3)] items-stretch">
-                  <Rail marker="dot" color={color} active={open} topLine={!isFirst} bottomLine />
-                  <div className="flex-1 min-w-0 py-[var(--s-2)]">
-                    <div
-                      className="rounded-r-md border transition-colors"
-                      style={{ borderColor: open ? 'var(--brand-500)' : 'var(--line)' }}
-                    >
-                      {/* Collapsed header */}
-                      <button
-                        type="button"
-                        onClick={() => setOpenIndex(open ? null : i)}
-                        className="w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-3)] text-start"
-                      >
-                        <span className="text-fs-xs font-mono text-[var(--fg-subtle)] w-4 shrink-0">{i + 1}</span>
-                        <span
-                          className={`text-fs-sm font-medium truncate ${stage.name.trim() ? 'text-[var(--fg)]' : 'text-[var(--fg-subtle)] italic'}`}
-                        >
-                          {stage.name.trim() || (t('wfUnnamed') || 'Étape sans nom')}
-                        </span>
-                        {isFirst && (
-                          <span className="shrink-0 text-fs-micro text-[var(--fg-subtle)] uppercase tracking-wide">
-                            {t('wfStart') || 'Départ'}
-                          </span>
-                        )}
-                        <span
-                          className="ms-2 shrink-0 inline-flex items-center h-[18px] px-[6px] rounded-r-full text-fs-micro font-medium"
-                          style={{ background: `color-mix(in oklab, ${color} 14%, transparent)`, color }}
-                        >
-                          {kindLabel(stage.kind)}
-                        </span>
-                        <span className="ms-auto flex items-center gap-1.5 shrink-0 text-[var(--fg-subtle)]">
-                          {stage.notify_customer && (
-                            <Bell className="w-3.5 h-3.5" style={{ color: 'var(--brand-500)' }} />
-                          )}
-                          <ChevronDown
-                            className="w-4 h-4 transition-transform"
-                            style={{ transform: open ? 'rotate(180deg)' : 'none' }}
-                          />
-                        </span>
-                      </button>
-
-                      {/* Expanded editor — name, role, notification (NO triggers) */}
-                      {open && (
-                        <div className="px-[var(--s-3)] pb-[var(--s-4)] pt-[var(--s-1)] flex flex-col gap-[var(--s-4)] border-t border-[var(--line)]">
-                          <div className="flex flex-wrap gap-[var(--s-3)] pt-[var(--s-3)]">
-                            <label className="flex-1 min-w-[200px] flex flex-col gap-1">
-                              <span className="text-fs-xs text-[var(--fg-muted)]">
-                                {t('wfStageName') || 'Nom de l’étape'}
-                              </span>
-                              <Input
-                                value={stage.name}
-                                onChange={(e) => patchStage(i, { name: e.target.value })}
-                                placeholder={t('wfStageNamePlaceholder') || 'Nom de l’étape (ex. Au four)'}
-                                disabled={!canEdit}
-                              />
-                            </label>
-                            <label className="flex flex-col gap-1">
-                              <span className="text-fs-xs text-[var(--fg-muted)]">{t('wfType') || 'Type'}</span>
-                              <Select
-                                value={stage.kind}
-                                onChange={(e) => patchStage(i, { kind: e.target.value as WorkflowStageKind })}
-                                disabled={!canEdit}
-                              >
-                                {kinds.map((k) => (
-                                  <option key={k} value={k}>
-                                    {kindLabel(k)}
-                                  </option>
-                                ))}
-                              </Select>
-                            </label>
-                          </div>
-                          <p className="text-fs-xs text-[var(--fg-subtle)] -mt-2">
-                            {t('wfTypeHint') ||
-                              'Le type indique au système ce que représente l’étape (préparation, prête, livraison…).'}
-                          </p>
-
-                          <div className="flex flex-col gap-1.5">
-                            <div className="text-fs-xs font-medium text-[var(--fg-subtle)] uppercase tracking-wide">
-                              {t('wfNotificationTitle') || 'Notification client'}
-                            </div>
-                            <ToggleRow
-                              checked={stage.notify_customer}
-                              onChange={(v) => patchStage(i, { notify_customer: v })}
-                              label={t('wfNotify') || 'Prévenir le client'}
-                              disabled={!canEdit}
-                            />
-                            {stage.notify_customer && (
-                              <Input
-                                value={stage.customer_message ?? ''}
-                                onChange={(e) => patchStage(i, { customer_message: e.target.value })}
-                                placeholder={t('wfNotifyMsgPlaceholder') || 'Message (optionnel, sinon message par défaut)'}
-                                disabled={!canEdit}
-                              />
-                            )}
-                          </div>
-
-                          {canEdit && (
-                            <div className="flex items-center gap-1 pt-1 border-t border-[var(--line)]">
-                              <IconButton
-                                onClick={() => moveStage(i, -1)}
-                                disabled={i === 0}
-                                label={t('wfMoveUp') || 'Monter'}
-                                icon={<ChevronDown className="w-4 h-4 rotate-180" />}
-                              />
-                              <IconButton
-                                onClick={() => moveStage(i, 1)}
-                                disabled={i === stages.length - 1}
-                                label={t('wfMoveDown') || 'Descendre'}
-                                icon={<ChevronDown className="w-4 h-4" />}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeStage(i)}
-                                className="ms-auto inline-flex items-center gap-1 px-[var(--s-2)] py-1 rounded-r-md text-fs-xs text-[var(--danger-500)] hover:bg-[var(--surface-2)]"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                {t('wfRemoveStage') || 'Supprimer l’étape'}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </React.Fragment>
-            );
-          })}
-
-          {/* Add step */}
-          {canEdit && (
-            <div className="flex gap-[var(--s-3)] items-center">
-              <Rail marker="plus" topLine />
-              <button
-                type="button"
-                onClick={addStage}
-                className="flex-1 text-start text-fs-sm text-[var(--brand-600)] hover:underline py-[var(--s-1)]"
-              >
-                {t('wfAddStage') || 'Ajouter une étape'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {canEdit && (
-        <div className="flex items-center gap-[var(--s-3)] flex-wrap">
-          <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-            {saving ? t('saving') : t('wfSaveFlow') || 'Enregistrer ce parcours'}
-          </Button>
-          {templateSource[activeType] === 'custom' && (
-            <Button variant="ghost" size="sm" onClick={reset} disabled={resetting}>
-              {resetting ? t('saving') : t('wfReset') || 'Réinitialiser au parcours par défaut'}
-            </Button>
-          )}
-          {saved && (
-            <span className="text-fs-sm text-[var(--success-500)] font-medium">
-              {t('wfFlowSaved') || 'Parcours enregistré'}
-            </span>
-          )}
-          {!saved && dirty && (
-            <span className="text-fs-sm text-[var(--fg-subtle)]">
-              {t('wfUnsavedFlow') || 'Parcours non enregistré'}
-            </span>
-          )}
-          {error && <span className="text-fs-sm text-[var(--danger-500)] font-medium">{error}</span>}
-        </div>
-      )}
+  if (loading) return <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p>;
+  if (loadError) return <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('wfLoadError')}</p><Button onClick={() => void load()}>{t('retry')}</Button></div>;
+  return <div className="space-y-6">
+    <div className="rounded-r-lg bg-[var(--summary-bg)] p-5 text-[var(--summary-fg)]">
+      <p className="text-base font-semibold">{t('wfEditorIntro')}</p>
+      <p className="mt-2 text-sm leading-6">{t('wfEditorScope')}</p>
     </div>
-  );
-}
-
-// Rail draws the continuous flow line. A node dot takes its step's status color
-// and anchors to the collapsed header height (so it stays put when a step
-// expands); the transition arrow and add "+" center in their short rows.
-function Rail({
-  marker,
-  color,
-  active,
-  topLine,
-  bottomLine,
-}: {
-  marker: 'dot' | 'arrow' | 'plus';
-  color?: string;
-  active?: boolean;
-  topLine?: boolean;
-  bottomLine?: boolean;
-}) {
-  const isDot = marker === 'dot';
-  return (
-    <div className="w-4 shrink-0 flex flex-col items-center self-stretch">
-      <div
-        className={isDot ? 'w-px' : 'w-px flex-1'}
-        style={{
-          background: topLine ? 'var(--line)' : 'transparent',
-          height: isDot ? 26 : undefined,
-          minHeight: isDot ? undefined : 8,
-        }}
-      />
-      {marker === 'dot' ? (
-        <div
-          className="w-2.5 h-2.5 rounded-full my-0.5"
-          style={{
-            background: color || 'var(--line-strong)',
-            boxShadow: active ? '0 0 0 3px color-mix(in oklab, var(--brand-500) 22%, transparent)' : undefined,
-          }}
-        />
-      ) : marker === 'plus' ? (
-        <Plus className="w-3.5 h-3.5 my-0.5" style={{ color: 'var(--fg-subtle)' }} />
-      ) : (
-        <ChevronDown className="w-3.5 h-3.5 my-0.5" style={{ color: 'var(--fg-subtle)' }} />
-      )}
-      <div className="w-px flex-1" style={{ background: bottomLine ? 'var(--line)' : 'transparent', minHeight: 8 }} />
+    {!canEdit && <p className="text-sm text-[var(--fg-muted)]">{t('pushPreferencesReadOnly')}</p>}
+    <div className="grid grid-cols-3 gap-2" role="group" aria-label={t('wfServiceChoice')}>
+      {ORDER_TYPES.map(type => { const Icon = typeIcons[type]; return <button key={type} type="button" aria-pressed={activeType === type} disabled={!!busy} onClick={() => { setActiveType(type); setOpenIndex(null); setIssue(null); }} className={`flex min-w-0 flex-col items-start gap-2 rounded-r-md border p-3 text-start text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)] disabled:opacity-50 ${activeType === type ? 'border-[var(--brand-ink)] bg-[var(--surface-2)]' : 'border-[var(--line)]'}`}>
+        <Icon className="size-5 text-[var(--brand-ink)]" aria-hidden="true" /><span className="font-semibold">{t(typeKeys[type])}</span>{dirtyTypes.includes(type) && <span className="text-xs text-[var(--fg-muted)]">{t('wfUnsavedFlow')}</span>}
+      </button>; })}
     </div>
-  );
-}
-
-function ToggleRow({
-  checked,
-  onChange,
-  label,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  disabled?: boolean;
-}) {
-  return (
-    <label
-      className="flex items-center justify-between gap-[var(--s-3)] max-w-[440px]"
-      style={disabled ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
-    >
-      <span className="text-fs-sm text-[var(--fg)]">{label}</span>
-      <Switch checked={checked} onChange={disabled ? () => {} : onChange} label={label} />
-    </label>
-  );
-}
-
-function IconButton({
-  onClick,
-  disabled,
-  label,
-  icon,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  label: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className="p-1.5 rounded-r-md text-[var(--fg-muted)] hover:bg-[var(--surface-2)] disabled:opacity-30"
-    >
-      {icon}
-    </button>
-  );
+    {pending && <div role="alert" className="space-y-3 rounded-r-lg border border-[var(--danger-500)] p-4">
+      <p className="text-sm font-semibold">{t(typeKeys[pending.type])} · {t('wfWriteUnconfirmed')}</p><p className="text-sm leading-6 text-[var(--fg-muted)]">{t('wfReadBeforeRetry')}</p>
+      <Button className={wrappingButton} variant="secondary" disabled={!!busy} onClick={() => void verify()}>{t(busy === 'read' ? 'loading' : 'wfReadServer')}</Button>
+      {readError && <p className="text-sm text-[var(--danger-500)]">{t('wfReadError')}</p>}
+      {review && <div className="space-y-3 border-t border-[var(--line)] pt-4">
+        <p className="text-sm leading-6">{t('wfServerDifferent')}</p>
+        <details className="rounded-r-md bg-[var(--surface-2)] p-3"><summary className="cursor-pointer text-sm font-semibold">{t('wfServerVersion')}</summary>
+          <ol className="mt-3 space-y-3">{review.stages.map((stage, index) => <li key={stage.id ?? index} className="text-sm"><p className="font-medium">{index + 1}. <bdi>{stage.name}</bdi> · {t(kindKeys[stage.kind])}</p><p className="mt-1 text-[var(--fg-muted)]">{TRIGGERS.filter(key => stage[key]).map(key => t(triggerKeys[key])).join(' · ') || t('wfTrigManual')}</p><p className="mt-1">{t('wfNotify')} : {t(stage.notify_customer ? 'yes' : 'no')}</p>{stage.customer_message && <p dir="auto" className="mt-1 whitespace-pre-wrap break-words">{stage.customer_message}</p>}</li>)}</ol>
+          <ul className="mt-4 space-y-2 border-t border-[var(--line)] pt-3">{ACTIONS.map(key => <li key={key} className="text-sm">{t(actionKeys[key])} : {t(review[key] ? 'yes' : 'no')}</li>)}</ul>
+        </details>
+        <Button className={wrappingButton} disabled={!!busy} onClick={() => setConfirmation({ action: 'adopt' })}>{t('wfUseServerVersion')}</Button>
+      </div>}
+    </div>}
+    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-semibold">{t(typeKeys[activeType])} <span className="text-sm font-normal text-[var(--fg-muted)]">· {draft.stages.length}/12</span></h3>{sources[activeType] === 'custom' && <Badge>{t('wfCustomized')}</Badge>}</div>
+    {issue && <p id="workflow-issue" tabIndex={-1} role="alert" className="text-sm leading-6 text-[var(--danger-500)]">{t(issue.key)}</p>}
+    {draft.stages.length === 0 && <p className="rounded-r-md border border-dashed border-[var(--line-strong)] p-5 text-sm text-[var(--fg-muted)]">{t('wfEmpty')}</p>}
+    <ol className="space-y-3">
+      {draft.stages.map((stage, index) => {
+        const expanded = openIndex === index, name = stage.name || t('wfUnnamed'), triggers = TRIGGERS.filter(key => stage[key]);
+        const fieldId = (field: string) => `workflow-${activeType}-${index}-${field}`;
+        return <li key={stage.id ?? `new-${index}`} data-workflow-stage={index} className="min-w-0 rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+          <button type="button" aria-expanded={expanded} aria-controls={`workflow-panel-${index}`} onClick={() => setOpenIndex(expanded ? null : index)} className="flex w-full items-start gap-3 rounded-r-lg p-4 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)]">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-xs font-semibold" style={{ color: colors[stage.kind] }}>{index + 1}</span>
+            <span className="min-w-0 flex-1"><span dir="auto" className="block break-words text-base font-semibold">{name}</span><span className="mt-1 block text-xs text-[var(--fg-muted)]">{t(kindKeys[stage.kind])}</span><span className="mt-2 block text-sm leading-6 text-[var(--fg-muted)]">{triggers.map(key => t(triggerKeys[key])).join(' · ') || t('wfTrigManual')}</span>{stage.notify_customer && <span className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--fg-muted)]"><Bell className="size-3" aria-hidden="true" />{t('wfNotify')}</span>}</span>
+            <ChevronDown className={`mt-1 size-4 shrink-0 text-[var(--fg-muted)] transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+          </button>
+          {expanded && <div id={`workflow-panel-${index}`} className="space-y-5 border-t border-[var(--line)] p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('wfStageName')}><Input id={fieldId('name')} dir="auto" value={stage.name} readOnly={frozen} aria-invalid={issue?.index === index && issue.field === 'name' || undefined} onChange={event => patchStage(index, { name: event.target.value })} /></Field>
+              <Field label={t('wfType')}><Select id={fieldId('kind')} value={stage.kind} disabled={frozen} aria-invalid={issue?.index === index && issue.field === 'kind' || undefined} onChange={event => patchStage(index, { kind: event.target.value as WorkflowStage['kind'] })}>{STAGE_KINDS.filter(kind => activeType === 'delivery' || kind !== 'out_for_delivery' || stage.kind === kind).map(kind => <option key={kind} value={kind}>{t(kindKeys[kind])}</option>)}</Select></Field>
+            </div>
+            <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('wfTypeHint')}</p>
+            <fieldset disabled={frozen} className="space-y-3"><legend className="mb-2 text-sm font-semibold">{t('wfAutomations')}</legend><p className="text-sm leading-6 text-[var(--fg-muted)]">{t('wfMultipleTriggersHint')}</p>
+              {TRIGGERS.filter(key => activeType === 'delivery' || !key.includes('courier') || stage[key]).map(key => <label key={key} className="flex min-h-10 items-start gap-3 rounded-r-md border border-[var(--line)] p-3 text-sm"><input id={fieldId(key)} type="checkbox" checked={stage[key]} aria-invalid={issue?.index === index && issue.field === key || undefined} onChange={event => patchStage(index, { [key]: event.target.checked })} className="mt-0.5 size-4 shrink-0 accent-[var(--brand-ink)]" /><span>{t(triggerKeys[key])}</span></label>)}
+            </fieldset>
+            <div className="space-y-3 rounded-r-md bg-[var(--surface-2)] p-4"><div className="flex items-start justify-between gap-4"><span className="text-sm font-semibold">{t('wfNotify')}</span><Switch checked={stage.notify_customer} disabled={frozen} label={t('wfNotify')} onChange={value => patchStage(index, { notify_customer: value })} /></div>
+              <Field label={t('wfCustomerMessage')}><textarea dir="auto" rows={3} value={stage.customer_message ?? ''} readOnly={frozen} onChange={event => patchStage(index, { customer_message: event.target.value })} className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)]" /></Field><p className="text-xs leading-5 text-[var(--fg-muted)]">{t('wfMessageHint')}</p>
+            </div>
+            {canEdit && <div className="flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
+              {([-1, 1] as const).map(direction => { const Icon = direction === -1 ? ArrowUp : ArrowDown; return <Button key={direction} type="button" variant="secondary" size="sm" disabled={frozen || index + direction < 0 || index + direction >= draft.stages.length} onClick={() => { const next = [...draft.stages]; [next[index], next[index + direction]] = [next[index + direction], next[index]]; change({ ...draft, stages: next }); setOpenIndex(index + direction); }}><Icon aria-hidden="true" />{t(direction === -1 ? 'wfMoveUp' : 'wfMoveDown')}</Button>; })}
+              <Button type="button" variant="ghost" size="sm" disabled={frozen} className={wrappingButton} onClick={() => { change({ ...draft, stages: draft.stages.filter((_, i) => i !== index) }); setOpenIndex(null); }}><Trash2 aria-hidden="true" />{t('wfRemoveStage')}</Button>
+            </div>}
+          </div>}
+        </li>;
+      })}
+    </ol>
+    {canEdit && <Button type="button" variant="secondary" disabled={frozen || draft.stages.length >= 12} className={wrappingButton} onClick={() => { change({ ...draft, stages: [...draft.stages, { name: '', kind: draft.stages.at(-1)?.kind ?? 'received', trigger_payment_confirmed: false, trigger_production_done: false, trigger_courier_assigned: false, trigger_courier_delivered: false, notify_customer: false, customer_message: '' }] }); setOpenIndex(draft.stages.length); requestAnimationFrame(() => document.getElementById(`workflow-${activeType}-${draft.stages.length}-name`)?.focus()); }}><Plus aria-hidden="true" />{t('wfAddStage')}</Button>}
+    <section className="space-y-4 rounded-r-lg bg-[var(--surface-2)] p-4 sm:p-5" aria-label={t('wfGuidedActionsTitle')}>
+      <div><h3 className="text-base font-semibold">{t('wfGuidedActionsTitle')}</h3><p className="mt-2 text-sm leading-6 text-[var(--fg-muted)]">{t('wfGuidedActionsHint')}</p></div>
+      {ACTIONS.filter(key => key !== 'delivery_reminder_enabled' || activeType === 'delivery' || draft.actions[key]).map(key => <div key={key} className="flex items-start justify-between gap-4 border-t border-[var(--line)] pt-4"><span className="text-sm leading-6">{t(actionKeys[key])}</span><Switch checked={draft.actions[key]} disabled={frozen} label={t(actionKeys[key])} onChange={value => change({ ...draft, actions: { ...draft.actions, [key]: value } })} /></div>)}
+      {canEdit && <Button type="button" className={wrappingButton} variant="secondary" disabled={frozen} onClick={() => change({ ...draft, actions: { accept_sends_to_kitchen: true, accept_adds_to_production: true, accept_prompts_whatsapp: true, delivery_reminder_enabled: activeType === 'delivery' } })}><Sparkles aria-hidden="true" />{t('wfCateringPreset')}</Button>}
+    </section>
+    <div className="space-y-4 border-t border-[var(--line)] pt-5">
+      <p role="status" className="text-sm leading-6 text-[var(--fg-muted)]">{t(busy === 'read' ? 'loading' : busy ? 'saving' : notices[activeType] ?? (dirty ? 'wfUnsavedFlow' : 'settingsUnchanged'))}</p>
+      {canEdit && <><div className="grid gap-2 min-[420px]:grid-cols-2"><Button type="button" className={wrappingButton} variant="secondary" disabled={frozen || !dirty} onClick={() => setConfirmation({ action: 'discard' })}>{t('discardChanges')}</Button><Button type="button" className={wrappingButton} disabled={frozen || !dirty} onClick={() => void mutate('save')}>{t('wfSaveFlow')}</Button></div>
+        {sources[activeType] === 'custom' && <Button type="button" className={wrappingButton} variant="ghost" disabled={frozen} onClick={() => setConfirmation({ action: 'reset' })}><RotateCcw aria-hidden="true" />{t('wfReset')}</Button>}
+      </>}
+    </div>
+    <ConfirmDialog open={!!confirmation} onOpenChange={open => { if (!open) setConfirmation(null); }} title={t(confirmation?.action === 'reset' ? 'wfReset' : confirmation?.action === 'adopt' ? 'wfUseServerVersion' : 'discardUnsavedChanges')} description={t(confirmation?.action === 'reset' ? 'wfResetConfirm' : confirmation?.action === 'adopt' ? 'wfAdoptConfirm' : confirmation?.action === 'leave' && pending ? 'wfLeaveUnconfirmed' : 'wfDiscardScope')} confirmLabel={t(confirmation?.action === 'reset' ? 'reset' : confirmation?.action === 'adopt' ? 'wfUseServerVersion' : 'discardChanges')} cancelLabel={t('cancel')} danger={confirmation?.action === 'reset'} onConfirm={confirm} />
+  </div>;
 }

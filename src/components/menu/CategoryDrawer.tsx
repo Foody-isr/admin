@@ -1,422 +1,104 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { CheckCircle, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Button, ConfirmDialog, Drawer, Field, Input } from '@/components/ds';
+import Modal from '@/components/Modal';
 import { useI18n } from '@/lib/i18n';
 
-/** Minimal shape the drawer needs. Callers can project their own domain
- *  objects (MenuCategory, FilterCategory, etc.) into this shape. */
-export interface CategoryDrawerEntry {
-  name: string;
-  /** Item count shown next to the name. Omit or pass 0 to hide. */
-  count?: number;
-}
-
-/** Input passed to `onCreateCategory`. */
-export interface CreateCategoryInput {
-  name: string;
-}
-
-/** Input passed to `onEditCategory`. */
-export interface EditCategoryPatch {
-  name: string;
-}
-
+/** Shared category metadata for catalogue, stock and preparations. */
+export interface CategoryDrawerEntry { name:string; count?:number; canDelete?:boolean; }
+/** Category creation payload delegated to the active service. */
+export interface CreateCategoryInput { name:string; }
+/** Category rename payload delegated to the active service. */
+export interface EditCategoryPatch { name:string; }
 interface Props {
-  open: boolean;
-  onClose: () => void;
-  categories: CategoryDrawerEntry[];
-  /** Current category name — used for visual "selected" state. Pass empty string for none. */
-  currentCategory: string;
-  /** Selection mode — one drawer serving two purposes. */
-  mode: 'filter' | 'bulk-assign';
-  /** Fired when the user picks a category. Receives the name (or null for "Tous"). */
-  onSelect: (name: string | null) => void;
-  /** For bulk-assign mode: number of items being assigned. */
-  selectionCount?: number;
-  /** Optional handler for creating a new category inline. */
-  onCreateCategory?: (input: CreateCategoryInput) => Promise<void> | void;
-  /** Optional handler for renaming an existing category.
-   *  When provided, each row shows an inline Edit affordance. */
-  onEditCategory?: (oldName: string, patch: EditCategoryPatch) => Promise<void> | void;
-  /** Optional handler for deleting a category. When provided, the inline edit
-   *  panel exposes a Delete button. The caller is responsible for confirming
-   *  the destructive action is acceptable (e.g. checking item counts). */
-  onDeleteCategory?: (name: string) => Promise<void> | void;
-  /** Loading/processing flag for bulk operations. */
-  processing?: boolean;
+  open:boolean;onClose:()=>void;categories:CategoryDrawerEntry[];currentCategory:string;mode:'filter'|'bulk-assign';
+  onSelect:(name:string|null)=>Promise<void>|void;selectionCount?:number;
+  onCreateCategory?:(input:CreateCategoryInput)=>Promise<void>|void;
+  onEditCategory?:(oldName:string,patch:EditCategoryPatch)=>Promise<void>|void;
+  onDeleteCategory?:(name:string)=>Promise<void>|void;
+  deleteDescription?:string;processing?:boolean;
 }
 
-export default function CategoryDrawer({
-  open,
-  onClose,
-  categories,
-  currentCategory,
-  mode,
-  onSelect,
-  selectionCount,
-  onCreateCategory,
-  onEditCategory,
-  onDeleteCategory,
-  processing,
-}: Props) {
-  const { t } = useI18n();
-  const [search, setSearch] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [editingName, setEditingName] = useState<string | null>(null);
-
-  const filtered = useMemo(() => {
-    const s = search.trim().toLowerCase();
-    if (!s) return categories;
-    return categories.filter((c) => c.name.toLowerCase().includes(s));
-  }, [categories, search]);
-
-  const showAll = mode === 'filter';
-  const allActive = mode === 'filter' && currentCategory === '';
-
-  if (!open) return null;
-
-  const title = mode === 'bulk-assign' ? t('assignCategory') : t('category');
-  const subtitle =
-    mode === 'bulk-assign'
-      ? (t('assignCategoryToSelected') || 'Assigner une catégorie')
-          + (selectionCount ? ` (${selectionCount})` : '')
-      : (t('selectCategory') || 'Sélectionnez une catégorie');
-
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-
-      <div className="absolute right-0 top-0 bottom-0 w-full max-w-96 pt-safe-t pb-safe-b bg-white dark:bg-[#111111] shadow-2xl flex flex-col animate-slide-in">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-neutral-200 dark:border-neutral-800">
-          <div>
-            <h2 className="text-xl font-bold text-neutral-900 dark:text-white">{title}</h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">{subtitle}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
-            aria-label={t('close') || 'Close'}
-          >
-            <X size={20} className="text-neutral-600 dark:text-neutral-400" />
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="p-6 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="relative">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400"
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder={t('searchCategory') || 'Rechercher une catégorie...'}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-            />
-          </div>
-        </div>
-
-        {/* Categories list */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-2">
-            {showAll && (
-              <CategoryRow
-                name={t('all') || 'Tous'}
-                count={categories.reduce((a, c) => a + (c.count ?? 0), 0)}
-                active={allActive}
-                onClick={() => onSelect(null)}
-                disabled={processing}
-              />
-            )}
-            {filtered.map((category) => {
-              const count = category.count ?? 0;
-              const active = currentCategory === category.name;
-              const isEditing = editingName === category.name;
-              if (isEditing && onEditCategory) {
-                return (
-                  <CategoryEditPanel
-                    key={category.name}
-                    entry={category}
-                    onSave={async (patch) => {
-                      await onEditCategory(category.name, patch);
-                      setEditingName(null);
-                    }}
-                    onDelete={
-                      onDeleteCategory
-                        ? async () => {
-                            await onDeleteCategory(category.name);
-                            setEditingName(null);
-                          }
-                        : undefined
-                    }
-                    onCancel={() => setEditingName(null)}
-                  />
-                );
-              }
-              return (
-                <CategoryRow
-                  key={category.name}
-                  name={category.name}
-                  count={count}
-                  active={active}
-                  onClick={() => onSelect(category.name)}
-                  onEdit={onEditCategory ? () => setEditingName(category.name) : undefined}
-                  disabled={processing}
-                />
-              );
-            })}
-            {filtered.length === 0 && !showAll && (
-              <p className="text-sm text-neutral-500 text-center py-8">
-                {t('noResults') || 'No results'}
-              </p>
-            )}
-          </div>
-
-          {/* Create new */}
-          {onCreateCategory && !showCreate && (
-            <button
-              onClick={() => setShowCreate(true)}
-              disabled={processing}
-              className="w-full mt-4 p-4 border-2 border-dashed border-neutral-300 dark:border-neutral-700 rounded-xl hover:border-orange-500 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all flex items-center justify-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-orange-600 dark:hover:text-orange-400 disabled:opacity-50"
-            >
-              <Plus size={20} />
-              <span className="font-medium">
-                {t('createCategory') || 'Créer une catégorie'}
-              </span>
-            </button>
-          )}
-          {onCreateCategory && showCreate && (
-            <CategoryCreatePanel
-              onSubmit={async (input) => {
-                await onCreateCategory(input);
-                setShowCreate(false);
-              }}
-              onCancel={() => setShowCreate(false)}
-            />
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-6 border-t border-neutral-200 dark:border-neutral-800 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors font-medium text-neutral-700 dark:text-neutral-300"
-          >
-            {t('cancel') || 'Annuler'}
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-            disabled={processing}
-          >
-            {processing && <Loader2 size={16} className="animate-spin" />}
-            {t('close') || 'Fermer'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Row ───────────────────────────────────────────────────────
-
-function CategoryRow({
-  name,
-  count,
-  active,
-  onClick,
-  onEdit,
-  disabled,
-}: {
-  name: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-  onEdit?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div
-      className={`group relative w-full flex items-center gap-4 p-4 rounded-xl transition-all ${
-        active
-          ? 'bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500'
-          : 'bg-neutral-50 dark:bg-[#1a1a1a] border-2 border-transparent hover:border-neutral-300 dark:hover:border-neutral-700'
-      } ${disabled ? 'opacity-50' : ''}`}
-    >
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className="flex-1 min-w-0 flex items-center text-left disabled:cursor-not-allowed"
-      >
-        <div className="flex-1 text-left min-w-0">
-          <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{name}</h3>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            {count} article{count !== 1 ? 's' : ''}
-          </p>
-        </div>
-      </button>
-      {active && <CheckCircle size={20} className="text-orange-500 shrink-0" />}
-      {onEdit && (
-        <button
-          type="button"
-          onClick={onEdit}
-          disabled={disabled}
-          className="shrink-0 w-8 h-8 rounded-lg bg-white dark:bg-[#222222] border border-neutral-200 dark:border-neutral-700 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center text-neutral-500 hover:text-orange-500 disabled:cursor-not-allowed"
-          aria-label="Edit"
-          title="Edit"
-        >
-          <Pencil size={14} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ─── Create panel ──────────────────────────────────────────────
-
-function CategoryCreatePanel({
-  onSubmit,
-  onCancel,
-}: {
-  onSubmit: (input: CreateCategoryInput) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const { t } = useI18n();
-  const [name, setName] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const submit = async () => {
-    if (!name.trim() || saving) return;
-    setSaving(true);
-    try {
-      await onSubmit({ name: name.trim() });
-    } finally {
-      setSaving(false);
-    }
+/** Category selection and mutations with keyboard focus, draft protection and visible errors. */
+export default function CategoryDrawer({open,onClose,categories,currentCategory,mode,onSelect,selectionCount,onCreateCategory,onEditCategory,onDeleteCategory,deleteDescription,processing}:Props) {
+  const {t}=useI18n();
+  const [search,setSearch]=useState('');
+  const [editing,setEditing]=useState<CategoryDrawerEntry|'new'|null>(null);
+  const [selecting,setSelecting]=useState(false);
+  const [error,setError]=useState('');
+  const lock=useRef(false);
+  const first=useRef<HTMLInputElement>(null);
+  const busy=!!processing||selecting;
+  useEffect(()=>{if(open){setSearch('');setEditing(null);setError('');}},[open]);
+  const filtered=useMemo(()=>categories.filter(category=>category.name.toLowerCase().includes(search.trim().toLowerCase())),[categories,search]);
+  const select=async(name:string|null)=>{
+    if(busy||lock.current)return;lock.current=true;setSelecting(true);setError('');
+    try{await onSelect(name);}catch(cause){setError(cause instanceof Error?cause.message:t('saveFailed'));}
+    finally{lock.current=false;setSelecting(false);}
   };
-
-  return (
-    <div className="mt-4 p-4 border-2 border-orange-500 rounded-xl bg-orange-50 dark:bg-orange-900/20 space-y-3">
-      <input
-        autoFocus
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder={t('categoryName') || 'Nom de la catégorie'}
-        className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit();
-          if (e.key === 'Escape') onCancel();
-        }}
-      />
-      <div className="flex gap-2">
-        <button
-          onClick={submit}
-          disabled={saving || !name.trim()}
-          className="flex-1 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all font-medium text-sm shadow-lg shadow-orange-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {saving && <Loader2 size={14} className="animate-spin" />}
-          {t('create') || 'Créer'}
-        </button>
-        <button
-          onClick={onCancel}
-          className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors font-medium text-sm text-neutral-700 dark:text-neutral-300"
-        >
-          {t('cancel') || 'Annuler'}
-        </button>
+  const row=(name:string,count:number,active:boolean,onClick:()=>void,onEdit?:()=>void)=><div key={name} className={`flex items-center gap-2 rounded-r-md border ${active?'border-[var(--brand-ink)] bg-[var(--brand-soft)]':'border-[var(--line)] bg-[var(--surface)]'}`}>
+    <button type="button" aria-pressed={active} disabled={busy} onClick={onClick} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 p-4 text-start disabled:opacity-50"><span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold">{name}</span><span className="mt-1 block text-xs text-fg-secondary"><bdi>{count}</bdi> {t(count===1?'item':'articlesUnit')}</span></span>{active&&<Check aria-hidden className="size-5 shrink-0 text-[var(--brand-ink)]"/>}</button>
+    {onEdit&&<Button type="button" size="lg" variant="ghost" icon className="me-2" disabled={busy} aria-label={`${t('edit')} — ${name}`} onClick={onEdit}><Pencil/></Button>}
+  </div>;
+  return <>
+    <Drawer open={open} onOpenChange={value=>{if(!value&&!lock.current&&!processing)onClose();}} closeDisabled={busy} title={t(mode==='bulk-assign'?'assignCategory':'category')} subtitle={mode==='bulk-assign'?`${t('assignCategoryToSelected')} (${selectionCount??0})`:t('selectCategory')} width={460} initialFocusRef={first}
+      footer={<div className="flex justify-end"><Button size="lg" variant="secondary" disabled={busy} onClick={onClose}>{t('close')}</Button></div>}>
+      <div className="space-y-4">
+        <Input ref={first} type="search" className="min-h-11" disabled={busy} aria-label={t('searchCategory')} placeholder={t('searchCategory')} value={search} onChange={event=>setSearch(event.target.value)}/>
+        {error&&<p role="alert" className="text-sm text-[var(--danger-500)]">{error}</p>}
+        <div className="space-y-2">
+          {mode==='filter'&&row(t('all'),categories.reduce((sum,category)=>sum+(category.count??0),0),currentCategory==='',()=>void select(null))}
+          {filtered.map(category=>row(category.name,category.count??0,currentCategory===category.name,()=>void select(category.name),onEditCategory?()=>setEditing(category):undefined))}
+          {filtered.length===0&&<p role="status" className="py-6 text-center text-sm text-fg-secondary">{t('noResults')}</p>}
+        </div>
+        {onCreateCategory&&<Button size="lg" variant="secondary" className="w-full" disabled={busy} onClick={()=>setEditing('new')}><Plus/>{t('createCategory')}</Button>}
       </div>
-    </div>
-  );
+    </Drawer>
+    {open&&editing&&<CategoryForm key={editing==='new'?'new':editing.name} entry={editing==='new'?undefined:editing} onClose={()=>setEditing(null)}
+      onSave={async name=>{if(editing==='new')await onCreateCategory?.({name});else await onEditCategory?.(editing.name,{name});setEditing(null);}}
+      onDelete={editing!=='new'&&editing.canDelete!==false&&onDeleteCategory?async()=>{await onDeleteCategory(editing.name);setEditing(null);}:undefined} deleteDescription={deleteDescription}/>}
+  </>;
 }
 
-// ─── Edit panel (inline, replaces the row) ─────────────────────
-
-function CategoryEditPanel({
-  entry,
-  onSave,
-  onDelete,
-  onCancel,
-}: {
-  entry: CategoryDrawerEntry;
-  onSave: (patch: EditCategoryPatch) => Promise<void>;
-  onDelete?: () => Promise<void>;
-  onCancel: () => void;
-}) {
-  const { t } = useI18n();
-  const [name, setName] = useState(entry.name);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  const busy = saving || deleting;
-
-  const submit = async () => {
-    if (!name.trim() || busy) return;
-    setSaving(true);
-    try {
-      await onSave({ name: name.trim() });
-    } finally {
-      setSaving(false);
-    }
+function CategoryForm({entry,onClose,onSave,onDelete,deleteDescription}: {entry?:CategoryDrawerEntry;onClose:()=>void;onSave:(name:string)=>Promise<void>;onDelete?:()=>Promise<void>;deleteDescription?:string}) {
+  const {t}=useI18n();
+  const [name,setName]=useState(entry?.name??'');
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState('');
+  const [discard,setDiscard]=useState(false);
+  const [deleting,setDeleting]=useState(false);
+  const [deleteError,setDeleteError]=useState('');
+  const first=useRef<HTMLInputElement>(null);
+  const lock=useRef(false);
+  const dirty=name!==(entry?.name??'');
+  const close=()=>{if(!lock.current){if(dirty)setDiscard(true);else onClose();}};
+  useEffect(()=>{
+    const warn=(event:BeforeUnloadEvent)=>{if(dirty||lock.current){event.preventDefault();event.returnValue='';}};
+    window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);
+  },[dirty]);
+  const save=async()=>{
+    if(!name.trim()||lock.current)return;lock.current=true;setSaving(true);setError('');
+    try{await onSave(name.trim());}catch(cause){setError(cause instanceof Error?cause.message:t('saveFailed'));}
+    finally{lock.current=false;setSaving(false);}
   };
-
-  const remove = async () => {
-    if (!onDelete || busy) return;
-    const label = t('delete') || 'Delete';
-    if (!confirm(`${label} "${entry.name}"?`)) return;
-    setDeleting(true);
-    try {
-      await onDelete();
-    } finally {
-      setDeleting(false);
-    }
+  const remove=async()=>{
+    if(!onDelete||lock.current)return;lock.current=true;setSaving(true);setDeleteError('');
+    try{await onDelete();}catch(cause){setDeleteError(cause instanceof Error?cause.message:t('saveFailed'));}
+    finally{lock.current=false;setSaving(false);}
   };
-
-  return (
-    <div className="p-4 border-2 border-orange-500 rounded-xl bg-orange-50 dark:bg-orange-900/20 space-y-3">
-      <input
-        autoFocus
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder={t('categoryName') || 'Nom de la catégorie'}
-        className="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit();
-          if (e.key === 'Escape') onCancel();
-        }}
-      />
-      <div className="flex gap-2">
-        <button
-          onClick={submit}
-          disabled={busy || !name.trim()}
-          className="flex-1 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all font-medium text-sm shadow-lg shadow-orange-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {saving && <Loader2 size={14} className="animate-spin" />}
-          {t('save') || 'Enregistrer'}
-        </button>
-        <button
-          onClick={onCancel}
-          disabled={busy}
-          className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors font-medium text-sm text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
-        >
-          {t('cancel') || 'Annuler'}
-        </button>
-      </div>
-      {onDelete && (
-        <button
-          onClick={remove}
-          disabled={busy}
-          className="w-full px-3 py-2 border border-red-300 dark:border-red-900/60 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-          {t('delete') || 'Supprimer'}
-        </button>
-      )}
-    </div>
-  );
+  return <>
+    <Modal title={t(entry?'edit':'createCategory')} subtitle={entry?.name} initialFocusRef={first} onClose={close} closeDisabled={saving}
+      footer={<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={saving} onClick={close}>{t('cancel')}</Button><Button size="lg" disabled={!name.trim()||saving} onClick={()=>void save()}>{t(saving?'saving':entry?'save':'create')}</Button></div>}>
+      <form onSubmit={event=>{event.preventDefault();void save();}}><Field label={t('categoryName')}><Input required ref={first} className="min-h-11" disabled={saving} value={name} onChange={event=>setName(event.target.value)}/></Field></form>
+      {error&&<p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">{error}</p>}
+      {onDelete&&<div className="mt-6 border-t border-[var(--line)] pt-4"><Button size="lg" variant="ghost" className="text-[var(--danger-500)]" disabled={saving} onClick={()=>{setDeleteError('');setDeleting(true);}}><Trash2/>{t('delete')}</Button></div>}
+    </Modal>
+    <ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={onClose}/>
+    {deleting&&<Modal title={t('delete')} subtitle={entry?.name} onClose={()=>{if(!lock.current)setDeleting(false);}} closeDisabled={saving}
+      footer={<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={saving} onClick={()=>setDeleting(false)}>{t('cancel')}</Button><Button size="lg" variant="danger" disabled={saving} onClick={()=>void remove()}>{t(saving?'saving':'delete')}</Button></div>}>
+      {deleteDescription&&<p className="text-sm text-fg-secondary">{deleteDescription}</p>}{deleteError&&<p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">{deleteError}</p>}
+    </Modal>}
+  </>;
 }

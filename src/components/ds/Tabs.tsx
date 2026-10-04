@@ -35,8 +35,8 @@ export const TabsList = ({
       data-slot="tabs-list"
       className={cn(
         variant === 'segmented'
-          ? 'inline-flex gap-[2px] bg-[var(--surface-2)] p-1 rounded-r-md'
-          : 'flex gap-[var(--s-5)] border-b border-[var(--line)]',
+          ? 'inline-flex overflow-x-auto gap-[2px] bg-[var(--surface-2)] p-1 rounded-r-md'
+          : 'flex overflow-x-auto gap-[var(--s-5)] border-b border-[var(--line)]',
         className,
       )}
       {...props}
@@ -56,7 +56,7 @@ export const Tab = ({
         data-variant="underline"
         className={cn(
           'relative bg-transparent border-none py-[var(--s-3)] px-0',
-          'text-fs-sm font-medium text-[var(--fg-muted)]',
+          'text-fs-sm font-medium whitespace-nowrap text-[var(--fg-muted)]',
           'transition-colors duration-fast ease-out',
           'hover:text-[var(--fg)]',
           'data-[state=active]:text-[var(--fg)]',
@@ -76,9 +76,9 @@ export const Tab = ({
       data-slot="tab"
       data-variant="segmented"
       className={cn(
-        'inline-flex items-center gap-[var(--s-2)] h-[30px] px-[var(--s-3)]',
+        'inline-flex items-center gap-[var(--s-2)] min-h-9 px-[var(--s-3)]',
         'rounded-r-sm bg-transparent border-none',
-        'text-fs-sm font-medium text-[var(--fg-muted)]',
+        'text-fs-sm font-medium whitespace-nowrap text-[var(--fg-muted)]',
         'transition-[background-color,color] duration-fast ease-out',
         'hover:text-[var(--fg)]',
         'data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--fg)]',

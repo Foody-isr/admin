@@ -9,5 +9,5 @@
  * tweak the page padding/width if we want to later.
  */
 export default function SettingsShell({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <div className="w-full max-w-[1100px] mx-auto">{children}</div>;
 }

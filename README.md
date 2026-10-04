@@ -118,28 +118,13 @@ Two sections, saved separately:
 - `tips_enabled` — show tips prompt at checkout
 - `rush_mode` — disable optional features under high load
 
-### Website (`/[restaurantId]/website`)
+### Website (`/[restaurantId]/website-v3`)
 
-White-label website customizer for the restaurant's guest-facing QR ordering site (foodyweb).
+Website V3 is the restaurant website editor used by the application navigation. It manages pages, sections, appearance and checkout settings with a live iframe preview. Draft autosaves remain separate from publication; the existing guest website and stored website data are unaffected by removal of the old admin editors.
 
-**Left column — Form sections:**
-1. **Branding** — Primary and secondary color pickers (hex input + visual picker)
-2. **Typography** — Font family dropdown (Nunito Sans, Inter, Poppins, Rubik, Open Sans, Playfair Display)
-3. **Content** — Welcome text and tagline fields
-4. **Hero Layout** — Radio selection: Standard / Minimal / Fullscreen
-5. **Visibility** — Toggle switches: show address, phone, opening hours
-6. **Social Links** — Instagram, Facebook, TikTok URL inputs
+The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementations have been removed. Their URLs redirect to Website V3, preserving the restaurant and query parameters. Components shared with V3 and QR customization remain in use.
 
-**Right column — Live Preview:**
-- Static preview card mimicking the restaurant hero (no iframe)
-- Updates in real-time as the form changes
-- Shows logo, cover image, name, tagline, info pills, and social links
-
-**API endpoints used:**
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/restaurants/:id/website-config` | Get current website config |
-| `PUT` | `/restaurants/:id/website-config` | Update website config (partial updates supported) |
+Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
 
 ### Billing (`/[restaurantId]/billing`)
 
@@ -314,7 +299,7 @@ src/
   components/
     Sidebar.tsx                 # Nav sidebar with restaurant name + links (includes Website nav item)
     [restaurantId]/
-      website/page.tsx          # Website customizer (colors, fonts, layout, content)
+      website-v3/page.tsx       # Website V3 draft editor and live preview
 ```
 
 ## Authentication

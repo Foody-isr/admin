@@ -1,14 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckIcon, FlaskConicalIcon, PackageIcon, SearchIcon, XIcon } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CheckIcon, FlaskConicalIcon, PackageIcon, SearchIcon } from 'lucide-react';
 import {
   listPrepItems,
   listStockItems,
   type PrepItem,
   type StockItem,
 } from '@/lib/api';
-import { Button } from '@/components/ds';
+import Modal from '@/components/Modal';
+import { Button, Tabs, TabsList, Tab, TabsContent } from '@/components/ds';
 import { useCurrency, useI18n } from '@/lib/i18n';
 import type { Component } from '../types';
 
@@ -28,7 +29,9 @@ export function IngredientLibraryPicker({
   onAdd: (component: Component) => void;
   onClose: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, direction } = useI18n();
+  const field=useRef<HTMLInputElement>(null);
+  const request=useRef({value:0});
   const { money } = useCurrency();
   const [tab, setTab] = useState<LibraryTab>('stock');
   const [stocks, setStocks] = useState<StockItem[]>([]);
@@ -38,6 +41,7 @@ export function IngredientLibraryPicker({
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const sequence=++request.current.value;
     setLoading(true);
     setError(null);
     try {
@@ -45,22 +49,18 @@ export function IngredientLibraryPicker({
         listStockItems(restaurantId, { is_active: true }),
         listPrepItems(restaurantId, { is_active: true }),
       ]);
+      if(sequence!==request.current.value)return;
       setStocks(stockItems);
       setPreps(prepItems);
     } catch (cause) {
       console.error('Failed to load recipe library', cause);
-      setError(t('labLibraryLoadFailed'));
+      if(sequence===request.current.value)setError(t('labLibraryLoadFailed'));
     } finally {
-      setLoading(false);
+      if(sequence===request.current.value)setLoading(false);
     }
   }, [restaurantId, t]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  useEffect(()=>{const scope=request.current;void load();return()=>{scope.value+=1;};},[load]);
 
   const query = search.trim().toLocaleLowerCase();
   const visibleStocks = useMemo(() => stocks.filter((item) => !query || `${item.name} ${item.category}`.toLocaleLowerCase().includes(query)), [stocks, query]);
@@ -91,44 +91,23 @@ export function IngredientLibraryPicker({
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 pt-[var(--safe-top)] backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-labelledby="ingredient-picker-title" className="flex max-h-[calc(100svh-var(--safe-top))] w-full max-w-2xl flex-col overflow-hidden rounded-t-[22px] bg-[var(--surface)] pb-[var(--safe-bottom)] shadow-2xl sm:max-h-[86svh] sm:rounded-[20px] sm:pb-0" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4 border-b border-[var(--line)] px-5 py-5 sm:px-6">
-          <div>
-            <h3 id="ingredient-picker-title" className="text-lg font-semibold tracking-[-0.02em] text-[var(--fg)]">{t('labAddFromLibrary')}</h3>
-            <p className="mt-1 text-sm leading-5 text-[var(--fg-muted)]">{t('labAddFromLibraryHelp')}</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label={t('cancel')} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[9px] text-[var(--fg-muted)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"><XIcon className="h-4 w-4" /></button>
-        </div>
-
-        <div className="border-b border-[var(--line)] px-5 pt-4 sm:px-6">
-          <div className="flex gap-5" role="tablist" aria-label={t('labLibraryTabs')}>
-            <TabButton active={tab === 'stock'} onClick={() => setTab('stock')} icon={<PackageIcon className="h-4 w-4" />} label={`${t('labStockTab')} (${stocks.length})`} />
-            <TabButton active={tab === 'prep'} onClick={() => setTab('prep')} icon={<FlaskConicalIcon className="h-4 w-4" />} label={`${t('labPrepTab')} (${preps.length})`} />
-          </div>
+  return <Modal title={t('labAddFromLibrary')} subtitle={t('labAddFromLibraryHelp')} size="2xl" onClose={onClose} initialFocusRef={field}>
+    <Tabs dir={direction} value={tab} onValueChange={value=>setTab(value as LibraryTab)}><TabsList className="grid grid-cols-2 overflow-visible" aria-label={t('labLibraryTabs')}><Tab value="stock" className="min-h-11 min-w-0 whitespace-normal px-2"><PackageIcon />{t('labStockTab')} ({stocks.length})</Tab><Tab value="prep" className="min-h-11 min-w-0 whitespace-normal px-2"><FlaskConicalIcon />{t('labPrepTab')} ({preps.length})</Tab></TabsList>
           <label className="relative my-4 block">
             <SearchIcon className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
-            <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('labSearchIngredient')} className="h-11 w-full rounded-[9px] border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-3 text-base text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)] sm:h-10 sm:text-sm" />
+            <input ref={field} aria-label={t('labSearchIngredient')} dir="auto" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('labSearchIngredient')} className="h-11 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-3 text-base text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-[var(--focus-ring)] sm:h-11 sm:text-sm" />
           </label>
-        </div>
 
         <div className="min-h-[260px] flex-1 overflow-y-auto p-3 sm:p-4">
           {loading ? <p className="p-5 text-sm text-[var(--fg-muted)]">{t('labLoading')}</p> : error ? (
-            <div className="p-5"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button variant="secondary" size="sm" className="mt-3" onClick={load}>{t('retry')}</Button></div>
-          ) : tab === 'stock' ? (
+            <div role="alert" className="p-5"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button variant="secondary" size="sm" className="mt-3" onClick={load}>{t('retry')}</Button></div>
+          ) : <><TabsContent value="stock">
             <LibraryList items={visibleStocks} usedIds={usedStockIds} money={money} emptyLabel={t('labNoStockMatches')} addedLabel={t('labAlreadyAdded')} addLabel={t('labAddIngredient')} onAdd={addStock} />
-          ) : (
+          </TabsContent><TabsContent value="prep">
             <LibraryList items={visiblePreps} usedIds={usedPrepIds} money={money} emptyLabel={t('labNoPrepMatches')} addedLabel={t('labAlreadyAdded')} addLabel={t('labAddIngredient')} onAdd={addPrep} />
-          )}
+          </TabsContent></>}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return <button type="button" role="tab" aria-selected={active} onClick={onClick} className={`flex min-h-11 items-center gap-2 border-b-2 pb-3 text-sm font-semibold focus-visible:outline-none ${active ? 'border-[var(--brand-500)] text-[var(--fg)]' : 'border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]'}`}>{icon}{label}</button>;
+    </Tabs></Modal>;
 }
 
 function LibraryList<T extends StockItem | PrepItem>({ items, usedIds, money, emptyLabel, addedLabel, addLabel, onAdd }: { items: T[]; usedIds: Set<string>; money: (amount: number, options?: { decimals?: number }) => string; emptyLabel: string; addedLabel: string; addLabel: string; onAdd: (item: T) => void }) {
@@ -139,13 +118,13 @@ function LibraryList<T extends StockItem | PrepItem>({ items, usedIds, money, em
         const used = usedIds.has(String(item.id));
         return (
           <li key={item.id}>
-            <button type="button" disabled={used} onClick={() => onAdd(item)} className="group flex w-full items-center gap-3 rounded-[10px] border border-transparent px-3 py-3 text-start hover:border-[var(--line)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:cursor-default disabled:opacity-60">
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] ${used ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--surface-2)] text-[var(--fg-muted)] group-hover:bg-[var(--surface)]'}`}>{used ? <CheckIcon className="h-4 w-4" /> : <PackageIcon className="h-4 w-4" />}</span>
+            <button type="button" disabled={used} onClick={() => onAdd(item)} className="group flex w-full items-center gap-3 rounded-[8px] border border-transparent px-3 py-3 text-start hover:border-[var(--line)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:cursor-default disabled:opacity-60">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] ${used ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--surface-2)] text-[var(--fg-muted)] group-hover:bg-[var(--surface)]'}`}>{used ? <CheckIcon className="h-4 w-4" /> : <PackageIcon className="h-4 w-4" />}</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-[var(--fg)]">{item.name}</span>
+                <span className="block break-words text-sm font-medium text-[var(--fg)]">{item.name}</span>
                 <span className="mt-0.5 block text-xs text-[var(--fg-muted)]">{item.category || '—'} · {money(item.cost_per_unit, { decimals: 2 })}/{item.unit}</span>
               </span>
-              <span className={`text-xs font-semibold ${used ? 'text-[var(--success-500)]' : 'text-[var(--brand-500)]'}`}>{used ? addedLabel : addLabel}</span>
+              <span className={`text-xs font-semibold ${used ? 'text-[var(--success-500)]' : 'text-[var(--brand-ink)]'}`}>{used ? addedLabel : addLabel}</span>
             </button>
           </li>
         );

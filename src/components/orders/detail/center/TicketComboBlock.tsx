@@ -56,7 +56,7 @@ export function TicketComboBlock({
             {comboName}
           </span>
           <span
-            className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.08em]"
+            className="inline-flex items-center px-1.5 py-0.5 rounded-full text-fs-micro font-semibold"
             style={{
               background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
               color: 'var(--brand-500)',
@@ -83,7 +83,7 @@ export function TicketComboBlock({
                   <span className="text-[var(--fg)]">{ci.name}</span>
                   {subVariant && (
                     <span
-                      className="inline-flex items-center px-1.5 py-0.5 ms-2 rounded-full text-[10px] font-medium align-middle"
+                      className="inline-flex items-center px-1.5 py-0.5 ms-2 rounded-full text-fs-micro font-medium align-middle"
                       style={{
                         background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
                         color: 'var(--brand-500)',

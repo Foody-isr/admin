@@ -6,7 +6,7 @@
 //   • see the live combo price for this choice
 //   • flip default
 
-import { Check, MoreHorizontal, Pin } from 'lucide-react';
+import { Check, Pin } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
@@ -39,7 +39,7 @@ export default function VariantSubRow({
 
   return (
     <div
-      className={`grid grid-cols-[24px_1fr_140px_100px_28px] items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)] border-s-2 transition-opacity ${
+      className={`grid grid-cols-[44px_minmax(0,1fr)] 2xl:grid-cols-[44px_minmax(0,1fr)_120px_110px_44px] items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)] border-s-2 transition-opacity ${
         included ? 'opacity-100' : 'opacity-50'
       }`}
       style={{ borderColor: 'color-mix(in oklab, var(--brand-500) 30%, transparent)' }}
@@ -49,10 +49,10 @@ export default function VariantSubRow({
         type="button"
         onClick={() => canEdit && onToggleIncluded()}
         disabled={!canEdit}
-        aria-pressed={included}
-        className={`w-[18px] h-[18px] rounded-r-xs flex items-center justify-center disabled:cursor-default ${
+        aria-pressed={included} aria-label={`${t('composeIncludeVariant')} — ${name}`}
+        className={`w-11 h-11 rounded-r-xs flex items-center justify-center disabled:cursor-default ${
           included
-            ? 'bg-[var(--brand-500)] border border-[var(--brand-500)] text-white'
+            ? 'bg-[var(--action)] border border-[var(--action)] text-[var(--action-fg)]'
             : 'bg-[var(--surface)] border border-[var(--line-strong)]'
         }`}
       >
@@ -61,10 +61,10 @@ export default function VariantSubRow({
 
       {/* Name + meta */}
       <div className="min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-fs-sm font-medium text-[var(--fg)] truncate">{name}</span>
           {isDefault && included && (
-            <span className="inline-flex items-center gap-1 text-fs-xs px-1.5 h-[18px] rounded-r-sm bg-[color-mix(in_oklab,#2563eb_14%,transparent)] text-[#60a5fa] border border-[color-mix(in_oklab,#2563eb_30%,transparent)]">
+            <span className="inline-flex items-center gap-1 text-fs-xs px-1.5 h-[18px] rounded-r-sm bg-[var(--info-50)] text-[var(--info-500)] border border-[var(--line)]">
               <Pin className="w-2.5 h-2.5" /> {t('composeDefaultBadge')}
             </span>
           )}
@@ -77,30 +77,30 @@ export default function VariantSubRow({
               : t('composeUpchargeApplied').replace('{delta}', upcharge.toFixed(2)).replace('{price}', comboPrice.toFixed(2))
           }
         </div>
-        <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5">
+        <div className="text-xs text-[var(--fg-subtle)] mt-0.5">
           {t('composeSoldSeparately')}: {money(soloPrice)}
         </div>
       </div>
 
       {/* Upcharge input */}
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] uppercase tracking-[.04em] font-semibold text-[var(--fg-subtle)]">
+      <div className="col-start-2 flex min-w-0 flex-col gap-1 2xl:col-start-auto">
+        <span className="text-xs uppercase tracking-[.04em] font-semibold text-[var(--fg-subtle)]">
           {t('composeUpchargeLabel')}
         </span>
         <div
-          className={`flex items-center h-7 px-2 rounded-r-sm border bg-[var(--surface)] ${
+          className={`flex items-center min-h-11 px-2 rounded-r-sm border bg-[var(--surface)] ${
             upchargeWarn
               ? 'border-[var(--warning-500)]'
               : 'border-[var(--line-strong)]'
           }`}
         >
           <NumberInput
-            min={0}
+            min={0} aria-label={`${t('composeUpchargeLabel')} — ${name}`}
             value={upcharge}
             disabled={!included || !canEdit}
             onChange={onUpchargeChange}
             className={`w-full bg-transparent border-none outline-none text-end text-fs-sm tabular-nums ${
-              upchargeWarn ? 'font-semibold text-[var(--brand-500)]' : 'text-[var(--fg)]'
+              upchargeWarn ? 'font-semibold text-[var(--brand-ink)]' : 'text-[var(--fg)]'
             }`}
           />
           <span className="text-fs-xs text-[var(--fg-muted)] ms-1">{symbol}</span>
@@ -108,15 +108,15 @@ export default function VariantSubRow({
       </div>
 
       {/* Live combo price chip */}
-      <div className="flex justify-end">
+      <div className="col-start-2 flex flex-wrap justify-start 2xl:col-start-auto 2xl:justify-end">
         <span
           className={`inline-flex items-center h-[22px] px-2 rounded-r-sm text-fs-xs font-medium ${
             upchargeWarn
-              ? 'bg-[var(--warning-50)] text-[var(--warning-500)] dark:text-[#fbbf24]'
+              ? 'bg-[var(--warning-50)] text-[var(--warning-500)]'
               : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
           }`}
         >
-          Combo: {money(comboPrice)}
+          {t('typeCombo')}: {money(comboPrice)}
         </span>
       </div>
 
@@ -125,10 +125,10 @@ export default function VariantSubRow({
         type="button"
         onClick={onSetDefault}
         disabled={!included || !canEdit}
-        title={t('composeSetDefault')}
-        className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed"
+        title={t('composeSetDefault')} aria-label={`${t('composeSetDefault')} — ${name}`} aria-pressed={isDefault && included}
+        className="col-start-1 row-start-2 2xl:col-start-auto 2xl:row-start-auto w-11 min-h-11 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed"
       >
-        <MoreHorizontal className="w-3.5 h-3.5" />
+        <Pin className="w-3.5 h-3.5" />
       </button>
     </div>
   );

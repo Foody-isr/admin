@@ -55,13 +55,12 @@ export function CustomerPanel({
     >
       <div className="flex items-center gap-[var(--s-3)]">
         <div
-          className="size-12 rounded-r-lg grid place-items-center text-white font-semibold tracking-tight shrink-0 shadow-1 ring-1 ring-inset ring-white/20"
-          style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}
+          className="size-12 rounded-r-lg grid place-items-center text-[var(--summary-fg)] bg-[var(--summary-bg)] font-semibold shrink-0"
         >
           {customerInitials}
         </div>
         <div className="min-w-0">
-          <div className="text-[20px] leading-[26px] font-bold tracking-[-0.015em] truncate">
+          <div className="text-[20px] leading-[26px] font-semibold break-words">
             {order.customer_name || t('guestCustomer') || 'Client'}
           </div>
 
@@ -85,7 +84,7 @@ export function CustomerPanel({
 
       <div className="mt-[var(--s-3)] grid grid-cols-2 gap-x-[var(--s-5)] gap-y-[var(--s-3)] border-t border-[var(--line)] pt-[var(--s-3)]">
         <div className="min-w-0">
-          <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">
+          <span className="block text-fs-micro font-semibold text-[var(--fg-subtle)]">
             {t('type')}
           </span>
           <span className="mt-1 flex items-center gap-1.5 text-fs-sm font-medium">
@@ -94,7 +93,7 @@ export function CustomerPanel({
           </span>
         </div>
         <div className="min-w-0">
-          <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">
+          <span className="block text-fs-micro font-semibold text-[var(--fg-subtle)]">
             {t('source')}
           </span>
           <span className="mt-1 flex items-center gap-1.5 text-fs-sm font-medium">
@@ -104,7 +103,7 @@ export function CustomerPanel({
         </div>
         {order.table_number && (
           <div className="min-w-0">
-            <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">Table</span>
+            <span className="block text-fs-micro font-semibold text-[var(--fg-subtle)]">Table</span>
             <span className="mt-1 block text-fs-sm font-medium num">{order.table_number}</span>
           </div>
         )}

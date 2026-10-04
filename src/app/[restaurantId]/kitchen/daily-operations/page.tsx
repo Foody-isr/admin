@@ -349,7 +349,7 @@ export default function DailyOperationsPage() {
     }
   }, [rid, selectedDate]);
 
-  const loadSupplementary = useCallback(async () => {
+  const loadSupplementary = useCallback(async (propagateError = false) => {
     const request = ++supplementaryRequest.current;
     setSupplementaryLoading(true);
     setSupplementaryError("");
@@ -399,6 +399,7 @@ export default function DailyOperationsPage() {
       setSupplementaryError(
         error instanceof Error ? error.message : t("dailyLoadError"),
       );
+      if (propagateError) throw error;
     } finally {
       if (request === supplementaryRequest.current)
         setSupplementaryLoading(false);
@@ -1633,15 +1634,8 @@ export default function DailyOperationsPage() {
           rid={rid}
           stockItems={stockItems}
           onClose={() => setShowScanModal(false)}
-          onImported={() => {
-            setShowScanModal(false);
-            void Promise.all([loadSupplementary(), loadKitchenSummary()]).catch(
-              (error) => {
-                setActionError(
-                  error instanceof Error ? error.message : t("dailyLoadError"),
-                );
-              },
-            );
+          onImported={async () => {
+            await Promise.all([loadSupplementary(true), loadKitchenSummary()]);
           }}
         />
       )}

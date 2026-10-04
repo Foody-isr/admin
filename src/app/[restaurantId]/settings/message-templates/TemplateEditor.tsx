@@ -10,8 +10,8 @@
 // something to show — two regular items (one with a variant and a modifier), a
 // combo, a delivery address with a fee, a discount, and a tracking link.
 
-import { useMemo, useRef } from 'react';
-import { Chip, Textarea } from '@/components/ds';
+import { useId, useMemo, useRef } from 'react';
+import { Chip, Field, Textarea } from '@/components/ds';
 import { useI18n, i18nOr } from '@/lib/i18n';
 import { unknownTokens, type TemplateDefinition } from '@/lib/messages/registry';
 import { spliceToken } from '@/lib/messages/insert-token';
@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 import type { Order } from '@/lib/api';
 
 // ─── Sample order — fixed, local to this file, never sent anywhere ──────────
-const SAMPLE_RESTAURANT_NAME = 'Chez Foody';
+const SAMPLE_RESTAURANT_NAME = 'Foody · Démonstration';
 
 const SAMPLE_ORDER: Order = {
   id: 4821,
@@ -30,8 +30,8 @@ const SAMPLE_ORDER: Order = {
   order_type: 'delivery',
   status: 'accepted',
   payment_status: 'paid',
-  customer_name: 'Noa Levi',
-  customer_phone: '+972501234567',
+  customer_name: 'Client démo',
+  customer_phone: '+972000000000',
   total_amount: 112,
   created_at: '2026-08-06T09:00:00.000Z',
   scheduled_for: '2026-08-13T11:00:00.000Z',
@@ -107,9 +107,11 @@ interface TemplateEditorProps {
   readOnly?: boolean;
 }
 
+/** Edit one locale with keyboard token insertion and an explicitly synthetic preview. */
 export function TemplateEditor({ definition, locale, body, onChange, readOnly }: TemplateEditorProps) {
   const { t } = useI18n();
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  const warningId = useId();
 
   // Inserts a token where the cursor sits, replacing the current selection.
   // Without restoring focus and repositioning the caret, inserting two tokens
@@ -119,6 +121,7 @@ export function TemplateEditor({ definition, locale, body, onChange, readOnly }:
   // be unit-tested without a browser (reading the live selection, restoring
   // focus, scheduling the caret move for after React re-renders the value).
   const insertToken = (name: string) => {
+    if (readOnly) return;
     const el = areaRef.current;
     const token = `{{${name}}}`;
     if (!el) {
@@ -161,62 +164,39 @@ export function TemplateEditor({ definition, locale, body, onChange, readOnly }:
   const dir = locale === 'he' ? 'rtl' : 'ltr';
 
   return (
-    <div className="flex flex-col gap-[var(--s-4)]">
-      <Textarea
-        ref={areaRef}
-        value={body}
-        onChange={(e) => onChange(e.target.value)}
-        // `readOnly`, not `disabled`: a staff member without settings.edit
-        // still needs to select and copy the message text. `disabled` would
-        // block selection along with editing; `readOnly` blocks only editing.
-        // The dimmed look `disabled` gets for free from the design system's
-        // `disabled:opacity-50` is reproduced manually here since it doesn't
-        // have a `read-only:` counterpart.
-        readOnly={readOnly}
-        dir={dir}
-        rows={10}
-        className={cn('font-mono', readOnly && 'opacity-70 cursor-default bg-[var(--surface-2)]')}
-      />
-
-      <div>
-        <div className="text-fs-xs font-semibold text-[var(--fg-muted)] mb-1.5">
-          {t('messageTemplatesTokens')}
-        </div>
-        <div className="flex flex-wrap gap-[var(--s-2)]">
-          {placeholders.map((name) => (
-            <Chip
-              key={name}
-              onClick={() => insertToken(name)}
-              disabled={readOnly}
-              className={readOnly ? 'opacity-50 cursor-not-allowed' : undefined}
-            >
+    <div className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
+      <div className="min-w-0 space-y-4">
+        <Field label={t('messageTemplateBodyLabel')}>
+          <Textarea
+            ref={areaRef}
+            aria-label={`${t(`template_${definition.key}`)} · ${{ fr: 'Français', en: 'English', he: 'עברית' }[locale]}`}
+            aria-invalid={unknown.length > 0}
+            aria-describedby={unknown.length ? warningId : undefined}
+            value={body}
+            onChange={event => onChange(event.target.value)}
+            readOnly={readOnly}
+            dir={dir}
+            rows={12}
+            className={cn('min-w-0 leading-relaxed', readOnly && 'cursor-default bg-[var(--surface-2)]')}
+          />
+        </Field>
+        <div>
+          <h3 className="mb-2 text-sm font-medium">{t('messageTemplatesTokens')}</h3>
+          <div className="flex flex-wrap gap-2">
+            {placeholders.map(name => <Chip key={name} onClick={() => insertToken(name)} disabled={readOnly}>
               {i18nOr(t, `token_${name}`, name)}
-            </Chip>
-          ))}
+            </Chip>)}
+          </div>
         </div>
+        {unknown.length > 0 && <ul id={warningId} role="alert" className="space-y-1 text-xs text-[var(--danger-500)]">
+          {unknown.map(name => <li key={name}>{t('messageTemplatesUnknownToken').replace('{t}', name)}</li>)}
+        </ul>}
       </div>
-
-      {unknown.length > 0 && (
-        <ul className="flex flex-col gap-1">
-          {unknown.map((name) => (
-            <li key={name} className="text-fs-xs text-[var(--danger-500)]">
-              {t('messageTemplatesUnknownToken').replace('{t}', name)}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div>
-        <div className="text-fs-xs font-semibold text-[var(--fg-muted)] mb-1.5">
-          {t('messageTemplatesPreview')}
-        </div>
-        <div
-          dir={dir}
-          className="whitespace-pre-wrap rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)] text-fs-sm leading-relaxed text-[var(--fg)]"
-        >
-          {preview}
-        </div>
-      </div>
+      <section aria-label={t('messageTemplatesPreview')} className="min-w-0 rounded-r-lg border border-[var(--line)] bg-[var(--surface-2)] p-4 sm:p-5">
+        <h3 className="mb-1 text-sm font-semibold">{t('messageTemplatesPreview')}</h3>
+        <p className="mb-4 text-xs leading-5 text-[var(--fg-muted)]">{t('messageTemplateDemoHint')}</p>
+        <div dir={dir} className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--fg)] [overflow-wrap:anywhere]">{preview}</div>
+      </section>
     </div>
   );
 }

@@ -35,7 +35,6 @@ const PAGE_SLUGS = [
   'customers',
   'analytics',
   'settings',
-  'website',
   'billing',
   'marketing',
 ] as const;
@@ -48,8 +47,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const { direction, t, setCurrency } = useI18n();
   const restaurantId = Number(params.restaurantId);
   const isFullscreen =
-    pathname.endsWith('/website') ||
-    pathname.endsWith('/website-v2') ||
     pathname.endsWith('/website-v3') ||
     pathname.endsWith('/table-qr/print');
   const isWideLayout = pathname.includes('/orders');
@@ -87,12 +84,14 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
       router.push('/select-restaurant');
       return;
     }
+    let active = true;
     setRestaurantLoading(true);
     setRestaurantError(false);
     getRestaurant(restaurantId)
-      .then((r) => { setRestaurant(r); setCurrency(r.currency); setRestaurantError(false); })
-      .catch(() => setRestaurantError(true))
-      .finally(() => setRestaurantLoading(false));
+      .then((r) => { if (active) { setRestaurant(r); setCurrency(r.currency); setRestaurantError(false); } })
+      .catch(() => { if (active) setRestaurantError(true); })
+      .finally(() => { if (active) setRestaurantLoading(false); });
+    return () => { active = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, isLoggedIn, restaurantId, restaurantIds, retryCount]);
 
@@ -107,12 +106,12 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   if (restaurantError) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-fg-secondary">Unable to load restaurant. Check your connection.</p>
+        <p className="text-fg-secondary">{t('workspaceLoadError')}</p>
         <button
           className="text-sm text-brand-500 underline"
           onClick={() => setRetryCount((c) => c + 1)}
         >
-          Retry
+          {t('retry')}
         </button>
       </div>
     );
@@ -239,6 +238,7 @@ function RestaurantShell({
   pageName: string;
 }) {
   const { collapsed } = useSidebar();
+  const { t } = useI18n();
   // Sidebar widths come from tokens (260 / 72) — keep these arbitrary classes
   // in sync with --sidebar-w / --sidebar-w-collapsed in globals.css.
   const marginClass = collapsed
@@ -250,6 +250,7 @@ function RestaurantShell({
       : 'lg:ml-[var(--sidebar-w)]';
   return (
     <div className="h-dvh flex">
+      <a href="#workspace-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[100] focus:bg-[var(--surface)] focus:p-3">{t('skipToContent')}</a>
       <div className="flex flex-1 min-w-0">
         <Sidebar
           restaurantId={restaurantId}
@@ -266,7 +267,7 @@ function RestaurantShell({
             pageName={pageName}
             onToggleSidebar={toggleSidebar}
           />
-          <div
+          <div id="workspace-content" tabIndex={-1}
             className={`min-w-0 pb-[max(var(--s-6),var(--safe-bottom))] ${
               isWideLayout
                 ? 'px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8'
@@ -282,9 +283,10 @@ function RestaurantShell({
 }
 
 export default function RestaurantLayout({ children }: { children: React.ReactNode }) {
+  const { restaurantId } = useParams();
   return (
     <AuthProvider>
-      <RestaurantGuard>{children}</RestaurantGuard>
+      <RestaurantGuard key={String(restaurantId)}>{children}</RestaurantGuard>
     </AuthProvider>
   );
 }

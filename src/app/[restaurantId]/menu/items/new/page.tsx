@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, createMenuItem, uploadMenuItemImage, updateMenuItem,
@@ -32,16 +32,24 @@ import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSaving
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
 import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
 import { computeComboSavings, computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
-import { Badge } from '@/components/ds';
+import { Badge, Button, ConfirmDialog, FullScreenEditor } from '@/components/ds';
+import Modal from '@/components/Modal';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import VariantsEditor, {
   VariantGroupState,
   toVariantSyncPayload,
   hasMeaningfulVariants,
 } from '@/components/menu-item/VariantsEditor';
 import { Boxes, History } from 'lucide-react';
-import { XIcon, PlusIcon } from 'lucide-react';
+import { PlusIcon } from 'lucide-react';
 
+/** Resets draft and request state when the active restaurant changes. */
 export default function NewItemPage() {
+  const { restaurantId } = useParams();
+  return <NewItemEditor key={String(restaurantId)} />;
+}
+
+function NewItemEditor() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
@@ -54,6 +62,17 @@ export default function NewItemPage() {
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [draftStorageError, setDraftStorageError] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [leave, setLeave] = useState(false);
+  const [createdId, setCreatedId] = useState<number | null>(null);
+  const progress = useRef({ id: 0, imageUrl: '', imageSaved: false, groups: new Set<number>(), modifiers: new Set<number>(), variants: false });
+  const busy = useRef(false);
+  const requestGuard = useRef(new RestaurantRequestGuard());
+  requestGuard.current.enterRestaurant(rid);
+  const modifierSearch = useRef<HTMLInputElement>(null);
+  const [modifierQuery, setModifierQuery] = useState('');
 
   const [activeTab, setActiveTab] = useState<MenuItemSection>('details');
 
@@ -123,8 +142,8 @@ export default function NewItemPage() {
     selectedGroupIds: Array.from(selectedGroupIds),
     selectedModifierSetIds: Array.from(selectedModifierSetIds),
     variantGroups,
-    activeTab,
-  }), [name, price, description, portion, categoryId, isActive, itemType, comboSteps, selectedGroupIds, selectedModifierSetIds, variantGroups, activeTab]);
+    activeTab, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity,
+  }), [name, price, description, portion, categoryId, isActive, itemType, comboSteps, selectedGroupIds, selectedModifierSetIds, variantGroups, activeTab, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity]);
 
   // First meaningful edit while the banner is up = "starting fresh."
   // Auto-dismiss the banner and turn autosave on so the new typing is captured.
@@ -137,13 +156,21 @@ export default function NewItemPage() {
   }, [autosaveEnabled, draftSnapshot]);
 
   useEffect(() => {
-    if (!autosaveEnabled) return;
+    if (createdId) { clearItemDraft(rid); return; }
+    if (!autosaveEnabled || !canEdit) return;
     if (!Number.isFinite(rid) || rid <= 0) return;
-    saveItemDraft(rid, draftSnapshot);
-  }, [autosaveEnabled, rid, draftSnapshot]);
+    setDraftStorageError(!saveItemDraft(rid, draftSnapshot));
+  }, [autosaveEnabled, rid, draftSnapshot, createdId, canEdit]);
 
   const handleResumeDraft = () => {
     if (!bannerDraft) return;
+    setPricingMode(bannerDraft.pricingMode ?? 'standard');
+    setPricePerKg(bannerDraft.pricePerKg ?? 0);
+    setEstimatedWeightGrams(bannerDraft.estimatedWeightGrams ?? 0);
+    setAiContext(bannerDraft.aiContext ?? '');
+    setCustomerFacts(normalizeMenuItemCustomerFacts(bannerDraft.customerFacts));
+    setAllowNotes(bannerDraft.allowNotes ?? true);
+    setComboAllowQuantity(bannerDraft.comboAllowQuantity ?? true);
     setName(bannerDraft.name);
     setPrice(bannerDraft.price);
     setDescription(bannerDraft.description);
@@ -169,23 +196,24 @@ export default function NewItemPage() {
     setAutosaveEnabled(true);
   };
 
-  useEffect(() => {
-    Promise.all([
-      getAllCategories(rid),
-      listMenus(rid),
-      listModifierSets(rid),
-      listOptionSets(rid),
-      getRestaurantSettings(rid),
-    ]).then(([cats, m, ms, os, settings]) => {
+  const load = useCallback(async () => {
+    const guard = requestGuard.current;
+    const token = guard.begin(rid);
+    setLoading(true); setLoadError('');
+    try {
+      const [cats, loadedMenus, modifiers, options, settings] = await Promise.all([
+        getAllCategories(rid), listMenus(rid), listModifierSets(rid), listOptionSets(rid), getRestaurantSettings(rid),
+      ]);
+      if (!guard.isCurrent(token)) return;
       setCategories(cats);
-      if (!categoryId && cats.length > 0) setCategoryId(cats[0].id);
-      setMenus(m);
-      setAllModifierSets(ms ?? []);
-      setAllOptionSets(os ?? []);
+      setCategoryId(current => current || cats[0]?.id || 0);
+      setMenus(loadedMenus); setAllModifierSets(modifiers); setAllOptionSets(options);
       setVatRate(settings.vat_rate ?? 18);
-    }).finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    } catch (cause) { if (guard.isCurrent(token)) setLoadError(cause instanceof Error ? cause.message : 'libraryOperationFailed'); }
+    finally { if (guard.isCurrent(token)) setLoading(false); }
   }, [rid]);
+  useEffect(() => { const guard = requestGuard.current; void load(); return () => guard.invalidate(); }, [load]);
+  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
 
   // Price single-source-of-truth — see the edit page for rationale. When an
   // article has meaningful sizes, the Details base-price field hides and the
@@ -207,8 +235,8 @@ export default function NewItemPage() {
   const priceOk = isByWeight ? pricePerKg > 0 : effectivePrice > 0;
 
   const handleSave = async () => {
-    if (!name.trim() || !priceOk) return;
-    setSaving(true);
+    if (!canEdit || busy.current || loading || loadError || !name.trim() || !priceOk) return;
+    busy.current = true; setSaving(true); setSaveError('');
     try {
       const createPayload: Parameters<typeof createMenuItem>[1] = {
         name: name.trim(),
@@ -232,34 +260,39 @@ export default function NewItemPage() {
       if (itemType === 'combo' && comboSteps.length > 0) {
         (createPayload as Record<string, unknown>).combo_steps = toComboStepInputs(comboSteps);
       }
-      const item = await createMenuItem(rid, createPayload);
-      if (pendingImage) {
-        const url = await uploadMenuItemImage(rid, item.id, pendingImage);
-        await updateMenuItem(rid, item.id, { image_url: url });
+      const completed = progress.current;
+      if (!completed.id) {
+        const item = await createMenuItem(rid, createPayload);
+        completed.id = item.id;
+        setCreatedId(item.id);
+      }
+      if (pendingImage && !completed.imageSaved) {
+        if (!completed.imageUrl) completed.imageUrl = await uploadMenuItemImage(rid, completed.id, pendingImage);
+        await updateMenuItem(rid, completed.id, { image_url: completed.imageUrl });
+        completed.imageSaved = true;
       }
       for (const groupId of Array.from(selectedGroupIds)) {
-        await addItemsToGroup(rid, groupId, [item.id]);
+        if (completed.groups.has(groupId)) continue;
+        await addItemsToGroup(rid, groupId, [completed.id]);
+        completed.groups.add(groupId);
       }
       for (const setId of Array.from(selectedModifierSetIds)) {
-        await attachModifierSetToItems(rid, setId, [item.id]);
+        if (completed.modifiers.has(setId)) continue;
+        await attachModifierSetToItems(rid, setId, [completed.id]);
+        completed.modifiers.add(setId);
       }
-      if (hasMeaningfulVariants(variantGroups)) {
-        await syncItemVariants(rid, item.id, {
-          groups: toVariantSyncPayload(variantGroups),
-        });
+      if (hasMeaningfulVariants(variantGroups) && !completed.variants) {
+        await syncItemVariants(rid, completed.id, { groups: toVariantSyncPayload(variantGroups) });
+        completed.variants = true;
       }
       clearItemDraft(rid);
       router.push(`/${rid}/menu/items`);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to save');
+      setSaveError(err instanceof Error ? err.message : t('libraryOperationFailed'));
     } finally {
-      setSaving(false);
+      busy.current = false; setSaving(false);
     }
   };
-
-  const allMenuItems = categories.flatMap((c) =>
-    (c.items ?? []).map((i) => ({ ...i, category_name: c.name, category_id: c.id }))
-  );
 
   // Type-switch confirmation state. The picker requests a switch; if any
   // type-specific data exists, we show the confirmation modal before
@@ -311,11 +344,14 @@ export default function NewItemPage() {
   };
 
   const handleFileSelect = (file: File) => {
+    if (!canEdit || busy.current || progress.current.id) return;
     setPendingImage(file);
     setImagePreview(URL.createObjectURL(file));
   };
 
-  const goBack = () => router.push(`/${rid}/menu/items`);
+  const hasDraft = isMeaningfulDraft(draftSnapshot) || !!pendingImage || !!aiContext || pricingMode !== 'standard' || !allowNotes || !comboAllowQuantity || JSON.stringify(customerFacts) !== JSON.stringify(normalizeMenuItemCustomerFacts());
+  const goBack = () => { if (busy.current) return; if (hasDraft) setLeave(true); else router.push(`/${rid}/menu/items`); };
+  useEffect(() => { const warn = (event: BeforeUnloadEvent) => { if (hasDraft) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn); }, [hasDraft]);
 
   const activeCategoryName = useMemo(
     () => categories.find((c) => c.id === categoryId)?.name,
@@ -346,13 +382,9 @@ export default function NewItemPage() {
     return rtf.format(days, 'day');
   }, [bannerDraft, locale]);
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 bg-white dark:bg-[#0a0a0a] pt-safe-t pb-safe-b flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  if (loading || loadError) return <FullScreenEditor open onOpenChange={open => { if (!open) router.push(`/${rid}/menu/items`); }} title={t('createItem')} showCancel={false}>
+    {loading ? <p role="status" className="py-16 text-center text-fg-secondary">{t('loading')}</p> : <div role="alert" className="mx-auto max-w-3xl space-y-4 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5"><p className="text-[var(--danger-500)]">{t(loadError)}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>}
+  </FullScreenEditor>;
 
   // Tab set adapts to item type, limited to three. Recipe and Stock &
   // disponibilité need a saved item (ingredients/availability attach to an
@@ -391,7 +423,7 @@ export default function NewItemPage() {
       comboSummary={railComboSummary}
       onShowComboSavingsDetail={itemType === 'combo' ? () => setSavingsModalOpen(true) : undefined}
       placeholderLabel={t('createItem')}
-      onImageClick={canEdit ? () => fileInputRef.current?.click() : undefined}
+      onImageClick={canEdit && !saving && !createdId ? () => fileInputRef.current?.click() : undefined}
     />
   );
 
@@ -413,43 +445,16 @@ export default function NewItemPage() {
         saveDisabled={!canEdit || !name.trim() || !priceOk}
         sidebar={rail}
       >
-        <div className="flex flex-col flex-1 overflow-hidden">
-          {bannerDraft && (
-            <div className="px-8 py-3 bg-orange-50 dark:bg-orange-500/10 border-b border-orange-200 dark:border-orange-500/30 shrink-0 flex items-center gap-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center shrink-0">
-                  <History className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
-                    {t('draftBannerTitle')}
-                  </div>
-                  <div className="text-xs text-neutral-600 dark:text-neutral-400 truncate">
-                    {bannerDraft.name.trim()
-                      ? `${bannerDraft.name.trim()} · ${draftSavedAgo}`
-                      : `${t('draftBannerUnnamed')} · ${draftSavedAgo}`}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={handleDiscardDraft}
-                  className="px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
-                >
-                  {t('discard')}
-                </button>
-                <button
-                  onClick={handleResumeDraft}
-                  className="px-4 py-1.5 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors"
-                >
-                  {t('resumeDraft')}
-                </button>
-              </div>
-            </div>
-          )}
+        <div className="flex min-w-0 flex-col md:flex-1 md:overflow-hidden">
+          {draftStorageError && <p role="status" className="shrink-0 border-b border-[var(--line)] bg-[var(--warning-50)] p-4 text-sm text-[var(--fg)]">{t('itemDraftStorageUnavailable')}</p>}
+          {saveError && <div role="alert" className="shrink-0 border-b border-[var(--danger-200)] bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]"><p>{saveError}</p>{createdId && <p className="mt-2">{t('itemCreationPartial')}</p>}</div>}
+          {bannerDraft && <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--line)] bg-[var(--summary-bg)] p-4 text-[var(--summary-fg)]">
+            <History className="size-5 shrink-0" /><div className="min-w-0 flex-[1_1_180px]"><h2 className="text-sm font-semibold">{t('draftBannerTitle')}</h2><p className="break-words text-xs">{bannerDraft.name.trim() || t('draftBannerUnnamed')} · {draftSavedAgo}</p></div>
+            <Button variant="ghost" onClick={handleDiscardDraft}>{t('discard')}</Button><Button variant="secondary" onClick={handleResumeDraft}>{t('resumeDraft')}</Button>
+          </div>}
 
           {/* Tab bar banner — matches edit page */}
-          <div className="px-8 py-4 bg-neutral-100 dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+          <div className="shrink-0 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-3 sm:px-6">
             <MenuItemTabBar
               tabs={tabs}
               active={activeTab}
@@ -459,7 +464,7 @@ export default function NewItemPage() {
           </div>
 
           {/* Tab content */}
-          <div className="flex-1 overflow-y-auto p-8">
+          <fieldset disabled={!canEdit || saving || !!createdId} className="min-w-0 space-y-6 p-4 sm:p-6 md:flex-1 md:overflow-y-auto">
             {/* ── Tab: Article — identity (sizes + modifiers render below) ── */}
             {activeTab === 'details' && (
               <MenuItemTabDetails
@@ -522,19 +527,19 @@ export default function NewItemPage() {
 
             {/* ── Sizes & modifiers — rendered inside the Article tab ── */}
             {activeTab === 'details' && itemType !== 'combo' && (
-              <div className="max-w-4xl">
+              <div className="mx-auto w-full max-w-4xl">
                 {/* By-weight items are priced per kg, not by size, so the sizes
                     editor is hidden for them. */}
                 {!isByWeight && (
                   <div className="mb-8">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="w-1 h-6 bg-orange-500 rounded-full" />
-                      <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                      <div className="hidden" />
+                      <h3 className="text-base font-semibold text-fg-primary">
                         {t('variants')}
                       </h3>
                     </div>
                     <div className="space-y-4">
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                      <p className="text-sm text-fg-secondary">
                         {t('variantsDescription')}
                       </p>
                       <VariantsEditor
@@ -549,20 +554,20 @@ export default function NewItemPage() {
 
                 <div>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="w-1 h-6 bg-orange-500 rounded-full" />
-                    <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                    <div className="hidden" />
+                    <h3 className="text-base font-semibold text-fg-primary">
                       {t('modifiers')}
                     </h3>
                   </div>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm text-fg-secondary">
                         {t('modifiersDescription')}
                       </p>
                       {canEdit && (
                         <button
                           onClick={() => setModifierModalOpen(true)}
-                          className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+                          className="btn-secondary min-h-11 px-3"
                         >
                           <PlusIcon className="w-4 h-4" />
                           {t('add')}
@@ -570,18 +575,18 @@ export default function NewItemPage() {
                       )}
                     </div>
                     {selectedModifierSetIds.size > 0 && (
-                      <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                      <div className="rounded-r-lg border border-[var(--line)] overflow-hidden">
                         {allModifierSets.filter((ms) => selectedModifierSetIds.has(ms.id)).map((ms) => (
-                          <div key={ms.id} className="flex items-center justify-between px-4 py-3.5 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 bg-neutral-50 dark:bg-[#1a1a1a] hover:bg-neutral-100 dark:hover:bg-[#222222] transition-colors">
+                          <div key={ms.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 border-b border-[var(--line)] last:border-b-0 bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors">
                             <div>
-                              <span className="text-sm font-medium text-neutral-900 dark:text-white">{ms.name}</span>
-                              <span className="text-xs text-neutral-600 dark:text-neutral-400 ml-2">
+                              <span className="text-sm font-medium text-fg-primary">{ms.name}</span>
+                              <span className="text-xs text-fg-secondary ms-2">
                                 {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
                               </span>
                             </div>
                             {canEdit && (
                               <button onClick={() => { const n = new Set(selectedModifierSetIds); n.delete(ms.id); setSelectedModifierSetIds(n); }}
-                                className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
+                                className="min-h-11 rounded-r-md px-3 text-sm font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)]">
                                 {t('remove')}
                               </button>
                             )}
@@ -596,62 +601,30 @@ export default function NewItemPage() {
 
             {/* ── Recipe / Stock tabs are disabled until the item is saved ── */}
             {(activeTab === 'recipe' || activeTab === 'availability') && (
-              <div className="max-w-4xl">
+              <div className="mx-auto w-full max-w-4xl">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-1 h-6 bg-orange-500 rounded-full" />
-                  <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                  <div className="hidden" />
+                  <h3 className="text-base font-semibold text-fg-primary">
                     {activeTab === 'recipe' ? t('tabRecipe') : t('tabStock')}
                   </h3>
                 </div>
-                <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 p-6">
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                <div className="bg-[var(--surface-2)] rounded-r-lg border border-[var(--line)] p-6">
+                  <p className="text-sm text-fg-secondary">
                     {t('saveItemFirst')}
                   </p>
                 </div>
               </div>
             )}
-          </div>
+          </fieldset>
         </div>
       </MenuItemShell>
 
-      {/* ── Modifier Sets Modal ──────────────────────────────────── */}
-      {modifierModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50">
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-neutral-200 dark:border-neutral-700">
-            <div className="p-6 pb-4 flex items-center justify-between">
-              <button onClick={() => setModifierModalOpen(false)}
-                className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
-                <XIcon className="w-5 h-5 text-neutral-900 dark:text-white" />
-              </button>
-              <button onClick={() => setModifierModalOpen(false)}
-                className="bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] text-neutral-900 dark:text-white rounded-full px-5 py-2 text-[14px] font-medium">{t('done')}</button>
-            </div>
-            <div className="px-6 pb-4">
-              <h2 className="text-[20px] font-bold text-neutral-900 dark:text-white mb-2">{t('modifiers')}</h2>
-              <p className="text-[14px] text-neutral-600 dark:text-neutral-400">{t('modifiersDescription')}</p>
-            </div>
-            <div className="mx-6 border-t-2 border-[#fafafa]" />
-            <div className="flex-1 overflow-y-auto px-6 pb-6">
-              {allModifierSets.length > 0 ? allModifierSets.map((ms) => (
-                <label key={ms.id}
-                  className="w-full flex items-center gap-3 py-4 border-b border-neutral-200 dark:border-neutral-700 cursor-pointer hover:bg-neutral-100 dark:bg-[#1a1a1a] transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[16px] font-medium text-neutral-900 dark:text-white">{ms.name}</span>
-                    <p className="text-[14px] text-neutral-600 dark:text-neutral-400 truncate">
-                      {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
-                    </p>
-                  </div>
-                  <input type="checkbox" checked={selectedModifierSetIds.has(ms.id)}
-                    onChange={() => { const n = new Set(selectedModifierSetIds); if (n.has(ms.id)) n.delete(ms.id); else n.add(ms.id); setSelectedModifierSetIds(n); }}
-                    className="w-5 h-5 rounded border-2 border-neutral-200 dark:border-neutral-700 accent-orange-500 shrink-0" />
-                </label>
-              )) : (
-                <p className="text-[14px] text-neutral-600 dark:text-neutral-400 text-center py-8">{t('noModifiersForItem')}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {modifierModalOpen && <Modal title={t('modifiers')} subtitle={t('itemModifierDraftHint')} initialFocusRef={modifierSearch} onClose={() => setModifierModalOpen(false)} footer={<Button variant="primary" onClick={() => setModifierModalOpen(false)}>{t('done')}</Button>}>
+        <label className="mb-4 block"><span className="sr-only">{t('search')}</span><input ref={modifierSearch} className="input" value={modifierQuery} onChange={event => setModifierQuery(event.target.value)} placeholder={t('search')} /></label>
+        {allModifierSets.filter(set => set.name.toLocaleLowerCase().includes(modifierQuery.toLocaleLowerCase().trim())).map(set => <label key={set.id} className="flex min-h-16 cursor-pointer items-center gap-3 border-b border-[var(--line)] p-3 hover:bg-[var(--surface-2)]"><span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold">{set.name}</span><span className="text-xs text-fg-secondary">{(set.modifiers ?? []).map(modifier => modifier.name).join(', ')}</span></span><input type="checkbox" aria-label={set.name} checked={selectedModifierSetIds.has(set.id)} onChange={() => setSelectedModifierSetIds(previous => { const next = new Set(previous); if (next.has(set.id)) next.delete(set.id); else next.add(set.id); return next; })} className="size-5 shrink-0 accent-[var(--brand-500)]" /></label>)}
+        {!allModifierSets.some(set => set.name.toLocaleLowerCase().includes(modifierQuery.toLocaleLowerCase().trim())) && <p className="py-8 text-center text-sm text-fg-secondary">{t('noResults')}</p>}
+      </Modal>}
+      <ConfirmDialog open={leave} onOpenChange={setLeave} title={t('itemLeaveEditor')} description={createdId ? t('itemCreationPartialLeave') : t('itemDraftLeaveHint')} confirmLabel={t('close')} cancelLabel={t('cancel')} onConfirm={() => { if (createdId) clearItemDraft(rid); router.push(`/${rid}/menu/items`); }} />
 
       {/* ── Type-switch confirmation modal ─────────────────────── */}
       {pendingType && (

@@ -18,6 +18,8 @@ function isStandard(u: string): u is StandardUnit {
 
 interface Props {
   value: string;
+  disabled?: boolean;
+  label?: string;
   onChange: (unit: string) => void;
   conversions: UnitConversionLike[];
   /** Base unit of the linked stock item, used to render the conversion rule
@@ -30,7 +32,8 @@ interface Props {
 // Recipe-row unit picker. A Radix Popover instead of a native <select> so each
 // custom-unit option can render its conversion rule inline and offer a direct
 // link to the stock item editor.
-export default function RecipeUnitSelect({ value, onChange, conversions, baseUnit, stockItemId }: Props) {
+/** Selects a standard or item-specific unit while retaining its conversion details. */
+export default function RecipeUnitSelect({ value, disabled, label, onChange, conversions, baseUnit, stockItemId }: Props) {
   const { t } = useI18n();
   const { restaurantId } = useParams();
   const [open, setOpen] = useState(false);
@@ -56,8 +59,10 @@ export default function RecipeUnitSelect({ value, onChange, conversions, baseUni
       <Popover.Trigger asChild>
         <button
           type="button"
+          disabled={disabled}
+          aria-label={label ?? t('unit')}
           className={cn(
-            'flex items-center justify-between gap-1 w-full h-8 px-[var(--s-2)] rounded-r-md',
+            'flex items-center justify-between gap-1 w-full min-h-11 px-[var(--s-2)] rounded-r-md',
             'bg-[var(--surface)] hover:bg-[var(--surface-2)]',
             'border border-[var(--line-strong)] hover:border-[var(--fg-subtle)]',
             'text-fs-sm text-[var(--fg)]',
@@ -76,7 +81,7 @@ export default function RecipeUnitSelect({ value, onChange, conversions, baseUni
           sideOffset={4}
           collisionPadding={8}
           className={cn(
-            'z-50 min-w-[220px] max-h-[320px] overflow-y-auto rounded-r-md border shadow-lg p-1',
+            'z-[70] w-[280px] max-w-[calc(100vw-32px)] max-h-[320px] overflow-y-auto rounded-r-md border shadow-2 p-1',
             'bg-[var(--surface)]',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
@@ -121,7 +126,7 @@ export default function RecipeUnitSelect({ value, onChange, conversions, baseUni
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-2 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--fg-subtle)] select-none">
+    <div className="px-2 pt-1.5 pb-1 text-xs font-semibold uppercase tracking-wider text-[var(--fg-subtle)] select-none">
       {children}
     </div>
   );
@@ -143,21 +148,8 @@ function Option({
   editLabel?: string;
 }) {
   return (
-    <div
-      role="option"
-      aria-selected={selected}
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); }
-      }}
-      className={cn(
-        'group flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer',
-        'hover:bg-[var(--surface-2)]',
-        'focus:outline-none focus:bg-[var(--surface-2)]',
-        selected && 'bg-[var(--brand-500)]/10',
-      )}
-    >
+    <div className="flex items-center gap-1">
+    <button type="button" onClick={onSelect} aria-pressed={selected} className={cn('flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-r-md px-2 py-2 text-start hover:bg-[var(--surface-2)]',selected && 'bg-[var(--brand-50)]')}>
       {rule !== undefined && (
         <Ruler className={cn(
           'w-3.5 h-3.5 shrink-0',
@@ -168,21 +160,21 @@ function Option({
         <span className="text-fs-sm text-[var(--fg)] truncate">{label}</span>
         {rule && (
           <span className={cn(
-            'text-[10px] font-mono tabular-nums truncate',
+            'text-xs font-mono tabular-nums truncate',
             ruleIsMissing ? 'text-[var(--warn-500,#d97706)]' : 'text-[var(--fg-muted)]',
           )}>
             {rule}
           </span>
         )}
       </div>
-      {selected && <Check className="w-3.5 h-3.5 text-[var(--brand-500)] shrink-0" />}
+      {selected && <Check className="w-3.5 h-3.5 text-[var(--brand-ink)] shrink-0" />}
+      </button>
       {editHref && (
         <Link
           href={editHref}
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            'shrink-0 p-1 rounded text-[var(--fg-subtle)] hover:text-[var(--fg)] hover:bg-[var(--surface-3,var(--surface-2))]',
-            'opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity',
+            'grid size-11 shrink-0 place-items-center rounded-r-md text-fg-secondary hover:bg-[var(--surface-2)]',
           )}
           aria-label={editLabel}
           title={editLabel}

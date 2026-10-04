@@ -1,204 +1,46 @@
 'use client';
 
-import * as React from 'react';
-import { Info, Package, X } from 'lucide-react';
-import { Button, Input, Select, Field } from '@/components/ds';
+import { useId, useRef, useState } from 'react';
+import { Package } from 'lucide-react';
+import { Button, Input, Select, Field, NumberField } from '@/components/ds';
+import Modal from '@/components/Modal';
 import { createStockItem, type StockItem, type StockUnit } from '@/lib/api';
-import { BRUT_COLOR } from './RecipeComposer';
-import { NumberInput } from '@/components/ui/NumberInput';
-import { useCurrency } from '@/lib/i18n';
+import { useCurrency, useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
-
 interface Props {
   restaurantId: number;
   itemName: string;
   initialName: string;
-  onCreated: (item: StockItem) => void;
+  onCreated: (item: StockItem) => void | Promise<void>;
   onCancel: () => void;
 }
 
-/**
- * Sub-sheet for creating an Ingrédient brut inline from the recipe composer.
- * Overlays the recipe tab (absolute, inset-0, z-20). Caller is responsible
- * for rendering this inside a relative container that bounds it.
- */
-export default function CreateStockSheet({
-  restaurantId,
-  itemName,
-  initialName,
-  onCreated,
-  onCancel,
-}: Props) {
-  const { symbol } = useCurrency();
-  const [name, setName] = React.useState(initialName);
-  const [unit, setUnit] = React.useState<StockUnit>('kg');
-  const [cost, setCost] = React.useState<number>(0);
-  const [category, setCategory] = React.useState('');
-  const [supplier, setSupplier] = React.useState('');
-  const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const firstInputRef = React.useRef<HTMLInputElement>(null);
-
-  React.useEffect(() => {
-    firstInputRef.current?.focus();
-    firstInputRef.current?.select();
-  }, []);
-
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onCancel();
-      }
-    };
-    window.addEventListener('keydown', onKey, { capture: true });
-    return () => window.removeEventListener('keydown', onKey, { capture: true });
-  }, [onCancel]);
-
-  const canSubmit = name.trim().length > 0 && !saving;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit) return;
-    setSaving(true);
-    setError(null);
+/** Creates a stock ingredient inside the recipe editor with recoverable errors. */
+export default function CreateStockSheet({ restaurantId, itemName, initialName, onCreated, onCancel }: Props) {
+  const { t } = useI18n(); const { symbol } = useCurrency();
+  const { hasAnyPermission } = usePermissions(); const canCreate = hasAnyPermission('kitchen.manage');
+  const [name, setName] = useState(initialName);
+  const [unit, setUnit] = useState<StockUnit>('kg');
+  const [cost, setCost] = useState(0); const [category, setCategory] = useState(''); const [supplier, setSupplier] = useState('');
+  const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [created, setCreated] = useState<StockItem | null>(null);
+  const lock = useRef(false); const firstInput = useRef<HTMLInputElement>(null); const formId = useId();
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); if (!canCreate || lock.current || !name.trim()) return;
+    lock.current = true; setSaving(true); setError('');
     try {
-      const created = await createStockItem(restaurantId, {
-        name: name.trim(),
-        unit,
-        cost_per_unit: cost,
-        category: category.trim(),
-        supplier: supplier.trim(),
-        is_active: true,
-      });
-      onCreated(created);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Création impossible.');
-      setSaving(false);
-    }
+      const stock = created ?? await createStockItem(restaurantId, {name:name.trim(),unit,cost_per_unit:cost,category:category.trim(),supplier:supplier.trim(),is_active:true});
+      setCreated(stock); await onCreated(stock);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t('saveFailed')); }
+    finally { lock.current = false; setSaving(false); }
   };
-
-  return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/45" role="dialog">
-      <form
-        onSubmit={handleSubmit}
-        onClick={(e) => e.stopPropagation()}
-        className="w-[min(560px,90%)] max-h-[85%] flex flex-col overflow-hidden rounded-r-xl bg-[var(--bg)] text-[var(--fg)] shadow-3"
-        style={{ border: '1px solid var(--line)' }}
-      >
-        {/* Header */}
-        <div className="flex items-center gap-[var(--s-3)] px-[var(--s-5)] py-[var(--s-4)] bg-[var(--surface)] border-b border-[var(--line)]">
-          <span
-            className="w-9 h-9 rounded-full grid place-items-center text-white shrink-0"
-            style={{ background: BRUT_COLOR }}
-            aria-hidden
-          >
-            <Package className="w-4 h-4" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="text-fs-md font-semibold">Nouvel ingrédient brut</div>
-            <div className="text-fs-xs text-[var(--fg-muted)]">
-              Un produit acheté tel quel chez votre fournisseur.
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="md"
-            icon
-            onClick={onCancel}
-            aria-label="Fermer"
-          >
-            <X />
-          </Button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-[var(--s-5)] space-y-[var(--s-4)]">
-          <Field label="Nom">
-            <Input
-              ref={firstInputRef}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={saving}
-              required
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-[var(--s-4)]">
-            <Field label="Unité de stock">
-              <Select
-                value={unit}
-                onChange={(e) => setUnit(e.target.value as StockUnit)}
-                disabled={saving}
-              >
-                {UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label={`Coût par ${unit}`}>
-              <div className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-9 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
-                <span className="text-[var(--fg-subtle)] text-fs-sm">{symbol}</span>
-                <NumberInput
-                  min={0}
-                  value={cost}
-                  onChange={setCost}
-                  disabled={saving}
-                  placeholder="0.00"
-                  className="flex-1 h-full bg-transparent border-none outline-none text-fs-sm font-mono tabular-nums placeholder:text-[var(--fg-subtle)]"
-                />
-              </div>
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-[var(--s-4)]">
-            <Field label="Catégorie">
-              <Input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                disabled={saving}
-                placeholder="Facultatif"
-              />
-            </Field>
-            <Field label="Fournisseur">
-              <Input
-                value={supplier}
-                onChange={(e) => setSupplier(e.target.value)}
-                disabled={saving}
-                placeholder="Facultatif"
-              />
-            </Field>
-          </div>
-
-          {error && (
-            <div className="text-fs-xs text-[var(--danger-500)] bg-[var(--danger-50)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-sm">
-              {error}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-5)] py-[var(--s-4)] bg-[var(--surface)] border-t border-[var(--line)]">
-          <div className="flex items-center gap-1.5 text-fs-xs text-[var(--fg-subtle)]">
-            <Info className="w-3 h-3" />
-            <span>
-              Cet ingrédient sera ajouté à <strong>{itemName}</strong> après création.
-            </span>
-          </div>
-          <div className="flex items-center gap-[var(--s-2)]">
-            <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
-              Annuler
-            </Button>
-            <Button type="submit" variant="primary" size="sm" disabled={!canSubmit}>
-              {saving ? 'Création…' : 'Créer et utiliser'}
-            </Button>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
+  return <Modal title={t('itemRecipeCreateRaw')} subtitle={t('itemRecipeRawHint')} icon={<Package/>} size="lg" initialFocusRef={firstInput} onClose={() => { if (!lock.current) onCancel(); }} footer={<div className="space-y-3"><p className="text-sm text-fg-secondary">{t('itemRecipeCreateUseHint').replace('{name}',itemName)}</p><div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" disabled={saving} onClick={onCancel}>{t('cancel')}</Button><Button type="submit" form={formId} disabled={!canCreate || saving || !name.trim()}>{t(saving?'creating':created?'retry':'itemRecipeCreateUse')}</Button></div></div>}>
+    <form id={formId} onSubmit={submit}><fieldset disabled={saving || !canCreate || !!created} className="min-w-0 space-y-4">
+      <Field label={t('name')}><Input ref={firstInput} className="min-h-11" value={name} onChange={event=>setName(event.target.value)} required/></Field>
+      <div className="grid gap-4 sm:grid-cols-2"><Field label={t('stockUnit')}><Select className="min-h-11" value={unit} onChange={event=>setUnit(event.target.value as StockUnit)}>{UNITS.map(value=><option key={value} value={value}>{value}</option>)}</Select></Field><Field label={`${t('costPerUnit')} (${symbol}/${unit})`}><NumberField className="min-h-11" min={0} value={cost} onChange={setCost} placeholder="0.00"/></Field></div>
+      <div className="grid gap-4 sm:grid-cols-2"><Field label={t('category')} hint={t('optional')}><Input className="min-h-11" value={category} onChange={event=>setCategory(event.target.value)}/></Field><Field label={t('supplier')} hint={t('optional')}><Input className="min-h-11" value={supplier} onChange={event=>setSupplier(event.target.value)}/></Field></div>
+    </fieldset></form>
+    {created && <p role="status" className="mt-4 text-sm text-fg-secondary">{t('itemRecipeCreatedPartial')}</p>}{error && <p role="alert" className="mt-4 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{error}</p>}
+  </Modal>;
 }

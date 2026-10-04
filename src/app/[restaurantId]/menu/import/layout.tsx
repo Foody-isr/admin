@@ -1,5 +1,4 @@
-import { DesktopOnly } from '@/components/common/DesktopOnly';
-
+/** The import workspace supports mobile review and file selection. */
 export default function MenuImportLayout({ children }: { children: React.ReactNode }) {
-  return <DesktopOnly>{children}</DesktopOnly>;
+  return <>{children}</>;
 }

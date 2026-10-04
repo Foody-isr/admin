@@ -13,7 +13,7 @@ export function Section({ title, desc, aside, children, className, ...props }: S
   return (
     <div
       className={cn(
-        'bg-[var(--surface)] border border-[var(--line)] rounded-r-lg shadow-1',
+        'bg-[var(--surface)] border border-[var(--line)] rounded-r-lg',
         'mb-[var(--s-4)]',
         className,
       )}
@@ -28,12 +28,12 @@ export function Section({ title, desc, aside, children, className, ...props }: S
         >
           <div className="flex items-center justify-between gap-[var(--s-3)]">
             {title && (
-              <div className="text-fs-sm font-semibold text-[var(--fg)]">{title}</div>
+              <h2 className="text-fs-lg font-semibold text-[var(--fg)]">{title}</h2>
             )}
             {aside && <div className="shrink-0">{aside}</div>}
           </div>
           {desc && (
-            <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">{desc}</div>
+            <div className="text-fs-sm text-[var(--fg-muted)] mt-1">{desc}</div>
           )}
         </div>
       )}

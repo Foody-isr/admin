@@ -1,5 +1,6 @@
 'use client';
 
+import { useI18n } from '@/lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { FileText, ChefHat, PackageCheck, AlertCircle, Boxes, ChevronRight, ChevronLeft } from 'lucide-react';
 import type { MenuItemSection } from './TabBar';
@@ -37,6 +38,7 @@ function TabIcon({ id }: { id: MenuItemSection }) {
 // Segmented pill tabs — aligned to Foody OS design tokens.
 // Matches the .tabs pattern from design-reference/design/components.css.
 export default function MenuItemTabBar({ tabs, active, onChange, trailing }: Props) {
+  const { direction } = useI18n();
   const scrollerRef = useRef<HTMLDivElement>(null);
   // Edge fade indicators — visible on mobile only when there's more content
   // to scroll in that direction. Lets the user know the strip is swipeable
@@ -71,7 +73,7 @@ export default function MenuItemTabBar({ tabs, active, onChange, trailing }: Pro
     const el = scrollerRef.current;
     if (!el) return;
     const activeBtn = el.querySelector<HTMLButtonElement>(`[data-tab-id="${active}"]`);
-    activeBtn?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    activeBtn?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'nearest', inline: 'nearest' });
   }, [active]);
 
   return (
@@ -101,10 +103,26 @@ export default function MenuItemTabBar({ tabs, active, onChange, trailing }: Pro
               type="button"
               role="tab"
               aria-selected={isActive}
+              tabIndex={isActive ? 0 : -1}
+              onKeyDown={event => {
+                const enabled = tabs.filter(item => !item.disabled);
+                const index = enabled.findIndex(item => item.id === tab.id);
+                const forward = direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+                const backward = direction === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
+                let next = index;
+                if (event.key === forward) next = (index + 1) % enabled.length;
+                else if (event.key === backward) next = (index - 1 + enabled.length) % enabled.length;
+                else if (event.key === 'Home') next = 0;
+                else if (event.key === 'End') next = enabled.length - 1;
+                else return;
+                event.preventDefault();
+                onChange(enabled[next].id);
+                scrollerRef.current?.querySelector<HTMLButtonElement>(`[data-tab-id="${enabled[next].id}"]`)?.focus();
+              }}
               disabled={tab.disabled}
               data-tab-id={tab.id}
               onClick={() => !tab.disabled && onChange(tab.id)}
-              className={`inline-flex items-center gap-[var(--s-2)] h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ease-out [scroll-snap-align:start] ${
+              className={`inline-flex items-center gap-[var(--s-2)] min-h-9 px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ease-out [scroll-snap-align:start] ${
                 tab.disabled
                   ? 'text-[var(--fg-subtle)] opacity-50 cursor-not-allowed'
                   : isActive
@@ -115,7 +133,7 @@ export default function MenuItemTabBar({ tabs, active, onChange, trailing }: Pro
               <TabIcon id={tab.id} />
               <span className="truncate">{tab.label}</span>
               {typeof tab.count === 'number' && tab.count > 0 && (
-                <span className="inline-flex items-center justify-center h-[18px] min-w-[18px] px-1.5 rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)] text-[10px] font-semibold tabular-nums">
+                <span className="inline-flex items-center justify-center h-[18px] min-w-[18px] px-1.5 rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)] text-fs-micro font-semibold tabular-nums">
                   {tab.count}
                 </span>
               )}

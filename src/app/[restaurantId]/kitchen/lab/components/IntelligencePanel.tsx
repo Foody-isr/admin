@@ -11,6 +11,7 @@ import { Button } from '@/components/ds';
 import { useCurrency, useI18n } from '@/lib/i18n';
 import type { CostSummary, DraftPayload, Recommendation } from '../types';
 
+/** Show the server cost verdict and recipe guidance with explicit save/refine actions. */
 export function IntelligencePanel({
   payload,
   canManage,
@@ -36,7 +37,7 @@ export function IntelligencePanel({
   const verdict = verdictCopy(summary, t);
 
   return (
-    <section className="overflow-hidden rounded-[18px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-2)]">
+    <section className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--surface)] ">
       <div className="border-b border-[var(--line)] px-5 py-5">
         <p className="text-xs font-medium text-[var(--fg-muted)]">{t('labDecisionTitle')}</p>
         <div className="mt-3 flex items-end justify-between gap-4">
@@ -70,7 +71,7 @@ export function IntelligencePanel({
       {creative?.rationale && (
         <div className="border-b border-[var(--line)] px-5 py-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-[var(--fg)]">
-            <LightbulbIcon className="h-4 w-4 text-[var(--brand-500)]" /> {t('labWhyThisRecipe')}
+            <LightbulbIcon className="h-4 w-4 text-[var(--brand-ink)]" /> {t('labWhyThisRecipe')}
           </p>
           <p className="mt-2 text-sm leading-6 text-[var(--fg-muted)]">{creative.rationale}</p>
           {creative.menu_fit_notes && <p className="mt-2 text-sm leading-6 text-[var(--fg-muted)]">{creative.menu_fit_notes}</p>}
@@ -103,7 +104,7 @@ export function IntelligencePanel({
           <Button variant="secondary" size="md" className="w-full" onClick={onRefine} disabled={submitting}>
             <SparklesIcon /> {t('labRefineTitle')}
           </Button>
-          <p className="px-2 pt-1 text-center text-[11px] leading-4 text-[var(--fg-muted)]">{t('labSaveHelp')}</p>
+          <p className="px-2 pt-1 text-center text-xs leading-4 text-[var(--fg-muted)]">{t('labSaveHelp')}</p>
         </div>
       )}
     </section>
@@ -111,7 +112,7 @@ export function IntelligencePanel({
 }
 
 function Score({ label, value }: { label: string; value: number }) {
-  const tone = value >= 75 ? 'bg-[var(--success-500)]' : value >= 50 ? 'bg-[var(--warning-500)]' : 'bg-[var(--danger-500)]';
+  const tone = value >= 75 ? 'bg-[var(--success-500)]' : value >= 50 ? 'bg-[var(--warning-500)]' : 'bg-[var(--danger-action)]';
   return (
     <div>
       <div className="flex items-center justify-between gap-3 text-xs">
@@ -129,8 +130,8 @@ function RecommendationRow({ item }: { item: Recommendation }) {
   const critical = item.severity === 'critical';
   const warning = item.severity === 'warning';
   return (
-    <div className="flex gap-2.5 rounded-[9px] border p-3" style={{ borderColor: critical ? 'color-mix(in oklab, var(--danger-500) 35%, var(--line))' : warning ? 'color-mix(in oklab, var(--warning-500) 35%, var(--line))' : 'var(--line)' }}>
-      <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" style={{ color: critical ? 'var(--danger-500)' : warning ? 'var(--warning-500)' : 'var(--fg-muted)' }} />
+    <div className="flex gap-2.5 rounded-[8px] border p-3" style={{ borderColor: critical ? 'color-mix(in oklab, var(--danger-action) 35%, var(--line))' : warning ? 'color-mix(in oklab, var(--warning-500) 35%, var(--line))' : 'var(--line)' }}>
+      <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" style={{ color: critical ? 'var(--danger-action)' : warning ? 'var(--warning-500)' : 'var(--fg-muted)' }} />
       <div>
         <p className="text-xs font-semibold text-[var(--fg)]">{item.title}</p>
         <p className="mt-0.5 text-xs leading-5 text-[var(--fg-muted)]">{item.message}</p>
@@ -144,7 +145,7 @@ function verdictCopy(summary: CostSummary, t: (key: string) => string) {
     return { ok: true, label: t('labOnTarget'), description: t('labWithinTargetDescription'), tone: 'text-[var(--success-500)]', badge: 'bg-[var(--success-50)] text-[var(--success-500)]', bar: 'bg-[var(--success-500)]' };
   }
   if (summary.verdict === 'loss_making') {
-    return { ok: false, label: t('labLossMaking'), description: t('labLossDescription'), tone: 'text-[var(--danger-500)]', badge: 'bg-[var(--danger-50)] text-[var(--danger-500)]', bar: 'bg-[var(--danger-500)]' };
+    return { ok: false, label: t('labLossMaking'), description: t('labLossDescription'), tone: 'text-[var(--danger-500)]', badge: 'bg-[var(--danger-50)] text-[var(--danger-500)]', bar: 'bg-[var(--danger-action)]' };
   }
   if (summary.verdict === 'over_budget') {
     return { ok: false, label: t('labOverBudget'), description: t('labOverTargetDescription'), tone: 'text-[var(--warning-500)]', badge: 'bg-[var(--warning-50)] text-[var(--warning-500)]', bar: 'bg-[var(--warning-500)]' };

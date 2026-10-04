@@ -1,6 +1,7 @@
 'use client';
 
 import { Globe } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export type Locale = 'en' | 'he' | 'fr';
 
@@ -32,8 +33,9 @@ interface Props {
  * canonical text — translations into other locales are derived from it.
  */
 export function LocaleTabs({ locales, source, active, onChange, missing }: Props) {
+  const { t } = useI18n();
   return (
-    <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md">
+    <div className="flex w-fit max-w-full flex-wrap items-center gap-1 bg-[var(--surface-2)] p-1 rounded-r-md">
       {locales.map((loc) => {
         const isActive = loc === active;
         const isSource = loc === source;
@@ -42,27 +44,28 @@ export function LocaleTabs({ locales, source, active, onChange, missing }: Props
           <button
             key={loc}
             type="button"
-            aria-selected={isActive}
+            aria-pressed={isActive}
             onClick={() => onChange(loc)}
-            className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
+            className={`inline-flex items-center gap-1.5 min-h-9 px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
               isActive
-                ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                ? 'bg-[var(--surface)] text-[var(--fg)]'
                 : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
             }`}
-            title={isSource ? 'Source language — what you type here is the original' : LOCALE_LABELS[loc]}
+            title={isSource ? t('localeBannerSourceTitle').replace('{lang}', LOCALE_LABELS[loc]) : LOCALE_LABELS[loc]}
           >
             {isSource && <Globe className="w-3 h-3" aria-hidden />}
             <span>{LOCALE_LABELS[loc]}</span>
             {isSource && (
-              <span className="text-[10px] uppercase tracking-wide font-semibold text-[var(--brand-500)]">
-                source
+              <span className="text-fs-xs font-semibold text-[var(--brand-ink)]">
+                {t('languageSourceLabel')}
               </span>
             )}
             {isMissing && (
               <span
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ background: 'var(--warning-500)' }}
-                aria-label="Translation missing"
+                role="img"
+                aria-label={t('translationMissing')}
               />
             )}
           </button>

@@ -53,16 +53,16 @@ export function AvailabilityPill({ state, override, isActive, bottleneck, canEdi
   let cls: string;
   let label: string;
   if (!isActive) {
-    cls = 'bg-neutral-200 dark:bg-neutral-700/40 text-neutral-700 dark:text-neutral-300';
+    cls = 'bg-[var(--surface-2)] text-[var(--fg-muted)]';
     label = t('unavailable');
   } else if (isEffectivelySoldOut(state, override)) {
-    cls = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
+    cls = 'bg-[var(--danger-50)] text-[var(--danger-500)]';
     label = t('outOfStock');
   } else if (override !== 'force_available' && state === 'low') {
-    cls = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400';
+    cls = 'bg-[var(--warning-50)] text-[var(--warning-500)]';
     label = t('lowStock');
   } else {
-    cls = 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
+    cls = 'bg-[var(--success-50)] text-[var(--success-500)]';
     label = t('available');
   }
 
@@ -71,7 +71,7 @@ export function AvailabilityPill({ state, override, isActive, bottleneck, canEdi
     return (
       <span
         title={bottleneck || undefined}
-        className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${cls}`}
+        className={`inline-block px-3 py-1 rounded-r-md text-sm font-medium ${cls}`}
       >
         {label}
       </span>
@@ -92,7 +92,7 @@ export function AvailabilityPill({ state, override, isActive, bottleneck, canEdi
         e.stopPropagation();
         onToggle!();
       }}
-      className={`group inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium cursor-pointer transition-shadow hover:ring-1 hover:ring-inset hover:ring-current disabled:opacity-50 disabled:cursor-not-allowed ${cls}`}
+      className={`group inline-flex min-h-11 items-center gap-1 px-3 py-1 rounded-r-md text-sm font-medium cursor-pointer transition-shadow hover:ring-1 hover:ring-inset hover:ring-current disabled:opacity-50 disabled:cursor-not-allowed ${cls}`}
     >
       {label}
       <ChevronDown className="w-3.5 h-3.5 opacity-0 group-hover:opacity-60 transition-opacity" />

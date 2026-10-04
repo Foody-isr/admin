@@ -924,30 +924,23 @@ export default function OrdersPage() {
                 <Button
                   variant="primary"
                   size="lg"
-                  icon
                   asChild
-                  className="rounded-full text-white shadow-sm"
                 >
                   <Link
                     href={`/${rid}/orders/new`}
                     aria-label={t('newOrder')}
                     title={t('newOrder')}
                   >
-                    <PlusIcon className="!size-5" />
+                    <PlusIcon className="size-4" />
+                    {t('newOrder')}
                   </Link>
                 </Button>
               )}
               {canManage && (
                 <Button
-                  variant={paused ? 'secondary' : 'danger'}
+                  variant="secondary"
                   size="lg"
-                  icon
                   disabled={pauseSaving}
-                  className={
-                    paused
-                      ? 'rounded-full border-transparent bg-[var(--success-500)] text-white shadow-sm hover:bg-[var(--success-600)]'
-                      : 'rounded-full shadow-sm'
-                  }
                   onClick={() => {
                     if (paused) {
                       void togglePause(false);
@@ -958,7 +951,8 @@ export default function OrdersPage() {
                   aria-label={paused ? t('resumeOrders') : t('pauseOrders')}
                   title={paused ? t('resumeOrders') : t('pauseOrders')}
                 >
-                  {paused ? <PlayIcon className="!size-5" /> : <PauseIcon className="!size-5" />}
+                  {paused ? <PlayIcon className="size-4" /> : <PauseIcon className="size-4" />}
+                  {paused ? t('resumeOrders') : t('pauseOrders')}
                 </Button>
               )}
             </>
@@ -1164,7 +1158,7 @@ export default function OrdersPage() {
                   <DataTableHeadCell
                     key={col.key}
                     align={col.align}
-                    className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]"
+                    className="bg-[var(--surface-2)] px-3 py-3 normal-case tracking-normal"
                   >
                     {t(col.labelKey)}
                   </DataTableHeadCell>
@@ -1172,7 +1166,7 @@ export default function OrdersPage() {
                 {canManage && (
                   <DataTableHeadCell
                     align="right"
-                    className="sticky end-0 min-w-[150px] bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]"
+                    className="sticky end-0 min-w-[150px] bg-[var(--surface-2)] px-3 py-3 normal-case tracking-normal"
                   >
                     {t('ordersNextAction')}
                   </DataTableHeadCell>
@@ -1221,7 +1215,7 @@ export default function OrdersPage() {
                           align="right"
                           mobileLabel={t('ordersNextAction')}
                           data-mobile-role="primary-action"
-                          className="bg-[var(--surface)] px-3 py-2 group-hover:bg-orange-50/50 md:sticky md:end-0 dark:group-hover:bg-orange-900/20"
+                          className="bg-[var(--surface)] px-3 py-2 group-hover:bg-[var(--surface-2)] md:sticky md:end-0"
                         >
                           {capabilities.primary ? (
                             <Button

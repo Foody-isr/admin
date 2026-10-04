@@ -7,6 +7,8 @@
 // Mirrors the pattern of `food-cost/CostPctBreakdownModal.tsx` (intro + a
 // stack of fixed-width sections + footer with Close).
 
+import Modal from '@/components/Modal';
+import { Button } from '@/components/ds';
 import { AlertTriangle, Info } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import type { ComboSavingsBreakdown } from './pricing';
@@ -35,36 +37,7 @@ export default function ComboSavingsBreakdownModal({ comboName, breakdown, onClo
   const absPct = Math.round(Math.abs(breakdown.savingsPct));
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="rounded-r-lg w-full max-w-lg max-h-[85vh] flex flex-col border border-[var(--line)] shadow-3"
-        style={{ background: 'var(--surface)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-[var(--s-5)] py-[var(--s-3)] border-b border-[var(--line)] shrink-0">
-          <div>
-            <h3 className="text-fs-md font-semibold text-[var(--fg)]">
-              {t('savingsBreakdownTitle')}
-            </h3>
-            {comboName && (
-              <p className="text-fs-xs text-[var(--fg-subtle)]">{comboName}</p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
-            aria-label="Close"
-          >
-            <span className="text-xl leading-none">&times;</span>
-          </button>
-        </div>
-
+    <Modal title={t('savingsBreakdownTitle')} subtitle={comboName} onClose={onClose} footer={<Button variant="secondary" onClick={onClose}>{t('savingsBreakdownClose')}</Button>}>
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-[var(--s-5)] py-[var(--s-4)] space-y-[var(--s-4)] text-fs-sm">
           <p className="text-[var(--fg-muted)] flex items-start gap-1.5">
@@ -172,16 +145,6 @@ export default function ComboSavingsBreakdownModal({ comboName, breakdown, onClo
           </section>
         </div>
 
-        {/* Footer */}
-        <div className="px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center justify-end shrink-0 bg-[var(--surface)]">
-          <button
-            onClick={onClose}
-            className="inline-flex items-center justify-center h-8 px-3 rounded-r-sm text-fs-sm font-medium border border-[var(--line-strong)] text-[var(--fg)] bg-[var(--surface)] hover:bg-[var(--surface-2)]"
-          >
-            {t('savingsBreakdownClose')}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

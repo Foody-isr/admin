@@ -2746,10 +2746,12 @@ export interface PrinterConfiguration extends PrintPrinter {
   profiles?: PrinterProfile[];
 }
 
+/** Load the complete restaurant-scoped printers inventory. */
 export async function listPrinterConfigurations(id: number): Promise<PrinterConfiguration[]> {
   const data = await apiFetch<{ printers: PrinterConfiguration[] }>(
     `/api/v1/restaurants/${id}/printing/printers`, id,
   );
+  if (!data || !(Array.isArray(data.printers) || data.printers === null)) throw new Error('Invalid printers response');
   return data.printers ?? [];
 }
 
@@ -2886,11 +2888,13 @@ export interface RestaurantDevice {
   profile_names: string[];
 }
 
+/** Read the physical inventory without mistaking an incomplete response for an empty list. */
 export async function listDevices(restaurantId: number): Promise<RestaurantDevice[]> {
   const data = await apiFetch<{ devices: RestaurantDevice[] }>(
     `/api/v1/restaurants/${restaurantId}/devices`, restaurantId,
   );
-  return data.devices ?? [];
+  if (!data || !Array.isArray(data.devices)) throw new Error('Incomplete device inventory');
+  return data.devices;
 }
 
 export async function updateDeviceDisplayName(
@@ -2931,10 +2935,22 @@ export async function cancelPendingPrintJobs(
   );
 }
 
+/** Minimal category identity exposed to printer roles. */
+export interface PrinterProfileCategory { id: number; name: string }
+
+/** Load restaurant-global categories with printer permissions. */
+export async function listPrinterProfileCategories(id: number): Promise<PrinterProfileCategory[]> {
+  const data = await apiFetch<{ categories: PrinterProfileCategory[] }>(`/api/v1/restaurants/${id}/printing/spooler/categories`, id);
+  if (!data || !(Array.isArray(data.categories) || data.categories === null) || (data.categories ?? []).some(row => !row || !Number.isInteger(row.id) || row.id <= 0 || typeof row.name !== 'string')) throw new Error('Invalid printer categories');
+  return data.categories ?? [];
+}
+
+/** Load the complete restaurant-scoped profile inventory. */
 export async function listPrinterProfiles(id: number): Promise<PrinterProfile[]> {
   const data = await apiFetch<{ profiles: PrinterProfile[] }>(
     `/api/v1/restaurants/${id}/printing/profiles`, id,
   );
+  if (!data || !(Array.isArray(data.profiles) || data.profiles === null)) throw new Error('Invalid profiles response');
   return data.profiles ?? [];
 }
 
@@ -2978,10 +2994,12 @@ export async function replacePrinterProfileAssignments(
   return data.profile;
 }
 
+/** Load the complete restaurant-scoped agents inventory. */
 export async function listPrintAgents(id: number): Promise<PrintAgent[]> {
   const data = await apiFetch<{ agents: PrintAgent[] }>(
     `/api/v1/restaurants/${id}/printing/agents`, id,
   );
+  if (!data || !(Array.isArray(data.agents) || data.agents === null)) throw new Error('Invalid agents response');
   return data.agents ?? [];
 }
 
@@ -3002,10 +3020,11 @@ export interface CibusCreds {
   masked_company_code?: string;
 }
 
+/** Complete replacement: omitted values would clear the stored identity. */
 export interface UpdateCibusCredsInput {
-  cibus_restaurant_id?: string;
-  cibus_pos_id?: string;
-  cibus_company_code?: string;
+  cibus_restaurant_id: string;
+  cibus_pos_id: string;
+  cibus_company_code: string;
 }
 
 export async function getCibusCreds(id: number): Promise<CibusCreds> {
@@ -3127,6 +3146,9 @@ export interface BackfillResult {
   modifiers: number;
   variant_groups: number;
   variants: number;
+  /** Option counts returned by recent translation endpoints. */
+  option_sets?: number;
+  options?: number;
 }
 
 /**
@@ -5786,7 +5808,8 @@ export async function listPOSAccessCredentials(restaurantId: number): Promise<PO
     `/api/v1/restaurants/${restaurantId}/pos-devices`,
     restaurantId,
   );
-  return data.devices ?? [];
+  if (!data || !Array.isArray(data.devices)) throw new Error('Incomplete device inventory');
+  return data.devices;
 }
 
 export async function revokePOSAccessCredential(restaurantId: number, deviceId: number): Promise<void> {
@@ -6662,6 +6685,14 @@ export async function createImportDraft(
   return data.draft;
 }
 
+/** Update a restaurant-scoped draft while retaining its existing document attachment. */
+export async function updateImportDraft(
+  restaurantId:number,draftId:number,input:{supplier_id?:number;supplier_name:string;extraction:DeliveryExtraction;edited_items:ConfirmDeliveryItemInput[]},
+):Promise<DeliveryImportDraft> {
+  const data=await apiFetch<{draft:DeliveryImportDraft}>(`/api/v1/stock/import/drafts/${draftId}?restaurant_id=${restaurantId}`,restaurantId,{method:'PUT',body:JSON.stringify(input)});
+  return data.draft;
+}
+
 export async function deleteImportDraft(restaurantId: number, draftId: number): Promise<void> {
   await apiFetch(`/api/v1/stock/import/drafts/${draftId}?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'DELETE',
@@ -6996,7 +7027,7 @@ export async function removeTrustedCustomer(restaurantId: number, customerId: nu
   );
 }
 
-// ─── Customer profile (address/apartment/floor, account-backed) ───────────────
+// ─── Customer profile (restaurant identity overrides and optional account) ──
 
 export interface CustomerDeliverySeed {
   address: string;
@@ -8840,7 +8871,7 @@ export async function labDiscardDraft(
   );
 }
 
-/** Get the restaurant's food cost target percentage (0–100). */
+/** Get the restaurant's food cost target fraction (0–1). */
 export async function getFoodCostTarget(
   restaurantId: number
 ): Promise<{ food_cost_target_pct: number }> {
@@ -8849,7 +8880,7 @@ export async function getFoodCostTarget(
   );
 }
 
-/** Set the restaurant's food cost target percentage (0–100). */
+/** Set the restaurant's food cost target fraction (0–1). */
 export async function setFoodCostTarget(
   restaurantId: number,
   pct: number
@@ -9256,10 +9287,12 @@ export interface DeliveryZoneInput {
   tour_only?: boolean;
 }
 
+/** Load the restaurant delivery-zone inventory without masking invalid responses. */
 export async function getDeliveryZones(restaurantId: number): Promise<DeliveryZone[]> {
   const data = await apiFetch<{ zones: DeliveryZone[] }>(
     `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId
   );
+  if (!data || !(Array.isArray(data.zones) || data.zones === null)) throw new Error('Invalid delivery zone response');
   return data.zones ?? [];
 }
 
@@ -9415,10 +9448,12 @@ export interface ValidateDiscountRequest {
   phone?: string;
 }
 
+/** List scoped discounts, distinguishing a valid empty collection from an incomplete response. */
 export async function listDiscounts(restaurantId: number, opts: { active?: boolean } = {}): Promise<Discount[]> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (opts.active !== undefined) qs.set('active', String(opts.active));
   const data = await apiFetch<{ discounts: Discount[] }>(`/api/v1/discounts?${qs.toString()}`, restaurantId);
+  if (!data || !Object.prototype.hasOwnProperty.call(data, 'discounts') || (data.discounts !== null && !Array.isArray(data.discounts))) throw new Error('Incomplete discounts response');
   return data.discounts ?? [];
 }
 

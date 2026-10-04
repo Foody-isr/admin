@@ -1,0 +1,44 @@
+# Facturation et Stories — lot en cours
+
+## Facturation
+
+Page, layout, API SubscriptionDetail/getSubscription/changePlan, service/handler/repository et routes Go inspectés. L’ancien layout interdisait le mobile, GET rejeté n’avait pas de catch, dates forcées he-IL, décimales des paiements arrondies à zéro et devise de l’établissement appliquée même à un événement dans une autre devise. Changement de forfait via confirmation native, suivi d’un GET dont l’échec pouvait inciter à réémettre la demande.
+
+Nouvelle page : résumé d’abonnement bleu Foody, offres avec tarif ILS mensuel traduit, historique avec montant/décimales et devise de chaque événement, dates localisées avec fuseau de l’appareil indiqué. Événement inconnu lisible, date/montant/devise indisponible explicite, historique vide distingué d’une erreur de chargement. Support mailto conservé, aucun formulaire de carte ni setup-billing ajouté : le backend renvoie billing_provider_disabled. Aucune donnée de paiement réelle utilisée.
+
+Changement de forfait : confirmation accessible, verrou synchrone, portée rid et génération, relecture après succès ; en cas d’échec de réponse ou de relecture, boutons figés et reprise GET seule. Aucune confirmation de forfait avant concordance avec le GET. Permissions correspondant aux deux contrôles existants : propriétaire de l’établissement (middleware RequireRestaurantRoles) ET rôle de compte owner/superadmin (handler requireOwner). La différence entre ces contrôles peut bloquer un propriétaire local dont le compte global est manager ; contrat serveur conservé et documenté. Aucun protocole de paiement modifié.
+
+Tarifs existants299/799 ILS et tiers starter/premium/enterprise préservés et vérifiés dans subscription/service.go planPrice. La nouvelle landing affiche d’autres offres de lancement590/890/1490 ILS dans marketing/pricing.ts. **Écart commercial existant**, sans migration de forfaits ou changement de montants dans une refonte d’interface. ChangePlan met le plan à jour et journalise un événement, sans appel de paiement dans cette méthode. L’échec de journalisation n’annule pas le forfait ; aucune transaction/ETag supplémentaire inventée. GETSubscription convertit toute erreur GetDetail en404 : l’interface ne prétend pas qu’un404 prouve une absence d’abonnement.
+
+12/12 scénarios dev réussis ; `evidence/billing-targeted-results.json`. FR375 et HE1440 sombre, confirmations/cancel, verrou/rid2, réponse perdue, POST confirmé puis GET échoué, relecture différente, deux permissions croisées, cents/devise/0/type inconnu, historique vide, langue et réponse malformée. Captures FR historique mobile et HE résumé/offres réellement inspectées. Types passent. La validation compilée sera regroupée avec Stories ; Facturation pas encore comptée dans les73 routes.
+
+## Stories — audit avant édition
+
+Page398 lignes, social-navigation.ts, contrats API, Social handlers/services et routes lus. Ancien SDK injecté sans timeout/retry, callbacks d’authentification non liés au cycle de vie, doubles connexions possibles ; switches optimistes concurrents et retour arrière trompeur en cas de réponse perdue. Déconnexion confirme nativement et avale silencieusement l’échec du PUT stories_enabled. Ordre, visibilité et suppression modifiables pendant requête ; noms/captions tronqués, flèches sans nom accessible, logique RTL du switch physique left. Liste en2 colonnes même sur mobile375.
+
+ConnectInstagram persiste la connexion avant la première synchro ; un200 avec sync_error représente donc une connexion réelle et une synchro ratée. SyncReels peut modifier une partie des reels avant une erreur ; upsert conserve visibilité/ordre existants. Disconnect supprime connexion+reels du provider dans une transaction ; stories_enabled est un PUT séparé. Reorder est transactionnel, Update/Delete/Reorder scoppés restaurant. ListReels peut inclure plusieurs providers. Pas de modification serveur prévue.
+
+Réglage Stories : social-navigation est l’autorité existante. La disponibilité publique est une lecture non bloquante (undefined si indisponible). WebsiteV3 normalizeDraftConfig retire stories_enabled du brouillon ; ne pas annoncer à tort que la publication du brouillon écrase ce réglage. Interface doit distinguer activation demandée et disponibilité réellement lue.
+
+## Stories — implémentation et ciblage
+
+Nouvelle présentation : connexion, visibilité demandée et éligibilité publique distinctes ; bibliothèque lisible en une colonne mobile, puis2/3, images entières avec object-contain, légendes non tronquées et badges de visibilité. Switch RTL partagé, déplacements nommés au clavier, confirmation suppression/déconnexion, état vide/retry, lecture seule sans chargement SDK. Les réglages de visibilité sont annoncés comme immédiatement appliqués ; un statut public indisponible/indéterminé ne devient pas un faux succès.
+
+Mutations sérialisées, champs figés, affichage confirmé après ACK+relecture. Erreur ambiguë et relecture échouée après ACK distinguées, reprise GET seule. Déconnexion confirmée suivie d’un échec de stories_enabled explicite ; relecture puis désactivation possible sans second DELETE. Les reels d’un autre provider ne sont pas effacés localement. Événements de connexion liés à la génération et à une tentative, doublons ignorés, annulation/timeout120s, repli getLoginStatus10s conservé, token uniquement dans une variable locale et corps API, aucune donnée d’autorisation affichée. Une connexion200 avec sync_error est une connexion réussie avec synchro échouée. Erreurs serveur brutes du SDK/social non affichées (elles peuvent contenir des détails techniques sensibles).
+
+Le chargeur Meta déjà utilisé par WhatsApp est extrait sans changement d’options dans src/lib/meta-sdk.ts et réutilisé par les deux pages ; timeout15s/réessai et préservation de fbAsyncInit précédents. Les17 scénarios WhatsApp sont rejoués pour cette extraction.
+
+Premier typecheck : l’icône de marque Instagram n’existe pas dans cette version de Lucide ; remplacement par Clapperboard. Premier lancement dev volontairement interrompu après4 passes (31 non exécutés) pour corriger deux sélecteurs de test ne correspondant pas aux libellés existants (« Afficher les Stories… », « Synchroniser »). Résultat interrompu conservé. La microcopy de synchro partielle reprend également le vrai libellé « Synchroniser ».
+
+35/35 scénarios dev réussis (2026-10-04T13:50:37.854Z, 96416.014 ms), 0 échec/skip/flaky :18 Stories+17 WhatsApp ; `evidence/stories-whatsapp-targeted-results.json`. Captures FR bibliothèque375 et HE sombre aperçu1440 réellement inspectées. Puis six cas supplémentaires : vide anglais, serveur indisponible/visibilité héritée, timeout, token absent, autre provider, échec/retry d’image. Réponses de synchro incomplètes rejetées avant d’annoncer un faux nombre. Validation complète puis53 scénarios compilés prévus avec Facturation12 et WhatsApp17 ; pas encore exécutés à cet instant.
+
+
+## Facturation, Stories et non-régression WhatsApp —53 compilés
+
+53/53 scénarios réussis, 0 échec/skip/flaky ; début2026-10-04T13:55:17.718Z, durée47142.612ms. Facturation12, Stories24, WhatsApp17. Résultat `evidence/billing-stories-whatsapp-compiled-results.json`. Lint avec23 avertissements existants, types et build passent ;603 tests configurés passent,6 509 clés FR/EN/HE synchronisées. Journaux `/tmp/foody-billing-stories-{unit,i18n,lint,types,build}.log`. Captures compilées confirmation forfait FR et bibliothèque Stories HE réellement inspectées ; les vues dev FR mobile et HE sombre complètent les preuves.
+
+Les connexions/paiements/médias sont intégralement synthétiques. Aucun compte réel, aucune mutation métier réelle ni déploiement. Composant C2 comparé de nouveau identique à la landing locale après incorporation de l’ajustement du logo combiné. Différence des gammes/tarifs de facturation et landing explicitement documentée sans modification du contrat financier.
+
+75/102 types de routes individuellement documentés, souvent partiels ;27 encore inventoriés. Dernier checkpoint global505 conservé ; les lots ultérieurs ciblés restent distincts. La refonte exhaustive n’est pas terminée. Prochain lot : Codes promotionnels, audit déjà écrit dans discounts-audit.md ; aucun code de ce lot encore changé.
+
+Finition preuve : la première capture compilée du dialogue Facturation était prise pendant son animation (opacité partielle). Capture conservée sous billing-confirm-fr-opening.png ; assertions d’opacité1 et captures animations désactivées ajoutées aux deux tests de dialogue Facturation/Stories. Rejeu compilé2/2 réussi (journal /tmp/foody-billing-stories-dialogs-compiled.log), sans changement de source ni rebuild nécessaire ; preuve billing-stories-dialogs-compiled-results.json. Capture Facturation stabilisée réellement réinspectée, dialogue entièrement opaque et lisible.

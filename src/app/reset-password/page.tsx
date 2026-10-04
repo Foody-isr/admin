@@ -1,232 +1,112 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { validateResetToken, resetPassword, ValidateInviteResponse } from '@/lib/api';
+import { Check, LoaderCircle, X } from 'lucide-react';
+import AccessShell from '@/components/brand/AccessShell';
+import FoodyAdminBrand from '@/components/brand/FoodyAdminBrand';
+import { PasswordField } from '@/components/PasswordField';
+import { validateResetToken, resetPassword, type ValidateInviteResponse } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
+/** Password reset keeps the token contract and successful-session routing unchanged. */
 export default function ResetPasswordPage() {
   const { t } = useI18n();
-  return (
-    <Suspense fallback={
-      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
-          <p className="text-sm text-fg-secondary">{t('loading')}</p>
-        </div>
-      </div>
-    }>
-      <ResetPasswordContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<AccessShell><p role="status">{t('loading')}</p></AccessShell>}><ResetPasswordContent /></Suspense>;
 }
 
 function ResetPasswordContent() {
   const { t } = useI18n();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get('token') || '';
-
+  const token = useSearchParams().get('token') || '';
   const [resetData, setResetData] = useState<ValidateInviteResponse | null>(null);
   const [validating, setValidating] = useState(true);
   const [tokenError, setTokenError] = useState('');
-
-  // Form fields
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  // Validate the token on mount
   useEffect(() => {
+    let active = true;
+    setValidating(true);
+    setTokenError('');
+    setResetData(null);
+    setPassword('');
+    setConfirmPassword('');
+    setSuccess(false);
+    setError('');
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
     if (!token) {
-      setTokenError(t('noResetToken'));
+      setTokenError('noResetToken');
       setValidating(false);
       return;
     }
-
     validateResetToken(token)
-      .then((data) => {
-        setResetData(data);
+      .then(data => {
+        if (!data.valid) throw new Error('invalidOrExpiredResetLink');
+        if (active) setResetData(data);
       })
-      .catch((err) => {
-        setTokenError(err instanceof Error ? err.message : t('invalidOrExpiredResetLink'));
-      })
-      .finally(() => setValidating(false));
+      .catch(reason => { if (active) setTokenError(reason instanceof Error ? reason.message : 'invalidOrExpiredResetLink'); })
+      .finally(() => { if (active) setValidating(false); });
+    return () => { active = false; };
   }, [token]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => () => { if (redirectTimer.current) clearTimeout(redirectTimer.current); }, []);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loading || success || validating || tokenError) return;
     setError('');
-
-    if (password.length < 8) {
-      setError(t('passwordMinChars'));
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError(t('passwordsDoNotMatch'));
-      return;
-    }
-
+    if (password.length < 8) { setError(t('passwordMinChars')); return; }
+    if (password !== confirmPassword) { setError(t('passwordsDoNotMatch')); return; }
     setLoading(true);
     try {
       const result = await resetPassword({ token, password });
-
       setSuccess(true);
-
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        if (result.restaurant_ids.length === 1) {
-          router.push(`/${result.restaurant_ids[0]}/dashboard`);
-        } else if (result.restaurant_ids.length > 1) {
-          router.push('/select-restaurant');
-        } else {
-          router.push('/login');
-        }
+      redirectTimer.current = setTimeout(() => {
+        router.push(result.restaurant_ids.length === 1 ? `/${result.restaurant_ids[0]}/dashboard` : result.restaurant_ids.length > 1 ? '/select-restaurant' : '/login');
       }, 2000);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Password reset failed');
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : t('passwordResetFailed'));
     } finally {
       setLoading(false);
     }
   };
 
-  // Loading state
-  if (validating) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
-          <p className="text-sm text-fg-secondary">{t('validatingResetLink')}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Token error state
-  if (tokenError) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
-        <div className="w-full max-w-sm">
-          <div className="flex justify-center mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
-                <span className="text-xl font-black text-white">F</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
-                <p className="text-xs text-fg-secondary">Restaurant portal</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card text-center">
-            <div className="w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-fg-primary mb-2">{t('invalidResetLink')}</h2>
-            <p className="text-sm text-fg-secondary mb-6">{tokenError}</p>
-            <Link href="/login" className="text-sm text-brand-500 hover:text-brand-600 font-medium">
-              {t('goToLogin')}
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Success state
-  if (success) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
-        <div className="w-full max-w-sm">
-          <div className="card text-center">
-            <div className="w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-fg-primary mb-2">{t('passwordUpdated')}</h2>
-            <p className="text-sm text-fg-secondary">{t('passwordResetSuccess')}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Reset form
   return (
-    <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
-              <span className="text-xl font-black text-white">F</span>
+    <AccessShell>
+      <div className="w-full max-w-[400px]">
+        <div className="mb-8 flex justify-center"><FoodyAdminBrand subtitle={t('restaurantPortal')} /></div>
+        <section className="card">
+          {validating ? <div role="status" className="space-y-4 py-8 text-center"><LoaderCircle className="mx-auto size-7 animate-spin text-[var(--brand-ink)]" /><h1 className="text-lg font-semibold">{t('validatingResetLink')}</h1></div>
+            : tokenError ? <div className="text-center">
+              <X aria-hidden className="mx-auto mb-4 size-10 rounded-r-lg bg-[var(--danger-50)] p-2 text-[var(--danger-500)]" />
+              <h1 className="mb-2 text-xl font-semibold">{t('invalidResetLink')}</h1>
+              <p role="alert" className="mb-6 text-sm text-fg-secondary">{t(tokenError)}</p>
+              <Link href="/login" className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--brand-ink)] hover:underline">{t('goToLogin')}</Link>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
-              <p className="text-xs text-fg-secondary">Restaurant portal</p>
+            : success ? <div role="status" className="text-center">
+              <Check aria-hidden className="mx-auto mb-4 size-10 rounded-r-lg bg-[var(--success-50)] p-2 text-[var(--success-500)]" />
+              <h1 className="mb-2 text-xl font-semibold">{t('passwordUpdated')}</h1><p className="text-sm text-fg-secondary">{t('passwordResetSuccess')}</p>
             </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('resetYourPassword')}</h2>
-          <p className="text-sm text-fg-secondary mb-6">
-            {t('enterNewPasswordFor')} <strong>{resetData?.user.email}</strong>
-          </p>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('newPassword')}</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input"
-                placeholder={t('atLeast8Chars')}
-                required
-                minLength={8}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('confirmPassword')}</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="input"
-                placeholder={t('repeatPassword')}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50"
-            >
-              {loading ? t('resetting') : t('resetPassword')}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <Link href="/login" className="text-sm text-brand-500 hover:text-brand-600 font-medium">
-              {t('backToLogin')}
-            </Link>
-          </div>
-        </div>
+            : <>
+              <h1 className="mb-2 text-2xl font-semibold">{t('resetYourPassword')}</h1>
+              <p className="mb-6 text-sm text-fg-secondary">{t('enterNewPasswordFor')} <bdi className="font-semibold break-all">{resetData?.user.email}</bdi></p>
+              {error && <p id="reset-error" role="alert" className="mb-4 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{error}</p>}
+              <form onSubmit={handleSubmit} className="space-y-5" aria-busy={loading} aria-describedby={error ? 'reset-error' : undefined}>
+                <PasswordField id="reset-password" label={t('newPassword')} name="password" autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} required minLength={8} disabled={loading} placeholder={t('atLeast8Chars')} />
+                <PasswordField id="reset-confirm" label={t('confirmPassword')} name="confirmPassword" autoComplete="new-password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} required disabled={loading} placeholder={t('repeatPassword')}
+                  error={confirmPassword && password !== confirmPassword ? t('passwordsDoNotMatch') : undefined} />
+                <button type="submit" disabled={loading} className="btn-primary w-full justify-center disabled:opacity-50">{loading ? t('resetting') : t('resetPassword')}</button>
+              </form>
+              <div className="mt-5 text-center"><Link href="/login" className="inline-flex min-h-11 items-center text-sm font-medium text-[var(--brand-ink)] hover:underline">{t('backToLogin')}</Link></div>
+            </>}
+        </section>
       </div>
-    </div>
+    </AccessShell>
   );
 }

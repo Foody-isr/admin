@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertCircle, ChevronDown, FlaskConical, Package } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import {
@@ -18,10 +18,10 @@ import type {
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
 import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
-import WhatIfSimulator from './WhatIfSimulator';
+import WhatIfSimulator, {type SimulatorReceipt} from './WhatIfSimulator';
+import { ConfirmDialog } from '@/components/ds';
 
-// Shared Cost section — used by both the MenuItem edit page's Coût tab AND
-// the standalone Food Cost page's selected-item panel. Figma:644-807.
+// Shared recipe cost section used by the item editor and the food-cost workspace.
 //
 // 3 KPI cards (all clickable → KPIInfoModal / CostPctBreakdownModal).
 // Ingredient breakdown table with clickable names (route to stock/prep
@@ -42,14 +42,16 @@ interface Props {
   headerIndentClass?: string;
   /** Called after the simulator's Apply persists changes — caller refetches
    *  ingredients / item state. */
-  onChangesApplied?: () => void | Promise<void>;
+  onChangesApplied?: (receipt: SimulatorReceipt) => void | Promise<void>;
+  onSimulationStateChange?: (state: {dirty:boolean; busy:boolean}) => void;
   /** When true, the whole section starts collapsed behind its "Coût" header
    *  (used inside the Recette tab, where the live summary already shows in the
    *  left rail). The standalone food-cost page leaves this off. */
   collapsible?: boolean;
+  /** Let the parent protect unsaved edits before opening an ingredient. */
+  onNavigate?: (href: string) => void;
 }
 
-const CURRENCY = '\u20AA';
 
 export default function MenuItemTabCost({
   rid,
@@ -60,7 +62,9 @@ export default function MenuItemTabCost({
   price,
   headerIndentClass = '',
   onChangesApplied,
+  onSimulationStateChange,
   collapsible = false,
+  onNavigate,
 }: Props) {
   const { money } = useCurrency();
   const { t } = useI18n();
@@ -72,6 +76,18 @@ export default function MenuItemTabCost({
   // Collapsed-by-default when embedded in the Recette tab. The header stays
   // visible (with a compact cost summary) and toggles the body.
   const [collapsed, setCollapsed] = useState(collapsible);
+  const [simulation, setSimulation] = useState({dirty:false,busy:false,pending:false});
+  const [pendingView, setPendingView] = useState<{kind:'variant'|'vat'; value:string} | null>(null);
+  const onSimulationState = useCallback((state: {dirty:boolean; busy:boolean; pending:boolean}) => {
+    setSimulation(previous => previous.dirty === state.dirty && previous.busy === state.busy && previous.pending === state.pending ? previous : state);
+    onSimulationStateChange?.(state);
+  }, [onSimulationStateChange]);
+  const requestView = (kind:'variant'|'vat', value:string) => {
+    if (simulation.busy || simulation.pending) return;
+    if (simulation.dirty) setPendingView({kind,value});
+    else if (kind === 'variant') setVariantId(value);
+    else toggleVatDisplay();
+  };
 
   // Variant pills — lets the user switch the "portion" the cost math uses.
   const variants = useMemo(
@@ -130,7 +146,7 @@ export default function MenuItemTabCost({
       {/* Section head with 3px brand accent + HT/TTC toggle. Caller may
           pass `headerIndentClass` (e.g. `ms-[37px]`) to align with an
           adjacent emoji-offset title — see food-cost/page.tsx. */}
-      <div className={`flex items-center justify-between gap-[var(--s-3)] ${collapsed ? '' : 'mb-[var(--s-5)]'}`}>
+      <div className={`flex flex-wrap items-center justify-between gap-[var(--s-3)] ${collapsed ? '' : 'mb-[var(--s-5)]'}`}>
         {collapsible ? (
           <button
             type="button"
@@ -148,7 +164,7 @@ export default function MenuItemTabCost({
                 className="text-fs-sm tabular-nums truncate"
                 style={{ color: over ? 'var(--warning-500)' : 'var(--fg-muted)' }}
               >
-                {summary.foodCost.toFixed(2)} {CURRENCY} · {(summary.costPct * 100).toFixed(0)}%
+                {money(summary.foodCost)} · {(summary.costPct * 100).toFixed(0)}%
               </span>
             )}
           </button>
@@ -170,11 +186,11 @@ export default function MenuItemTabCost({
               <button
                 key={mode}
                 type="button"
-                onClick={() => vatDisplayMode !== mode && toggleVatDisplay()}
+                disabled={simulation.busy || simulation.pending} onClick={() => vatDisplayMode !== mode && requestView('vat',mode)}
                 aria-pressed={vatDisplayMode === mode}
-                className={`inline-flex items-center h-[26px] px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors ${
+                className={`inline-flex items-center min-h-11 px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors ${
                   vatDisplayMode === mode
-                    ? 'bg-[var(--surface)] text-[var(--brand-500)] shadow-1'
+                    ? 'bg-[var(--surface)] text-[var(--brand-ink)]'
                     : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
                 }`}
               >
@@ -191,7 +207,7 @@ export default function MenuItemTabCost({
       {variants.length > 0 && (
         <div className="mb-[var(--s-5)] flex items-start justify-between gap-[var(--s-4)] flex-wrap">
           <div className="min-w-0">
-            <p className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] mb-[var(--s-2)]">
+            <p className="text-fs-xs font-semibold text-[var(--fg-subtle)] mb-[var(--s-2)]">
               {t('activePortion') || 'Portion active'}
             </p>
             <div className="flex gap-[var(--s-2)] flex-wrap">
@@ -201,12 +217,12 @@ export default function MenuItemTabCost({
                   <button
                     key={v.id}
                     type="button"
-                    onClick={() => setVariantId(v.id)}
+                    disabled={simulation.busy || simulation.pending} onClick={() => requestView('variant',v.id)}
                     aria-pressed={active}
                     title={`${v.name}: ${money(v.price)}`}
-                    className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ${
+                    className={`inline-flex items-center gap-1.5 min-h-11 px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ${
                       active
-                        ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
+                        ? 'bg-[var(--brand-soft)] text-[var(--brand-ink)] border-[var(--brand-ink)]'
                         : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
                     }`}
                   >
@@ -218,116 +234,69 @@ export default function MenuItemTabCost({
           </div>
 
           <div className="text-end shrink-0">
-            <p className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] mb-[var(--s-2)]">
+            <p className="text-fs-xs font-semibold text-[var(--fg-subtle)] mb-[var(--s-2)]">
               {t('sellingPriceLabel') || 'Prix de vente'}
             </p>
             <p className="text-fs-lg font-semibold leading-none tabular-nums text-[var(--fg)]">
-              {summary.displayPrice.toFixed(2)} {CURRENCY}
+              {money(summary.displayPrice)}
             </p>
           </div>
         </div>
       )}
 
-      {/* 3 KPI cards — neutral / success-tinted margin / warning-tinted % over threshold */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-4)] mb-[var(--s-6)]">
-        <button
-          type="button"
-          onClick={() => setSelectedKpi('food-cost-moyen')}
-          title={t('viewCalculationDetails') || 'Voir le détail du calcul'}
-          className="text-left bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)] hover:border-[var(--line-strong)] transition-colors"
-        >
-          <p className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-            {t('foodCostLabel')}
-          </p>
-          <p className="text-fs-3xl font-semibold leading-none text-[var(--fg)] tabular-nums">
-            {summary.foodCost.toFixed(2)} {CURRENCY}
-          </p>
-          <p className="text-fs-xs text-[var(--fg-subtle)]">
-            {t('perPortion') || 'Par portion'}
-          </p>
+      <div className="grid items-center gap-6 sm:grid-cols-[minmax(140px,190px)_minmax(0,1fr)]">
+        <button type="button" onClick={() => setShowCostPctBreakdown(true)} title={t('viewCostPctBreakdown')}
+          className="flex min-w-0 flex-col items-center gap-3 rounded-r-md p-2 text-center">
+          <span className="text-fs-sm font-semibold text-[var(--fg)]">{t('costPercent')}</span>
+          <span className="relative flex h-40 w-40 items-center justify-center">
+            <svg viewBox="0 0 180 180" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden>
+              <circle cx="90" cy="90" r="78" fill="none" stroke="var(--surface-3)" strokeWidth="10" />
+              <circle cx="90" cy="90" r="78" fill="none" stroke={over ? 'var(--warning-500)' : 'var(--success-500)'} strokeWidth="10"
+                strokeDasharray={`${Math.max(0, Math.min(1, summary.costPct)) * 490.09} 490.09`} />
+            </svg>
+            <span className="text-[32px] font-semibold tabular-nums text-[var(--fg)]" dir="ltr">{summary.displayPrice > 0 ? `${(summary.costPct * 100).toFixed(1)}%` : '—'}</span>
+          </span>
+          <span className="inline-flex items-center gap-1 text-fs-xs text-[var(--fg-muted)]">{over && <AlertCircle aria-hidden className="h-4 w-4 text-[var(--warning-500)]" />}{over ? t('aboveTarget') : t('target')} {Math.round(COST_THRESHOLD * 100)}%</span>
         </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedKpi('marge-totale')}
-          title={t('viewCalculationDetails') || 'Voir le détail du calcul'}
-          className="text-left rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)] hover:shadow-2 transition-shadow"
-          style={{
-            background: 'color-mix(in oklab, var(--success-500) 8%, var(--surface))',
-            border: '1px solid color-mix(in oklab, var(--success-500) 30%, var(--line))',
-          }}
-        >
-          <p className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-            {t('grossProfit')}
-          </p>
-          <p className="text-fs-3xl font-semibold leading-none text-[var(--success-500)] tabular-nums">
-            {summary.margin.toFixed(2)} {CURRENCY}
-          </p>
-          <p className="text-fs-xs text-[var(--fg-subtle)]">
-            {summary.displayPrice > 0
-              ? `${((summary.margin / summary.displayPrice) * 100).toFixed(1)}% · ${t('healthy') || 'sain'}`
-              : '—'}
-          </p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowCostPctBreakdown(true)}
-          title={t('viewCostPctBreakdown') || 'Voir le détail du calcul'}
-          className="text-left rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)] hover:shadow-2 transition-shadow"
-          style={{
-            background: over
-              ? 'color-mix(in oklab, var(--warning-500) 8%, var(--surface))'
-              : 'color-mix(in oklab, var(--success-500) 8%, var(--surface))',
-            border: over
-              ? '1px solid color-mix(in oklab, var(--warning-500) 30%, var(--line))'
-              : '1px solid color-mix(in oklab, var(--success-500) 30%, var(--line))',
-          }}
-        >
-          <p className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-            {t('costPercent')}
-          </p>
-          <div className="flex items-center gap-[var(--s-2)]">
-            <p
-              className="text-fs-3xl font-semibold leading-none tabular-nums"
-              style={{ color: over ? 'var(--warning-500)' : 'var(--success-500)' }}
-            >
-              {(summary.costPct * 100).toFixed(1)}%
-            </p>
-            {over && <AlertCircle className="w-5 h-5 text-[var(--warning-500)]" />}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] py-5">
+            <span className="text-fs-sm text-[var(--fg-muted)]">{t('sellingPriceLabel')} · {showCostsExVat ? t('exVat') : t('incVat')}</span>
+            <bdi className="text-fs-xl font-semibold tabular-nums">{money(summary.displayPrice)}</bdi>
           </div>
-          <p
-            className="text-fs-xs"
-            style={{ color: over ? 'var(--warning-500)' : 'var(--fg-subtle)' }}
-          >
-            {over
-              ? `${t('aboveTarget') || 'Au-dessus de la cible'} (${Math.round(COST_THRESHOLD * 100)}%)`
-              : `${t('target') || 'Cible'} ${Math.round(COST_THRESHOLD * 100)}%`}
-          </p>
-        </button>
+          <button type="button" onClick={() => setSelectedKpi('item-food-cost')} title={t('viewCalculationDetails')}
+            className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] py-5 text-start hover:bg-[var(--surface-2)]">
+            <span className="text-fs-sm text-[var(--fg-muted)]">{t('foodCostLabel')}</span>
+            <bdi className="text-fs-xl font-semibold tabular-nums">{money(summary.foodCost)}</bdi>
+          </button>
+          <button type="button" onClick={() => setSelectedKpi('item-margin')} title={t('viewCalculationDetails')}
+            className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] py-5 text-start hover:bg-[var(--surface-2)]">
+            <span className="text-fs-sm text-[var(--fg-muted)]">{t('grossProfit')}</span>
+            <bdi className="text-fs-xl font-semibold tabular-nums text-[var(--fg)]">{money(summary.margin)}</bdi>
+          </button>
+          <p className="pt-4 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('foodCostMarginScope')}</p>
+        </div>
       </div>
       </>
       )}
 
       </section>
 
-      {!collapsed && (
-      <>
+      <div hidden={collapsed}>
       {/* Ingredient breakdown — own card, tokenized */}
       <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
         <h4 className="text-fs-md font-semibold text-[var(--fg)] mb-[var(--s-4)]">
           {t('costDetailsByIngredient') || 'Détail des coûts par ingrédient'} · {summary.lines.length}{' '}
-          {summary.lines.length === 1 ? 'élément' : 'éléments'}
+          {t('ingredients')}
         </h4>
 
         <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface)] overflow-hidden">
           {/* Column headers — desktop only; mobile rows show inline labels per cell */}
-          <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-[var(--fg-muted)] uppercase bg-[var(--surface-2)] border-b border-[var(--line)]">
+          <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-[var(--fg-muted)] bg-[var(--surface-2)] border-b border-[var(--line)]">
             <div className="col-span-5">{t('ingredient') || 'Ingrédient'}</div>
-            <div className="col-span-2 text-right">{t('quantity') || 'Quantité'}</div>
-            <div className="col-span-2 text-right">{t('unitCost') || 'Prix unitaire'}</div>
-            <div className="col-span-2 text-right">{t('totalCost') || 'Coût total'}</div>
-            <div className="col-span-1 text-right">%</div>
+            <div className="col-span-2 text-end">{t('quantity') || 'Quantité'}</div>
+            <div className="col-span-2 text-end">{t('unitCost') || 'Prix unitaire'}</div>
+            <div className="col-span-2 text-end">{t('totalCost') || 'Coût total'}</div>
+            <div className="col-span-1 text-end">%</div>
           </div>
 
           {summary.lines.map((line, i) => {
@@ -336,14 +305,14 @@ export default function MenuItemTabCost({
                 ? Math.round((line.lineCost / summary.foodCost) * 100)
                 : 0;
             const unitCostStr = line.unitCost
-              ? `${line.unitCost.toFixed(2)} ${CURRENCY}${line.sourceUnit ? `/${line.sourceUnit}` : ''}`
+              ? `${money(line.unitCost)}${line.sourceUnit ? `/${line.sourceUnit}` : ''}`
               : '\u2014';
             const ing = line.ingredient;
             const stockId = ing.stock_item?.id ?? null;
             const prepId = ing.prep_item?.id ?? null;
             const goToSource = () => {
-              if (prepId) router.push(`/${rid}/kitchen/prep?edit=${prepId}`);
-              else if (stockId) router.push(`/${rid}/kitchen/stock?edit=${stockId}`);
+              if (prepId) (onNavigate ?? router.push)(`/${rid}/kitchen/prep?edit=${prepId}`);
+              else if (stockId) (onNavigate ?? router.push)(`/${rid}/kitchen/stock?edit=${stockId}`);
             };
             // Resolve a custom-unit quantity ("1 Unité") to its base-unit
             // equivalent ("= 0.35 kg") so the breakdown row spells out the
@@ -360,13 +329,14 @@ export default function MenuItemTabCost({
                 quantity={`${line.qty ?? 0} ${line.qtyUnit ?? ''}`.trim()}
                 quantityHint={quantityHint}
                 unitCost={unitCostStr}
-                totalCost={`${line.lineCost.toFixed(2)} ${CURRENCY}`}
+                totalCost={money(line.lineCost)}
                 percentage={`${pct}%`}
                 quantityLabel={t('quantity') || 'Quantité'}
                 unitCostLabel={t('unitCost') || 'Prix unitaire'}
                 totalCostLabel={t('totalCost') || 'Coût total'}
                 onNameClick={goToSource}
-                onPriceClick={line.isPrep ? () => setBreakdownIng(ing) : undefined}
+                onPriceClick={line.isPrep ? () => setBreakdownIng({...ing,quantity_needed:line.qty,unit:line.qtyUnit}) : undefined}
+                priceActionLabel={`${t('viewCalculationDetails')} — ${line.name}`}
               />
             );
           })}
@@ -387,22 +357,19 @@ export default function MenuItemTabCost({
                 <div className="hidden md:block md:col-span-2" />
                 <div className="hidden md:block md:col-span-2" />
                 <div className="md:col-span-2 text-end text-[var(--fg)] tabular-nums">
-                  {summary.foodCost.toFixed(2)} {CURRENCY}
+                  {money(summary.foodCost)}
                 </div>
-                <div className="md:col-span-1 text-end text-[var(--brand-500)]">100%</div>
+                <div className="md:col-span-1 text-end text-[var(--brand-ink)]">100%</div>
               </div>
             </div>
           )}
         </div>
       </section>
 
-      {/* "Et si… ?" simulator — sandbox the same KPIs by playing with portion,
-          sell price, and per-ingredient cost. Nothing persists.
-          Hidden on mobile: the sliders + side-by-side comparison cards are
-          desktop-oriented; the static cost overview above already covers the
-          mobile read-only use case. */}
-      <div className="hidden md:block">
+      {/* The same simulator remains available on touch layouts. */}
+      <div>
         <WhatIfSimulator
+          key={`${item.id}|${variantId}|${vatDisplayMode}`}
           rid={rid}
           item={item}
           summary={summary}
@@ -413,13 +380,19 @@ export default function MenuItemTabCost({
           showCostsExVat={showCostsExVat}
           resetKey={`${variantId}|${vatDisplayMode}`}
           onApplied={onChangesApplied}
+          onStateChange={onSimulationState}
           t={t}
         />
       </div>
-      </>
-      )}
+      </div>
 
       {/* Modals */}
+      <ConfirmDialog open={pendingView !== null} onOpenChange={open => { if (!open) setPendingView(null); }} title={t('discardUnsavedChanges')} description={t('simulatorDiscardHint')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => {
+        if (pendingView?.kind === 'variant') setVariantId(pendingView.value);
+        else if (pendingView) toggleVatDisplay();
+        setPendingView(null);
+      }}/>
+
       <KPIInfoModal
         kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
         onClose={() => setSelectedKpi(null)}
@@ -460,6 +433,7 @@ function CostIngredientRow({
   quantityLabel,
   unitCostLabel,
   totalCostLabel,
+  priceActionLabel,
   onNameClick,
   onPriceClick,
 }: {
@@ -476,6 +450,7 @@ function CostIngredientRow({
   quantityLabel: string;
   unitCostLabel: string;
   totalCostLabel: string;
+  priceActionLabel: string;
   onNameClick: () => void;
   onPriceClick?: () => void;
 }) {
@@ -488,7 +463,7 @@ function CostIngredientRow({
         <button
           type="button"
           onClick={onNameClick}
-          className="md:col-span-5 flex items-center gap-2 min-w-0 text-left hover:text-[var(--brand-500)] transition-colors"
+          className="md:col-span-5 flex items-center gap-2 min-w-0 text-start hover:text-[var(--brand-ink)] transition-colors"
           title={type === 'preparation' ? 'Ouvrir la préparation' : "Ouvrir l'article de stock"}
         >
           <div
@@ -508,20 +483,20 @@ function CostIngredientRow({
             {name}
           </span>
         </button>
-        <span className="md:hidden text-sm font-semibold text-[var(--brand-500)] shrink-0 tabular-nums">
+        <span className="md:hidden text-sm font-semibold text-[var(--brand-ink)] shrink-0 tabular-nums">
           {percentage}
         </span>
       </div>
 
       {/* Quantity */}
       <div className="flex items-center justify-between gap-3 md:flex md:flex-col md:items-end md:col-span-2 md:text-end text-sm text-[var(--fg-muted)]">
-        <span className="md:hidden text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-secondary,var(--text-secondary))]">
+        <span className="md:hidden text-fs-xs font-semibold tracking-wider text-[var(--fg-muted)]">
           {quantityLabel}
         </span>
         <div className="flex flex-col items-end">
           <span className="tabular-nums text-end">{quantity}</span>
           {quantityHint && (
-            <span className="text-[11px] font-mono tabular-nums text-[var(--fg-subtle)]" title={quantityHint}>
+            <span className="text-fs-xs tabular-nums text-[var(--fg-subtle)]" title={quantityHint}>
               {quantityHint}
             </span>
           )}
@@ -530,7 +505,7 @@ function CostIngredientRow({
 
       {/* Unit cost */}
       <div className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm text-[var(--fg-muted)]">
-        <span className="md:hidden text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-secondary,var(--text-secondary))]">
+        <span className="md:hidden text-fs-xs font-semibold tracking-wider text-[var(--fg-muted)]">
           {unitCostLabel}
         </span>
         <span className="tabular-nums text-end">{unitCost}</span>
@@ -541,17 +516,17 @@ function CostIngredientRow({
         <button
           type="button"
           onClick={onPriceClick}
-          className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm font-semibold text-[var(--fg)] hover:text-[var(--brand-500)] underline-offset-2 hover:underline transition-colors"
-          title="Voir le détail du coût"
+          className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm font-semibold text-[var(--fg)] hover:text-[var(--brand-ink)] underline-offset-2 hover:underline transition-colors"
+          aria-label={priceActionLabel} title={priceActionLabel}
         >
-          <span className="md:hidden text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-secondary,var(--text-secondary))]">
+          <span className="md:hidden text-fs-xs font-semibold tracking-wider text-[var(--fg-muted)]">
             {totalCostLabel}
           </span>
           <span className="tabular-nums text-end">{totalCost}</span>
         </button>
       ) : (
         <div className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm font-semibold text-[var(--fg)]">
-          <span className="md:hidden text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-secondary,var(--text-secondary))]">
+          <span className="md:hidden text-fs-xs font-semibold tracking-wider text-[var(--fg-muted)]">
             {totalCostLabel}
           </span>
           <span className="tabular-nums text-end">{totalCost}</span>
@@ -559,7 +534,7 @@ function CostIngredientRow({
       )}
 
       {/* Percentage — visible only on desktop (mobile shows it in the heading row) */}
-      <div className="hidden md:block md:col-span-1 text-sm font-semibold text-[var(--brand-500)] text-end">
+      <div className="hidden md:block md:col-span-1 text-sm font-semibold text-[var(--brand-ink)] text-end">
         {percentage}
       </div>
     </div>

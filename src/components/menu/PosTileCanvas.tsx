@@ -6,6 +6,7 @@ import {
   POS_TILE_SPANS,
   type PosDisplayTile,
 } from '@/lib/posDisplay';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { PosTile, type PosTileRef } from './PosTile';
 
@@ -44,6 +45,7 @@ export function PosTileCanvas({
   onAdd,
   onReorder,
 }: PosTileCanvasProps) {
+  const { t } = useI18n();
   const [dragFrom, setDragFrom] = React.useState<number | null>(null);
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
@@ -110,15 +112,15 @@ export function PosTileCanvas({
             key={`empty-${i}`}
             type="button"
             onClick={onAdd}
-            aria-label="Ajouter une tuile"
-            className="grid place-items-center rounded-md bg-white/[0.04] text-[var(--fg-subtle)] hover:bg-white/[0.08] transition"
+            aria-label={t('posAddTile')}
+            className="grid place-items-center rounded-r-md border border-dashed border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg-muted)] hover:bg-[var(--surface-2)] transition"
           >
             <Plus className="w-4 h-4" />
           </button>
         ) : (
           <div
             key={`empty-${i}`}
-            className="rounded-md bg-white/[0.04]"
+            className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]"
           />
         ),
       )}

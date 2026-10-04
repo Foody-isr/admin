@@ -16,23 +16,24 @@ import {
   type PosDisplayTile,
   type PosTileSize,
 } from '@/lib/posDisplay';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 
 /** Available "Trier par" strategies shown when no tile is selected. */
 export type PosSortKey = 'menu' | 'az' | 'color' | 'type' | 'color_type';
 
 export const POS_SORT_OPTIONS: { key: PosSortKey; label: string }[] = [
-  { key: 'menu', label: 'Ordre du menu' },
-  { key: 'az', label: 'A-Z' },
-  { key: 'color', label: 'Couleur' },
-  { key: 'type', label: 'Type' },
-  { key: 'color_type', label: 'Couleur et type' },
+  { key: 'menu', label: 'posSortMenu' },
+  { key: 'az', label: 'A–Z' },
+  { key: 'color', label: 'posSortColor' },
+  { key: 'type', label: 'posSortType' },
+  { key: 'color_type', label: 'posSortColorType' },
 ];
 
 const SIZE_OPTIONS: { key: PosTileSize; label: string }[] = [
-  { key: 'petit', label: 'Petit' },
-  { key: 'large', label: 'Large' },
-  { key: 'grand', label: 'Grand' },
+  { key: 'petit', label: 'posSizeSmall' },
+  { key: 'large', label: 'posSizeWide' },
+  { key: 'grand', label: 'posSizeTall' },
 ];
 
 export interface PosTileInspectorProps {
@@ -54,7 +55,7 @@ export interface PosTileInspectorProps {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-fs-xs font-semibold uppercase tracking-wide text-[var(--fg-subtle)] mb-[var(--s-2)]">
+    <h3 className="text-sm font-semibold text-[var(--fg-subtle)] mb-[var(--s-2)]">
       {children}
     </h3>
   );
@@ -79,23 +80,24 @@ export function PosTileInspector({
   onDrill,
   onRemove,
 }: PosTileInspectorProps) {
+  const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
   // ── Empty state: sort options ──
   if (!tile) {
     return (
       <div className="space-y-[var(--s-3)]">
-        <SectionLabel>Trier par</SectionLabel>
+        <SectionLabel>{t('posSortLabel')}</SectionLabel>
         <div className="space-y-[var(--s-1)]">
           {POS_SORT_OPTIONS.map((opt) => (
             <button
               key={opt.key}
               type="button"
               onClick={() => onSort(opt.key)}
-              className="w-full flex items-center justify-between rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--fg)] hover:bg-[var(--surface-subtle)] transition-colors"
+              className="w-full min-h-11 flex items-center justify-between rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--fg)] hover:bg-[var(--surface-subtle)] transition-colors"
             >
-              {opt.label}
-              <ChevronRight className="w-4 h-4 text-[var(--fg-subtle)]" />
+              {opt.key === 'az' ? opt.label : t(opt.label)}
+              <ChevronRight className="w-4 h-4 text-[var(--fg-subtle)] rtl:rotate-180" />
             </button>
           ))}
         </div>
@@ -110,21 +112,22 @@ export function PosTileInspector({
       {/* ── Taille ── */}
       {canEdit && (
       <section>
-        <SectionLabel>Taille</SectionLabel>
+        <SectionLabel>{t('size')}</SectionLabel>
         <div className="grid grid-cols-3 gap-[var(--s-1)] rounded-md bg-[var(--surface-subtle)] p-[var(--s-1)]">
           {SIZE_OPTIONS.map((opt) => (
             <button
               key={opt.key}
               type="button"
+              aria-pressed={tile.size === opt.key}
               onClick={() => onSizeChange(opt.key)}
               className={cn(
-                'rounded-[6px] py-[var(--s-2)] text-fs-sm font-medium transition-colors',
+                'min-h-11 rounded-r-md py-[var(--s-2)] text-fs-sm font-medium transition-colors',
                 tile.size === opt.key
                   ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
                   : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
               )}
             >
-              {opt.label}
+              {t(opt.label)}
             </button>
           ))}
         </div>
@@ -134,43 +137,46 @@ export function PosTileInspector({
       {/* ── Arrière-plan ── */}
       {canEdit && (
       <section>
-        <SectionLabel>Arrière-plan</SectionLabel>
+        <SectionLabel>{t('background')}</SectionLabel>
         <div className="grid grid-cols-2 gap-[var(--s-1)] rounded-md bg-[var(--surface-subtle)] p-[var(--s-1)] mb-[var(--s-3)]">
           <button
             type="button"
+            aria-pressed={tile.bg_type === 'image'}
             onClick={() => onBgTypeChange('image')}
             className={cn(
-              'flex items-center justify-center gap-[var(--s-2)] rounded-[6px] py-[var(--s-2)] text-fs-sm font-medium transition-colors',
+              'flex items-center justify-center min-h-11 gap-[var(--s-2)] rounded-r-md py-[var(--s-2)] text-fs-sm font-medium transition-colors',
               tile.bg_type === 'image'
                 ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
                 : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
             )}
           >
             <ImageIcon className="w-4 h-4" />
-            Image
+            {t('image')}
           </button>
           <button
             type="button"
+            aria-pressed={tile.bg_type === 'color'}
             onClick={() => onBgTypeChange('color')}
             className={cn(
-              'flex items-center justify-center gap-[var(--s-2)] rounded-[6px] py-[var(--s-2)] text-fs-sm font-medium transition-colors',
+              'flex items-center justify-center min-h-11 gap-[var(--s-2)] rounded-r-md py-[var(--s-2)] text-fs-sm font-medium transition-colors',
               tile.bg_type === 'color'
                 ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
                 : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
             )}
           >
             <Palette className="w-4 h-4" />
-            Couleur
+            {t('posSortColor')}
           </button>
         </div>
 
         {tile.bg_type === 'color' ? (
-          <div className="grid grid-cols-7 gap-[var(--s-2)]">
+          <div className="grid grid-cols-5 gap-[var(--s-2)]">
             {POS_PALETTE.map((c) => (
               <button
                 key={c}
                 type="button"
-                aria-label={c}
+                aria-label={`${t('posSortColor')} ${c}`}
+                aria-pressed={tile.color === c}
                 onClick={() => onColorPick(c)}
                 className={cn(
                   'aspect-square rounded-full border transition',
@@ -190,17 +196,19 @@ export function PosTileInspector({
                 selected={tile.image_url === linkedImageUrl}
                 label={
                   isGroup
-                    ? "Utiliser l'image du groupe"
-                    : "Utiliser l'image de l'article"
+                    ? t('posUseGroupImage')
+                    : t('posUseItemImage')
                 }
                 onPick={() => onImageUrlChange(linkedImageUrl)}
               />
             )}
             <input
+              aria-label={t('posImageUrl')}
+              dir="ltr"
               value={tile.image_url}
               onChange={(e) => onImageUrlChange(e.target.value)}
               placeholder="https://…/image.jpg"
-              className="w-full h-9 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-fs-sm text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--line-strong)]"
+              className="input"
             />
           </div>
         )}
@@ -209,7 +217,7 @@ export function PosTileInspector({
 
       {/* ── Options ── */}
       <section>
-        <SectionLabel>Options</SectionLabel>
+        <SectionLabel>{t('options')}</SectionLabel>
         <div className="space-y-[var(--s-1)]">
           {isGroup && (
             <>
@@ -217,19 +225,19 @@ export function PosTileInspector({
                 <button
                   type="button"
                   onClick={onRenameGroup}
-                  className="w-full flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--fg)] hover:bg-[var(--surface-subtle)] transition-colors"
+                  className="w-full min-h-11 flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--fg)] hover:bg-[var(--surface-subtle)] transition-colors"
                 >
                   <Pencil className="w-4 h-4 text-[var(--fg-subtle)]" />
-                  Modifier le nom du groupe de menus
+                  {t('posRenameGroup')}
                 </button>
               )}
               <button
                 type="button"
                 onClick={onDrill}
-                className="w-full flex items-center justify-between rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--fg)] hover:bg-[var(--surface-subtle)] transition-colors"
+                className="w-full min-h-11 flex items-center justify-between rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--fg)] hover:bg-[var(--surface-subtle)] transition-colors"
               >
-                Accéder au groupe
-                <ChevronRight className="w-4 h-4 text-[var(--fg-subtle)]" />
+                {t('posOpenGroup')}
+                <ChevronRight className="w-4 h-4 text-[var(--fg-subtle)] rtl:rotate-180" />
               </button>
             </>
           )}
@@ -237,10 +245,10 @@ export function PosTileInspector({
             <button
               type="button"
               onClick={onRemove}
-              className="w-full flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--danger-500)] hover:bg-[color-mix(in_oklab,var(--danger-500)_10%,transparent)] transition-colors"
+              className="w-full min-h-11 flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--danger-500)] hover:bg-[color-mix(in_oklab,var(--danger-500)_10%,transparent)] transition-colors"
             >
               <Trash2 className="w-4 h-4" />
-              Retirer de la présentation
+              {t('posRemoveTile')}
             </button>
           )}
         </div>
@@ -265,8 +273,9 @@ function LinkedImagePick({
     <button
       type="button"
       onClick={onPick}
+      aria-pressed={selected}
       className={cn(
-        'w-full flex items-center gap-[var(--s-3)] rounded-md p-[var(--s-2)] text-start transition-colors',
+        'w-full min-h-11 flex items-center gap-[var(--s-3)] rounded-md p-[var(--s-2)] text-start transition-colors',
         selected
           ? 'bg-[color-mix(in_oklab,var(--brand-500)_12%,transparent)] ring-1 ring-[var(--brand-500)]'
           : 'bg-[var(--surface-subtle)] hover:bg-[var(--surface-hover)]',

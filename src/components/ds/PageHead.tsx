@@ -13,18 +13,18 @@ export function PageHead({ title, desc, actions, className, ...props }: PageHead
   return (
     <div
       className={cn(
-        'flex items-end justify-between gap-[var(--s-4)] flex-wrap',
+        'flex items-start justify-between gap-[var(--s-4)] flex-wrap',
         'mb-[var(--s-6)]',
         className,
       )}
       {...props}
     >
       <div className="min-w-0">
-        <h1 className="text-fs-3xl font-semibold leading-none text-[var(--fg)] -tracking-[0.02em]">
+        <h1 className="text-fs-3xl font-semibold leading-[1.2] text-[var(--fg)] -tracking-[0.02em]">
           {title}
         </h1>
         {desc && (
-          <p className="text-fs-sm text-[var(--fg-muted)] mt-1.5">{desc}</p>
+          <p className="text-fs-md text-[var(--fg-muted)] mt-2 max-w-[72ch]">{desc}</p>
         )}
       </div>
       {actions && <div className="flex items-center gap-[var(--s-2)] flex-wrap">{actions}</div>}

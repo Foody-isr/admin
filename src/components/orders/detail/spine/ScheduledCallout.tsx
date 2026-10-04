@@ -52,11 +52,11 @@ export function ScheduledBanner({
         <ClockIcon className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-[var(--s-2)] text-[11px] leading-4 uppercase tracking-[.06em] font-semibold text-[var(--info-500)]">
+        <div className="flex items-center gap-[var(--s-2)] text-fs-xs leading-4 uppercase tracking-[.06em] font-semibold text-[var(--info-500)]">
           <span className="truncate">{heading || t('scheduledForLabel') || 'Scheduled for'}</span>
           {rel && (
             <span
-              className="inline-flex items-center px-1.5 h-[18px] rounded-r-sm text-[10px] tracking-[.04em] shrink-0"
+              className="inline-flex items-center px-1.5 h-[18px] rounded-r-sm text-fs-micro tracking-[.04em] shrink-0"
               style={{
                 background: 'color-mix(in oklab, var(--info-500) 16%, transparent)',
                 color: 'var(--info-500)',

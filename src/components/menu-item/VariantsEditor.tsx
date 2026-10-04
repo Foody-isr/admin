@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import Modal from '@/components/Modal';
+import { Button } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type {
   OptionSet,
@@ -143,7 +145,9 @@ export default function VariantsEditor({
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
-  const [dropdownGroupIdx, setDropdownGroupIdx] = useState<number | null>(null);
+  const [pickerGroup, setPickerGroup] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const updateGroup = (key: string, patch: Partial<VariantGroupState>) => {
     onChange(groups.map((g) => (g.key === key ? { ...g, ...patch } : g)));
@@ -224,217 +228,33 @@ export default function VariantsEditor({
         isComboOnly: false,
       })),
     });
-    setDropdownGroupIdx(null);
+    setPickerGroup(null);
   };
 
-  return (
-    <div className="space-y-[var(--s-4)]">
-      {groups.map((g, gi) => (
-        <section
-          key={g.key}
-          className="bg-[var(--surface)] rounded-r-md border border-[var(--line)] overflow-hidden"
-        >
-          <div className="p-[var(--s-4)] border-b border-[var(--line)] relative">
-            <label className="block text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-muted)] mb-[var(--s-2)]">
-              {t('variantGroupTitle')}
-            </label>
-            <input
-              value={g.title}
-              onChange={(e) =>
-                updateGroup(g.key, { title: e.target.value, optionSetId: undefined })
-              }
-              onFocus={() => setDropdownGroupIdx(gi)}
-              onBlur={() => setTimeout(() => setDropdownGroupIdx(null), 200)}
-              placeholder={t('variantGroupTitle')}
-              className="w-full h-9 px-[var(--s-3)] text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md text-[var(--fg)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
-            />
-            {(() => {
-              if (dropdownGroupIdx !== gi) return null;
-              const query = g.title.trim().toLowerCase();
-              if (query.length === 0) return null;
-              const matches = allOptionSets.filter((os) =>
-                os.name.toLowerCase().includes(query),
-              );
-              if (matches.length === 0) return null;
-              return (
-                <div className="absolute left-[var(--s-4)] right-[var(--s-4)] top-full mt-1 z-30 bg-[var(--surface)] border border-[var(--line)] rounded-r-md shadow-3 overflow-hidden max-h-56 overflow-y-auto">
-                  <div className="px-[var(--s-3)] py-[var(--s-2)] text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-muted)] bg-[var(--surface-2)] border-b border-[var(--line)]">
-                    {t('savedOptionSets') || 'Saved option sets'}
-                  </div>
-                  {matches.map((os) => (
-                    <button
-                      key={os.id}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => applyOptionSet(g.key, os)}
-                      className="w-full text-start px-[var(--s-3)] py-[var(--s-2)] hover:bg-[var(--surface-2)] transition-colors"
-                    >
-                      <span className="text-fs-sm font-medium text-[var(--fg)]">
-                        {os.name}
-                      </span>
-                      <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-                        {(os.options ?? []).map((o) => o.name).join(', ')}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
-
-          <div>
-            <div
-              className="grid text-fs-xs font-semibold text-[var(--fg-muted)] uppercase tracking-[.06em] px-[var(--s-3)] py-[var(--s-2)] bg-[var(--surface-2)] border-b border-[var(--line)]"
-              style={{ gridTemplateColumns: '32px 1fr 110px 110px 120px 130px 36px' }}
-            >
-              <span />
-              <span>{t('variantName')}</span>
-              <span
-                className="text-end"
-                title={
-                  itemBasePrice > 0
-                    ? `Laisser à 0 pour utiliser le prix de base de l'article (${money(itemBasePrice)}).`
-                    : undefined
-                }
-              >
-                {t('price')}
-                {itemBasePrice > 0 && (
-                  <span className="ml-1 normal-case text-[var(--fg-subtle)] lowercase font-normal">
-                    (0 = base)
-                  </span>
-                )}
-              </span>
-              <span title="Taille / portion affichée sous le titre côté client (ex : 250g).">
-                {t('portion') || 'Portion'}
-              </span>
-              <span>{t('status')}</span>
-              <span title="Variantes destinées uniquement aux combos (ex : Pour Table 8). Cachées de la fiche article côté client.">
-                Combo seulement
-              </span>
-              <span />
-            </div>
-
-            {g.rows.map((row, ri) => (
-              <div
-                key={row.key}
-                className="grid items-center gap-2 px-[var(--s-3)] py-[var(--s-2)] border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors"
-                style={{ gridTemplateColumns: '32px 1fr 110px 110px 120px 130px 36px' }}
-              >
-                <div className="flex flex-col items-center justify-center -my-1 text-[var(--fg-muted)]">
-                  {canEdit && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => moveRow(g.key, ri, 'up')}
-                        disabled={ri === 0}
-                        title="Monter"
-                        className="size-5 flex items-center justify-center rounded-r-sm hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
-                      >
-                        <ChevronUp size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveRow(g.key, ri, 'down')}
-                        disabled={ri === g.rows.length - 1}
-                        title="Descendre"
-                        className="size-5 flex items-center justify-center rounded-r-sm hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
-                      >
-                        <ChevronDown size={14} />
-                      </button>
-                    </>
-                  )}
-                </div>
-                <input
-                  value={row.name}
-                  onChange={(e) => updateRow(g.key, row.key, { name: e.target.value })}
-                  placeholder={t('variantName')}
-                  className="text-fs-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2"
-                />
-                <NumberInput
-                  min={0}
-                  value={row.price}
-                  onChange={(n) => updateRow(g.key, row.key, { price: n })}
-                  placeholder="0.00"
-                  className="text-fs-sm bg-transparent border-0 outline-none text-[var(--fg)] text-end pe-1"
-                />
-                <input
-                  value={row.portion}
-                  onChange={(e) => updateRow(g.key, row.key, { portion: e.target.value })}
-                  placeholder={t('portionSizePlaceholder')}
-                  className="text-fs-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2"
-                />
-                <select
-                  value={row.isActive ? 'active' : 'inactive'}
-                  onChange={(e) =>
-                    updateRow(g.key, row.key, { isActive: e.target.value === 'active' })
-                  }
-                  className="text-fs-xs bg-transparent border-0 outline-none text-[var(--fg-muted)]"
-                >
-                  <option value="active">{t('available')}</option>
-                  <option value="inactive">{t('unavailable')}</option>
-                </select>
-                <label className="inline-flex items-center gap-2 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={row.isComboOnly}
-                    onChange={(e) =>
-                      updateRow(g.key, row.key, { isComboOnly: e.target.checked })
-                    }
-                    className="w-3.5 h-3.5 accent-[var(--brand-500)]"
-                  />
-                  Combo seul
-                </label>
-                {canEdit ? (
-                  <button
-                    type="button"
-                    onClick={() => removeRow(g.key, row.key)}
-                    className="size-7 flex items-center justify-center rounded-r-md text-[var(--fg-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                    title={t('delete')}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                ) : (
-                  <span />
-                )}
-              </div>
-            ))}
-
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => addRow(g.key)}
-                className="w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors border-t border-[var(--line)]"
-              >
-                <Plus size={16} />
-                {t('addVariant')}
-              </button>
-            )}
-          </div>
-
-          {canEdit && (
-            <div className="p-[var(--s-3)] border-t border-[var(--line)]">
-              <button
-                type="button"
-                onClick={() => removeGroup(g.key)}
-                className="text-fs-sm font-medium text-red-500 hover:underline"
-              >
-                {t('remove')}
-              </button>
-            </div>
-          )}
-        </section>
-      ))}
-
-      {canEdit && (
-        <button
-          type="button"
-          onClick={addGroup}
-          className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 rounded-r-md transition-colors border-2 border-dashed border-[var(--line)] hover:border-[var(--brand-500)]/50 w-full justify-center"
-        >
-          <Plus size={16} />
-          {t('addAnotherSet')}
-        </button>
-      )}
-    </div>
-  );
+  return <div className="min-w-0 space-y-4">
+    {groups.map(group => <section key={group.key} aria-label={group.title || t('variants')} className="min-w-0 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+      <div className="flex flex-wrap items-end gap-3 border-b border-[var(--line)] p-4">
+        <label className="min-w-0 flex-[1_1_180px] space-y-2 text-sm"><span className="block font-semibold">{t('variantGroupTitle')}</span><input disabled={!canEdit} value={group.title} onChange={event => updateGroup(group.key, { title: event.target.value, optionSetId: undefined })} className="input" /></label>
+        {canEdit && <Button type="button" variant="secondary" onClick={() => { setQuery(''); setPickerGroup(group.key); }}>{t('savedOptionSets')}</Button>}
+      </div>
+      {itemBasePrice > 0 && <p className="border-b border-[var(--line)] bg-[var(--summary-bg)] p-3 text-xs text-[var(--summary-fg)]">{t('variantZeroPriceHint').replace('{price}', money(itemBasePrice))}</p>}
+      <div className="divide-y divide-[var(--line)]">{group.rows.map((row, index) => <fieldset key={row.key} disabled={!canEdit} className="grid min-w-0 grid-cols-2 gap-3 p-4 lg:grid-cols-[minmax(140px,1fr)_110px_110px_120px]">
+        <legend className="sr-only">{t('variantName')} {index + 1}</legend>
+        <label className="col-span-2 min-w-0 space-y-1 text-xs text-fg-secondary lg:col-span-1"><span>{t('variantName')}</span><input value={row.name} onChange={event => updateRow(group.key,row.key,{name:event.target.value})} className="input text-sm" /></label>
+        <label className="min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('price')}</span><NumberInput min={0} value={row.price} onChange={price => updateRow(group.key,row.key,{price})} placeholder="0.00" dir="ltr" className="input text-sm" /></label>
+        <label className="min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('portion')}</span><input value={row.portion} onChange={event => updateRow(group.key,row.key,{portion:event.target.value})} placeholder={t('portionSizePlaceholder')} className="input text-sm" /></label>
+        <label className="min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('status')}</span><select value={row.isActive?'active':'inactive'} onChange={event => updateRow(group.key,row.key,{isActive:event.target.value==='active'})} className="input text-sm"><option value="active">{t('available')}</option><option value="inactive">{t('unavailable')}</option></select></label>
+        <label className="flex min-h-11 items-center gap-2 text-sm lg:col-span-2"><input type="checkbox" checked={row.isComboOnly} onChange={event => updateRow(group.key,row.key,{isComboOnly:event.target.checked})} className="size-4 accent-[var(--brand-500)]" />{t('comboOnlyBadge')}</label>
+        {canEdit && <div className="col-span-2 flex flex-wrap justify-end gap-2"><Button type="button" variant="ghost" icon aria-label={t('moveUp')} disabled={!index} onClick={() => moveRow(group.key,index,'up')}><ChevronUp /></Button><Button type="button" variant="ghost" icon aria-label={t('moveDown')} disabled={index===group.rows.length-1} onClick={() => moveRow(group.key,index,'down')}><ChevronDown /></Button><Button type="button" variant="ghost" icon aria-label={t('delete')} onClick={() => removeRow(group.key,row.key)}><Trash2 /></Button></div>}
+      </fieldset>)}</div>
+      {canEdit && <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--line)] p-3"><Button type="button" variant="secondary" onClick={() => addRow(group.key)}><Plus />{t('addVariant')}</Button><Button type="button" variant="ghost" onClick={() => removeGroup(group.key)}>{t('remove')}</Button></div>}
+    </section>)}
+    {canEdit && <Button type="button" variant="secondary" className="w-full border-dashed" onClick={addGroup}><Plus />{t('addAnotherSet')}</Button>}
+    {pickerGroup && <Modal title={t('savedOptionSets')} initialFocusRef={searchRef} onClose={() => setPickerGroup(null)}>
+      <label className="mb-4 block"><span className="sr-only">{t('search')}</span><input ref={searchRef} value={query} onChange={event => setQuery(event.target.value)} className="input" placeholder={t('search')} /></label>
+      <p className="mb-3 text-sm text-fg-secondary">{t('variantApplySetHint')}</p>
+      {allOptionSets.filter(set => set.name.toLocaleLowerCase().includes(query.toLocaleLowerCase().trim())).map(set => <button key={set.id} type="button" onClick={() => applyOptionSet(pickerGroup,set)} className="block min-h-16 w-full border-b border-[var(--line)] p-3 text-start hover:bg-[var(--surface-2)]"><span className="block break-words text-sm font-semibold">{set.name}</span><span className="text-xs text-fg-secondary">{set.options?.map(option=>option.name).join(', ')}</span></button>)}
+      {!allOptionSets.some(set => set.name.toLocaleLowerCase().includes(query.toLocaleLowerCase().trim())) && <p className="py-8 text-center text-sm text-fg-secondary">{t('noResults')}</p>}
+    </Modal>}
+  </div>;
 }

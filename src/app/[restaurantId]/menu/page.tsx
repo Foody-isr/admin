@@ -1,15 +1,6 @@
-'use client';
+import RestaurantRedirect from '@/components/RestaurantRedirect';
 
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-
+/** Open the default menu workspace with the existing query context. */
 export default function MenuRedirect() {
-  const { restaurantId } = useParams();
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace(`/${restaurantId}/menu/items`);
-  }, [restaurantId, router]);
-
-  return null;
+  return <RestaurantRedirect target="menu/items"/>;
 }
