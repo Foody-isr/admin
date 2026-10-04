@@ -1175,6 +1175,14 @@ export interface ExtraFont {
 }
 
 export interface TypographyOverrides {
+  /** Global website design. Page/section overrides remain more specific. */
+  site?: {
+    template?: string;
+    headingFont?: string;
+    bodyFont?: string;
+    buttonShape?: 'pill' | 'rounded' | 'square';
+  };
+
   roles?: Partial<Record<TypographyRoleKey, TypographyRoleOverride>>;
   /** Restaurant-curated Google Fonts additions, offered alongside the curated list. */
   extraFonts?: ExtraFont[];

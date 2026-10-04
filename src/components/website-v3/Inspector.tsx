@@ -88,17 +88,19 @@ export function Inspector({
   const page = useMemo(
     () =>
       selection.kind === "page" || selection.kind === "section"
-        ? state.pages.find((candidate) => stablePageKey(candidate) === (
-            selection.kind === "page" ? selection.key : selection.pageKey
-          )) ?? null
+        ? (state.pages.find(
+            (candidate) =>
+              stablePageKey(candidate) ===
+              (selection.kind === "page" ? selection.key : selection.pageKey),
+          ) ?? null)
         : null,
     [selection, state.pages],
   );
   const section =
     selection.kind === "section"
-      ? state.sections.find(
+      ? (state.sections.find(
           (candidate) => stableSectionKey(candidate) === selection.sectionKey,
-        ) ?? null
+        ) ?? null)
       : null;
   const footer =
     state.sections.find(
@@ -129,11 +131,20 @@ export function Inspector({
 
   return (
     <div className="min-h-full">
-      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 pb-0 pt-5 backdrop-blur">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#315fce]">
+      <div
+        data-inspector-header
+        className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 pb-0 pt-5 backdrop-blur"
+      >
+        <p
+          data-inspector-title
+          className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#315fce]"
+        >
           Inspecteur
         </p>
-        <h2 className="mt-1 truncate text-xl font-semibold capitalize tracking-tight text-slate-950">
+        <h2
+          data-inspector-title
+          className="mt-1 truncate text-xl font-semibold capitalize tracking-tight text-slate-950"
+        >
           {title}
         </h2>
         {showSurfaceSwitcher ? (
@@ -169,6 +180,7 @@ export function Inspector({
           </div>
         ) : null}
         <div
+          data-inspector-tabs
           className={`${showSurfaceSwitcher ? "mt-3" : "mt-5"} grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1`}
         >
           {(
@@ -247,8 +259,7 @@ export function Inspector({
           menus={menus}
           services={services}
           errors={errors.filter(
-            (error) =>
-              !error.pageKey || error.pageKey === stablePageKey(page),
+            (error) => !error.pageKey || error.pageKey === stablePageKey(page),
           )}
           onChange={(path, value) =>
             onPageChange(stablePageKey(page), path, value)
@@ -269,7 +280,7 @@ export function Inspector({
 }
 
 function stablePageKey(page: DraftPagePayload): string {
-  return page.id !== undefined ? String(page.id) : page.tmp_id ?? "";
+  return page.id !== undefined ? String(page.id) : (page.tmp_id ?? "");
 }
 
 function orderPlacementGroups(
@@ -305,5 +316,5 @@ function orderPlacementGroups(
 }
 
 function stableSectionKey(section: DraftSectionPayload): string {
-  return section.id !== undefined ? String(section.id) : section.tmp_id ?? "";
+  return section.id !== undefined ? String(section.id) : (section.tmp_id ?? "");
 }

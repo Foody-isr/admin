@@ -58,57 +58,13 @@ test("preview iframe uses one stable landing bootstrap route for every draft pag
   assert.doesNotMatch(markup, /draftPage=/);
 });
 
-test("content pages expose a discoverable component library", () => {
-  Object.assign(globalThis, { React });
-  const state = {
-    config: {},
-    pages: [
-      {
-        id: 10,
-        type: "content" as const,
-        slug: "about",
-        title: "À propos",
-        sort_order: 0,
-        nav_visible: true,
-        is_homepage: true,
-        is_default: false,
-        seo: {},
-        settings: {},
-        appearance_overrides: {},
-      },
-    ],
-    sections: [],
-    deleted_page_ids: [],
-    deleted_section_ids: [],
-  };
-  const markup = renderToStaticMarkup(
-    React.createElement(PreviewCanvas, {
-      webOrigin: "https://dev-app.foody-pos.co.il",
-      restaurantSlug: "moulin-doree",
-      restaurantId: 24,
-      state,
-      activePage: state.pages[0],
-      device: "desktop",
-      surface: "page" as const,
-      onSurfaceChange: () => undefined,
-      revision: 1,
-      contentRevision: 1,
-      onAcknowledged: () => undefined,
-      onNavigatePage: () => undefined,
-      onSelectSection: () => undefined,
-      onAddSection: () => undefined,
-      onMoveSection: () => undefined,
-      onToggleSection: () => undefined,
-      onDeleteSection: () => undefined,
-    }),
+test("content pages expose the same section library through the sidebar", () => {
+  const types = componentGroupsForPage("content", []).flatMap((group) =>
+    group.items.map((item) => item.type),
   );
-
-  assert.match(markup, /Ajouter un composant/);
-  assert.match(markup, /Mise en page/);
-  assert.match(markup, /Hero banner/);
-  assert.match(markup, /Galerie/);
-  assert.match(markup, /aria-label="Texte \+ image"/);
-  assert.doesNotMatch(markup, /<select[^>]+Ajouter une section/);
+  for (const type of ["hero_banner", "gallery", "text_and_image"])
+    assert.ok(types.includes(type));
+  assert.ok(!types.includes("order_discovery"));
 });
 
 test("discovery advertising is available once and only on order pages", () => {
@@ -145,7 +101,7 @@ test("discovery advertising is available once and only on order pages", () => {
   );
 });
 
-test("order pages expose an explicit checkout preview surface", () => {
+test("the page surface keeps the order preview on the landing bootstrap", () => {
   Object.assign(globalThis, { React });
   const state = {
     config: { checkout_config: { lock_order_type: true } },
@@ -192,12 +148,6 @@ test("order pages expose an explicit checkout preview surface", () => {
     }),
   );
 
-  assert.match(markup, />Page<\/button>/);
-  assert.match(markup, />Checkout<\/button>/);
-  assert.match(markup, /Ajouter un composant/);
-  assert.match(markup, /Découverte &amp; publicité/);
-  assert.doesNotMatch(markup, /Hero banner/);
-  assert.doesNotMatch(markup, /Galerie/);
   // The surface is owned by the builder now, so the page surface must still
   // resolve to the restaurant root and never to the checkout route.
   assert.match(
@@ -274,7 +224,12 @@ test("the preview does not own the surface state", async () => {
 
   assert.doesNotMatch(source, /setPreviewSurface/);
   assert.doesNotMatch(source, /useState<"page" \| "checkout">/);
-  assert.match(source, /onSurfaceChange\(option\)/);
+  const inspector = readFileSync(
+    resolve(process.cwd(), "src/components/website-v3/Inspector.tsx"),
+    "utf8",
+  );
+  assert.match(inspector, /onSurfaceChange\(value\)/);
+  assert.match(inspector, /data-inspector-surface/);
 });
 
 test("the builder owns the surface and clamps it before rendering", async () => {
@@ -288,7 +243,7 @@ test("the builder owns the surface and clamps it before rendering", async () => 
   assert.match(source, /const \[requestedSurface, setRequestedSurface\]/);
   assert.match(
     source,
-    /const surface = effectiveSurface\(activePageType, requestedSurface, showBranchSelector\)/,
+    /const surface = effectiveSurface\(\s*activePageType,\s*requestedSurface,\s*showBranchSelector,?\s*\)/,
   );
   // The clamp must sit above the loading/failure early returns, or the surface
   // is undefined for the first paint of every draft load.

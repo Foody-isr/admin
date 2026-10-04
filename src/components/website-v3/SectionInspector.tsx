@@ -1,6 +1,18 @@
 "use client";
 
-import { LAYOUT_OPTIONS, SECTION_TYPE_META } from "@/components/website/SectionEditors";
+import { useI18n } from "@/lib/i18n";
+import {
+  LayoutTemplate,
+  Columns2,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  GalleryHorizontal,
+} from "lucide-react";
+import {
+  LAYOUT_OPTIONS,
+  SECTION_TYPE_META,
+} from "@/components/website/SectionEditors";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import {
   ColorField,
@@ -27,6 +39,7 @@ export function SectionInspector({
   placementGroups?: Array<{ id: string; name: string }>;
   onChange: (path: StatePath, value: unknown) => void;
 }) {
+  const { t } = useI18n();
   const meta = SECTION_TYPE_META[section.section_type];
   const configuredPlacementGroupId = stableId(
     section.settings.placement_group_id,
@@ -47,7 +60,6 @@ export function SectionInspector({
               ? humanize(section.section_type)
               : "Section"
         }
-        description="Chaque valeur est envoyée au même renderer que la page publique."
       >
         <SectionContentEditors
           restaurantId={restaurantId}
@@ -61,38 +73,165 @@ export function SectionInspector({
   if (tab === "appearance") {
     return (
       <>
-        <InspectorGroup title="Style du bloc">
-          <InspectorField label="Variation">
-            <select
-              data-field-id="section.layout"
-              value={section.layout}
-              onChange={(event) => onChange(["layout"], event.target.value)}
-              className={controlClass}
-            >
-              <option value="default">Par défaut</option>
-              {(LAYOUT_OPTIONS[section.section_type] ?? []).map((layout) => (
-                <option key={layout.value} value={layout.value}>
-                  {humanize(layout.value)}
-                </option>
-              ))}
-            </select>
-          </InspectorField>
+        <InspectorGroup title={t("editorLayoutColor")}>
+          <div
+            className="sqe-layout-picker"
+            role="group"
+            aria-label={t("editorLayout")}
+          >
+            <span>{t("editorLayout")}</span>
+            <div className="sqe-layout-choices">
+              {(
+                LAYOUT_OPTIONS[section.section_type] ?? [
+                  { value: "default", labelKey: "default" },
+                ]
+              ).map((layout) => {
+                const Icon =
+                  layout.value === "split"
+                    ? Columns2
+                    : layout.value.includes("left")
+                      ? AlignLeft
+                      : layout.value === "centered"
+                        ? AlignCenter
+                        : layout.value.includes("grid")
+                          ? GalleryHorizontal
+                          : LayoutTemplate;
+                return (
+                  <button
+                    type="button"
+                    key={layout.value}
+                    className="sqe-layout-choice"
+                    data-field-id="section.layout"
+                    aria-label={t(layout.labelKey)}
+                    aria-pressed={
+                      section.layout === layout.value ||
+                      (section.layout === "default" &&
+                        layout.value === "centered")
+                    }
+                    onClick={() => onChange(["layout"], layout.value)}
+                  >
+                    {section.section_type === "hero_banner" ? (
+                      <span
+                        aria-hidden="true"
+                        className={`sqe-layout-mini sqe-layout-mini--${layout.value}`}
+                      >
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                    ) : (
+                      <>
+                        <Icon strokeWidth={1.5} />
+                        <span>{t(layout.labelKey)}</span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {section.section_type !== "order_discovery" ? (
             <>
-              <InspectorField label="Ambiance">
-                <select
-                  data-field-id="section.settings.color_style"
-                  value={string(section.settings.color_style) || "light"}
-                  onChange={(event) =>
-                    onChange(["settings", "color_style"], event.target.value)
-                  }
-                  className={controlClass}
-                >
-                  <option value="light">Claire</option>
-                  <option value="dark">Sombre</option>
-                  <option value="custom">Personnalisée</option>
-                </select>
-              </InspectorField>
+              {section.section_type === "hero_banner" && (
+                <>
+                  <div
+                    className="sqe-choice-field"
+                    role="group"
+                    aria-label={t("editorAlignment")}
+                  >
+                    <span>{t("editorAlignment")}</span>
+                    <div className="sqe-segmented">
+                      {(["left", "center", "right"] as const).map((align) => {
+                        const Icon =
+                          align === "left"
+                            ? AlignLeft
+                            : align === "right"
+                              ? AlignRight
+                              : AlignCenter;
+                        return (
+                          <button
+                            key={align}
+                            type="button"
+                            aria-label={t(`editorAlign_${align}`)}
+                            aria-pressed={
+                              (section.settings.text_align ??
+                                section.settings.text_alignment ??
+                                (section.layout === "left_aligned"
+                                  ? "left"
+                                  : "center")) === align
+                            }
+                            onClick={() =>
+                              onChange(["settings"], {
+                                ...section.settings,
+                                text_align: align,
+                                text_alignment: align,
+                              })
+                            }
+                          >
+                            <Icon size={20} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div
+                    className="sqe-choice-field"
+                    role="group"
+                    aria-label={t("editorSectionHeight")}
+                  >
+                    <span>{t("editorSectionHeight")}</span>
+                    <div className="sqe-segmented">
+                      {[
+                        ["compact", "XS"],
+                        ["auto", "S"],
+                        ["medium", "M"],
+                        ["tall", "L"],
+                      ].map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-pressed={
+                            (section.settings.height ?? "medium") === value
+                          }
+                          onClick={() =>
+                            onChange(["settings", "height"], value)
+                          }
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              <div
+                className="sqe-choice-field"
+                role="group"
+                aria-label={t("editorColorStyle")}
+              >
+                <span>{t("editorColorStyle")}</span>
+                <div className="sqe-color-styles">
+                  {(["site", "light", "dark", "custom"] as const).map(
+                    (value) => (
+                      <button
+                        type="button"
+                        key={value}
+                        data-field-id="section.settings.color_style"
+                        aria-label={t(`editorColor_${value}`)}
+                        aria-pressed={
+                          (section.settings.color_style || "light") === value
+                        }
+                        className={`sqe-color-style sqe-color-style--${value}`}
+                        onClick={() =>
+                          onChange(["settings", "color_style"], value)
+                        }
+                      >
+                        Aa
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
               {section.settings.color_style === "custom" &&
               section.section_type !== "menu_highlights" ? (
                 <>
@@ -265,13 +404,6 @@ export function SectionInspector({
           checked={section.is_visible}
           onChange={(value) => onChange(["is_visible"], value)}
         />
-        <p
-          data-field-id="section.page_id"
-          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[11px] leading-5 text-slate-500"
-        >
-          La section reste attachée à sa page par son identifiant canonique,
-          même si l’adresse de la page change.
-        </p>
       </InspectorGroup>
     </>
   );
@@ -282,9 +414,7 @@ function string(value: unknown): string {
 }
 
 function numeric(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : fallback;
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function stableId(value: unknown): string {

@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { DraftSectionPayload } from "@/lib/website-v3/types";
 import { heroImageReplacement } from "../SectionContentEditors";
 import { SectionInspector } from "../SectionInspector";
+import { LocaleProvider } from "@/lib/i18n";
 
 Object.assign(globalThis, { React });
 
@@ -67,9 +68,7 @@ test("gallery content exposes existing images and an add-images action", () => {
   const markup = renderSection({
     section_type: "gallery",
     content: {
-      images: [
-        { url: "https://cdn.example.com/gallery-1.jpg", alt: "Salle" },
-      ],
+      images: [{ url: "https://cdn.example.com/gallery-1.jpg", alt: "Salle" }],
     },
   });
 
@@ -228,15 +227,17 @@ function renderSection(
   };
 
   return renderToStaticMarkup(
-    React.createElement(SectionInspector, {
-      restaurantId: 24,
-      section,
-      tab,
-      placementGroups: [
-        { id: "17", name: "Salades" },
-        { id: "42", name: "Poissons" },
-      ],
-      onChange: () => undefined,
-    }),
+    <LocaleProvider>
+      {React.createElement(SectionInspector, {
+        restaurantId: 24,
+        section,
+        tab,
+        placementGroups: [
+          { id: "17", name: "Salades" },
+          { id: "42", name: "Poissons" },
+        ],
+        onChange: () => undefined,
+      })}
+    </LocaleProvider>,
   );
 }

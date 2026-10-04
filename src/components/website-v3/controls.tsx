@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 export const controlClass =
-  "min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#315fce] focus:ring-2 focus:ring-[#315fce]/10 disabled:bg-slate-50 disabled:text-slate-400";
+  "min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-black focus:ring-2 focus:ring-black/10 disabled:bg-slate-50 disabled:text-slate-400";
 
 export function InspectorGroup({
   groupId,
@@ -76,11 +76,11 @@ export function ToggleField({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label
-      className="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-slate-200 p-3"
-    >
+    <label className="sqe-toggle-field">
       <span>
-        <span className="block text-sm font-medium text-slate-800">{label}</span>
+        <span className="block text-sm font-medium text-slate-800">
+          {label}
+        </span>
         {description ? (
           <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">
             {description}
@@ -92,7 +92,8 @@ export function ToggleField({
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#315fce]"
+        className="sqe-switch"
+        role="switch"
       />
     </label>
   );
@@ -114,9 +115,7 @@ export function ColorField({
   const resolved = /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
   return (
     <InspectorField label={label}>
-      <div
-        className="flex items-center gap-2 rounded-xl border border-slate-200 p-1.5 focus-within:border-[#315fce]"
-      >
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200 p-1.5 focus-within:border-black">
         <input
           type="color"
           data-field-id={fieldId}
