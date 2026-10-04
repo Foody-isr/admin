@@ -35,6 +35,11 @@ import {
   type SupplierProductInput,
   type TranslationMap,
 } from "@/lib/api";
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import RowActionsMenu from '@/components/common/RowActionsMenu';
+import { ListToolbar, DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableBody, DataTableRow, DataTableCell } from '@/components/data-table';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
+import { ListFilter } from 'lucide-react';
 import Modal from "@/components/Modal";
 import { RestaurantRequestGuard } from "@/lib/restaurant-request-state";
 import { useKitchenMutation } from "@/components/kitchen/useKitchenMutation";
@@ -298,9 +303,17 @@ function SuppliersWorkspace({rid}:{rid:number}) {
   };
 
 
+  const listActions = [
+    { label: t('refresh'), onClick: () => { void reload().catch(() => { /* Rendered by error. */ }); } },
+    { label: t('supplierNeeds'), onClick: () => setTab('needs') },
+    { label: t('purchaseOrders'), onClick: () => setTab('orders') },
+    { label: t('suppliers'), onClick: () => setTab('suppliers') },
+    { label: t('deliveries'), onClick: () => router.push(`/${rid}/kitchen/supplies`) },
+  ];
+
   return (
     <div className="min-w-0">
-      <PageHead
+      {activeTab === "needs" ? <><PageHead
         className="max-sm:[&>div:last-child]:w-full"
         title={t("supplierHubTitle")}
         desc={t("supplierHubDesc")}
@@ -324,6 +337,7 @@ function SuppliersWorkspace({rid}:{rid:number}) {
         active={activeTab}
         lowCount={lowItems.length}
       />
+      </> : <h1 className="sr-only">{t(activeTab === 'orders' ? 'purchaseOrders' : 'suppliers')}</h1>}
       {error && (
         <div
           role="alert"
@@ -346,6 +360,8 @@ function SuppliersWorkspace({rid}:{rid:number}) {
       )}
       {loaded&&activeTab === "orders" && (
         <OrdersTab
+          listActions={listActions}
+          onAdd={() => setOrderSeed({})}
           orders={orders}
           locale={locale}
           canManage={canManage}
@@ -357,6 +373,7 @@ function SuppliersWorkspace({rid}:{rid:number}) {
       )}
       {loaded&&activeTab === "suppliers" && (
         <SuppliersTab
+          listActions={listActions}
           suppliers={suppliers}
           locale={locale}
           canManage={canManage}
@@ -788,309 +805,86 @@ function WeeklyDeliveryRail({
   );
 }
 
-function SuppliersTab({
-  suppliers,
-  locale,
-  canManage,
-  onAdd,
-  onEdit,
-  onProducts,
-  onOrder,
-  onDelete,
-}: {
-  suppliers: Supplier[];
-  locale: string;
-  canManage: boolean;
-  onAdd: () => void;
-  onEdit: (supplier: Supplier) => void;
-  onProducts: (supplier: Supplier) => void;
-  onOrder: (supplier: Supplier) => void;
-  onDelete: (supplier: Supplier) => void;
+type SupplierListAction = { label: string; onClick: () => void };
+
+function SuppliersTab({ suppliers, locale, canManage, onAdd, onEdit, onProducts, onOrder, onDelete, listActions }: {
+  suppliers: Supplier[]; locale: string; canManage: boolean; onAdd: () => void;
+  onEdit: (supplier: Supplier) => void; onProducts: (supplier: Supplier) => void;
+  onOrder: (supplier: Supplier) => void; onDelete: (supplier: Supplier) => void; listActions: SupplierListAction[];
 }) {
   const { t } = useI18n();
-  const [search, setSearch] = useState("");
-  const filtered = suppliers.filter((supplier) =>
-    `${supplier.name} ${supplier.contact_name}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
-  return (
-    <section>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="relative min-w-0 flex-1 basis-full sm:min-w-60 sm:basis-auto">
-          <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t("searchSuppliers")}
-            aria-label={t("searchSuppliers")}
-            className="h-11 w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] ps-10 pe-3 text-base outline-none focus:shadow-ring sm:text-fs-sm"
-          />
-        </label>
-        {canManage && (
-          <Button
-            variant="secondary"
-            className="w-full sm:w-auto"
-            onClick={onAdd}
-          >
-            <Plus />
-            {t("addSupplier")}
-          </Button>
-        )}
-      </div>
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={<Truck />}
-          title={t(search ? "noResults" : "noSuppliers")}
-          desc={t(search ? "tryAdjustingFilters" : "noSuppliersHint")}
-          action={
-            canManage ? (
-              <Button onClick={onAdd}>{t("addSupplier")}</Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
-          <div className="hidden grid-cols-[1.2fr_1.2fr_1.4fr_.8fr_auto] gap-4 border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-fs-xs font-semibold text-[var(--fg-muted)] md:grid">
-            <span>{t("supplier")}</span>
-            <span>{t("nextDelivery")}</span>
-            <span>{t("contact")}</span>
-            <span>{t("supplierProducts")}</span>
-            <span />
-          </div>
-          <div className="divide-y divide-[var(--line)]">
-            {filtered.map((supplier) => {
-              const upcoming = nextSchedule(supplier);
-              return (
-                <article
-                  key={supplier.id}
-                  className="grid gap-3 px-4 py-4 md:grid-cols-[1.2fr_1.2fr_1.4fr_.8fr_auto] md:items-center md:gap-4"
-                >
-                  <div>
-                    <div className="font-semibold text-[var(--fg)]">
-                      {supplier.name}
-                    </div>
-                    <div className="mt-1 flex items-center gap-2 text-fs-xs text-[var(--fg-muted)]">
-                      {supplier.preferred_channel === "email" ? (
-                        <Mail className="size-3.5" />
-                      ) : (
-                        <MessageCircle className="size-3.5" />
-                      )}
-                      {t(`language_${supplier.preferred_language || "he"}`)}
-                    </div>
-                  </div>
-                  <div className="text-fs-sm text-[var(--fg-muted)]">
-                    {upcoming ? (
-                      <>
-                        <div>
-                          {dateTimeLabel(
-                            upcoming.delivery.toISOString(),
-                            locale,
-                          )}
-                        </div>
-                        <div className="text-fs-xs">
-                          {upcoming.schedule.window_start}–
-                          {upcoming.schedule.window_end}
-                        </div>
-                      </>
-                    ) : (
-                      <span className="text-[var(--warning-500)]">
-                        {t("scheduleMissing")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-fs-sm text-[var(--fg-muted)]">
-                    <div>{supplier.contact_name || "—"}</div>
-                    <div className="text-fs-xs">
-                      {supplier.phone || supplier.email || "—"}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    onClick={() => onProducts(supplier)}
-                    aria-label={`${t("supplierProducts")} — ${supplier.name}`}
-                    className="w-fit px-2 text-[var(--brand-ink)]"
-                  >
-                    {supplier.products?.length ?? 0} {t("products")}
-                  </Button>
-                  {canManage && (
-                    <div className="flex items-center gap-1 border-t border-[var(--line)] pt-3 md:justify-end md:border-0 md:pt-0">
-                      <Button
-                        variant="ghost"
-                        size="lg"
-                        icon
-                        onClick={() => onOrder(supplier)}
-                        title={t("newPurchaseOrder")}
-                        aria-label={`${t("newPurchaseOrder")} — ${supplier.name}`}
-                        className="text-[var(--brand-ink)] hover:bg-[var(--brand-500)]/10"
-                      >
-                        <Send className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="lg"
-                        icon
-                        onClick={() => onEdit(supplier)}
-                        title={t("edit")}
-                        aria-label={`${t("edit")} — ${supplier.name}`}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="lg"
-                        icon
-                        onClick={() => onDelete(supplier)}
-                        title={t("delete")}
-                        aria-label={`${t("delete")} — ${supplier.name}`}
-                        className="text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </section>
-  );
+  const [search, setSearch] = useState('');
+  const [channels, setChannels] = useState<Set<string>>(new Set());
+  const [statuses, setStatuses] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<string | null>(null);
+  const statusOptions = [{ value: 'active', label: t('active') }, { value: 'inactive', label: t('inactive') }];
+  const channelOptions = [{ value: 'email', label: t('email') }, { value: 'whatsapp', label: 'WhatsApp' }];
+  const filters = [{ id: 'channel', label: t('contact'), options: channelOptions, selected: channels }, { id: 'status', label: t('listState'), options: statusOptions, selected: statuses }];
+  const filtered = suppliers.filter(supplier => `${supplier.name} ${supplier.contact_name}`.toLocaleLowerCase(locale).includes(search.trim().toLocaleLowerCase(locale)) && (!channels.size || channels.has(supplier.preferred_channel)) && (!statuses.size || statuses.has(supplier.is_active ? 'active' : 'inactive')));
+  return <section>
+    <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+      filters={<><ListFilterButton label={t('contact')} value={channels.size || undefined} onClick={() => setView('channel')} /><ListStateFilter label={t('listState')} options={statusOptions} selected={statuses} onChange={setStatuses} /><ListFilterButton label={t('allFilters')} icon={<ListFilter />} onClick={() => setView('index')} /></>}
+      primaryAction={canManage && <Button onClick={onAdd}>{t('addSupplier')}</Button>}
+      actions={<ActionsDropdown actions={listActions} />}
+    />
+    <ListFiltersDrawer open={view !== null} initialView={view ?? 'index'} onClose={() => setView(null)} filters={filters} onApply={values => { setChannels(values.channel); setStatuses(values.status); }} />
+    {!filtered.length ? <EmptyState icon={<Truck />} title={t(suppliers.length ? 'noResults' : 'noSuppliers')} desc={t(suppliers.length ? 'tryAdjustingFilters' : 'noSuppliersHint')} /> : <DataTable className="list-table">
+      <DataTableHead>{['supplier', 'nextDelivery', 'contact', 'supplierProducts'].map(key => <DataTableHeadCell key={key}>{t(key)}</DataTableHeadCell>)}<DataTableHeadSpacerCell /></DataTableHead>
+      <DataTableBody>{filtered.map(supplier => {
+        const upcoming = nextSchedule(supplier);
+        return <DataTableRow key={supplier.id}>
+          <DataTableCell mobilePrimary><button type="button" className="min-h-11 text-start hover:underline" onClick={() => canManage ? onEdit(supplier) : onProducts(supplier)}>{supplier.name}</button><p className="text-xs text-[var(--fg-muted)]">{t(`language_${supplier.preferred_language || 'he'}`)}</p></DataTableCell>
+          <DataTableCell mobileLabel={t('nextDelivery')}>{upcoming ? <><div>{dateTimeLabel(upcoming.delivery.toISOString(), locale)}</div><p className="text-xs text-[var(--fg-muted)]">{upcoming.schedule.window_start}–{upcoming.schedule.window_end}</p></> : t('scheduleMissing')}</DataTableCell>
+          <DataTableCell mobileLabel={t('contact')}><div>{supplier.contact_name || '—'}</div><p className="text-xs text-[var(--fg-muted)]">{supplier.phone || supplier.email || '—'}</p></DataTableCell>
+          <DataTableCell mobileLabel={t('supplierProducts')}><button type="button" className="min-h-11 underline" onClick={() => onProducts(supplier)} aria-label={`${t('supplierProducts')} — ${supplier.name}`}>{supplier.products?.length ?? 0} {t('products')}</button></DataTableCell>
+          <DataTableCell>{canManage && <RowActionsMenu label={`${t('actions')} — ${supplier.name}`} actions={[
+            { label: t('newPurchaseOrder'), onClick: () => onOrder(supplier) },
+            { label: t('edit'), onClick: () => onEdit(supplier) },
+            { label: t('delete'), variant: 'danger', onClick: () => onDelete(supplier) },
+          ]} />}</DataTableCell>
+        </DataTableRow>;
+      })}</DataTableBody>
+    </DataTable>}
+  </section>;
 }
 
-function OrdersTab({
-  orders,
-  locale,
-  canManage,
-  onSend,
-  onReceive,
-  onCancel,
-  onDelete,
-}: {
-  orders: PurchaseOrder[];
-  locale: string;
-  canManage: boolean;
-  onSend: (order: PurchaseOrder) => void;
-  onReceive: (order: PurchaseOrder) => void;
-  onCancel: (order: PurchaseOrder) => void;
-  onDelete: (order: PurchaseOrder) => void;
+function OrdersTab({ orders, locale, canManage, onAdd, onSend, onReceive, onCancel, onDelete, listActions }: {
+  orders: PurchaseOrder[]; locale: string; canManage: boolean; onAdd: () => void;
+  onSend: (order: PurchaseOrder) => void; onReceive: (order: PurchaseOrder) => void;
+  onCancel: (order: PurchaseOrder) => void; onDelete: (order: PurchaseOrder) => void; listActions: SupplierListAction[];
 }) {
-  const { t } = useI18n();
-  const { money } = useCurrency();
-  if (orders.length === 0)
-    return (
-      <EmptyState
-        icon={<Send />}
-        title={t("noOrders")}
-        desc={t("noPurchaseOrdersHint")}
-      />
-    );
-  return (
-    <div className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
-      <div className="hidden grid-cols-[.7fr_1.2fr_1.1fr_1fr_.8fr_auto] gap-4 border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-fs-xs font-semibold text-[var(--fg-muted)] md:grid">
-        <span>#</span>
-        <span>{t("supplier")}</span>
-        <span>{t("expectedDelivery")}</span>
-        <span>{t("status")}</span>
-        <span>{t("total")}</span>
-        <span />
-      </div>
-      <div className="divide-y divide-[var(--line)]">
-        {orders.map((order) => (
-          <article
-            key={order.id}
-            className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-4 md:grid-cols-[.7fr_1.2fr_1.1fr_1fr_.8fr_auto] md:items-center md:gap-4"
-          >
-            <span className="order-1 font-semibold text-[var(--fg)] md:order-none">
-              PO-{order.id}
-            </span>
-            <div className="order-3 col-span-2 md:order-none md:col-span-1">
-              <div className="text-fs-sm font-medium text-[var(--fg)]">
-                {order.supplier?.name || "—"}
-              </div>
-              <div className="text-fs-xs text-[var(--fg-muted)]">
-                {order.items?.length ?? 0} {t("items")}
-              </div>
-            </div>
-            <div className="order-4 text-fs-sm text-[var(--fg-muted)] md:order-none">
-              <span className="mb-0.5 block text-[11px] font-medium text-[var(--fg-subtle)] md:hidden">
-                {t("expectedDelivery")}
-              </span>
-              {dateTimeLabel(order.expected_delivery_at, locale)}
-            </div>
-            <span
-              className={`order-2 w-fit justify-self-end rounded-full px-2.5 py-1 text-fs-xs font-semibold md:order-none md:justify-self-auto ${order.status === "received" ? "bg-[var(--success-50)] text-[var(--success-500)]" : order.status === "cancelled" ? "bg-[var(--danger-50)] text-[var(--danger-500)]" : order.status === "sent" ? "bg-[var(--info-50)] text-[var(--info-500)]" : "bg-[var(--surface-2)] text-[var(--fg-muted)]"}`}
-            >
-              {t(`purchaseOrderStatus_${order.status}`)}
-            </span>
-            <div className="order-5 text-end text-fs-sm font-medium text-[var(--fg)] md:order-none md:text-start">
-              <span className="mb-0.5 block text-[11px] font-medium text-[var(--fg-subtle)] md:hidden">
-                {t("total")}
-              </span>
-              {money(order.total_amount)}
-            </div>
-            {canManage && (
-              <div className="order-6 col-span-2 flex items-center gap-1 border-t border-[var(--line)] pt-3 md:order-none md:col-span-1 md:justify-end md:border-0 md:pt-0">
-                {order.status === "draft" && (
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    icon
-                    onClick={() => onSend(order)}
-                    className="text-[var(--brand-ink)] hover:bg-[var(--brand-500)]/10"
-                    title={t("sendOrder")}
-                    aria-label={`${t("sendOrder")} — PO-${order.id}`}
-                  >
-                    <Send className="size-4" />
-                  </Button>
-                )}
-                {order.status === "sent" && (
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    icon
-                    onClick={() => onReceive(order)}
-                    className="text-[var(--success-500)] hover:bg-[var(--success-50)]"
-                    title={t("receiveOrder")}
-                    aria-label={`${t("receiveOrder")} — PO-${order.id}`}
-                  >
-                    <CheckCircle2 className="size-4" />
-                  </Button>
-                )}
-                {(order.status === "draft" || order.status === "sent") && (
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    icon
-                    onClick={() => onCancel(order)}
-                    className="text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
-                    title={t("cancel")}
-                    aria-label={`${t("cancel")} — PO-${order.id}`}
-                  >
-                    <XCircle className="size-4" />
-                  </Button>
-                )}
-                {order.status === "draft" && (
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    icon
-                    onClick={() => onDelete(order)}
-                    title={t("delete")}
-                    aria-label={`${t("delete")} — PO-${order.id}`}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                )}
-              </div>
-            )}
-          </article>
-        ))}
-      </div>
-    </div>
-  );
+  const { t } = useI18n(), { money } = useCurrency();
+  const [search, setSearch] = useState('');
+  const [suppliers, setSuppliers] = useState<Set<string>>(new Set());
+  const [statuses, setStatuses] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<string | null>(null);
+  const statusOptions = ['draft', 'sent', 'received', 'cancelled'].map(value => ({ value, label: t(`purchaseOrderStatus_${value}`) }));
+  const supplierOptions = Array.from(new Map(orders.filter(order => order.supplier).map(order => [String(order.supplier!.id), { value: String(order.supplier!.id), label: order.supplier!.name }])).values());
+  const filters = [{ id: 'supplier', label: t('supplier'), options: supplierOptions, selected: suppliers }, { id: 'status', label: t('listState'), options: statusOptions, selected: statuses }];
+  const filtered = orders.filter(order => `PO-${order.id} ${order.supplier?.name ?? ''}`.toLocaleLowerCase(locale).includes(search.trim().toLocaleLowerCase(locale)) && (!suppliers.size || suppliers.has(String(order.supplier?.id))) && (!statuses.size || statuses.has(order.status)));
+  return <section>
+    <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+      filters={<><ListFilterButton label={t('supplier')} value={suppliers.size || undefined} onClick={() => setView('supplier')} /><ListStateFilter label={t('listState')} options={statusOptions} selected={statuses} onChange={setStatuses} /><ListFilterButton label={t('allFilters')} icon={<ListFilter />} onClick={() => setView('index')} /></>}
+      primaryAction={canManage && <Button onClick={onAdd}>{t('newPurchaseOrder')}</Button>}
+      actions={<ActionsDropdown actions={listActions} />}
+    />
+    <ListFiltersDrawer open={view !== null} initialView={view ?? 'index'} onClose={() => setView(null)} filters={filters} onApply={values => { setSuppliers(values.supplier); setStatuses(values.status); }} />
+    {!filtered.length ? <EmptyState icon={<Send />} title={t(orders.length ? 'noResults' : 'noOrders')} desc={t(orders.length ? 'tryAdjustingFilters' : 'noPurchaseOrdersHint')} /> : <DataTable className="list-table">
+      <DataTableHead><DataTableHeadCell>#</DataTableHeadCell>{['supplier', 'expectedDelivery', 'status', 'total'].map(key => <DataTableHeadCell key={key}>{t(key)}</DataTableHeadCell>)}<DataTableHeadSpacerCell /></DataTableHead>
+      <DataTableBody>{filtered.map(order => <DataTableRow key={order.id}>
+        <DataTableCell mobilePrimary>PO-{order.id}</DataTableCell>
+        <DataTableCell mobileLabel={t('supplier')}><div>{order.supplier?.name || '—'}</div><p className="text-xs text-[var(--fg-muted)]">{order.items?.length ?? 0} {t('items')}</p></DataTableCell>
+        <DataTableCell mobileLabel={t('expectedDelivery')}>{dateTimeLabel(order.expected_delivery_at, locale)}</DataTableCell>
+        <DataTableCell mobileLabel={t('status')}>{t(`purchaseOrderStatus_${order.status}`)}</DataTableCell>
+        <DataTableCell mobileLabel={t('total')}>{money(order.total_amount)}</DataTableCell>
+        <DataTableCell>{canManage && <RowActionsMenu label={`${t('actions')} — PO-${order.id}`} actions={[
+          ...(order.status === 'draft' ? [{ label: t('sendOrder'), onClick: () => onSend(order) }, { label: t('delete'), variant: 'danger' as const, onClick: () => onDelete(order) }] : []),
+          ...(order.status === 'sent' ? [{ label: t('receiveOrder'), onClick: () => onReceive(order) }] : []),
+          ...(['draft', 'sent'].includes(order.status) ? [{ label: t('cancel'), onClick: () => onCancel(order) }] : []),
+        ]} />}</DataTableCell>
+      </DataTableRow>)}</DataTableBody>
+    </DataTable>}
+  </section>;
 }
 
 function SupplierFormModal({

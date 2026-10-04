@@ -39,7 +39,7 @@ for (const locale of ['fr','he']) test(`order availability responsive hours and 
 });
 
 test('availability retries failed loading without exposing default editable values', async ({ page }) => {
-  const state = await install(page); await page.goto('/1/settings/orders/availability'); await expect(opening(page)).toHaveValue('09:00'); await page.getByRole('link', { name: 'Précommandes', exact: true }).click(); await expect(page.locator('#preorder-lead')).toHaveValue('90'); state.control.failRead = true; await page.locator('main nav').getByRole('link', { name: 'Disponibilité', exact: true }).click(); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger la disponibilité'); await expect(opening(page)).toHaveCount(0);
+  const state = await install(page); await page.goto('/1/settings/orders/availability'); await expect(opening(page)).toHaveValue('09:00'); await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Commandes et livraison', exact: true }).click(); await page.getByRole('link', { name: 'Précommandes', exact: true }).click(); await expect(page.locator('#preorder-lead')).toHaveValue('90'); state.control.failRead = true; await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Restaurant', exact: true }).click(); await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Horaires et disponibilité', exact: true }).click(); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger la disponibilité'); await expect(opening(page)).toHaveCount(0);
   state.control.failRead = false; await page.getByRole('button', { name: 'Réessayer', exact: true }).click(); await expect(opening(page)).toHaveValue('09:00'); expect(state.writes).toHaveLength(0);
 });
 
@@ -77,7 +77,7 @@ test('availability custom workdays preserve Sunday zero and clearing them restor
 
 test('availability protects navigation and reset, then preserves draft across locale changes', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/orders/availability'); await opening(page).fill('08:00'); const reads = state.control.reads;
-  await page.getByRole('link', { name: 'Précommandes', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('button', { name: 'Annuler', exact: true }).click(); await expect(opening(page)).toHaveValue('08:00');
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Commandes et livraison', exact: true }).click(); await page.getByRole('link', { name: 'Précommandes', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('button', { name: 'Annuler', exact: true }).click(); await expect(opening(page)).toHaveValue('08:00');
   await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click(); await page.getByRole('button', { name: 'Abandonner les modifications', exact: true }).click(); await expect(opening(page)).toHaveValue('09:00'); await opening(page).fill('08:45');
   await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape'); await expect(page.locator('#availability-pickup-monday-open')).toHaveValue('08:45'); expect(state.control.reads).toBe(reads);
 });

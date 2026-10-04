@@ -1,13 +1,6 @@
-'use client';
+import type { ReactNode } from 'react';
 
-/**
- * Thin content wrapper for the Settings section.
- *
- * The settings sub-navigation now lives in the main app Sidebar (replacing
- * the global nav while on /settings/*). This shell exists only to keep
- * `[restaurantId]/settings/layout.tsx` simple and to give a single place to
- * tweak the page padding/width if we want to later.
- */
-export default function SettingsShell({ children }: { children: React.ReactNode }) {
-  return <div className="w-full max-w-[1100px] mx-auto">{children}</div>;
+/** Settings share the main application canvas and navigation. */
+export default function SettingsShell({ children }: { children: ReactNode }) {
+  return <div className="w-full min-w-0">{children}</div>;
 }

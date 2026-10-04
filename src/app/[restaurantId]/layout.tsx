@@ -9,7 +9,9 @@ import { useIdleTimeout } from '@/lib/use-idle-timeout';
 import { useI18n } from '@/lib/i18n';
 import { SidebarProvider, useSidebar } from '@/lib/sidebar-context';
 import Sidebar from '@/components/Sidebar';
+import { SettingsBreadcrumb } from '@/components/settings/SettingsBreadcrumb';
 import TopBar from '@/components/TopBar';
+import { useDesktopNavigation } from '@/components/common/NavigationFrame';
 import PermissionRouteGuard from '@/components/PermissionRouteGuard';
 import { PushResync } from '@/components/common/PushResync';
 import IdleModal from '@/components/IdleModal';
@@ -49,7 +51,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const isFullscreen =
     pathname.endsWith('/website-v3') ||
     pathname.endsWith('/table-qr/print');
-  const isWideLayout = pathname.includes('/orders');
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [restaurantLoading, setRestaurantLoading] = useState(true);
@@ -146,7 +147,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
           toggleSidebar={toggleSidebar}
           closeSidebar={closeSidebar}
           isRtl={isRtl}
-          isWideLayout={isWideLayout}
           pageName={pageName}
         >
           <PermissionRouteGuard>{children}</PermissionRouteGuard>
@@ -165,7 +165,6 @@ function RestaurantExperience({
   toggleSidebar,
   closeSidebar,
   isRtl,
-  isWideLayout,
   pageName,
 }: {
   children: React.ReactNode;
@@ -175,7 +174,6 @@ function RestaurantExperience({
   toggleSidebar: () => void;
   closeSidebar: () => void;
   isRtl: boolean;
-  isWideLayout: boolean;
   pageName: string;
 }) {
   const { roleName, loading } = usePermissions();
@@ -203,8 +201,7 @@ function RestaurantExperience({
             toggleSidebar={toggleSidebar}
             closeSidebar={closeSidebar}
             isRtl={isRtl}
-            isWideLayout={isWideLayout}
-            pageName={pageName}
+              pageName={pageName}
           >
             {children}
           </RestaurantShell>
@@ -224,7 +221,6 @@ function RestaurantShell({
   toggleSidebar,
   closeSidebar,
   isRtl,
-  isWideLayout,
   pageName,
 }: {
   children: React.ReactNode;
@@ -234,10 +230,10 @@ function RestaurantShell({
   toggleSidebar: () => void;
   closeSidebar: () => void;
   isRtl: boolean;
-  isWideLayout: boolean;
   pageName: string;
 }) {
   const { collapsed } = useSidebar();
+  const desktop = useDesktopNavigation();
   const { t } = useI18n();
   // Sidebar widths come from tokens (260 / 72) — keep these arbitrary classes
   // in sync with --sidebar-w / --sidebar-w-collapsed in globals.css.
@@ -258,22 +254,19 @@ function RestaurantShell({
           isOpen={sidebarOpen}
           onClose={closeSidebar}
         />
-        <main
+        <main data-workspace-shell
           className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden transition-[margin] duration-200 ${marginClass}`}
         >
-          <TopBar
+          {!desktop && <TopBar
             restaurantId={restaurantId}
             restaurantName={restaurant.name}
             pageName={pageName}
             onToggleSidebar={toggleSidebar}
-          />
+          />}
           <div id="workspace-content" tabIndex={-1}
-            className={`min-w-0 pb-[max(var(--s-6),var(--safe-bottom))] ${
-              isWideLayout
-                ? 'px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8'
-                : 'px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8'
-            }`}
+            className="min-w-0 px-4 pt-6 pb-[max(var(--s-6),var(--safe-bottom))] sm:px-6 lg:px-8 lg:pt-8"
           >
+            <SettingsBreadcrumb restaurantId={restaurantId} />
             {children}
           </div>
         </main>

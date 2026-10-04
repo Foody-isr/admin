@@ -15,18 +15,16 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
   },
   icons: {
-    // C2 artwork; the raster assets are composed for OS-applied icon masks.
+    // Monochrome C2 symbol in browser tabs; OS icons retain their own artwork.
     icon: [
-      { url: '/brand/favicon.svg?v=c2', type: 'image/svg+xml' },
-      { url: '/icons/icon-192.png?v=c2', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512.png?v=c2', sizes: '512x512', type: 'image/png' },
+      { url: '/brand/favicon.svg?v=c2-mono', type: 'image/svg+xml' },
     ],
     apple: [{ url: '/icons/apple-touch-icon.png?v=c2', sizes: '180x180' }],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#eb5204',
+  themeColor: '#171717',
   // Allow user pinch-zoom (accessibility); the iOS focus-zoom is handled by
   // forcing inputs to 16px on mobile (see globals.css).
   width: 'device-width',

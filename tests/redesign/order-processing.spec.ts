@@ -69,13 +69,13 @@ test('processing validates empty fractional and out-of-range estimates and focus
 
 test('processing freezes edits and serializes writes while preserving the failed draft', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/orders/processing'); await prep(page).fill('25'); state.control.failSave = 1; let release!: () => void; state.control.gate = new Promise<void>(resolve => { release = resolve; });
-  await save(page).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); }); await expect(kitchen(page)).toBeDisabled(); await expect(prep(page)).toHaveJSProperty('readOnly',true); expect(await guarded(page)).toBe(true); await page.getByRole('link', { name: 'Disponibilité', exact: true }).click(); await expect(page).toHaveURL(/\/processing$/); release(); state.control.gate = null;
+  await save(page).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); }); await expect(kitchen(page)).toBeDisabled(); await expect(prep(page)).toHaveJSProperty('readOnly',true); expect(await guarded(page)).toBe(true); await page.getByRole('link', { name: 'Horaires et disponibilité', exact: true }).click(); await expect(page).toHaveURL(/\/processing$/); release(); state.control.gate = null;
   await expect(page.locator('main [role=alert]')).toContainText('n’a pas pu être confirmé'); await expect(prep(page)).toHaveValue('25'); await save(page).click(); await expect(status(page)).toContainText('Enregistré'); expect(state.writes).toHaveLength(2); expect(await guarded(page)).toBe(false);
 });
 
 test('processing retains its draft through locale changes and confirms reset and navigation', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/orders/processing'); await prep(page).fill('45'); const reads = state.control.reads;
-  await page.getByRole('link', { name: 'Disponibilité', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('button', { name: 'Annuler', exact: true }).click();
+  await page.getByRole('link', { name: 'Horaires et disponibilité', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('button', { name: 'Annuler', exact: true }).click();
   await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click(); await page.getByRole('button', { name: 'Abandonner les modifications', exact: true }).click(); await expect(prep(page)).toHaveValue('20'); await prep(page).fill('45');
   await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape'); await expect(prep(page)).toHaveValue('45'); expect(state.control.reads).toBe(reads);
 });

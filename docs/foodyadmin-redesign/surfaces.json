@@ -261,10 +261,9 @@
       "@/components/Modal"
     ],
     "overlays": [
-      "CreateBranchModal",
-      "CreateChainModal",
-      "EditBranchModal",
-      "EditChainModal"
+      "ChainEditor",
+      "Modal",
+      "ConfirmDialog"
     ],
     "permissionChecks": [
       "'chain.manage'"
@@ -274,7 +273,14 @@
       "loading",
       "saving"
     ],
-    "status": "inventoried"
+    "status": "partial",
+    "redesign": {
+      "designed": "✓",
+      "implemented": "◐",
+      "functional": "◐",
+      "visual": "◐",
+      "scope": "Synthèse enseigne et établissements, configuration accessible, assistants de création, identité/site principal, publication et invitations. Owner selon contrat serveur, brouillons et requêtes sérialisées, vérification GET sans renvoi automatique après erreur. 21 scénarios compilés, dans le lot chaîne38/38 ; FR mobile/HE sombre et formulaires mobiles inspectés. Limites d’idempotence/API dans chain-branches-audit.md."
+    }
   },
   {
     "route": "/[restaurantId]/customers",
@@ -2620,7 +2626,14 @@
       "loading",
       "shows"
     ],
-    "status": "inventoried"
+    "status": "partial",
+    "redesign": {
+      "designed": "✓",
+      "implemented": "◐",
+      "functional": "◐",
+      "visual": "◐",
+      "scope": "Synthèse et détail par établissement, C2, périodes accessibles, auth avant requêtes, réponses périmées ignorées, erreur/reprise, devise vérifiée par établissement et agrégat monétaire masqué si devises différentes. 17 scénarios compilés et 3 unitaires ciblés ; FR mobile/HE sombre/EN tablette. Lint/types/build réussis ; suite complète de632 tests unitaires."
+    }
   },
   {
     "route": "/design-system/order-detail",

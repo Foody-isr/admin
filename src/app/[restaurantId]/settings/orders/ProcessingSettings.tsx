@@ -9,7 +9,6 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, Input, Section, Select } from '@/components/ds';
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace';
-import { ordersSettingsNavigation } from './navigation';
 
 const CHANNELS = ['dine_in', 'pickup', 'delivery'] as const;
 type Channel = typeof CHANNELS[number];
@@ -83,7 +82,7 @@ function ProcessingWorkspace({ rid }: { rid: number }) {
     finally { if (current()) { lock.current = false; setSaving(false); } }
   };
   const linkStyle = 'inline-flex min-h-10 items-center rounded-r-md px-2 text-sm font-semibold text-[var(--brand-ink)] hover:bg-[var(--surface-2)]';
-  return <SettingsWorkspace title={t('ordersProcessingTitle')} description={t('ordersProcessingDesc')} activeId="processing" navLabel={t('ordersSettingsNavigation')} items={ordersSettingsNavigation(rid, t)}>
+  return <SettingsWorkspace title={t('ordersProcessingTitle')} description={t('ordersProcessingDesc')}>
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('processingLoadFailed')}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div> : draft && enabled && <form onSubmit={save} noValidate className="space-y-6">
       {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
       <div className="flex items-start gap-3 rounded-r-lg bg-[var(--summary-bg)] p-5 text-sm leading-6 text-[var(--summary-fg)]"><ChefHat className="mt-1 size-5 shrink-0" aria-hidden="true" /><p>{t('ordersProcessingGuideDesc')}</p></div>

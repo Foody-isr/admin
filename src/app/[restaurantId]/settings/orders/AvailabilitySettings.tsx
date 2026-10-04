@@ -8,7 +8,6 @@ import { usePermissions } from '@/lib/permissions-context';
 import { clampWeekStartDay, getEffectiveWorkdays } from '@/lib/weeks';
 import { Button, ConfirmDialog, Field, Input, Section, Select } from '@/components/ds';
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace';
-import { ordersSettingsNavigation } from './navigation';
 import { ServiceToggle } from './_components';
 
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
@@ -92,7 +91,7 @@ function AvailabilityWorkspace({ rid }: { rid: number }) {
     catch { if (current()) setSaveError(true); }
     finally { if (current()) { lock.current = false; setSaving(false); } }
   };
-  return <SettingsWorkspace title={t('ordersAvailabilityTitle')} description={t('ordersAvailabilityDesc')} activeId="availability" navLabel={t('ordersSettingsNavigation')} items={ordersSettingsNavigation(rid, t)}>
+  return <SettingsWorkspace title={t('ordersAvailabilityTitle')} description={t('ordersAvailabilityDesc')}>
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('availabilityLoadFailed')}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div> : draft && <form onSubmit={save} noValidate className="space-y-6">
       {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
       <Section title={t('orderModesTitle')} desc={t('orderModesDesc')}><div className="grid gap-3 md:grid-cols-2">{CHANNELS.map(channel => <ServiceToggle key={channel} label={channelLabel(channel)} sub={t(channel === 'dine_in' ? 'dineInServiceDesc' : channel === 'pickup' ? 'pickupServiceDesc' : 'deliveryServiceDesc')} checked={draft[`${channel}_enabled`]} disabled={!canEdit || saving} onChange={value => patch({ [`${channel}_enabled`]: value })} />)}{canCatering && <ServiceToggle label={t('cateringOnlyMode')} sub={t('cateringOnlyModeDesc')} checked={draft.catering_only ?? false} disabled={!canEdit || saving} onChange={catering_only => patch({ catering_only })} />}</div>{active.length === 0 && <p className="mt-4 text-sm text-[var(--fg-muted)]">{t('availabilityNoClassicModes')}</p>}</Section>

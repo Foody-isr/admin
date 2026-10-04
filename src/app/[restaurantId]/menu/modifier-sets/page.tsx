@@ -8,8 +8,9 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Plus, SlidersHorizontal } from 'lucide-react';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
 import { LibrarySetList } from '@/components/menu/LibrarySetList';
-import { Button, ConfirmDialog, PageHead } from '@/components/ds';
+import { Button, ConfirmDialog } from '@/components/ds';
 
 export default function ModifierSetsPage() {
   const { restaurantId } = useParams();
@@ -68,33 +69,16 @@ export default function ModifierSetsPage() {
 
 
   return (
-    <div className="space-y-[var(--s-5)] max-w-5xl mx-auto">
-      <PageHead
-        title={t('modifierSets') || 'Modifier Sets'}
-        desc={t('modifierSetsDescription') || 'Reusable modifier groups linked to multiple menu items'}
-        actions={
-          canEdit ? (
-            <>
-              {sets.length === 0 && (
-                <Button variant="secondary" size="md" onClick={handleMigrate} disabled={migrating}>
-                  {migrating ? (t('saving') || 'Migrating…') : (t('migrateLegacy') || 'Migrate legacy modifiers')}
-                </Button>
-              )}
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => router.push(`/${rid}/menu/modifier-sets/new`)}
-              >
-                <Plus />
-                {t('newModifierSet') || 'New modifier set'}
-              </Button>
-            </>
-          ) : undefined
-        }
-      />
+    <div className="min-w-0">
+      <h1 className="sr-only">{t('modifierSets')}</h1>
 
       <ConfirmDialog open={pendingDelete !== null} onOpenChange={open => { if (!open) setPendingDelete(null); }} title={t('delete')} description={pendingDelete?.name} confirmLabel={t('delete')} cancelLabel={t('cancel')} danger onConfirm={() => { if (pendingDelete) void handleDelete(pendingDelete.id); }} />
       <LibrarySetList
+        primaryAction={canEdit && <Button onClick={() => router.push(`/${rid}/menu/modifier-sets/new`)}>{t('newModifierSet')}</Button>}
+        actions={<ActionsDropdown actions={[
+          { label: t('refresh'), onClick: () => void reload() },
+          ...(canEdit ? [{ label: t('migrateLegacy'), disabled: migrating, onClick: () => void handleMigrate() }] : []),
+        ]} />}
         rows={sets.map((set) => ({ id:set.id, name:set.name, summary:(set.modifiers ?? []).map(item => item.name).join(' · '), count:(set.menu_items ?? []).length, required:set.is_required }))}
         href={id => `/${rid}/menu/modifier-sets/${id}`}
         icon={<SlidersHorizontal />}

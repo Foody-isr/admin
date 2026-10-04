@@ -1,10 +1,13 @@
 'use client';
 
-import Link from 'next/link';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { ListToolbar } from '@/components/data-table';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
-import { Button, PageHead } from '@/components/ds';
+import { useParams, useRouter } from 'next/navigation';
+import { ListFilter } from 'lucide-react';
+import { Button } from '@/components/ds';
 import {
   DataTable,
   DataTableBody,
@@ -34,6 +37,12 @@ function duration(seconds: number): string {
 export default function StaffShiftsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const router = useRouter();
+  const [search, setSearch] = useState('');
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
+  const [filterView, setFilterView] = useState<string | null>(null);
+
   const { t, locale } = useI18n();
   const { money } = useCurrency();
   const today = useMemo(() => new Date(), []);
@@ -45,6 +54,8 @@ export default function StaffShiftsPage() {
 
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(inputDate(today));
+  const [draftFrom, setDraftFrom] = useState(initialFrom);
+  const [draftTo, setDraftTo] = useState(inputDate(today));
   const [shifts, setShifts] = useState<StaffShiftSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -72,61 +83,35 @@ export default function StaffShiftsPage() {
 
   useEffect(() => { const guard = requestGuard.current; void load(); return () => guard.invalidate(); }, [rid, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totals = shifts.reduce(
-    (value, shift) => ({
-      seconds: value.seconds + shift.duration_seconds,
-      orders: value.orders + shift.order_count,
-      tables: value.tables + shift.table_count,
-      sales: value.sales + shift.sales_total,
-    }),
-    { seconds: 0, orders: 0, tables: 0, sales: 0 },
-  );
-  const active = shifts.filter((shift) => !shift.ended_at).length;
+  const statusOptions = [{ value: 'active', label: t('inProgress') }, { value: 'ended', label: t('completed') }];
+  const groupOptions = Array.from(new Set(shifts.map(shift => shift.role_name).filter(Boolean))).map(name => ({ value: name, label: name }));
+  const filtered = shifts.filter(shift => shift.staff_name.toLocaleLowerCase(locale).includes(search.trim().toLocaleLowerCase(locale)) && (!selectedGroups.size || selectedGroups.has(shift.role_name)) && (!selectedStatuses.size || selectedStatuses.has(shift.ended_at ? 'ended' : 'active')));
+  const listFilters = [{ id: 'group', label: t('role'), options: groupOptions, selected: selectedGroups }, { id: 'status', label: t('listState'), options: statusOptions, selected: selectedStatuses }];
+  const openFilters = (view: string) => { setDraftFrom(from); setDraftTo(to); setFilterView(view); };
   const dateTime = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
     <div className="space-y-[var(--s-5)]">
-      <PageHead
-        title={t('shiftReports')}
-        desc={t('shiftReportsDesc')}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="md" asChild>
-              <Link href={`/${rid}/staff`}><ArrowLeft className="rtl:rotate-180" />{t('back')}</Link>
-            </Button>
-            <Button variant="secondary" size="md" onClick={() => void load()} disabled={loading}>
-              <RefreshCw />{t('refresh')}
-            </Button>
-          </div>
-        }
+      <h1 className="sr-only">{t('shiftReports')}</h1>
+      <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+        filters={<>
+          <ListFilterButton label={t('role')} value={selectedGroups.size || undefined} onClick={() => openFilters('group')} />
+          <ListStateFilter label={t('listState')} options={statusOptions} selected={selectedStatuses} onChange={setSelectedStatuses} />
+          <ListFilterButton label={t('allFilters')} icon={<ListFilter />} onClick={() => openFilters('index')} />
+        </>}
+        actions={<ActionsDropdown actions={[
+          { label: t('refresh'), disabled: loading, onClick: () => void load() },
+          { label: t('staff'), onClick: () => router.push(`/${rid}/staff`) },
+        ]} />}
       />
+      <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters}
+        customFilters={[{ id: 'period', label: t('date'), summary: `${draftFrom} – ${draftTo}`, onReset: () => { setDraftFrom(initialFrom); setDraftTo(inputDate(today)); }, content: <div className="space-y-4"><label className="block text-sm">{t('from')}<input type="date" className="input mt-2" value={draftFrom} max={draftTo} onChange={event => setDraftFrom(event.target.value)} /></label><label className="block text-sm">{t('to')}<input type="date" className="input mt-2" value={draftTo} min={draftFrom} onChange={event => setDraftTo(event.target.value)} /></label></div> }]}
 
-      <div className="flex flex-wrap items-end gap-4">
-        <label className="min-w-0 flex-1 sm:flex-none text-sm text-fg-secondary">
-          <span className="block mb-1">{t('from')}</span>
-          <input className="input" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
-        </label>
-        <label className="min-w-0 flex-1 sm:flex-none text-sm text-fg-secondary">
-          <span className="block mb-1">{t('to')}</span>
-          <input className="input" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
-        </label>
-        {!loading && !error && active > 0 && (
-          <div className="ms-auto inline-flex items-center gap-2 rounded-r-md bg-[var(--success-50)] px-3 py-2 text-sm font-medium text-[var(--success-500)]">
-            <span className="h-2 w-2 rounded-full bg-current" />
-            {t('activeShifts').replace('{count}', String(active))}
-          </div>
-        )}
-      </div>
-
-      {!loading && !error && <dl className="grid grid-cols-2 xl:grid-cols-4 gap-5 rounded-r-lg bg-[var(--summary-bg)] p-5">
-        {[[t('workedHours'), duration(totals.seconds)], [t('ordersTaken'), String(totals.orders)], [t('tablesServed'), String(totals.tables)], [t('attributedSales'), money(totals.sales)]].map(([label, value]) => (
-          <div key={label} className="min-w-0 space-y-2"><dt className="text-sm text-fg-secondary">{label}</dt><dd className="text-2xl font-semibold tabular-nums break-words text-[var(--summary-fg)]">{value}</dd></div>
-        ))}
-      </dl>}
+        onApply={values => { setSelectedGroups(values.group); setSelectedStatuses(values.status); setFrom(draftFrom); setTo(draftTo); }} />
       {error && <div role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)] flex flex-wrap items-center justify-between gap-3"><span>{error}</span><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>}
       {loading && <p role="status" className="py-12 text-center text-sm text-fg-secondary">{t('loading')}</p>}
 
-      {!loading && !error && <DataTable>
+      {!loading && !error && <DataTable className="list-table">
         <DataTableHead>
           <DataTableHeadCell>{t('staffMember')}</DataTableHeadCell>
           <DataTableHeadCell>{t('shiftStart')}</DataTableHeadCell>
@@ -137,7 +122,7 @@ export default function StaffShiftsPage() {
           <DataTableHeadCell align="right">{t('attributedSales')}</DataTableHeadCell>
         </DataTableHead>
         <DataTableBody>
-          {!loading && shifts.map((shift, index) => (
+          {!loading && filtered.map((shift, index) => (
             <DataTableRow key={shift.id} index={index}>
               <DataTableCell mobilePrimary>
                 <div className="font-semibold text-fg-primary">{shift.staff_name}</div>
@@ -155,7 +140,7 @@ export default function StaffShiftsPage() {
               <DataTableCell align="right" mobileLabel={t('attributedSales')} className="tabular-nums">{money(shift.sales_total)}</DataTableCell>
             </DataTableRow>
           ))}
-          {!loading && shifts.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <DataTableRow index={0}>
               <DataTableCell colSpan={7} className="py-12 text-center text-fg-muted">{t('noShifts')}</DataTableCell>
             </DataTableRow>

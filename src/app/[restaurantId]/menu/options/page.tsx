@@ -6,8 +6,9 @@ import { listOptionSets, deleteOptionSet, migrateVariantsToOptionSets, OptionSet
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Plus, Layers } from 'lucide-react';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
 import { LibrarySetList } from '@/components/menu/LibrarySetList';
-import { Button, ConfirmDialog, PageHead } from '@/components/ds';
+import { Button, ConfirmDialog } from '@/components/ds';
 
 export default function OptionsPage() {
   const { restaurantId } = useParams();
@@ -59,31 +60,16 @@ export default function OptionsPage() {
 
 
   return (
-    <div className="space-y-[var(--s-5)] max-w-5xl mx-auto">
-      <PageHead
-        title={t('options')}
-        desc={t('optionsDescription')}
-        actions={
-          canEdit ? (
-            <>
-              <Button variant="secondary" size="md" onClick={handleMigrate} disabled={migrating}>
-                {t('migrateLegacy') || 'Migrate variants'}
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => router.push(`/${rid}/menu/options/new`)}
-              >
-                <Plus />
-                {t('createOptionSet')}
-              </Button>
-            </>
-          ) : undefined
-        }
-      />
+    <div className="min-w-0">
+      <h1 className="sr-only">{t('options')}</h1>
 
       <ConfirmDialog open={pendingDelete !== null} onOpenChange={open => { if (!open) setPendingDelete(null); }} title={t('delete')} description={pendingDelete?.name} confirmLabel={t('delete')} cancelLabel={t('cancel')} danger onConfirm={() => { if (pendingDelete) void handleDelete(pendingDelete.id); }} />
       <LibrarySetList
+        primaryAction={canEdit && <Button onClick={() => router.push(`/${rid}/menu/options/new`)}>{t('createOptionSet')}</Button>}
+        actions={<ActionsDropdown actions={[
+          { label: t('refresh'), onClick: () => void reload() },
+          ...(canEdit ? [{ label: t('migrateLegacy'), disabled: migrating, onClick: () => void handleMigrate() }] : []),
+        ]} />}
         rows={sets.map((os) => ({ id:os.id, name:os.name, summary:(os.options ?? []).map(item => item.name).join(' · '), count:(os.menu_items ?? []).length }))}
         href={id => `/${rid}/menu/options/${id}`}
         icon={<Layers />}

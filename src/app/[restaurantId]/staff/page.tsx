@@ -1,8 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { ListToolbar } from '@/components/data-table';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
+
 import {
   listStaff, inviteStaff, updateStaffRole, removeStaff,
   resendStaffInvite, listRoles, StaffMember, RestaurantRole,
@@ -11,10 +14,9 @@ import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { roleDisplayName, roleDisplayLabel } from '@/lib/permission-i18n';
 import {
-  Clock3Icon, MailIcon, MapPinnedIcon, PlusIcon,
-  TabletSmartphoneIcon, TrashIcon,
+  MailIcon, ListFilter, TrashIcon,
 } from 'lucide-react';
-import { Badge, Button, ConfirmDialog, PageHead } from '@/components/ds';
+import { Badge, Button, ConfirmDialog } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import {
@@ -30,6 +32,11 @@ import {
 export default function StaffPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const router = useRouter();
+  const [search, setSearch] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
+  const [filterView, setFilterView] = useState<string | null>(null);
   const { hasPermission } = usePermissions();
   const { t } = useI18n();
   const canManage = hasPermission('staff.manage');
@@ -169,6 +176,15 @@ export default function StaffPage() {
     }
   };
 
+  const roleKey = (member: StaffMember) => String(member.role_id ?? member.role);
+  const roleOptions = Array.from(new Map(staff.map(member => [roleKey(member), { value: roleKey(member), label: roleDisplayLabel(t, member.role_name || member.role) }])).values());
+  const statusOptions = Array.from(new Set(staff.map(member => member.invite_status ?? 'not_invited'))).map(value => ({ value, label: t(`staffStatus_${value}`) }));
+  const filteredStaff = staff.filter(member => `${member.full_name} ${member.email}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) && (!selectedRoles.size || selectedRoles.has(roleKey(member))) && (!selectedStatuses.size || selectedStatuses.has(member.invite_status ?? 'not_invited')));
+  const listFilters = [
+    { id: 'role', label: t('role'), options: roleOptions, selected: selectedRoles },
+    { id: 'status', label: t('listState'), options: statusOptions, selected: selectedStatuses },
+  ];
+
   if (loading) {
     return (
       <div className="flex justify-center py-16" role="status" aria-label={t('loading')}>
@@ -179,38 +195,22 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-[var(--s-5)]">
-      <PageHead
-        title={t('staff') || 'Équipe'}
-        desc={pageError ? undefined : `${staff.length} ${t('staffMembersCount')}`}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {canManage && (
-              <Button variant="primary" size="md" disabled={!!pageError || roles.length === 0} onClick={() => setInviteOpen(true)}>
-                <PlusIcon />
-                {t('inviteStaff')}
-              </Button>
-            )}
-          </div>
-        }
+      <h1 className="sr-only">{t('staff')}</h1>
+      <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+        filters={<>
+          <ListFilterButton label={t('role')} value={selectedRoles.size || undefined} onClick={() => setFilterView('role')} />
+          <ListStateFilter label={t('listState')} options={statusOptions} selected={selectedStatuses} onChange={setSelectedStatuses} />
+          <ListFilterButton label={t('allFilters')} icon={<ListFilter />} onClick={() => setFilterView('index')} />
+        </>}
+        primaryAction={canManage && <Button disabled={!!pageError || roles.length === 0} onClick={() => setInviteOpen(true)}>{t('inviteStaff')}</Button>}
+        actions={<ActionsDropdown actions={[
+          { label: t('refresh'), onClick: () => void reload(), disabled: actionLoading !== null },
+          ...(canManage ? [{ label: t('floorService'), onClick: () => router.push(`/${rid}/staff/table-service`) }] : []),
+          ...(hasPermission('shifts.view') || hasPermission('shifts.manage') ? [{ label: t('shiftReports'), onClick: () => router.push(`/${rid}/staff/shifts`) }] : []),
+          ...(hasPermission('shifts.manage') ? [{ label: t('posAccess'), onClick: () => router.push(`/${rid}/staff/devices`) }] : []),
+        ]} />}
       />
-      <nav aria-label={t('staff')} className="flex flex-wrap gap-2">
-            {canManage && (
-              <Button variant="secondary" size="md" asChild>
-                <Link href={`/${rid}/staff/table-service`}><MapPinnedIcon />{t('floorService')}</Link>
-              </Button>
-            )}
-            {(hasPermission('shifts.view') || hasPermission('shifts.manage')) && (
-              <Button variant="secondary" size="md" asChild>
-                <Link href={`/${rid}/staff/shifts`}><Clock3Icon />{t('shiftReports')}</Link>
-              </Button>
-            )}
-            {hasPermission('shifts.manage') && (
-              <Button variant="secondary" size="md" asChild>
-                <Link href={`/${rid}/staff/devices`}><TabletSmartphoneIcon />{t('posAccess')}</Link>
-              </Button>
-            )}
-      </nav>
-
+      <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters} onApply={values => { setSelectedRoles(values.role); setSelectedStatuses(values.status); }} />
       {successMsg && (
         <div
           className={`rounded-r-lg px-4 py-3 text-sm flex items-center justify-between gap-4 ${successTone === 'success' ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--warning-50)] text-[var(--warning-500)]'}`}
@@ -235,7 +235,8 @@ export default function StaffPage() {
 
       {actionError && <p role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
       {!pageError && staff.length === 0 && <p className="py-12 text-center text-sm text-fg-secondary">{t('noStaffYet')}</p>}
-      {staff.length > 0 && <DataTable>
+      {staff.length > 0 && filteredStaff.length === 0 && <p role="status" className="py-12 text-center text-sm text-fg-secondary">{t('listNoMatches')}</p>}
+      {filteredStaff.length > 0 && <DataTable className="list-table">
         <DataTableHead>
           <DataTableHeadCell>{t('name')}</DataTableHeadCell>
           <DataTableHeadCell>{t('email')}</DataTableHeadCell>
@@ -245,7 +246,7 @@ export default function StaffPage() {
           {canManage && <DataTableHeadSpacerCell />}
         </DataTableHead>
         <DataTableBody>
-          {staff.map((member, index) => (
+          {filteredStaff.map((member, index) => (
             <DataTableRow key={member.id} index={index}>
               <DataTableCell mobilePrimary className="font-semibold text-fg-primary">{member.full_name}</DataTableCell>
               <DataTableCell mobileLabel={t('email')} className="text-fg-secondary break-all"><bdi className="min-w-0 break-all">{member.email}</bdi></DataTableCell>

@@ -21,7 +21,7 @@ Routes restaurant : AuthProvider → RestaurantGuard → PermissionsProvider →
 | `/[restaurantId]/catering/routing` | `src/app/[restaurantId]/catering/routing/page.tsx` | DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableRow, RoutingRuleEditModal | ✓ | — | — | — | — | Reporté par utilisateur. |
 | `/[restaurantId]/catering/services/[serviceId]` | `src/app/[restaurantId]/catering/services/[serviceId]/page.tsx` | Voir composants/imports | ✓ | — | — | — | — | Reporté par utilisateur. |
 | `/[restaurantId]/catering/services` | `src/app/[restaurantId]/catering/services/page.tsx` | ServiceEditor | ✓ | — | — | — | — | Reporté par utilisateur. |
-| `/[restaurantId]/chain/branches` | `src/app/[restaurantId]/chain/branches/page.tsx` | CreateBranchModal, CreateChainModal, EditBranchModal, EditChainModal | ✓ | — | — | — | — |
+| `/[restaurantId]/chain/branches` | `src/app/[restaurantId]/chain/branches/page.tsx` | ChainEditor, Modal, ConfirmDialog | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/customers` | `src/app/[restaurantId]/customers/page.tsx` | DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableRow, DataTableSelectAllCell, DataTableSelectCell, MergeCustomersModal | ✓ | ✓ | ✓ | ◐ | ◐ |
 | `/[restaurantId]/dashboard` | `src/app/[restaurantId]/dashboard/page.tsx` | TopSellersPanel | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/delivery/tours` | `src/app/[restaurantId]/delivery/tours/page.tsx` | DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeadCell, DataTableRow | ✓ | — | — | — | — | Reporté par utilisateur. |
@@ -104,7 +104,7 @@ Routes restaurant : AuthProvider → RestaurantGuard → PermissionsProvider →
 | `/[restaurantId]/website` | `src/app/[restaurantId]/website/page.tsx` | AddSectionModal, BannerDesignerPanel, BrandingPanel, CheckoutEditor, CoverBackgroundEditor, MenuSubTab, NavbarPanel, OrderPageInfoEditor, PageCommercePanel, SectionListPanel, SectionSettingsPanel, TemplatePickerModal, ThemesPanel, TypographyPanel | ✓ | — | — | — | — | Éditeur supprimé ; redirection V3. |
 | `/[restaurantId]/website-v2` | `src/app/[restaurantId]/website-v2/page.tsx` | AddPagePanel, BaseThemePanel, BrandingPanel, CheckoutEditor, CheckoutSubTab, ContactPanel, DomainPanel, FooterPanel, NavbarPanel, PageEditor, SectionSettingsPanel, SitePanel, ThemesPanel, TypographyPanel | ✓ | — | — | — | — | Éditeur supprimé ; redirection V3. |
 | `/[restaurantId]/website-v3` | `src/app/[restaurantId]/website-v3/page.tsx` | Voir composants/imports | ✓ | — | — | — | — |
-| `/chain/[chainId]/dashboard` | `src/app/chain/[chainId]/dashboard/page.tsx` | DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeadCell, DataTableRow | ✓ | — | — | — | — |
+| `/chain/[chainId]/dashboard` | `src/app/chain/[chainId]/dashboard/page.tsx` | DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeadCell, DataTableRow | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/design-system/order-detail` | `src/app/design-system/order-detail/page.tsx` | Voir composants/imports | ✓ | — | — | — | — | Outil interne dev-only, hors périmètre produit. |
 | `/design-system` | `src/app/design-system/page.tsx` | Voir composants/imports | ✓ | — | — | — | — | Outil interne dev-only, hors périmètre produit. |
 | `/login` | `src/app/login/page.tsx` | Voir composants/imports | ✓ | ✓ | ✓ | ◐ | ◐ |

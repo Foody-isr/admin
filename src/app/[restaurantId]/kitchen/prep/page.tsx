@@ -2,20 +2,16 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { listPrepItems, listStockItems, getPrepCategories, createPrepCategory, updatePrepCategory, type PrepItem, type PrepCategory, type StockItem } from '@/lib/api';
 import PrepItemEditor from '@/components/prep/PrepItemEditor';
 import { BatchProduceDialog, PrepTransactionDialog, DailyPrepPlanDialog, PrepDeleteDialog } from '@/components/prep/PrepOperations';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
-import StockFiltersDrawer, {
-  FilterView,
-  FilterCategory,
-  FilterStatusOption,
-} from '@/components/stock/StockFiltersDrawer';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import {
+  ListToolbar,
   DataTable,
   DataTableHead,
   DataTableHeadCell,
@@ -28,15 +24,14 @@ import {
   DataTableSelectCell,
 } from '@/components/data-table';
 import {
-  SearchIcon, PlusIcon, TrashIcon, PencilIcon,
-  BeakerIcon, CalendarDaysIcon, ArrowRightLeftIcon,
-  AlertTriangleIcon, PlayIcon, SparklesIcon,
-  ChevronDownIcon, ChevronUpIcon, RefreshCwIcon, ClockIcon, ImageIcon,
+  ListFilterIcon, TrashIcon, PencilIcon,
+  BeakerIcon, ArrowRightLeftIcon,
+  AlertTriangleIcon, PlayIcon,
+  ClockIcon, ImageIcon,
 } from 'lucide-react';
-import { useI18n, useCurrency } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Button, Kpi, PageHead } from '@/components/ds';
-import { FeatureIntro } from '@/components/help/FeatureIntro';
+import { Button, PageHead } from '@/components/ds';
 import RecipeImportModal from '../RecipeImportModal';
 export default function PrepPage() {
   const {restaurantId}=useParams();
@@ -44,7 +39,6 @@ export default function PrepPage() {
 }
 
 function PrepWorkspace({rid}:{rid:number}) {
-  const { money } = useCurrency();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -73,17 +67,15 @@ function PrepWorkspace({rid}:{rid:number}) {
   };
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
-  const [filtersDrawer, setFiltersDrawer] = useState<{ open: boolean; view: FilterView }>({
+  const [filtersDrawer, setFiltersDrawer] = useState<{ open: boolean; view: string }>({
     open: false,
     view: 'index',
   });
-  const openFiltersDrawer = (view: FilterView) => setFiltersDrawer({ open: true, view });
+  const openFiltersDrawer = (view: string) => setFiltersDrawer({ open: true, view });
   const closeFiltersDrawer = () => setFiltersDrawer((prev) => ({ ...prev, open: false }));
 
   // Selection
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  // KPI collapse — parity with Stock & Articles pages.
-  const [showKpis, setShowKpis] = useState(true);
   // Category drawer — filter-only for prep (no bulk-assign category op yet).
   const [categoryDrawer, setCategoryDrawer] = useState<{
     open: boolean;
@@ -147,8 +139,7 @@ function PrepWorkspace({rid}:{rid:number}) {
   }, [items, searchParams, router, pathname]);
 
   const categoryNames = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
-  const categories: FilterCategory[] = categoryNames.sort().map((name) => ({ name }));
-  const statuses: FilterStatusOption[] = [
+  const statuses = [
     { value: 'ok', label: t('ok'), color: '#10b981' },
     { value: 'low', label: t('low'), color: '#ef4444' },
     { value: 'expiring', label: t('expiringSoon') || 'À consommer bientôt', color: '#f59e0b' },
@@ -158,7 +149,7 @@ function PrepWorkspace({rid}:{rid:number}) {
   const isLow = (item: PrepItem) =>
     item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold;
 
-  // Time-based status helpers — used by both the filter and the KPI counts.
+  // Time-based status helpers for the expiry filters.
   // Computed inline (not memoized): items list is small and recomputes only on
   // re-render anyway since it depends on `Date.now()`.
   const nowMs = Date.now();
@@ -219,205 +210,38 @@ function PrepWorkspace({rid}:{rid:number}) {
 
   if(!loaded)return <div><PageHead title={t('preparations')} desc={t('preparationsDesc')}/>{loading?<p role="status" className="py-16 text-center text-fg-secondary">{t('loading')}</p>:<div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button size="lg" variant="secondary" onClick={()=>void reload().catch(()=>{})}>{t('retry')}</Button></div>}</div>;
 
-  // KPI derivations — used by the collapsible KPI row.
-  const totalCost = items.reduce(
-    (s, p) => s + (p.cost_per_unit ?? 0) * (p.quantity ?? 0),
-    0,
-  );
-  const expiringCount = items.filter(isExpiring).length;
-  const expiredCount = items.filter(isExpired).length;
-
-  // Click-to-filter — same pattern as Stock's `filterByStatus`.
-  // Pass null to clear all filters; pass a status value to apply it.
-  const filterByStatus = (status: 'ok' | 'low' | 'expiring' | 'expired' | null) => {
-    setSelectedCategories(new Set());
-    setSelectedStatuses(status ? new Set([status]) : new Set());
-  };
-
-  // Category pill list — an "all" sentinel first, then distinct names alphabetically.
-  const ALL_PILL = '__all__';
-  const allLabel = t('all');
-  const pillCategories = [ALL_PILL, ...[...categoryNames].sort()];
-  const activePill =
-    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ALL_PILL;
-  const selectPill = (name: string) => {
-    if (name === ALL_PILL) setSelectedCategories(new Set());
-    else setSelectedCategories(new Set([name]));
-  };
+  const listFilters = [
+    { id: 'category', label: t('category'), options: categoryNames.sort().map(name => ({ value: name, label: name })), selected: selectedCategories },
+    { id: 'status', label: t('listState'), options: statuses, selected: selectedStatuses },
+  ];
 
   return (
     <div className="flex flex-col">
-      <PageHead
-        title={t('preparations') || 'Préparations'}
-        desc={t('preparationsDesc')}
-        actions={
-          <>
-            <Button
-              variant="ghost"
-              size="lg"
-              icon
-              onClick={() => setShowKpis((v) => !v)}
-              aria-label={t(showKpis?'hideKpis':'showKpis')}
-              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
-              className="hidden md:inline-flex"
-            >
-              {showKpis ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            </Button>
-            <Button variant="secondary" size="lg" onClick={() => setPlanModal(true)}>
-              <CalendarDaysIcon />
-              {t('dailyPlan') || 'Plan du jour'}
-            </Button>
-            <Button asChild variant="secondary" size="lg">
-              <Link href={`/${rid}/kitchen/lab`}>
-                <SparklesIcon />
-                {t('createWithLab')}
-              </Link>
-            </Button>
-            {canManage && (
-              <Button variant="primary" size="lg" onClick={() => setItemModal({ open: true })}>
-                <PlusIcon />
-                {t('newPreparation') || t('addPrepItem')}
-              </Button>
-            )}
-          </>
-        }
-      />
-
-      <FeatureIntro feature="prep" compactOnMobile />
+      <h1 className="sr-only">{t('preparations')}</h1>
       {error&&<div role="alert" className="mb-5 space-y-3 rounded-r-md border border-[var(--danger-500)]/30 bg-[var(--danger-50)] p-4"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button size="lg" variant="secondary" disabled={loading} onClick={()=>void reload().catch(()=>{})}>{t('retry')}</Button></div>}
 
-      <header className="mb-[var(--s-4)]">
-        {/* KPI strip — clickable shortcuts that set filters directly (mirrors Stock).
-            Total cost stays static (info-only, like Stock's "Total Value"). */}
-        {/* KPIs — desktop only (mobile keeps the table primary) */}
-        {showKpis && (
-          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
-            <Kpi
-              label={t('preparations')}
-              value={items.length}
-              sub={`${categoryNames.length} ${t('categoriesCount') || 'catégories'}`}
-              onClick={() => filterByStatus(null)}
-            />
-            <Kpi
-              label={t('totalCost') || 'Coût total en stock'}
-              value={money(totalCost)}
-              sub={t('prepValuationHint')}
-            />
-            <Kpi
-              tone={expiringCount > 0 ? 'warning' : 'default'}
-              label={t('expiringSoon') || 'À consommer bientôt'}
-              value={expiringCount}
-              sub={t('prepExpiryEstimate')}
-              onClick={() => filterByStatus('expiring')}
-            />
-            <Kpi
-              tone={expiredCount > 0 ? 'danger' : 'default'}
-              label={t('expired') || 'Périmées'}
-              value={expiredCount}
-              sub={t('prepExpiryEstimate')}
-              onClick={() => filterByStatus('expired')}
-            />
-          </div>
-        )}
-
-        {/* Bulk toolbar — orange banner matching Stock & Articles. */}
-        {selected.size > 0 && (
-          <div className="mb-4 p-4 bg-[var(--brand-soft)] border border-[var(--line-strong)] rounded-r-md flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <span className="font-semibold text-[var(--brand-ink)]">
-                {t('itemsSelected').replace('{count}', String(selected.size))}
-              </span>
-              <button
-                onClick={() => setSelected(new Set())}
-                className="text-[var(--brand-ink)] min-h-11 text-sm font-medium"
-              >
-                {t('deselectAll') || 'Tout désélectionner'}
-              </button>
-            </div>
-            {canManage && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleBulkDelete}
-                  className="px-4 py-2.5 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md hover:bg-[var(--danger-50)] transition-colors flex items-center gap-2 text-sm font-medium text-[var(--danger-500)]"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                  {t('delete')} ({selected.size})
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Search + filter pill-buttons row — matches Stock/Articles. */}
-        <div className="flex flex-wrap items-center gap-[var(--s-3)]">
-          <div className="relative flex-1 min-w-[240px]">
-            <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
-            <input
-              type="text"
-              aria-label={t('searchPrepItems')}
-              placeholder={t('searchPrepItems') || 'Rechercher une préparation…'}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm break-words font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
-          >
-            <span className="text-[var(--fg-muted)]">{t('category')} ·</span>
-            <span className="text-[var(--brand-ink)] font-semibold">
-              {selectedCategories.size === 0
-                ? t('all')
-                : selectedCategories.size === 1
-                  ? Array.from(selectedCategories)[0]
-                  : selectedCategories.size}
-            </span>
-            <ChevronDownIcon className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => openFiltersDrawer('index')}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm break-words font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
-          >
-            {t('allFilters')}
-            <ChevronDownIcon className="w-4 h-4" />
-          </button>
-          <ActionsDropdown
-            actions={[
-              ...(canManage ? [{ label: t('importRecipe'), onClick: () => setImportModal(true), icon: <SparklesIcon className="w-4 h-4" /> }] : []),
-              { label: t('refresh'), onClick: ()=>void reload().catch(()=>{}), icon: <RefreshCwIcon className="w-4 h-4" /> },
-            ]}
-          />
-        </div>
-      </header>
-
-      {/* Category pills — rounded-r-lg CAPS rectangles (matches Stock/Articles). */}
-      {pillCategories.length > 1 && (
-        <div className="mb-[var(--s-4)] flex flex-wrap gap-[var(--s-2)]">
-          {pillCategories.map((name) => {
-            const active = activePill === name;
-            return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => selectPill(name)}
-                aria-pressed={active}
-                className={`inline-flex items-center min-h-11 px-[var(--s-4)] rounded-r-lg text-fs-sm font-medium transition-colors whitespace-nowrap ${
-                  active
-                    ? 'bg-[var(--brand-soft)] text-[var(--brand-ink)] border border-[var(--brand-ink)]'
-                    : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
-                }`}
-              >
-                {name === ALL_PILL ? allLabel : name}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      <p className="mb-4 text-sm text-fg-secondary">{t('prepExpiryHint')}</p>
+      <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+        filters={<>
+          <ListFilterButton label={t('category')} value={selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : selectedCategories.size > 1 ? selectedCategories.size : undefined} onClick={() => openFiltersDrawer('category')} />
+          <ListStateFilter label={t('listState')} options={statuses} selected={selectedStatuses} onChange={setSelectedStatuses} />
+          <ListFilterButton label={t('allFilters')} icon={<ListFilterIcon />} onClick={() => openFiltersDrawer('index')} />
+        </>}
+        primaryAction={canManage && <Button onClick={() => setItemModal({ open: true })}>{t('newPreparation')}</Button>}
+        actions={<ActionsDropdown actions={[
+          { label: t('dailyPlan'), onClick: () => setPlanModal(true) },
+          { label: t('createWithLab'), onClick: () => router.push(`/${rid}/kitchen/lab`) },
+          ...(canManage ? [
+            { label: t('importRecipe'), onClick: () => setImportModal(true) },
+            { label: t('categories'), onClick: () => setCategoryDrawer({ open: true, mode: 'filter' }) },
+          ] : []),
+          { label: t('refresh'), onClick: () => void reload().catch(() => { /* Rendered by error. */ }), disabled: loading },
+          ...(canManage && selected.size ? [
+            { label: `${t('delete')} (${selected.size})`, onClick: handleBulkDelete, variant: 'danger' as const },
+            { label: t('deselectAll'), onClick: () => setSelected(new Set()) },
+          ] : []),
+        ]} />}
+      />
+      <span role="status" className="sr-only">{t('itemsSelected').replace('{count}', String(selected.size))}</span>
       {/* Items table */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
@@ -431,7 +255,7 @@ function PrepWorkspace({rid}:{rid:number}) {
           )}
         </div>
       ) : (
-        <DataTable>
+        <DataTable className="list-table operational-table">
             <DataTableHead>
                 <DataTableSelectAllCell
                   checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
@@ -587,17 +411,9 @@ function PrepWorkspace({rid}:{rid:number}) {
         }:undefined}
       />
 
-      <StockFiltersDrawer
-        open={filtersDrawer.open}
-        initialView={filtersDrawer.view}
-        onClose={closeFiltersDrawer}
-        categories={categories}
-        selectedCategories={selectedCategories}
-        onCategoryChange={setSelectedCategories}
-        statuses={statuses}
-        selectedStatuses={selectedStatuses}
-        onStatusChange={setSelectedStatuses}
-      />
+      <ListFiltersDrawer open={filtersDrawer.open} initialView={filtersDrawer.view} onClose={closeFiltersDrawer} filters={listFilters}
+        onApply={values => { setSelectedCategories(values.category); setSelectedStatuses(values.status); }} />
+      <p className="mt-6 text-sm text-fg-secondary">{t('prepExpiryHint')}</p>
 
       {removing&&<PrepDeleteDialog rid={rid} items={removing} onClose={()=>setRemoving(null)} onSaved={async()=>{await reload();setSelected(previous=>new Set(Array.from(previous).filter(id=>!removing.some(item=>item.id===id))));}}/>}
       {/* Modals */}

@@ -1,4 +1,9 @@
 # Vérifications — 4 octobre 2026
+
+## Priorité actuelle : gabarit Square et refonte UX
+
+Le dernier lot local remplace la direction précédente par le gabarit de tableaux et la navigation intégrée demandés dans les captures Square. **189 scénarios navigateur ciblés et 641 tests unitaires passent ; lint, types et build réussissent.** Portée, preuves et limites dans [ux-reference-audit.md](ux-reference-audit.md). Les compteurs et choix visuels des sections ci-dessous sont des checkpoints historiques ; ils ne prouvent pas une migration exhaustive selon cette nouvelle direction. Le nouveau lot n’est pas déployé.
+
 ## Données cuisine et redirections — checkpoint compilé 307
 
 Lint (23 avertissements), types et build réussis avec exit 0 ; 597 tests unitaires ; 6 141 clés FR/EN/HE synchronisées. **307 scénarios passent**, 0 échec/skip/flaky. Début 2026-10-04T07:50:49.194Z, durée 366695.636 ms. Résultat courant `evidence/playwright-results.json`, précédent conservé dans `evidence/playwright-checkpoint-291.json`.
@@ -312,3 +317,20 @@ Origine d’un rayon existant préservée lors d’un changement de tarif, rempl
 629 tests unitaires passent ; lint avec20 avertissements préexistants restants (23 avant suppression), types et compilation réussis. Aucun import src alias non résolu. Le manifeste de compilation ne contient que website-v3 parmi les éditeurs. Les7 scénarios compilés réussissent sans échec/skip/flaky : redirections307 et conservation des query/restaurant2, accès au V3 existant sans écriture, refus sans settings.edit et404 des deux aperçus internes. Début2026-10-04T16:01:19.270Z, durée3288ms. Preuve `evidence/website-retirement-compiled-results.json`, journaux `/tmp/foody-website-retirement-{unit,lint,types,build,compiled}.log`.
 
 Cette passe prouve le retrait et la compatibilité des accès ; elle ne constitue pas la refonte visuelle de V3, toujours à réaliser. Le global505 et les lots précédents restent des checkpoints séparés. Aucun appel métier réel, commit, push ou déploiement.
+
+
+## Premier lot publié en développement
+
+Demande utilisateur explicite exécutée : commit `fe74c937ead44aa74c321aaaa4553dfab5a73052`, PR https://github.com/Foody-isr/admin/pull/452 fusionnée dans develop le2026-10-04 à16:11UTC (19:11Asia/Jerusalem), merge `2c1bede1b5ef2039037c07626f8d2d1bf8ea3173`. Arbre de fusion identique au commit validé. CI GitHub Audit/Test/Build et i18n réussis, prévisualisation Vercel réussie.
+
+Déploiement develop Vercel réussi, GitHub deployment6843408543, environnement Preview, URL https://admin-4ueehmmrc-mickaz.vercel.app. Adresse utilisateur https://dev-admin.foody-pos.co.il/login :HTTP200, écran FR rendu dans Chromium isolé, Manrope/Heebo chargés, champs email/mot de passe présents, aucune erreur runtime ni écriture. Favicon servi identique à la source fusionnée. Preuves `evidence/development-login-fr.png` et `evidence/development-login-verification.json`. Aucun parcours authentifié ni mutation métier réelle exécuté pour cette vérification.
+
+Suite locale sur `feat/admin-landing-alignment-next`, depuis le merge develop. Aucun push ultérieur de cette suite avant nouvelle demande de publication. Les12 types de pages restants et finitions transversales continuent ; Traiteur/Tournées demeurent reportés.
+
+## Lot local suivant — Dashboard de chaîne
+
+17/17 scénarios ciblés passent sur build compilé, sans échec/skip/flaky. Lint complet (20 avertissements préexistants), types, build et632 tests unitaires réussissent. i18n :6670 clés. Captures FR mobile, HE sombre et EN tablette dans evidence/chain-dashboard-*.png ; résultat `evidence/chain-dashboard-compiled-results.json`. Ce lot local suit le déploiement PR#452 et n’est pas publié. Le dernier global demeure505/505.
+
+## Lot local chaîne — deux routes
+
+38/38 scénarios compilés passent (21 établissements,17 dashboard), début2026-10-04T16:47:41.014Z, durée22517ms. Lint/types/build et632 tests unitaires réussissent,20 avertissements existants. 6696 clés i18n. Résultat `evidence/chain-compiled-results.json`. Ce lot n’est pas déployé. Le dernier global reste505/505.

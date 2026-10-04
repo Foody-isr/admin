@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, Copy, LayoutGrid, List, MoreHorizontal, Pencil, Plus, Search, Trash, Utensils, GripVertical } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, MoreHorizontal, Pencil, ListFilter, Trash, Utensils, GripVertical } from 'lucide-react';
 import { listMenus, reorderMenus, deleteMenu, duplicateMenu, getRestaurant, type Menu, type Restaurant } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
-import { Badge, Button, ConfirmDialog, EmptyState, PageHead } from '@/components/ds';
-import { FeatureIntro } from '@/components/help/FeatureIntro';
+import { Badge, Button, ConfirmDialog, EmptyState } from '@/components/ds';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableBody, DataTableRow, DataTableCell } from '@/components/data-table';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { ListToolbar } from '@/components/data-table';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 import MenuCreateModal from '@/components/menu/MenuCreateModal';
 
 /** Menus retain their sales channels, ordering and routes to their group editors. */
@@ -28,8 +30,10 @@ export default function MenusPage() {
   const [contextError, setContextError] = useState(false);
   const [actionError, setActionError] = useState('');
   const [search, setSearch] = useState('');
-  const [channel, setChannel] = useState<'all' | 'pos' | 'web'>('all');
-  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [selectedChannels, setSelectedChannels] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
+  const [filterView, setFilterView] = useState<string | null>(null);
+  const [view, setView] = useState<'grid' | 'list'>('list');
   const [reordering, setReordering] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -82,10 +86,10 @@ export default function MenusPage() {
   const toggleReorder = () => {
     if (!reordering) {
       originalOrder.current = [...menus];
-      setSearch(''); setChannel('all'); setView('grid'); setReordering(true); setActionError('');
+      setSearch(''); setSelectedChannels(new Set()); setSelectedStatuses(new Set()); setView('grid'); setReordering(true); setActionError('');
     } else void mutate(async () => { await reorderMenus(rid, menus.map(menu => menu.id)); setReordering(false); await reload(); });
   };
-  const filtered = menus.filter(menu => menu.name.toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)) && (channel === 'all' || (channel === 'pos' ? menu.pos_enabled : menu.web_enabled)));
+  const filtered = menus.filter(menu => menu.name.toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)) && (!selectedChannels.size || (selectedChannels.has('pos') && menu.pos_enabled) || (selectedChannels.has('web') && menu.web_enabled)) && (!selectedStatuses.size || selectedStatuses.has(menu.is_active ? 'active' : 'inactive')));
   const channels = (menu: Menu) => [menu.pos_enabled ? t('posSystem') : '', menu.web_enabled ? 'Web' : ''].filter(Boolean).join(' · ') || t('noChannels');
   const dayName = (day: number) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 0, 7 + day)));
   const hoursSummary = (menu: Menu) => menu.follows_restaurant_hours ? t('followsRestaurantHours') : menu.availability_hours?.filter(hour => !hour.is_closed).map(hour => `${dayName(hour.day_of_week)} ${hour.open_time}–${hour.close_time}`).join(' · ') || t('menuNoCustomHours');
@@ -99,20 +103,31 @@ export default function MenusPage() {
     </DropdownMenuContent>
   </DropdownMenu>;
 
-  return <div className="mx-auto max-w-6xl space-y-5">
-    <PageHead title={t('menus')} desc={t('carteDescription')} actions={canEdit && <>
-      {reordering && <Button variant="secondary" disabled={busy} onClick={() => { setMenus(originalOrder.current); setReordering(false); setActionError(''); }}>{t('cancel')}</Button>}
-      <Button variant="secondary" disabled={loading || !!error || busy || menus.length < 2} onClick={toggleReorder}>{busy && reordering ? t('saving') : reordering ? t('doneReordering') : t('reorder')}</Button>
-      <Button variant="primary" disabled={busy || reordering} onClick={() => setCreating(true)}><Plus />{t('createMenu')}</Button>
-    </>} />
-    <FeatureIntro feature="menus" />
+  const statusOptions = [{ value: 'active', label: t('active') }, { value: 'inactive', label: t('inactive') }];
+  const channelOptions = [{ value: 'pos', label: t('posSystem') }, { value: 'web', label: 'Web' }];
+  const listFilters = [
+    { id: 'channel', label: t('salesChannels'), options: channelOptions, selected: selectedChannels },
+    { id: 'status', label: t('listState'), options: statusOptions, selected: selectedStatuses },
+  ];
+  return <div className="min-w-0">
+    <h1 className="sr-only">{t('menus')}</h1>
+    <ListToolbar search={{ value: search, onChange: setSearch, label: t('search'), disabled: reordering }}
+      filters={<>
+        <ListFilterButton label={t('salesChannels')} disabled={reordering} value={selectedChannels.size || undefined} onClick={() => setFilterView('channel')} />
+        <ListStateFilter label={t('listState')} disabled={reordering} options={statusOptions} selected={selectedStatuses} onChange={setSelectedStatuses} />
+        <ListFilterButton label={t('allFilters')} disabled={reordering} icon={<ListFilter />} onClick={() => setFilterView('index')} />
+      </>}
+      primaryAction={canEdit && <Button disabled={busy || reordering} onClick={() => setCreating(true)}>{t('createMenu')}</Button>}
+      actions={<ActionsDropdown actions={[
+        { label: t('refresh'), disabled: busy || reordering || loading, onClick: () => void reload() },
+        { label: t(view === 'list' ? 'menuCardsView' : 'menuListView'), disabled: reordering, onClick: () => setView(view === 'list' ? 'grid' : 'list') },
+        ...(canEdit ? [{ label: t(reordering ? 'doneReordering' : 'reorder'), disabled: loading || !!error || busy || menus.length < 2, onClick: toggleReorder }] : []),
+        ...(reordering ? [{ label: t('cancel'), disabled: busy, onClick: () => { setMenus(originalOrder.current); setReordering(false); setView('list'); setActionError(''); } }] : []),
+      ]} />}
+    />
+    <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters} onApply={values => { setSelectedChannels(values.channel); setSelectedStatuses(values.status); }} />
     {actionError && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
     {contextError && !error && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-r-md bg-[var(--warning-50)] p-3 text-sm text-[var(--warning-500)]"><p className="flex-1">{t('menuRestaurantDetailsUnavailable')}</p><button type="button" disabled={loading || reordering} className="min-h-11 font-semibold underline" onClick={() => void reload()}>{t('retry')}</button></div>}
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="relative min-w-0 flex-[1_1_240px]"><label htmlFor="menu-search" className="sr-only">{t('searchByMenuName')}</label><Search aria-hidden className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-fg-secondary" /><input id="menu-search" className="input ps-10" placeholder={t('searchByMenuName')} disabled={reordering} value={search} onChange={event => setSearch(event.target.value)} /></div>
-      <div className="min-w-0 flex-[1_1_180px] sm:flex-none"><label htmlFor="menu-channel" className="sr-only">{t('salesChannels')}</label><select id="menu-channel" className="input min-w-0" value={channel} disabled={reordering} onChange={event => setChannel(event.target.value as typeof channel)}><option value="all">{t('salesChannels')} · {t('all')}</option><option value="pos">POS</option><option value="web">Web</option></select></div>
-      {!reordering && <div className="flex rounded-r-md border border-[var(--line-strong)]"><button type="button" aria-label={t('menuCardsView')} aria-pressed={view === 'grid'} onClick={() => setView('grid')} className={`grid size-11 place-items-center rounded-r-md ${view === 'grid' ? 'bg-[var(--summary-bg)] text-[var(--summary-fg)]' : 'text-fg-secondary'}`}><LayoutGrid className="size-4" /></button><button type="button" aria-label={t('menuListView')} aria-pressed={view === 'list'} onClick={() => setView('list')} className={`grid size-11 place-items-center rounded-r-md ${view === 'list' ? 'bg-[var(--summary-bg)] text-[var(--summary-fg)]' : 'text-fg-secondary'}`}><List className="size-4" /></button></div>}
-    </div>
     {loading ? <p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p>
       : error ? <div role="alert" className="rounded-r-lg border border-[var(--line)] p-5"><p className="mb-4 text-[var(--danger-500)]">{t(error)}</p><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>
       : !filtered.length ? <EmptyState icon={<Utensils />} title={t(menus.length ? 'noResults' : 'noMenusYet')} action={canEdit && !menus.length ? <Button variant="primary" onClick={() => setCreating(true)}>{t('createMenu')}</Button> : undefined} />
@@ -127,7 +142,7 @@ export default function MenusPage() {
           </div>
           {reordering ? <div className="flex shrink-0 flex-col gap-1"><button type="button" aria-label={`${t('moveUp')} · ${menu.name}`} disabled={busy || index === 0} onClick={() => moveMenu(menu.id, menus[index - 1].id)} className="grid size-11 place-items-center rounded-r-md border border-[var(--line)] hover:bg-[var(--surface-2)] disabled:opacity-30"><ArrowUp className="size-4" /></button><button type="button" aria-label={`${t('moveDown')} · ${menu.name}`} disabled={busy || index === menus.length - 1} onClick={() => moveMenu(menu.id, menus[index + 1].id)} className="grid size-11 place-items-center rounded-r-md border border-[var(--line)] hover:bg-[var(--surface-2)] disabled:opacity-30"><ArrowDown className="size-4" /></button></div> : actions(menu)}
         </article>)}
-      </div> : <DataTable>
+      </div> : <DataTable className="list-table">
         <DataTableHead><DataTableHeadCell>{t('name')}</DataTableHeadCell><DataTableHeadCell>{t('pointOfSale')}</DataTableHeadCell><DataTableHeadCell>{t('salesChannels')}</DataTableHeadCell><DataTableHeadSpacerCell /></DataTableHead>
         <DataTableBody>{filtered.map((menu, index) => <DataTableRow key={menu.id} index={index}><DataTableCell mobilePrimary><Link href={`/${rid}/menu/menus/${menu.id}`} className="font-semibold hover:underline">{menu.name}</Link></DataTableCell><DataTableCell mobileLabel={t('pointOfSale')} className="text-sm text-fg-secondary">{restaurant?.name ?? '—'}</DataTableCell><DataTableCell mobileLabel={t('salesChannels')} className="text-sm text-fg-secondary">{channels(menu)}</DataTableCell><DataTableCell>{actions(menu)}</DataTableCell></DataTableRow>)}</DataTableBody>
       </DataTable>}

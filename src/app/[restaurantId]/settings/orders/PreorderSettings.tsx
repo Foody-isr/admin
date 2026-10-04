@@ -9,7 +9,6 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, Input, Section, Select } from '@/components/ds';
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace';
-import { ordersSettingsNavigation } from './navigation';
 import { ModeCard, ServiceToggle } from './_components';
 
 const DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as const;
@@ -140,7 +139,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     return raw.length > 10 ? `${formatted} · ${raw.slice(11,16)}` : formatted;
   };
   const fieldProps = (id: string) => ({ id, 'aria-invalid': invalid?.id === id || undefined, 'aria-describedby': invalid?.id === id ? 'preorder-validation' : undefined });
-  return <SettingsWorkspace title={t('preorderTitle')} description={t('ordersPreordersDesc')} activeId="preorders" navLabel={t('ordersSettingsNavigation')} items={ordersSettingsNavigation(rid, t)}>
+  return <SettingsWorkspace title={t('preorderTitle')} description={t('ordersPreordersDesc')}>
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('preorderLoadFailed')}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div> : draft && <form onSubmit={save} noValidate className="space-y-6">
       {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
       <Section title={t('preorderTitle')} desc={t('preorderExplainer')}><div role="group" aria-label={t('preorderTitle')} className="grid gap-3 md:grid-cols-3">{(['off','slots','batch'] as const).map(mode => <ModeCard key={mode} title={t(mode === 'off' ? 'preorderModeOff' : mode === 'slots' ? 'preorderModeSlots' : 'preorderModeBatch')} desc={t(mode === 'off' ? 'preorderModeOffDesc' : mode === 'slots' ? 'preorderModeSlotsDesc' : 'preorderModeBatchDesc')} selected={draft.mode === mode} onClick={() => patch({ mode })} disabled={!canEdit || saving} />)}</div><p className="mt-4 text-sm leading-6 text-[var(--fg-muted)]">{t('preorderRetainedSettings')}</p></Section>

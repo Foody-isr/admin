@@ -1,0 +1,12 @@
+{
+  "url": "https://dev-admin.foody-pos.co.il/login",
+  "status": 200,
+  "headings": [
+    "Heureux de vous retrouver"
+  ],
+  "font": "Manrope, Heebo, Arial, sans-serif",
+  "emailFields": 1,
+  "passwordFields": 1,
+  "errors": [],
+  "blockedWrites": []
+}

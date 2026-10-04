@@ -9,6 +9,11 @@ const securityHeaders = [
 
 const nextConfig = {
   poweredByHeader: false,
+  webpack(config, { dev }) {
+    // Isolated UI verification can run without a persistent webpack disk cache.
+    if (dev && process.env.FOODY_PREVIEW_LOW_DISK === '1') config.cache = false;
+    return config;
+  },
   async redirects() {
     return [
       { source: "/:restaurantId/website", destination: "/:restaurantId/website-v3", permanent: false },
