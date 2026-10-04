@@ -22,7 +22,11 @@ import type {
 } from "@/lib/website-v3/inspector-scope";
 import { PageInspector } from "./PageInspector";
 import type { RailSelection } from "./PageRail";
+import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
+import { sectionBelongs } from "@/lib/website-v3/section-operations";
 import { SectionInspector } from "./SectionInspector";
+import { HeaderInspector } from "./HeaderInspector";
+import { FooterEditor } from "./FooterEditor";
 import { SiteInspector } from "./SiteInspector";
 
 /** Re-exported for the many components that already import it from here.
@@ -86,15 +90,8 @@ export function Inspector({
 }) {
   const { t } = useI18n();
   const page = useMemo(
-    () =>
-      selection.kind === "page" || selection.kind === "section"
-        ? (state.pages.find(
-            (candidate) =>
-              stablePageKey(candidate) ===
-              (selection.kind === "page" ? selection.key : selection.pageKey),
-          ) ?? null)
-        : null,
-    [selection, state.pages],
+    () => resolveSelectedPage(state, selection),
+    [selection, state],
   );
   const section =
     selection.kind === "section"
@@ -103,6 +100,12 @@ export function Inspector({
         ) ?? null)
       : null;
   const footer =
+    state.sections.find(
+      (candidate) =>
+        candidate.section_type === "footer" &&
+        page &&
+        sectionBelongs(candidate, page),
+    ) ??
     state.sections.find(
       (candidate) =>
         candidate.section_type === "footer" && candidate.page === "_site",
@@ -206,7 +209,33 @@ export function Inspector({
         </div>
       </div>
 
-      {selection.kind === "site" ? (
+      {selection.kind === "site" && selection.region === "header" ? (
+        <HeaderInspector
+          config={state.config}
+          pages={state.pages.filter(
+            (candidate) => !isTechnicalSitePage(candidate),
+          )}
+          restaurantLogoUrl={restaurantLogoUrl}
+          onChange={onConfigChange}
+          onPageVisibilityChange={(key, visible) =>
+            onPageChange(key, ["nav_visible"], visible)
+          }
+          onRestaurantLogoUpload={onRestaurantLogoUpload}
+          onRestaurantLogoRemove={onRestaurantLogoRemove}
+        />
+      ) : selection.kind === "site" && selection.region === "footer" ? (
+        footer ? (
+          <FooterEditor
+            footer={footer}
+            tab={tab === "appearance" ? "appearance" : "content"}
+            onChange={(path, value) =>
+              onSectionChange(stableSectionKey(footer), path, value)
+            }
+          />
+        ) : (
+          <p className="sqe-panel-body">{t("editorNoFooter")}</p>
+        )
+      ) : selection.kind === "site" ? (
         <SiteInspector
           tab={tab}
           config={state.config}

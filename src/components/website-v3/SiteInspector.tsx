@@ -667,7 +667,8 @@ function MissingFooter() {
   );
 }
 
-function RestaurantLogoUploader({
+/** Uploads or removes the shared restaurant logo and surfaces persistence errors. */
+export function RestaurantLogoUploader({
   currentUrl,
   onUpload,
   onRemove,

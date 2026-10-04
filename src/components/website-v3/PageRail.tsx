@@ -19,10 +19,8 @@ import type { DraftPagePayload } from "@/lib/website-v3/types";
 import { pageKey } from "@/lib/website-v3/types";
 import { publicAddressForPage } from "@/lib/website-v3/url-model";
 
-export type RailSelection =
-  | { kind: "site" }
-  | { kind: "page"; key: string }
-  | { kind: "section"; pageKey: string; sectionKey: string };
+import type { RailSelection } from "@/lib/website-v3/editor-selection";
+export type { RailSelection };
 
 export function PageRail({
   pages,
@@ -113,7 +111,10 @@ export function PageRail({
                       {page.title || "Sans titre"}
                     </span>
                     {page.is_default ? (
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#315fce]" title="Page principale" />
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#315fce]"
+                        title="Page principale"
+                      />
                     ) : null}
                   </span>
                   <span className="block truncate text-[11px] text-slate-400">

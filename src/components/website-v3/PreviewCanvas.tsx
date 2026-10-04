@@ -18,6 +18,10 @@ import type {
   DraftStatePayload,
   PreviewDevice,
 } from "@/lib/website-v3/types";
+import {
+  acceptsInlineEdit,
+  isEditorElement,
+} from "@/lib/website-v3/editor-elements";
 import { pageKey, sectionKey } from "@/lib/website-v3/types";
 
 export function PreviewCanvas({
@@ -27,6 +31,14 @@ export function PreviewCanvas({
   state,
   activePage,
   activeSectionKey,
+  activeField,
+  activeRegion,
+  onSelectRegion,
+  hoveredSectionKey,
+  onHoverSection,
+  onEditElement,
+  onEditRejected,
+  onClearSelection,
   previewOnly = false,
   device,
   surface,
@@ -42,6 +54,14 @@ export function PreviewCanvas({
   state: DraftStatePayload;
   activePage: DraftPagePayload;
   activeSectionKey?: string;
+  activeField?: string;
+  activeRegion?: "header" | "footer";
+  onSelectRegion?: (region: "header" | "footer") => void;
+  hoveredSectionKey?: string | null;
+  onHoverSection: (key: string | null) => void;
+  onEditElement: (key: string, field: string, value: string) => void;
+  onClearSelection: () => void;
+  onEditRejected?: () => void;
   previewOnly?: boolean;
   device: PreviewDevice;
   /** Owned by the builder so the inspector can scope its fields to the surface
@@ -57,7 +77,7 @@ export function PreviewCanvas({
     activePageKey: string;
     device: PreviewDevice;
   }) => void;
-  onSelectSection: (sectionKey: string) => void;
+  onSelectSection: (sectionKey: string, field?: string) => void;
   onNavigatePage: (pageKey: string) => void;
   onAddSection: (type: string) => void;
   onMoveSection: (sectionKey: string, direction: -1 | 1) => void;
@@ -65,8 +85,20 @@ export function PreviewCanvas({
   onDeleteSection: (sectionKey: string) => void;
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const editorModeRef = useRef({ previewOnly, activeSectionKey });
-  editorModeRef.current = { previewOnly, activeSectionKey };
+  const editorModeRef = useRef({
+    previewOnly,
+    activeSectionKey,
+    activeField,
+    activeRegion,
+    hoveredSectionKey,
+  });
+  editorModeRef.current = {
+    previewOnly,
+    activeSectionKey,
+    activeField,
+    activeRegion,
+    hoveredSectionKey,
+  };
   const readyRef = useRef(false);
   const protocolRef = useRef<"v3" | "legacy" | null>(null);
   const latestRef = useRef({
@@ -91,6 +123,9 @@ export function PreviewCanvas({
           type: "foody.website-v3.editor-mode",
           previewOnly: editorModeRef.current.previewOnly,
           sectionKey: editorModeRef.current.activeSectionKey ?? null,
+          field: editorModeRef.current.activeField ?? null,
+          region: editorModeRef.current.activeRegion ?? null,
+          hoveredSectionKey: editorModeRef.current.hoveredSectionKey ?? null,
         },
         targetOrigin,
       ),
@@ -110,7 +145,14 @@ export function PreviewCanvas({
   useEffect(() => {
     if (readyRef.current) postEditorMode();
     // The mode is separate from the persisted draft and never invalidates autosave.
-  }, [previewOnly, activeSectionKey, postEditorMode]);
+  }, [
+    previewOnly,
+    activeSectionKey,
+    activeField,
+    activeRegion,
+    hoveredSectionKey,
+    postEditorMode,
+  ]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -169,13 +211,63 @@ export function PreviewCanvas({
       }
       if (
         !previewOnly &&
-        event.data?.type === "foody.website-v3.select-section"
+        event.data?.type === "foody.website-v3.select-region"
       ) {
-        const id = String(event.data.sectionKey ?? "");
-        const section = latestRef.current.state.sections.find(
-          (candidate) => sectionKey(candidate) === id,
+        if (event.data.activePageKey !== pageKey(latestRef.current.activePage))
+          return;
+        if (event.data.region === "header" || event.data.region === "footer")
+          onSelectRegion?.(event.data.region);
+        return;
+      }
+      if (
+        !previewOnly &&
+        [
+          "foody.website-v3.select-section",
+          "foody.website-v3.hover-section",
+          "foody.website-v3.edit-element",
+        ].includes(event.data?.type)
+      ) {
+        const latest = latestRef.current;
+        if (event.data.activePageKey !== pageKey(latest.activePage)) return;
+        const id = event.data.sectionKey;
+        if (id === null) {
+          if (event.data.type === "foody.website-v3.hover-section")
+            onHoverSection(null);
+          else if (event.data.type === "foody.website-v3.select-section")
+            onClearSelection();
+          return;
+        }
+        const section = latest.state.sections.find(
+          (candidate) =>
+            sectionKey(candidate) === id &&
+            (candidate.page_id !== undefined
+              ? candidate.page_id === latest.activePage.id
+              : candidate.page_tmp_id
+                ? candidate.page_tmp_id === latest.activePage.tmp_id
+                : candidate.page === latest.activePage.slug),
         );
-        if (section) onSelectSection(id);
+        if (!section) {
+          if (
+            event.data.type === "foody.website-v3.hover-section" &&
+            (id === "site:header" || id === "site:footer")
+          )
+            onHoverSection(id);
+          return;
+        }
+        if (event.data.type === "foody.website-v3.hover-section")
+          onHoverSection(id);
+        else if (event.data.type === "foody.website-v3.edit-element") {
+          if (acceptsInlineEdit(section, event.data))
+            onEditElement(id, event.data.field, event.data.value);
+          else if (isEditorElement(section.section_type, event.data.field))
+            onEditRejected?.();
+        } else
+          onSelectSection(
+            id,
+            isEditorElement(section.section_type, event.data.field)
+              ? event.data.field
+              : undefined,
+          );
         return;
       }
       if (isWebsiteV3NavigateMessage(event.data)) {
@@ -202,6 +294,11 @@ export function PreviewCanvas({
     onAcknowledged,
     onNavigatePage,
     onSelectSection,
+    onSelectRegion,
+    onHoverSection,
+    onEditElement,
+    onEditRejected,
+    onClearSelection,
     previewOnly,
     restaurantId,
     surface,
@@ -375,7 +472,34 @@ export function componentGroupsForPage(
 
 const COMPONENT_GROUPS: readonly ComponentGroup[] = [
   {
-    label: "Mise en page",
+    label: "editorSell",
+    items: [
+      {
+        type: "menu_highlights",
+        label: "Produits populaires",
+        description: "Met en avant une sélection de produits.",
+      },
+      {
+        type: "promo_banner",
+        label: "Bannière promotionnelle",
+        description: "Annonce une offre ou un événement.",
+      },
+      {
+        type: "picnic_basket",
+        label: "Panier animé",
+        description: "Composition visuelle et produits flottants.",
+      },
+      {
+        type: "order_discovery",
+        label: "Découverte & publicité",
+        description: "Présente vos autres services directement dans le menu.",
+        pageTypes: ["order"],
+        singleInstance: true,
+      },
+    ],
+  },
+  {
+    label: "editorOrganize",
     items: [
       {
         type: "hero_banner",
@@ -388,62 +512,14 @@ const COMPONENT_GROUPS: readonly ComponentGroup[] = [
         description: "Présente une histoire, un lieu ou un service.",
       },
       {
-        type: "feature_cards",
-        label: "Cartes visuelles",
-        description: "Liens illustrés vers les pages importantes.",
+        type: "scrolling_text",
+        label: "Texte défilant",
+        description: "Message animé pour une information courte.",
       },
-      {
-        type: "footer",
-        label: "Pied de page",
-        description: "Coordonnées, horaires et liens du restaurant.",
-        singleInstance: true,
-      },
-      {
-        type: "about",
-        label: "À propos",
-        description: "Plusieurs blocs éditoriaux avec images.",
-      },
-    ],
-  },
-  {
-    label: "Médias",
-    items: [
       {
         type: "gallery",
         label: "Galerie",
         description: "Grille de photos réordonnables.",
-      },
-      {
-        type: "menu_highlights",
-        label: "Produits populaires",
-        description: "Met en avant une sélection de produits.",
-      },
-      {
-        type: "picnic_basket",
-        label: "Panier animé",
-        description: "Composition visuelle et produits flottants.",
-      },
-      {
-        type: "social_feed",
-        label: "Réseaux sociaux",
-        description: "Liens vers Instagram, Facebook et TikTok.",
-      },
-    ],
-  },
-  {
-    label: "Conversion",
-    items: [
-      {
-        type: "order_discovery",
-        label: "Découverte & publicité",
-        description: "Présente vos autres services directement dans le menu.",
-        pageTypes: ["order"],
-        singleInstance: true,
-      },
-      {
-        type: "promo_banner",
-        label: "Bannière promotionnelle",
-        description: "Annonce une offre ou un événement.",
       },
       {
         type: "action_buttons",
@@ -451,14 +527,40 @@ const COMPONENT_GROUPS: readonly ComponentGroup[] = [
         description: "Commande, traiteur, lien externe ou ancre.",
       },
       {
+        type: "feature_cards",
+        label: "Cartes visuelles",
+        description: "Liens illustrés vers les pages importantes.",
+      },
+    ],
+  },
+  {
+    label: "editorInform",
+    items: [
+      {
+        type: "about",
+        label: "À propos",
+        description: "Plusieurs blocs éditoriaux avec images.",
+      },
+      {
         type: "testimonials",
         label: "Avis clients",
         description: "Affiche plusieurs témoignages et notes.",
       },
+    ],
+  },
+  {
+    label: "editorCommunicate",
+    items: [
       {
-        type: "scrolling_text",
-        label: "Texte défilant",
-        description: "Message animé pour une information courte.",
+        type: "footer",
+        label: "Pied de page",
+        description: "Coordonnées, horaires et liens du restaurant.",
+        singleInstance: true,
+      },
+      {
+        type: "social_feed",
+        label: "Réseaux sociaux",
+        description: "Liens vers Instagram, Facebook et TikTok.",
       },
     ],
   },

@@ -275,7 +275,8 @@ function HeroEditor({
   );
 }
 
-function VideoUploadField({
+/** Uploads a hero video while preserving its poster image. */
+export function VideoUploadField({
   restaurantId,
   currentUrl,
   posterUrl,
@@ -940,7 +941,8 @@ function TextField({
   );
 }
 
-function ImageUploadField({
+/** Uploads a section image with visible progress and failure feedback. */
+export function ImageUploadField({
   restaurantId,
   label,
   fieldId,
