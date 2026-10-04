@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState, useId } from 'react';
 import { ArrowRight, Clock3, PackageCheck } from 'lucide-react';
 import {
   listAvailabilityRules,
@@ -13,7 +13,7 @@ import {
   ImmediateSaleMode,
   MenuItem,
 } from '@/lib/api';
-import { Field, Select } from '@/components/ds';
+import { Button, Field, Select } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -43,44 +43,12 @@ function Segmented<T extends string>({
   onChange: (v: T) => void;
   disabled?: boolean;
 }) {
-  return (
-    <div
-      role="radiogroup"
-      className="inline-flex rounded-lg p-[3px]"
-      style={{ background: 'color-mix(in oklab, var(--fg) 6%, transparent)' }}
-    >
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value || '_'}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            disabled={disabled}
-            onClick={() => {
-              if (!disabled && o.value !== value) onChange(o.value);
-            }}
-            className={cn(
-              'px-[var(--s-3)] h-7 rounded-[6px] text-fs-xs font-semibold transition-all duration-150',
-              active ? 'text-[var(--brand-500)]' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-              disabled && 'cursor-not-allowed opacity-60',
-            )}
-            style={
-              active
-                ? {
-                    background: 'color-mix(in oklab, var(--brand-500) 14%, var(--surface))',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                  }
-                : undefined
-            }
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+  const id = useId();
+  return <div className="flex flex-wrap gap-1 rounded-r-md bg-[var(--surface-2)] p-1">
+    {options.map(option => <label key={option.value || '_'} className={cn('relative flex min-h-11 cursor-pointer items-center gap-2 rounded-r-md px-3 text-sm', option.value === value ? 'bg-[var(--surface)] text-[var(--brand-ink)]' : 'text-fg-secondary', disabled && 'cursor-not-allowed opacity-60')}>
+      <input type="radio" name={id} value={option.value} checked={option.value === value} disabled={disabled} onChange={() => onChange(option.value)} className="size-4 accent-[var(--brand-500)]" />{option.label}
+    </label>)}
+  </div>;
 }
 
 // Number entry with the unit as an integrated suffix (hairline-divided) rather
@@ -92,6 +60,7 @@ function StockValueField({
   unitLabel,
   disabled,
   width,
+  label,
   onChange,
 }: {
   value: number;
@@ -99,11 +68,13 @@ function StockValueField({
   unitLabel: string;
   disabled?: boolean;
   width: string;
+  label: string;
   onChange: (v: number) => void;
 }) {
   return (
     <div className="inline-flex items-stretch overflow-hidden rounded-md border border-[var(--line-strong)] bg-[var(--surface)] transition-colors focus-within:border-[var(--brand-500)]">
       <NumberInput
+        aria-label={label}
         integer={integer}
         min={0}
         value={value}
@@ -111,7 +82,7 @@ function StockValueField({
         onChange={onChange}
         placeholder="0"
         className={cn(
-          'h-10 bg-transparent px-[var(--s-3)] text-fs-sm tabular-nums text-[var(--fg)] focus:outline-none',
+          'h-11 bg-transparent px-[var(--s-3)] text-fs-sm tabular-nums text-[var(--fg)] focus:outline-none',
           width,
         )}
       />
@@ -141,7 +112,7 @@ interface Props {
    *  Seeds the unit for a not-yet-configured item that has weighted sizes. */
   defaultStockUnit?: StockUnit;
   /** Called after a successful save so the parent can refresh its copy. */
-  onSaved?: () => void;
+  onSaved?: () => void | Promise<void>;
 }
 
 // Layout aligned with Article (MenuItemTabDetails) and Composition tabs:
@@ -162,6 +133,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
   // Any user edit on this tab flips this; the parent's Save only commits when dirty.
   const [dirty, setDirty] = useState(false);
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(true);
+  const [rulesError, setRulesError] = useState('');
+  const [rulesAttempt, setRulesAttempt] = useState(0);
   const [ruleId, setRuleId] = useState<number>(item.availability_rule_id ?? 0); // 0 = inherit
   const [override, setOverride] = useState<AvailabilityOverride>(item.availability_override ?? 'auto');
   // Manual stock count (predefined stock): null = not tracked. `stockTracked`
@@ -286,9 +260,14 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
   }, [rid, itemId]);
 
   useEffect(() => {
-    listAvailabilityRules(rid).then(setRules).catch(() => setRules([]));
-    loadPreview();
-  }, [rid, loadPreview]);
+    let alive = true;
+    setRulesLoading(true); setRulesError('');
+    listAvailabilityRules(rid).then(value => { if (alive) setRules(value); })
+      .catch(cause => { if (alive) setRulesError(cause instanceof Error ? cause.message : 'libraryOperationFailed'); })
+      .finally(() => { if (alive) setRulesLoading(false); });
+    void loadPreview();
+    return () => { alive = false; };
+  }, [rid, loadPreview, rulesAttempt]);
 
   // Coalesce "pinned to the rule that IS the restaurant default" into "inherit".
   // The two are equivalent, and inherit is the canonical, future-proof form — so
@@ -316,6 +295,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
   // so the parent's Save flow surfaces it.
   const doSave = useCallback(async () => {
     if (!canEdit) return;
+    if (rulesLoading || rulesError) throw new Error(t('itemAvailabilityLoadRequired'));
     const availability = {
       availability_rule_id: ruleId, // 0 clears to inherit
       availability_override: override,
@@ -358,7 +338,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     }
     setDirty(false);
     await loadPreview();
-    onSaved?.();
+    await onSaved?.();
   }, [
     canEdit,
     rid,
@@ -378,6 +358,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     fieldToCount,
     loadPreview,
     onSaved,
+    rulesLoading,
+    rulesError,
+    t,
   ]);
 
   useImperativeHandle(ref, () => ({ save: doSave, isDirty: () => dirty }), [doSave, dirty]);
@@ -448,11 +431,14 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     { value: 'standalone', label: t('saleModeStandalone'), desc: t('saleModeStandaloneDesc') },
   ];
 
+  if (rulesLoading) return <p role="status" className="p-5 text-sm text-fg-secondary">{t('loading')}</p>;
+  if (rulesError) return <div role="alert" className="max-w-4xl space-y-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5 text-sm"><p className="text-[var(--danger-500)]">{t('itemAvailabilityLoadRequired')}</p><p className="text-fg-secondary">{t(rulesError)}</p><Button variant="secondary" onClick={() => setRulesAttempt(value => value+1)}>{t('retry')}</Button></div>;
+
   return (
     <div className="max-w-4xl flex flex-col gap-[var(--s-5)]">
       {/* Brand-accent header — matches Composition tab. */}
       <div className="flex flex-col gap-[var(--s-2)]">
-        <div className="flex items-center gap-[var(--s-3)]">
+        <div className="flex flex-wrap items-center gap-[var(--s-3)]">
           <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
           <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabStock')}</h3>
         </div>
@@ -484,6 +470,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
               <button
                 type="button"
                 disabled={!canEdit}
+                aria-pressed={selected}
                 onClick={() => {
                   if (!canEdit) return;
                   setOverride(m.value);
@@ -519,10 +506,11 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
               </button>
 
               {selected && m.value === 'auto' && (
-                <div className="mt-[var(--s-3)] ms-[calc(1rem+var(--s-3))] rounded-r-md border border-[var(--line)] bg-[var(--surface-2,var(--surface))] p-[var(--s-4)] flex flex-col gap-[var(--s-2)]">
-                  <div className="flex items-end justify-between gap-[var(--s-3)]">
+                <div className="mt-[var(--s-3)] sm:ms-[calc(1rem+var(--s-3))] rounded-r-md border border-[var(--line)] bg-[var(--surface-2,var(--surface))] p-[var(--s-4)] flex flex-col gap-[var(--s-2)]">
+                  <div className="flex flex-wrap items-end justify-between gap-[var(--s-3)]">
                     <Field label={t('availabilityRuleField')}>
                       <Select
+                        aria-label={t('availabilityRuleField')}
                         value={String(ruleId)}
                         disabled={!canEdit}
                         onChange={(e) => {
@@ -546,7 +534,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
                     </Field>
                     <a
                       href={`/${rid}/settings/stock/availability`}
-                      className="shrink-0 pb-[10px] inline-flex items-center gap-1 text-fs-xs font-medium text-[var(--brand-500)] hover:underline"
+                      className="shrink-0 pb-[10px] inline-flex items-center gap-1 text-fs-xs font-medium text-[var(--brand-ink)] hover:underline"
                     >
                       {t('availabilityManageRules')} <ArrowRight className="w-3 h-3" />
                     </a>
@@ -570,7 +558,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
                           if (on) setStockMode('shared');
                           setDirty(true);
                         }}
-                        className="mt-0.5 accent-[var(--brand-500)]"
+                        className="mt-0.5 size-5 shrink-0 accent-[var(--brand-500)]"
                       />
                       <span className="min-w-0">
                         <span className="block text-fs-sm font-semibold text-[var(--fg)]">
@@ -582,14 +570,14 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
                       </span>
                     </label>
                     {stockTracked && (
-                      <div className="ms-[calc(1rem+var(--s-3))] flex flex-col gap-[var(--s-4)]">
+                      <div className="sm:ms-[calc(1rem+var(--s-3))] flex flex-col gap-[var(--s-4)]">
                         {/* "How you count" — distribution (shared/per-size) and unit,
                             as an aligned two-row cluster. Each control only appears
                             when it's meaningful for this item. */}
                         {(hasOptionSizes || hasWeightedSizes) && (
                           <div className="flex flex-col gap-[var(--s-3)]">
                             {hasOptionSizes && (
-                              <div className="flex items-center gap-[var(--s-3)]">
+                              <div className="flex flex-wrap items-center gap-[var(--s-3)]">
                                 <span className="w-[5.5rem] shrink-0 text-fs-xs font-medium text-[var(--fg-muted)]">
                                   {t('manualStockDistributionLabel')}
                                 </span>
@@ -610,7 +598,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
                             {/* Unit — only when every size has a parseable weight, so
                                 weight always deducts correctly. */}
                             {hasWeightedSizes && (
-                              <div className="flex items-center gap-[var(--s-3)]">
+                              <div className="flex flex-wrap items-center gap-[var(--s-3)]">
                                 <span className="w-[5.5rem] shrink-0 text-fs-xs font-medium text-[var(--fg-muted)]">
                                   {t('manualStockUnitLabel')}
                                 </span>
@@ -638,6 +626,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
                               {t('manualStockField')}
                             </span>
                             <StockValueField
+                              label={t('manualStockField')}
                               value={stockValue}
                               integer={stockUnit !== 'kg'}
                               unitLabel={unitLabel}
@@ -668,7 +657,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
                                 const portions =
                                   stockUnit === '' ? null : fieldToCount(o.id, perSizeField[o.id] ?? 0, stockUnit);
                                 return (
-                                  <div key={o.id} className="flex items-center gap-[var(--s-3)]">
+                                  <div key={o.id} className="flex flex-wrap items-center gap-[var(--s-3)]">
                                     <span className="min-w-0 flex-1 truncate text-fs-sm font-medium text-[var(--fg)]">
                                       {o.name}
                                       {o.portion ? (
@@ -683,13 +672,14 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
                                         className="shrink-0 rounded-full px-[var(--s-2)] py-0.5 text-fs-micro font-semibold"
                                         style={{
                                           background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
-                                          color: 'var(--brand-500)',
+                                          color: 'var(--brand-ink)',
                                         }}
                                       >
                                         ≈ {portions} {t('availabilityPortions')}
                                       </span>
                                     )}
                                     <StockValueField
+                                      label={`${t('manualStockField')} — ${o.name}`}
                                       value={perSizeField[o.id] ?? 0}
                                       integer={stockUnit !== 'kg'}
                                       unitLabel={unitLabel}
@@ -725,7 +715,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
             className="w-9 h-9 rounded-r-md grid place-items-center shrink-0"
             style={{
               background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
-              color: 'var(--brand-500)',
+              color: 'var(--brand-ink)',
             }}
           >
             <Clock3 className="w-4 h-4" />
@@ -742,6 +732,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
           <button
             type="button"
             disabled={!canEdit}
+            aria-pressed={leadTimeMinutes == null}
             onClick={() => {
               setLeadTimeMinutes(null);
               setDirty(true);
@@ -758,6 +749,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
           <button
             type="button"
             disabled={!canEdit}
+            aria-pressed={leadTimeMinutes != null}
             onClick={() => {
               setLeadTimeMinutes(leadTimeMinutes ?? 1440);
               setDirty(true);
@@ -776,17 +768,18 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
         {leadTimeMinutes != null && (
           <div className="rounded-r-md border border-[var(--line)] p-[var(--s-4)] flex flex-col gap-[var(--s-3)]">
             <Field label={t('itemPreparationDelay')}>
-              <div className="flex items-center gap-[var(--s-2)]">
+              <div className="flex flex-wrap items-center gap-[var(--s-2)]">
                 <NumberInput
                   integer
                   min={0}
+                  aria-label={t('itemPreparationDelay')}
                   value={Math.round(leadTimeMinutes / 60)}
                   disabled={!canEdit}
                   onChange={(hours) => {
                     setLeadTimeMinutes(Math.max(0, Math.round(hours)) * 60);
                     setDirty(true);
                   }}
-                  className="h-10 w-24 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] font-mono"
+                  className="h-11 w-24 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] font-mono"
                 />
                 <span className="text-fs-sm text-[var(--fg-muted)]">{t('hours')}</span>
                 <div className="flex flex-wrap gap-1 ms-[var(--s-2)]">
@@ -799,7 +792,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
                         setLeadTimeMinutes(hours * 60);
                         setDirty(true);
                       }}
-                      className="rounded-full border border-[var(--line)] px-[var(--s-2)] py-1 text-fs-xs font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)]"
+                      className="min-h-11 rounded-r-md border border-[var(--line)] px-3 py-2 text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-ink)]"
                     >
                       {hours === 0 ? t('itemPreparationSameDay') : `${hours} h`}
                     </button>
@@ -826,6 +819,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
               key={m.value || '_'}
               type="button"
               disabled={disabled}
+              aria-pressed={selected}
               onClick={() => {
                 if (!canEdit || disabled || m.value === immediateSaleMode) return;
                 setImmediateSaleMode(m.value);

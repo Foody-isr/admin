@@ -1,1631 +1,209 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  listMenus, getAllCategories, createGroup, updateGroup,
-  getGroupHours, setGroupHours, addItemsToGroup, removeItemFromGroup,
-  uploadGroupImage,
-  listGroupMemberships,
-  getRestaurant,
-  Menu, MenuGroup, MenuCategory, MenuItem, GroupAvailabilityHour,
-  MenuGroupMembership,
-  TranslationMap,
-} from '@/lib/api';
-import { isMembershipActiveOn } from '@/lib/membership';
+import { Plus, Image as ImageIcon, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
+import { listMenus, getAllCategories, getRestaurant, getGroupHours, listGroupMemberships, createGroup, updateGroup, setGroupHours, addItemsToGroup, removeItemFromGroup, uploadGroupImage, type Menu, type MenuItem, type MenuCategory, type GroupAvailabilityHour, type MenuGroupMembership, type TranslationMap } from '@/lib/api';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { XIcon, SearchIcon, PlusIcon, ChevronRightIcon } from 'lucide-react';
+import { isMembershipActiveOn } from '@/lib/membership';
+import { addDays, clampWeekStartDay, getEffectiveWorkdays, getWeekStart, isoDate, workdaySpan, type WeekStartDay } from '@/lib/weeks';
+import { Button, FullScreenEditor, ConfirmDialog } from '@/components/ds';
+import Modal from '@/components/Modal';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 import { LocaleEditingBanner } from '@/components/i18n/LocaleEditingBanner';
-import {
-  addDays, clampWeekStartDay, getEffectiveWorkdays, getWeekStart, isoDate,
-  workdaySpan, type WeekStartDay,
-} from '@/lib/weeks';
+import { MenuHoursEditor, menuHoursAreComplete } from '@/components/menu/MenuHoursEditor';
+import { GroupSelectionDialog } from '@/components/menu/GroupSelectionDialog';
+import { ReplaceItemsModal } from '@/components/menu/CarteItemDialogs';
 
-const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
+const LOCALES: Locale[] = ['en', 'he', 'fr'];
+type Draft = { name: string; translations: TranslationMap; parentId?: number; menuId: number; follows: boolean; hidden: boolean; pos: boolean; web: boolean; hours: GroupAvailabilityHour[] };
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-// ─── Week helpers (weekly rotation editor) ───────────────────────────────────
-// `isMembershipActiveOn` lives in @/lib/membership and is shared with the
-// carte detail page's batch-aware filtering.
-
-// ─── Modal types ────────────────────────────────────────────────────────────
-
-type ModalView = null | 'addChoice' | 'pickItems' | 'pickCategory' | 'replaceItems';
-
-// ─── Main page ──────────────────────────────────────────────────────────────
-
+/** Keeps group details, library categories and dated memberships in their own scopes. */
 export default function GroupPage() {
-  const { money } = useCurrency();
   const { restaurantId, menuId, groupId } = useParams();
-  const rid = Number(restaurantId);
-  const mid = Number(menuId);
-  const isNew = groupId === 'new';
-  const gid = isNew ? null : Number(groupId);
-  const router = useRouter();
-  const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canEdit = hasAnyPermission('menu.edit');
+  return <GroupEditor key={`${restaurantId}.${menuId}.${groupId}`} />;
+}
 
-  const [allCats, setAllCats] = useState<MenuCategory[]>([]);
-  const [allMenus, setAllMenus] = useState<Menu[]>([]);
-  const [menu, setMenu] = useState<Menu | null>(null);
-  const [groups, setGroups] = useState<MenuGroup[]>([]);
-  const [selectedMenuId, setSelectedMenuId] = useState<number>(mid);
-  const [showMenuPicker, setShowMenuPicker] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  // Editable fields
-  const [name, setName] = useState('');
-  const [translations, setTranslations] = useState<TranslationMap>({});
-  const [sourceLocale, setSourceLocale] = useState<Locale>('en');
-  const [activeLocale, setActiveLocale] = useState<Locale>('en');
-  const [parentId, setParentId] = useState<number | undefined>(undefined);
-  const [showParent, setShowParent] = useState(false);
-  const [followsMenuHours, setFollowsMenuHours] = useState(true);
-  const [isHidden, setIsHidden] = useState(false);
-  const [posEnabled, setPosEnabled] = useState(true);
-  const [webEnabled, setWebEnabled] = useState(true);
-  const [hours, setHours] = useState<GroupAvailabilityHour[]>([]);
-
-  const [imageUrl, setImageUrl] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Inline editor visibility
-  const [showHoursEditor, setShowHoursEditor] = useState(false);
-
-  // Modal state
-  const [modalView, setModalView] = useState<ModalView>(null);
-
-  // Multi-select state for the articles list. When non-empty an action bar
-  // appears offering batch operations (currently: step-by-step Replace).
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
-
-  // Pending items to assign on save (for new groups)
-  const [pendingItemIds, setPendingItemIds] = useState<Set<number>>(new Set());
-
-  // Weekly rotation: full list of memberships with date bounds. The page
-  // filters this list against the selected week so the operator can edit
-  // past, current, or future week states from one view.
+function GroupEditor() {
+  const params = useParams();
+  const rid = Number(params.restaurantId); const mid = Number(params.menuId);
+  const isNew = params.groupId === 'new'; const gid = isNew ? null : Number(params.groupId);
+  const { t } = useI18n(); const { money } = useCurrency(); const router = useRouter();
+  const { hasAnyPermission } = usePermissions(); const canEdit = hasAnyPermission('menu.edit');
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [menus, setMenus] = useState<Menu[]>([]); const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [memberships, setMemberships] = useState<MenuGroupMembership[]>([]);
-  // First day of the week for this restaurant (0=Sun … 6=Sat). Loaded with
-  // the restaurant; until then we use Monday so the UI never renders an
-  // undefined boundary. Overwritten by the value coming back from the API.
-  const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
-  // Operating days inside each 7-day window. Defaults to all 7 (no filter)
-  // until the restaurant loads; then resolved via getEffectiveWorkdays so the
-  // operator's "follow opening hours" preference applies automatically.
-  const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
-  // `selectedWeekStart` is the YYYY-MM-DD of the first day of the week being
-  // edited. Defaults to the current week and is rebased onto the configured
-  // week-start day once the restaurant loads.
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(() => isoDate(getWeekStart(new Date(), 1)));
+  const [source, setSource] = useState<Locale>('en'); const [editingLocale, setEditingLocale] = useState<Locale>('en');
+  const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1); const [workdays, setWorkdays] = useState<number[]>([0,1,2,3,4,5,6]);
+  const [week, setWeek] = useState(() => isoDate(getWeekStart(new Date(), 1)));
+  const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState('');
+  const [saving, setSaving] = useState(false); const [error, setError] = useState('');
+  const [imageUrl, setImageUrl] = useState(''); const [uploading, setUploading] = useState(false); const [imageError, setImageError] = useState('');
+  const [pending, setPending] = useState(new Set<number>()); const [selected, setSelected] = useState(new Set<number>());
+  const [picker, setPicker] = useState<'items' | 'categories' | 'replace' | null>(null);
+  const [removal, setRemoval] = useState<MenuItem | null>(null); const [removeScope, setRemoveScope] = useState<'week' | 'all'>('week'); const [removeError, setRemoveError] = useState(''); const [removing, setRemoving] = useState(false);
+  const [navigation, setNavigation] = useState<string | null>(null);
+  const busy = useRef(false); const savedId = useRef(gid); const baseline = useRef('');
+  const [persistedParent, setPersistedParent] = useState<number | undefined>();
+  const guardRef = useRef(new RestaurantRequestGuard()); guardRef.current.enterRestaurant(rid);
+  const form = useRef<HTMLFormElement>(null); const file = useRef<HTMLInputElement>(null);
+  const replacementProgress = useRef({ removed: new Set<number>(), added: new Set<number>() });
+  const dirty = !!draft && (!!pending.size || JSON.stringify(draft) !== baseline.current);
+  const update = (patch: Partial<Draft>) => setDraft(current => current ? { ...current, ...patch } : current);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([listMenus(rid), getAllCategories(rid), getRestaurant(rid)]).then(async ([menus, fullCats, restaurant]) => {
-      setAllCats(fullCats);
-      setAllMenus(menus);
-      const dl = restaurant.default_locale;
-      const resolved: Locale = dl === 'en' || dl === 'he' || dl === 'fr' ? dl : 'en';
-      setSourceLocale(resolved);
-      setActiveLocale(resolved);
-      const wsd = clampWeekStartDay(restaurant.week_start_day);
-      setWeekStartDay(wsd);
-      setWorkdays(getEffectiveWorkdays(restaurant));
-      // Rebase the selected week onto the configured start day. The initial
-      // default assumed Monday — if the restaurant uses Sunday, this slides
-      // the picker back one day so the labels line up with the workweek.
-      setSelectedWeekStart(isoDate(getWeekStart(new Date(), wsd)));
-      const found = menus.find((m) => m.id === mid);
-      setMenu(found ?? null);
-      const grps = found?.groups ?? [];
-      setGroups(grps);
-      if (!isNew && gid) {
-        const editing = grps.find((g) => g.id === gid);
-        if (editing) {
-          setName(editing.name);
-          setTranslations(editing.translations ?? {});
-          setImageUrl(editing.image_url ?? '');
-          setParentId(editing.parent_id ?? undefined);
-          setShowParent(!!editing.parent_id);
-          setFollowsMenuHours(editing.follows_menu_hours ?? true);
-          setIsHidden(editing.is_hidden ?? false);
-          setPosEnabled(editing.pos_enabled ?? true);
-          setWebEnabled(editing.web_enabled ?? true);
-          if (!editing.follows_menu_hours) {
-            const h = await getGroupHours(rid, gid).catch(() => []);
-            setHours(h);
-          }
-        }
-        const ms = await listGroupMemberships(rid, gid).catch(() => []);
-        setMemberships(ms);
-      }
-    }).finally(() => setLoading(false));
-  }, [rid, mid, isNew, gid]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const handleSave = async () => {
-    if (!name.trim()) return;
-    setSaving(true);
+  const load = useCallback(async () => {
+    const guard = guardRef.current; const token = guard.begin(rid); setLoading(true); setLoadError('');
     try {
-      let savedId = gid;
-      if (isNew) {
-        const g = await createGroup(rid, {
-          name,
-          menu_id: selectedMenuId,
-          parent_id: parentId,
-          follows_menu_hours: followsMenuHours,
-          is_hidden: isHidden,
-          pos_enabled: posEnabled,
-          web_enabled: webEnabled,
-          translations,
-        });
-        savedId = g.id;
-      } else if (gid) {
-        await updateGroup(rid, gid, {
-          name,
-          menu_id: selectedMenuId,
-          parent_id: parentId,
-          follows_menu_hours: followsMenuHours,
-          is_hidden: isHidden,
-          pos_enabled: posEnabled,
-          web_enabled: webEnabled,
-          translations,
-        });
-      }
-      if (!followsMenuHours && savedId) {
-        await setGroupHours(rid, savedId, hours.map(({ day_of_week, open_time, close_time, is_closed }) => ({
-          day_of_week, open_time, close_time, is_closed,
-        })));
-      }
-      // Assign any pending items that were selected before save
-      if (pendingItemIds.size > 0 && savedId) {
-        await addItemsToGroup(rid, savedId, Array.from(pendingItemIds));
-      }
-      router.push(`/${rid}/menu/menus/${mid}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const setHourField = (day: number, field: string, value: string | boolean) => {
-    setHours((prev) => {
-      const existing = prev.find((h) => h.day_of_week === day);
-      if (existing) return prev.map((h) => h.day_of_week === day ? { ...h, [field]: value } : h);
-      return [...prev, { id: 0, menu_group_id: gid ?? 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false, [field]: value }];
-    });
-  };
-
-  const getHour = (day: number): GroupAvailabilityHour =>
-    hours.find((h) => h.day_of_week === day) ?? { id: 0, menu_group_id: gid ?? 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false };
-
-  const handleImageUpload = async (file: File) => {
-    if (!gid) return;
-    setUploading(true);
-    try {
-      const url = await uploadGroupImage(rid, gid, file);
-      await updateGroup(rid, gid, { image_url: url });
-      setImageUrl(url);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleImageRemove = async () => {
-    if (!gid) return;
-    try {
-      await updateGroup(rid, gid, { image_url: '' });
-      setImageUrl('');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Remove failed');
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) handleImageUpload(file);
-  };
-
-  const parentOptions = groups.filter((g: MenuGroup) => g.id !== gid);
-
-  // All items across all categories (for item picker + resolving pending)
-  const allItems = useMemo(() => {
-    const items: MenuItem[] = [];
-    for (const c of allCats) {
-      for (const item of c.items ?? []) {
-        items.push(item);
-      }
-    }
-    return items;
-  }, [allCats]);
-
-  // Items belonging to this group for the selected week. Memberships with
-  // both bounds null are always-on; bounded memberships only count when the
-  // selected week's Monday falls inside their window.
-  const savedGroupItems: MenuItem[] = useMemo(() => {
-    if (isNew || !gid) return [];
-    const out: MenuItem[] = [];
-    for (const m of memberships) {
-      if (!isMembershipActiveOn(m, selectedWeekStart)) continue;
-      if (m.item) {
-        out.push(m.item);
-      }
-    }
-    return out;
-  }, [memberships, selectedWeekStart, isNew, gid]);
-
-  const pendingItems = useMemo(() => {
-    if (pendingItemIds.size === 0) return [];
-    return allItems.filter((item) => pendingItemIds.has(item.id));
-  }, [allItems, pendingItemIds]);
-
+      const [allMenus, allCats, restaurant] = await Promise.all([listMenus(rid), getAllCategories(rid), getRestaurant(rid)]);
+      const menu = allMenus.find(value => value.id === mid);
+      if (!menu) throw new Error('menuNotFound');
+      const group = gid ? menu.groups?.find(value => value.id === gid) : null;
+      if (gid && !group) throw new Error('groupNotFound');
+      const [hours, members] = gid ? await Promise.all([getGroupHours(rid, gid), listGroupMemberships(rid, gid)]) : [[], []];
+      if (!guard.isCurrent(token)) return;
+      const next: Draft = { name: group?.name ?? '', translations: group?.translations ?? {}, parentId: group?.parent_id ?? undefined, menuId: mid, follows: group?.follows_menu_hours ?? true, hidden: group?.is_hidden ?? false, pos: group?.pos_enabled ?? true, web: group?.web_enabled ?? true, hours };
+      const sourceLocale = LOCALES.includes(restaurant.default_locale as Locale) ? restaurant.default_locale as Locale : 'en';
+      const firstDay = clampWeekStartDay(restaurant.week_start_day);
+      setMenus(allMenus); setCategories(allCats); setMemberships(members); setDraft(next); baseline.current = JSON.stringify(next);
+      setSource(sourceLocale); setEditingLocale(sourceLocale); setImageUrl(group?.image_url ?? ''); setPersistedParent(group?.parent_id ?? undefined);
+      setWeekStartDay(firstDay); setWorkdays(getEffectiveWorkdays(restaurant)); setWeek(isoDate(getWeekStart(new Date(), firstDay)));
+    } catch (cause) { if (guard.isCurrent(token)) setLoadError(cause instanceof Error ? cause.message : 'libraryOperationFailed'); }
+    finally { if (guard.isCurrent(token)) setLoading(false); }
+  }, [rid, mid, gid]);
+  useEffect(() => { const guard = guardRef.current; void load(); return () => guard.invalidate(); }, [load]);
+  useEffect(() => { const warn = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn); }, [dirty]);
+  const navigate = (url: string, additionalDraft = false) => { if (busy.current) return; if (dirty || additionalDraft) setNavigation(url); else router.push(url); };
+  const refreshMembers = async () => { if (gid) { const members = await listGroupMemberships(rid, gid); setMemberships(members); setSelected(new Set()); } };
+  const allItems = useMemo(() => categories.flatMap(category => category.items ?? []), [categories]);
   const groupItems = useMemo(() => {
-    const savedIds = new Set(savedGroupItems.map((i) => i.id));
-    return [...savedGroupItems, ...pendingItems.filter((i) => !savedIds.has(i.id))];
-  }, [savedGroupItems, pendingItems]);
+    const saved = memberships.filter(member => isMembershipActiveOn(member, week) && member.item).map(member => member.item!);
+    const ids = new Set(saved.map(item => item.id));
+    return [...saved, ...allItems.filter(item => pending.has(item.id) && !ids.has(item.id))];
+  }, [memberships, week, allItems, pending]);
+  const span = workdaySpan(new Date(week + 'T00:00:00'), workdays);
+  const currentWeek = isoDate(getWeekStart(new Date(), weekStartDay));
+  const isCurrentWeek = week === currentWeek;
+  const addScope = isCurrentWeek ? {} : { effective_from: isoDate(span.first), effective_until: isoDate(span.last) };
+  const cutoff = isoDate(addDays(new Date(week + 'T00:00:00'), -1));
 
-  // Selected-week metadata for UI labels and date calculations. The label
-  // shows the workday span ("Sun 31-05 → Thu 04-06") rather than the raw
-  // 7-day calendar window, so the dates the operator sees match the days
-  // their kitchen actually operates. The cutoff for soft-removing an item
-  // ("only this week onward") still uses the calendar start so historical
-  // memberships keep working consistently.
-  const selectedWeekFirstDay = useMemo(() => new Date(selectedWeekStart + 'T00:00:00'), [selectedWeekStart]);
-  const selectedWeekSpan = useMemo(
-    () => workdaySpan(selectedWeekFirstDay, workdays),
-    [selectedWeekFirstDay, workdays],
-  );
-  const selectedWeekFirstWorkdayIso = useMemo(() => isoDate(selectedWeekSpan.first), [selectedWeekSpan]);
-  const selectedWeekLastWorkdayIso = useMemo(() => isoDate(selectedWeekSpan.last), [selectedWeekSpan]);
-  const todayWeekStartIso = useMemo(() => isoDate(getWeekStart(new Date(), weekStartDay)), [weekStartDay]);
-  const isCurrentWeek = selectedWeekStart === todayWeekStartIso;
-
-  // All categories (for category picker), excluding current group
-  const allCategories = useMemo(() => {
-    return allCats
-      .filter((c) => c.id !== gid)
-      .map((c) => ({ ...c, menuName: '' }));
-  }, [allCats, gid]);
-
-  const groupItemIds = useMemo(() => new Set<number>(groupItems.map((i) => i.id)), [groupItems]);
-
-  const handleRemoveItem = async (item: MenuItem) => {
-    if (pendingItemIds.has(item.id)) {
-      setPendingItemIds((prev) => { const next = new Set(prev); next.delete(item.id); return next; });
-      return;
-    }
-    if (!gid) return;
-    // Two scopes: remove just this week onward (soft, preserves history) or
-    // remove the membership entirely (hard delete).
-    const promptMsg = t('groupRemoveScopePrompt').replace('{name}', item.name);
-    const onlyThisWeek = confirm(promptMsg);
-    if (onlyThisWeek) {
-      // Soft retire: effective_until = day before selected week's Monday.
-      const cutoff = isoDate(addDays(selectedWeekFirstDay, -1));
-      await removeItemFromGroup(rid, gid, item.id, cutoff);
-    } else {
-      if (!confirm(t('removeFromGroupConfirm') + ` "${item.name}"?`)) return;
-      await removeItemFromGroup(rid, gid, item.id);
-    }
-    load();
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!canEdit || !draft || busy.current) return;
+    if (!draft.name.trim()) { setError(t('groupNameRequired')); setEditingLocale(source); return; }
+    if (!draft.follows && !menuHoursAreComplete(draft.hours.map(hour => ({ ...hour, menu_id: mid })))) { setError(t('menuIncompleteHours')); return; }
+    busy.current = true; setSaving(true); setError('');
+    try {
+      const input = { name: draft.name, translations: draft.translations, parent_id: draft.parentId, menu_id: draft.menuId, follows_menu_hours: draft.follows, is_hidden: draft.hidden, pos_enabled: draft.pos, web_enabled: draft.web };
+      if (!savedId.current) { const group = await createGroup(rid, input); savedId.current = group.id; setPersistedParent(group.parent_id ?? undefined); }
+      else await updateGroup(rid, savedId.current, input);
+      if (!draft.follows) await setGroupHours(rid, savedId.current, draft.hours.map(({ day_of_week, open_time, close_time, is_closed }) => ({ day_of_week, open_time, close_time, is_closed })));
+      if (pending.size) await addItemsToGroup(rid, savedId.current, Array.from(pending));
+      router.push(`/${rid}/menu/menus/${mid}`);
+    } catch (cause) { setError(`${cause instanceof Error ? cause.message : t('libraryOperationFailed')} ${savedId.current ? t('menuSavePartial') : ''}`); }
+    finally { busy.current = false; setSaving(false); }
   };
-
-  // Add selected items to this group, scoped to the selected week unless the
-  // operator is editing the current week (then default to always-on, matching
-  // the legacy behavior).
-  const handleAssignItems = async (itemIds: number[]) => {
-    if (itemIds.length === 0) return;
-    if (isNew) {
-      setPendingItemIds((prev) => { const next = new Set(prev); itemIds.forEach((id) => next.add(id)); return next; });
-      setModalView(null);
-    } else if (gid) {
-      const scope = isCurrentWeek
-        ? {} // always-on for the current week — preserves legacy semantics
-        : { effective_from: selectedWeekFirstWorkdayIso, effective_until: selectedWeekLastWorkdayIso };
-      await addItemsToGroup(rid, gid, itemIds, scope);
-      setModalView(null);
-      load();
-    }
+  const changeImage = async (image?: File) => {
+    if (!gid || !canEdit || busy.current) return;
+    busy.current = true; setUploading(true); setImageError('');
+    try { const url = image ? await uploadGroupImage(rid, gid, image) : ''; await updateGroup(rid, gid, { image_url: url }); setImageUrl(url); }
+    catch (cause) { setImageError(cause instanceof Error ? cause.message : t('libraryOperationFailed')); }
+    finally { busy.current = false; setUploading(false); if (file.current) file.current.value = ''; }
   };
-
-  // Import all items from selected categories into this group
-  const handleImportFromCategories = async (catIds: number[]) => {
-    if (catIds.length === 0) return;
-    const itemsToImport: number[] = [];
-    for (const cat of allCategories) {
-      if (catIds.includes(cat.id)) {
-        for (const item of cat.items ?? []) {
-          itemsToImport.push(item.id);
+  const assign = async (ids: number[]) => {
+    if (!canEdit || busy.current) return;
+    if (!ids.length) throw new Error(t('noItemsSelected'));
+    busy.current = true;
+    try {
+      if (isNew) setPending(previous => new Set([...Array.from(previous), ...ids]));
+      else if (gid) { await addItemsToGroup(rid, gid, ids, addScope); await refreshMembers(); }
+      setPicker(null);
+    } finally { busy.current = false; }
+  };
+  const replace = async (choices: { oldId: number; newId: number }[]) => {
+    if (!canEdit || busy.current) return;
+    busy.current = true;
+    try {
+      if (isNew) setPending(previous => { const next = new Set(previous); for (const choice of choices) { next.delete(choice.oldId); next.add(choice.newId); } return next; });
+      else if (gid) {
+        for (const { oldId, newId } of choices) {
+          if (!replacementProgress.current.removed.has(oldId)) { await removeItemFromGroup(rid, gid, oldId, isCurrentWeek ? undefined : cutoff); replacementProgress.current.removed.add(oldId); }
+          if (!replacementProgress.current.added.has(newId)) { await addItemsToGroup(rid, gid, [newId], addScope); replacementProgress.current.added.add(newId); }
         }
+        await refreshMembers();
       }
-    }
-    if (itemsToImport.length === 0) return;
-    if (isNew) {
-      setPendingItemIds((prev) => { const next = new Set(prev); itemsToImport.forEach((id) => next.add(id)); return next; });
-      setModalView(null);
-    } else if (gid) {
-      const scope = isCurrentWeek
-        ? {}
-        : { effective_from: selectedWeekFirstWorkdayIso, effective_until: selectedWeekLastWorkdayIso };
-      await addItemsToGroup(rid, gid, itemsToImport, scope);
-      setModalView(null);
-      load();
-    }
+      setPicker(null); setSelected(new Set());
+    } finally { busy.current = false; }
   };
-
-  const openAddArticle = () => {
-    setModalView('addChoice');
+  const remove = async () => {
+    if (!removal || !canEdit || busy.current) return;
+    busy.current = true; setRemoving(true); setRemoveError('');
+    try { if (gid) { await removeItemFromGroup(rid, gid, removal.id, removeScope === 'week' ? cutoff : undefined); await refreshMembers(); } setRemoval(null); }
+    catch (cause) { setRemoveError(cause instanceof Error ? cause.message : t('libraryOperationFailed')); }
+    finally { busy.current = false; setRemoving(false); }
   };
-
-  const toggleItemSelected = (id: number) => {
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+  const sourceTab = editingLocale === source;
+  const setTranslatedName = (value: string) => {
+    if (!draft) return;
+    if (sourceTab) { update({ name: value }); return; }
+    const translations = { ...draft.translations }; const names = { ...translations.name };
+    if (value) names[editingLocale] = value; else delete names[editingLocale];
+    if (Object.keys(names).length) translations.name = names; else delete translations.name;
+    update({ translations });
   };
-
-  // Items the operator picked in the list, in their displayed order — these are
-  // the ones the Replace flow walks through one at a time.
-  const itemsToReplace = useMemo(
-    () => groupItems.filter((i) => selectedItemIds.has(i.id)),
-    [groupItems, selectedItemIds],
-  );
-
-  // Swap each selected item for the replacement chosen in the step-by-step
-  // modal. Removal + addition mirror the scope semantics used elsewhere on the
-  // page: editing the current week is "always-on", past/future weeks are
-  // scoped to that week (soft-retire on the way out, bounded on the way in).
-  const handleReplaceItems = async (replacements: { oldId: number; newId: number }[]) => {
-    if (replacements.length === 0) {
-      setModalView(null);
-      setSelectedItemIds(new Set());
-      return;
-    }
-    if (isNew) {
-      setPendingItemIds((prev) => {
-        const next = new Set(prev);
-        for (const { oldId, newId } of replacements) {
-          next.delete(oldId);
-          next.add(newId);
-        }
-        return next;
-      });
-      setModalView(null);
-      setSelectedItemIds(new Set());
-    } else if (gid) {
-      const addScope = isCurrentWeek
-        ? {}
-        : { effective_from: selectedWeekFirstWorkdayIso, effective_until: selectedWeekLastWorkdayIso };
-      const cutoff = isoDate(addDays(selectedWeekFirstDay, -1));
-      for (const { oldId, newId } of replacements) {
-        if (isCurrentWeek) {
-          await removeItemFromGroup(rid, gid, oldId);
-        } else {
-          await removeItemFromGroup(rid, gid, oldId, cutoff);
-        }
-        await addItemsToGroup(rid, gid, [newId], addScope);
-      }
-      setModalView(null);
-      setSelectedItemIds(new Set());
-      load();
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 bg-[var(--surface)] overflow-y-auto pb-safe-b">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-[var(--surface)] px-4 sm:px-6 pb-3 sm:pb-4 pt-[max(var(--s-3),var(--safe-top))] sm:pt-[max(var(--s-4),var(--safe-top))] flex items-center justify-between gap-3">
-        <button
-          onClick={() => router.push(`/${rid}/menu/menus/${mid}`)}
-          className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
-        >
-          <XIcon className="w-6 h-6" />
-        </button>
-        <div className="flex-1" />
-        {canEdit && (
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors rounded-full px-7 py-3 text-base"
-          >
-            {saving ? t('saving') : t('save')}
-          </button>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="max-w-2xl mx-auto px-8 py-10 space-y-0">
-        {isNew && (
-          <h1 className="text-2xl font-bold text-fg-primary mb-8">{t('createGroup')}</h1>
-        )}
-
-        {/* Name (with per-locale translation overrides) */}
-        <div className="mb-8 space-y-3">
-          {(() => {
-            const isSourceTab = activeLocale === sourceLocale;
-            const translatedName = translations.name?.[activeLocale] ?? '';
-            const setTranslatedName = (value: string) => {
-              const next: TranslationMap = { ...translations };
-              const fieldMap = { ...(next.name ?? {}) };
-              if (value === '') {
-                delete fieldMap[activeLocale];
-              } else {
-                fieldMap[activeLocale] = value;
-              }
-              if (Object.keys(fieldMap).length === 0) {
-                delete next.name;
-              } else {
-                next.name = fieldMap;
-              }
-              setTranslations(next);
-            };
-            const missing: Partial<Record<Locale, boolean>> = {};
-            for (const loc of SUPPORTED_LOCALES) {
-              if (loc === sourceLocale) continue;
-              missing[loc] = !translations.name?.[loc];
-            }
-            return (
-              <>
-                <LocaleTabs
-                  locales={SUPPORTED_LOCALES}
-                  source={sourceLocale}
-                  active={activeLocale}
-                  onChange={setActiveLocale}
-                  missing={missing}
-                />
-                <LocaleEditingBanner active={activeLocale} source={sourceLocale} />
-                {isSourceTab ? (
-                  <input
-                    autoFocus
-                    className="input w-full text-lg"
-                    placeholder={t('groupName')}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                ) : (
-                  <>
-                    <input
-                      className="input w-full text-lg"
-                      placeholder={name || t('groupName')}
-                      value={translatedName}
-                      onChange={(e) => setTranslatedName(e.target.value)}
-                    />
-                    <div className="text-xs text-fg-subtle">
-                      {(t('languageSourceLabel') || 'Source') + ': '}
-                      <span className="text-fg-muted">{name || '—'}</span>
-                    </div>
-                  </>
-                )}
-              </>
-            );
-          })()}
-        </div>
-
-        {/* Image upload */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file && canEdit) handleImageUpload(file);
-          }}
-        />
-        {imageUrl ? (
-          <div
-            className="relative rounded-xl overflow-hidden cursor-pointer group mb-8"
-            style={{ border: '2px solid var(--divider)' }}
-            onClick={() => canEdit && fileInputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { if (canEdit) handleDrop(e); else e.preventDefault(); }}
-          >
-            <img src={imageUrl} alt={name} className="w-full h-52 object-cover" />
-            {uploading && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
-              </div>
-            )}
-            {canEdit && (
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-base font-medium">
-                  {t('changeImage')}
-                </span>
-              </div>
-            )}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); handleImageRemove(); }}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
-                aria-label="Remove image"
-              >
-                <XIcon className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        ) : (
-          <div
-            className="border-2 border-dashed border-[var(--divider)] rounded-xl p-10 flex flex-col items-center gap-3 text-fg-tertiary mb-8 cursor-pointer hover:border-brand-500 hover:text-brand-500 transition-colors"
-            onClick={() => canEdit && !isNew && fileInputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { if (canEdit) handleDrop(e); else e.preventDefault(); }}
-          >
-            {uploading ? (
-              <div className="animate-spin w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full" />
-            ) : (
-              <>
-                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V5.25a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v14.25a1.5 1.5 0 0 0 1.5 1.5Z" />
-                </svg>
-                {isNew ? (
-                  <p className="text-base text-center">{t('saveFirstToUpload')}</p>
-                ) : (
-                  <p className="text-base text-center">
-                    {t('dragImageHere')}{' '}
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                      className="text-brand-500 font-medium underline hover:text-brand-600"
-                    >
-                      {t('uploadAction')}
-                    </button>
-                    {' '}{t('or')}{' '}
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                      className="text-brand-500 font-medium underline hover:text-brand-600"
-                    >
-                      {t('browseGallery')}
-                    </button>
-                    .
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Parent group */}
-        <div className="flex items-center justify-between py-5">
-          <div className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-            </svg>
-            <div>
-              <p className="text-base font-medium text-fg-primary">{t('parentGroup')}</p>
-              <p className="text-sm text-fg-tertiary">{t('parentGroupDesc')}</p>
-            </div>
-          </div>
-          {canEdit && (
-            <button onClick={() => setShowParent(!showParent)} className="text-base font-medium underline text-fg-primary shrink-0">
-              {t('edit')}
-            </button>
-          )}
-        </div>
-        {showParent && (
-          <div className="pb-4">
-            <select
-              value={parentId ?? ''}
-              onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}
-              className="input w-full"
-            >
-              <option value="">— {t('none')} —</option>
-              {parentOptions.map((g: MenuGroup) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        <div className="h-1 bg-[var(--divider)] rounded-full" />
-
-        {/* Articles */}
-        <div className="py-8">
-          <div className="flex items-baseline justify-between mb-5 gap-4 flex-wrap">
-            <h3 className="text-xl font-bold text-fg-primary">{t('articlesGroup')}</h3>
-            {!isNew && (
-              <WeekPicker
-                value={selectedWeekStart}
-                onChange={setSelectedWeekStart}
-                todayWeekStartIso={todayWeekStartIso}
-              />
-            )}
-          </div>
-          {!isNew && !isCurrentWeek && (
-            <div className="mb-4 px-3 py-2 rounded-lg bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] text-sm text-fg-secondary">
-              {t('groupWeekScopeHint')
-                .replace('{from}', selectedWeekFirstWorkdayIso)
-                .replace('{to}', selectedWeekLastWorkdayIso)}
-            </div>
-          )}
-          {/* Selection action bar — appears once the operator ticks items in
-              the list, offering the step-by-step Replace flow. */}
-          {canEdit && selectedItemIds.size > 0 && (
-            <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)]">
-              <span className="text-sm font-medium text-fg-primary">
-                {t('itemsSelectedCount').replace('{count}', String(selectedItemIds.size))}
-              </span>
-              <div className="flex-1" />
-              <button
-                onClick={() => setModalView('replaceItems')}
-                className="text-sm font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg hover:bg-[var(--surface)] transition-colors"
-              >
-                {t('replace')}
-              </button>
-              <button
-                onClick={() => setSelectedItemIds(new Set())}
-                className="text-sm font-medium text-fg-tertiary hover:text-fg-primary px-3 py-1.5 rounded-lg hover:bg-[var(--surface)] transition-colors"
-              >
-                {t('clear')}
-              </button>
-            </div>
-          )}
-          {groupItems.length > 0 ? (
-            <div className="space-y-0 rounded-xl border border-[var(--divider)] overflow-hidden">
-              {groupItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`flex items-center gap-3 px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 transition-colors cursor-pointer ${selectedItemIds.has(item.id) ? 'bg-[color-mix(in_oklab,var(--brand-500)_6%,transparent)]' : 'hover:bg-[var(--surface-subtle)]'}`}
-                  onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
-                >
-                  {canEdit && (
-                    <input
-                      type="checkbox"
-                      checked={selectedItemIds.has(item.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={() => toggleItemSelected(item.id)}
-                      className="w-5 h-5 rounded border-2 border-[var(--divider)] shrink-0"
-                      aria-label={item.name}
-                    />
-                  )}
-                  {item.image_url ? (
-                    <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                      <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V5.25a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v14.25a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-medium text-fg-primary truncate">{item.name}</p>
-                    <p className="text-sm text-fg-tertiary">{money(item.price)}</p>
-                  </div>
-                  {canEdit && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleRemoveItem(item); }}
-                      className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
-                    >
-                      {t('removeFromGroupConfirm')}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 py-4">
-              <svg className="w-6 h-6 text-fg-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
-              </svg>
-              <div>
-                <p className="text-base font-medium text-fg-primary">{t('articlesGroup')}</p>
-                <p className="text-sm text-fg-tertiary">{t('noItemsSelected')}</p>
-              </div>
-              <div className="flex-1" />
-              {canEdit && (
-                <button className="text-base font-medium underline text-fg-primary shrink-0" onClick={openAddArticle}>
-                  {t('add')}
-                </button>
-              )}
-            </div>
-          )}
-          {canEdit && groupItems.length > 0 && (
-            <div className="mt-4">
-              <button className="text-base font-medium underline text-fg-primary" onClick={openAddArticle}>
-                {t('addArticle')}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="h-1 bg-[var(--divider)] rounded-full" />
-
-        {/* Carte et disponibilite */}
-        <div className="py-8">
-          <h3 className="text-xl font-bold text-fg-primary mb-5">{t('menuAndAvailability')}</h3>
-
-          {/* Menu */}
-          <div className="flex items-center justify-between py-4 border-b border-[var(--divider)]">
-            <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-fg-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-              </svg>
-              <div>
-                <p className="text-base font-medium text-fg-primary">Menu</p>
-                <p className="text-sm text-fg-tertiary">{allMenus.find((m) => m.id === selectedMenuId)?.name ?? menu?.name ?? '—'}</p>
-              </div>
-            </div>
-            {canEdit && (
-              <button onClick={() => setShowMenuPicker(true)} className="text-base font-medium underline text-fg-primary">{t('edit')}</button>
-            )}
-          </div>
-
-          {/* Hours */}
-          <div className="flex items-center justify-between py-4 border-b border-[var(--divider)]">
-            <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-              <div>
-                <p className="text-base font-medium text-fg-primary">{t('hoursLabel')}</p>
-                <p className="text-sm text-fg-tertiary max-w-md">{followsMenuHours ? t('hoursDescription') : t('customHours')}</p>
-              </div>
-            </div>
-            {canEdit && (
-              <button onClick={() => setShowHoursEditor(true)} className="text-base font-medium underline text-fg-primary shrink-0">
-                {t('edit')}
-              </button>
-            )}
-          </div>
-
-          {/* Channels — controls where this group appears */}
-          <div className="flex items-center justify-between py-4 border-t border-[var(--divider)]">
-            <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-fg-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
-              </svg>
-              <div>
-                <p className="text-base font-medium text-fg-primary">Channels</p>
-                <p className="text-sm text-fg-tertiary max-w-md">Where this group appears for customers and staff.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 shrink-0">
-              <label className="flex items-center gap-2 cursor-pointer text-sm text-fg-primary">
-                <input type="checkbox" checked={posEnabled} onChange={(e) => setPosEnabled(e.target.checked)} disabled={!canEdit} className="rounded disabled:opacity-50" />
-                POS
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer text-sm text-fg-primary">
-                <input type="checkbox" checked={webEnabled} onChange={(e) => setWebEnabled(e.target.checked)} disabled={!canEdit} className="rounded disabled:opacity-50" />
-                Web
-              </label>
-            </div>
-          </div>
-
-          {/* Hide on all channels */}
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-fg-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
-              </svg>
-              <div>
-                <p className="text-base font-medium text-fg-primary">{t('hideOnAllChannels')}</p>
-                <p className="text-sm text-fg-tertiary max-w-md">{t('hideOnAllChannelsDesc')}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => canEdit && setIsHidden(!isHidden)}
-              disabled={!canEdit}
-              className={`relative w-11 h-7 rounded-full transition-colors shrink-0 disabled:opacity-50 ${isHidden ? 'bg-brand-500' : 'bg-gray-200'}`}
-            >
-              <div className={`rounded-full bg-white shadow absolute top-0.5 transition-transform ${isHidden ? 'translate-x-[18px]' : 'translate-x-0.5'}`} style={{ width: 22, height: 22 }} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Modals ── */}
-      {modalView === 'addChoice' && (
-        <AddChoiceModal
-          t={t}
-          onClose={() => setModalView(null)}
-          onPickIndividually={() => setModalView('pickItems')}
-          onPickFromCategory={() => setModalView('pickCategory')}
-        />
-      )}
-      {modalView === 'pickItems' && (
-        <PickItemsModal
-          t={t}
-          allItems={allItems}
-          groupItemIds={groupItemIds}
-          onClose={() => setModalView(null)}
-          onDone={handleAssignItems}
-          onCreateNew={() => { setModalView(null); router.push(`/${rid}/menu/items/new${gid ? `?category=${gid}` : ''}`); }}
-        />
-      )}
-      {modalView === 'pickCategory' && (
-        <PickCategoryModal
-          t={t}
-          allCategories={allCategories}
-          onClose={() => setModalView(null)}
-          onDone={handleImportFromCategories}
-        />
-      )}
-      {modalView === 'replaceItems' && (
-        <ReplaceItemsModal
-          t={t}
-          itemsToReplace={itemsToReplace}
-          allItems={allItems}
-          allCats={allCats}
-          groupItemIds={groupItemIds}
-          onClose={() => setModalView(null)}
-          onDone={handleReplaceItems}
-        />
-      )}
-      {showHoursEditor && (
-        <HoursModal
-          t={t}
-          followsMenuHours={followsMenuHours}
-          hours={hours}
-          onClose={() => setShowHoursEditor(false)}
-          onDone={(newFollows: boolean, newHours: GroupAvailabilityHour[]) => {
-            setFollowsMenuHours(newFollows);
-            setHours(newHours);
-            setShowHoursEditor(false);
-          }}
-        />
-      )}
-      {showMenuPicker && (
-        <MenuPickerModal
-          t={t}
-          menus={allMenus}
-          selectedMenuId={selectedMenuId}
-          restaurantName={allMenus[0]?.name ? undefined : undefined}
-          onSelect={(menuId) => { setSelectedMenuId(menuId); setShowMenuPicker(false); }}
-          onClose={() => setShowMenuPicker(false)}
-        />
-      )}
-    </div>
-  );
+  const parentOptions = menus.find(menu => menu.id === mid)?.groups?.filter(group => group.id !== gid) ?? [];
+  return <><FullScreenEditor open onOpenChange={open => { if (!open) navigate(`/${rid}/menu/menus/${mid}`); }} title={t(isNew ? 'createGroup' : 'groupName')} subtitle={menus.find(menu => menu.id === mid)?.name} showCancel={false}
+    onSave={canEdit && draft && !loading && !loadError ? () => form.current?.requestSubmit() : undefined} saveLabel={t(saving ? 'saving' : 'save')} saveDisabled={saving || uploading}>
+    {loading ? <p role="status" className="py-16 text-center text-fg-secondary">{t('loading')}</p>
+    : loadError ? <div role="alert" className="space-y-4 rounded-r-lg border border-[var(--line)] p-5"><p className="text-[var(--danger-500)]">{t(loadError)}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>
+    : draft && <div className="mx-auto max-w-4xl space-y-6">
+      <form ref={form} onSubmit={save} className="space-y-5">
+        <fieldset disabled={!canEdit || saving || uploading} className="min-w-0 space-y-5">
+          <section className="space-y-4 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
+            <LocaleTabs locales={LOCALES} source={source} active={editingLocale} onChange={setEditingLocale} missing={Object.fromEntries(LOCALES.filter(value => value !== source).map(value => [value, !draft.translations.name?.[value]]))} />
+            <LocaleEditingBanner active={editingLocale} source={source} />
+            <label className="block space-y-2 text-sm font-semibold"><span>{t('groupName')}</span><input className="input" dir={editingLocale === 'he' ? 'rtl' : 'ltr'} required={sourceTab} value={sourceTab ? draft.name : draft.translations.name?.[editingLocale] ?? ''} onChange={event => setTranslatedName(event.target.value)} /></label>
+            {!sourceTab && <p className="text-sm text-fg-secondary">{t('languageSourceLabel')}: <bdi>{draft.name || '—'}</bdi></p>}
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2"><label className="block min-w-0 space-y-2 text-sm"><span className="font-semibold">{t('menus')}</span><select className="input" value={draft.menuId} onChange={event => update({ menuId: Number(event.target.value) })}>{menus.map(menu => <option key={menu.id} value={menu.id}>{menu.name}</option>)}</select></label>
+              <label className="block min-w-0 space-y-2 text-sm"><span className="font-semibold">{t('parentGroup')}</span><select className="input" value={draft.parentId ?? ''} onChange={event => update({ parentId: event.target.value ? Number(event.target.value) : undefined })}><option value="" disabled={persistedParent !== undefined}>{t('none')}</option>{parentOptions.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label></div>
+            {persistedParent !== undefined && <p className="text-sm text-fg-secondary">{t('groupParentClearUnsupported')}</p>}
+          </section>
+          <section className="space-y-4 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5"><h2 className="font-semibold">{t('menuAndAvailability')}</h2><div className="flex flex-wrap items-center gap-5"><span className="text-sm text-fg-secondary">{t('salesChannels')}</span><label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={draft.pos} onChange={event => update({ pos: event.target.checked })} />POS</label><label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={draft.web} onChange={event => update({ web: event.target.checked })} />Web</label></div>
+            <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={draft.hidden} onChange={event => update({ hidden: event.target.checked })} /><span>{t('hideOnAllChannels')}<span className="mt-1 block text-fg-secondary">{t('hideOnAllChannelsDesc')}</span></span></label>
+            <label className="flex min-h-11 items-center gap-3 border-t border-[var(--line)] pt-4 text-sm"><input type="checkbox" checked={draft.follows} onChange={event => update({ follows: event.target.checked })} />{t('useExistingHours')}</label><p className="text-sm text-fg-secondary">{t('groupHoursDescription')}</p>
+            {!draft.follows && <MenuHoursEditor hours={draft.hours.map(hour => ({ ...hour, menu_id: mid }))} emptyMessage={t('groupNoHours')} onChange={hours => update({ hours: hours.map(({ id, day_of_week, open_time, close_time, is_closed }) => ({ id, day_of_week, open_time, close_time, is_closed, menu_group_id: gid ?? 0 })) })} />}
+          </section>
+        </fieldset>
+        {error && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{error}</p>}
+      </form>
+      <section className="space-y-4 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5"><h2 className="font-semibold">{t('image')}</h2><p className="text-sm text-fg-secondary">{t(isNew ? 'saveFirstToUpload' : 'groupImageImmediate')}</p>
+        <input ref={file} type="file" accept="image/*" className="sr-only" aria-label={t('groupUploadImage')} disabled={!canEdit || isNew || saving || uploading} onChange={event => { const image = event.target.files?.[0]; if (image) void changeImage(image); }} />
+        <button type="button" disabled={!canEdit || isNew || saving || uploading} aria-label={t(imageUrl ? 'changeImage' : 'groupUploadImage')} className="flex min-h-28 w-full items-center justify-center gap-3 overflow-hidden rounded-r-md border border-dashed border-[var(--line-strong)] bg-[var(--surface-2)] p-4 text-sm text-fg-secondary disabled:cursor-default" onClick={() => file.current?.click()} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const image = event.dataTransfer.files[0]; if (canEdit && !isNew && image?.type.startsWith('image/')) void changeImage(image); }}>
+          {imageUrl ? <img src={imageUrl} alt="" className="max-h-44 rounded-r-md object-contain" /> : <ImageIcon className="size-7" />}<span>{t(uploading ? 'loading' : imageUrl ? 'changeImage' : 'groupUploadImage')}</span>
+        </button>{imageUrl && canEdit && <Button type="button" variant="secondary" disabled={saving || uploading} onClick={() => void changeImage()}><Trash2 />{t('removeImage')}</Button>}{imageError && <p role="alert" className="text-sm text-[var(--danger-500)]">{imageError}</p>}
+      </section>
+      <section className="min-w-0 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]"><div className="space-y-3 bg-[var(--summary-bg)] p-4 text-[var(--summary-fg)]"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">{t('articlesGroup')}</h2>{!isNew && <GroupWeekPicker value={week} currentWeek={currentWeek} onChange={value => { setWeek(value); setSelected(new Set()); }} />}</div><p className="text-sm">{t(isNew ? 'groupItemsOnSave' : 'groupItemsImmediate')}</p>{!isNew && !isCurrentWeek && <p className="text-sm">{t('groupWeekScopeHint').replace('{from}', isoDate(span.first)).replace('{to}', isoDate(span.last))}</p>}</div>
+        {canEdit && <div className="flex flex-wrap gap-2 border-b border-[var(--line)] p-4"><Button variant="secondary" disabled={saving || uploading} onClick={() => setPicker('items')}><Plus />{t('addArticle')}</Button><Button variant="secondary" disabled={saving || uploading} onClick={() => setPicker('categories')}>{t('addFromCategory')}</Button>{selected.size > 0 && <><Button variant="secondary" onClick={() => { replacementProgress.current = { removed: new Set(), added: new Set() }; setPicker('replace'); }}>{t('replace')}</Button><Button variant="ghost" onClick={() => setSelected(new Set())}>{t('clear')}</Button></>}</div>}
+        {groupItems.map(item => <article key={item.id} aria-label={item.name} className="flex flex-wrap items-center gap-3 border-b border-[var(--line)] p-4 last:border-0">{canEdit && <input type="checkbox" aria-label={item.name} checked={selected.has(item.id)} disabled={saving || uploading} onChange={() => setSelected(previous => { const next = new Set(previous); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })} className="size-5 shrink-0 accent-[var(--brand-500)]" />}
+          {item.image_url && <img src={item.image_url} alt="" className="size-12 shrink-0 rounded-r-md object-cover" />}
+          <button type="button" className="min-w-0 flex-[1_1_180px] text-start hover:underline" onClick={() => navigate(`/${rid}/menu/items/${item.id}`)}><span className="block break-words text-sm font-semibold" dir="auto">{item.name}</span><bdi className="text-sm text-fg-secondary">{money(item.price)}</bdi></button>{canEdit && <Button variant="ghost" disabled={saving || uploading} onClick={() => { if (pending.has(item.id)) { setPending(previous => { const next = new Set(previous); next.delete(item.id); return next; }); setSelected(previous => { const next = new Set(previous); next.delete(item.id); return next; }); } else { setRemoveError(''); setRemoveScope('week'); setRemoval(item); } }}>{t('carteRemoveFromGroup')}</Button>}
+        </article>)}{!groupItems.length && <p className="p-8 text-center text-sm text-fg-secondary">{t('noItemsSelected')}</p>}
+      </section>
+    </div>}
+  </FullScreenEditor>
+  {(picker === 'items' || picker === 'categories') && <GroupSelectionDialog title={t(picker === 'items' ? 'addArticle' : 'addFromCategoryTitle')} choices={picker === 'items' ? allItems.filter(item => !groupItems.some(member => member.id === item.id)).map(item => ({ id: item.id, name: item.name, detail: money(item.price) })) : categories.map(category => ({ id: category.id, name: category.name, detail: t('nArticles').replace('{n}', String(category.items?.length ?? 0)), disabled: !category.items?.length }))} onClose={() => setPicker(null)} onSave={ids => assign(picker === 'items' ? ids : Array.from(new Set(categories.filter(category => ids.includes(category.id)).flatMap(category => (category.items ?? []).map(item => item.id)))))} onCreate={picker === 'items' ? changed => navigate(`/${rid}/menu/items/new`, changed) : undefined} />}
+  {picker === 'replace' && <ReplaceItemsModal t={t} itemsToReplace={groupItems.filter(item => selected.has(item.id))} allItems={allItems} allCats={categories} groupItemIds={new Set(groupItems.map(item => item.id))} onClose={() => { setPicker(null); if (replacementProgress.current.removed.size || replacementProgress.current.added.size) void refreshMembers().catch(cause => setError(cause instanceof Error ? cause.message : t('libraryOperationFailed'))); }} onDone={replace} />}
+  {removal && <Modal title={t('carteRemoveFromGroup')} subtitle={removal.name} onClose={() => { if (!removing) setRemoval(null); }} footer={<div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" disabled={removing} onClick={() => setRemoval(null)}>{t('cancel')}</Button><Button variant="danger" disabled={removing} onClick={() => void remove()}>{t(removing ? 'saving' : 'carteRemoveFromGroup')}</Button></div>}>
+    <fieldset disabled={removing} className="space-y-3"><legend className="mb-3 text-sm text-fg-secondary">{t('groupRemoveDescription')}</legend>{(['week','all'] as const).map(scope => <label key={scope} className="flex min-h-14 items-start gap-3 rounded-r-md border border-[var(--line)] p-3 text-sm"><input type="radio" name="remove-scope" checked={removeScope === scope} onChange={() => setRemoveScope(scope)} className="mt-1 size-4 shrink-0" /><span>{t(scope === 'week' ? 'groupRemoveFromWeek' : 'groupRemoveAll')}{scope === 'week' && <bdi className="mt-1 block text-fg-secondary">{week}</bdi>}</span></label>)}</fieldset>{removeError && <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">{removeError}</p>}
+  </Modal>}
+  <ConfirmDialog open={navigation !== null} onOpenChange={open => { if (!open) setNavigation(null); }} title={t('discardChanges')} description={isNew && savedId.current ? t('menuSavePartial') : t('libraryDiscardDescription')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { if (navigation) router.push(navigation); }} />
+  </>;
 }
 
-// ─── Modal 1: Add Choice ─────────────────────────────────────────────────────
-
-function AddChoiceModal({ t, onClose, onPickIndividually, onPickFromCategory }: {
-  t: (k: string) => string;
-  onClose: () => void;
-  onPickIndividually: () => void;
-  onPickFromCategory: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] bg-black/40" onClick={onClose}>
-      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-8" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center mb-5">
-          <XIcon className="w-5 h-5" />
-        </button>
-        <h2 className="text-2xl font-bold text-fg-primary mb-6">{t('addArticle')}</h2>
-        <div className="space-y-0 rounded-xl border border-[var(--divider)] overflow-hidden">
-          <button
-            onClick={onPickIndividually}
-            className="w-full flex items-center justify-between px-6 py-5 hover:bg-[var(--surface-subtle)] transition-colors text-left"
-          >
-            <div>
-              <p className="text-base font-bold text-fg-primary">{t('addIndividually')}</p>
-              <p className="text-sm text-fg-tertiary mt-1">{t('addIndividuallyDesc')}</p>
-            </div>
-            <ChevronRightIcon className="w-5 h-5 text-fg-tertiary shrink-0" />
-          </button>
-          <div className="border-t border-[var(--divider)]" />
-          <button
-            onClick={onPickFromCategory}
-            className="w-full flex items-center justify-between px-6 py-5 hover:bg-[var(--surface-subtle)] transition-colors text-left"
-          >
-            <div>
-              <p className="text-base font-bold text-fg-primary">{t('addFromCategory')}</p>
-              <p className="text-sm text-fg-tertiary mt-1">{t('addFromCategoryDesc')}</p>
-            </div>
-            <ChevronRightIcon className="w-5 h-5 text-fg-tertiary shrink-0" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal 2: Pick Items Individually ────────────────────────────────────────
-
-function PickItemsModal({ t, allItems, groupItemIds, onClose, onDone, onCreateNew }: {
-  t: (k: string) => string;
-  allItems: MenuItem[];
-  groupItemIds: Set<number>;
-  onClose: () => void;
-  onDone: (ids: number[]) => void;
-  onCreateNew: () => void;
-}) {
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return allItems.filter((item) =>
-      !groupItemIds.has(item.id) && (!q || item.name.toLowerCase().includes(q))
-    );
-  }, [allItems, groupItemIds, search]);
-
-  const toggle = (id: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] bg-black/40" onClick={onClose}>
-      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="p-8 pb-5">
-          <div className="flex items-center justify-between mb-5">
-            <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
-              <XIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => onDone(Array.from(selected))}
-              disabled={selected.size === 0}
-              className="btn-secondary rounded-full disabled:opacity-40"
-            >
-              {t('done')}
-            </button>
-          </div>
-          <h2 className="text-2xl font-bold text-fg-primary mb-5">{t('addArticles')}</h2>
-          <div className="relative">
-            <SearchIcon className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-fg-tertiary" />
-            <input
-              className="input w-full pl-12 rounded-full"
-              placeholder={t('search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto px-8 pb-8">
-          <div className="flex items-center justify-between text-sm text-fg-secondary mb-3">
-            <span>{t('articlesGroup')}</span>
-            <span>{selected.size} {t('selected')}</span>
-          </div>
-          <div className="border-t border-[var(--divider)]" />
-
-          {/* Create new */}
-          <button
-            onClick={onCreateNew}
-            className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors"
-          >
-            <div className="w-10 h-10 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-              <PlusIcon className="w-5 h-5 text-fg-primary" />
-            </div>
-            <span className="text-base font-medium text-fg-primary">{t('createNewItems')}</span>
-          </button>
-
-          {/* Items list */}
-          {filtered.map((item) => (
-            <label
-              key={item.id}
-              className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
-            >
-              {item.image_url ? (
-                <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-              ) : (
-                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V5.25a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v14.25a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-medium text-fg-primary truncate">{item.name}</p>
-                {(item.variant_groups?.length ?? 0) > 0 && (
-                  <p className="text-sm text-fg-tertiary">{item.variant_groups!.length} {t('variants')}</p>
-                )}
-              </div>
-              <input
-                type="checkbox"
-                checked={selected.has(item.id)}
-                onChange={() => toggle(item.id)}
-                className="w-5 h-5 rounded border-2 border-[var(--divider)] shrink-0"
-              />
-            </label>
-          ))}
-          {filtered.length === 0 && (
-            <p className="text-sm text-fg-tertiary text-center py-8">{t('noResults')}</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal 3: Pick from Category ─────────────────────────────────────────────
-
-function PickCategoryModal({ t, allCategories, onClose, onDone }: {
-  t: (k: string) => string;
-  allCategories: (MenuCategory & { menuName: string })[];
-  onClose: () => void;
-  onDone: (catIds: number[]) => void;
-}) {
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return allCategories.filter((c) => !q || c.name.toLowerCase().includes(q));
-  }, [allCategories, search]);
-
-  const toggle = (id: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] bg-black/40" onClick={onClose}>
-      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="p-8 pb-5">
-          <div className="flex items-center justify-between mb-5">
-            <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
-              <XIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => onDone(Array.from(selected))}
-              disabled={selected.size === 0}
-              className="btn-secondary rounded-full disabled:opacity-40"
-            >
-              {t('add')}
-            </button>
-          </div>
-          <h2 className="text-2xl font-bold text-fg-primary mb-5">{t('addFromCategoryTitle')}</h2>
-          <div className="relative">
-            <SearchIcon className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-fg-tertiary" />
-            <input
-              className="input w-full pl-12 rounded-full"
-              placeholder={t('searchCategories')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto px-8 pb-8">
-          {filtered.map((cat) => {
-            const itemCount = cat.items?.length ?? 0;
-            return (
-              <label
-                key={cat.id}
-                className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-base font-bold text-fg-primary truncate">{cat.name}</p>
-                  <p className="text-sm text-fg-tertiary">{itemCount} {itemCount === 1 ? 'article' : 'articles'}</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={selected.has(cat.id)}
-                  onChange={() => toggle(cat.id)}
-                  className="w-5 h-5 rounded border-2 border-[var(--divider)] shrink-0"
-                />
-              </label>
-            );
-          })}
-          {filtered.length === 0 && (
-            <p className="text-sm text-fg-tertiary text-center py-8">{t('noResults')}</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal: Replace items step-by-step ───────────────────────────────────────
-
-function ReplaceItemsModal({ t, itemsToReplace, allItems, allCats, groupItemIds, onClose, onDone }: {
-  t: (k: string) => string;
-  itemsToReplace: MenuItem[];
-  allItems: MenuItem[];
-  allCats: MenuCategory[];
-  groupItemIds: Set<number>;
-  onClose: () => void;
-  onDone: (replacements: { oldId: number; newId: number }[]) => void;
-}) {
-  const { money } = useCurrency();
-  const [stepIndex, setStepIndex] = useState(0);
-  // oldItemId -> chosen replacement itemId. Built up as the operator advances
-  // through one step per item being replaced.
-  const [replacements, setReplacements] = useState<Map<number, number>>(new Map());
-  const [search, setSearch] = useState('');
-  const [catFilter, setCatFilter] = useState<number | null>(null); // null = all categories
-
-  const current: MenuItem | undefined = itemsToReplace[stepIndex];
-  const isLast = stepIndex >= itemsToReplace.length - 1;
-
-  // Categories that actually hold selectable items, used for the filter chips.
-  const categories = useMemo(
-    () => allCats.filter((c) => (c.items?.length ?? 0) > 0),
-    [allCats],
-  );
-
-  // Replacements chosen for the *other* steps — excluded so the operator can't
-  // assign the same item to two slots at once.
-  const usedReplacementIds = useMemo(() => {
-    const set = new Set<number>();
-    replacements.forEach((newId, oldId) => {
-      if (oldId !== current?.id) set.add(newId);
-    });
-    return set;
-  }, [replacements, current]);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return allItems.filter((item) =>
-      !groupItemIds.has(item.id) &&          // not already in this group
-      !usedReplacementIds.has(item.id) &&    // not picked for another slot
-      (catFilter == null || item.category_id === catFilter) &&
-      (!q || item.name.toLowerCase().includes(q))
-    );
-  }, [allItems, groupItemIds, usedReplacementIds, catFilter, search]);
-
-  if (!current) return null;
-
-  const selectedNewId = replacements.get(current.id) ?? null;
-
-  const choose = (id: number) => {
-    setReplacements((prev) => {
-      const next = new Map(prev);
-      if (next.get(current.id) === id) next.delete(current.id); else next.set(current.id, id);
-      return next;
-    });
-  };
-
-  const advanceWith = (map: Map<number, number>) => {
-    if (isLast) {
-      onDone(Array.from(map).map(([oldId, newId]) => ({ oldId, newId })));
-    } else {
-      setStepIndex((i) => i + 1);
-      setSearch('');
-    }
-  };
-
-  const handleNext = () => advanceWith(replacements);
-
-  const handleSkip = () => {
-    const next = new Map(replacements);
-    next.delete(current.id);
-    setReplacements(next);
-    advanceWith(next);
-  };
-
-  const goBack = () => {
-    if (stepIndex > 0) { setStepIndex((i) => i - 1); setSearch(''); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] bg-black/40" onClick={onClose}>
-      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="p-8 pb-5">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
-                <XIcon className="w-5 h-5" />
-              </button>
-              {stepIndex > 0 && (
-                <button onClick={goBack} className="text-sm font-medium text-fg-tertiary hover:text-fg-primary px-3 py-2 rounded-lg hover:bg-[var(--surface-subtle)] transition-colors">
-                  {t('back')}
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={handleSkip} className="text-sm font-medium text-fg-tertiary hover:text-fg-primary px-3 py-2 rounded-lg hover:bg-[var(--surface-subtle)] transition-colors">
-                {t('skip')}
-              </button>
-              <button
-                onClick={handleNext}
-                disabled={selectedNewId == null}
-                className="btn-secondary rounded-full disabled:opacity-40"
-              >
-                {isLast ? t('done') : t('next')}
-              </button>
-            </div>
-          </div>
-          <p className="text-sm font-medium text-fg-tertiary mb-1">
-            {t('replaceStepProgress')
-              .replace('{current}', String(stepIndex + 1))
-              .replace('{total}', String(itemsToReplace.length))}
-          </p>
-          <h2 className="text-2xl font-bold text-fg-primary mb-5">
-            {t('replaceSelectFor').replace('{name}', current.name)}
-          </h2>
-          <div className="relative mb-4">
-            <SearchIcon className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-fg-tertiary" />
-            <input
-              className="input w-full pl-12 rounded-full"
-              placeholder={t('search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          {/* Category filter chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <button
-              onClick={() => setCatFilter(null)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${catFilter == null ? 'bg-fg-primary text-[var(--bg)] border-fg-primary' : 'border-[var(--divider)] text-fg-secondary hover:bg-[var(--surface-subtle)]'}`}
-            >
-              {t('allCategoriesFilter')}
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setCatFilter(c.id)}
-                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${catFilter === c.id ? 'bg-fg-primary text-[var(--bg)] border-fg-primary' : 'border-[var(--divider)] text-fg-secondary hover:bg-[var(--surface-subtle)]'}`}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto px-8 pb-8">
-          <div className="border-t border-[var(--divider)]" />
-          {filtered.map((item) => (
-            <label
-              key={item.id}
-              className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
-            >
-              {item.image_url ? (
-                <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-              ) : (
-                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V5.25a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v14.25a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-medium text-fg-primary truncate">{item.name}</p>
-                <p className="text-sm text-fg-tertiary">{money(item.price)}</p>
-              </div>
-              <input
-                type="radio"
-                name={`replace-${current.id}`}
-                checked={selectedNewId === item.id}
-                onChange={() => choose(item.id)}
-                className="w-5 h-5 shrink-0 accent-[var(--brand-500)]"
-              />
-            </label>
-          ))}
-          {filtered.length === 0 && (
-            <p className="text-sm text-fg-tertiary text-center py-8">{t('noResults')}</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal: Menu Picker ──────────────────────────────────────────────────────
-
-function MenuPickerModal({ t, menus, selectedMenuId, onSelect, onClose }: {
-  t: (k: string) => string;
-  menus: Menu[];
-  selectedMenuId: number;
-  restaurantName?: string;
-  onSelect: (menuId: number) => void;
-  onClose: () => void;
-}) {
-  const [search, setSearch] = useState('');
-  const [picked, setPicked] = useState(selectedMenuId);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return menus.filter((m) => !q || m.name.toLowerCase().includes(q));
-  }, [menus, search]);
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[8vh] bg-black/50" onClick={onClose}>
-      <div
-        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col border border-[var(--divider)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="p-6 pb-4">
-          <div className="flex items-center justify-between mb-5">
-            <button
-              onClick={onClose}
-              className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
-            >
-              <XIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => onSelect(picked)}
-              className="bg-fg-primary text-[var(--bg)] font-medium px-6 py-2.5 rounded-full text-sm hover:opacity-90 transition-opacity"
-            >
-              {t('save')}
-            </button>
-          </div>
-          <h2 className="text-xl font-bold text-fg-primary mb-4">{t('assignGroupToMenu')}</h2>
-
-          {/* Search */}
-          <div className="relative">
-            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary" />
-            <input
-              className="input w-full pl-12 rounded-full"
-              placeholder={t('searchByMenuName')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Menu list */}
-        <div className="px-6 pb-6">
-          {filtered.map((m) => (
-            <label
-              key={m.id}
-              className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
-              onClick={() => setPicked(m.id)}
-            >
-              <svg className="w-6 h-6 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-              </svg>
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-medium text-fg-primary">{m.name}</p>
-              </div>
-              <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${picked === m.id ? 'border-fg-primary' : 'border-[var(--divider)]'}`}>
-                {picked === m.id && <div className="w-2.5 h-2.5 rounded-full bg-fg-primary" />}
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal: Hours ────────────────────────────────────────────────────────────
-
-const FULL_DAY_LABELS = [
-  { key: 'monday', en: 'Monday', fr: 'Lundi', he: 'שני' },
-  { key: 'tuesday', en: 'Tuesday', fr: 'Mardi', he: 'שלישי' },
-  { key: 'wednesday', en: 'Wednesday', fr: 'Mercredi', he: 'רביעי' },
-  { key: 'thursday', en: 'Thursday', fr: 'Jeudi', he: 'חמישי' },
-  { key: 'friday', en: 'Friday', fr: 'Vendredi', he: 'שישי' },
-  { key: 'saturday', en: 'Saturday', fr: 'Samedi', he: 'שבת' },
-  { key: 'sunday', en: 'Sunday', fr: 'Dimanche', he: 'ראשון' },
-];
-
-function HoursModal({ t, followsMenuHours, hours, onClose, onDone }: {
-  t: (k: string) => string;
-  followsMenuHours: boolean;
-  hours: GroupAvailabilityHour[];
-  onClose: () => void;
-  onDone: (followsMenuHours: boolean, hours: GroupAvailabilityHour[]) => void;
-}) {
-  const [useExisting, setUseExisting] = useState(followsMenuHours);
-  const [localHours, setLocalHours] = useState<GroupAvailabilityHour[]>(hours);
-
-  const getHour = (day: number): GroupAvailabilityHour =>
-    localHours.find((h) => h.day_of_week === day) ?? { id: 0, menu_group_id: 0, day_of_week: day, open_time: '', close_time: '', is_closed: true };
-
-  const setField = (day: number, field: string, value: string | boolean) => {
-    setLocalHours((prev) => {
-      const existing = prev.find((h) => h.day_of_week === day);
-      if (existing) return prev.map((h) => h.day_of_week === day ? { ...h, [field]: value } : h);
-      return [...prev, { id: 0, menu_group_id: 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false, [field]: value }];
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50" onClick={onClose}>
-      <div
-        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[var(--divider)] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="p-6 pb-0">
-          <div className="flex items-center justify-between mb-5">
-            <button
-              onClick={onClose}
-              className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
-            >
-              <XIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => onDone(useExisting, localHours)}
-              className="bg-fg-primary text-[var(--bg)] font-medium px-6 py-2.5 rounded-full text-sm hover:opacity-90 transition-opacity"
-            >
-              {t('done')}
-            </button>
-          </div>
-          <h2 className="text-2xl font-bold text-fg-primary mb-3">{t('hoursLabel')}</h2>
-          <p className="text-sm text-fg-tertiary leading-relaxed mb-6">{t('hoursModalDesc')}</p>
-        </div>
-
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
-          {/* Option 1: Use existing hours */}
-          <label
-            className="flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer"
-            onClick={() => setUseExisting(true)}
-          >
-            <div className="flex-1">
-              <p className="text-base font-bold text-fg-primary">{t('useExistingHours')}</p>
-              <p className="text-sm text-fg-tertiary mt-1">{t('useExistingHoursDesc')}</p>
-            </div>
-            <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${useExisting ? 'border-fg-primary' : 'border-[var(--divider)]'}`}>
-              {useExisting && <div className="w-2.5 h-2.5 rounded-full bg-fg-primary" />}
-            </div>
-          </label>
-
-          {/* Option 2: Custom hours */}
-          <label
-            className="flex items-center gap-3 py-4 cursor-pointer"
-            onClick={() => setUseExisting(false)}
-          >
-            <div className="flex-1">
-              <p className="text-base font-bold text-fg-primary">{t('setCustomHours')}</p>
-              <p className="text-sm text-fg-tertiary mt-1">{t('setCustomHoursDesc')}</p>
-            </div>
-            <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${!useExisting ? 'border-fg-primary' : 'border-[var(--divider)]'}`}>
-              {!useExisting && <div className="w-2.5 h-2.5 rounded-full bg-fg-primary" />}
-            </div>
-          </label>
-
-          {/* Custom hours table */}
-          {!useExisting && (
-            <div className="mt-4">
-              {/* Table header */}
-              <div className="grid grid-cols-[auto_1fr_1fr] gap-3 items-center pb-2 border-b border-[var(--divider)]">
-                <div className="w-28">
-                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('days')}</span>
-                </div>
-                <div>
-                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('startTime')}</span>
-                </div>
-                <div>
-                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('endTime')}</span>
-                </div>
-              </div>
-
-              {/* Day rows — Monday=1 through Sunday=0 mapped to 0-6 */}
-              {FULL_DAY_LABELS.map((dayInfo, idx) => {
-                const dayOfWeek = idx === 6 ? 0 : idx + 1; // Mon=1..Sat=6, Sun=0
-                const h = getHour(dayOfWeek);
-                const isOpen = !h.is_closed;
-                return (
-                  <div key={dayInfo.key} className="grid grid-cols-[auto_1fr_1fr] gap-3 items-center py-3 border-b border-[var(--divider)]">
-                    <div className="w-28 flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={isOpen}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setField(dayOfWeek, 'is_closed', false);
-                            if (!h.open_time) setField(dayOfWeek, 'open_time', '09:00');
-                            if (!h.close_time) setField(dayOfWeek, 'close_time', '21:00');
-                          } else {
-                            setField(dayOfWeek, 'is_closed', true);
-                          }
-                        }}
-                        className="rounded border-[var(--divider)]"
-                      />
-                      <span className="text-sm text-fg-primary">{t(dayInfo.key) || dayInfo.en}</span>
-                    </div>
-                    <div>
-                      <input
-                        type="time"
-                        value={h.open_time || ''}
-                        onChange={(e) => {
-                          setField(dayOfWeek, 'open_time', e.target.value);
-                          if (e.target.value) setField(dayOfWeek, 'is_closed', false);
-                        }}
-                        className={`input-sm w-full ${!isOpen ? 'opacity-40' : ''}`}
-                        placeholder={t('closed')}
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="time"
-                        value={h.close_time || ''}
-                        onChange={(e) => {
-                          setField(dayOfWeek, 'close_time', e.target.value);
-                          if (e.target.value) setField(dayOfWeek, 'is_closed', false);
-                        }}
-                        className={`input-sm w-full ${!isOpen ? 'opacity-40' : ''}`}
-                        placeholder={t('closed')}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Week picker (rotation editor) ─────────────────────────────────────────
-
-function WeekPicker({
-  value,
-  onChange,
-  todayWeekStartIso,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  todayWeekStartIso: string;
-}) {
-  const { t } = useI18n();
-  const selectedStart = useMemo(() => new Date(value + 'T00:00:00'), [value]);
-  const labelFor = (iso: string): string => {
-    if (iso === todayWeekStartIso) return t('weekThis');
-    const todayStart = new Date(todayWeekStartIso + 'T00:00:00');
-    const diff = Math.round(
-      (new Date(iso + 'T00:00:00').getTime() - todayStart.getTime()) / 86400000 / 7,
-    );
-    if (diff === -1) return t('weekLast');
-    if (diff === 1) return t('weekNext');
-    return iso; // fallback to ISO date
-  };
-  // Build the 6-option list: last week, this week, next 4 weeks.
-  const options = useMemo(() => {
-    const todayStart = new Date(todayWeekStartIso + 'T00:00:00');
-    return [-1, 0, 1, 2, 3, 4].map((offset) => {
-      const d = new Date(todayStart);
-      d.setDate(d.getDate() + offset * 7);
-      const iso = isoDate(d);
-      return { iso, label: labelFor(iso) };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [todayWeekStartIso]);
-  const shift = (weeks: number) => {
-    const next = new Date(selectedStart);
-    next.setDate(next.getDate() + weeks * 7);
-    onChange(isoDate(next));
-  };
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => shift(-1)}
-        className="w-8 h-8 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] flex items-center justify-center text-fg-secondary"
-        aria-label={t('weekPrev')}
-      >
-        ‹
-      </button>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="input-sm text-sm min-w-[12rem]"
-      >
-        {options.map((o) => (
-          <option key={o.iso} value={o.iso}>
-            {o.label === o.iso ? o.iso : `${o.label} (${o.iso})`}
-          </option>
-        ))}
-        {/* When the operator navigates with arrows past the static window,
-            the current value may not be in the list — include it explicitly. */}
-        {!options.some((o) => o.iso === value) && (
-          <option value={value}>{value}</option>
-        )}
-      </select>
-      <button
-        type="button"
-        onClick={() => shift(1)}
-        className="w-8 h-8 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] flex items-center justify-center text-fg-secondary"
-        aria-label={t('weekNext')}
-      >
-        ›
-      </button>
-    </div>
-  );
+function GroupWeekPicker({ value, currentWeek, onChange }: { value: string; currentWeek: string; onChange: (value: string) => void }) {
+  const { t, locale, direction } = useI18n();
+  const options = [-1,0,1,2,3,4].map(offset => isoDate(addDays(new Date(currentWeek + 'T00:00:00'), offset * 7)));
+  const label = (date: string) => { const formatted = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(date + 'T00:00:00')); return date === currentWeek ? `${t('weekThis')} · ${formatted}` : formatted; };
+  return <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto"><Button variant="secondary" size="lg" icon aria-label={t('weekPrev')} onClick={() => onChange(isoDate(addDays(new Date(value + 'T00:00:00'), -7)))}>{direction === 'rtl' ? <ArrowRight /> : <ArrowLeft />}</Button><select className="input min-w-0 flex-1 text-sm sm:w-56" aria-label={t('groupSelectWeek')} value={value} onChange={event => onChange(event.target.value)}>{options.map(date => <option key={date} value={date}>{label(date)}</option>)}{!options.includes(value) && <option value={value}>{label(value)}</option>}</select><Button variant="secondary" size="lg" icon aria-label={t('weekNext')} onClick={() => onChange(isoDate(addDays(new Date(value + 'T00:00:00'), 7)))}>{direction === 'rtl' ? <ArrowLeft /> : <ArrowRight />}</Button></div>;
 }

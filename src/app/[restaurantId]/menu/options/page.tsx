@@ -5,12 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { listOptionSets, deleteOptionSet, migrateVariantsToOptionSets, OptionSet } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Plus, Trash2, ChevronRight, Layers } from 'lucide-react';
-import { Button, PageHead } from '@/components/ds';
-
-// Options list — Figma design: orange gradient CTA, lucide icons, rounded
-// card rows (no HTML table), neutral dark tokens consistent with the
-// Articles list page.
+import { Plus, Layers } from 'lucide-react';
+import { LibrarySetList } from '@/components/menu/LibrarySetList';
+import { Button, ConfirmDialog, PageHead } from '@/components/ds';
 
 export default function OptionsPage() {
   const { restaurantId } = useParams();
@@ -22,37 +19,44 @@ export default function OptionsPage() {
 
   const [sets, setSets] = useState<OptionSet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{id:number;name:string} | null>(null);
 
-  const reload = useCallback(() => {
-    return listOptionSets(rid).then(setSets).finally(() => setLoading(false));
-  }, [rid]);
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try { setSets(await listOptionSets(rid)); }
+    catch (error) { setError(error instanceof Error ? error.message : t('workspaceLoadError')); }
+    finally { setLoading(false); }
+  }, [rid, t]);
 
   useEffect(() => { reload(); }, [reload]);
 
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`${t('delete')} "${name}"?`)) return;
-    await deleteOptionSet(rid, id);
-    reload();
+  const handleDelete = async (id: number) => {
+    setBusyId(id); setError('');
+    try { await deleteOptionSet(rid, id); await reload(); }
+    catch (error) { setError(error instanceof Error ? error.message : t('workspaceLoadError')); }
+    finally { setBusyId(null); }
   };
+
+  const [migrating, setMigrating] = useState(false);
 
   const handleMigrate = async () => {
     if (!confirm(t('migrateModifiersConfirm') || 'Migrate existing variant groups to reusable option sets?')) return;
+    setMigrating(true);
+    setError('');
     try {
       const count = await migrateVariantsToOptionSets(rid);
       alert(`${t('created') || 'Created'} ${count} ${t('optionSets') || 'option set(s)'}`);
       reload();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Migration failed');
+      setError(err instanceof Error ? err.message : t('workspaceLoadError'));
+    } finally {
+      setMigrating(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-[var(--s-5)] max-w-5xl mx-auto">
@@ -62,7 +66,7 @@ export default function OptionsPage() {
         actions={
           canEdit ? (
             <>
-              <Button variant="secondary" size="md" onClick={handleMigrate}>
+              <Button variant="secondary" size="md" onClick={handleMigrate} disabled={migrating}>
                 {t('migrateLegacy') || 'Migrate variants'}
               </Button>
               <Button
@@ -78,65 +82,18 @@ export default function OptionsPage() {
         }
       />
 
-      {/* Empty state */}
-      {sets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 px-6 bg-neutral-50 dark:bg-[#111111] rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700">
-          <div className="size-12 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mb-4">
-            <Layers size={24} className="text-orange-500" />
-          </div>
-          <p className="text-base text-neutral-900 dark:text-white font-medium mb-1">
-            {t('options')}
-          </p>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 text-center max-w-md mb-5">
-            {t('optionsDescription')}
-          </p>
-          {canEdit && (
-            <button
-              onClick={() => router.push(`/${rid}/menu/options/new`)}
-              className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-lg shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2"
-            >
-              <Plus size={16} />
-              {t('createOptionSet')}
-            </button>
-          )}
-        </div>
-      ) : (
-        /* Card rows */
-        <div className="space-y-2">
-          {sets.map((os) => (
-            <div
-              key={os.id}
-              onClick={() => router.push(`/${rid}/menu/options/${os.id}`)}
-              className="group flex items-center gap-4 p-4 bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 hover:shadow-md transition-all cursor-pointer"
-            >
-              <div className="size-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
-                <Layers size={18} className="text-orange-500" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-neutral-900 dark:text-white truncate">
-                  {os.name}
-                </p>
-                <p className="text-xs text-neutral-600 dark:text-neutral-400 truncate mt-0.5">
-                  {(os.options ?? []).map((o) => o.name).join(' \u00b7 ') || '\u2014'}
-                </p>
-              </div>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
-                {(os.menu_items ?? []).length} {(t('items') || 'articles').toLowerCase()}
-              </span>
-              {canEdit && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(os.id, os.name); }}
-                  className="size-9 rounded-lg flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
-                  title={t('delete')}
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
-              <ChevronRight size={16} className="text-neutral-400 shrink-0 group-hover:text-orange-500 transition-colors" />
-            </div>
-          ))}
-        </div>
-      )}
+      <ConfirmDialog open={pendingDelete !== null} onOpenChange={open => { if (!open) setPendingDelete(null); }} title={t('delete')} description={pendingDelete?.name} confirmLabel={t('delete')} cancelLabel={t('cancel')} danger onConfirm={() => { if (pendingDelete) void handleDelete(pendingDelete.id); }} />
+      <LibrarySetList
+        rows={sets.map((os) => ({ id:os.id, name:os.name, summary:(os.options ?? []).map(item => item.name).join(' · '), count:(os.menu_items ?? []).length }))}
+        href={id => `/${rid}/menu/options/${id}`}
+        icon={<Layers />}
+        title={t('options')}
+        description={t('optionsDescription')}
+        emptyAction={canEdit ? <Button onClick={() => router.push(`/${rid}/menu/options/new`)}><Plus />{t('createOptionSet')}</Button> : undefined}
+        loading={loading} error={error} onRetry={reload} busyId={busyId}
+        onDelete={canEdit ? (id,name) => setPendingDelete({id,name}) : undefined}
+
+      />
     </div>
   );
 }

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="820" viewBox="0 0 640 820">
+  <rect width="640" height="820" fill="#ffffff"/>
+  <g font-family="Arial, sans-serif" fill="#171717">
+    <text x="48" y="64" font-size="14" fill="#59636b">DONNÉES DE DÉMONSTRATION</text>
+    <text x="48" y="116" font-size="28" font-weight="bold">Maraîcher démo</text>
+    <text x="48" y="150" font-size="16">Bon de livraison · TEST-070</text>
+    <text x="48" y="204" font-size="16">Destinataire : Atelier Foody (test)</text>
+    <text x="48" y="232" font-size="16">Date : 4 octobre 2026</text>
+    <path d="M48 266H592 M48 326H592 M48 396H592 M48 466H592" stroke="#d5dae0"/>
+    <g font-size="14" font-weight="bold"><text x="48" y="302">Article</text><text x="342" y="302">Quantité</text><text x="500" y="302">Total HT</text></g>
+    <g font-size="16"><text x="48" y="368">Tomates de saison</text><text x="342" y="368">2 kg</text><text x="510" y="368">32,00 ₪</text><text x="48" y="438">Farine de démonstration</text><text x="342" y="438">1 kg</text><text x="510" y="438">8,00 ₪</text></g>
+    <text x="342" y="524" font-size="18" font-weight="bold">Total HT : 40,00 ₪</text>
+    <text x="48" y="706" font-size="14" fill="#59636b">Document synthétique pour les tests de l’interface.</text>
+    <text x="48" y="732" font-size="14" fill="#59636b">Aucun fournisseur ni client réel.</text>
+  </g>
+</svg>

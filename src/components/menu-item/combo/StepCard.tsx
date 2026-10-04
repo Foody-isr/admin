@@ -14,11 +14,12 @@
 // Only one step is "open" at a time — CompositionTab owns activeStepKey and
 // passes isActive down. Active === open === target of catalog actions.
 
-import { Check, ChevronDown, GripVertical, ListChecks, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ListChecks, Loader2, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { Button, ConfirmDialog } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft, ComboOptionView, VariantView } from './types';
 import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant, getSourceVariants } from './types';
@@ -66,32 +67,24 @@ function dynamicSourceName(step: ComboStepDraft, menus: Menu[]): string | null {
 // ── Inline helpers ─────────────────────────────────────────────────────────
 
 function EditableField({
-  value, onChange, placeholder, variant,
+  value, onChange, placeholder, label, variant,
 }: {
   value: string;
   onChange: (next: string) => void;
   placeholder: string;
+  label: string;
   variant: 'title' | 'description';
 }) {
-  const isTitle = variant === 'title';
-  const inputBase =
-    'flex-1 min-w-0 bg-transparent outline-none cursor-text border-0 border-b border-dashed transition-colors py-0.5 focus:border-solid focus:border-[var(--brand-500)]';
-  const inputTone = isTitle
-    ? 'text-fs-md font-semibold text-[var(--fg)] placeholder:text-[var(--fg-subtle)] placeholder:font-normal border-[var(--line-strong)] hover:border-[var(--fg-muted)]'
-    : 'text-fs-xs text-[var(--fg-muted)] placeholder:text-[var(--fg-subtle)] focus:text-[var(--fg)] border-[var(--line)] hover:border-[var(--fg-subtle)]';
   return (
-    <div className="group/edit relative inline-flex items-center gap-1.5 w-full min-w-0">
+    <label className="flex min-w-0 flex-col gap-1.5 text-sm text-fg-secondary">
+      <span>{label}</span>
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className={`${inputBase} ${inputTone}`}
+        className={`min-h-11 w-full min-w-0 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-[var(--fg)] placeholder:text-[var(--fg-subtle)] ${variant === 'title' ? 'text-base font-semibold' : 'text-sm'}`}
       />
-      <Pencil
-        className={`shrink-0 ${isTitle ? 'w-3 h-3 opacity-40' : 'w-2.5 h-2.5 opacity-30'} group-hover/edit:opacity-80 group-focus-within/edit:opacity-100 transition-opacity text-[var(--fg-subtle)] pointer-events-none`}
-        aria-hidden
-      />
-    </div>
+    </label>
   );
 }
 
@@ -113,10 +106,10 @@ function InlineRules({
     onChange({ minPicks, maxPicks: next });
   };
   const inputCls =
-    'w-12 h-7 px-1 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] text-[var(--fg)]';
+    'w-12 min-h-11 px-1 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] text-[var(--fg)]';
   return (
     <div className="inline-flex items-center gap-2 text-fs-sm text-[var(--fg-muted)] flex-wrap">
-      <ListChecks className="w-4 h-4 text-[var(--brand-500)]" aria-hidden />
+      <ListChecks className="w-4 h-4 text-[var(--brand-ink)]" aria-hidden />
       <span className="font-semibold text-[var(--fg)]">{t('composeRulesChoose')}</span>
       <NumberInput integer min={0} value={minPicks} onChange={setMin} className={inputCls} aria-label={t('composeMin')} />
       <span>{t('composeRulesTo')}</span>
@@ -180,6 +173,7 @@ export default function StepCard({
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
+  const [switchToGroup, setSwitchToGroup] = useState(false);
 
   const options = useMemo<ComboOptionView[]>(() => {
     const opts = buildOptions(step.items, itemsById);
@@ -258,70 +252,67 @@ export default function StepCard({
     const itemCount = dynamic ? dynamicAvailableCount : options.length;
     const stepName = step.name || t('composeStepDefaultName').replace('{n}', String(index + 1));
     return (
-      <button
+      <div className="relative flex items-stretch gap-2 rounded-r-lg bg-[var(--surface)]">
+      <button aria-expanded={false} aria-label={stepName}
         type="button"
         onClick={onActivate}
-        className="group/step w-full text-start rounded-r-lg border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_3%,transparent)] transition-colors flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)]"
+        className="group/step min-w-0 flex-1 text-start rounded-r-lg border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_3%,transparent)] transition-colors flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)]"
         style={{ borderInlineStartWidth: 3, borderInlineStartColor: 'color-mix(in oklab, var(--brand-500) 35%, transparent)' }}
       >
-        <span className="text-[var(--fg-subtle)] shrink-0" aria-hidden>
-          <GripVertical className="w-3.5 h-3.5" />
-        </span>
         <div
-          className="w-7 h-7 rounded-full grid place-items-center text-white font-bold text-fs-xs shrink-0"
-          style={{ background: 'var(--brand-500)' }}
+          className="w-7 h-7 rounded-full grid place-items-center text-[var(--action-fg)] font-semibold text-fs-xs shrink-0"
+          style={{ background: 'var(--action)' }}
         >
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-fs-md font-semibold text-[var(--fg)] truncate">{stepName}</div>
-          <div className="text-fs-xs text-[var(--fg-muted)] flex items-center gap-2 mt-0.5">
+          <div className="text-fs-xs text-[var(--fg-muted)] flex flex-wrap items-center gap-2 mt-0.5">
             <span className="inline-flex items-center gap-1">
-              <ListChecks className="w-3 h-3 text-[var(--brand-500)]" />
-              {ruleSummary(step, optionsCount, t)}
+              <ListChecks className="w-3 h-3 text-[var(--brand-ink)]" />
+              {dynamic && (preview?.loading || preview?.error) ? t(preview?.error ? 'composeStepPreviewError' : 'composeStepPreviewLoading') : ruleSummary(step, optionsCount, t)}
             </span>
             {dynamic && dynamicSourceName(step, menus) != null && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)] font-medium">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-ink)] font-medium">
                 {dynamicSourceName(step, menus)}
                 {step.source_variant_label ? ` · ${step.source_variant_label}` : ''}
               </span>
             )}
             <span className="text-[var(--fg-subtle)]">·</span>
-            <span>{t('composeStepSummaryItemCount').replace('{n}', String(itemCount))}</span>
+            {(!dynamic || (preview && !preview.loading && !preview.error)) && <span>{t('composeStepSummaryItemCount').replace('{n}', String(itemCount))}</span>}
           </div>
         </div>
         <span className="text-fs-xs text-[var(--fg-subtle)] opacity-0 group-hover/step:opacity-100 transition-opacity shrink-0">
           {t('composeStepSummaryEditCta')}
         </span>
+      </button>
         {canEdit && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)] shrink-0"
+            className="w-11 min-h-11 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)] shrink-0"
             aria-label={t('composeStepDelete')}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         )}
-      </button>
+      </div>
     );
   }
 
   // ── Open (editor) state ──────────────────────────────────────────────
 
   return (
-    <div
-      className="rounded-r-lg border-2 border-[var(--brand-500)] bg-[var(--surface)] overflow-hidden"
-      style={{
-        boxShadow: '0 0 0 4px color-mix(in oklab, var(--brand-500) 12%, transparent)',
-      }}
+    <>
+    <section aria-label={step.name || t('composeStepDefaultName').replace('{n}', String(index + 1))}
+      className="min-w-0 rounded-r-lg border border-[var(--brand-ink)] bg-[var(--surface)] overflow-hidden"
     >
       {/* Status strip — makes it unambiguous which step the catalog targets. */}
-      <div className="flex items-center justify-between gap-3 px-[var(--s-4)] py-[var(--s-2)] bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] border-b border-[var(--line)]">
-        <span className="inline-flex items-center gap-1.5 text-fs-xs font-bold uppercase tracking-[.08em] text-[var(--brand-500)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-[var(--s-4)] py-[var(--s-2)] bg-[var(--brand-soft)] border-b border-[var(--line)]">
+        <span className="inline-flex items-center gap-1.5 text-fs-sm font-semibold text-[var(--brand-ink)]">
           <span
-            className="w-5 h-5 rounded-full grid place-items-center text-white font-bold text-[10px]"
-            style={{ background: 'var(--brand-500)' }}
+            className="w-5 h-5 rounded-full grid place-items-center text-[var(--action-fg)] font-semibold text-fs-xs"
+            style={{ background: 'var(--action)' }}
           >
             {index + 1}
           </span>
@@ -331,8 +322,8 @@ export default function StepCard({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={onActivate}
-            className="inline-flex items-center gap-1 h-7 px-2 rounded-r-sm text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
+            aria-expanded={true} onClick={onActivate}
+            className="inline-flex items-center gap-1 min-h-11 px-2 rounded-r-sm text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
           >
             <ChevronDown className="w-3.5 h-3.5" />
             {t('composeStepClose')}
@@ -341,7 +332,7 @@ export default function StepCard({
             <button
               type="button"
               onClick={onRemove}
-              className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)]"
+              className="w-11 min-h-11 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)]"
               aria-label={t('composeStepDelete')}
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -351,21 +342,18 @@ export default function StepCard({
       </div>
 
       {/* Editor body — breathable spacing, fields stacked one per row. */}
-      <div className="px-[var(--s-4)] py-[var(--s-4)] flex flex-col gap-[var(--s-4)]">
+      <fieldset disabled={!canEdit} className="min-w-0 px-[var(--s-4)] py-[var(--s-4)] flex flex-col gap-[var(--s-4)]">
 
         {/* Name + description */}
-        <div className="flex flex-col gap-1">
-          <span className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
-            {t('composeStepFieldName')}
-          </span>
+        <div className="flex flex-col gap-3">
           <EditableField
-            value={step.name}
+            label={t('composeStepFieldName')} value={step.name}
             onChange={(name) => onChange({ ...step, name })}
             placeholder={t('composeStepDefaultName').replace('{n}', String(index + 1))}
             variant="title"
           />
           <EditableField
-            value={step.description ?? ''}
+            label={t('description')} value={step.description ?? ''}
             onChange={(description) => onChange({ ...step, description })}
             placeholder={t('composeStepDescriptionPlaceholder')}
             variant="description"
@@ -374,7 +362,7 @@ export default function StepCard({
 
         {/* Rules */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
+          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
             {t('composeStepFieldRules')}
           </span>
           <InlineRules
@@ -390,7 +378,7 @@ export default function StepCard({
         {/* Per-item caps: a step-wide default (max repeats of any one item,
             counted across sizes) plus optional per-item overrides. */}
         <div className="flex flex-col gap-2">
-          <span className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
+          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
             {t('composeStepPerItemTitle')}
           </span>
           <label className="inline-flex items-center gap-2 self-start">
@@ -401,7 +389,7 @@ export default function StepCard({
               value={step.max_per_item || ''}
               placeholder="∞"
               onChange={(e) => setMaxPerItem(Math.max(0, Number(e.target.value) || 0))}
-              className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+              className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
             />
           </label>
           {(step.item_limits ?? []).length > 0 && (
@@ -414,10 +402,11 @@ export default function StepCard({
                   <input
                     type="number"
                     min={0}
+                    aria-label={`${t('composeStepMaxPerItem')} — ${perItemChoices.find(c => c.id === l.menu_item_id)?.name ?? l.item_name ?? l.menu_item_id}`}
                     value={l.max_qty || ''}
                     placeholder="∞"
                     onChange={(e) => setItemLimitMax(l.menu_item_id, Number(e.target.value) || 0)}
-                    className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+                    className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
                   />
                   <button
                     type="button"
@@ -432,13 +421,13 @@ export default function StepCard({
             </div>
           )}
           {perItemChoices.some((c) => !(step.item_limits ?? []).some((l) => l.menu_item_id === c.id)) && (
-            <select
+            <select aria-label={t('composeStepAddItemLimit')}
               value=""
               onChange={(e) => {
                 addItemLimit(Number(e.target.value));
                 e.currentTarget.value = '';
               }}
-              className="h-9 px-2 self-start rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg-muted)]"
+              className="min-h-11 px-2 self-start rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg-muted)]"
             >
               <option value="">{t('composeStepAddItemLimit')}</option>
               {perItemChoices
@@ -452,7 +441,7 @@ export default function StepCard({
 
         {/* Source mode — segmented control between manual list and dynamic category. */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
+          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
             {t('composeStepFieldSource')}
           </span>
           <div className="inline-flex items-center gap-0.5 rounded-r-sm bg-[var(--surface-2)] p-0.5 self-start">
@@ -473,7 +462,7 @@ export default function StepCard({
               active={step.source_type === 'group'}
               onClick={() => {
                 if (!canEdit) return;
-                if (step.items.length > 0 && !confirm(t('composeStepModeSwitchConfirm'))) return;
+                if (step.items.length > 0) { setSwitchToGroup(true); return; }
                 onChange({ ...step, source_type: 'group', items: [] });
               }}
               label={t('composeStepModeGroup')}
@@ -522,8 +511,11 @@ export default function StepCard({
             })}
           </div>
         )}
-      </div>
-    </div>
+      </fieldset>
+      {dynamic && preview?.error && <div className="px-4 pb-4"><Button type="button" variant="secondary" size="lg" onClick={preview.retry}>{t('retry')}</Button></div>}
+    </section>
+    <ConfirmDialog open={switchToGroup} onOpenChange={setSwitchToGroup} title={t('composeStepModeGroup')} description={t('composeStepModeSwitchConfirm')} confirmLabel={t('confirm')} cancelLabel={t('cancel')} onConfirm={() => { onChange({ ...step, source_type:'group', items:[] }); setSwitchToGroup(false); }}/>
+    </>
   );
 }
 
@@ -533,7 +525,7 @@ function SourceSeg({ active, onClick, label }: { active: boolean; onClick: () =>
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`h-7 px-3 rounded-r-xs text-fs-xs font-medium transition-colors ${
+      className={`min-h-11 px-3 rounded-r-xs text-fs-xs font-medium transition-colors ${
         active
           ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1 border border-[var(--line-strong)]'
           : 'bg-transparent text-[var(--fg-muted)] border border-transparent hover:text-[var(--fg)]'
@@ -634,10 +626,10 @@ function DynamicModePanel({
 
   return (
     <div className="flex flex-col gap-3">
-      <select
+      <select aria-label={t('composeStepGroupPlaceholder')}
         value={selectedId}
         onChange={(e) => onSelectSource(Number(e.target.value))}
-        className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+        className="min-h-11 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
       >
         <option value={0}>{t('composeStepGroupPlaceholder')}</option>
         {groups.map((m) => (
@@ -661,7 +653,7 @@ function DynamicModePanel({
               onChange={(e) =>
                 onChange({ ...step, source_variant_label: e.target.value || undefined, variant_rules: [] })
               }
-              className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+              className="min-h-11 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
             >
               <option value="">{t('composeStepSizeAll')}</option>
               {sizeLabels.map((l) => (
@@ -679,7 +671,7 @@ function DynamicModePanel({
             <p className="text-fs-xs text-[var(--fg-subtle)]">
               {label ? t('composeStepSizeRulesDisabled') : t('composeStepSizeRulesHint')}
             </p>
-            <div className="grid grid-cols-[1fr_4rem_4rem] gap-2 text-fs-2xs uppercase tracking-wide text-[var(--fg-subtle)]">
+            <div className="grid grid-cols-[1fr_4rem_4rem] gap-2 text-fs-xs uppercase tracking-wide text-[var(--fg-subtle)]">
               <span>{t('composeStepSizeCol')}</span>
               <span className="text-center">{t('composeStepMinCol')}</span>
               <span className="text-center">{t('composeStepMaxCol')}</span>
@@ -693,19 +685,19 @@ function DynamicModePanel({
                     type="number"
                     min={0}
                     disabled={!!label}
-                    value={cur.min || ''}
+                    aria-label={`${t('composeMin')} — ${l}`} value={cur.min || ''}
                     placeholder="0"
                     onChange={(e) => setRule(l, { min: Math.max(0, Number(e.target.value) || 0) })}
-                    className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)] disabled:cursor-not-allowed"
+                    className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)] disabled:cursor-not-allowed"
                   />
                   <input
                     type="number"
                     min={0}
                     disabled={!!label}
-                    value={cur.max || ''}
+                    aria-label={`${t('composeMax')} — ${l}`} value={cur.max || ''}
                     placeholder="∞"
                     onChange={(e) => setRule(l, { max: Math.max(0, Number(e.target.value) || 0) })}
-                    className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)] disabled:cursor-not-allowed"
+                    className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)] disabled:cursor-not-allowed"
                   />
                 </div>
               );
@@ -731,16 +723,16 @@ function DynamicModePanel({
       )}
 
       {selectedId > 0 && !preview?.loading && preview?.error && (
-        <div className="text-fs-xs text-[var(--danger-500)]">
-          {t('composeStepPreviewError') || 'Aperçu indisponible.'}
+        <div className="space-y-2 text-sm text-[var(--danger-500)]" role="alert">
+          <p>{t('composeStepPreviewError')}</p>
         </div>
       )}
 
-      {selectedId > 0 && !preview?.loading && !preview?.error && availableNames.length === 0 && (
+      {selectedId > 0 && preview && !preview.loading && !preview.error && availableNames.length === 0 && (
         <div className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepCategoryEmpty')}</div>
       )}
 
-      {selectedId > 0 && !preview?.loading && !preview?.error && availableNames.length > 0 && (
+      {selectedId > 0 && preview && !preview.loading && !preview.error && availableNames.length > 0 && (
         <CategoryZone
           tone="ok"
           icon={<Check className="w-3.5 h-3.5" />}

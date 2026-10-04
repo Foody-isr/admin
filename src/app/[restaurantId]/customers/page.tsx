@@ -1,661 +1,75 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import {
-  getAnalyticsCustomers,
-  listTrustedCustomers,
-  addTrustedCustomer,
-  removeTrustedCustomer,
-  getCustomerProfile,
-  updateCustomerProfile,
-  unmergeCustomer,
-  CustomerListResult,
-  CustomerProfile,
-  TrustedCustomer,
-} from '@/lib/api';
+import { getAnalyticsCustomers, listTrustedCustomers, type CustomerListResult, type TrustedCustomer } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
-import { PlusIcon, SearchIcon, ChevronRightIcon } from 'lucide-react';
-import Modal from '@/components/Modal';
-import { Switch } from '@/components/ui/switch';
-import { Button, Badge, PageHead } from '@/components/ds';
-import {
-  DataTable,
-  DataTableHead,
-  DataTableHeadCell,
-  DataTableHeadSpacerCell,
-  DataTableSelectAllCell,
-  DataTableBody,
-  DataTableRow,
-  DataTableCell,
-  DataTableSelectCell,
-} from '@/components/data-table';
-import { MergeCustomersModal, MergeRow } from './MergeCustomersModal';
+import { PlusIcon, SearchIcon } from 'lucide-react';
+import { Button, Badge, Input, PageHead } from '@/components/ds';
+import { DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableBody, DataTableRow, DataTableCell } from '@/components/data-table';
+import { MergeCustomersModal } from './MergeCustomersModal';
 import { DuplicateSuggestions } from './DuplicateSuggestions';
-import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
+import { CustomerAddModal, CustomerEditor, type CustomerEditorTarget } from '@/components/customers/CustomerForms';
 
-const PER_PAGE = 25;
+const PER_PAGE=25;
+// Keep the same canonical key used by the existing analytics/trusted-list join.
+function phoneKey(phone:string){let digits=phone.replace(/\D/g,'');if(digits.startsWith('972'))digits=digits.slice(3);if(digits.startsWith('0'))digits=digits.slice(1);return digits;}
+interface CustomerRow extends CustomerEditorTarget {orders:number;lastOrderAt:string|null;address?:string;city?:string;floor?:string;apt?:string;entryCode?:string;}
 
-// Canonical key so a phone matches across the analytics list (order-derived)
-// and the trusted list, regardless of how it was stored (+972…, 0…, …).
-function phoneKey(p: string): string {
-  let d = (p || '').replace(/\D/g, '');
-  if (d.startsWith('972')) d = d.slice(3);
-  if (d.startsWith('0')) d = d.slice(1);
-  return d;
-}
+/** Scope the customer workspace and its open forms to the active restaurant. */
+export default function CustomersPage(){const {restaurantId}=useParams();const rid=Number(restaurantId);return <CustomerWorkspace key={rid} rid={rid}/>;}
 
-// A unified row: every customer who has ordered (from analytics) plus any
-// trusted/cash customer that was added manually and hasn't ordered yet.
-type CustomerRow = {
-  phone: string;
-  name: string;
-  orders: number;
-  lastOrderAt: string | null;
-  trusted: TrustedCustomer | null;
-  // Last known delivery address (from the customer's most recent delivery
-  // order). Absent for customers who never ordered delivery.
-  address?: string;
-  city?: string;
-  floor?: string;
-  apt?: string;
-  entryCode?: string;
-  // Every phone number folded into this customer via a manual merge, primary
-  // first. Absent (or length 1) for a customer that was never merged.
-  phones?: string[];
-};
-
-export default function CustomersPage() {
-  const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
-  const { hasAnyPermission } = usePermissions();
-  const { t } = useI18n();
-
-  const [data, setData] = useState<CustomerListResult | null>(null);
-  const [trusted, setTrusted] = useState<TrustedCustomer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-
-  // Row selection for manual merges. Keyed by phoneKey() so it survives the
-  // various phone formats the same customer can show up under.
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [mergeOpen, setMergeOpen] = useState(false);
-
-  // Add modal (manually whitelist a phone for cash)
-  const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({ phone: '', name: '', notes: '' });
-  const [formError, setFormError] = useState('');
-  const [formLoading, setFormLoading] = useState(false);
-
-  // Edit modal (toggle cash + edit profile for an existing customer)
-  const [editRow, setEditRow] = useState<CustomerRow | null>(null);
-  const [editCash, setEditCash] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editNotes, setEditNotes] = useState('');
-  const [editError, setEditError] = useState('');
-  const [saving, setSaving] = useState(false);
-  // Phone currently being detached (disables its own button only).
-  const [detaching, setDetaching] = useState<string | null>(null);
-
-  // Profile (address/apartment/floor) lives on the customer's account.
-  const [profile, setProfile] = useState<CustomerProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [editAddress, setEditAddress] = useState('');
-  const [editCity, setEditCity] = useState('');
-  const [editFloor, setEditFloor] = useState('');
-  const [editApt, setEditApt] = useState('');
-  const [editEntryCode, setEditEntryCode] = useState('');
-  const [editDeliveryNotes, setEditDeliveryNotes] = useState('');
-
-  const canManage = hasAnyPermission('customers.manage');
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [res, tc] = await Promise.all([
-        getAnalyticsCustomers(rid, {
-          search: search || undefined,
-          page,
-          per_page: PER_PAGE,
-          sort_by: 'total_spent',
-          sort_dir: 'desc',
-        }),
-        listTrustedCustomers(rid),
-      ]);
-      setData(res);
-      setTrusted(tc);
-    } catch {
-      setData(null);
-      setTrusted([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [rid, search, page]);
-
-  useEffect(() => { reload(); }, [reload]);
-
-  // Debounce the search box and reset to the first page on a new query.
-  useEffect(() => {
-    const id = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(id);
-  }, [searchInput]);
-
-  // A new page or search query swaps out which customers `rows` holds.
-  // Carrying a selection across that swap could merge whoever now happens
-  // to occupy those keys, so drop it whenever the underlying list changes.
-  useEffect(() => { setSelected(new Set()); }, [page, search]);
-
-  const trustedByKey = useMemo(() => {
-    const m = new Map<string, TrustedCustomer>();
-    for (const tc of trusted) m.set(phoneKey(tc.phone), tc);
-    return m;
-  }, [trusted]);
-
-  const rows = useMemo<CustomerRow[]>(() => {
-    const analyticsRows: CustomerRow[] = (data?.customers ?? []).map((c) => ({
-      phone: c.customer_phone,
-      name: c.customer_name,
-      orders: c.total_orders,
-      lastOrderAt: c.last_order_date,
-      trusted: trustedByKey.get(phoneKey(c.customer_phone)) ?? null,
-      address: c.address,
-      city: c.city,
-      floor: c.floor,
-      apt: c.apt,
-      entryCode: c.entry_code,
-      phones: c.phones,
-    }));
-    // On the unfiltered first page, surface trusted customers who have no
-    // orders yet (so manually added cash customers stay visible).
-    const seen = new Set(analyticsRows.map((r) => phoneKey(r.phone)));
-    const extraTrusted: CustomerRow[] =
-      page === 1 && !search
-        ? trusted
-            .filter((tc) => !seen.has(phoneKey(tc.phone)))
-            .map((tc) => ({ phone: tc.phone, name: tc.name, orders: 0, lastOrderAt: null, trusted: tc }))
-        : [];
-    return [...extraTrusted, ...analyticsRows];
-  }, [data, trusted, trustedByKey, page, search]);
-
-  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PER_PAGE));
-
-  const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString() : t('never'));
-
-  const toggleSelect = (key: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = (checked: boolean) => {
-    if (!checked) { setSelected(new Set()); return; }
-    setSelected(new Set(rows.map((r) => phoneKey(r.phone))));
-  };
-
-  const openEdit = async (row: CustomerRow) => {
-    if (!canManage) return;
-    setEditRow(row);
-    setEditCash(!!row.trusted);
-    setEditName(row.name || row.trusted?.name || '');
-    setEditNotes(row.trusted?.notes || '');
-    setEditError('');
-    setDetaching(null);
-    // Reset profile fields, then load the saved account profile (falling back to
-    // the customer's latest delivery order to pre-fill anything not yet saved).
-    setProfile(null);
-    setEditAddress('');
-    setEditCity('');
-    setEditFloor('');
-    setEditApt('');
-    setEditEntryCode('');
-    setEditDeliveryNotes('');
-    setProfileLoading(true);
-    try {
-      const p = await getCustomerProfile(rid, row.phone);
-      setProfile(p);
-      const seed = p.last_delivery;
-      setEditName(p.name || row.name || row.trusted?.name || '');
-      setEditAddress(p.address || seed?.address || '');
-      setEditCity(p.city || seed?.city || '');
-      setEditFloor(p.floor || seed?.floor || '');
-      setEditApt(p.apt || seed?.apt || '');
-      setEditEntryCode(p.entry_code || seed?.entry_code || '');
-      setEditDeliveryNotes(p.delivery_notes || seed?.delivery_notes || '');
-    } catch {
-      // Non-fatal: the cash toggle still works even if the profile can't load.
-    } finally {
-      setProfileLoading(false);
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editRow) return;
-    setSaving(true);
-    setEditError('');
-    try {
-      // Persist the name as a canonical correction — it works for every
-      // customer (account or not): the server stores it as a per-phone override
-      // resolved everywhere the customer appears. The address is stored on the
-      // account, so those fields are only applied when an account exists (they
-      // are disabled in the form otherwise and ignored server-side here).
-      await updateCustomerProfile(rid, editRow.phone, {
-        name: editName,
-        address: editAddress,
-        city: editCity,
-        floor: editFloor,
-        apt: editApt,
-        entry_code: editEntryCode,
-        delivery_notes: editDeliveryNotes,
-      });
-
-      const tc = editRow.trusted;
-      const wasTrusted = !!tc;
-      if (editCash && !wasTrusted) {
-        await addTrustedCustomer(rid, {
-          phone: editRow.phone,
-          name: editName || editRow.name || '',
-          notes: editNotes || undefined,
-        });
-      } else if (!editCash && wasTrusted) {
-        await removeTrustedCustomer(rid, tc!.id);
-      } else if (editCash && wasTrusted) {
-        // No PATCH endpoint exists — re-create only if name/notes changed.
-        const nameChanged = (editName || '') !== (tc!.name || '');
-        const notesChanged = (editNotes || '') !== (tc!.notes || '');
-        if (nameChanged || notesChanged) {
-          await removeTrustedCustomer(rid, tc!.id);
-          await addTrustedCustomer(rid, {
-            phone: tc!.phone,
-            name: editName || tc!.name || '',
-            notes: editNotes || undefined,
-          });
-        }
-      }
-      setEditRow(null);
-      await reload();
-    } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : t('failedToUpdateCustomer'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError('');
-    setFormLoading(true);
-    try {
-      await addTrustedCustomer(rid, {
-        phone: form.phone,
-        name: form.name,
-        notes: form.notes || undefined,
-      });
-      setAddOpen(false);
-      setForm({ phone: '', name: '', notes: '' });
-      await reload();
-    } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : t('failedToAddCustomer'));
-    } finally {
-      setFormLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-[var(--s-5)]">
-      <PageHead
-        title={t('customers') || 'Clients'}
-        desc={t('allCustomersDesc')}
-        actions={
-          canManage && (
-            <Button variant="primary" size="md" onClick={() => setAddOpen(true)}>
-              <PlusIcon />
-              {t('addCustomer')}
-            </Button>
-          )
-        }
-      />
-
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-tertiary pointer-events-none" />
-        <input
-          className="input pl-9"
-          placeholder={t('searchCustomers')}
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-        />
-      </div>
-
-      {/* Duplicate suggestions — restaurant-wide, independent of the current
-          search/page so it doesn't disappear just because a filter narrowed
-          the table to zero rows. Actions require manage rights, same as the
-          rest of this page's merge/edit affordances. */}
-      {canManage && <DuplicateSuggestions restaurantId={rid} onChanged={reload} />}
-
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="card p-8 text-center text-fg-secondary">{t('noCustomers')}</div>
-      ) : (
-        <>
-          {canManage && selected.size >= 2 && (
-            <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
-              <Button variant="primary" onClick={() => setMergeOpen(true)}>
-                {t('mergeCustomersSelected').replace('{n}', String(selected.size))}
-              </Button>
-            </div>
-          )}
-
-          <DataTable
-            style={{ ['--cols' as string]: '1.3fr 1.2fr 1.8fr 0.6fr 0.9fr 0.8fr 32px' } as React.CSSProperties}
-          >
-            <DataTableHead>
-              {canManage && (
-                <DataTableSelectAllCell
-                  checked={rows.length > 0 && rows.every((r) => selected.has(phoneKey(r.phone)))}
-                  onCheckedChange={toggleSelectAll}
-                />
-              )}
-              <DataTableHeadCell>{t('phone')}</DataTableHeadCell>
-              <DataTableHeadCell>{t('name')}</DataTableHeadCell>
-              <DataTableHeadCell>{t('address')}</DataTableHeadCell>
-              <DataTableHeadCell>{t('orders')}</DataTableHeadCell>
-              <DataTableHeadCell>{t('lastOrder')}</DataTableHeadCell>
-              <DataTableHeadCell>{t('canPayCash')}</DataTableHeadCell>
-              <DataTableHeadSpacerCell />
-            </DataTableHead>
-            <DataTableBody>
-              {rows.map((row, index) => {
-                const addr = formatDeliveryAddress(
-                  { address: row.address, city: row.city, floor: row.floor, apt: row.apt, entryCode: row.entryCode },
-                  t,
-                  { compact: true },
-                );
-                const key = phoneKey(row.phone);
-                const onRowClick = () => openEdit(row);
-                return (
-                <DataTableRow
-                  key={key || index}
-                  index={index}
-                  className={canManage ? 'cursor-pointer hover:bg-fg-tertiary/5' : ''}
-                >
-                  {canManage && (
-                    <DataTableSelectCell
-                      checked={selected.has(key)}
-                      onCheckedChange={() => toggleSelect(key)}
-                    />
-                  )}
-                  <DataTableCell mobilePrimary className="font-medium text-fg-primary" onClick={onRowClick}>
-                    {row.phone}
-                    {(row.phones?.length ?? 1) > 1 && (
-                      <Badge tone="brand" className="ms-[var(--s-2)]">
-                        {t('mergeCustomersNumbers').replace('{n}', String(row.phones!.length))}
-                      </Badge>
-                    )}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('name')} className="text-fg-primary" onClick={onRowClick}>
-                    {row.name || '—'}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('address')} onClick={onRowClick}>
-                    {addr ? (
-                      <div className="flex flex-col leading-tight">
-                        <span className="text-fg-primary">{addr.line1}</span>
-                        {addr.line2 && (
-                          <span className="text-fs-xs text-fg-tertiary">{addr.line2}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-fg-tertiary">—</span>
-                    )}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('orders')} className="text-fg-secondary" onClick={onRowClick}>
-                    {row.orders}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('lastOrder')} className="text-fg-secondary" onClick={onRowClick}>
-                    {fmtDate(row.lastOrderAt)}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('canPayCash')} onClick={onRowClick}>
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-fs-xs font-medium ${
-                        row.trusted
-                          ? 'bg-brand-500/15 text-brand-500'
-                          : 'bg-fg-tertiary/10 text-fg-tertiary'
-                      }`}
-                    >
-                      {row.trusted ? t('yes') : t('no')}
-                    </span>
-                  </DataTableCell>
-                  <DataTableCell align="right" onClick={onRowClick}>
-                    {canManage && (
-                      <ChevronRightIcon className="w-4 h-4 text-fg-tertiary" />
-                    )}
-                  </DataTableCell>
-                </DataTableRow>
-                );
-              })}
-            </DataTableBody>
-          </DataTable>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <button
-                className="btn-secondary disabled:opacity-50"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                {t('previous')}
-              </button>
-              <span className="text-fs-sm text-fg-secondary">
-                {page} / {totalPages}
-              </span>
-              <button
-                className="btn-secondary disabled:opacity-50"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                {t('next')}
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Edit customer modal — toggle cash payment */}
-      {editRow && (
-        <Modal title={t('editCustomer')} onClose={() => setEditRow(null)}>
-          {editError && (
-            <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
-              {editError}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phone')}</label>
-              <div className="input bg-fg-tertiary/5 text-fg-secondary">{editRow.phone}</div>
-            </div>
-
-            {(editRow.phones?.length ?? 1) > 1 && (
-              <div className="flex flex-col gap-[var(--s-2)]">
-                <Badge tone="brand" className="self-start">
-                  {t('mergeCustomersNumbers').replace('{n}', String(editRow.phones!.length))}
-                </Badge>
-                {editRow.phones!.slice(1).map((p) => (
-                  <div key={p} className="flex items-center justify-between">
-                    <span className="text-fs-sm">{p}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={detaching === p}
-                      onClick={async () => {
-                        setDetaching(p);
-                        setEditError('');
-                        try {
-                          await unmergeCustomer(rid, p);
-                          setEditRow(null);
-                          await reload();
-                        } catch (err: unknown) {
-                          setEditError(err instanceof Error ? err.message : t('failedToUpdateCustomer'));
-                        } finally {
-                          setDetaching(null);
-                        }
-                      }}
-                    >
-                      {t('detachNumber')}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('nameOptional')}</label>
-              <input
-                className="input"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-              />
-            </div>
-
-            {/* Delivery details — stored on the customer's account. */}
-            <div className="space-y-3 pt-1 border-t border-fg-tertiary/10">
-              <div className="flex items-center justify-between pt-3">
-                <span className="block text-sm font-medium text-fg-primary">{t('deliveryDetails')}</span>
-                {profileLoading && (
-                  <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                )}
-              </div>
-
-              <CustomerDeliveryFields
-                value={{
-                  address: editAddress,
-                  city: editCity,
-                  floor: editFloor,
-                  apt: editApt,
-                  entryCode: editEntryCode,
-                  deliveryNotes: editDeliveryNotes,
-                }}
-                onChange={(p) => {
-                  if (p.address !== undefined) setEditAddress(p.address);
-                  if (p.city !== undefined) setEditCity(p.city);
-                  if (p.floor !== undefined) setEditFloor(p.floor);
-                  if (p.apt !== undefined) setEditApt(p.apt);
-                  if (p.entryCode !== undefined) setEditEntryCode(p.entryCode);
-                  if (p.deliveryNotes !== undefined) setEditDeliveryNotes(p.deliveryNotes);
-                }}
-              />
-            </div>
-
-            <label className="flex items-start justify-between gap-3 cursor-pointer pt-1 border-t border-fg-tertiary/10">
-              <span>
-                <span className="block text-sm font-medium text-fg-primary">{t('allowCashPayment')}</span>
-                <span className="block text-fs-xs text-fg-secondary mt-0.5">{t('allowCashPaymentDesc')}</span>
-              </span>
-              <Switch checked={editCash} onCheckedChange={setEditCash} />
-            </label>
-
-            {editCash && (
-              <div>
-                <label className="block text-sm font-medium text-fg-secondary mb-1">{t('notesOptional')}</label>
-                <input
-                  className="input"
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                />
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="btn-secondary" onClick={() => setEditRow(null)}>
-                {t('cancel')}
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={handleSaveEdit}
-                className="btn-primary disabled:opacity-50"
-              >
-                {saving ? t('saving') : t('save')}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Add customer modal */}
-      {addOpen && (
-        <Modal title={t('addTrustedCustomer')} onClose={() => setAddOpen(false)}>
-          {formError && (
-            <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
-              {formError}
-            </div>
-          )}
-
-          <form onSubmit={handleAdd} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phoneNumber')}</label>
-              <input
-                required
-                className="input"
-                placeholder="+972..."
-                value={form.phone}
-                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('nameOptional')}</label>
-              <input
-                className="input"
-                value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('notesOptional')}</label>
-              <input
-                className="input"
-                value={form.notes}
-                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="btn-secondary" onClick={() => setAddOpen(false)}>
-                {t('cancel')}
-              </button>
-              <button type="submit" disabled={formLoading} className="btn-primary disabled:opacity-50">
-                {formLoading ? t('adding') : t('addCustomer')}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* Merge modal — combines the selected rows into one customer. */}
-      {mergeOpen && (
-        <MergeCustomersModal
-          restaurantId={rid}
-          rows={rows
-            .filter((r) => selected.has(phoneKey(r.phone)))
-            .map<MergeRow>((r) => ({ phone: r.phone, name: r.name, orders: r.orders }))}
-          onClose={() => setMergeOpen(false)}
-          onMerged={() => {
-            setMergeOpen(false);
-            setSelected(new Set());
-            reload();
-          }}
-        />
-      )}
-    </div>
-  );
+function CustomerWorkspace({rid}:{rid:number}) {
+ const {t,locale}=useI18n();const {hasAnyPermission}=usePermissions();const canManage=hasAnyPermission('customers.manage');
+ const [data,setData]=useState<CustomerListResult|null>(null);const [trusted,setTrusted]=useState<TrustedCustomer[]>([]);
+ const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [page,setPage]=useState(1);const [search,setSearch]=useState('');const [searchInput,setSearchInput]=useState('');
+ const [selected,setSelected]=useState<Set<string>>(new Set());const [mergeRows,setMergeRows]=useState<CustomerRow[]|null>(null);const [addOpen,setAddOpen]=useState(false);const [editRow,setEditRow]=useState<CustomerRow|null>(null);
+ const request=useRef({value:0});
+ const reload=useCallback(async()=>{
+  const sequence=++request.current.value;setLoading(true);setError('');
+  try{const [result,cash]=await Promise.all([getAnalyticsCustomers(rid,{search:search||undefined,page,per_page:PER_PAGE,sort_by:'total_spent',sort_dir:'desc'}),listTrustedCustomers(rid)]);if(sequence===request.current.value){setData(result);setTrusted(cash);}}
+  catch(cause){if(sequence===request.current.value)setError(cause instanceof Error?cause.message:t('customerLoadFailed'));throw cause;}
+  finally{if(sequence===request.current.value)setLoading(false);}
+ },[rid,search,page,t]);
+ useEffect(()=>{const scope=request.current;void reload().catch(()=>{/* Rendered by the workspace error state. */});return()=>{scope.value+=1;};},[reload]);
+ useEffect(()=>{const timer=setTimeout(()=>{setSearch(searchInput.trim());setPage(1);},300);return()=>clearTimeout(timer);},[searchInput]);
+ useEffect(()=>setSelected(new Set()),[page,search]);
+ const trustedByKey=useMemo(()=>new Map(trusted.map(customer=>[phoneKey(customer.phone),customer])),[trusted]);
+ const rows=useMemo<CustomerRow[]>(()=>{
+  const analyticsRows=(data?.customers??[]).map(customer=>({phone:customer.customer_phone,name:customer.customer_name,orders:customer.total_orders,lastOrderAt:customer.last_order_date,trusted:trustedByKey.get(phoneKey(customer.customer_phone))??null,address:customer.address,city:customer.city,floor:customer.floor,apt:customer.apt,entryCode:customer.entry_code,phones:customer.phones}));
+  const seen=new Set(analyticsRows.map(row=>phoneKey(row.phone)));
+  const extras=page===1&&!search?trusted.filter(customer=>!seen.has(phoneKey(customer.phone))).map(customer=>({phone:customer.phone,name:customer.name,orders:0,lastOrderAt:null,trusted:customer})):[];
+  return [...extras,...analyticsRows];
+ },[data,trusted,trustedByKey,page,search]);
+ const totalPages=Math.max(1,Math.ceil((data?.total??0)/PER_PAGE));
+ const selectedRows=rows.filter(row=>selected.has(phoneKey(row.phone)));
+ const toggle=(key:string)=>setSelected(current=>{const next=new Set(current);if(next.has(key))next.delete(key);else next.add(key);return next;});
+ const refreshAfterMerge=async()=>{await reload();setSelected(new Set());};
+ const date=(value:string|null)=>value?new Intl.DateTimeFormat(locale).format(new Date(value)):t('never');
+ return <div className="space-y-5">
+  <PageHead title={t('customers')} desc={t('allCustomersDesc')} actions={canManage&&<Button onClick={()=>setAddOpen(true)}><PlusIcon/>{t('addCustomer')}</Button>}/>
+  <div className="flex flex-wrap items-center justify-between gap-3"><div className="relative w-full max-w-md"><SearchIcon aria-hidden="true" className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]"/><Input className="ps-10" aria-label={t('searchCustomers')} dir="auto" placeholder={t('searchCustomers')} value={searchInput} onChange={event=>setSearchInput(event.target.value)}/></div>{canManage&&selectedRows.length>=2&&!loading&&!error&&<Button onClick={()=>setMergeRows(selectedRows)}>{t('mergeCustomersSelected').replace('{n}',String(selectedRows.length))}</Button>}</div>
+  {canManage&&<DuplicateSuggestions restaurantId={rid} onChanged={refreshAfterMerge}/>}
+  {error?<div role="alert" className="rounded-xl border border-[var(--line)] p-5"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button className="mt-3" variant="secondary" onClick={()=>void reload().catch(()=>{/* Error is displayed above. */})}>{t('retry')}</Button></div>:loading?<p role="status" className="py-12 text-center text-sm text-[var(--fg-muted)]">{t('loading')}</p>:rows.length===0?<div className="rounded-xl border border-[var(--line)] p-8 text-center text-[var(--fg-muted)]">{t('noCustomers')}</div>:<>
+   <DataTable>
+    <DataTableHead>{canManage&&<DataTableHeadSpacerCell><label className="inline-flex min-h-11 min-w-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--action)]" aria-label={t('selectAll')} checked={rows.every(row=>selected.has(phoneKey(row.phone)))} onChange={event=>setSelected(event.target.checked?new Set(rows.map(row=>phoneKey(row.phone))):new Set())}/></label></DataTableHeadSpacerCell>}{['phone','name','address','orders','lastOrder','canPayCash'].map(key=><DataTableHeadCell key={key}>{t(key)}</DataTableHeadCell>)}</DataTableHead>
+    <DataTableBody>{rows.map((row,index)=>{
+     const address=formatDeliveryAddress({address:row.address,city:row.city,floor:row.floor,apt:row.apt,entryCode:row.entryCode},t,{compact:true});const key=phoneKey(row.phone);
+     return <DataTableRow key={key||index} index={index}>
+      {canManage&&<DataTableCell data-mobile-select=""><label className="inline-flex min-h-11 min-w-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--action)]" aria-label={`${t('select')} ${row.name||row.phone}`} checked={selected.has(key)} onChange={()=>toggle(key)}/></label></DataTableCell>}
+      <DataTableCell mobilePrimary><div className="flex flex-wrap items-center gap-2">{canManage?<button type="button" className="min-h-11 text-start font-semibold text-[var(--action)] underline-offset-4 hover:underline" aria-label={`${t('editCustomer')} · ${row.name||row.phone}`} onClick={()=>setEditRow(row)}><bdi dir="ltr">{row.phone}</bdi></button>:<bdi dir="ltr" className="font-semibold">{row.phone}</bdi>}{(row.phones?.length??1)>1&&<Badge tone="neutral">{t('mergeCustomersNumbers').replace('{n}',String(row.phones!.length))}</Badge>}</div></DataTableCell>
+      <DataTableCell mobileLabel={t('name')}><span dir="auto" className="break-words">{row.name||'—'}</span></DataTableCell>
+      <DataTableCell mobileLabel={t('address')}>{address?<div dir="auto" className="text-sm"><p>{address.line1}</p>{address.line2&&<p className="mt-1 text-[var(--fg-muted)]">{address.line2}</p>}</div>:'—'}</DataTableCell>
+      <DataTableCell mobileLabel={t('orders')} className="tabular-nums">{row.orders}</DataTableCell><DataTableCell mobileLabel={t('lastOrder')}>{date(row.lastOrderAt)}</DataTableCell><DataTableCell mobileLabel={t('canPayCash')}><Badge tone={row.trusted?'success':'neutral'}>{t(row.trusted?'yes':'no')}</Badge></DataTableCell>
+     </DataTableRow>;
+    })}</DataTableBody>
+   </DataTable>
+   {totalPages>1&&<nav aria-label={t('customerPagination')} className="flex items-center justify-between gap-3"><Button variant="secondary" disabled={page<=1} onClick={()=>setPage(current=>Math.max(1,current-1))}>{t('previous')}</Button><span className="text-sm tabular-nums">{page} / {totalPages}</span><Button variant="secondary" disabled={page>=totalPages} onClick={()=>setPage(current=>Math.min(totalPages,current+1))}>{t('next')}</Button></nav>}
+  </>}
+  {editRow&&<CustomerEditor key={editRow.phone} restaurantId={rid} row={editRow} onClose={()=>setEditRow(null)} onSaved={reload}/>}
+  {addOpen&&<CustomerAddModal restaurantId={rid} onClose={()=>setAddOpen(false)} onSaved={reload}/>}
+  {mergeRows&&<MergeCustomersModal restaurantId={rid} rows={mergeRows} onClose={()=>setMergeRows(null)} onMerged={refreshAfterMerge}/>}
+ </div>;
 }

@@ -20,12 +20,12 @@ export default function StockSettingsNav() {
   return (
     <nav
       aria-label={t('stockSettings')}
-      className="mb-[var(--s-6)] overflow-x-auto border-b border-[var(--line)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="mb-[var(--s-6)] border-b border-[var(--line)]"
     >
-      <div className="flex w-max min-w-full gap-[var(--s-5)]">
+      <div className="flex w-full flex-wrap gap-x-[var(--s-5)] gap-y-1">
         {tabs.map((tab) => {
           const href = `${root}${tab.segment}`;
-          const active = tab.segment ? pathname.startsWith(href) : pathname === root;
+          const active = tab.segment ? pathname.startsWith(href) || (tab.segment === '/units' && pathname === `/${restaurantId}/kitchen/units`) || (tab.segment === '/availability' && pathname === `/${restaurantId}/kitchen/availability`) : pathname === root;
           return (
             <Link
               key={tab.segment || 'general'}

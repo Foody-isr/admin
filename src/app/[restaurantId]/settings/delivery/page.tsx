@@ -2,482 +2,88 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertCircle, MapPin, Trash2, Plus } from 'lucide-react';
-import {
-  getDeliveryZones, createDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
-  getRestaurant, geocodeAddress, getRestaurantSettings, updateRestaurantSettings,
-  ApiError, DeliveryZone, DeliveryZoneInput, DeliveryZoneType,
-} from '@/lib/api';
-import type { CityMarker } from '@/components/delivery/ZoneMap';
+import { CircleAlert, MapPin, Trash2, Plus, RefreshCw, Map, Search } from 'lucide-react';
+import { getDeliveryZones, createDeliveryZone, updateDeliveryZone, deleteDeliveryZone, getRestaurant, geocodeAddress, ApiError, type DeliveryZone, type DeliveryZoneInput } from '@/lib/api';
+import { checkedDeliveryZones, deliveryZoneDraft, deliveryZoneDraftError, deliveryZonePayload, deliveryZoneSignature, deliveryZoneCanDraw, validZoneCoordinate, type DeliveryZoneDraft, type ZoneCoordinate } from '@/lib/delivery-zone-state';
 import { lookupCityCoord } from '@/lib/israel-cities';
-import { parsePrice } from '@/lib/delivery-pricing';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
+import { Button, ConfirmDialog, Drawer, EmptyState, Field, Input, PageHead, Section, Select } from '@/components/ds';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DeliveryMinimum } from './DeliveryMinimum';
 
-// Leaflet must not SSR.
 const ZoneMap = dynamic(() => import('@/components/delivery/ZoneMap'), { ssr: false });
+const DEFAULT_CENTER = {lat:32.0853,lng:34.7818};
+type PendingZoneAction = {kind:'save';id?:number;input:DeliveryZoneInput;before:number[]} | {kind:'delete';id:number};
+type T = (key:string)=>string;
 
-const DEFAULT_CENTER = { lat: 32.0853, lng: 34.7818 }; // Tel Aviv fallback
-
-interface Draft {
-  id: number | null;
-  name: string;
-  type: DeliveryZoneType;
-  isActive: boolean;
-  polygon: [number, number][];           // [lng, lat] — kept for display of legacy zones
-  center: { lat: number; lng: number } | null;
-  radiusKm: number;
-  cities: string[];
-  // Empty string means "unset": no fee (free) / fall back to global minimum.
-  deliveryFee: string;
-  minOrder: string;
+/** Keep delivery drafts scoped to the active restaurant. */
+export default function DeliveryZonesPage(){const {restaurantId}=useParams();return <DeliveryZonesWorkspace key={String(restaurantId)} rid={Number(restaurantId)} />;}
+function DeliveryZonesWorkspace({rid}:{rid:number}){
+  const {t,locale}=useI18n(), {money}=useCurrency(), {hasAnyPermission}=usePermissions();
+  const canManage=hasAnyPermission('orders.manage'), isMobile=useIsMobile();
+  const [zones,setZones]=useState<DeliveryZone[]>([]),[loaded,setLoaded]=useState(false),[loading,setLoading]=useState(false),[loadError,setLoadError]=useState(false);
+  const [center,setCenter]=useState<ZoneCoordinate|null>(null),[addressState,setAddressState]=useState<'loading'|'ready'|'missing'|'unavailable'>('loading'),[address,setAddress]=useState('');
+  const [draft,setDraft]=useState<DeliveryZoneDraft|null>(null),[cityInput,setCityInput]=useState(''),[search,setSearch]=useState(''),[showMap,setShowMap]=useState(false);
+  const [busy,setBusy]=useState(false),[pending,setPending]=useState<PendingZoneAction|null>(null),[error,setError]=useState<string|null>(null),[notice,setNotice]=useState<string|null>(null),[savedVersion,setSavedVersion]=useState<DeliveryZone|null>(null);
+  const [confirmation,setConfirmation]=useState<{kind:'delete'|'disable';zone:DeliveryZone}|null>(null),[discard,setDiscard]=useState<'close'|'adopt'|null>(null);
+  const alive=useRef(true),sequence=useRef(0),geoSequence=useRef(0),lock=useRef(false),baseline=useRef(''),original=useRef<DeliveryZone|undefined>();
+  const nameRef=useRef<HTMLInputElement>(null),cityRef=useRef<HTMLInputElement>(null);
+  const dirty=!!draft&&(JSON.stringify(draft)!==baseline.current||!!cityInput.trim()), frozen=busy||!!pending;
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  useEffect(()=>{if(!dirty&&!frozen)return;const guard=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard);},[dirty,frozen]);
+  useEffect(()=>{if(error||pending)requestAnimationFrame(()=>{const nodes=Array.from(document.querySelectorAll<HTMLElement>('[data-zone-feedback]'));nodes[nodes.length-1]?.focus();});},[error,pending,busy]);
+  const load=useCallback(async()=>{if(!canManage||lock.current)return;const generation=++sequence.current;setLoading(true);setLoadError(false);try{const rows=checkedDeliveryZones(await getDeliveryZones(rid),rid).filter(row=>!row.tour_only);if(alive.current&&generation===sequence.current){setZones(rows);setLoaded(true);}}catch{if(alive.current&&generation===sequence.current)setLoadError(true);}finally{if(alive.current&&generation===sequence.current)setLoading(false);}},[rid,canManage]);
+  const loadAddress=useCallback(async()=>{if(!canManage)return;const generation=++geoSequence.current;setAddressState('loading');try{const restaurant=await getRestaurant(rid);const name=restaurant.address?.trim()??'';if(!alive.current||generation!==geoSequence.current)return;setAddress(name);if(!name){setCenter(null);setAddressState('missing');return;}const geo=await geocodeAddress(rid,name);if(!alive.current||generation!==geoSequence.current)return;const position={lat:geo.lat!,lng:geo.lng!};if(geo.found&&validZoneCoordinate(position)){setCenter(position);setAddressState('ready');}else{setCenter(null);setAddressState(geo.unavailable||geo.found?'unavailable':'missing');}}catch{if(alive.current&&generation===geoSequence.current){setCenter(null);setAddressState('unavailable');}}},[rid,canManage]);
+  useEffect(()=>{void load();void loadAddress();},[load,loadAddress]);
+  const openDraft=(zone?:DeliveryZone)=>{if(!canManage||frozen||lock.current)return;const next=deliveryZoneDraft(zone,center);original.current=zone;baseline.current=JSON.stringify(next);setDraft(next);setCityInput('');setError(null);setNotice(null);setSavedVersion(null);};
+  const close=()=>{if(frozen||lock.current)return;if(dirty||cityInput.trim())setDiscard('close');else{setDraft(null);setError(null);setSavedVersion(null);setCityInput('');}};
+  const begin=()=>{if(!canManage||lock.current||pending)return false;lock.current=true;sequence.current++;setBusy(true);setError(null);setNotice(null);setSavedVersion(null);return true;};
+  const finish=()=>{lock.current=false;if(alive.current)setBusy(false);};
+  const accept=(zone:DeliveryZone)=>{setZones(rows=>zone.tour_only?rows.filter(row=>row.id!==zone.id):rows.some(row=>row.id===zone.id)?rows.map(row=>row.id===zone.id?zone:row):[...rows,zone]);setDraft(null);setCityInput('');setPending(null);setSavedVersion(null);setError(null);setNotice('deliveryZoneSaved');};
+  const run=async(action:PendingZoneAction)=>{
+    if(!begin())return;
+    try{if(action.kind==='delete'){await deleteDeliveryZone(rid,action.id);if(alive.current){setZones(rows=>rows.filter(row=>row.id!==action.id));setNotice('deliveryZoneRemoved');setConfirmation(null);}}
+    else{const saved=checkedDeliveryZones([action.id?await updateDeliveryZone(rid,action.id,action.input):await createDeliveryZone(rid,action.input)],rid)[0];if(action.id?saved.id!==action.id:action.before.includes(saved.id))throw new Error('Unexpected zone identity');if(alive.current)accept(saved);}}
+    catch(reason){if(alive.current){setConfirmation(null);if(reason instanceof ApiError&&reason.status===409)setError('tourZoneInUse');else{setPending(action);setError('deliveryZoneUncertain');}}}
+    finally{finish();}
+  };
+  const save=()=>{if(!draft||!dirty||frozen||!canManage)return;if(cityInput.trim()){setError('deliveryZoneCityUnadded');cityRef.current?.focus();return;}const problem=deliveryZoneDraftError(draft);if(problem){setError(problem);return;}void run({kind:'save',id:draft.id,input:deliveryZonePayload(draft,original.current),before:zones.map(row=>row.id)});};
+  const toggle=(zone:DeliveryZone)=>{if(!canManage||frozen)return;if(zone.is_active&&zones.filter(row=>row.is_active).length===1){setConfirmation({kind:'disable',zone});return;}void run({kind:'save',id:zone.id,input:{name:zone.name,type:zone.type,is_active:!zone.is_active,polygon:zone.polygon,center_lat:zone.center_lat,center_lng:zone.center_lng,radius_m:zone.radius_m,cities:zone.cities,delivery_fee:zone.delivery_fee??null,min_order:zone.min_order??null},before:zones.map(row=>row.id)});};
+  const verify=async()=>{
+    if(!pending||lock.current)return;lock.current=true;setBusy(true);setError(null);const action=pending;
+    try{const rows=checkedDeliveryZones(await getDeliveryZones(rid),rid);if(!alive.current)return;setZones(rows.filter(row=>!row.tour_only));setPending(null);
+      if(action.kind==='delete'){setError(rows.some(row=>row.id===action.id)?'deliveryZoneStillPresent':null);if(!rows.some(row=>row.id===action.id))setNotice('deliveryZoneRemoved');}
+      else{const matches=action.id?rows.filter(row=>row.id===action.id):rows.filter(row=>!action.before.includes(row.id)&&deliveryZoneSignature(row)===deliveryZoneSignature(action.input));const current=matches.length===1?matches[0]:null;if(current&&!current.tour_only&&deliveryZoneSignature(current)===deliveryZoneSignature(action.input))accept(current);else{setSavedVersion(current);setError(current?'deliveryZoneSavedDiffers':'deliveryZoneReviewAfterSave');}}
+    }catch{if(alive.current)setError('deliveryZoneReadbackError');}finally{finish();}
+  };
+  const addCity=()=>{if(!draft||frozen)return;const next=cityInput.trim();if(!next)return;if(draft.cities.some(city=>city.trim().toLocaleLowerCase(locale)===next.toLocaleLowerCase(locale))){setError('deliveryZoneCityDuplicate');return;}setDraft({...draft,cities:[...draft.cities,next]});setCityInput('');setError(null);cityRef.current?.focus();};
+  const visible=useMemo(()=>{const query=search.trim().toLocaleLowerCase(locale);return zones.filter(zone=>!query||`${zone.name} ${(zone.cities??[]).join(' ')}`.toLocaleLowerCase(locale).includes(query));},[zones,search,locale]);
+  const mapCenter=center??zones.map(zone=>({lat:zone.center_lat!,lng:zone.center_lng!})).find(validZoneCoordinate)??DEFAULT_CENTER;
+  const cityMarkers=draft?.type==='cities'?draft.cities.flatMap(name=>{const coord=lookupCityCoord(name);return coord?[{name,lat:coord.lat,lng:coord.lng}]:[];}):[];
+  const feedback=<>{notice&&<ZoneFeedback text={t(notice)} />}{(error||pending)&&<div tabIndex={-1} data-zone-feedback className="space-y-3 rounded-r-lg border border-[var(--danger-500)] p-4 focus:outline-none"><ZoneFeedback error text={t(error??'deliveryZoneUncertain')} />{pending&&<Button variant="secondary" size="sm" disabled={busy} onClick={()=>void verify()}>{t('deliveryVerifySaved')}</Button>}{savedVersion&&<><p className="font-semibold" dir="auto">{savedVersion.name}</p><ZoneDetails zone={savedVersion} t={t} money={money} /><p className="text-fs-xs">{savedVersion.center_lat!=null&&savedVersion.center_lng!=null&&<bdi>{savedVersion.center_lat}, {savedVersion.center_lng}</bdi>}</p>{deliveryZoneCanDraw(savedVersion)&&<ZoneMap className="h-[180px] overflow-hidden rounded-r-md" center={validZoneCoordinate({lat:savedVersion.center_lat!,lng:savedVersion.center_lng!})?{lat:savedVersion.center_lat!,lng:savedVersion.center_lng!}:mapCenter} restaurantCenter={center} zones={[savedVersion]} draftPolygon={[]} drawMode="none" onMapClick={()=>{}} interactive={false} />}{!!savedVersion.polygon?.length&&<p className="text-fs-xs">{t('deliveryZonePolygonPoints').replace('{n}',String(savedVersion.polygon.length))}</p>}{draft&&!savedVersion.tour_only&&<Button variant="secondary" size="sm" disabled={frozen} onClick={()=>setDiscard('adopt')}>{t('deliveryUseSaved')}</Button>}</>}</div>}</>;
+  return <div className="mx-auto max-w-[1240px] space-y-6 pb-8"><PageHead title={t('deliveryZones')} desc={t('deliveryZoneWorkspaceDesc')} actions={canManage?<Button variant="primary" size="md" disabled={!loaded||frozen} onClick={()=>openDraft()}><Plus />{t('addZone')}</Button>:undefined} /><DeliveryMinimum rid={rid} />{!canManage?<Section><ZoneFeedback text={t('deliveryZonePermissionHint')} /></Section>:<>
+    {!draft&&feedback}{loadError&&<Section><ZoneFeedback error text={t('deliveryZoneLoadError')} /><Button variant="secondary" size="sm" disabled={loading||frozen} className="mt-3" onClick={()=>void load()}>{t('retry')}</Button></Section>}{!loaded&&loading&&<p role="status" className="flex items-center gap-3 py-8"><RefreshCw className="size-5 animate-spin" />{t('loading')}</p>}{loaded&&<>
+    <div className="rounded-r-xl bg-[var(--summary-bg)] p-5 text-[var(--summary-fg)]"><p className="flex items-center gap-3 font-semibold"><MapPin className="size-5" />{t('deliveryZoneCoverageTitle')}</p><p className="mt-2 text-fs-sm leading-relaxed">{t(zones.some(zone=>zone.is_active)?'deliveryZoneActiveCoverage':'deliveryZoneNoActiveCoverage')}</p></div><div className="flex items-end gap-3"><Field label={t('deliveryZoneSearch')} grow><Input type="search" value={search} onChange={event=>setSearch(event.target.value)} /></Field><Button variant="secondary" size="md" icon aria-label={t('refresh')} disabled={loading||frozen} onClick={()=>void load()}><RefreshCw className={loading?'animate-spin':''} /></Button>{isMobile&&<Button variant="secondary" size="md" icon aria-label={t('deliveryZoneShowMap')} aria-expanded={showMap} onClick={()=>setShowMap(value=>!value)}><Map /></Button>}</div>
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="space-y-3">{visible.map(zone=><article key={zone.id} className="rounded-r-xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-5"><div className="flex items-start gap-3"><button disabled={frozen} className="min-w-0 flex-1 text-start text-fs-md font-semibold text-[var(--brand-ink)] underline underline-offset-4 [overflow-wrap:anywhere]" dir="auto" onClick={()=>openDraft(zone)}>{zone.name}</button><Button variant="ghost" size="sm" icon disabled={frozen} aria-label={`${t('remove')} · ${zone.name}`} onClick={()=>setConfirmation({kind:'delete',zone})}><Trash2 className="text-[var(--danger-500)]" /></Button></div><div className="mt-4"><ZoneDetails zone={zone} t={t} money={money} /></div><label className="mt-4 flex items-center gap-3 text-fs-sm"><Checkbox checked={zone.is_active} disabled={frozen} onCheckedChange={()=>toggle(zone)} aria-label={`${t('deliveryZoneEnabled')} · ${zone.name}`} /><span>{t('deliveryZoneEnabled')}</span></label></article>)}{!visible.length&&<Section><EmptyState icon={<Search />} title={t(zones.length?'deliveryZoneNoMatches':'deliveryZoneEmpty')} action={zones.length?<Button variant="secondary" size="sm" onClick={()=>setSearch('')}>{t('reset')}</Button>:undefined} /></Section>}</div>
+      {(!isMobile||showMap)&&<section aria-label={t('deliveryZoneMapTitle')} className="space-y-3"><ZoneMap className="h-[260px] overflow-hidden rounded-r-xl border border-[var(--line)] lg:h-[440px]" center={mapCenter} restaurantCenter={center} zones={zones.filter(deliveryZoneCanDraw)} drawMode="none" draftPolygon={[]} onMapClick={()=>{}} interactive={!isMobile} /><p className="text-fs-xs text-[var(--fg-muted)]">{t(center?'deliveryZoneMapHint':'deliveryZoneMapNoOrigin')}</p></section>}
+    </div></>}
+  </>}
+  <Drawer open={!!draft} onOpenChange={open=>{if(!open)close();}} title={t(draft?.id?'deliveryZoneEdit':'addZone')} width={660} initialFocusRef={nameRef} closeDisabled={frozen} onSave={save} saveLabel={t(busy?'saving':'save')} saveDisabled={frozen||!dirty||!canManage}>
+    {draft&&<div className="space-y-6">{feedback}{!draft.isActive&&!zones.some(zone=>zone.id!==draft.id&&zone.is_active)&&<ZoneFeedback text={t('deliveryZoneNoActiveCoverage')} />}<fieldset disabled={frozen||!canManage} className="min-w-0 space-y-5"><Field label={t('zoneName')} grow><Input ref={nameRef} value={draft.name} dir="auto" onChange={event=>setDraft({...draft,name:event.target.value})} /></Field><Field label={t('deliveryZoneType')} grow><Select value={draft.type} onChange={event=>setDraft({...draft,type:event.target.value as DeliveryZoneDraft['type']})}>{original.current?.type==='polygon'&&<option value="polygon">{t('zoneType_polygon')}</option>}<option value="radius">{t('zoneType_radius')}</option><option value="cities">{t('zoneType_cities')}</option></Select></Field>
+    {draft.type==='radius'&&<section className="space-y-4 rounded-r-xl border border-[var(--line)] p-4"><p className="text-fs-sm">{t(draft.id?'deliveryZoneStoredOrigin':'radiusFromAddressHint')}</p>{validZoneCoordinate(draft.center)&&<p className="text-fs-xs text-[var(--fg-muted)]"><bdi>{draft.center.lat}, {draft.center.lng}</bdi></p>}{addressState==='loading'?<p role="status" className="text-fs-sm">{t('deliveryZoneLocating')}</p>:addressState==='ready'?<><p className="text-fs-xs text-[var(--fg-muted)]" dir="auto">{address}</p>{JSON.stringify(draft.center)!==JSON.stringify(center)&&<Button variant="secondary" size="sm" className="h-auto max-w-full whitespace-normal text-start" onClick={()=>setDraft({...draft,center})}>{t('deliveryZoneUseRestaurantOrigin')}</Button>}</>:<div className="space-y-3"><ZoneFeedback text={t(addressState==='unavailable'?'deliveryZoneGeocodeUnavailable':'radiusMissingAddress')} />{addressState==='unavailable'&&<Button variant="secondary" size="sm" onClick={()=>void loadAddress()}>{t('retry')}</Button>}<Link className="text-fs-sm text-[var(--brand-ink)] underline" href={`/${rid}/settings`}>{t('generalSettings')}</Link></div>}<Field label={t('radiusKm')} grow><Input type="text" inputMode="decimal" value={draft.radiusKm} dir="ltr" onChange={event=>setDraft({...draft,radiusKm:event.target.value})} /></Field></section>}
+    {draft.type==='cities'&&<section className="space-y-4"><p className="text-fs-sm text-[var(--fg-muted)]">{t('zoneTypeHint_cities')}</p><div className="flex items-end gap-3"><Field label={t('cityOrPostal')} grow><Input ref={cityRef} value={cityInput} dir="auto" onChange={event=>setCityInput(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();addCity();}}} /></Field><Button variant="secondary" size="md" onClick={addCity} disabled={!cityInput.trim()}>{t('add')}</Button></div><div className="flex flex-wrap gap-2">{draft.cities.map((city,index)=><div key={`${city}-${index}`} className="flex max-w-full items-center gap-2 rounded-r-md border border-[var(--line)] bg-[var(--surface)] ps-3"><span className="text-fs-sm [overflow-wrap:anywhere]" dir="auto">{city}</span><Button variant="ghost" size="sm" icon aria-label={`${t('remove')} · ${city}`} onClick={()=>setDraft({...draft,cities:draft.cities.filter((_,i)=>i!==index)})}><Trash2 /></Button></div>)}</div></section>}
+    {draft.type==='polygon'&&<ZoneFeedback text={t('deliveryZonePolygonLegacy').replace('{n}',String(draft.polygon.length))} />}
+    {(draft.type==='cities'||draft.type==='polygon'&&draft.polygon.length>=3&&draft.polygon.every(([lng,lat])=>validZoneCoordinate({lat,lng}))||draft.type==='radius'&&validZoneCoordinate(draft.center)&&Number(draft.radiusKm)>0&&Number.isFinite(Number(draft.radiusKm)))&&<ZoneMap className="h-[190px] overflow-hidden rounded-r-xl border border-[var(--line)]" center={draft.center&&validZoneCoordinate(draft.center)?draft.center:mapCenter} restaurantCenter={center} zones={[]} draftCenter={draft.type==='radius'?draft.center:null} draftRadiusM={Math.round(Number(draft.radiusKm)*1000)} draftPolygon={draft.type==='polygon'?draft.polygon:[]} cityMarkers={cityMarkers} drawMode="none" onMapClick={()=>{}} interactive={false} />}
+    <div className="grid gap-4 min-[420px]:grid-cols-2"><Field label={t('zoneDeliveryFee')} grow><Input type="text" inputMode="decimal" dir="ltr" value={draft.deliveryFee} placeholder={t('zoneFeeFreePlaceholder')} onChange={event=>setDraft({...draft,deliveryFee:event.target.value})} /></Field><Field label={t('zoneMinOrder')} grow><Input type="text" inputMode="decimal" dir="ltr" value={draft.minOrder} placeholder={t('zoneMinGlobalPlaceholder')} onChange={event=>setDraft({...draft,minOrder:event.target.value})} /></Field></div><p className="text-fs-xs text-[var(--fg-muted)]">{t('zoneFeeMinHint')}</p><label className="flex items-center gap-3 text-fs-sm"><Checkbox checked={draft.isActive} onCheckedChange={checked=>setDraft({...draft,isActive:checked===true})} /><span>{t('deliveryZoneEnabled')}</span></label></fieldset></div>}
+  </Drawer>
+  <ConfirmDialog open={!!confirmation} onOpenChange={open=>{if(!open&&!lock.current)setConfirmation(null);}} title={t(confirmation?.kind==='disable'?'deliveryZoneDisableTitle':'deliveryZoneDeleteTitle')} description={<><strong dir="auto">{confirmation?.zone.name}</strong><span className="mt-2 block">{t(confirmation?.zone.is_active&&zones.filter(zone=>zone.is_active).length===1?'deliveryZoneNoActiveCoverage':'deliveryZoneDeleteHint')}</span></>} confirmLabel={t(confirmation?.kind==='disable'?'deliveryZoneDisable':'remove')} cancelLabel={t('cancel')} danger onConfirm={()=>{if(!confirmation)return;const {kind,zone}=confirmation;if(kind==='delete')void run({kind:'delete',id:zone.id});else{setConfirmation(null);void run({kind:'save',id:zone.id,input:{name:zone.name,type:zone.type,is_active:false,polygon:zone.polygon,center_lat:zone.center_lat,center_lng:zone.center_lng,radius_m:zone.radius_m,cities:zone.cities,delivery_fee:zone.delivery_fee??null,min_order:zone.min_order??null},before:zones.map(row=>row.id)});}}} />
+  <ConfirmDialog open={!!discard} onOpenChange={open=>{if(!open)setDiscard(null);}} title={t('discardUnsavedChanges')} description={t('discountDiscardHint')} confirmLabel={t(discard==='adopt'?'deliveryUseSaved':'discardChanges')} cancelLabel={t('cancel')} onConfirm={()=>{if(frozen)return;const action=discard;setDiscard(null);if(action==='adopt'&&savedVersion)openDraft(savedVersion);else{setDraft(null);setCityInput('');setError(null);setSavedVersion(null);}}} />
+  </div>;
 }
-
-const emptyDraft = (): Draft => ({
-  id: null, name: '', type: 'radius', isActive: true,
-  polygon: [], center: null, radiusKm: 5, cities: [],
-  deliveryFee: '', minOrder: '',
-});
-
-export default function DeliveryZonesPage() {
-  const { money, symbol } = useCurrency();
-  const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
-  const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canEdit = hasAnyPermission('settings.edit');
-  // Phones get a compact sticky map preview (no drag/zoom, so it doesn't trap
-  // the page scroll) with the zone list + editor scrolling underneath it.
-  const isMobile = useIsMobile();
-
-  const [loading, setLoading] = useState(true);
-  const [zones, setZones] = useState<DeliveryZone[]>([]);
-  const [center, setCenter] = useState(DEFAULT_CENTER);
-  // Restaurant center derived from geocoding the restaurant address.
-  const [restaurantCenter, setRestaurantCenter] = useState<{ lat: number; lng: number } | null>(null);
-  // False when the restaurant has no address or it cannot be geocoded.
-  const [addressOk, setAddressOk] = useState<boolean | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [cityInput, setCityInput] = useState('');
-  // City markers geocoded on the fly (display-only, not persisted).
-  const [cityMarkers, setCityMarkers] = useState<CityMarker[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  // Errors raised by the list itself (toggle / delete), which have no editor to
-  // display them in.
-  const [listError, setListError] = useState<string | null>(null);
-
-  // Restaurant-wide default minimum order for delivery. Applies to any address
-  // not covered by a zone-specific minimum. 0 = no minimum.
-  const [minOrderDelivery, setMinOrderDelivery] = useState<number>(0);
-  const [minOrderSaving, setMinOrderSaving] = useState(false);
-  const [minOrderSaved, setMinOrderSaved] = useState(false);
-
-  const cityInputRef = useRef<HTMLInputElement>(null);
-
-  // ── Bootstrap ──────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    Promise.all([getDeliveryZones(rid), getRestaurant(rid).catch(() => null)])
-      .then(async ([all, r]) => {
-        // Tour zones never show here: they exist only to serve a delivery tour and
-        // are invisible to the classic delivery path (see delivery.ExcludeTourZones
-        // on the server). Listing them would suggest the city is deliverable every
-        // day, which is exactly what tour_only prevents. They are managed on the
-        // Tours page. Filtering at the source also keeps this page from ever
-        // sending one back to the server.
-        const zs = all.filter((z) => !z.tour_only);
-        setZones(zs);
-
-        // Try to geocode the restaurant address for the radius center.
-        const address = (r as any)?.address as string | undefined;
-        if (address) {
-          const geo = await geocodeAddress(rid, address);
-          if (geo.found && geo.lat != null && geo.lng != null) {
-            const rc = { lat: geo.lat, lng: geo.lng };
-            setRestaurantCenter(rc);
-            setCenter(rc);
-            setAddressOk(true);
-          } else {
-            setAddressOk(false);
-            // Fall back to first zone center if available.
-            if (zs[0]?.center_lat != null && zs[0]?.center_lng != null) {
-              setCenter({ lat: zs[0].center_lat!, lng: zs[0].center_lng! });
-            }
-          }
-        } else {
-          setAddressOk(false);
-          // Fallback: existing zone center or Tel Aviv default.
-          const lat = (r as any)?.latitude, lng = (r as any)?.longitude;
-          if (typeof lat === 'number' && typeof lng === 'number') setCenter({ lat, lng });
-          else if (zs[0]?.center_lat != null && zs[0]?.center_lng != null) setCenter({ lat: zs[0].center_lat!, lng: zs[0].center_lng! });
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [rid]);
-
-  // Load the restaurant-wide default minimum order (moved here from the Payments
-  // page so all delivery fee/minimum config lives in one place).
-  useEffect(() => {
-    getRestaurantSettings(rid)
-      .then((s) => setMinOrderDelivery(s.minimum_order_delivery ?? 0))
-      .catch(() => {});
-  }, [rid]);
-
-  const saveMinOrder = async () => {
-    setMinOrderSaving(true);
-    try {
-      await updateRestaurantSettings(rid, { minimum_order_delivery: minOrderDelivery });
-      setMinOrderSaved(true);
-      setTimeout(() => setMinOrderSaved(false), 2000);
-    } finally {
-      setMinOrderSaving(false);
-    }
-  };
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  const beginNew = () => {
-    const d = emptyDraft();
-    // Pre-fill radius center from restaurant address.
-    if (restaurantCenter) d.center = restaurantCenter;
-    setDraft(d);
-    setCityMarkers([]);
-  };
-
-  const beginEdit = (z: DeliveryZone) => {
-    const d: Draft = {
-      id: z.id, name: z.name, type: z.type, isActive: z.is_active,
-      polygon: z.polygon ?? [],
-      center: z.center_lat != null && z.center_lng != null ? { lat: z.center_lat, lng: z.center_lng } : restaurantCenter,
-      radiusKm: z.radius_m != null ? z.radius_m / 1000 : 5,
-      cities: z.cities ?? [],
-      deliveryFee: z.delivery_fee != null ? String(z.delivery_fee) : '',
-      minOrder: z.min_order != null ? String(z.min_order) : '',
-    };
-    setDraft(d);
-
-    // Build city markers synchronously from the bundled coordinate table.
-    if (z.type === 'cities' && z.cities && z.cities.length > 0) {
-      const markers: CityMarker[] = z.cities
-        .map((city) => { const c = lookupCityCoord(city); return c ? { name: city, lat: c.lat, lng: c.lng } : null; })
-        .filter((m): m is CityMarker => m !== null);
-      setCityMarkers(markers);
-    } else {
-      setCityMarkers([]);
-    }
-  };
-
-  const onMapClick = (lat: number, lng: number) => {
-    if (!draft) return;
-    // Only set-center mode remains active; draw-polygon is removed.
-    // (kept as no-op guard for safety)
-    void lat; void lng;
-  };
-
-  const addCity = () => {
-    const c = cityInput.trim();
-    if (!c || !draft || draft.cities.includes(c)) { setCityInput(''); return; }
-    setDraft({ ...draft, cities: [...draft.cities, c] });
-    setCityInput('');
-
-    // Best-effort pin from the bundled coordinate table (synchronous, no server call).
-    const coord = lookupCityCoord(c);
-    if (coord) {
-      setCityMarkers((prev) => [...prev.filter((m) => m.name !== c), { name: c, lat: coord.lat, lng: coord.lng }]);
-    }
-  };
-
-  const removeCity = (c: string) => {
-    if (!draft) return;
-    setDraft({ ...draft, cities: draft.cities.filter((x) => x !== c) });
-    setCityMarkers((prev) => prev.filter((m) => m.name !== c));
-  };
-
-  const toPayload = (d: Draft, deliveryFee: number | null, minOrder: number | null): DeliveryZoneInput => {
-    const base: DeliveryZoneInput = {
-      name: d.name,
-      type: d.type,
-      is_active: d.isActive,
-      delivery_fee: deliveryFee,
-      min_order: minOrder,
-    };
-    if (d.type === 'polygon') base.polygon = d.polygon;
-    if (d.type === 'radius') {
-      const rc = restaurantCenter;
-      if (rc) { base.center_lat = rc.lat; base.center_lng = rc.lng; }
-      base.radius_m = Math.round(d.radiusKm * 1000);
-    }
-    if (d.type === 'cities') base.cities = d.cities;
-    return base;
-  };
-
-  const validDraft = (d: Draft): boolean => {
-    if (!d.name.trim()) return false;
-    if (d.type === 'polygon') return d.polygon.length >= 3;
-    if (d.type === 'radius') return addressOk === true && d.radiusKm > 0;
-    if (d.type === 'cities') return d.cities.length > 0;
-    return false;
-  };
-
-  // A zone still held by an upcoming delivery tour cannot be deleted or made
-  // non-tour: the server answers 409 rather than let the tour lose its zone.
-  // Say so in words instead of surfacing the raw error.
-  const zoneError = (err: unknown): string => {
-    if (err instanceof ApiError && err.status === 409) return t('tourZoneInUse');
-    return err instanceof Error ? err.message : t('saveFailed');
-  };
-
-  const save = async () => {
-    if (!draft || !validDraft(draft)) return;
-    // A negative or garbage price must block the save, not silently become
-    // "unset" (i.e. free delivery / no minimum).
-    const deliveryFee = parsePrice(draft.deliveryFee);
-    const minOrder = parsePrice(draft.minOrder);
-    if (deliveryFee === undefined || minOrder === undefined) {
-      setSaveError(t('invalidPrice'));
-      return;
-    }
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const payload = toPayload(draft, deliveryFee, minOrder);
-      const saved = draft.id ? await updateDeliveryZone(rid, draft.id, payload) : await createDeliveryZone(rid, payload);
-      setZones((prev) => draft.id ? prev.map((z) => (z.id === saved.id ? saved : z)) : [...prev, saved]);
-      setSaveError(null);
-      setDraft(null);
-      setCityMarkers([]);
-    } catch (err) {
-      setSaveError(zoneError(err));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleActive = async (z: DeliveryZone) => {
-    setListError(null);
-    try {
-      const saved = await updateDeliveryZone(rid, z.id, {
-        name: z.name, type: z.type, is_active: !z.is_active,
-        polygon: z.polygon, center_lat: z.center_lat, center_lng: z.center_lng, radius_m: z.radius_m, cities: z.cities,
-        delivery_fee: z.delivery_fee ?? null, min_order: z.min_order ?? null,
-      });
-      setZones((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
-    } catch (err) {
-      setListError(zoneError(err));
-    }
-  };
-
-  const remove = async (z: DeliveryZone) => {
-    setListError(null);
-    try {
-      await deleteDeliveryZone(rid, z.id);
-      setZones((prev) => prev.filter((x) => x.id !== z.id));
-      if (draft?.id === z.id) { setDraft(null); setCityMarkers([]); }
-    } catch (err) {
-      setListError(zoneError(err));
-    }
-  };
-
-  // ── Render ─────────────────────────────────────────────────────────────────
-
-  if (loading) {
-    return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" /></div>;
-  }
-
-  return (
-    <div className="max-w-[1100px]">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><MapPin className="w-6 h-6" />{t('deliveryZones') || 'Zones de livraison'}</h1>
-        <p className="text-[var(--fg-muted)] mt-1">{t('deliveryZonesDesc') || 'Definissez ou vous livrez. Hors de ces zones, les clients ne peuvent pas commander en livraison.'}</p>
-      </div>
-
-      {/* Restaurant-wide default minimum order — overridden by any zone that
-          sets its own minimum below. */}
-      <div className="mb-4 p-4 rounded-xl border border-[var(--line)] bg-[var(--surface)]">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm flex flex-col gap-1">
-            <span className="font-medium">{t('defaultMinOrder') || `Commande minimum par défaut (${symbol})`}</span>
-            <input
-              type="number" min={0} step="0.5" inputMode="decimal"
-              value={minOrderDelivery}
-              disabled={!canEdit}
-              onChange={(e) => setMinOrderDelivery(Number(e.target.value))}
-              className="w-32 border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] rounded-lg px-3 py-2"
-            />
-          </label>
-          {canEdit && (
-            <button
-              onClick={saveMinOrder}
-              disabled={minOrderSaving}
-              className="py-2 px-4 rounded-lg bg-[var(--brand-500)] text-white font-medium disabled:opacity-50"
-            >
-              {minOrderSaving ? '...' : (t('save') || 'Enregistrer')}
-            </button>
-          )}
-          {minOrderSaved && (
-            <span className="text-sm text-[var(--success-500)] font-medium pb-2">{t('saved') || 'Enregistré'}</span>
-          )}
-        </div>
-        <p className="text-xs text-[var(--fg-subtle)] mt-2">
-          {t('defaultMinOrderHint') || 'Appliqué aux adresses sans minimum spécifique. 0 = pas de minimum. Une zone peut le remplacer ci-dessous.'}
-        </p>
-      </div>
-
-      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_360px] gap-4">
-        <ZoneMap
-          className="max-md:sticky max-md:top-0 max-md:z-10 h-[200px] lg:h-[520px] rounded-xl overflow-hidden border border-[var(--line)] bg-[var(--surface)]"
-          interactive={!isMobile}
-          center={center}
-          zones={zones}
-          activeZoneId={draft?.id ?? null}
-          drawMode="none"
-          draftPolygon={draft?.type === 'polygon' ? draft.polygon : []}
-          draftCenter={draft?.type === 'radius' ? (restaurantCenter ?? draft.center) : null}
-          draftRadiusM={draft?.type === 'radius' ? Math.round(draft.radiusKm * 1000) : undefined}
-          onMapClick={onMapClick}
-          cityMarkers={draft?.type === 'cities' ? cityMarkers : undefined}
-        />
-
-        <div className="space-y-4">
-          {/* Zone list */}
-          <div className="space-y-2">
-            {zones.map((z) => (
-              <div key={z.id} className="flex items-center justify-between p-3 rounded-lg border border-[var(--line)] bg-[var(--surface)]">
-                <button className="text-left flex-1" onClick={() => beginEdit(z)}>
-                  <div className="font-medium">{z.name}</div>
-                  <div className="text-xs text-[var(--fg-muted)]">
-                    {t(`zoneType_${z.type}`) || z.type}
-                    {z.delivery_fee != null && z.delivery_fee > 0 ? ` · ${money(z.delivery_fee)}` : ''}
-                    {z.min_order != null && z.min_order > 0 ? ` · ${t('minShort') || 'min'} ${money(z.min_order)}` : ''}
-                    {z.is_active ? '' : ` - ${t('inactive') || 'inactive'}`}
-                  </div>
-                </button>
-                <label className="mr-2 text-xs flex items-center gap-1">
-                  <input type="checkbox" checked={z.is_active} disabled={!canEdit} onChange={() => toggleActive(z)} />
-                </label>
-                <button disabled={!canEdit} onClick={() => remove(z)} className="text-[var(--danger-500)] p-1"><Trash2 className="w-4 h-4" /></button>
-              </div>
-            ))}
-            {zones.length === 0 && <p className="text-sm text-[var(--fg-subtle)]">{t('noZonesYet') || 'Aucune zone. Toute adresse est livrable.'}</p>}
-            {listError && <p className="text-sm text-[var(--danger-500)]">{listError}</p>}
-          </div>
-
-          {canEdit && !draft && (
-            <button onClick={beginNew} className="w-full py-2 rounded-lg border-2 border-dashed border-[var(--line-strong)] text-[var(--fg-muted)] flex items-center justify-center gap-2">
-              <Plus className="w-4 h-4" />{t('addZone') || 'Ajouter une zone'}
-            </button>
-          )}
-
-          {/* Editor */}
-          {draft && (
-            <div className="p-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] space-y-3">
-              <input
-                className="w-full border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] rounded-lg px-3 py-2"
-                placeholder={t('zoneName') || 'Nom de la zone'}
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              />
-
-              {/* Type selector — only radius and cities */}
-              <div className="flex gap-2">
-                {(['radius', 'cities'] as const).map((ty) => (
-                  <button key={ty} onClick={() => { setDraft({ ...draft, type: ty }); setCityMarkers([]); }}
-                    className={`flex-1 py-1.5 rounded-lg text-sm ${draft.type === ty ? 'bg-[var(--brand-500)] text-white' : 'bg-[var(--surface-2)]'}`}>
-                    {t(`zoneType_${ty}`) || ty}
-                  </button>
-                ))}
-              </div>
-
-              {/* Contextual hint per type */}
-              <p className="text-xs text-[var(--fg-muted)] italic">
-                {draft.type === 'cities'
-                  ? (t('zoneTypeHint_cities') || 'Les clients choisiront leur ville dans une liste au moment de la commande.')
-                  : (t('zoneTypeHint_radius') || "Le systeme verifie automatiquement si l'adresse du client est dans le rayon.")}
-              </p>
-
-              {draft.type === 'radius' && (
-                <div className="space-y-2">
-                  <p className="text-xs text-[var(--fg-muted)]">{t('radiusFromAddressHint') || "Le rayon part de l'adresse du restaurant."}</p>
-                  {addressOk === false && (
-                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                      <span>
-                        {t('radiusMissingAddress') || "Renseignez l'adresse du restaurant dans Parametres > General pour utiliser un rayon."}{' '}
-                        <Link href="../settings" className="underline font-medium">{t('generalSettings') || 'Parametres generaux'}</Link>
-                      </span>
-                    </div>
-                  )}
-                  <label className="text-sm flex items-center gap-2">
-                    {t('radiusKm') || 'Rayon (km)'}
-                    <input type="number" min={0.1} step={0.1} value={draft.radiusKm}
-                      onChange={(e) => setDraft({ ...draft, radiusKm: Number(e.target.value) })}
-                      className="w-24 border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] rounded-lg px-2 py-1" />
-                  </label>
-                </div>
-              )}
-
-              {draft.type === 'cities' && (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      ref={cityInputRef}
-                      className="flex-1 border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] rounded-lg px-3 py-2"
-                      placeholder={t('cityOrPostal') || 'Ville ou code postal'}
-                      value={cityInput}
-                      onChange={(e) => setCityInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCity(); } }}
-                    />
-                    <button onClick={addCity} className="px-3 rounded-lg bg-[var(--surface-2)]">{t('add') || 'Ajouter'}</button>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {draft.cities.map((c) => (
-                      <span key={c} className="px-2 py-1 rounded-full bg-[var(--surface-2)] text-sm flex items-center gap-1">
-                        {c}<button onClick={() => removeCity(c)}>&times;</button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Per-zone delivery fee and minimum order (all zone types) */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <label className="text-sm flex flex-col gap-1">
-                  <span className="text-[var(--fg-muted)]">{t('zoneDeliveryFee') || `Frais de livraison (${symbol})`}</span>
-                  <input type="number" min={0} step="0.5" inputMode="decimal"
-                    placeholder={t('zoneFeeFreePlaceholder') || 'Gratuit'}
-                    value={draft.deliveryFee}
-                    onChange={(e) => setDraft({ ...draft, deliveryFee: e.target.value })}
-                    className="border rounded-lg px-3 py-2" />
-                </label>
-                <label className="text-sm flex flex-col gap-1">
-                  <span className="text-[var(--fg-muted)]">{t('zoneMinOrder') || `Commande minimum (${symbol})`}</span>
-                  <input type="number" min={0} step="0.5" inputMode="decimal"
-                    placeholder={t('zoneMinGlobalPlaceholder') || 'Par défaut'}
-                    value={draft.minOrder}
-                    onChange={(e) => setDraft({ ...draft, minOrder: e.target.value })}
-                    className="border rounded-lg px-3 py-2" />
-                </label>
-              </div>
-              <p className="text-xs text-[var(--fg-subtle)]">
-                {t('zoneFeeMinHint') || 'Laissez vide pour une livraison gratuite et le minimum global du restaurant.'}
-              </p>
-
-              {saveError && <p className="text-sm text-[var(--danger-500)]">{saveError}</p>}
-              <div className="flex gap-2 pt-2">
-                <button disabled={!validDraft(draft) || saving} onClick={save}
-                  className="flex-1 py-2 rounded-lg bg-[var(--brand-500)] text-white font-medium disabled:opacity-50">
-                  {saving ? '...' : (t('save') || 'Enregistrer')}
-                </button>
-                <button onClick={() => { setDraft(null); setCityMarkers([]); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-[var(--surface-2)]">{t('cancel') || 'Annuler'}</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+function ZoneDetails({zone,t,money}:{zone:DeliveryZone;t:T;money:(value:number)=>string}){return <div className="space-y-2 text-fs-sm"><p className="text-[var(--fg-muted)]">{t(zone.is_active?'active':'inactive')} · {t(`zoneType_${zone.type}`)}{zone.type==='radius'&&zone.radius_m!=null&&<> · <bdi>{zone.radius_m/1000} {t('deliveryZoneKilometers')}</bdi></>}</p>{zone.type==='cities'&&<p className="flex flex-wrap gap-x-2 [overflow-wrap:anywhere]">{zone.cities?.map((city,index)=><bdi key={`${city}-${index}`}>{city}</bdi>)}</p>}<div className="flex flex-wrap gap-x-5 gap-y-2"><span>{t('zoneDeliveryFee')} : <bdi className="font-semibold">{money(zone.delivery_fee??0)}</bdi></span><span>{t('zoneMinOrder')} : {zone.min_order!=null?<bdi className="font-semibold">{money(zone.min_order)}</bdi>:t('zoneMinGlobalPlaceholder')}</span></div></div>;}
+function ZoneFeedback({text,error=false}:{text:string;error?:boolean}){return <div role={error?'alert':'status'} className={`flex items-start gap-3 rounded-r-md p-4 text-fs-sm leading-relaxed ${error?'bg-[var(--danger-50)] text-[var(--danger-500)]':'bg-[var(--summary-bg)] text-[var(--summary-fg)]'}`}><CircleAlert className="mt-0.5 size-4 shrink-0" /><span>{text}</span></div>;}

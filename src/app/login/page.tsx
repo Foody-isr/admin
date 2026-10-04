@@ -1,5 +1,11 @@
 'use client';
 
+import { PasswordField } from '@/components/PasswordField';
+
+import AccessShell from '@/components/brand/AccessShell';
+
+import FoodyAdminBrand from '@/components/brand/FoodyAdminBrand';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Fingerprint } from 'lucide-react';
@@ -115,26 +121,19 @@ export default function LoginPage() {
   const showForm = !passkeyFirst || showPasswordForm;
 
   return (
-    <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
-      <div className="w-full max-w-sm">
+    <AccessShell>
+      <div className="w-full max-w-[400px]">
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
-              <span className="text-xl font-black text-white">F</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-fg-primary">{t('foodyAdmin')}</h1>
-              <p className="text-xs text-fg-secondary">{t('restaurantPortal')}</p>
-            </div>
-          </div>
+          <FoodyAdminBrand subtitle={t('restaurantPortal')} />
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-fg-primary mb-6">{t('signIn')}</h2>
+          <h1 className="text-2xl font-semibold text-fg-primary">{t('authWelcome')}</h1>
+          <p className="text-sm text-fg-secondary mt-2 mb-8">{t('authSignInHelp')}</p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
+            <div role="alert" id="login-error" className="mb-4 p-3 bg-[var(--danger-50)] border border-[var(--danger-500)] rounded-r-md text-sm text-[var(--danger-500)]">
               {error}
             </div>
           )}
@@ -163,11 +162,11 @@ export default function LoginPage() {
             </>
           ) : (
             <>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-5" aria-busy={loading} aria-describedby={error ? 'login-error' : undefined}>
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('email')}</label>
+                  <label htmlFor="login-email" className="block text-sm font-medium text-fg-primary mb-2">{t('email')}</label>
                   <input
-                    type="email"
+                    type="email" id="login-email" name="email" autoComplete="username" autoCapitalize="none" dir="ltr"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="input"
@@ -176,17 +175,8 @@ export default function LoginPage() {
                     autoFocus={!passkeyFirst}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('password')}</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input"
-                    placeholder={t('passwordPlaceholder')}
-                    required
-                  />
-                </div>
+                <PasswordField id="login-password" name="password" autoComplete="current-password" label={t('password')}
+                  value={password} onChange={event => setPassword(event.target.value)} placeholder={t('passwordPlaceholder')} required />
                 <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -227,6 +217,6 @@ export default function LoginPage() {
           )}
         </div>
       </div>
-    </div>
+    </AccessShell>
   );
 }

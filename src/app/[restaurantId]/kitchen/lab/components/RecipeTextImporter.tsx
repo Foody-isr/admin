@@ -23,6 +23,7 @@ import type {
   ManualRecipeImportResult,
   ManualRecipeImportWarning,
 } from '../types';
+import styles from '../workspace.module.css';
 import { safeRecipeSteps } from '../normalizePayload';
 
 type ApplyMode = 'replace' | 'append';
@@ -61,12 +62,14 @@ export function RecipeTextImporter({
   payload,
   canManage,
   onChange,
+  onDirtyChange,
 }: {
   restaurantId: number;
   draftId: number;
   payload: DraftPayload;
   canManage: boolean;
   onChange: (next: DraftPayload) => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
@@ -79,17 +82,25 @@ export function RecipeTextImporter({
   const [result, setResult] = useState<ManualRecipeImportResult | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [applyMode, setApplyMode] = useState<ApplyMode>('replace');
+  const request=useRef({value:0});
+  const active=useRef(true);
+  const lock=useRef(false);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
 
   useEffect(() => {
+    active.current=true;
+    const scope=request.current;
     if (typeof window === 'undefined') return;
     const speechWindow = window as unknown as {
       SpeechRecognition?: BrowserSpeechRecognitionConstructor;
       webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
     };
     setSpeechSupported(Boolean(speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition));
-    return () => recognitionRef.current?.abort();
+    return () => {active.current=false;scope.value+=1;const recognition=recognitionRef.current;if(recognition){recognition.onend=null;recognition.onerror=null;recognition.onresult=null;recognition.abort();}};
   }, []);
+
+  useEffect(()=>{onDirtyChange(!!text.trim() || listening);},[text,listening,onDirtyChange]);
+  useEffect(()=>{if(!canManage){recognitionRef.current?.abort();setListening(false);}},[canManage]);
 
   const componentEntries = useMemo(
     () => result?.entries.filter((entry) => entry.kind !== 'step') ?? [],
@@ -97,7 +108,7 @@ export function RecipeTextImporter({
   );
 
   const startDictation = () => {
-    if (typeof window === 'undefined' || listening) return;
+    if (typeof window === 'undefined' || listening || loading || !canManage) return;
     const speechWindow = window as unknown as {
       SpeechRecognition?: BrowserSpeechRecognitionConstructor;
       webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
@@ -111,6 +122,7 @@ export function RecipeTextImporter({
     recognition.interimResults = true;
     recognition.lang = locale.startsWith('he') ? 'he-IL' : locale.startsWith('en') ? 'en-US' : 'fr-FR';
     recognition.onresult = (event) => {
+      if(!active.current)return;
       const finalParts: string[] = [];
       const interimParts: string[] = [];
       // The browser keeps earlier final results in the list. Starting at
@@ -123,7 +135,8 @@ export function RecipeTextImporter({
         else interimParts.push(transcript);
       }
       if (finalParts.length > 0) {
-        setText((current) => `${current.trimEnd()}${current.trim() ? '\n' : ''}${finalParts.join('\n')}`);
+        request.current.value+=1;setResult(null);
+        setText((current) => `${current.trimEnd()}${current.trim() ? '\n' : ''}${finalParts.join('\n')}`.slice(0,16000));
       }
       setInterimText(interimParts.join(' '));
     };
@@ -138,28 +151,29 @@ export function RecipeTextImporter({
       recognitionRef.current = null;
     };
     recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
+    try {recognition.start();setListening(true);} catch {setError(t('labRecipeDictationFailed'));recognitionRef.current=null;}
   };
 
   const stopDictation = () => recognitionRef.current?.stop();
 
   const analyze = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || lock.current || !canManage || listening) return;
+    lock.current=true;const sequence=++request.current.value;
     if (listening) stopDictation();
     setLoading(true);
     setError(null);
     setResult(null);
     try {
       const parsed = await labImportManualRecipeText(restaurantId, draftId, { text: text.trim(), locale });
+      if(!active.current || sequence!==request.current.value)return;
       setResult(parsed);
       setSelected(new Set(parsed.components.map((_, index) => index)));
       setApplyMode('replace');
     } catch (cause) {
       console.error('Manual recipe text import failed', cause);
-      setError(cause instanceof Error ? cause.message : t('labRecipeParseFailed'));
+      if(active.current && sequence===request.current.value)setError(cause instanceof Error ? cause.message : t('labRecipeParseFailed'));
     } finally {
-      setLoading(false);
+      lock.current=false;if(active.current)setLoading(false);
     }
   };
 
@@ -173,7 +187,7 @@ export function RecipeTextImporter({
   };
 
   const apply = () => {
-    if (!result) return;
+    if (!result || !canManage || loading) return;
     const currentRecipeSteps = safeRecipeSteps(payload.recipe_steps);
     const importedRecipeSteps = safeRecipeSteps(result.recipe_steps);
     const importedComponents = result.components.filter((_, index) => selected.has(index));
@@ -204,41 +218,41 @@ export function RecipeTextImporter({
   if (!canManage) return null;
 
   return (
-    <section className="@container overflow-hidden rounded-[18px] border border-[color-mix(in_oklab,var(--brand-500)_28%,var(--line))] bg-[var(--surface)] shadow-[var(--shadow-1)]">
+    <section className={`${styles.container} overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--surface)]`}>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {if(open) recognitionRef.current?.abort();setOpen(value=>!value);}}
         aria-expanded={open}
         className="flex min-h-16 w-full items-center gap-3 px-4 py-4 text-start focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] sm:gap-4 sm:px-6"
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-[color-mix(in_oklab,var(--brand-500)_12%,var(--surface))] text-[var(--brand-500)]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-[color-mix(in_oklab,var(--brand-500)_12%,var(--surface))] text-[var(--brand-ink)]">
           <FilePenLineIcon className="h-5 w-5" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-[var(--fg)]">{t('labRecipeCaptureTitle')}</span>
           <span className="mt-0.5 block text-xs leading-5 text-[var(--fg-muted)]">{t('labRecipeCaptureHelp')}</span>
         </span>
-        <span className="hidden rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-[11px] font-semibold text-[var(--fg-muted)] sm:inline-flex">{t('labRecipeNoAiBadge')}</span>
+        <span className="hidden rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-xs font-semibold text-[var(--fg-muted)] sm:inline-flex">{t('labRecipeNoAiBadge')}</span>
         {open ? <ChevronUpIcon className="h-4 w-4 text-[var(--fg-muted)]" /> : <ChevronDownIcon className="h-4 w-4 text-[var(--fg-muted)]" />}
       </button>
 
       {open && (
         <div className="border-t border-[var(--line)]">
-          <div className="grid gap-0 @4xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,.8fr)]">
-            <div className="p-4 sm:p-6 @4xl:border-e @4xl:border-[var(--line)]">
+          <div className={styles.importLayout}>
+            <div className="p-4 sm:p-6">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <label htmlFor="manual-recipe-text" className="text-sm font-semibold text-[var(--fg)]">{t('labRecipeWriteLabel')}</label>
-                <span className="text-[11px] text-[var(--fg-subtle)]">{text.length}/16000</span>
+                <span className="text-xs text-[var(--fg-subtle)]">{text.length}/16000</span>
               </div>
-              <div className={`rounded-[13px] border bg-[var(--surface)] transition-colors ${listening ? 'border-[var(--brand-500)] shadow-[var(--focus-ring)]' : 'border-[var(--line-strong)]'}`}>
+              <div className={`rounded-[8px] border bg-[var(--surface)] transition-colors ${listening ? 'border-[var(--brand-500)] shadow-[var(--focus-ring)]' : 'border-[var(--line-strong)]'}`}>
                 <textarea
-                  id="manual-recipe-text"
+                  id="manual-recipe-text" dir="auto"
                   value={text}
-                  onChange={(event) => { setText(event.target.value.slice(0, 16000)); setResult(null); }}
+                  onChange={(event) => { request.current.value+=1; setText(event.target.value.slice(0, 16000)); setResult(null); }}
                   rows={9}
                   maxLength={16000}
                   placeholder={t('labRecipeWritePlaceholder')}
-                  className="block w-full resize-y rounded-t-[13px] bg-transparent px-4 py-3 text-base leading-6 text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] sm:text-sm"
+                  className="block w-full resize-y rounded-t-[8px] bg-transparent px-4 py-3 text-base leading-6 text-[var(--fg)] outline-none placeholder:text-[var(--fg-subtle)] sm:text-sm"
                 />
                 {interimText && <p className="border-t border-dashed border-[var(--line)] px-4 py-2 text-xs italic text-[var(--fg-muted)]">{interimText}</p>}
                 <div className="flex flex-col items-stretch justify-between gap-3 border-t border-[var(--line)] px-3 py-2.5 sm:flex-row sm:items-center">
@@ -246,32 +260,32 @@ export function RecipeTextImporter({
                     {speechSupported ? (
                       <button
                         type="button"
-                        onClick={listening ? stopDictation : startDictation}
-                        className={`inline-flex h-11 items-center gap-2 rounded-[9px] px-3 text-xs font-semibold focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] sm:h-9 ${listening ? 'bg-[var(--danger-500)] text-white' : 'bg-[var(--surface-2)] text-[var(--fg)] hover:bg-[var(--line)]'}`}
+                        disabled={loading} onClick={listening ? stopDictation : startDictation}
+                        className={`inline-flex h-11 items-center gap-2 rounded-[8px] px-3 text-xs font-semibold focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] sm:h-11 ${listening ? 'bg-[var(--danger-action)] text-white' : 'bg-[var(--surface-2)] text-[var(--fg)] hover:bg-[var(--line)]'}`}
                       >
-                        {listening ? <SquareIcon className="h-3.5 w-3.5 fill-current" /> : <MicIcon className="h-4 w-4 text-[var(--brand-500)]" />}
+                        {listening ? <SquareIcon className="h-3.5 w-3.5 fill-current" /> : <MicIcon className="h-4 w-4 text-[var(--brand-ink)]" />}
                         {listening ? t('labRecipeStopDictation') : t('labRecipeStartDictation')}
                       </button>
                     ) : (
-                      <span className="text-[11px] text-[var(--fg-subtle)]">{t('labRecipeDictationUnavailable')}</span>
+                      <span className="text-xs text-[var(--fg-subtle)]">{t('labRecipeDictationUnavailable')}</span>
                     )}
                     {listening && <span className="inline-flex items-center gap-1.5 text-xs text-[var(--danger-500)]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />{t('labRecipeListening')}</span>}
                   </div>
-                  <span className="text-[10px] leading-4 text-[var(--fg-subtle)]">{t('labRecipeAudioNotice')}</span>
+                  <span className="text-xs leading-4 text-[var(--fg-subtle)]">{t('labRecipeAudioNotice')}</span>
                 </div>
               </div>
               <p className="mt-3 text-xs leading-5 text-[var(--fg-muted)]">{t('labRecipeFormatHint')}</p>
-              {error && <p role="alert" className="mt-3 rounded-[9px] bg-[var(--danger-50)] px-3 py-2 text-xs text-[var(--danger-500)]">{error}</p>}
-              <Button className="mt-4 w-full sm:w-auto" onClick={analyze} disabled={loading || text.trim().length === 0}>
+              {error && <p role="alert" className="mt-3 rounded-[8px] bg-[var(--danger-50)] px-3 py-2 text-xs text-[var(--danger-500)]">{error}</p>}
+              <Button className="mt-4 w-full sm:w-auto" onClick={analyze} disabled={loading || listening || text.trim().length === 0}>
                 {loading ? <LoaderCircleIcon className="animate-spin" /> : <ScanTextIcon />}
                 {loading ? t('labRecipeAnalyzing') : t('labRecipeAnalyze')}
               </Button>
             </div>
 
-            <div className="border-t border-[var(--line)] bg-[var(--surface-2)] p-4 sm:p-6 @4xl:border-t-0">
+            <div className={`${styles.importPreview} bg-[var(--surface-2)] p-4 sm:p-6`}>
               {!result ? (
                 <div className="flex min-h-[250px] flex-col items-center justify-center text-center">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-[12px] border border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)]"><PackageCheckIcon className="h-5 w-5" /></span>
+                  <span className="flex h-11 w-11 items-center justify-center rounded-[8px] border border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)]"><PackageCheckIcon className="h-5 w-5" /></span>
                   <p className="mt-3 text-sm font-semibold text-[var(--fg)]">{t('labRecipePreviewEmptyTitle')}</p>
                   <p className="mt-1 max-w-xs text-xs leading-5 text-[var(--fg-muted)]">{t('labRecipePreviewEmptyHelp')}</p>
                 </div>
@@ -282,32 +296,32 @@ export function RecipeTextImporter({
                       <h4 className="text-sm font-semibold text-[var(--fg)]">{t('labRecipeReviewTitle')}</h4>
                       <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">{t('labRecipeReviewHelp')}</p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-[var(--success-50)] px-2.5 py-1 text-[11px] font-semibold text-[var(--success-500)]">{result.summary.matched_count} {t('labRecipeMatchedShort')}</span>
+                    <span className="shrink-0 rounded-full bg-[var(--success-50)] px-2.5 py-1 text-xs font-semibold text-[var(--success-500)]">{result.summary.matched_count} {t('labRecipeMatchedShort')}</span>
                   </div>
 
-                  <div className="mt-4 space-y-2 pe-1 @4xl:max-h-[330px] @4xl:overflow-y-auto">
+                  <div className={`${styles.importResults} mt-4 space-y-2 pe-1`}>
                     {componentEntries.map((entry, index) => (
                       <ImportEntryRow key={`${entry.source}-${index}`} entry={entry} checked={selected.has(index)} onToggle={() => toggleSelected(index)} />
                     ))}
                     {safeRecipeSteps(result.recipe_steps).map((step) => (
-                      <div key={`step-${step.order}`} className="rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5">
-                        <p className="text-[11px] font-semibold text-[var(--fg-muted)]">{t('labRecipeStep')} {step.order}</p>
+                      <div key={`step-${step.order}`} className="rounded-[8px] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5">
+                        <p className="text-xs font-semibold text-[var(--fg-muted)]">{t('labRecipeStep')} {step.order}</p>
                         <p className="mt-0.5 text-xs leading-5 text-[var(--fg)]">{step.instruction_primary || step.instruction_he}</p>
                       </div>
                     ))}
                   </div>
 
                   {(result.warnings?.length ?? 0) > 0 && (
-                    <div className="mt-3 rounded-[10px] border border-[var(--warning-500)]/35 bg-[var(--warning-50)] px-3 py-2.5">
+                    <div className="mt-3 rounded-[8px] border border-[var(--warning-500)]/35 bg-[var(--warning-50)] px-3 py-2.5">
                       <p className="flex items-center gap-1.5 text-xs font-semibold text-[var(--warning-500)]"><TriangleAlertIcon className="h-3.5 w-3.5" />{t('labRecipeReviewNeeded')}</p>
-                      <ul className="mt-1.5 space-y-1 text-[11px] leading-4 text-[var(--fg-muted)]">
+                      <ul className="mt-1.5 space-y-1 text-xs leading-4 text-[var(--fg-muted)]">
                         {uniqueWarnings(result.warnings ?? []).slice(0, 4).map((warning, index) => <li key={`${warning.code}-${warning.name}-${index}`}>• {warningCopy(warning, t)}</li>)}
                       </ul>
                     </div>
                   )}
 
                   {payload.components.length > 0 && (
-                    <div className="mt-4 grid grid-cols-2 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] p-1">
+                    <div className="mt-4 grid grid-cols-2 rounded-[8px] border border-[var(--line)] bg-[var(--surface)] p-1">
                       <ModeButton active={applyMode === 'replace'} onClick={() => setApplyMode('replace')} label={t('labRecipeReplace')} />
                       <ModeButton active={applyMode === 'append'} onClick={() => setApplyMode('append')} label={t('labRecipeAppend')} />
                     </div>
@@ -315,7 +329,7 @@ export function RecipeTextImporter({
                   <Button className="mt-3 w-full" onClick={apply} disabled={selected.size === 0 && safeRecipeSteps(result.recipe_steps).length === 0}>
                     <CheckCircle2Icon />{applyMode === 'replace' ? t('labRecipeApplyReplace') : t('labRecipeApplyAppend')}
                   </Button>
-                  <p className="mt-2 text-center text-[10px] leading-4 text-[var(--fg-subtle)]">{t('labRecipeApplyNotice')}</p>
+                  <p className="mt-2 text-center text-xs leading-4 text-[var(--fg-subtle)]">{t('labRecipeApplyNotice')}</p>
                 </div>
               )}
             </div>
@@ -330,23 +344,23 @@ function ImportEntryRow({ entry, checked, onToggle }: { entry: ManualRecipeImpor
   const { t } = useI18n();
   const isMatched = entry.status === 'matched';
   return (
-    <div className={`rounded-[11px] border bg-[var(--surface)] ${checked ? 'border-[var(--line-strong)]' : 'border-[var(--line)] opacity-55'}`}>
+    <div className={`rounded-[8px] border bg-[var(--surface)] ${checked ? 'border-[var(--line-strong)]' : 'border-[var(--line)] opacity-55'}`}>
       <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5">
         <input type="checkbox" checked={checked} onChange={onToggle} className="mt-1 h-4 w-4 rounded border-[var(--line-strong)] accent-[var(--brand-500)]" />
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-[var(--fg)]">{entry.matched_name || entry.name}</span>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isMatched ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--warning-50)] text-[var(--warning-500)]'}`}>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${isMatched ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--warning-50)] text-[var(--warning-500)]'}`}>
               {isMatched ? t('labRecipeMatched') : t('labRecipeNew')}
             </span>
           </span>
-          <span className="mt-0.5 block text-[11px] text-[var(--fg-muted)]">{formatQuantity(entry.quantity, entry.unit)}</span>
+          <span className="mt-0.5 block text-xs text-[var(--fg-muted)]">{formatQuantity(entry.quantity, entry.unit)}</span>
         </span>
       </label>
       {(entry.children?.length ?? 0) > 0 && (
         <div className="border-t border-[var(--line)] px-3 py-2 ps-10">
           {entry.children?.map((child, index) => (
-            <div key={`${child.source}-${index}`} className="flex items-center justify-between gap-3 py-1 text-[11px]">
+            <div key={`${child.source}-${index}`} className="flex items-center justify-between gap-3 py-1 text-xs">
               <span className="truncate text-[var(--fg-muted)]">{child.matched_name || child.name}</span>
               <span className="shrink-0 tabular-nums text-[var(--fg-subtle)]">{formatQuantity(child.quantity, child.unit)}</span>
             </div>

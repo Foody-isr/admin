@@ -310,7 +310,7 @@ export default function ModifierSetEditorPage() {
       <div className="px-6 py-8 space-y-8">
         {/* Details */}
         <Section title={t('details') || 'Details'}>
-          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 space-y-4">
+          <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-5 space-y-4">
             <div className="flex items-center gap-3 flex-wrap">
               <LocaleTabs
                 locales={SUPPORTED_LOCALES}
@@ -328,20 +328,20 @@ export default function ModifierSetEditorPage() {
             <LocaleEditingBanner active={activeLocale} source={sourceLocale} />
             {isSourceTab && (
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+                <label className="block text-sm font-medium text-[var(--fg-muted)] mb-2">
                   {(t('internalName') || 'Internal name') + ' *'}
                 </label>
                 <input
-                  autoFocus
+                  autoFocus aria-label={t('name')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Toppings"
-                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                  className="w-full min-h-10 px-3 py-2 text-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-lg text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)] focus:border-[var(--brand-ink)] transition-colors"
                 />
               </div>
             )}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+              <label className="block text-sm font-medium text-[var(--fg-muted)] mb-2">
                 {t('displayName') || 'Display name'}
               </label>
               {isSourceTab ? (
@@ -349,7 +349,7 @@ export default function ModifierSetEditorPage() {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder={t('displayNamePlaceholder') || 'Shown to customers (leave blank to use internal name)'}
-                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                  className="w-full min-h-10 px-3 py-2 text-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-lg text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)] focus:border-[var(--brand-ink)] transition-colors"
                 />
               ) : (
                 <>
@@ -361,11 +361,11 @@ export default function ModifierSetEditorPage() {
                       )
                     }
                     placeholder={displayName || (t('displayNamePlaceholder') || 'Shown to customers')}
-                    className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                    className="w-full min-h-10 px-3 py-2 text-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-lg text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)] focus:border-[var(--brand-ink)] transition-colors"
                   />
-                  <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+                  <div className="text-xs text-[var(--fg-subtle)] mt-1">
                     {(t('languageSourceLabel') || 'Source') + ': '}
-                    <span className="text-neutral-500 dark:text-neutral-400">{displayName || '—'}</span>
+                    <span className="text-[var(--fg-muted)]">{displayName || '—'}</span>
                   </div>
                 </>
               )}
@@ -375,15 +375,15 @@ export default function ModifierSetEditorPage() {
 
         {/* Modifiers list */}
         <Section title={t('modifierList') || 'Modifier list'}>
-          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+          <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto">
             {/* Header */}
             <div
-              className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700 gap-2"
+              className="grid min-w-[800px] text-xs font-semibold text-[var(--fg-muted)] px-4 py-3 bg-[var(--surface-2)] border-b border-[var(--line)] gap-2"
               style={{ gridTemplateColumns: ROW_GRID }}
             >
               <span>{t('name') || 'Name'}</span>
               <span>{t('kitchenName') || 'Kitchen name'}</span>
-              <span className="text-right">{t('price') || 'Price'}</span>
+              <span className="text-end">{t('price') || 'Price'}</span>
               <span className="text-center">{t('hideOnline') || 'Hide online'}</span>
               <span className="text-center">{t('preselect') || 'Preselect'}</span>
               <span>{t('available') || 'Availability'}</span>
@@ -393,18 +393,18 @@ export default function ModifierSetEditorPage() {
             {rows.map((row, i) => (
               <div
                 key={row.id ?? `new-${i}`}
-                className="border-b border-neutral-200 dark:border-neutral-700 last:border-b-0"
+                className="border-b border-[var(--line)] last:border-b-0"
               >
                 <div
-                  className="grid items-center gap-2 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
+                  className="grid min-w-[800px] items-center gap-2 px-4 py-3 hover:bg-[var(--surface-2)] transition-colors"
                   style={{ gridTemplateColumns: ROW_GRID }}
                 >
                   {isSourceTab ? (
-                    <input
+                    <input aria-label={t('name')}
                       value={row.name}
                       onChange={(e) => updateRow(i, { name: e.target.value })}
                       placeholder={t('modifierName') || 'New modifier'}
-                      className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
+                      className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2"
                     />
                   ) : (
                     <input
@@ -420,23 +420,23 @@ export default function ModifierSetEditorPage() {
                         })
                       }
                       placeholder={row.name || (t('modifierName') || 'New modifier')}
-                      className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2 italic"
+                      className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2 italic"
                     />
                   )}
-                  <input
+                  <input aria-label={t('kitchenName')}
                     value={row.kitchen_name}
                     onChange={(e) => updateRow(i, { kitchen_name: e.target.value })}
                     placeholder={t('kitchenNamePlaceholder') || 'Abbrev.'}
-                    className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
+                    className="text-sm bg-transparent border-0 outline-none text-[var(--fg-muted)]"
                   />
                   <div className="flex items-center justify-end gap-1">
                     <NumberInput
                       min={-1000000}
                       value={row.price_delta}
                       onChange={(n) => updateRow(i, { price_delta: n })}
-                      className="w-full text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
+                      className="w-full text-sm bg-transparent border-0 outline-none text-[var(--fg)] text-end pe-1"
                     />
-                    <span className="text-neutral-400 text-xs shrink-0">{symbol}</span>
+                    <span className="text-[var(--fg-subtle)] text-xs shrink-0">{symbol}</span>
                   </div>
                   <div className="flex justify-center">
                     <input
@@ -460,14 +460,14 @@ export default function ModifierSetEditorPage() {
                       onChange={(v) => updateRow(i, { is_active: v })}
                       size="sm"
                     />
-                    <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                    <span className="text-xs text-[var(--fg-muted)] whitespace-nowrap">
                       {row.is_active ? (t('inStock') || 'In stock') : (t('outOfStock') || 'Out of stock')}
                     </span>
                   </div>
                   {canEdit ? (
                     <button
                       onClick={() => removeRow(i)}
-                      className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors justify-self-end"
+                      className="size-9 flex items-center justify-center rounded-lg text-[var(--fg-subtle)] hover:text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors justify-self-end"
                       title={t('delete')}
                     >
                       <Trash2 size={14} />
@@ -495,36 +495,36 @@ export default function ModifierSetEditorPage() {
             {/* Inline add row */}
             {canEdit && (
             <div
-              className="grid items-center gap-2 px-4 py-3 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-[#0a0a0a]"
+              className="grid min-w-[800px] items-center gap-2 px-4 py-3 border-t border-[var(--line)] bg-[var(--surface-2)]"
               style={{ gridTemplateColumns: ROW_GRID }}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <Plus size={14} className="text-orange-500 shrink-0" />
-                <input
+                <Plus size={14} className="text-[var(--brand-ink)] shrink-0" />
+                <input aria-label={t('name')}
                   value={newRow.name}
                   onChange={(e) => setNewRow((r) => ({ ...r, name: e.target.value }))}
                   placeholder={t('addModifier') || 'Add modifier'}
-                  className="flex-1 text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white min-w-0"
+                  className="flex-1 text-sm bg-transparent border-0 outline-none text-[var(--fg)] min-w-0"
                   onKeyDown={(e) => { if (e.key === 'Enter') commitNewRow(); }}
                 />
               </div>
-              <input
+              <input aria-label={t('kitchenName')}
                 value={newRow.kitchen_name}
                 onChange={(e) => setNewRow((r) => ({ ...r, kitchen_name: e.target.value }))}
                 placeholder={t('kitchenNamePlaceholder') || 'Abbrev.'}
-                className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
+                className="text-sm bg-transparent border-0 outline-none text-[var(--fg-muted)]"
                 onKeyDown={(e) => { if (e.key === 'Enter') commitNewRow(); }}
               />
               <div className="flex items-center justify-end gap-1">
                 <NumberInput
-                  min={-1000000}
+                  min={-1000000} aria-label={t('price')}
                   value={newRow.price_delta}
                   onChange={(n) => setNewRow((r) => ({ ...r, price_delta: n }))}
                   placeholder="0.00"
-                  className="w-full text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
+                  className="w-full text-sm bg-transparent border-0 outline-none text-[var(--fg)] text-end pe-1"
                   onKeyDown={(e) => { if (e.key === 'Enter') commitNewRow(); }}
                 />
-                <span className="text-neutral-400 text-xs shrink-0">{symbol}</span>
+                <span className="text-[var(--fg-subtle)] text-xs shrink-0">{symbol}</span>
               </div>
               <span />
               <span />
@@ -532,7 +532,7 @@ export default function ModifierSetEditorPage() {
               {newRow.name.trim() ? (
                 <button
                   onClick={commitNewRow}
-                  className="text-sm font-medium text-orange-500 hover:underline justify-self-end"
+                  className="text-sm font-medium text-[var(--brand-ink)] hover:underline justify-self-end"
                 >
                   {t('add') || 'Add'}
                 </button>
@@ -546,8 +546,8 @@ export default function ModifierSetEditorPage() {
 
         {/* Selection rules */}
         <Section title={t('selectionRules') || 'Selection rules'}>
-          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-            <p className="px-5 pt-5 pb-2 text-sm text-neutral-600 dark:text-neutral-400">
+          <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto">
+            <p className="px-5 pt-5 pb-2 text-sm text-[var(--fg-muted)]">
               {t('selectionRulesDesc') || 'These are the default settings for customization. You can override them per item.'}
             </p>
             <ToggleRow
@@ -566,33 +566,33 @@ export default function ModifierSetEditorPage() {
         {/* Quantity rules — only when Allow multiple is on */}
         {allowMultiple && (
           <Section title={t('quantityRules') || 'Quantity rules'}>
-            <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+            <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto">
               <ToggleRow
                 checked={allowQuantities}
                 onChange={setAllowQuantities}
                 label={t('allowQuantities') || 'Allow multiple quantities per modifier'}
                 noBorder
               />
-              <div className="px-5 py-4 border-t border-neutral-200 dark:border-neutral-700 flex items-center justify-between gap-4">
-                <p className="text-sm font-medium text-neutral-900 dark:text-white">{t('minSelectionsLabel') || 'Minimum selections'}</p>
+              <div className="px-5 py-4 border-t border-[var(--line)] flex items-center justify-between gap-4">
+                <p className="text-sm font-medium text-[var(--fg)]">{t('minSelectionsLabel') || 'Minimum selections'}</p>
                 <select
                   value={minSelections}
                   onChange={(e) => setMinSelections(Number(e.target.value))}
                   disabled={!allowQuantities}
-                  className="w-48 px-3 py-2 text-sm rounded-lg outline-none transition-opacity text-neutral-900 dark:text-white bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 disabled:opacity-50"
+                  className="w-48 px-3 py-2 text-sm rounded-lg outline-none transition-opacity text-[var(--fg)] bg-[var(--surface)] border border-[var(--line)] disabled:opacity-50"
                 >
                   {selectionOptions.map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>
               </div>
-              <div className="px-5 py-4 border-t border-neutral-200 dark:border-neutral-700 flex items-center justify-between gap-4">
-                <p className="text-sm font-medium text-neutral-900 dark:text-white">{t('maxSelectionsLabel') || 'Maximum selections'}</p>
+              <div className="px-5 py-4 border-t border-[var(--line)] flex items-center justify-between gap-4">
+                <p className="text-sm font-medium text-[var(--fg)]">{t('maxSelectionsLabel') || 'Maximum selections'}</p>
                 <select
                   value={maxSelections}
                   onChange={(e) => setMaxSelections(Number(e.target.value))}
                   disabled={!allowQuantities}
-                  className="w-48 px-3 py-2 text-sm rounded-lg outline-none transition-opacity text-neutral-900 dark:text-white bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 disabled:opacity-50"
+                  className="w-48 px-3 py-2 text-sm rounded-lg outline-none transition-opacity text-[var(--fg)] bg-[var(--surface)] border border-[var(--line)] disabled:opacity-50"
                 >
                   <option value={0}>{t('noMaximum') || 'No maximum'}</option>
                   {selectionOptions.map((n) => (
@@ -606,7 +606,7 @@ export default function ModifierSetEditorPage() {
 
         {/* Settings */}
         <Section title={t('settings') || 'Settings'}>
-          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+          <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto">
             <ToggleRow
               checked={hideOnReceipt}
               onChange={setHideOnReceipt}
@@ -621,11 +621,11 @@ export default function ModifierSetEditorPage() {
               description={t('useConversationalDesc') || 'Show the verb palette (Ajouter, Suppléments, Sans, Allergie…) for this group in the POS and guest web. Modifier options act as neutral ingredients.'}
             />
             {useConversational && (
-              <div className="px-4 py-3 border-t border-neutral-200 dark:border-neutral-700">
+              <div className="px-4 py-3 border-t border-[var(--line)]">
                 <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
                   {t('enabledVerbs') || 'Verbs shown'}
                 </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
+                <p className="text-xs text-[var(--fg-muted)] mb-2">
                   {t('enabledVerbsDesc') || 'All verbs are shown by default. Tap to hide ones you don’t want.'}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -640,7 +640,7 @@ export default function ModifierSetEditorPage() {
                         className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${
                           active
                             ? 'bg-orange-500 text-white border-orange-500'
-                            : 'bg-transparent text-neutral-500 dark:text-neutral-400 border-neutral-300 dark:border-neutral-600'
+                            : 'bg-transparent text-[var(--fg-muted)] border-neutral-300 dark:border-neutral-600'
                         }`}
                       >
                         {v.label}
@@ -657,7 +657,7 @@ export default function ModifierSetEditorPage() {
         {!isNew && canEdit && (
           <button
             onClick={handleDeleteSet}
-            className="text-sm font-medium text-red-500 hover:text-red-600 hover:underline"
+            className="text-sm font-medium text-[var(--danger-500)] hover:underline"
           >
             {t('delete')} {(t('modifierSets') || 'modifier set').toLowerCase()}
           </button>
@@ -674,7 +674,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <section>
       <div className="flex items-center gap-3 mb-4">
         <div className="w-1 h-6 bg-orange-500 rounded-full" />
-        <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{title}</h3>
+        <h3 className="text-lg font-semibold text-[var(--fg)]">{title}</h3>
       </div>
       {children}
     </section>
@@ -719,11 +719,11 @@ function ToggleRow({ checked, onChange, label, description, noBorder }: {
   noBorder?: boolean;
 }) {
   return (
-    <div className={`flex items-start justify-between gap-4 px-5 py-4 ${noBorder ? '' : 'border-t border-neutral-200 dark:border-neutral-700'}`}>
+    <div className={`flex items-start justify-between gap-4 px-5 py-4 ${noBorder ? '' : 'border-t border-[var(--line)]'}`}>
       <div className="min-w-0">
-        <p className="text-sm font-medium text-neutral-900 dark:text-white">{label}</p>
+        <p className="text-sm font-medium text-[var(--fg)]">{label}</p>
         {description && (
-          <p className="text-xs mt-0.5 text-neutral-500 dark:text-neutral-400">{description}</p>
+          <p className="text-xs mt-0.5 text-[var(--fg-muted)]">{description}</p>
         )}
       </div>
       <PillToggle checked={checked} onChange={onChange} />
@@ -749,7 +749,7 @@ function StockConsumptionRow({
       <button
         type="button"
         onClick={onExpand}
-        className="block w-full text-left px-4 pb-3 text-xs text-neutral-400 hover:text-orange-500 transition-colors"
+        className="block w-full text-left px-4 pb-3 text-xs text-[var(--fg-subtle)] hover:text-[var(--brand-ink)] transition-colors"
       >
         + {t('linkStockConsumption') || 'Link stock consumption'}
       </button>
@@ -759,8 +759,8 @@ function StockConsumptionRow({
     ? `s:${row.stock_item_id}`
     : row.prep_item_id ? `p:${row.prep_item_id}` : '';
   return (
-    <div className="flex items-center gap-2 flex-wrap px-4 pb-3 text-xs text-neutral-500 dark:text-neutral-400" key={`stock-${index}`}>
-      <span className="text-neutral-400">{t('consumesFromStock') || 'Consumes'}:</span>
+    <div className="flex items-center gap-2 flex-wrap px-4 pb-3 text-xs text-[var(--fg-muted)]" key={`stock-${index}`}>
+      <span className="text-[var(--fg-subtle)]">{t('consumesFromStock') || 'Consumes'}:</span>
       <select
         value={pickerValue}
         onChange={(e) => {
@@ -774,7 +774,7 @@ function StockConsumptionRow({
             onChange({ prep_item_id: Number(v.slice(2)), stock_item_id: null });
           }
         }}
-        className="px-2 py-1 rounded text-xs bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white"
+        className="px-2 py-1 rounded text-xs bg-[var(--surface)] border border-[var(--line)] text-[var(--fg)]"
       >
         <option value="">— {t('none') || 'None'} —</option>
         <optgroup label={t('stockItems') || 'Stock items'}>
@@ -793,12 +793,12 @@ function StockConsumptionRow({
         value={row.quantity}
         onChange={(n) => onChange({ quantity: n })}
         placeholder={t('qty') || 'Qty'}
-        className="w-20 px-2 py-1 rounded text-xs bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-right"
+        className="w-20 px-2 py-1 rounded text-xs bg-[var(--surface)] border border-[var(--line)] text-[var(--fg)] text-end"
       />
       <select
         value={row.unit || 'g'}
         onChange={(e) => onChange({ unit: e.target.value })}
-        className="px-2 py-1 rounded text-xs bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white"
+        className="px-2 py-1 rounded text-xs bg-[var(--surface)] border border-[var(--line)] text-[var(--fg)]"
       >
         <option value="g">g</option>
         <option value="kg">kg</option>
@@ -806,7 +806,7 @@ function StockConsumptionRow({
         <option value="l">l</option>
         <option value="unit">unit</option>
       </select>
-      <span className="text-neutral-400">{t('perSelection') || 'per selection'}</span>
+      <span className="text-[var(--fg-subtle)]">{t('perSelection') || 'per selection'}</span>
     </div>
   );
 }

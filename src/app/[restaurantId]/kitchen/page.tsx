@@ -1,15 +1,6 @@
-'use client';
+import RestaurantRedirect from '@/components/RestaurantRedirect';
 
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-
+/** Open the default kitchen workspace with the existing query context. */
 export default function KitchenRedirect() {
-  const { restaurantId } = useParams();
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace(`/${restaurantId}/kitchen/daily-operations`);
-  }, [restaurantId, router]);
-
-  return null;
+  return <RestaurantRedirect target="kitchen/daily-operations"/>;
 }

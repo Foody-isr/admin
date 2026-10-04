@@ -1,432 +1,111 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import { FileTextIcon, UploadIcon, XIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useI18n } from '@/lib/i18n';
-import {
-  importStockCsv, importMenuItemsCsv,
-  CsvImportStockResult, CsvImportLibraryResult, StockUnit,
-} from '@/lib/api';
-import { parseColumnarCsv, ParsedCsv, CsvParseError } from '@/lib/csv/columnar';
+import { useCurrency, useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
+import { importStockCsv, importMenuItemsCsv, type CsvImportStockResult, type CsvImportLibraryResult, type StockUnit } from '@/lib/api';
+import { parseColumnarCsv, type ParsedCsv, CsvParseError } from '@/lib/csv/columnar';
+import Modal from '@/components/Modal';
+import { Badge, Button, ConfirmDialog, Field, Textarea } from '@/components/ds';
 
-type Mode = 'stock' | 'library';
-
-type Props = {
-  mode: Mode;
-  restaurantId: number;
-  onClose: () => void;
-  onImported: (result: CsvImportStockResult | CsvImportLibraryResult) => void;
-  /**
-   * Existing categories already in the system (case-insensitive match
-   * against parsed headers). For library mode pass ItemCategory.name[];
-   * for stock mode pass StockItem.category[] (the free-text values).
-   */
-  existingCategories: string[];
-  /**
-   * Existing item keys to detect duplicates in the review screen.
-   * For stock mode: `${LOWER(category)}::${LOWER(name)}`
-   * For library mode: `${LOWER(categoryName)}::${LOWER(itemName)}`
-   */
-  existingItemKeys: Set<string>;
-};
-
-type SelectionMap = Map<string, boolean>; // rowKey -> checked
-
-const STOCK_UNIT_OPTIONS: StockUnit[] = ['unit', 'g', 'kg', 'ml', 'l'];
-
-function rowKey(category: string, item: string): string {
-  return `${category.toLowerCase()}::${item.toLowerCase()}`;
+type Result=CsvImportStockResult|CsvImportLibraryResult;
+interface Props {
+  mode:'stock'|'library';restaurantId:number;onClose:()=>void;onImported:(result:Result)=>void|Promise<void>;
+  existingCategories:string[];
+  /** Lowercase category::name pairs already stored in the active restaurant. */
+  existingItemKeys:Set<string>;
 }
+const stockUnits:StockUnit[]=['unit','g','kg','ml','l'];
+const rowKey=(category:string,item:string)=>`${category.toLowerCase()}::${item.toLowerCase()}`;
 
-export default function CsvImportModal({
-  mode, restaurantId, onClose, onImported, existingCategories, existingItemKeys,
-}: Props) {
-  const { t } = useI18n();
-  const router = useRouter();
-  const [step, setStep] = useState<'input' | 'review' | 'submitting'>('input');
-  const [error, setError] = useState('');
-  const [text, setText] = useState('');
-  const [parsed, setParsed] = useState<ParsedCsv | null>(null);
-  const [selection, setSelection] = useState<SelectionMap>(new Map());
-  const [defaultUnit, setDefaultUnit] = useState<StockUnit>('unit');
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const existingCatSet = useMemo(
-    () => new Set(existingCategories.map((c) => c.toLowerCase())),
-    [existingCategories]
-  );
-
-  const counters = useMemo(() => {
-    if (!parsed) return { willCreate: 0, willSkip: 0, newCats: [] as string[] };
-    const newCats = parsed.categories
-      .map((c) => c.name)
-      .filter((n) => !existingCatSet.has(n.toLowerCase()));
-    let willCreate = 0;
-    let willSkip = 0;
-    for (const cat of parsed.categories) {
-      for (const item of cat.items) {
-        const key = rowKey(cat.name, item.name);
-        const checked = selection.get(key) ?? !existingItemKeys.has(key);
-        if (!checked) {
-          if (existingItemKeys.has(key)) willSkip++;
-          continue;
-        }
-        willCreate++;
+/** CSV review, duplicate selection and a receipt that can refresh without importing twice. */
+export default function CsvImportModal({mode,restaurantId,onClose,onImported,existingCategories,existingItemKeys}:Props) {
+  const {t}=useI18n();
+  const {money}=useCurrency();
+  const {hasAnyPermission}=usePermissions();
+  const canImport=hasAnyPermission(mode==='stock'?'kitchen.manage':'menu.edit');
+  const router=useRouter();
+  const [step,setStep]=useState<'input'|'review'>('input');
+  const [text,setText]=useState('');
+  const [parsed,setParsed]=useState<ParsedCsv|null>(null);
+  const [selection,setSelection]=useState<Map<string,boolean>>(new Map());
+  const [unit,setUnit]=useState<StockUnit>('unit');
+  const [reading,setReading]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState('');
+  const [result,setResult]=useState<Result|null>(null);
+  const [refreshed,setRefreshed]=useState(false);
+  const [discard,setDiscard]=useState(false);
+  const fileRef=useRef<HTMLInputElement>(null);
+  const first=useRef<HTMLTextAreaElement>(null);
+  const reader=useRef<FileReader|null>(null);
+  const lock=useRef(false);
+  const receipt=useRef<Result|null>(null);
+  const busy=reading||saving;
+  const close=()=>{if(lock.current||reading)return;if(text.trim()&&!receipt.current)setDiscard(true);else onClose();};
+  useEffect(()=>{
+    const warn=(event:BeforeUnloadEvent)=>{if((text.trim()&&!receipt.current)||lock.current){event.preventDefault();event.returnValue='';}};
+    window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);
+  },[text]);
+  useEffect(()=>()=>{reader.current?.abort();},[]);
+  const existing=useMemo(()=>new Set(existingCategories.map(category=>category.toLowerCase())),[existingCategories]);
+  const selected=(parsed?.categories??[]).map(category=>({...category,items:category.items.filter(item=>selection.get(rowKey(category.name,item.name)))})).filter(category=>category.items.length>0);
+  const count=selected.reduce((sum,category)=>sum+category.items.length,0);
+  const newCategories=selected.filter(category=>!existing.has(category.name.toLowerCase())).map(category=>category.name);
+  const duplicates=(parsed?.categories??[]).reduce((sum,category)=>sum+category.items.filter(item=>existingItemKeys.has(rowKey(category.name,item.name))&&!selection.get(rowKey(category.name,item.name))).length,0);
+  const handleFile=(file:File)=>{
+    if(!canImport||busy)return;setError('');
+    if(/\.xlsx?$/i.test(file.name)){setError(t('csvImportErrorXlsx'));return;}
+    if(file.size>5*1024*1024){setError(t('csvImportSizeLimit'));return;}
+    setReading(true);const next=new FileReader();reader.current=next;
+    next.onload=()=>{setText(String(next.result??''));setReading(false);};
+    next.onerror=()=>{setError(t('csvImportErrorRead'));setReading(false);};next.readAsText(file);
+  };
+  const parse=()=>{
+    if(!canImport||busy)return;setError('');
+    try{const next=parseColumnarCsv(text);setParsed(next);setSelection(new Map(next.categories.flatMap(category=>category.items.map(item=>{const key=rowKey(category.name,item.name);return [key,!existingItemKeys.has(key)] as const;}))));setStep('review');}
+    catch(cause){setError(cause instanceof CsvParseError?`${t('csvImportErrorBadFormat')} ${cause.message}`:t('csvImportErrorBadFormat'));}
+  };
+  const submit=async()=>{
+    if(!canImport||lock.current||reading||(!receipt.current&&count===0))return;lock.current=true;setSaving(true);setError('');
+    try{
+      if(!receipt.current){
+        receipt.current=mode==='stock'?await importStockCsv(restaurantId,{default_unit:unit,categories:selected.map(category=>({name:category.name,items:category.items.map(item=>item.name)}))}):await importMenuItemsCsv(restaurantId,{categories:selected,carte_name:t('importCarteNameDefault')});
+        setResult(receipt.current);
       }
-    }
-    return { willCreate, willSkip, newCats };
-  }, [parsed, existingItemKeys, existingCatSet, selection]);
-
-  function handleFile(file: File) {
-    setError('');
-    if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
-      setError(t('csvImportErrorXlsx'));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const content = String(reader.result ?? '');
-      setText(content);
-    };
-    reader.onerror = () => setError(t('csvImportErrorRead'));
-    reader.readAsText(file);
-  }
-
-  function handleParse() {
-    setError('');
-    try {
-      const result = parseColumnarCsv(text);
-      const initial: SelectionMap = new Map();
-      for (const cat of result.categories) {
-        for (const item of cat.items) {
-          const key = rowKey(cat.name, item.name);
-          initial.set(key, !existingItemKeys.has(key));
-        }
-      }
-      setParsed(result);
-      setSelection(initial);
-      setStep('review');
-    } catch (err) {
-      if (err instanceof CsvParseError) {
-        setError(err.message);
-      } else {
-        setError(t('csvImportErrorBadFormat'));
-      }
-    }
-  }
-
-  async function handleSubmit() {
-    if (!parsed) return;
-    setError('');
-    setStep('submitting');
-    try {
-      const filtered = parsed.categories
-        .map((c) => ({
-          name: c.name,
-          items: c.items.filter((it) => selection.get(rowKey(c.name, it.name))),
-        }))
-        .filter((c) => c.items.length > 0);
-
-      if (filtered.length === 0) {
-        setError(t('csvImportErrorNothingSelected'));
-        setStep('review');
-        return;
-      }
-
-      let result: CsvImportStockResult | CsvImportLibraryResult;
-      if (mode === 'stock') {
-        result = await importStockCsv(restaurantId, {
-          default_unit: defaultUnit,
-          categories: filtered.map((category) => ({
-            name: category.name,
-            items: category.items.map((item) => item.name),
-          })),
-        });
-      } else {
-        result = await importMenuItemsCsv(restaurantId, {
-          categories: filtered,
-          carte_name: t('importCarteNameDefault'),
-        });
-      }
-      if (mode === 'library' && 'image_failures' in result && result.image_failures.length > 0) {
-        window.alert(
-          t('csvImportImageFailures').replace('{n}', String(result.image_failures.length)),
-        );
-      }
-      const carteId = mode === 'library' && 'carte_id' in result ? result.carte_id : undefined;
-      onImported(result);
-      onClose();
-      if (carteId) {
-        router.push(`/${restaurantId}/menu/menus/${carteId}`);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setStep('review');
-    }
-  }
-
-  function toggle(category: string, item: string) {
-    const key = rowKey(category, item);
-    setSelection((prev) => {
-      const next = new Map(prev);
-      next.set(key, !next.get(key));
-      return next;
-    });
-  }
-
-  const title = mode === 'stock' ? t('csvImportStockTitle') : t('csvImportLibraryTitle');
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div
-        className="rounded-modal shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col"
-        style={{ background: 'var(--surface)' }}
-      >
-        <div
-          className="flex items-center justify-between px-6 py-4 border-b"
-          style={{ borderColor: 'var(--divider)' }}
-        >
-          <h3 className="font-semibold text-fg-primary">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-            aria-label={t('close')}
-          >
-            <XIcon className="w-5 h-5" />
-          </button>
+      await onImported(receipt.current);setRefreshed(true);
+    }catch(cause){setError(cause instanceof Error?cause.message:t('saveFailed'));}
+    finally{lock.current=false;setSaving(false);}
+  };
+  const finish=()=>{if(busy||!result)return;onClose();if(mode==='library'&&'carte_id'in result&&result.carte_id)router.push(`/${restaurantId}/menu/menus/${result.carte_id}`);};
+  const failures=result&&'image_failures'in result?result.image_failures:[];
+  return <>
+    <Modal title={t(mode==='stock'?'csvImportStockTitle':'csvImportLibraryTitle')} size="3xl" onClose={close} closeDisabled={busy} initialFocusRef={first}
+      footer={<div className="flex flex-wrap justify-between gap-3">
+        {!result&&step==='review'?<Button size="lg" variant="secondary" disabled={busy} onClick={()=>{setStep('input');setError('');}}>{t('csvImportBack')}</Button>:<span/>}
+        <div className="flex flex-wrap gap-2"><Button size="lg" variant="secondary" disabled={busy} onClick={close}>{t(result?'close':'cancel')}</Button>
+          {result?<Button size="lg" disabled={busy} onClick={refreshed?finish:()=>void submit()}>{t(saving?'saving':refreshed?'done':'retry')}</Button>:<Button size="lg" disabled={!canImport||busy||(step==='input'?!text.trim():count===0)} onClick={step==='input'?parse:()=>void submit()}>{t(busy?'loading':step==='input'?'csvImportParse':'csvImportButton')}</Button>}
         </div>
-
-        <div className="p-6 overflow-y-auto">
-          {step === 'input' && (
-            <div className="space-y-5">
-              <p className="text-sm text-fg-secondary">
-                {t(mode === 'stock' ? 'csvImportStockStep1' : 'csvImportStep1')}
-              </p>
-
-              <div
-                className="rounded-card p-6 flex flex-col items-center gap-3"
-                style={{ border: '2px dashed var(--divider)' }}
-              >
-                <UploadIcon className="w-8 h-8 text-fg-secondary" />
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="px-4 py-2 rounded-md bg-brand-500 text-white text-sm font-medium hover:bg-brand-600 transition-colors"
-                >
-                  {t('csvImportChooseFile')}
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".csv,text/csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleFile(f);
-                    e.target.value = '';
-                  }}
-                />
-                <p className="text-xs text-fg-secondary">{t('csvImportOr')}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-fg-primary mb-2">
-                  {t('csvImportPaste')}
-                </label>
-                <textarea
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  placeholder={mode === 'library'
-                    ? 'category,name,price,image_url\nDesserts,Tarte,32,https://…'
-                    : 'LEGUMES,POISSON,Fromage...'}
-                  rows={8}
-                  className="w-full rounded-md border px-3 py-2 text-sm font-mono"
-                  style={{
-                    borderColor: 'var(--divider)',
-                    background: 'var(--surface-subtle)',
-                  }}
-                />
-              </div>
-
-              {error && (
-                <div className="rounded-md px-3 py-2 text-sm text-red-700 bg-red-50 border border-red-200">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-md border text-sm text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-                  style={{ borderColor: 'var(--divider)' }}
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleParse}
-                  disabled={text.trim() === ''}
-                  className="px-4 py-2 rounded-md bg-brand-500 text-white text-sm font-medium hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {t('csvImportParse')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {(step === 'review' || step === 'submitting') && parsed && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2 text-sm">
-                <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  {t('csvImportCountItems').replace('{n}', String(counters.willCreate))}
-                </span>
-                {counters.newCats.length > 0 && (
-                  <span className="px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
-                    {t('csvImportCountCategories')
-                      .replace('{n}', String(counters.newCats.length))
-                      .replace('{list}', counters.newCats.join(', '))}
-                  </span>
-                )}
-                {counters.willSkip > 0 && (
-                  <span className="px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-                    {t('csvImportCountDuplicates').replace('{n}', String(counters.willSkip))}
-                  </span>
-                )}
-              </div>
-
-              {mode === 'stock' && (
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium text-fg-primary">
-                    {t('csvImportDefaultUnit')}
-                  </label>
-                  <select
-                    value={defaultUnit}
-                    onChange={(e) => setDefaultUnit(e.target.value as StockUnit)}
-                    className="rounded-md border px-2 py-1 text-sm"
-                    style={{ borderColor: 'var(--divider)', background: 'var(--surface)' }}
-                    disabled={step === 'submitting'}
-                  >
-                    {STOCK_UNIT_OPTIONS.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-                {parsed.categories.map((cat) => {
-                  const isNewCat = !existingCatSet.has(cat.name.toLowerCase());
-                  return (
-                    <div
-                      key={cat.name}
-                      className="rounded-card"
-                      style={{ border: '1px solid var(--divider)' }}
-                    >
-                      <div
-                        className="px-3 py-2 flex items-center justify-between"
-                        style={{ background: 'var(--surface-subtle)' }}
-                      >
-                        <span className="text-sm font-semibold text-fg-primary uppercase tracking-wide">
-                          {cat.name}
-                        </span>
-                        {isNewCat && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
-                            {t('csvImportNew')}
-                          </span>
-                        )}
-                      </div>
-                      <ul className="divide-y" style={{ borderColor: 'var(--divider)' }}>
-                        {cat.items.map((item) => {
-                          const key = rowKey(cat.name, item.name);
-                          const checked = selection.get(key) ?? false;
-                          const isDup = existingItemKeys.has(key);
-                          return (
-                            <li
-                              key={key}
-                              className={`px-3 py-2 flex items-center gap-3 text-sm ${
-                                isDup ? 'text-fg-secondary' : 'text-fg-primary'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => toggle(cat.name, item.name)}
-                                disabled={step === 'submitting'}
-                              />
-                              {item.image_url && (
-                                // The source host is arbitrary CSV input, so next/image
-                                // cannot safely predeclare it in remotePatterns.
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={item.image_url}
-                                  alt=""
-                                  className="h-9 w-9 rounded object-cover"
-                                />
-                              )}
-                              <span className={isDup ? 'line-through' : ''}>{item.name}</span>
-                              {item.price !== undefined && (
-                                <span className="text-xs text-fg-secondary">{item.price}</span>
-                              )}
-                              {isDup && (
-                                <span className="ml-auto text-xs text-amber-700">
-                                  {t('csvImportDuplicate')}
-                                </span>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {error && (
-                <div className="rounded-md px-3 py-2 text-sm text-red-700 bg-red-50 border border-red-200">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex justify-between gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setStep('input'); setParsed(null); }}
-                  className="px-4 py-2 rounded-md border text-sm text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-                  style={{ borderColor: 'var(--divider)' }}
-                  disabled={step === 'submitting'}
-                >
-                  <FileTextIcon className="w-4 h-4 inline-block mr-1" />
-                  {t('csvImportBack')}
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-4 py-2 rounded-md border text-sm text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-                    style={{ borderColor: 'var(--divider)' }}
-                    disabled={step === 'submitting'}
-                  >
-                    {t('cancel')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={step === 'submitting' || counters.willCreate === 0}
-                    className="px-4 py-2 rounded-md bg-brand-500 text-white text-sm font-medium hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {step === 'submitting'
-                      ? t('csvImportSubmitting')
-                      : t('csvImportButton')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+      </div>}>
+      {result?<div className="space-y-5">
+        <p role="status" className="rounded-r-md bg-[var(--info-50)] p-4 text-sm">{t('csvImportCompleted').replace('{created}',String(result.created.length)).replace('{skipped}',String(result.skipped.length))}</p>
+        {!refreshed&&<p className="text-sm text-fg-secondary">{t('csvImportRefreshPending')}</p>}
+        {result.skipped.length>0&&<section><h3 className="mb-3 font-semibold">{t('csvImportDuplicate')}</h3><ul className="divide-y divide-[var(--line)]">{result.skipped.map((item,index)=><li key={index} className="py-3 text-sm"><p className="break-words font-medium">{item.name}</p><p className="break-words text-fg-secondary">{item.category} · {item.reason}</p></li>)}</ul></section>}
+        {failures.length>0&&<section className="rounded-r-md border border-[var(--warning-500)] p-4"><h3 className="text-sm font-semibold">{t('csvImportImageFailures').replace('{n}',String(failures.length))}</h3><ul className="mt-3 space-y-2 text-sm">{failures.map(item=><li key={item.item_id} className="break-words">{item.name} · {item.reason}</li>)}</ul></section>}
+      </div>:step==='input'?<div className="space-y-5">
+        <p className="text-sm text-fg-secondary">{t(mode==='stock'?'csvImportStockStep1':'csvImportStep1')}</p>
+        <div className="space-y-3 rounded-r-md border border-dashed border-[var(--line-strong)] bg-[var(--surface-2)] p-5"><Button size="lg" variant="secondary" disabled={!canImport||busy} onClick={()=>fileRef.current?.click()}><Upload/>{t('csvImportChooseFile')}</Button><p className="text-xs text-fg-secondary">{t('csvImportSizeLimit')}</p><input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={event=>{const file=event.target.files?.[0];if(file)handleFile(file);event.target.value='';}}/></div>
+        <Field label={t('csvImportPaste')}><Textarea ref={first} dir="auto" rows={8} disabled={!canImport||busy} value={text} onChange={event=>setText(event.target.value)} placeholder={mode==='library'?'category,name,price,image_url\nDesserts,Tarte,32,https://…':'Légumes,Épicerie\nTomate,Farine'} className="font-mono"/></Field>
+      </div>:<fieldset disabled={!canImport||busy} className="min-w-0 space-y-5">
+        <div className="flex flex-wrap gap-2"><Badge tone="info">{t('csvImportCountItems').replace('{n}',String(count))}</Badge>{newCategories.length>0&&<p className="text-sm text-fg-secondary">{t('csvImportCountCategories').replace('{n}',String(newCategories.length)).replace('{list}',newCategories.join(', '))}</p>}{duplicates>0&&<Badge tone="warning">{t('csvImportCountDuplicates').replace('{n}',String(duplicates))}</Badge>}</div>
+        {mode==='stock'&&<Field label={t('csvImportDefaultUnit')}><select className="min-h-11 max-w-56 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm" value={unit} onChange={event=>setUnit(event.target.value as StockUnit)}>{stockUnits.map(value=><option key={value} value={value}>{value}</option>)}</select></Field>}
+        {parsed?.categories.map(category=><section key={category.name} className="overflow-hidden rounded-r-md border border-[var(--line)]"><div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface-2)] px-4 py-3"><h3 className="break-words text-sm font-semibold">{category.name}</h3>{!existing.has(category.name.toLowerCase())&&<Badge tone="info">{t('csvImportNew')}</Badge>}</div><ul className="divide-y divide-[var(--line)]">{category.items.map(item=>{const key=rowKey(category.name,item.name);const duplicate=existingItemKeys.has(key);return <li key={key}><label className="flex min-h-14 cursor-pointer items-center gap-3 px-4 py-3"><input type="checkbox" className="size-5 shrink-0" checked={selection.get(key)??false} onChange={()=>setSelection(previous=>{const next=new Map(previous);next.set(key,!next.get(key));return next;})}/>{item.image_url&&/* eslint-disable-next-line @next/next/no-img-element */
+        <img src={item.image_url} alt="" className="size-11 shrink-0 rounded-r-sm object-cover"/>}<span className="min-w-0 flex-1 break-words text-sm">{item.name}{item.price!==undefined&&<bdi className="mt-1 block text-xs text-fg-secondary">{money(item.price)}</bdi>}</span>{duplicate&&<span className="text-xs text-[var(--warning-600)]">{t('csvImportDuplicate')}</span>}</label></li>;})}</ul></section>)}
+      </fieldset>}
+      {error&&<p role="alert" className="mt-5 text-sm text-[var(--danger-500)]">{error}</p>}
+    </Modal>
+    <ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={onClose}/>
+  </>;
 }

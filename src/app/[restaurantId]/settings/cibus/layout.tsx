@@ -1,5 +1,4 @@
-import { DesktopOnly } from '@/components/common/DesktopOnly';
-
+/** Keep this responsive settings workspace available on all screen sizes. */
 export default function SettingsCibusLayout({ children }: { children: React.ReactNode }) {
-  return <DesktopOnly>{children}</DesktopOnly>;
+  return <>{children}</>;
 }

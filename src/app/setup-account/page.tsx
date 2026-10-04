@@ -1,5 +1,12 @@
 'use client';
 
+import { PasswordField } from '@/components/PasswordField';
+import { Tablet, Monitor, LayoutGrid } from 'lucide-react';
+
+import AccessShell from '@/components/brand/AccessShell';
+
+import FoodyAdminBrand from '@/components/brand/FoodyAdminBrand';
+
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -19,12 +26,12 @@ export default function SetupAccountPage() {
   const { t } = useI18n();
   return (
     <Suspense fallback={
-      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
-        <div className="text-center">
+      <AccessShell>
+        <div className="text-center" role="status">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
           <p className="text-sm text-fg-secondary">{t('loading')}</p>
         </div>
-      </div>
+      </AccessShell>
     }>
       <SetupAccountContent />
     </Suspense>
@@ -68,6 +75,7 @@ function SetupAccountContent() {
   const [success, setSuccess] = useState(false);
   const [dashboardUrl, setDashboardUrl] = useState('/login');
   const [posDownloads, setPosDownloads] = useState<POSDownloads>({});
+  const [downloadsLoading, setDownloadsLoading] = useState(false);
 
   // Staff only set a password + their info — they must not configure the
   // restaurant or POS (that's the owner's). Owners keep the full 4-step wizard.
@@ -81,14 +89,35 @@ function SetupAccountContent() {
 
   // Validate token on mount
   useEffect(() => {
+    let active = true;
+    setValidating(true);
+    setTokenError('');
+    setInviteData(null);
+    setPassword('');
+    setConfirmPassword('');
+    setPosPin('');
+    setConfirmPosPin('');
+    setCurrentStep(0);
+    setSuccess(false);
+    setError('');
+    setFullName('');
+    setPhone('');
+    setRestaurantName('');
+    setRestaurantSlug('');
+    setRestaurantAddress('');
+    setRestaurantPhone('');
+    setPosPlatform('ipad');
+    setPosDownloads({});
     if (!token) {
-      setTokenError(t('noInvitationToken'));
+      setTokenError('noInvitationToken');
       setValidating(false);
       return;
     }
 
     validateInviteToken(token)
       .then((data) => {
+        if (!active) return;
+        if (!data.valid) throw new Error('invalidOrExpiredInvitation');
         setInviteData(data);
         setFullName(data.user.full_name || '');
         setPhone(data.user.phone || '');
@@ -103,9 +132,10 @@ function SetupAccountContent() {
         }
       })
       .catch((err) => {
-        setTokenError(err instanceof Error ? err.message : t('invalidOrExpiredInvitation'));
+        if (active) setTokenError(err instanceof Error ? err.message : 'invalidOrExpiredInvitation');
       })
-      .finally(() => setValidating(false));
+      .finally(() => { if (active) setValidating(false); });
+    return () => { active = false; };
   }, [token]);
 
   // Auto-generate slug from restaurant name
@@ -136,6 +166,7 @@ function SetupAccountContent() {
   }
 
   async function handleComplete() {
+    if (loading || !canProceed()) return;
     setError('');
     setLoading(true);
     try {
@@ -165,18 +196,21 @@ function SetupAccountContent() {
         // remain signed in to the administration portal on this browser.
         logout();
       } else {
-        getPosDownloads().then(setPosDownloads).catch(() => {});
+        setDownloadsLoading(true);
+        getPosDownloads().then(setPosDownloads).catch(() => { setPosDownloads({}); }).finally(() => setDownloadsLoading(false));
       }
 
       setSuccess(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Account setup failed');
+      setError(err instanceof Error ? err.message : t('accountSetupFailed'));
     } finally {
       setLoading(false);
     }
   }
 
   function handleNext() {
+    if (loading || !canProceed()) return;
+    setError('');
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -187,74 +221,58 @@ function SetupAccountContent() {
   // Loading state
   if (validating) {
     return (
-      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
-        <div className="text-center">
+      <AccessShell>
+        <div className="text-center" role="status">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
           <p className="text-sm text-fg-secondary">{t('validatingInvitation')}</p>
         </div>
-      </div>
+      </AccessShell>
     );
   }
 
   // Token error state
   if (tokenError) {
     return (
-      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
+      <AccessShell>
         <div className="w-full max-w-sm">
           <div className="flex justify-center mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
-                <span className="text-xl font-black text-white">F</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
-                <p className="text-xs text-fg-secondary">Restaurant portal</p>
-              </div>
-            </div>
+            <FoodyAdminBrand subtitle={t('restaurantPortal')} />
           </div>
 
           <div className="card text-center">
-            <div className="w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 mx-auto mb-4 bg-[var(--danger-50)] rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-[var(--danger-500)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-fg-primary mb-2">{t('invalidInvitation')}</h2>
-            <p className="text-sm text-fg-secondary mb-6">{tokenError}</p>
-            <Link href="/login" className="text-sm text-brand-500 hover:text-brand-600 font-medium">
+            <h1 className="text-lg font-semibold text-fg-primary mb-2">{t('invalidInvitation')}</h1>
+            <p className="text-sm text-fg-secondary mb-6" role="alert">{t(tokenError)}</p>
+            <Link href="/login" className="text-sm text-[var(--brand-ink)] hover:underline font-medium">
               {t('goToLogin')}
             </Link>
           </div>
         </div>
-      </div>
+      </AccessShell>
     );
   }
 
   // Success state — show POS download instructions
   if (success) {
     return (
-      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
+      <AccessShell>
         <div className="w-full max-w-lg">
           <div className="flex justify-center mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
-                <span className="text-xl font-black text-white">F</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
-                <p className="text-xs text-fg-secondary">{t('setupComplete')}</p>
-              </div>
-            </div>
+            <FoodyAdminBrand subtitle={t('setupComplete')} />
           </div>
 
           <div className="card">
-            <div className="text-center mb-6">
-              <div className="w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="text-center mb-6" role="status">
+              <div className="w-12 h-12 mx-auto mb-4 bg-[var(--success-50)] rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-[var(--success-500)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('youreAllSet')}</h2>
+              <h1 className="text-lg font-semibold text-fg-primary mb-1">{t('youreAllSet')}</h1>
               <p className="text-sm text-fg-secondary">
 				{isStaff
 				  ? t('staffSetupReady')
@@ -262,16 +280,17 @@ function SetupAccountContent() {
               </p>
             </div>
 
+            {!isStaff && (posPlatform === 'macos' || posPlatform === 'both') && <p role="status" className="mb-4 text-sm text-fg-secondary">{downloadsLoading ? t('loading') : !posDownloads.macos ? t('posDownloadUnavailable') : ''}</p>}
             <div className="space-y-3 mb-6">
               {(posPlatform === 'macos' || posPlatform === 'both') && posDownloads.macos && (
                 <a
                   href={posDownloads.macos.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-700 hover:border-purple-500 transition"
+                  className="flex items-center gap-4 p-4 rounded-r-lg border-2 border-[var(--line)] hover:border-[var(--brand-ink)] transition"
                 >
-                  <div className="w-11 h-11 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-11 h-11 bg-[var(--summary-bg)] rounded-r-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-6 h-6 text-[var(--summary-fg)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
@@ -299,38 +318,30 @@ function SetupAccountContent() {
 			)}
           </div>
         </div>
-      </div>
+      </AccessShell>
     );
   }
 
   // ─── Wizard ────────────────────────────────────────────────────────
   return (
-    <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
+    <AccessShell>
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="flex justify-center mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
-              <span className="text-xl font-black text-white">F</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
-              <p className="text-xs text-fg-secondary">{t('completeYourSetup')}</p>
-            </div>
-          </div>
+          <FoodyAdminBrand subtitle={t('completeYourSetup')} />
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center justify-center gap-2 mb-8">
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-8" aria-label={t('completeYourSetup')}>
           {STEPS.map((label, idx) => (
-            <div key={label} className="flex items-center gap-2">
+            <div key={label} aria-current={idx === currentStep ? 'step' : undefined} className="flex items-center gap-2">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition ${
                   idx < currentStep
-                    ? 'bg-brand-500 text-white'
+                    ? 'bg-[var(--action)] text-[var(--action-fg)]'
                     : idx === currentStep
-                    ? 'bg-brand-500 text-white ring-2 ring-brand-200'
-                    : 'bg-gray-700 text-gray-400'
+                    ? 'bg-[var(--action)] text-[var(--action-fg)] ring-2 ring-[var(--line-strong)]'
+                    : 'bg-[var(--surface-2)] text-fg-secondary'
                 }`}
               >
                 {idx < currentStep ? (
@@ -341,59 +352,33 @@ function SetupAccountContent() {
                   idx + 1
                 )}
               </div>
-              <span className={`text-xs hidden sm:block ${idx <= currentStep ? 'text-fg-primary' : 'text-fg-secondary'}`}>
+              <span className={`text-xs sr-only sm:not-sr-only ${idx <= currentStep ? 'text-fg-primary' : 'text-fg-secondary'}`}>
                 {label}
               </span>
               {idx < STEPS.length - 1 && (
-                <div className={`w-6 h-0.5 ${idx < currentStep ? 'bg-brand-500' : 'bg-gray-700'}`} />
+                <div className={`w-6 h-0.5 ${idx < currentStep ? 'bg-brand-500' : 'bg-[var(--line)]'}`} />
               )}
             </div>
           ))}
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
+          <div role="alert" className="mb-4 p-3 bg-[var(--danger-50)] rounded-r-md text-sm text-[var(--danger-500)]">
             {error}
           </div>
         )}
 
-        <div className="card">
+        <form className="card" onSubmit={event => { event.preventDefault(); handleNext(); }} aria-busy={loading}>
           {/* Step 1: Password */}
           {currentStep === 0 && (
             <div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('createYourPassword')}</h2>
+              <h1 className="text-lg font-semibold text-fg-primary mb-1">{t('createYourPassword')}</h1>
               <p className="text-sm text-fg-secondary mb-6">
-                {t('welcomeSetPassword')} <strong>{inviteData?.user.email}</strong>
+                {t('welcomeSetPassword')} <bdi className="font-semibold break-all">{inviteData?.user.email}</bdi>
               </p>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('passwordRequired')}</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input"
-                    placeholder={t('minCharsPlaceholder')}
-                    required
-                    minLength={8}
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('confirmPasswordRequired')}</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="input"
-                    placeholder={t('reenterPassword')}
-                    required
-                    minLength={8}
-                  />
-                  {confirmPassword && password !== confirmPassword && (
-                    <p className="mt-1 text-xs text-red-400">{t('passwordsMismatch')}</p>
-                  )}
-                </div>
+                <PasswordField id="setup-password" label={t('passwordRequired')} value={password} onChange={event => setPassword(event.target.value)} name="password" autoComplete="new-password" required minLength={8} autoFocus placeholder={t('minCharsPlaceholder')} disabled={loading} />
+                <PasswordField id="setup-confirmPassword" label={t('confirmPasswordRequired')} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} name="confirmPassword" autoComplete="new-password" required minLength={8} placeholder={t('reenterPassword')} error={confirmPassword && password !== confirmPassword ? t('passwordsMismatch') : undefined} disabled={loading} />
               </div>
             </div>
           )}
@@ -401,14 +386,14 @@ function SetupAccountContent() {
           {/* Step 2: Your Info */}
           {currentStep === 1 && (
             <div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('yourInformation')}</h2>
+              <h1 className="text-lg font-semibold text-fg-primary mb-1">{t('yourInformation')}</h1>
               <p className="text-sm text-fg-secondary mb-6">{t('tellUsAboutYourself')}</p>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('fullNameRequired')}</label>
+                  <label htmlFor="setup-fullName" className="block text-sm font-medium text-fg-secondary mb-1">{t('fullNameRequired')}</label>
                   <input
                     type="text"
-                    value={fullName}
+                    id="setup-fullName" name="fullName" autoComplete="name" value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="input"
                     placeholder={t('yourFullName')}
@@ -416,10 +401,10 @@ function SetupAccountContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phone')}</label>
+                  <label htmlFor="setup-phone" className="block text-sm font-medium text-fg-secondary mb-1">{t('phone')}</label>
                   <input
                     type="tel"
-                    value={phone}
+                    id="setup-phone" name="phone" autoComplete="tel" dir="ltr" value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="input"
                     placeholder={t('phonePlaceholder')}
@@ -432,41 +417,11 @@ function SetupAccountContent() {
 		  {/* Staff step 3: private POS code */}
 		  {isStaff && currentStep === 2 && (
 			<div>
-			  <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('createPOSCode')}</h2>
+			  <h1 className="text-lg font-semibold text-fg-primary mb-1">{t('createPOSCode')}</h1>
 			  <p className="text-sm text-fg-secondary mb-6">{t('posCodeSetupHint')}</p>
 			  <div className="space-y-4">
-				<div>
-				  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('posCode')}</label>
-				  <input
-					type="password"
-					inputMode="numeric"
-					pattern="[0-9]*"
-					minLength={4}
-					maxLength={6}
-					value={posPin}
-					onChange={(e) => setPosPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-					className="input text-center text-2xl tracking-[0.35em]"
-					autoComplete="new-password"
-					autoFocus
-				  />
-				</div>
-				<div>
-				  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('confirmPOSCode')}</label>
-				  <input
-					type="password"
-					inputMode="numeric"
-					pattern="[0-9]*"
-					minLength={4}
-					maxLength={6}
-					value={confirmPosPin}
-					onChange={(e) => setConfirmPosPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-					className="input text-center text-2xl tracking-[0.35em]"
-					autoComplete="new-password"
-				  />
-				  {confirmPosPin && posPin !== confirmPosPin && (
-					<p className="mt-1 text-xs text-red-400">{t('posCodesMismatch')}</p>
-				  )}
-				</div>
+				<PasswordField id="setup-posPin" label={t('posCode')} value={posPin} onChange={event => setPosPin(event.target.value.replace(/\D/g, '').slice(0, 6))} name="posPin" inputMode="numeric" pattern="[0-9]*" minLength={4} maxLength={6} autoComplete="new-password" autoFocus className="text-center text-2xl tracking-[0.35em]" disabled={loading} />
+				<PasswordField id="setup-confirmPosPin" label={t('confirmPOSCode')} value={confirmPosPin} onChange={event => setConfirmPosPin(event.target.value.replace(/\D/g, '').slice(0, 6))} name="confirmPosPin" inputMode="numeric" pattern="[0-9]*" minLength={4} maxLength={6} autoComplete="new-password" className="text-center text-2xl tracking-[0.35em]" error={confirmPosPin && posPin !== confirmPosPin ? t('posCodesMismatch') : undefined} disabled={loading} />
 			  </div>
 			</div>
 		  )}
@@ -474,14 +429,14 @@ function SetupAccountContent() {
           {/* Owner step 3: Restaurant */}
           {!isStaff && currentStep === 2 && (
             <div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('restaurantDetails')}</h2>
+              <h1 className="text-lg font-semibold text-fg-primary mb-1">{t('restaurantDetails')}</h1>
               <p className="text-sm text-fg-secondary mb-6">{t('setupRestaurantInfo')}</p>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('restaurantNameRequired')}</label>
+                  <label htmlFor="setup-restaurantName" className="block text-sm font-medium text-fg-secondary mb-1">{t('restaurantNameRequired')}</label>
                   <input
                     type="text"
-                    value={restaurantName}
+                    id="setup-restaurantName" name="restaurantName" autoComplete="organization" value={restaurantName}
                     onChange={(e) => setRestaurantName(e.target.value)}
                     className="input"
                     placeholder={t('restaurantNamePlaceholder')}
@@ -489,20 +444,20 @@ function SetupAccountContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('address')}</label>
+                  <label htmlFor="setup-restaurantAddress" className="block text-sm font-medium text-fg-secondary mb-1">{t('address')}</label>
                   <input
                     type="text"
-                    value={restaurantAddress}
+                    id="setup-restaurantAddress" name="restaurantAddress" autoComplete="street-address" value={restaurantAddress}
                     onChange={(e) => setRestaurantAddress(e.target.value)}
                     className="input"
                     placeholder={t('addressPlaceholder')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('restaurantPhone')}</label>
+                  <label htmlFor="setup-restaurantPhone" className="block text-sm font-medium text-fg-secondary mb-1">{t('restaurantPhone')}</label>
                   <input
                     type="tel"
-                    value={restaurantPhone}
+                    id="setup-restaurantPhone" name="restaurantPhone" autoComplete="tel" dir="ltr" value={restaurantPhone}
                     onChange={(e) => setRestaurantPhone(e.target.value)}
                     className="input"
                     placeholder={t('phonePlaceholder')}
@@ -515,105 +470,34 @@ function SetupAccountContent() {
           {/* Step 4: POS Platform */}
           {!isStaff && currentStep === 3 && (
             <div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('chooseYourPOS')}</h2>
+              <h1 className="text-lg font-semibold text-fg-primary mb-1">{t('chooseYourPOS')}</h1>
               <p className="text-sm text-fg-secondary mb-6">
                 {t('whichDevice')}
               </p>
-              <div className="space-y-3">
-                {/* iPad */}
-                <button
-                  type="button"
-                  onClick={() => setPosPlatform('ipad')}
-                  className={`w-full p-4 rounded-xl border-2 text-left transition flex items-center gap-4 ${
-                    posPlatform === 'ipad'
-                      ? 'border-brand-500 bg-brand-500/10'
-                      : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                >
-                  <div className="w-11 h-11 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-fg-primary">{t('ipad')}</p>
-                    <p className="text-xs text-fg-secondary">{t('iosApp')}</p>
-                  </div>
-                  {posPlatform === 'ipad' && (
-                    <div className="w-6 h-6 bg-brand-500 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                </button>
-
-                {/* macOS */}
-                <button
-                  type="button"
-                  onClick={() => setPosPlatform('macos')}
-                  className={`w-full p-4 rounded-xl border-2 text-left transition flex items-center gap-4 ${
-                    posPlatform === 'macos'
-                      ? 'border-brand-500 bg-brand-500/10'
-                      : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                >
-                  <div className="w-11 h-11 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-fg-primary">{t('macos')}</p>
-                    <p className="text-xs text-fg-secondary">{t('desktopApp')}</p>
-                  </div>
-                  {posPlatform === 'macos' && (
-                    <div className="w-6 h-6 bg-brand-500 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                </button>
-
-                {/* Both */}
-                <button
-                  type="button"
-                  onClick={() => setPosPlatform('both')}
-                  className={`w-full p-4 rounded-xl border-2 text-left transition flex items-center gap-4 ${
-                    posPlatform === 'both'
-                      ? 'border-brand-500 bg-brand-500/10'
-                      : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                >
-                  <div className="w-11 h-11 bg-green-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-fg-primary">{t('both')}</p>
-                    <p className="text-xs text-fg-secondary">{t('multiStation')}</p>
-                  </div>
-                  {posPlatform === 'both' && (
-                    <div className="w-6 h-6 bg-brand-500 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                </button>
-              </div>
+              <fieldset className="space-y-3" disabled={loading}>
+                <legend className="sr-only">{t('chooseYourPOS')}</legend>
+                {([
+                  { value: 'ipad', title: 'ipad', description: 'iosApp', Icon: Tablet },
+                  { value: 'macos', title: 'macos', description: 'desktopApp', Icon: Monitor },
+                  { value: 'both', title: 'both', description: 'multiStation', Icon: LayoutGrid },
+                ] as const).map(({ value, title, description, Icon }) => (
+                  <label key={value} className={`flex min-h-20 cursor-pointer items-center gap-4 rounded-r-lg border p-4 ${posPlatform === value ? 'border-[var(--brand-ink)] bg-[var(--brand-soft)]' : 'border-[var(--line-strong)] hover:bg-[var(--surface-2)]'}`}>
+                    <input type="radio" name="pos-platform" value={value} checked={posPlatform === value} onChange={() => setPosPlatform(value)} className="size-4 shrink-0 accent-[var(--action)]" />
+                    <Icon aria-hidden className="size-6 shrink-0 text-[var(--brand-ink)]" />
+                    <span><span className="block text-sm font-semibold">{t(title)}</span><span className="block text-xs text-fg-secondary">{t(description)}</span></span>
+                  </label>
+                ))}
+              </fieldset>
             </div>
           )}
 
           {/* Navigation */}
-          <div className="flex justify-between mt-6 pt-4 border-t border-gray-700/50">
+          <div className="flex justify-between mt-6 pt-4 border-t border-[var(--line)]">
             {currentStep > 0 ? (
               <button
                 type="button"
-                onClick={() => setCurrentStep(currentStep - 1)}
-                className="px-4 py-2 text-sm font-medium text-fg-secondary hover:text-fg-primary transition"
+                disabled={loading} onClick={() => setCurrentStep(currentStep - 1)}
+                className="min-h-12 px-4 py-2 text-sm font-medium text-fg-secondary hover:text-fg-primary transition disabled:opacity-50"
               >
                 {t('back')}
               </button>
@@ -621,8 +505,7 @@ function SetupAccountContent() {
               <div />
             )}
             <button
-              type="button"
-              onClick={handleNext}
+              type="submit"
               disabled={!canProceed() || loading}
               className="btn-primary disabled:opacity-50"
             >
@@ -633,8 +516,8 @@ function SetupAccountContent() {
                 : t('continue')}
             </button>
           </div>
-        </div>
+        </form>
       </div>
-    </div>
+    </AccessShell>
   );
 }

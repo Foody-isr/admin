@@ -143,11 +143,11 @@ export default function NewOptionSetPage() {
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-1 h-6 bg-orange-500 rounded-full" />
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-[var(--fg)]">
               {t('details') || 'Details'}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 space-y-4">
+          <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-5 space-y-4">
             <LocaleTabs
               locales={SUPPORTED_LOCALES}
               source={sourceLocale}
@@ -156,16 +156,16 @@ export default function NewOptionSetPage() {
               missing={missingTranslations}
             />
             <LocaleEditingBanner active={activeLocale} source={sourceLocale} />
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+            <label className="block text-sm font-medium text-[var(--fg-muted)] mb-2">
               {t('optionSetName')}
             </label>
             {isSourceTab ? (
-              <input
+              <input aria-label={t('optionSetName')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t('optionSetName')}
                 autoFocus
-                className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                className="w-full min-h-10 px-3 py-2 text-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-lg text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)] focus:border-[var(--brand-ink)] transition-colors"
               />
             ) : (
               <>
@@ -177,11 +177,11 @@ export default function NewOptionSetPage() {
                     )
                   }
                   placeholder={name || t('optionSetName')}
-                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                  className="w-full min-h-10 px-3 py-2 text-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-lg text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)] focus:border-[var(--brand-ink)] transition-colors"
                 />
-                <div className="text-xs text-neutral-400 dark:text-neutral-500">
+                <div className="text-xs text-[var(--fg-subtle)]">
                   {(t('languageSourceLabel') || 'Source') + ': '}
-                  <span className="text-neutral-500 dark:text-neutral-400">{name || '—'}</span>
+                  <span className="text-[var(--fg-muted)]">{name || '—'}</span>
                 </div>
               </>
             )}
@@ -192,33 +192,33 @@ export default function NewOptionSetPage() {
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-1 h-6 bg-orange-500 rounded-full" />
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-[var(--fg)]">
               {t('options')}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+          <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto">
             <div
-              className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700"
+              className="grid min-w-[640px] text-xs font-semibold text-[var(--fg-muted)] px-4 py-3 bg-[var(--surface-2)] border-b border-[var(--line)]"
               style={{ gridTemplateColumns: '1fr 140px 110px 36px' }}
             >
               <span>{t('variantName')}</span>
               <span>SKU</span>
-              <span className="text-right">{t('price')}</span>
+              <span className="text-end">{t('price')}</span>
               <span />
             </div>
 
             {options.map((opt) => (
               <div
                 key={opt.key}
-                className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
+                className="grid min-w-[640px] items-center gap-2 px-4 py-3 border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors"
                 style={{ gridTemplateColumns: '1fr 140px 110px 36px' }}
               >
                 {isSourceTab ? (
-                  <input
+                  <input aria-label={t('variantName')}
                     value={opt.name}
                     onChange={(e) => updateOption(opt.key, { name: e.target.value })}
                     placeholder={t('addVariant') || 'Option name'}
-                    className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
+                    className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2"
                   />
                 ) : (
                   <input
@@ -234,26 +234,26 @@ export default function NewOptionSetPage() {
                       })
                     }
                     placeholder={opt.name || (t('addVariant') || 'Option name')}
-                    className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2 italic"
+                    className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2 italic"
                   />
                 )}
-                <input
+                <input aria-label="SKU"
                   value={opt.sku}
                   onChange={(e) => updateOption(opt.key, { sku: e.target.value })}
                   placeholder="—"
-                  className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
+                  className="text-sm bg-transparent border-0 outline-none text-[var(--fg-muted)]"
                 />
                 <NumberInput
-                  min={0}
+                  min={0} aria-label={t('price')}
                   value={opt.price}
                   onChange={(n) => updateOption(opt.key, { price: n })}
                   placeholder="0.00"
-                  className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
+                  className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] text-end pe-1"
                 />
                 {canEdit && options.length > 1 ? (
                   <button
                     onClick={() => removeOption(opt.key)}
-                    className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="size-9 flex items-center justify-center rounded-lg text-[var(--fg-subtle)] hover:text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
                     title={t('delete')}
                   >
                     <Trash2 size={14} />
@@ -267,7 +267,7 @@ export default function NewOptionSetPage() {
             {canEdit && (
               <button
                 onClick={addOption}
-                className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-t border-neutral-200 dark:border-neutral-700"
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-[var(--brand-ink)] hover:bg-[var(--brand-soft)] transition-colors border-t border-[var(--line)]"
               >
                 <Plus size={16} />
                 {t('addVariant') || 'Add option'}

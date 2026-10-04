@@ -8,13 +8,13 @@ import { cn } from '@/lib/utils';
 type Align = 'left' | 'right' | 'center';
 
 const alignClass: Record<Align, string> = {
-  left: 'text-left',
-  right: 'text-right',
+  left: 'text-start',
+  right: 'text-end',
   center: 'text-center',
 };
 
 const headCellBase =
-  'p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider';
+  'px-4 py-3 font-semibold text-[var(--fg-muted)] text-xs';
 
 export type SortDir = 'asc' | 'desc';
 
@@ -33,7 +33,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
     <div
       ref={ref}
       className={cn(
-        'bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden',
+        'bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto',
         responsive && 'responsive-table',
         className,
       )}
@@ -50,7 +50,7 @@ export const DataTableHead = React.forwardRef<
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, children, ...props }, ref) => (
   <thead ref={ref} className={className} {...props}>
-    <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a]">
+    <tr className="border-b border-[var(--line)] bg-[var(--surface-2)]">
       {children}
     </tr>
   </thead>
@@ -84,7 +84,7 @@ type SortableHeadCellProps = Omit<HeadCellProps, 'onClick'> & {
 export const SortableHeadCell = React.forwardRef<HTMLTableCellElement, SortableHeadCellProps>(
   ({ sortKey, currentSortKey, sortDir, onSort, align = 'left', className, children, ...props }, ref) => {
     const isActive = currentSortKey === sortKey;
-    const buttonAlign = align === 'right' ? 'ml-auto' : align === 'center' ? 'mx-auto' : '';
+    const buttonAlign = align === 'right' ? 'ms-auto' : align === 'center' ? 'mx-auto' : '';
     return (
       <th
         ref={ref}
@@ -96,7 +96,7 @@ export const SortableHeadCell = React.forwardRef<HTMLTableCellElement, SortableH
           type="button"
           onClick={() => onSort(sortKey)}
           className={cn(
-            'inline-flex items-center gap-1 uppercase tracking-wider hover:text-neutral-900 dark:hover:text-white transition-colors',
+            'inline-flex items-center gap-1 hover:text-[var(--fg)] transition-colors',
             buttonAlign,
           )}
         >
@@ -156,13 +156,13 @@ export const DataTableRow = React.forwardRef<HTMLTableRowElement, RowProps>(
   ({ index, striped = true, className, children, ...props }, ref) => {
     const stripeCls =
       striped && index !== undefined && index % 2 !== 0
-        ? 'bg-neutral-50/50 dark:bg-[#0f0f0f]'
-        : 'bg-white dark:bg-[#111111]';
+        ? 'bg-[var(--surface-2)]'
+        : 'bg-[var(--surface)]';
     return (
       <tr
         ref={ref}
         className={cn(
-          'border-b border-neutral-100 dark:border-neutral-800 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors',
+          'border-b border-[var(--line)] md:last:border-0 hover:bg-[var(--sidebar-hover)] transition-colors',
           striped ? stripeCls : '',
           className,
         )}

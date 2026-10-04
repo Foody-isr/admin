@@ -8,7 +8,7 @@ export const TableShell = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
     <div
       ref={ref}
       className={cn(
-        'bg-[var(--surface)] border border-[var(--line)] rounded-r-lg overflow-hidden',
+        'bg-[var(--surface)] border border-[var(--line)] rounded-r-lg overflow-x-auto',
         className,
       )}
       {...props}
@@ -36,9 +36,9 @@ export const Thead = React.forwardRef<
     ref={ref}
     className={cn(
       '[&_th]:bg-[var(--surface-2)] [&_th]:border-b [&_th]:border-[var(--line)]',
-      '[&_th]:text-left [&_th]:font-medium [&_th]:text-fs-xs',
-      '[&_th]:uppercase [&_th]:tracking-[.04em] [&_th]:whitespace-nowrap',
-      '[&_th]:text-[var(--fg-subtle)] [&_th]:py-[var(--s-3)] [&_th]:px-[var(--s-4)]',
+      '[&_th]:text-start [&_th]:font-medium [&_th]:text-fs-xs',
+      '[&_th]:whitespace-nowrap',
+      '[&_th]:text-[var(--fg-muted)] [&_th]:py-[var(--s-3)] [&_th]:px-[var(--s-4)]',
       className,
     )}
     {...props}
@@ -82,7 +82,7 @@ Th.displayName = 'Th';
 /** Tabular-numbers cell for counts, prices, etc. */
 export const NumTd = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
   ({ className, ...props }, ref) => (
-    <td ref={ref} className={cn('font-mono tabular-nums', className)} {...props} />
+    <td ref={ref} className={cn('tabular-nums', className)} {...props} />
   ),
 );
 NumTd.displayName = 'NumTd';

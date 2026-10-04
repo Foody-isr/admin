@@ -1,0 +1,40 @@
+# Codes promotionnels — audit avant refonte
+
+Page193 lignes et DiscountEditModal488 entièrement lus. API Discount/DiscountInput CRUD, lib/discounts.ts, Go handler(service CRUD et dates), service(validate/apply/CRUD), repository CRUD et modèle/migration118 lus. Aucun fichier source de ce lot modifié à cet instant.
+
+Défauts relevés : GET/retrait sans catch, confirm natif, absence de verrou et génération, boutons icônes sans noms. Toute ligne ouvre un éditeur actif même sans discounts.edit ; serveur reste protégé mais l’interface n’est pas réellement en lecture seule. Modale étroite, champs sans label relié,2colonnes même sur mobile, switch div non focalisable/RTL physique, champs modifiables pendant Save, fermeture libre avec brouillon, erreurs de catalogues avalées. Réinitialisation des brouillons via effet open/editing, caps0 ou saisies invalides converties silencieusement en null, minimum invalide→0, pourcentage clampé pendant frappe. Date de début nulle remplacée par aujourd’hui à l’édition ; aujourd’hui calculé UTC ; changement de scope ou fin efface immédiatement les sélections/saisies.
+
+## Contrats à conserver
+
+Go discountInputWire exige code/type/scope même sur PUT : malgré signature API Partial, le serveur remplace l’ensemble mutable. Nom non obligatoire. Code normalisé uppercase/trim dans repository. Fixed>0, percent0<value<=100, scope ciblé nécessite au moins1id, fin>=début. Validation serveur ne contrôle pas actuellement min_purchase>=0/caps>=1 ni l’appartenance des scope_ids ; ne pas ajouter de modifications backend. L’interface précédente exprime déjà min0 et capsmin1 ; conserver les valeurs historiques inchangées et valider les changements explicitement, sans arrondi/troncature silencieux.
+
+`service.Input` a un commentaire obsolète « nil leaves unchanged » mais `apply` affecte effectivement les pointeurs nil : dates/caps peuvent être effacés avec null. `IsActive` seul conserve l’ancien champ si nil. RedemptionCount n’est pas dans Input et doit rester intact. Scope catégories interne à la bibliothèque ; pas de confusion avec menus/groupes.
+
+Dates CRUD actuelles au format nu YYYY-MM-DD, entrée et sortie : handler ancre au minuit restaurant, fin inclusive à23:59:59 du jour. Le frontend doit afficher des jours sans décalage navigateur et déterminer le statut dans le fuseau restaurant. `discountStatus` actuel est utilisé uniquement par cette page : Date(date-only) représente minuitUTC et fait expirer visuellement les codes trop tôt le dernier jour. Conserver priorité d’affichage inactive→exhausted→scheduled→expired, ajuster seulement la comparaison des jours conformément au contrat. Aucun calcul de remise/panier modifié. Lire les tests dates Go si nécessaire avant implémentation.
+
+Code unique par établissement parmi les non supprimés : migration118 index idx_discounts_restaurant_code. Delete soft-delete. Create/Update renvoient l’objet complet ; pas de GET supplémentaire avant retour de succès nécessaire. Après réponse ambiguë, utiliser la lecture pour retrouver l’objet/identité avant de proposer une nouvelle création. Les erreurs DB sont possibles dans details : ne pas afficher des détails internes bruts sans filtrage. Aucune opération de checkout/paiement à tester réellement.
+
+## Travail prévu
+
+Liste avec reprise et actions accessibles, lecture seule explicite. Modale responsive, sections/labels, sélection catégorie/article avec chargement et erreur distincts, références historiques conservées. Baseline/brouillon, validations reliées aux champs, confirmation d’abandon, verrou. Reprendre réponses incertaines sans créer un doublon ni perdre les champs. Tests isolés FR mobile, HE sombre, EN, rôle/rid2, scopes, dates restaurant/fuseau navigateur différent, contraintes et erreurs/récupérations.
+
+## Implémentation et première validation
+
+Liste avec recherche code/nom, résumé sobre, actions clavier nommées, cartes mobiles et lecture seule réelle. Enregistrement renvoie la fiche confirmée dans la liste sans exiger un GET supplémentaire. Le chargement distingue erreur, réponse malformée et vraie liste vide ; le contrat API de liste ne convertit plus une réponse absente en tableau vide. Un ACK de fiche est contrôlé avant de fermer l’éditeur (restaurant, ID attendu, champs complets).
+
+Le formulaire conserve dates nulles, cap historique0, sélections indisponibles et sélections temporaires de chaque portée. Champs numériques validés sans troncature ni clamp de frappe. Les champs cachés par le type livraison gratuite restent dans le brouillon ; le payload respecte le contrat précédent. Les erreurs catalogue sont séparées pour catégories/articles, avec reprise et références sélectionnées toujours accessibles. Fermeture avec brouillon confirmée, formulaire figé pendant écriture, beforeunload, génération de cycle de vie et verrou synchrone. Le jour initial du nouveau formulaire est capturé à l’ouverture pour éviter qu’un passage à minuit crée artificiellement un brouillon modifié.
+
+Réponse incertaine : relecture seule de l’ID existant ou recherche du code normalisé pour une création. Concordance complète seule donne un succès vérifié. Ancienne version inchangée permet un nouvel essai explicite ; autre version montre tous les champs et nécessite confirmation avant adoption ; code réutilisé ne provoque jamais un PUT implicite. Suppression confirmée par dialogue ; en cas de réponse perdue, relecture de liste seule, puis présence/absence explicitée avant toute nouvelle demande.
+
+Premier typecheck : deux tailles de boutons incorrectes corrigées pour utiliser le prop `icon` du DS. Premier passage dev18/23 : cinq sélecteurs de tests `getByLabel` ciblaient une région ou le texte d’un label contenant les options ; les contrôles sont correctement nommés dans l’arbre accessible. Passage aux sélecteurs combobox par rôle. Capture HE a motivé une largeur minimale du code et des dates sans retour à la ligne sur bureau, sans tronquer les noms.
+
+23/23 scénarios dev passent, 0 échec/skip/flaky, début2026-10-04T14:21:54.895Z, durée61289.859ms ; `evidence/discounts-targeted-results.json`. Premier résultat conservé dans discounts-first-targeted-results.json. FR375, HE sombre1440 et EN/EUR/fuseau Honolulu distinct du navigateur ; CRUD, rid2, lecture seule, contraintes, portées, catalogue manquant, reprise de toutes les mutations, confirmation/adoption/clavier et changement de langue. Captures dev édition FR mobile et liste HE réellement inspectées. Compilation et vérification du build en cours ; route pas encore ajoutée aux75.
+
+Limites contractuelles : aucun ETag/version atomique, donc pas de détection universelle d’éditions concurrentes lors d’un PUT normalement acquitté. Protection de navigation de la modale + beforeunload ; pas de nouvelle interception globale du bouton Retour SPA. Les identifiants de portée restent ceux du serveur et l’appartenance doit toujours être validée au backend ; son absence actuelle n’est pas masquée par une promesse de sécurité côté UI. Aucun calcul d’encaissement ni appel réel de remise sur commande effectué.
+
+
+## Codes promotionnels —23 scénarios compilés
+
+23/23 passent, 0 échec/skip/flaky ; début2026-10-04T14:31:20.674Z, durée19828.627ms. Preuve `evidence/discounts-compiled-results.json`. Lint23 avertissements existants, types/build réussis,612 tests configurés passent et6 554 clés FR/EN/HE synchronisées. Les vérifications TypeScript intermédiaires ont identifié le rétrécissement de type manquant dans la fixture commune (plusieurs formes de restaurant) ; corrigé avec garde et Object.assign, sans changement du comportement testé. Journaux `/tmp/foody-discounts-{unit,i18n,lint,types-release,build,compiled}.log`. Captures compilées liste HE et conditions FR mobile réellement inspectées ; aucune troncature de code standard, dates inclusives conservées.
+
+76/102 types de routes documentés individuellement, souvent partiels ;26 encore inventoriés. Le dernier passage global reste505 ; les23 scénarios constituent une validation ciblée distincte. Aucun service réel ni déploiement. Appareils en préparation, audit devices-audit.md ; prochaine modification de source après ce checkpoint.

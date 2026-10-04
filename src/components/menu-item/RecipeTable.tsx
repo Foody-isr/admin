@@ -11,8 +11,11 @@
 //   • "Même quantité" toggle on → quantity_needed + unit, no overrides
 //   • Cells differ per variant  → variant_overrides[] (one row per variant)
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { AlertTriangle, ChevronDown, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { keyedRecipeIngredients } from '@/lib/recipe-editor-rows';
+import { useParams } from 'next/navigation';
+import { Button } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -40,14 +43,14 @@ interface RecipeTableProps {
   item: MenuItem;
   ingredients: MenuItemIngredient[];
   variants: VariantColumn[];
-  onUpdate: (id: number, patch: Partial<MenuItemIngredient>) => Promise<void>;
-  onDelete: (id: number) => void;
+  onUpdate: (id: string, patch: Partial<MenuItemIngredient>) => Promise<void>;
+  onDelete: (id: string) => void;
   onAddClick: () => void;
 }
 
 // Internal row shape — one per MenuItemIngredient. Drives cell rendering.
 interface Row {
-  id: number;
+  id: string;
   name: string;
   isPrep: boolean;
   unit: string;
@@ -106,7 +109,7 @@ function rowUnit(ing: MenuItemIngredient): string {
 }
 
 // Convert an API ingredient into the table row shape.
-function toRow(ing: MenuItemIngredient, _variants: VariantColumn[]): Row {
+function toRow(ing: MenuItemIngredient, key: string): Row {
   const overrides = ing.variant_overrides ?? [];
   const cells = new Map<number, number>();
   if (overrides.length > 0) {
@@ -117,7 +120,7 @@ function toRow(ing: MenuItemIngredient, _variants: VariantColumn[]): Row {
   const sameForAll = cells.size === 0;
   const { cost, unit: costUnit } = resolveCost(ing);
   return {
-    id: ing.id,
+    id: key,
     name: ingredientName(ing),
     isPrep: !!ing.prep_item_id,
     unit: rowUnit(ing),
@@ -160,30 +163,65 @@ function rowToPatch(row: Row, allVariantIds: number[]): Partial<MenuItemIngredie
   };
 }
 
-export default function RecipeTable({
+export interface RecipeTableHandle {
+  flush: () => Promise<void>;
+  isDirty: () => boolean;
+}
+
+/** Edits ingredient quantities without dropping local values on a failed write. */
+const RecipeTable = forwardRef<RecipeTableHandle, RecipeTableProps>(function RecipeTable({
   item,
   ingredients,
   variants,
   onUpdate,
   onDelete,
   onAddClick,
-}: RecipeTableProps) {
+}: RecipeTableProps, ref) {
+  const { restaurantId } = useParams();
   const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
-  const canEdit = hasAnyPermission('menu.edit');
+  const canEdit = hasAnyPermission('menu.edit') && hasAnyPermission('kitchen.manage');
 
   // Build initial row state from the API ingredients. We re-sync whenever
   // the parent passes a new list (after add/delete) but keep local edits
   // until they're committed.
-  const initialRows = useMemo(
-    () => ingredients.map((ing) => toRow(ing, variants)),
-    [ingredients, variants],
-  );
+  const initialRows = useMemo(() => keyedRecipeIngredients(ingredients).map(({ingredient,key}) => toRow(ingredient,key)), [ingredients]);
   const [rows, setRows] = useState<Row[]>(initialRows);
+  const rowsCurrent = useRef(rows);
+  const drafts = useRef(new Map<string, Row>());
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const [writeError, setWriteError] = useState('');
+  const [writing, setWriting] = useState(false);
+  const updateRows = (next: Row[]) => { rowsCurrent.current = next; setRows(next); };
   useEffect(() => {
-    setRows(initialRows);
+    const ids = new Set(initialRows.map(row => row.id));
+    for (const id of Array.from(drafts.current.keys())) if (!ids.has(id)) drafts.current.delete(id);
+    const next = initialRows.map(row => drafts.current.get(row.id) ?? row);
+    rowsCurrent.current = next; setRows(next);
   }, [initialRows]);
+  const allVariantIds = useMemo(() => variants.map(value => value.optionId), [variants]);
+  const persist = useCallback((row: Row): Promise<void> => {
+    const attempt = queue.current.then(async () => {
+      if (!canEdit || drafts.current.get(row.id) !== row) return;
+      setWriting(true);
+      try {
+        await onUpdate(row.id, rowToPatch(row, allVariantIds));
+        if (drafts.current.get(row.id) === row) drafts.current.delete(row.id);
+        if (drafts.current.size === 0) setWriteError('');
+      } catch (cause) { setWriteError(cause instanceof Error ? cause.message : t('saveFailed')); throw cause; }
+      finally { setWriting(false); }
+    });
+    // The caller receives the rejection; the queue must remain usable for retry.
+    queue.current = attempt.catch(() => {});
+    return attempt;
+  }, [allVariantIds, canEdit, onUpdate, t]);
+  const flush = useCallback(async () => {
+    await queue.current;
+    for (const row of Array.from(drafts.current.values())) await persist(row);
+  }, [persist]);
+  useImperativeHandle(ref, () => ({flush, isDirty: () => drafts.current.size > 0}), [flush]);
+  const commit = (row: Row) => { void persist(row).catch(() => { /* The error remains visible beside the retained draft. */ }); };
 
   // Item without variants → single "Quantité" column.
   const hasVariants = variants.length > 0;
@@ -193,7 +231,7 @@ export default function RecipeTable({
   // The first variant column is the base (locked to 1); the rest are user-
   // typed values. Stored per-item with a v4 key (bumped after the recipe-as-
   // source-of-truth refactor).
-  const multStorageKey = `foody.recipeMultipliers.v4.${item.id}`;
+  const multStorageKey = `foody.recipeMultipliers.v4.${restaurantId}.${item.id}`;
   const [userMultipliers, setUserMultipliers] = useState<Record<number, number>>(() => {
     if (typeof window === 'undefined') return {};
     try {
@@ -228,25 +266,25 @@ export default function RecipeTable({
 
   // Memoised list of variant IDs for serialisation. Used by rowToPatch so
   // every override is emitted (even zeros) when sameForAll is off.
-  const allVariantIds = useMemo(() => variants.map((v) => v.optionId), [variants]);
+
 
   // Update local state and commit synchronously with the freshly-computed
   // row. Avoids the stale-closure trap where a deferred commit captures the
   // pre-mutation state — historically, that caused the "Même quantité"
   // checkbox to re-check after a save.
   const updateAndCommit = (
-    id: number,
+    id: string,
     mutate: (r: Row) => Row,
     options: { commit: boolean } = { commit: true },
   ) => {
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const next = mutate(r);
-        if (options.commit) void onUpdate(id, rowToPatch(next, allVariantIds));
-        return next;
-      }),
-    );
+    if (!canEdit) return;
+    let changed: Row | undefined;
+    const nextRows = rowsCurrent.current.map(row => {
+      if (row.id !== id) return row;
+      changed = mutate(row); drafts.current.set(id, changed); return changed;
+    });
+    updateRows(nextRows);
+    if (changed && options.commit) commit(changed);
   };
 
   // Commit current state for a row by id (used on blur). Smart auto-scaling:
@@ -265,10 +303,11 @@ export default function RecipeTable({
   const multForOption = (optionId: number): number => {
     return optionId === variants[0]?.optionId ? 1 : multipliers[optionId] ?? 0;
   };
-  const commitRowById = (id: number) => {
-    setRows((prev) => {
+  const commitRowById = (id: string) => {
+    if (!canEdit || !drafts.current.has(id)) return;
+    const prev = rowsCurrent.current;
       const idx = prev.findIndex((x) => x.id === id);
-      if (idx < 0) return prev;
+      if (idx < 0) return;
       let r = prev[idx];
 
       if (variants.length > 1 && !r.sameForAll) {
@@ -322,16 +361,11 @@ export default function RecipeTable({
         }
       }
 
-      void onUpdate(id, rowToPatch(r, allVariantIds));
-
-      if (r === prev[idx]) return prev;
-      const next = [...prev];
-      next[idx] = r;
-      return next;
-    });
+      drafts.current.set(id, r);
+      const next = [...prev]; next[idx] = r; updateRows(next); commit(r);
   };
 
-  const setCell = (id: number, optionId: number, qty: number) => {
+  const setCell = (id: string, optionId: number, qty: number) => {
     // No commit here — onBlur will persist after the user finishes typing.
     updateAndCommit(
       id,
@@ -344,11 +378,11 @@ export default function RecipeTable({
     );
   };
 
-  const setBase = (id: number, qty: number) => {
+  const setBase = (id: string, qty: number) => {
     updateAndCommit(id, (r) => ({ ...r, baseQty: qty }), { commit: false });
   };
 
-  const setUnit = (id: number, unit: string) => {
+  const setUnit = (id: string, unit: string) => {
     // Commit immediately — unit is a discrete change with no further input.
     updateAndCommit(id, (r) => ({ ...r, unit }));
   };
@@ -357,7 +391,7 @@ export default function RecipeTable({
   // The first variant column is the base; the user types there directly and
   // Apply scales by the per-variant multipliers. Cells that already have a
   // positive value are left alone — non-destructive.
-  const applyMultipliers = useCallback(async () => {
+  const applyMultipliers = async () => {
     if (variants.length < 2) return;
     const baseVariantId = variants[0].optionId;
     const updated: Row[] = [];
@@ -365,8 +399,7 @@ export default function RecipeTable({
     const multFor = (optionId: number): number => {
       return optionId === baseVariantId ? 1 : multipliers[optionId] ?? 0;
     };
-    setRows((prev) => {
-      const next = prev.map((r) => {
+    const next = rowsCurrent.current.map((r) => {
         // Resolve the per-1-portion base for this row.
         let base = 0;
         if (r.sameForAll && r.baseQty > 0) {
@@ -400,17 +433,17 @@ export default function RecipeTable({
         updated.push(filled);
         return filled;
       });
-      return next;
-    });
-    for (const r of updated) await onUpdate(r.id, rowToPatch(r, allVariantIds));
+    for (const row of updated) drafts.current.set(row.id,row);
+    updateRows(next);
+    try { for (const row of updated) await persist(row); } catch { return; }
     if (touched === 0) {
       setApplyHint(
-        'Renseignez une valeur dans la première colonne et au moins un multiplicateur.',
+        t('itemRecipeMultiplierMissing'),
       );
     } else {
       setApplyHint(null);
     }
-  }, [variants, multipliers, onUpdate, allVariantIds]);
+  };
 
   // Per-variant total cost. Sums (cell qty in stock unit × cost_per_unit)
   // across rows. Cross-family unit mismatches contribute 0 — the warning
@@ -443,7 +476,7 @@ export default function RecipeTable({
     return out;
   }, [rows, variants]);
 
-  const toggleSameForAll = (id: number, sameForAll: boolean) => {
+  const toggleSameForAll = (id: string, sameForAll: boolean) => {
     updateAndCommit(id, (r) => {
       if (sameForAll) {
         // Collapse: keep the largest non-zero cell as the base, clear cells.
@@ -463,25 +496,28 @@ export default function RecipeTable({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-[var(--s-3)]">
+      {writeError && <div role="alert" className="mb-4 space-y-3 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]"><p>{writeError}</p><p>{t('itemRecipeWriteFailed')}</p><Button variant="secondary" disabled={writing} onClick={() => void flush().catch(() => {})}>{t('retry')}</Button></div>}
+      {writing && <p role="status" className="mb-3 text-sm text-fg-secondary">{t('saving')}</p>}
+      <fieldset disabled={writing} className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
           <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
             {t('ingredients') || 'Ingrédients'}
             <span className="text-[var(--fg-muted)] font-normal ms-1.5">
-              · {ingredients.length} {ingredients.length === 1 ? 'élément' : 'éléments'}
+              · {ingredients.length}
             </span>
           </h4>
           <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
             {hasVariants
-              ? 'Quantité utilisée à chaque taille.'
-              : 'Quantité pour 1 portion.'}
+              ? t('itemRecipePerSizeHint')
+              : t('itemRecipePortionHint')}
           </p>
         </div>
         {canEdit && (
           <button
             type="button"
             onClick={onAddClick}
-            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+            className="inline-flex min-h-11 items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-ink)] hover:underline"
           >
             <Plus className="w-3.5 h-3.5" />
             {t('addIngredient') || 'Ajouter un ingrédient'}
@@ -499,10 +535,10 @@ export default function RecipeTable({
             type="button"
             onClick={() => setShowMultipliers((v) => !v)}
             aria-expanded={showMultipliers}
-            className="inline-flex items-center gap-1.5 text-fs-xs font-medium text-[var(--brand-500)] hover:underline"
+            className="inline-flex min-h-11 items-center gap-1.5 text-fs-sm font-medium text-[var(--brand-ink)] hover:underline"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Pré-remplir les quantités par taille
+            {t('itemRecipePrefill')}
             <ChevronDown
               className={`w-3.5 h-3.5 transition-transform duration-fast ${showMultipliers ? 'rotate-180' : ''}`}
             />
@@ -510,8 +546,7 @@ export default function RecipeTable({
           {showMultipliers && (
             <div className="mt-[var(--s-2)] flex items-start gap-[var(--s-3)] flex-wrap rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]/40 px-[var(--s-3)] py-[var(--s-2)]">
               <div className="flex-1 min-w-[180px] text-fs-xs text-[var(--fg-muted)]">
-                Un multiplicateur par taille pré-remplit les lignes vides depuis la
-                quantité de base. Chaque cellule reste modifiable.
+                {t('itemRecipeMultiplierHint')}
               </div>
               <div className="flex items-end gap-[var(--s-3)] flex-wrap">
                 {variants.map((v, i) => {
@@ -536,7 +571,7 @@ export default function RecipeTable({
                           });
                         }}
                         placeholder={isBase ? '1' : '—'}
-                        disabled={isBase}
+                        disabled={isBase || !canEdit}
                         className={`w-16 px-[var(--s-2)] py-1 text-fs-sm font-mono tabular-nums text-end bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] ${
                           isBase ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
@@ -548,10 +583,10 @@ export default function RecipeTable({
                   <button
                     type="button"
                     onClick={() => void applyMultipliers()}
-                    className="inline-flex items-center gap-1 h-8 px-[var(--s-3)] rounded-r-sm bg-[var(--brand-500)] text-white text-fs-xs font-semibold hover:opacity-90 transition-opacity"
+                    className="inline-flex items-center gap-1 min-h-11 px-[var(--s-3)] rounded-r-sm bg-[var(--action)] text-[var(--action-fg)] text-fs-xs font-semibold hover:opacity-90 transition-opacity"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    Appliquer
+                    {t('apply')}
                   </button>
                 )}
               </div>
@@ -574,15 +609,15 @@ export default function RecipeTable({
           {t('noIngredients') || 'Aucun ingrédient ajouté.'}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)]">
-          <table className="w-full text-fs-sm" role="table">
+        <div className="max-w-full overflow-x-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)]">
+          <table className="w-full min-w-[500px] text-fs-sm" role="table" aria-label={t('ingredients')}>
             <thead className="bg-[var(--surface-2)]">
               <tr>
                 <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
-                  Ingrédient
+                  {t('ingredient')}
                 </th>
                 <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider w-[110px]">
-                  Unité
+                  {t('unit')}
                 </th>
                 {hasVariants ? (
                   variants.map((v) => (
@@ -595,7 +630,7 @@ export default function RecipeTable({
                   ))
                 ) : (
                   <th className="text-end px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
-                    Quantité
+                    {t('quantity')}
                   </th>
                 )}
                 <th className="w-10" aria-hidden />
@@ -613,7 +648,7 @@ export default function RecipeTable({
                   onUnitChange={(unit) => setUnit(row.id, unit)}
                   onSameForAllChange={(v) => toggleSameForAll(row.id, v)}
                   onCommit={() => commitRowById(row.id)}
-                  onDelete={() => onDelete(row.id)}
+                  onDelete={() => void flush().then(() => onDelete(row.id)).catch(() => {})}
                 />
               ))}
             </tbody>
@@ -629,7 +664,7 @@ export default function RecipeTable({
                     className="px-[var(--s-3)] py-[var(--s-2)] text-fs-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]"
                     colSpan={2}
                   >
-                    Coût matière (HT)
+                    {t('itemRecipeCostExVat')}
                   </td>
                   {hasVariants ? (
                     variants.map((v) => {
@@ -658,7 +693,7 @@ export default function RecipeTable({
                     className="px-[var(--s-3)] py-[var(--s-2)] text-fs-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]"
                     colSpan={2}
                   >
-                    Poids total du plat
+                    {t('itemRecipeTotalWeight')}
                   </td>
                   {hasVariants ? (
                     variants.map((v) => (
@@ -681,9 +716,12 @@ export default function RecipeTable({
           </table>
         </div>
       )}
+      </fieldset>
     </div>
   );
-}
+});
+
+export default RecipeTable;
 
 // Sum each row's cells (or base qty) for the given variant column, grouped
 // by unit family. Mixed-unit recipes display per-unit subtotals
@@ -740,8 +778,9 @@ function RecipeRow({
   onCommit,
   onDelete,
 }: RecipeRowProps) {
+  const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
-  const canEdit = hasAnyPermission('menu.edit');
+  const canEdit = hasAnyPermission('menu.edit') && hasAnyPermission('kitchen.manage');
   // Persist on blur — avoids saving on every keystroke. The change handler
   // updates the visible state immediately so input feels responsive; commit
   // pushes the latest snapshot to the server.
@@ -773,7 +812,7 @@ function RecipeRow({
               {row.costUnit && !sameUnitFamily(row.unit, row.costUnit)
                 && customUnitFactor(row.unit, row.conversions) == null && (
                 <span
-                  title={`L'unité de cet ingrédient (${row.unit}) n'est pas compatible avec celle du stock (${row.costUnit}). La déduction et le coût seront incorrects.`}
+                  title={t('unitMismatchWarning').replace('{ingUnit}',row.unit).replace('{stockUnit}',row.costUnit)}
                   className="shrink-0 inline-flex"
                 >
                   <AlertTriangle className="w-3.5 h-3.5 text-[var(--warn-500,#d97706)]" />
@@ -784,7 +823,7 @@ function RecipeRow({
                   value is visible. Deliberate explicit 0s are NOT flagged. */}
               {!row.sameForAll && variants.some((v) => !row.cells.has(v.optionId)) && (
                 <span
-                  title="Une ou plusieurs variantes n'ont pas de quantité définie. Rien ne sera décompté du stock pour ces variantes tant qu'une valeur n'est pas saisie."
+                  title={t('itemRecipeMissingQuantities')}
                   className="shrink-0 inline-flex"
                 >
                   <AlertTriangle className="w-3.5 h-3.5 text-[var(--warn-500,#d97706)]" />
@@ -796,10 +835,11 @@ function RecipeRow({
                 <input
                   type="checkbox"
                   checked={row.sameForAll}
+                  disabled={!canEdit}
                   onChange={(e) => onSameForAllChange(e.target.checked)}
-                  className="w-3 h-3 rounded-r-xs border-[var(--line-strong)]"
+                  className="size-4 accent-[var(--brand-500)] rounded-r-xs border-[var(--line-strong)]"
                 />
-                Même quantité
+                {t('itemRecipeSameQuantity')}
               </label>
             )}
           </div>
@@ -808,6 +848,8 @@ function RecipeRow({
 
       <td className="px-[var(--s-3)] py-[var(--s-2)]">
         <RecipeUnitSelect
+          disabled={!canEdit}
+          label={`${t('unit')} — ${row.name}`}
           value={row.unit}
           onChange={onUnitChange}
           conversions={row.conversions}
@@ -830,11 +872,13 @@ function RecipeRow({
               className="px-[var(--s-3)] py-[var(--s-2)] text-end"
               title={
                 cellUnset
-                  ? `Aucune quantité définie pour « ${v.name} ». Rien ne sera décompté du stock pour cette variante tant qu'une valeur n'est pas saisie.`
+                  ? t('itemRecipeMissingQuantity').replace('{name}',v.name)
                   : undefined
               }
             >
               <NumberInput
+                disabled={!canEdit}
+                aria-label={`${t('quantity')} — ${row.name} — ${v.name}`}
                 value={cellQty}
                 onChange={(n) => {
                   if (row.sameForAll) onBaseChange(n);
@@ -842,7 +886,7 @@ function RecipeRow({
                 }}
                 onBlur={handleBlur}
                 placeholder="0"
-                className={`w-full max-w-[100px] px-[var(--s-2)] py-1 bg-[var(--surface)] border rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)] ${
+                className={`w-full max-w-[100px] px-[var(--s-2)] min-h-11 py-2 bg-[var(--surface)] border rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)] ${
                   cellUnset
                     ? 'border-[var(--warn-500,#d97706)] bg-[var(--warn-50,#fffbeb)]'
                     : 'border-[var(--line-strong)]'
@@ -854,11 +898,13 @@ function RecipeRow({
       ) : (
         <td className="px-[var(--s-3)] py-[var(--s-2)] text-end">
           <NumberInput
+            disabled={!canEdit}
+            aria-label={`${t('quantity')} — ${row.name}`}
             value={row.baseQty}
             onChange={onBaseChange}
             onBlur={handleBlur}
             placeholder="0"
-            className="w-full max-w-[100px] px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)]"
+            className="w-full max-w-[100px] px-[var(--s-2)] min-h-11 py-2 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)]"
           />
         </td>
       )}
@@ -868,8 +914,8 @@ function RecipeRow({
           <button
             type="button"
             onClick={onDelete}
-            className="p-1.5 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-            aria-label="Supprimer l'ingrédient"
+            className="grid size-11 place-items-center rounded-r-md text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+            aria-label={`${t('itemRemoveIngredient')} — ${row.name}`}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -882,6 +928,7 @@ function RecipeRow({
 // Re-export so callers using the old draft picker can build inputs that
 // match the new table's expectations (default mode = "same for all" with
 // quantity 0 — user fills cells after adding).
+/** Builds the initial ingredient row consumed by the existing recipe API. */
 export function defaultIngredientInputForTable(
   source: { kind: 'brut' | 'prep'; id: number },
   unit: string,

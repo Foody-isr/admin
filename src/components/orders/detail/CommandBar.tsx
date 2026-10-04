@@ -81,7 +81,7 @@ export function CommandBar({
             disabled={isLoading}
             className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
             style={{
-              color: 'var(--brand-600)',
+              color: 'var(--brand-ink)',
               borderColor: 'color-mix(in oklab, var(--brand-500) 45%, var(--line-strong))',
               background: 'color-mix(in oklab, var(--brand-500) 8%, transparent)',
             }}
@@ -97,7 +97,7 @@ export function CommandBar({
             onClick={onConfirmWeights}
             disabled={isLoading}
             style={{
-              color: 'var(--brand-500)',
+              color: 'var(--brand-ink)',
               borderColor: 'color-mix(in oklab, var(--brand-500) 45%, var(--line-strong))',
             }}
             className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
@@ -142,7 +142,7 @@ export function CommandBar({
             size="md"
             onClick={() => onPrimary(caps.primary!)}
             disabled={isLoading}
-            className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold text-[#1c1d1f]"
+            className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
           >
             {PRIMARY_LABEL[caps.primary]}
           </Button>

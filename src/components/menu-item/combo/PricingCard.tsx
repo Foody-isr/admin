@@ -16,6 +16,7 @@ import { computeComboSavings } from './pricing';
 
 interface Props {
   basePrice: number;
+  readOnly?: boolean;
   onBasePriceChange: (next: number) => void;
   steps: ComboStepDraft[];
   itemsById: Map<number, MenuItem>;
@@ -26,7 +27,7 @@ interface Props {
 
 export default function PricingCard({
   basePrice, onBasePriceChange, steps, itemsById,
-  onShowSavingsDetail,
+  onShowSavingsDetail, readOnly = false,
 }: Props) {
   const { money, symbol } = useCurrency();
   const { t } = useI18n();
@@ -66,13 +67,13 @@ export default function PricingCard({
           <span className="text-fs-xs font-semibold uppercase tracking-[.04em] text-[var(--fg-subtle)]">
             {t('composeBasePriceLabel')}
           </span>
-          <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md bg-[var(--surface)] border border-[var(--line-strong)] focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
+          <div className="flex items-center min-h-11 px-[var(--s-3)] rounded-r-md bg-[var(--surface)] border border-[var(--line-strong)] focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
             <NumberInput
-              min={0}
+              min={0} aria-label={t('composeBasePriceLabel')} disabled={readOnly}
               value={basePrice}
               onChange={onBasePriceChange}
               placeholder="0.00"
-              className="flex-1 bg-transparent border-none outline-none text-fs-sm tabular-nums"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-fs-sm tabular-nums"
             />
             <span className="text-fs-sm text-[var(--fg-muted)]">{symbol}</span>
           </div>
@@ -82,7 +83,7 @@ export default function PricingCard({
           <span className="text-fs-xs font-semibold uppercase tracking-[.04em] text-[var(--fg-subtle)]">
             {t('composePriceRange')}
           </span>
-          <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] tabular-nums text-fs-sm font-medium">
+          <div className="flex items-center min-h-11 px-[var(--s-3)] rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] tabular-nums text-fs-sm font-medium">
             {summary.comboMin === summary.comboMax
               ? <>{money(summary.comboMin)}</>
               : <>{money(summary.comboMin)} – {money(summary.comboMax)}</>
@@ -95,7 +96,7 @@ export default function PricingCard({
             {t('composeSavings')}
           </span>
           {(() => {
-            const cellClass = `flex items-center gap-1.5 h-9 px-[var(--s-3)] rounded-r-md tabular-nums text-fs-sm font-semibold ${
+            const cellClass = `flex items-center gap-1.5 min-h-11 px-[var(--s-3)] rounded-r-md tabular-nums text-fs-sm font-semibold ${
               detailable ? 'cursor-pointer hover:brightness-110' : ''
             }`;
             const cellStyle: React.CSSProperties = {
@@ -152,7 +153,7 @@ export default function PricingCard({
               <button
                 type="button"
                 onClick={onShowSavingsDetail}
-                title={t('savingsBreakdownDetailButton')}
+                title={t('savingsBreakdownDetailButton')} aria-label={t('savingsBreakdownDetailButton')}
                 className={cellClass}
                 style={cellStyle}
               >

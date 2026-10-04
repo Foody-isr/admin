@@ -1,499 +1,136 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import {
-  getAllCategories,
-  getRestaurantSettings,
-  getMenuItemIngredients,
-  getItemOptionPrices,
-  MenuCategory,
-  MenuItem,
-  MenuItemIngredient,
-  ItemOptionOverride,
-} from '@/lib/api';
+import Link from 'next/link';
+import { getAllCategories, getRestaurantSettings, getMenuItemIngredients, getItemOptionPrices, type MenuItem, type MenuItemIngredient, type ItemOptionOverride } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { COST_THRESHOLD, computeItemCostSummary, ItemCostSummary } from '@/lib/cost-utils';
+import { COST_THRESHOLD, computeItemCostSummary } from '@/lib/cost-utils';
 import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
 import FoodCostBreakdownModal from '@/components/food-cost/FoodCostBreakdownModal';
-import { AlertTriangle, ExternalLink, Image as ImageIcon, X } from 'lucide-react';
-import { Button } from '@/components/ds';
+import { AlertTriangle, ExternalLink, Image as ImageIcon } from 'lucide-react';
+import { Button, FullScreenEditor } from '@/components/ds';
 
-const MIN_ITEMS = 2;
-const MAX_ITEMS = 6;
+type ComparedItem = MenuItem & { category_name: string };
+type Comparison = { items: ComparedItem[]; ingredients: Record<number, MenuItemIngredient[]>; overrides: Record<number, ItemOptionOverride[]>; vatRate: number };
 
-// Side-by-side cost comparison for 2–6 menu items. Entry point: the food-cost
-// page (Cuisine → Coût alimentaire). URL: /{rid}/kitchen/food-cost/compare?ids=1,2,3
+/** Compare two to six catalog items using the shared, unchanged cost calculation. */
 export default function CompareCostsPage() {
-  const { money } = useCurrency();
   const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
+  const params = useSearchParams();
+  const raw = params.get('ids') ?? '';
+  const ids = useMemo(() => Array.from(new Set(raw.split(',').map(value => Number(value.trim())).filter(id => Number.isSafeInteger(id) && id > 0))), [raw]);
+  const remaining = new URLSearchParams(params.toString());
+  remaining.delete('ids');
+  const returnUrl = `/${restaurantId}/kitchen/food-cost${remaining.size ? `?${remaining}` : ''}`;
+  return <ComparisonWorkspace key={`${restaurantId}:${ids.join(',')}`} rid={Number(restaurantId)} ids={ids} returnUrl={returnUrl}/>;
+}
+
+function ComparisonWorkspace({ rid, ids, returnUrl }: {rid: number; ids: number[]; returnUrl: string}) {
+  const { money } = useCurrency();
+  const { t, locale } = useI18n();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
-
-  const ids = useMemo(() => {
-    const raw = searchParams.get('ids') ?? '';
-    return raw
-      .split(',')
-      .map((s) => Number(s.trim()))
-      .filter((n) => Number.isFinite(n) && n > 0);
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (ids.length < MIN_ITEMS || ids.length > MAX_ITEMS) {
-      router.replace(`/${rid}/kitchen/food-cost`);
-    }
-  }, [ids, rid, router]);
-
+  const valid = ids.length >= 2 && ids.length <= 6;
+  const generation = useRef({value:0});
+  const [data, setData] = useState<Comparison | null>(null);
   const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<Array<MenuItem & { category_name: string }>>([]);
-  const [ingredientsByItem, setIngredientsByItem] = useState<Record<number, MenuItemIngredient[]>>({});
-  const [overridesByItem, setOverridesByItem] = useState<Record<number, ItemOptionOverride[]>>({});
-  const [vatRate, setVatRate] = useState(18);
+  const [error, setError] = useState(false);
+  const [missing, setMissing] = useState(false);
   const [showCostsExVat, setShowCostsExVat] = useState(true);
-  const [breakdownIdx, setBreakdownIdx] = useState<number | null>(null);
-  const [foodCostIdx, setFoodCostIdx] = useState<number | null>(null);
-
+  const [ratioId, setRatioId] = useState<number | null>(null);
+  const [costId, setCostId] = useState<number | null>(null);
+  const percent = (value: number, digits = 1) => new Intl.NumberFormat(locale, {style:'percent', minimumFractionDigits:digits, maximumFractionDigits:digits}).format(value);
+  const load = useCallback(async () => {
+    if (!valid) return;
+    const request = ++generation.current.value;
+    setLoading(true); setError(false); setMissing(false);
+    try {
+      const [categories, settings] = await Promise.all([getAllCategories(rid), getRestaurantSettings(rid)]);
+      if (request !== generation.current.value) return;
+      const byId = new Map<number, ComparedItem>();
+      for (const category of categories) for (const item of category.items ?? []) byId.set(item.id, {...item, category_name: category.name});
+      if (ids.some(id => !byId.has(id))) { setMissing(true); setData(null); return; }
+      const [recipes, overrides] = await Promise.all([
+        Promise.all(ids.map(id => getMenuItemIngredients(rid, id))),
+        Promise.all(ids.map(id => getItemOptionPrices(rid, id))),
+      ]);
+      if (request !== generation.current.value) return;
+      setData({ items:ids.map(id => byId.get(id)!), vatRate:settings.vat_rate ?? 18,
+        ingredients:Object.fromEntries(ids.map((id, index) => [id, recipes[index]])),
+        overrides:Object.fromEntries(ids.map((id, index) => [id, overrides[index]])) });
+    } catch { if (request === generation.current.value) setError(true); }
+    finally { if (request === generation.current.value) setLoading(false); }
+  }, [rid, ids, valid]);
   useEffect(() => {
-    if (ids.length < MIN_ITEMS) return;
-    let cancelled = false;
-    setLoading(true);
+    if (!valid) { router.replace(returnUrl); return; }
+    void load();
+    const current = generation.current;
+    return () => { current.value++; };
+  }, [load, valid, returnUrl, router]);
 
-    (async () => {
-      try {
-        const [cats, settings, perItemIngs, perItemOverrides] = await Promise.all([
-          getAllCategories(rid),
-          getRestaurantSettings(rid),
-          Promise.all(ids.map((id) => getMenuItemIngredients(rid, id))),
-          Promise.all(ids.map((id) => getItemOptionPrices(rid, id))),
-        ]);
-        if (cancelled) return;
+  const summaries = useMemo(() => data?.items.map(item => ({item, s:computeItemCostSummary({item, ingredients:data.ingredients[item.id], overrides:data.overrides[item.id], vatRate:data.vatRate, showCostsExVat})})) ?? [], [data, showCostsExVat]);
+  const ratio = summaries.find(row => row.item.id === ratioId);
+  const cost = summaries.find(row => row.item.id === costId);
+  // Only displayed, valid values participate. Missing recipes are never ranked as zero-cost winners.
+  const ranks = (values: Array<number | null>, better: 'min' | 'max') => values.map(value => {
+    const finite = values.filter((v): v is number => v != null && Number.isFinite(v));
+    if (value == null || finite.length < 2 || Math.min(...finite) === Math.max(...finite)) return null;
+    if (value === Math.min(...finite)) return {label:t('compareLowest'), favorable:better === 'min'};
+    if (value === Math.max(...finite)) return {label:t('compareHighest'), favorable:better === 'max'};
+    return null;
+  });
+  const priceRanks = ranks(summaries.map(({s}) => s.displayPrice > 0 ? s.displayPrice : null), 'min');
+  const costRanks = ranks(summaries.map(({s}) => s.hasIngredients && !s.configIssues.length ? s.foodCost : null), 'min');
+  const ratioRanks = ranks(summaries.map(({s}) => s.displayPrice > 0 && s.hasIngredients && !s.configIssues.length ? s.costPct : null), 'min');
+  const marginRanks = ranks(summaries.map(({s}) => s.displayPrice > 0 && s.hasIngredients && !s.configIssues.length ? s.margin : null), 'max');
 
-        const byId = new Map<number, MenuItem & { category_name: string }>();
-        for (const cat of cats as MenuCategory[]) {
-          for (const mi of cat.items ?? []) {
-            byId.set(mi.id, { ...mi, category_name: cat.name });
-          }
-        }
-        const resolved = ids
-          .map((id) => byId.get(id))
-          .filter((x): x is MenuItem & { category_name: string } => !!x);
-
-        const ings: Record<number, MenuItemIngredient[]> = {};
-        const ovs: Record<number, ItemOptionOverride[]> = {};
-        ids.forEach((id, i) => {
-          ings[id] = perItemIngs[i] ?? [];
-          ovs[id] = perItemOverrides[i] ?? [];
-        });
-
-        setItems(resolved);
-        setVatRate(settings.vat_rate ?? 18);
-        setIngredientsByItem(ings);
-        setOverridesByItem(ovs);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [ids, rid]);
-
-  const summaries: Array<{ item: MenuItem & { category_name: string }; s: ItemCostSummary }> =
-    useMemo(() => {
-      return items.map((item) => ({
-        item,
-        s: computeItemCostSummary({
-          item,
-          ingredients: ingredientsByItem[item.id] ?? [],
-          overrides: overridesByItem[item.id] ?? [],
-          vatRate,
-          showCostsExVat,
-        }),
-      }));
-    }, [items, ingredientsByItem, overridesByItem, vatRate, showCostsExVat]);
-
-  // Winner / loser per row. Highlighted with semantic success / danger tints.
-  const rankCells = (
-    values: number[],
-    direction: 'min' | 'max',
-  ): { bestIdx: number | null; worstIdx: number | null } => {
-    if (values.length < 2) return { bestIdx: null, worstIdx: null };
-    const finite = values.map((v) => (Number.isFinite(v) ? v : null));
-    if (finite.some((v) => v == null)) return { bestIdx: null, worstIdx: null };
-    const min = Math.min(...(finite as number[]));
-    const max = Math.max(...(finite as number[]));
-    if (min === max) return { bestIdx: null, worstIdx: null };
-    const best = direction === 'min' ? min : max;
-    const worst = direction === 'min' ? max : min;
-    return {
-      bestIdx: values.findIndex((v) => v === best),
-      worstIdx: values.findIndex((v) => v === worst),
-    };
-  };
-
-  const rankStyle = (idx: number, best: number | null, worst: number | null): React.CSSProperties => {
-    if (idx === best) {
-      return {
-        background: 'color-mix(in oklab, var(--success-500) 10%, transparent)',
-        color: 'var(--success-500)',
-      };
-    }
-    if (idx === worst) {
-      return {
-        background: 'color-mix(in oklab, var(--danger-500) 10%, transparent)',
-        color: 'var(--danger-500)',
-      };
-    }
-    return {};
-  };
-
-  if (loading || ids.length < MIN_ITEMS) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg)]">
-        <div
-          className="w-8 h-8 border-2 rounded-full animate-spin"
-          style={{ borderColor: 'var(--brand-500)', borderTopColor: 'transparent' }}
-        />
-      </div>
-    );
-  }
-
-  const prices = summaries.map(({ s }) => s.displayPrice);
-  const costs = summaries.map(({ s }) => s.foodCost);
-  const costPcts = summaries.map(({ s }) => s.costPct);
-  const margins = summaries.map(({ s }) => s.margin);
-
-  const priceRank = rankCells(prices, 'min');
-  const costRank = rankCells(costs, 'min');
-  const pctRank = rankCells(costPcts, 'min');
-  const marginRank = rankCells(margins, 'max');
-
-  const gridTemplate = `220px repeat(${summaries.length}, minmax(200px, 1fr))`;
-
-  return (
-    <div className="fixed inset-0 z-40 bg-[var(--bg)] overflow-y-auto pb-safe-b flex flex-col">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--line)] px-[var(--s-4)] sm:px-[var(--s-6)] pb-[var(--s-4)] pt-[max(var(--s-4),var(--safe-top))] flex flex-wrap items-center justify-between gap-[var(--s-3)] sm:gap-[var(--s-4)]">
-        <div className="flex items-center gap-[var(--s-3)]">
-          <Button
-            variant="ghost"
-            size="md"
-            icon
-            onClick={() => router.push(`/${rid}/kitchen/food-cost`)}
-            aria-label={t('close') || 'Fermer'}
-          >
-            <X />
-          </Button>
-          <div>
-            <h1 className="text-fs-lg font-semibold text-[var(--fg)]">
-              {t('compareCosts') || 'Comparer les coûts'}
-            </h1>
-            <p className="text-fs-xs text-[var(--fg-muted)]">
-              {(t('selectedCount') || '{n} sélectionnés').replace(
-                '{n}',
-                String(summaries.length),
-              )}
-            </p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowCostsExVat((v) => !v)}
-          className="text-[var(--brand-500)]"
-        >
-          {showCostsExVat ? t('showIncVat') || 'Afficher TTC' : t('showExVat') || 'Afficher HT'}
-        </Button>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 p-[var(--s-6)]">
-        {/* Column headers — one card per compared item */}
-        <div className="grid gap-[var(--s-4)] mb-[var(--s-5)]" style={{ gridTemplateColumns: gridTemplate }}>
-          <div /> {/* corner */}
-          {summaries.map(({ item, s }) => (
-            <div
-              key={item.id}
-              className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 p-[var(--s-3)] flex flex-col gap-[var(--s-2)]"
-            >
-              <div className="flex items-center gap-[var(--s-2)]">
-                {item.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.image_url}
-                    alt=""
-                    className="w-10 h-10 rounded-r-md object-cover shrink-0"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-r-md bg-[var(--surface-2)] grid place-items-center shrink-0">
-                    <ImageIcon className="w-4 h-4 text-[var(--fg-subtle)]" />
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="text-fs-sm font-semibold text-[var(--fg)] truncate">
-                    {item.name}
-                  </p>
-                  <p className="text-fs-xs text-[var(--fg-subtle)] uppercase tracking-[0.04em] truncate">
-                    {item.category_name}
-                  </p>
-                </div>
+  return <FullScreenEditor open title={t('compareCosts')} subtitle={t('selectedCount').replace('{n}', String(ids.length))}
+    showCancel={false} onOpenChange={open => {if (!open) router.push(returnUrl);}} contentClassName="p-4 md:p-6 space-y-5">
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="max-w-2xl space-y-1"><p className="text-sm text-fg-secondary">{t('compareBasisHint')}</p><p className="text-xs text-fg-secondary">{t('compareScrollHint')}</p></div>
+      <Button size="lg" variant="secondary" aria-pressed={!showCostsExVat} onClick={() => setShowCostsExVat(value => !value)}>{t(showCostsExVat ? 'showIncVat' : 'showExVat')}</Button>
+    </div>
+    {loading ? <p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p> : error || missing ?
+      <div role="alert" className="rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-5 space-y-4"><p>{t(missing ? 'compareItemsUnavailable' : 'errorLoading')}</p><div className="flex flex-wrap gap-3"><Button size="lg" variant="secondary" onClick={() => void load()}>{t('retry')}</Button><Button size="lg" variant="ghost" onClick={() => router.push(returnUrl)}>{t('back')}</Button></div></div> : data &&
+      <div role="region" tabIndex={0} aria-label={t('compareCosts')} className="overflow-x-auto overscroll-x-contain rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+        <table className="w-full table-fixed text-sm" style={{minWidth:120 + summaries.length * 210}}>
+          <caption className="sr-only">{t('compareCosts')} — {t(showCostsExVat ? 'excludingVat' : 'includingVat')}</caption>
+          <colgroup><col className="w-[120px] md:w-[180px]"/>{summaries.map(({item}) => <col key={item.id}/>)}</colgroup>
+          <thead><tr><th scope="col" className="sticky start-0 z-10 bg-[var(--surface-2)] p-4 text-start align-bottom border-e border-[var(--line)] text-fg-secondary font-medium">{t(showCostsExVat ? 'excludingVat' : 'includingVat')}</th>
+            {summaries.map(({item,s}) => <th scope="col" key={item.id} className="p-4 text-start align-top border-e border-[var(--line)] last:border-e-0 font-normal">
+              <div className="flex items-start gap-3 mb-3">
+                {item.image_url ? <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.image_url} alt="" className="size-10 rounded-r-md object-cover shrink-0"/>
+                </> : <span className="size-10 shrink-0 grid place-items-center rounded-r-md bg-[var(--surface-2)] text-fg-secondary"><ImageIcon aria-hidden className="size-5"/></span>}
+                <div className="min-w-0"><span dir="auto" className="block font-semibold break-words">{item.name}</span><span dir="auto" className="block mt-1 text-xs text-fg-secondary break-words">{item.category_name}</span></div>
               </div>
-              {s.activeVariant && (
-                <span
-                  className="inline-flex items-center w-fit h-[20px] px-2 rounded-r-full text-fs-xs font-medium"
-                  style={{
-                    background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-                    color: 'var(--brand-500)',
-                  }}
-                >
-                  {s.activeVariant.name}
-                </span>
-              )}
-              {canManage && (
-                <button
-                  onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`)}
-                  className="inline-flex items-center gap-[var(--s-1)] text-fs-xs text-[var(--brand-500)] hover:text-[var(--brand-600)] transition-colors w-fit"
-                >
-                  {t('openItemCta') || 'Ouvrir l’article'}
-                  <ExternalLink className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Metrics table */}
-        <div className="rounded-r-lg border border-[var(--line)] overflow-hidden bg-[var(--surface)] shadow-1">
-          <MetricRow label={t('metricPrice') || 'Prix'} gridTemplate={gridTemplate}>
-            {summaries.map(({ item, s }, i) => (
-              <Cell key={item.id} style={rankStyle(i, priceRank.bestIdx, priceRank.worstIdx)}>
-                {s.displayPrice > 0 ? money(s.displayPrice) : '—'}
-              </Cell>
-            ))}
-          </MetricRow>
-          <MetricRow label={t('metricFoodCost') || 'Coût alimentaire'} gridTemplate={gridTemplate}>
-            {summaries.map(({ item, s }, i) => (
-              <Cell key={item.id} style={rankStyle(i, costRank.bestIdx, costRank.worstIdx)}>
-                {s.hasIngredients ? (
-                  <button
-                    type="button"
-                    onClick={() => setFoodCostIdx(i)}
-                    className="hover:underline text-start"
-                    title={t('showFoodCostBreakdown') || 'Détail du coût'}
-                  >
-                    {money(s.foodCost)}
-                  </button>
-                ) : (
-                  '—'
-                )}
-              </Cell>
-            ))}
-          </MetricRow>
-          <MetricRow label={t('metricCostPct') || '% coût'} gridTemplate={gridTemplate}>
-            {summaries.map(({ item, s }, i) => {
-              const over = s.costPct > COST_THRESHOLD;
-              const clickable = s.displayPrice > 0 && s.hasIngredients;
-              return (
-                <Cell key={item.id} style={rankStyle(i, pctRank.bestIdx, pctRank.worstIdx)}>
-                  {clickable ? (
-                    <button
-                      type="button"
-                      onClick={() => setBreakdownIdx(i)}
-                      className={`hover:underline text-start ${over ? 'font-semibold' : ''}`}
-                      style={over ? { color: 'var(--danger-500)' } : undefined}
-                      title={t('showCostBreakdown') || 'Détail'}
-                    >
-                      {(s.costPct * 100).toFixed(1)}%
-                      {over && ' ⚠'}
-                    </button>
-                  ) : (
-                    '—'
-                  )}
-                </Cell>
-              );
-            })}
-          </MetricRow>
-          <MetricRow label={t('metricMargin') || 'Marge'} gridTemplate={gridTemplate}>
-            {summaries.map(({ item, s }, i) => (
-              <Cell key={item.id} style={rankStyle(i, marginRank.bestIdx, marginRank.worstIdx)}>
-                {s.displayPrice > 0 && s.hasIngredients
-                  ? money(s.margin)
-                  : '—'}
-              </Cell>
-            ))}
-          </MetricRow>
-          <MetricRow label={t('metricTopIngredient') || 'Ingrédient principal'} gridTemplate={gridTemplate}>
-            {summaries.map(({ item, s }) => (
-              <Cell key={item.id}>
-                {s.topIngredient ? (
-                  <span className="flex items-baseline gap-[var(--s-1)] min-w-0">
-                    <span className="font-medium text-[var(--fg)] truncate">
-                      {s.topIngredient.name}
-                    </span>
-                    <span className="text-fs-xs text-[var(--fg-subtle)] whitespace-nowrap">
-                      ({(s.topIngredient.contributionPct * 100).toFixed(0)}%)
-                    </span>
-                  </span>
-                ) : (
-                  '—'
-                )}
-              </Cell>
-            ))}
-          </MetricRow>
-          <MetricRow label={t('metricIngredientCount') || 'Ingrédients'} gridTemplate={gridTemplate}>
-            {summaries.map(({ item, s }) => {
-              const names = (ingredientsByItem[item.id] ?? [])
-                .filter(
-                  (ing) =>
-                    ing.option_id == null ||
-                    (s.activeVariant && s.activeVariant.id === `opt:${ing.option_id}`),
-                )
-                .map((ing) => ing.stock_item?.name ?? ing.prep_item?.name ?? '?');
-              return (
-                <Cell key={item.id}>
-                  {s.ingredientCount > 0 ? (
-                    <span
-                      className="relative group inline-block cursor-help border-b border-dotted border-[var(--fg-subtle)]"
-                      title={names.join(', ')}
-                    >
-                      {s.ingredientCount}
-                    </span>
-                  ) : (
-                    '—'
-                  )}
-                </Cell>
-              );
-            })}
-          </MetricRow>
-          <MetricRow
-            label={t('metricConfigIssues') || 'Problèmes de configuration'}
-            gridTemplate={gridTemplate}
-            last
-          >
-            {summaries.map(({ item, s }) => (
-              <Cell key={item.id} align="start">
-                {s.configIssues.length === 0 ? (
-                  <span className="text-[var(--fg-subtle)]">—</span>
-                ) : (
-                  <ul className="flex flex-col gap-[var(--s-1)] py-[var(--s-1)]">
-                    {s.configIssues.map(({ prep, issue }) => {
-                      const reason =
-                        issue === 'missing_yield'
-                          ? t('prepMissingYield') || 'rendement manquant'
-                          : issue === 'no_ingredients'
-                            ? t('prepNoIngredients') || 'sans ingrédients'
-                            : t('prepZeroCostIngredients') ||
-                              'ingrédients sans coût d’achat';
-                      return (
-                        <li
-                          key={prep.id}
-                          className="flex items-start gap-[var(--s-1)] text-fs-xs"
-                          style={{ color: 'var(--warning-500)' }}
-                        >
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                          <span className="flex-1 text-[var(--fg)]">
-                            <span className="font-semibold">{prep.name}</span>
-                            {': '}
-                            <span className="text-[var(--fg-muted)]">{reason}.</span>{' '}
-                            {canManage && (
-                              <button
-                                onClick={() => router.push(`/${rid}/kitchen/prep?edit=${prep.id}`)}
-                                className="underline hover:no-underline"
-                                style={{ color: 'var(--warning-500)' }}
-                              >
-                                {t('fix') || 'Corriger'} →
-                              </button>
-                            )}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </Cell>
-            ))}
-          </MetricRow>
-        </div>
-      </div>
-
-      {breakdownIdx != null &&
-        summaries[breakdownIdx] &&
-        (() => {
-          const { item, s } = summaries[breakdownIdx];
-          const rawPrice = s.activeVariant?.price ?? item.price ?? 0;
-          return (
-            <CostPctBreakdownModal
-              itemName={item.name}
-              displayPrice={rawPrice}
-              displayCost={s.foodCost}
-              costPct={s.costPct}
-              showCostsExVat={showCostsExVat}
-              vatRate={vatRate}
-              onClose={() => setBreakdownIdx(null)}
-            />
-          );
-        })()}
-
-      {foodCostIdx != null && summaries[foodCostIdx] && (
-        <FoodCostBreakdownModal
-          itemName={summaries[foodCostIdx].item.name}
-          foodCost={summaries[foodCostIdx].s.foodCost}
-          lines={summaries[foodCostIdx].s.lines}
-          showCostsExVat={showCostsExVat}
-          onClose={() => setFoodCostIdx(null)}
-        />
-      )}
-    </div>
-  );
+              {s.activeVariant && <span dir="auto" className="inline-flex rounded-r-md bg-[var(--info-50)] text-[var(--info-500)] px-2 py-1 text-xs mb-2">{s.activeVariant.name}</span>}
+              {canManage && <Link href={`/${rid}/menu/items/${item.id}?tab=recipe`} className="flex items-center gap-2 min-h-11 text-xs font-medium text-[var(--brand-ink)] underline underline-offset-4" aria-label={`${t('openItemCta')} — ${item.name}`}>{t('openItemCta')}<ExternalLink aria-hidden className="size-3.5"/></Link>}
+            </th>)}
+          </tr></thead>
+          <tbody>
+            <MetricRow label={t('metricPrice')}>{summaries.map(({item,s},index) => <Cell key={item.id} rank={priceRanks[index]}>{s.displayPrice > 0 ? <bdi>{money(s.displayPrice)}</bdi> : '—'}</Cell>)}</MetricRow>
+            <MetricRow label={t('metricFoodCost')}>{summaries.map(({item,s},index) => <Cell key={item.id} rank={costRanks[index]}>{s.hasIngredients ? <button type="button" className="min-h-11 underline underline-offset-4 text-start" onClick={() => setCostId(item.id)} aria-label={`${t('showFoodCostBreakdown')} — ${item.name}`}><bdi>{money(s.foodCost)}</bdi></button> : '—'}</Cell>)}</MetricRow>
+            <MetricRow label={t('metricCostPct')}>{summaries.map(({item,s},index) => <Cell key={item.id} rank={ratioRanks[index]}>{s.displayPrice > 0 && s.hasIngredients ? <><button type="button" className="min-h-11 underline underline-offset-4 text-start" onClick={() => setRatioId(item.id)} aria-label={`${t('showCostBreakdown')} — ${item.name}`}><bdi>{percent(s.costPct)}</bdi></button>{s.costPct > COST_THRESHOLD && <p className="text-xs text-[var(--warning-500)] mt-1 flex items-start gap-1.5"><AlertTriangle aria-hidden className="size-4 shrink-0"/>{t('foodCostExceedsThreshold').replace('{threshold}', String(COST_THRESHOLD * 100))}</p>}</> : '—'}</Cell>)}</MetricRow>
+            <MetricRow label={t('metricMargin')}>{summaries.map(({item,s},index) => <Cell key={item.id} rank={marginRanks[index]}>{s.displayPrice > 0 && s.hasIngredients ? <bdi>{money(s.margin)}</bdi> : '—'}</Cell>)}</MetricRow>
+            <MetricRow label={t('metricTopIngredient')}>{summaries.map(({item,s}) => <Cell key={item.id}>{s.topIngredient ? <><span dir="auto">{s.topIngredient.name}</span> <bdi className="text-xs text-fg-secondary">({percent(s.topIngredient.contributionPct,0)})</bdi></> : '—'}</Cell>)}</MetricRow>
+            <MetricRow label={t('metricIngredientCount')}>{summaries.map(({item,s}) => <Cell key={item.id}>{s.ingredientCount ? <details><summary className="min-h-11 flex items-center gap-2 cursor-pointer underline underline-offset-4" aria-label={`${t('ingredients')} — ${item.name}`}><bdi>{s.ingredientCount}</bdi> · {t('ingredients')}</summary><ul className="text-xs space-y-1 text-fg-secondary pb-2">{s.lines.map((line,index) => <li dir="auto" key={`${line.ingredient.id}:${index}`}>{line.name}</li>)}</ul></details> : '—'}</Cell>)}</MetricRow>
+            <MetricRow label={t('metricConfigIssues')}>{summaries.map(({item,s}) => <Cell key={item.id}>{s.configIssues.length ? <ul className="space-y-3">{s.configIssues.map(({prep,issue}) => <li key={`${prep.id}:${issue}`} className="text-xs"><span className="flex items-start gap-2"><AlertTriangle aria-hidden className="size-4 shrink-0 text-[var(--warning-500)]"/><span><bdi className="font-semibold">{prep.name}</bdi> · {t(issue === 'missing_yield' ? 'prepMissingYield' : issue === 'no_ingredients' ? 'prepNoIngredients' : 'prepZeroCostIngredients')}</span></span>{canManage && <Link href={`/${rid}/kitchen/prep?edit=${prep.id}`} className="inline-flex min-h-11 items-center text-[var(--brand-ink)] underline underline-offset-4" aria-label={`${t('fix')} — ${prep.name}`}>{t('fix')}</Link>}</li>)}</ul> : '—'}</Cell>)}</MetricRow>
+          </tbody>
+        </table>
+      </div>}
+    {ratio && data && <CostPctBreakdownModal itemName={ratio.item.name} displayPrice={ratio.s.activeVariant?.price ?? ratio.item.price ?? 0} displayCost={ratio.s.foodCost} costPct={ratio.s.costPct} showCostsExVat={showCostsExVat} vatRate={data.vatRate} onClose={() => setRatioId(null)}/>}
+    {cost && <FoodCostBreakdownModal itemName={cost.item.name} foodCost={cost.s.foodCost} lines={cost.s.lines} showCostsExVat={showCostsExVat} onClose={() => setCostId(null)}/>}
+  </FullScreenEditor>;
 }
 
-function MetricRow({
-  label,
-  children,
-  last,
-  gridTemplate,
-}: {
-  label: string;
-  children: React.ReactNode;
-  last?: boolean;
-  gridTemplate: string;
-}) {
-  return (
-    <div
-      className={`grid ${last ? '' : 'border-b border-[var(--line)]'}`}
-      style={{ gridTemplateColumns: gridTemplate }}
-    >
-      <div className="px-[var(--s-4)] py-[var(--s-3)] text-fs-xs uppercase tracking-[0.06em] text-[var(--fg-muted)] font-medium bg-[var(--surface-2)] flex items-center">
-        {label}
-      </div>
-      {children}
-    </div>
-  );
+function MetricRow({label, children}: {label: string; children: ReactNode}) {
+  return <tr className="border-t border-[var(--line)]"><th scope="row" className="sticky start-0 z-10 bg-[var(--surface-2)] p-4 text-start text-xs font-medium text-fg-secondary border-e border-[var(--line)] align-top">{label}</th>{children}</tr>;
 }
-
-function Cell({
-  children,
-  className,
-  style,
-  align = 'center',
-}: {
-  children: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
-  align?: 'start' | 'center';
-}) {
-  return (
-    <div
-      className={`px-[var(--s-4)] py-[var(--s-3)] font-mono tabular-nums text-fs-sm text-[var(--fg)] flex ${align === 'start' ? 'items-start' : 'items-center'} ${className ?? ''}`}
-      style={style}
-    >
-      {children}
-    </div>
-  );
+function Cell({children, rank}: {children: ReactNode; rank?: {label: string; favorable: boolean} | null}) {
+  return <td className="p-4 align-top border-e border-[var(--line)] last:border-e-0 tabular-nums"><div>{children}</div>{rank && <span className={`inline-block mt-1.5 rounded-r-md px-2 py-1 text-xs ${rank.favorable ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--surface-2)] text-fg-secondary'}`}>{rank.label}</span>}</td>;
 }

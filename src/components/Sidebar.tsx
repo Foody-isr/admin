@@ -1,6 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { DEVICE_INVENTORY_READ_PERMISSIONS } from '@/lib/route-permissions';
+import FoodyLogo from './brand/FoodyLogo';
+import { NavigationFrame, useDesktopNavigation } from './common/NavigationFrame';
+import { Drawer } from './ds';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
@@ -106,7 +110,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const { hasAnyPermission, roleName, loading: permissionsLoading } = usePermissions();
   const { status: wsStatus } = useWs();
   const { t, direction, locale, setLocale } = useI18n();
-  const { collapsed, toggleCollapsed } = useSidebar();
+  const { collapsed: storedCollapsed, toggleCollapsed } = useSidebar();
+  const desktop = useDesktopNavigation();
+  const collapsed = desktop && storedCollapsed;
 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
@@ -160,7 +166,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
         { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
         { href: `${base}/kitchen/suppliers`, labelKey: 'purchases' },
-        { href: `${base}/kitchen/food-cost`, labelKey: 'costsAndMargins', desktopOnly: true },
+        { href: `${base}/kitchen/food-cost`, labelKey: 'costsAndMargins' },
       ],
     },
     {
@@ -249,10 +255,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       ],
     },
     {
-      href: `${base}/settings`,
+      href: hasAnyPermission('settings.view', 'settings.edit', 'tables.manage') ? `${base}/settings` : hasAnyPermission(...DEVICE_INVENTORY_READ_PERMISSIONS) ? `${base}/settings/devices` : `${base}/settings/delivery`,
       labelKey: 'settings',
       icon: Settings,
-      perm: ['settings.view', 'settings.edit', 'tables.manage'],
+      perm: [...DEVICE_INVENTORY_READ_PERMISSIONS, 'orders.manage'],
     },
   ];
   const courierNav: NavItem[] = [
@@ -336,18 +342,18 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       items: [
         { id: 'orders', href: `${base}/settings/orders`, labelKey: 'ordersAndAvailability', icon: CalendarClock },
         { id: 'stock', href: `${base}/settings/stock`, labelKey: 'stockSettings', icon: Package },
-        { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
-        { id: 'cibus', href: `${base}/settings/cibus`, labelKey: 'cibusSettings', icon: CreditCard, desktopOnly: true },
+        { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign },
+        { id: 'cibus', href: `${base}/settings/cibus`, labelKey: 'cibusSettings', icon: CreditCard },
         { id: 'ai-assistant', href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant', icon: Sparkles },
-        { id: 'delivery', href: `${base}/settings/delivery`, labelKey: 'deliveryZones', icon: MapPin },
+        { id: 'delivery', href: `${base}/settings/delivery`, labelKey: 'deliveryZones', icon: MapPin, perm: ['orders.manage', 'settings.view', 'settings.edit'] },
         { id: 'tours', href: `${base}/delivery/tours`, labelKey: 'tours', icon: Truck },
       ],
     },
     {
       groupKey: 'settingsGroupDevices',
       items: [
-        { id: 'devices', href: `${base}/settings/devices`, labelKey: 'deviceManagementTitle', icon: MonitorSmartphone, desktopOnly: true, perm: ['printers.view', 'printers.manage', 'shifts.view', 'shifts.manage', 'payments.view', 'payments.manage', 'kitchen.view', 'kitchen.manage', 'settings.view', 'settings.edit'] },
-        { id: 'printer-profiles', href: `${base}/settings/printers`, labelKey: 'printerProfilesTitle', icon: Printer, desktopOnly: true, perm: ['printers.view', 'printers.manage'] },
+        { id: 'devices', href: `${base}/settings/devices`, labelKey: 'deviceManagementTitle', icon: MonitorSmartphone, perm: DEVICE_INVENTORY_READ_PERMISSIONS },
+        { id: 'printer-profiles', href: `${base}/settings/printers`, labelKey: 'printerProfilesTitle', icon: Printer, perm: ['printers.view', 'printers.manage'] },
       ],
     },
     {
@@ -363,7 +369,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     {
       groupKey: 'settingsGroupOrg',
       items: [
-        { id: 'team', href: `${base}/settings/team`, labelKey: 'staffAndRoles', icon: Users, desktopOnly: true },
+        { id: 'team', href: `${base}/settings/team`, labelKey: 'staffAndRoles', icon: Users, perm: ['staff.view', 'staff.manage', 'roles.manage'] },
       ],
     },
   ];
@@ -377,16 +383,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const sidebarWidth = collapsed
     ? 'w-[var(--sidebar-w-collapsed)]'
     : 'w-[var(--sidebar-w)]';
-  const brandInitial = (restaurantName?.trim().charAt(0) || 'F').toUpperCase();
 
   return (
     <>
-      {/* Mobile backdrop */}
-      {isOpen && (
-        <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={onClose} />
-      )}
-
-      <aside
+      <NavigationFrame open={isOpen} onClose={onClose}
         className={`
           fixed top-0 z-30 h-dvh pt-safe-t pb-safe-b flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
           ${sidebarWidth}
@@ -402,33 +402,20 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         <div className="h-[var(--topbar-h)] px-[var(--s-5)] border-b border-[var(--line)] flex items-center">
           <button
             onClick={() => setProfileOpen(true)}
-            className="w-full flex items-center gap-[var(--s-3)] text-left min-w-0"
-            aria-label={t('profile')}
+            className="w-full flex items-center gap-[var(--s-3)] text-start min-w-0"
+            aria-label={`Foody · ${t('profile')}`}
           >
-            <div
-              className="w-8 h-8 shrink-0 rounded-r-md flex items-center justify-center text-white font-bold text-fs-md"
-              style={{
-                background:
-                  'linear-gradient(135deg, var(--brand-400), var(--brand-600))',
-                boxShadow: '0 2px 8px rgba(249,115,22,.3)',
-              }}
-            >
-              {brandInitial}
-            </div>
-            {!collapsed && (
-              <span className="font-semibold text-fs-md text-[var(--fg)] truncate">
-                {restaurantName ?? 'Foody'}
-              </span>
-            )}
+            <FoodyLogo variant={collapsed ? 'symbol' : 'wordmark'} width={collapsed ? 28 : 108} decorative />
+            {!collapsed && <span className="ms-auto text-xs font-medium text-[var(--fg-muted)]">Admin</span>}
           </button>
         </div>
 
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-2 lg:hidden">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]">
+          <span className="text-xs font-semibold text-[var(--fg-muted)]">
             {t('menu')}
           </span>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--sidebar-hover)]">
+          <button onClick={onClose} aria-label={t('close')} className="p-2 rounded hover:bg-[var(--sidebar-hover)]">
             <X className="w-5 h-5 text-[var(--fg-muted)]" />
           </button>
         </div>
@@ -441,14 +428,14 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               <Link
                 href={`${base}/dashboard`}
                 onClick={onClose}
-                className="w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out mb-[var(--s-2)]"
+                className="w-full flex items-center gap-[var(--s-3)] min-h-10 py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out mb-[var(--s-2)]"
               >
                 <BackArrow className="w-[18px] h-[18px] shrink-0" />
                 {!collapsed && <span className="truncate">{t('backToApp') || 'Back to app'}</span>}
               </Link>
               <div className="border-t border-[var(--line)] -mx-[var(--s-3)] mb-[var(--s-2)]" />
               {!collapsed && (
-                <div className="text-fs-xs font-semibold uppercase tracking-[.08em] text-[var(--fg-muted)] px-[var(--s-3)] pt-[var(--s-2)] pb-[var(--s-3)]">
+                <div className="text-fs-xs font-semibold text-[var(--fg-muted)] px-[var(--s-3)] pt-[var(--s-2)] pb-[var(--s-3)]">
                   {t('settings')}
                 </div>
               )}
@@ -462,7 +449,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   className={`mb-[var(--s-3)]${allDesktopOnly ? ' max-lg:hidden' : ''}`}
                 >
                   {!collapsed && (
-                    <div className="text-[10px] font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] px-[var(--s-3)] py-[var(--s-2)]">
+                    <div className="text-xs font-semibold text-[var(--fg-subtle)] px-[var(--s-3)] py-[var(--s-2)]">
                       {t(s.groupKey)}
                     </div>
                   )}
@@ -473,8 +460,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                       <Link
                         key={it.id}
                         href={it.href}
+                        aria-current={active ? 'page' : undefined}
+                        title={collapsed ? t(it.labelKey) : undefined}
+                        aria-label={t(it.labelKey)}
                         onClick={onClose}
-                        className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+                        className={`relative w-full flex items-center gap-[var(--s-3)] min-h-10 py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
                           it.desktopOnly ? 'max-lg:hidden ' : ''
                         }${
                           active
@@ -510,6 +500,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   // Parent groups never get the orange gradient — only text color
                   // shifts when expanded. Active state lives on the leaf child.
                   <button
+                    aria-label={t(item.labelKey)}
+                    title={collapsed ? t(item.labelKey) : undefined}
+                    aria-expanded={collapsed ? undefined : expanded}
                     onClick={() => {
                       if (collapsed) {
                         // In collapsed mode, clicking top-level navigates instead of expanding.
@@ -518,7 +511,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                         toggleKey(item.labelKey);
                       }
                     }}
-                    className={`w-full flex items-center justify-between gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+                    className={`w-full flex items-center justify-between gap-[var(--s-3)] min-h-10 py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
                       expanded
                         ? 'text-[var(--fg)]'
                         : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
@@ -546,8 +539,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                 ) : (
                   <Link
                     href={getNavHref(item)}
+                    aria-label={t(item.labelKey)}
+                    aria-current={isActive ? 'page' : undefined}
+                    title={collapsed ? t(item.labelKey) : undefined}
                     onClick={onClose}
-                    className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+                    className={`relative w-full flex items-center gap-[var(--s-3)] min-h-10 py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
                       isActive
                         ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
                         : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
@@ -575,7 +571,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   <div className="mt-0.5 space-y-0.5 ps-[30px]">
                     {item.subGroups?.map((group) => (
                       <div key={group.labelKey} className="py-[var(--s-1)]">
-                        <p className="px-[var(--s-3)] pt-[var(--s-3)] pb-[var(--s-1)] text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">
+                        <p className="px-[var(--s-3)] pt-[var(--s-3)] pb-[var(--s-1)] text-xs font-semibold text-[var(--fg-subtle)]">
                           {t(group.labelKey)}
                         </p>
                         {group.items.map((sub) => {
@@ -651,33 +647,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </button>
           </div>
         </div>
-      </aside>
+      </NavigationFrame>
 
-      {/* ── Profile drawer ── */}
-      {profileOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-50"
-          onClick={() => setProfileOpen(false)}
-        />
-      )}
-      <div
-        className={`
-          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] pt-safe-t pb-safe-b flex flex-col bg-[var(--sidebar-bg)]
-          transition-transform duration-200 ease-in-out border-[var(--line)]
-          ${isRtl ? 'left-0 border-r' : 'right-0 border-l'}
-          ${profileOpen ? 'translate-x-0' : isRtl ? '-translate-x-full' : 'translate-x-full'}
-        `}
-      >
-        {/* Drawer header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
-          <button
-            onClick={() => setProfileOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-[var(--sidebar-hover)]"
-          >
-            <X className="w-5 h-5 text-[var(--fg)]" />
-          </button>
-        </div>
-
+      <Drawer open={profileOpen} onOpenChange={setProfileOpen} title={t('profile')} width={360}>
         {/* User info */}
         <div className="px-5 py-5 border-b border-[var(--line)]">
           <div className="flex items-center gap-3">
@@ -721,7 +693,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               <Languages className="w-5 h-5 text-[var(--fg)]" />
               <span className="text-sm text-[var(--fg)]">{t('language')}</span>
             </div>
-            <div className="flex gap-2 ml-8">
+            <div className="flex gap-2 ms-8">
               {SUPPORTED_LOCALES.map((loc) => (
                 <button
                   key={loc}
@@ -771,7 +743,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             {t('signOut')}
           </button>
         </div>
-      </div>
+      </Drawer>
     </>
   );
 }
@@ -796,12 +768,13 @@ function SubLink({
   return (
     <Link
       href={href}
+      aria-current={active ? 'page' : undefined}
       onClick={onClick}
       className={`w-full flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-2 rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
         desktopOnly ? 'max-lg:hidden ' : ''
       }${
         active
-          ? 'bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)]'
+          ? 'bg-[var(--selection)] text-[var(--brand-ink)]'
           : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
       }`}
     >

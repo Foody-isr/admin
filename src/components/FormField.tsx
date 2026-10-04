@@ -16,7 +16,7 @@ export default function FormField({
       {label && (
         <label
           htmlFor={htmlFor}
-          className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1"
+          className="text-sm text-fg-primary font-medium block mb-2"
         >
           {label}
         </label>

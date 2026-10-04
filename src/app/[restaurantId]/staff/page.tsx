@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,8 +14,9 @@ import {
   Clock3Icon, MailIcon, MapPinnedIcon, PlusIcon,
   TabletSmartphoneIcon, TrashIcon,
 } from 'lucide-react';
-import { Button, PageHead } from '@/components/ds';
+import { Badge, Button, ConfirmDialog, PageHead } from '@/components/ds';
 import Modal from '@/components/Modal';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import {
   DataTable,
   DataTableHead,
@@ -29,7 +30,7 @@ import {
 export default function StaffPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { hasPermission, isOwner } = usePermissions();
+  const { hasPermission } = usePermissions();
   const { t } = useI18n();
   const canManage = hasPermission('staff.manage');
 
@@ -48,20 +49,39 @@ export default function StaffPage() {
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [successTone, setSuccessTone] = useState<'success' | 'warning'>('success');
   const [pageError, setPageError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [removeTarget, setRemoveTarget] = useState<StaffMember | null>(null);
+  const requestGuard = useRef(new RestaurantRequestGuard());
+  requestGuard.current.enterRestaurant(rid);
 
-  const reload = () => {
-    Promise.all([listStaff(rid), listRoles(rid)])
-      .then(([s, r]) => {
-        setStaff(s);
-        setRoles(r);
-      })
-      .catch((reason: unknown) => {
-        setPageError(reason instanceof Error ? reason.message : t('staffLoadError'));
-      })
-      .finally(() => setLoading(false));
-  };
-  useEffect(() => { reload(); }, [rid]); // eslint-disable-line react-hooks/exhaustive-deps
+  const reload = useCallback(async () => {
+    const guard = requestGuard.current;
+    const token = guard.begin(rid);
+    setPageError('');
+    try {
+      const [members, availableRoles] = await Promise.all([listStaff(rid), listRoles(rid)]);
+      if (guard.isCurrent(token)) {
+        setStaff(members);
+        setRoles(availableRoles);
+      }
+    } catch (reason: unknown) {
+      if (guard.isCurrent(token)) setPageError(reason instanceof Error ? reason.message : t('staffLoadError'));
+    } finally {
+      if (guard.isCurrent(token)) setLoading(false);
+    }
+  }, [rid, t]);
+  useEffect(() => {
+    const guard = requestGuard.current;
+    setLoading(true);
+    setStaff([]);
+    setRoles([]);
+    setInviteOpen(false);
+    setRemoveTarget(null);
+    void reload();
+    return () => guard.invalidate();
+  }, [reload]);
 
   // Set default role_id once roles load
   useEffect(() => {
@@ -72,6 +92,7 @@ export default function StaffPage() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManage || formLoading) return;
     setFormError('');
     setFormLoading(true);
     try {
@@ -89,6 +110,7 @@ export default function StaffPage() {
         : emailStatus === 'not_configured' ? 'invitationEmailNotConfigured'
         : emailStatus === 'failed' ? 'invitationEmailFailed'
         : 'memberAdded';
+      setSuccessTone(emailStatus === 'failed' || emailStatus === 'not_configured' ? 'warning' : 'success');
       setSuccessMsg(t(msgKey).replace('{email}', email));
       setForm({ full_name: '', email: '', phone: '', role_id: roles[0]?.id || 0 });
       reload();
@@ -100,38 +122,48 @@ export default function StaffPage() {
   };
 
   const handleRoleChange = async (member: StaffMember, newRoleId: number) => {
-    if (member.role === 'owner') return;
+    if (!canManage || member.role === 'owner' || actionLoading !== null) return;
     setActionLoading(member.id);
+    setActionError('');
     try {
       await updateStaffRole(rid, member.id, { role_id: newRoleId });
       reload();
+    } catch (reason: unknown) {
+      setActionError(reason instanceof Error ? reason.message : t('staffActionError'));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleRemove = async (member: StaffMember) => {
-    if (member.role === 'owner') return;
-    if (!confirm(t('removeStaffConfirm').replace('{name}', member.full_name))) return;
+    if (!canManage || member.role === 'owner' || actionLoading !== null) return;
     setActionLoading(member.id);
+    setActionError('');
     try {
       await removeStaff(rid, member.id);
       reload();
+    } catch (reason: unknown) {
+      setActionError(reason instanceof Error ? reason.message : t('staffActionError'));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleResendInvite = async (member: StaffMember) => {
+    if (!canManage || actionLoading !== null) return;
     setActionLoading(member.id);
+    setActionError('');
     try {
       const emailStatus = await resendStaffInvite(rid, member.id);
       const msgKey =
         emailStatus === 'sent' ? 'invitationSent'
         : emailStatus === 'not_configured' ? 'invitationEmailNotConfigured'
         : 'invitationEmailFailed';
+      setSuccessTone(emailStatus === 'failed' || emailStatus === 'not_configured' ? 'warning' : 'success');
       setSuccessMsg(t(msgKey).replace('{email}', member.email));
       reload();
+    } catch (reason: unknown) {
+      setActionError(reason instanceof Error ? reason.message : t('staffActionError'));
     } finally {
       setActionLoading(null);
     }
@@ -139,7 +171,7 @@ export default function StaffPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
+      <div className="flex justify-center py-16" role="status" aria-label={t('loading')}>
         <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
       </div>
     );
@@ -149,9 +181,19 @@ export default function StaffPage() {
     <div className="space-y-[var(--s-5)]">
       <PageHead
         title={t('staff') || 'Équipe'}
-        desc={`${staff.length} ${t('staffMembersCount') || 'membres'}`}
+        desc={pageError ? undefined : `${staff.length} ${t('staffMembersCount')}`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {canManage && (
+              <Button variant="primary" size="md" disabled={!!pageError || roles.length === 0} onClick={() => setInviteOpen(true)}>
+                <PlusIcon />
+                {t('inviteStaff')}
+              </Button>
+            )}
+          </div>
+        }
+      />
+      <nav aria-label={t('staff')} className="flex flex-wrap gap-2">
             {canManage && (
               <Button variant="secondary" size="md" asChild>
                 <Link href={`/${rid}/staff/table-service`}><MapPinnedIcon />{t('floorService')}</Link>
@@ -167,26 +209,18 @@ export default function StaffPage() {
                 <Link href={`/${rid}/staff/devices`}><TabletSmartphoneIcon />{t('posAccess')}</Link>
               </Button>
             )}
-            {canManage && (
-              <Button variant="primary" size="md" onClick={() => setInviteOpen(true)}>
-                <PlusIcon />
-                {t('inviteStaff')}
-              </Button>
-            )}
-          </div>
-        }
-      />
+      </nav>
 
       {successMsg && (
         <div
-          className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between"
+          className={`rounded-r-lg px-4 py-3 text-sm flex items-center justify-between gap-4 ${successTone === 'success' ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--warning-50)] text-[var(--warning-500)]'}`}
           role="status"
         >
           <span>{successMsg}</span>
           <button
             onClick={() => setSuccessMsg('')}
-            className="text-green-700 hover:text-green-900 font-medium"
-            aria-label="Dismiss"
+            className="size-10 shrink-0 rounded-r-md hover:bg-[var(--surface)] font-medium"
+            aria-label={t('close')}
           >
             ×
           </button>
@@ -194,12 +228,14 @@ export default function StaffPage() {
       )}
 
       {pageError && (
-        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
-          {pageError}
+        <div className="rounded-r-lg bg-[var(--danger-50)] px-4 py-3 text-sm text-[var(--danger-500)] flex flex-wrap items-center justify-between gap-3" role="alert">
+          <span>{pageError}</span><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button>
         </div>
       )}
 
-      <DataTable>
+      {actionError && <p role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
+      {!pageError && staff.length === 0 && <p className="py-12 text-center text-sm text-fg-secondary">{t('noStaffYet')}</p>}
+      {staff.length > 0 && <DataTable>
         <DataTableHead>
           <DataTableHeadCell>{t('name')}</DataTableHeadCell>
           <DataTableHeadCell>{t('email')}</DataTableHeadCell>
@@ -211,15 +247,16 @@ export default function StaffPage() {
         <DataTableBody>
           {staff.map((member, index) => (
             <DataTableRow key={member.id} index={index}>
-              <DataTableCell className="font-medium text-fg-primary">{member.full_name}</DataTableCell>
-              <DataTableCell className="text-fg-secondary">{member.email}</DataTableCell>
-              <DataTableCell>
+              <DataTableCell mobilePrimary className="font-semibold text-fg-primary">{member.full_name}</DataTableCell>
+              <DataTableCell mobileLabel={t('email')} className="text-fg-secondary break-all"><bdi className="min-w-0 break-all">{member.email}</bdi></DataTableCell>
+              <DataTableCell mobileLabel={t('role')}>
                 {canManage && member.role !== 'owner' ? (
                   <select
-                    disabled={actionLoading === member.id}
+                    disabled={actionLoading !== null}
+                    aria-label={`${t('role')} · ${member.full_name}`}
                     value={member.role_id ?? ''}
                     onChange={(e) => handleRoleChange(member, Number(e.target.value))}
-                    className="text-xs border border-divider rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    className="min-h-10 min-w-0 w-full md:w-auto max-w-full text-sm border border-[var(--line-strong)] rounded-r-md px-3 focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)]"
                     style={{ background: 'var(--surface)', color: 'var(--text-primary)' }}
                   >
                     {roles.map((r) => (
@@ -227,18 +264,18 @@ export default function StaffPage() {
                     ))}
                   </select>
                 ) : (
-                  <span className="badge badge-neutral">
+                  <Badge tone="neutral">
                     {roleDisplayLabel(t, member.role_name || member.role)}
-                  </span>
+                  </Badge>
                 )}
               </DataTableCell>
-              <DataTableCell>
-                <span className={`badge ${member.invite_status === 'active' ? 'badge-ready' : 'badge-neutral'}`}>
+              <DataTableCell mobileLabel={t('accountStatus')}>
+                <Badge tone={member.invite_status === 'active' ? 'success' : 'neutral'}>
                   {t(`staffStatus_${member.invite_status ?? 'not_invited'}`)}
-                </span>
+                </Badge>
               </DataTableCell>
-              <DataTableCell>
-                <span className={member.pos_pin_configured ? 'text-green-600' : 'text-fg-muted'}>
+              <DataTableCell mobileLabel={t('posCode')}>
+                <span className={member.pos_pin_configured ? 'text-[var(--success-500)]' : 'text-fg-muted'}>
                   {member.pos_pin_configured ? t('configured') : t('notConfigured')}
                 </span>
               </DataTableCell>
@@ -247,20 +284,20 @@ export default function StaffPage() {
                   {member.role !== 'owner' && (
                     <div className="flex justify-end gap-1">
                       <button
-                        disabled={actionLoading === member.id}
+                        disabled={actionLoading !== null}
                         onClick={() => handleResendInvite(member)}
-                        className="p-1.5 rounded hover:bg-brand-500/10 disabled:opacity-50"
+                        className="size-10 grid place-items-center rounded-r-md hover:bg-[var(--brand-soft)] disabled:opacity-50" aria-label={`${t('resendSetupInvite')} · ${member.full_name}`}
                         title={t('resendSetupInvite')}
                       >
-                        <MailIcon className="w-4 h-4 text-brand-500" />
+                        <MailIcon className="w-4 h-4 text-[var(--brand-ink)]" />
                       </button>
                       <button
-                        disabled={actionLoading === member.id}
-                        onClick={() => handleRemove(member)}
-                        className="p-1.5 rounded hover:bg-red-500/10 disabled:opacity-50"
+                        disabled={actionLoading !== null}
+                        onClick={() => setRemoveTarget(member)}
+                        className="size-10 grid place-items-center rounded-r-md hover:bg-[var(--danger-50)] disabled:opacity-50" aria-label={`${t('remove')} · ${member.full_name}`}
                         title={t('remove')}
                       >
-                        <TrashIcon className="w-4 h-4 text-red-400" />
+                        <TrashIcon className="w-4 h-4 text-[var(--danger-500)]" />
                       </button>
                     </div>
                   )}
@@ -269,34 +306,34 @@ export default function StaffPage() {
             </DataTableRow>
           ))}
         </DataTableBody>
-      </DataTable>
+      </DataTable>}
 
       {/* Invite modal */}
       {inviteOpen && (
-        <Modal title={t('inviteStaffMember')} onClose={() => setInviteOpen(false)}>
+        <Modal title={t('inviteStaffMember')} onClose={() => { if (!formLoading) setInviteOpen(false); }}>
           {formError && (
-            <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">{formError}</div>
+            <div role="alert" className="mb-3 p-3 bg-[var(--danger-50)] rounded-r-lg text-sm text-[var(--danger-500)]">{formError}</div>
           )}
 
           <form onSubmit={handleInvite} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('fullName')}</label>
-              <input required className="input" value={form.full_name}
+              <label htmlFor="invite-full_name" className="block text-sm font-medium text-fg-secondary mb-1">{t('fullName')}</label>
+              <input required className="input" id="invite-full_name" autoComplete="name" value={form.full_name}
                 onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('email')}</label>
-              <input required type="email" className="input" value={form.email}
+              <label htmlFor="invite-email" className="block text-sm font-medium text-fg-secondary mb-1">{t('email')}</label>
+              <input required type="email" className="input" id="invite-email" autoComplete="email" dir="ltr" value={form.email}
                 onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phoneOptional')}</label>
-              <input className="input" value={form.phone}
+              <label htmlFor="invite-phone" className="block text-sm font-medium text-fg-secondary mb-1">{t('phoneOptional')}</label>
+              <input className="input" id="invite-phone" autoComplete="tel" type="tel" dir="ltr" value={form.phone}
                 onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('role')}</label>
-              <select className="input" value={form.role_id}
+              <label htmlFor="invite-role_id" className="block text-sm font-medium text-fg-secondary mb-1">{t('role')}</label>
+              <select className="input" id="invite-role_id" value={form.role_id}
                 onChange={(e) => setForm((p) => ({ ...p, role_id: Number(e.target.value) }))}>
                 {roles.map((r) => (
                   <option key={r.id} value={r.id}>{roleDisplayName(t, r.name, r.is_system_default)}</option>
@@ -304,7 +341,7 @@ export default function StaffPage() {
               </select>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="btn-secondary" onClick={() => setInviteOpen(false)}>{t('cancel')}</button>
+              <button type="button" className="btn-secondary" disabled={formLoading} onClick={() => setInviteOpen(false)}>{t('cancel')}</button>
               <button type="submit" disabled={formLoading} className="btn-primary disabled:opacity-50">
                 {formLoading ? t('inviting') : t('invite')}
               </button>
@@ -313,6 +350,10 @@ export default function StaffPage() {
         </Modal>
       )}
 
+      <ConfirmDialog open={!!removeTarget} onOpenChange={open => { if (!open) setRemoveTarget(null); }}
+        title={t('remove')} description={t('removeStaffConfirm').replace('{name}', removeTarget?.full_name ?? '')}
+        confirmLabel={t('remove')} cancelLabel={t('cancel')} danger
+        onConfirm={() => { if (removeTarget) void handleRemove(removeTarget); }} />
     </div>
   );
 }

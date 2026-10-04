@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
-import { Button, Kpi, PageHead } from '@/components/ds';
+import { Button, PageHead } from '@/components/ds';
 import {
   DataTable,
   DataTableBody,
@@ -15,6 +15,7 @@ import {
 } from '@/components/data-table';
 import { listStaffShifts, StaffShiftSummary } from '@/lib/api';
 import { useCurrency, useI18n } from '@/lib/i18n';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 
 function inputDate(date: Date): string {
   const year = date.getFullYear();
@@ -47,23 +48,29 @@ export default function StaffShiftsPage() {
   const [shifts, setShifts] = useState<StaffShiftSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const requestGuard = useRef(new RestaurantRequestGuard());
+  requestGuard.current.enterRestaurant(rid);
 
   const load = async () => {
+    const guard = requestGuard.current;
+    const token = guard.begin(rid);
     setLoading(true);
     setError('');
     try {
+      if (!from || !to || from > to) throw new Error(t('dateRangeRequired'));
       const start = new Date(`${from}T00:00:00`);
       const end = new Date(`${to}T00:00:00`);
       end.setDate(end.getDate() + 1);
-      setShifts(await listStaffShifts(rid, { from: start.toISOString(), to: end.toISOString() }));
+      const result = await listStaffShifts(rid, { from: start.toISOString(), to: end.toISOString() });
+      if (guard.isCurrent(token)) setShifts(result);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t('failedToLoadShifts'));
+      if (guard.isCurrent(token)) setError(cause instanceof Error ? cause.message : t('failedToLoadShifts'));
     } finally {
-      setLoading(false);
+      if (guard.isCurrent(token)) setLoading(false);
     }
   };
 
-  useEffect(() => { void load(); }, [rid, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const guard = requestGuard.current; void load(); return () => guard.invalidate(); }, [rid, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totals = shifts.reduce(
     (value, shift) => ({
@@ -83,9 +90,9 @@ export default function StaffShiftsPage() {
         title={t('shiftReports')}
         desc={t('shiftReportsDesc')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" size="md" asChild>
-              <Link href={`/${rid}/staff`}><ArrowLeft />{t('back')}</Link>
+              <Link href={`/${rid}/staff`}><ArrowLeft className="rtl:rotate-180" />{t('back')}</Link>
             </Button>
             <Button variant="secondary" size="md" onClick={() => void load()} disabled={loading}>
               <RefreshCw />{t('refresh')}
@@ -94,59 +101,58 @@ export default function StaffShiftsPage() {
         }
       />
 
-      <div className="card p-4 flex flex-wrap items-end gap-4">
-        <label className="text-sm text-fg-secondary">
+      <div className="flex flex-wrap items-end gap-4">
+        <label className="min-w-0 flex-1 sm:flex-none text-sm text-fg-secondary">
           <span className="block mb-1">{t('from')}</span>
           <input className="input" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
         </label>
-        <label className="text-sm text-fg-secondary">
+        <label className="min-w-0 flex-1 sm:flex-none text-sm text-fg-secondary">
           <span className="block mb-1">{t('to')}</span>
           <input className="input" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
         </label>
-        {active > 0 && (
-          <div className="ml-auto inline-flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-2 text-sm font-medium text-green-600">
-            <span className="h-2 w-2 rounded-full bg-green-500" />
+        {!loading && !error && active > 0 && (
+          <div className="ms-auto inline-flex items-center gap-2 rounded-r-md bg-[var(--success-50)] px-3 py-2 text-sm font-medium text-[var(--success-500)]">
+            <span className="h-2 w-2 rounded-full bg-current" />
             {t('activeShifts').replace('{count}', String(active))}
           </div>
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label={t('workedHours')} value={duration(totals.seconds)} />
-        <Kpi label={t('ordersTaken')} value={String(totals.orders)} />
-        <Kpi label={t('tablesServed')} value={String(totals.tables)} />
-        <Kpi label={t('attributedSales')} value={money(totals.sales)} />
-      </div>
+      {!loading && !error && <dl className="grid grid-cols-2 xl:grid-cols-4 gap-5 rounded-r-lg bg-[var(--summary-bg)] p-5">
+        {[[t('workedHours'), duration(totals.seconds)], [t('ordersTaken'), String(totals.orders)], [t('tablesServed'), String(totals.tables)], [t('attributedSales'), money(totals.sales)]].map(([label, value]) => (
+          <div key={label} className="min-w-0 space-y-2"><dt className="text-sm text-fg-secondary">{label}</dt><dd className="text-2xl font-semibold tabular-nums break-words text-[var(--summary-fg)]">{value}</dd></div>
+        ))}
+      </dl>}
+      {error && <div role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)] flex flex-wrap items-center justify-between gap-3"><span>{error}</span><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>}
+      {loading && <p role="status" className="py-12 text-center text-sm text-fg-secondary">{t('loading')}</p>}
 
-      {error && <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-
-      <DataTable>
+      {!loading && !error && <DataTable>
         <DataTableHead>
           <DataTableHeadCell>{t('staffMember')}</DataTableHeadCell>
           <DataTableHeadCell>{t('shiftStart')}</DataTableHeadCell>
           <DataTableHeadCell>{t('shiftEnd')}</DataTableHeadCell>
-          <DataTableHeadCell>{t('duration')}</DataTableHeadCell>
-          <DataTableHeadCell>{t('ordersTaken')}</DataTableHeadCell>
-          <DataTableHeadCell>{t('tablesServed')}</DataTableHeadCell>
-          <DataTableHeadCell>{t('attributedSales')}</DataTableHeadCell>
+          <DataTableHeadCell align="right">{t('duration')}</DataTableHeadCell>
+          <DataTableHeadCell align="right">{t('ordersTaken')}</DataTableHeadCell>
+          <DataTableHeadCell align="right">{t('tablesServed')}</DataTableHeadCell>
+          <DataTableHeadCell align="right">{t('attributedSales')}</DataTableHeadCell>
         </DataTableHead>
         <DataTableBody>
           {!loading && shifts.map((shift, index) => (
             <DataTableRow key={shift.id} index={index}>
-              <DataTableCell>
-                <div className="font-medium text-fg-primary">{shift.staff_name}</div>
+              <DataTableCell mobilePrimary>
+                <div className="font-semibold text-fg-primary">{shift.staff_name}</div>
                 <div className="text-xs text-fg-muted">{shift.role_name}</div>
               </DataTableCell>
-              <DataTableCell>{dateTime.format(new Date(shift.started_at))}</DataTableCell>
-              <DataTableCell>
+              <DataTableCell mobileLabel={t('shiftStart')}>{dateTime.format(new Date(shift.started_at))}</DataTableCell>
+              <DataTableCell mobileLabel={t('shiftEnd')}>
                 {shift.ended_at ? dateTime.format(new Date(shift.ended_at)) : (
-                  <span className="text-green-600 font-medium">{t('inProgress')}</span>
+                  <span className="text-[var(--success-500)] font-medium">{t('inProgress')}</span>
                 )}
               </DataTableCell>
-              <DataTableCell>{duration(shift.duration_seconds)}</DataTableCell>
-              <DataTableCell>{shift.order_count}</DataTableCell>
-              <DataTableCell>{shift.table_count}</DataTableCell>
-              <DataTableCell>{money(shift.sales_total)}</DataTableCell>
+              <DataTableCell align="right" mobileLabel={t('duration')} className="tabular-nums whitespace-nowrap">{duration(shift.duration_seconds)}</DataTableCell>
+              <DataTableCell align="right" mobileLabel={t('ordersTaken')} className="tabular-nums">{shift.order_count}</DataTableCell>
+              <DataTableCell align="right" mobileLabel={t('tablesServed')} className="tabular-nums">{shift.table_count}</DataTableCell>
+              <DataTableCell align="right" mobileLabel={t('attributedSales')} className="tabular-nums">{money(shift.sales_total)}</DataTableCell>
             </DataTableRow>
           ))}
           {!loading && shifts.length === 0 && (
@@ -155,7 +161,7 @@ export default function StaffShiftsPage() {
             </DataTableRow>
           )}
         </DataTableBody>
-      </DataTable>
+      </DataTable>}
     </div>
   );
 }

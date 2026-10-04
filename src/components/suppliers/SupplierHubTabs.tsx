@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 
 export type SupplierHubTab = "needs" | "orders" | "suppliers" | "deliveries";
 
+/** Shared navigation for stock needs, orders, suppliers and received deliveries. */
 export default function SupplierHubTabs({
   restaurantId,
   active,
@@ -15,6 +17,12 @@ export default function SupplierHubTabs({
   lowCount?: number;
 }) {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const supplierHref = (tab: SupplierHubTab) => {
+    const query = new URLSearchParams(active === "deliveries" ? "" : searchParams.toString());
+    query.set("tab", tab);
+    return `/${restaurantId}/kitchen/suppliers?${query}`;
+  };
   const base = `/${restaurantId}/kitchen`;
   const tabs: {
     key: SupplierHubTab;
@@ -25,18 +33,18 @@ export default function SupplierHubTabs({
     {
       key: "needs",
       label: t("supplierNeeds"),
-      href: `${base}/suppliers?tab=needs`,
+      href: supplierHref("needs"),
       count: lowCount,
     },
     {
       key: "orders",
       label: t("purchaseOrders"),
-      href: `${base}/suppliers?tab=orders`,
+      href: supplierHref("orders"),
     },
     {
       key: "suppliers",
       label: t("suppliers"),
-      href: `${base}/suppliers?tab=suppliers`,
+      href: supplierHref("suppliers"),
     },
     {
       key: "deliveries",
@@ -48,7 +56,7 @@ export default function SupplierHubTabs({
   return (
     <nav
       aria-label={t("supplierHubTitle")}
-      className="mb-[var(--s-6)] rounded-r-lg bg-[var(--surface-2)] p-1"
+      className="mb-[var(--s-6)] border-b border-[var(--line)]"
     >
       <div className="grid w-full grid-cols-2 gap-1 sm:grid-cols-4">
         {tabs.map((tab) => (
@@ -56,10 +64,10 @@ export default function SupplierHubTabs({
             key={tab.key}
             href={tab.href}
             aria-current={active === tab.key ? "page" : undefined}
-            className={`inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-r-md px-3 py-2 text-fs-xs font-medium leading-tight outline-none transition-colors focus-visible:shadow-ring sm:min-h-10 sm:px-2 sm:text-fs-sm lg:px-4 ${
+            className={`inline-flex min-h-11 min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-fs-xs font-medium leading-tight outline-none transition-colors focus-visible:shadow-ring sm:min-h-11 sm:px-2 sm:text-fs-sm lg:px-4 ${
               active === tab.key
-                ? "bg-[var(--surface)] text-[var(--fg)] shadow-1"
-                : "text-[var(--fg-muted)] hover:bg-[var(--surface)]/60 hover:text-[var(--fg)]"
+                ? "border-[var(--brand-ink)] bg-[var(--brand-soft)] text-[var(--brand-ink)]"
+                : "border-transparent text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
             }`}
           >
             <span className="min-w-0 break-words text-center [text-wrap:balance]">

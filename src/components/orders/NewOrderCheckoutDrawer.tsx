@@ -110,14 +110,15 @@ function OptionTile({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         'flex flex-1 flex-col items-start gap-1 rounded-md border p-[var(--s-3)] text-start transition-colors',
         active
-          ? 'border-[var(--brand-500)] bg-[var(--surface-2)] text-[var(--fg)] shadow-1 ring-1 ring-[var(--brand-500)]'
+          ? 'border-[var(--brand-ink)] bg-[var(--brand-soft)] text-[var(--brand-ink)]'
           : 'border-[var(--line-strong)] bg-[var(--surface)] hover:border-[var(--fg-subtle)]',
       )}
     >
-      <span className={cn('[&_svg]:size-5', active ? 'text-[var(--brand-600)]' : 'text-[var(--fg-muted)]')}>
+      <span className={cn('[&_svg]:size-5', active ? 'text-[var(--brand-ink)]' : 'text-[var(--fg-muted)]')}>
         {icon}
       </span>
       <span className="text-fs-sm font-medium">{label}</span>
@@ -132,10 +133,11 @@ function ToggleButton({ active, onClick, label }: { active: boolean; onClick: ()
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        'rounded-md px-[var(--s-3)] py-1 text-fs-sm font-medium transition-colors',
+        'min-h-9 rounded-md px-[var(--s-3)] py-1 text-fs-sm font-medium transition-colors',
         active
-          ? 'bg-[var(--brand-500)] text-white shadow-1'
+          ? 'bg-[var(--brand-soft)] text-[var(--brand-ink)]'
           : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
       )}
     >
@@ -479,7 +481,7 @@ export function NewOrderCheckoutDrawer({
       <div className="flex flex-col gap-[var(--s-5)]">
         {/* Order type */}
         <div className="flex flex-col gap-2">
-          <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
             {t('orderType')}
           </span>
           <div className="flex gap-2">
@@ -578,7 +580,7 @@ export function NewOrderCheckoutDrawer({
 
         {/* Payment: method + "déjà encaissé ?" */}
         <div className="flex flex-col gap-2">
-          <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
             {t('payment')}
           </span>
           <div className="grid grid-cols-3 gap-2">
@@ -602,7 +604,7 @@ export function NewOrderCheckoutDrawer({
 
         {/* Discount: coupon code picker + manual discount (permission-gated) */}
         <div className="flex flex-col gap-2">
-          <span className="flex items-center gap-[var(--s-2)] text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+          <span className="flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--fg-muted)]">
             <TagIcon className="size-3.5" />
             {t('applyDiscount')}
           </span>
@@ -616,16 +618,16 @@ export function NewOrderCheckoutDrawer({
                     ? `${t('discountLine')} (${appliedCoupon.code})`
                     : t('manualDiscount')}
                   {' '}
-                  <span className="font-mono tabular-nums">−{money(appliedAmount)}</span>
+                  <span className="tabular-nums">−{money(appliedAmount)}</span>
                 </span>
-                <span className="font-mono tabular-nums text-fs-xs text-[var(--success-600)]">
+                <span className="tabular-nums text-fs-xs text-[var(--success-500)]">
                   {t('total')}: {money(discountedTotal)}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={clearDiscount}
-                className="text-fs-xs font-medium text-[var(--fg-muted)] underline-offset-2 hover:text-[var(--danger-500)] hover:underline"
+                className="text-fs-sm font-medium text-[var(--fg-muted)] underline-offset-2 hover:text-[var(--danger-500)] hover:underline"
               >
                 {t('remove')}
               </button>
@@ -656,7 +658,7 @@ export function NewOrderCheckoutDrawer({
                   type="button"
                   disabled={!couponCode.trim() || discountValidating}
                   onClick={applyDiscountCode}
-                  className="h-9 shrink-0 rounded-lg border border-[var(--brand-500)] bg-[var(--brand-500)] px-[var(--s-3)] text-fs-sm font-medium text-white transition-colors hover:bg-[var(--brand-600)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-9 shrink-0 rounded-lg border border-[var(--action)] bg-[var(--action)] px-[var(--s-3)] text-fs-sm font-medium text-[var(--action-fg)] transition-colors hover:bg-[var(--action-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {discountValidating ? '…' : t('apply')}
                 </button>
@@ -698,7 +700,7 @@ export function NewOrderCheckoutDrawer({
                     type="button"
                     disabled={!manualValue || parseFloat(manualValue) <= 0 || !manualReason.trim()}
                     onClick={applyManualDiscount}
-                    className="self-end rounded-lg border border-[var(--brand-500)] bg-[var(--brand-500)] px-[var(--s-3)] py-1 text-fs-sm font-medium text-white transition-colors hover:bg-[var(--brand-600)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="self-end rounded-lg border border-[var(--action)] bg-[var(--action)] px-[var(--s-3)] py-1 text-fs-sm font-medium text-[var(--action-fg)] transition-colors hover:bg-[var(--action-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {t('apply')}
                   </button>
@@ -714,7 +716,7 @@ export function NewOrderCheckoutDrawer({
           role="checkbox"
           aria-checked={addToProduction}
           onClick={() => setAddToProduction((v) => !v)}
-          className="flex items-start gap-[var(--s-3)] rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] py-2 text-left"
+          className="flex items-start gap-[var(--s-3)] rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] py-2 text-start"
         >
           <span
             className={cn(

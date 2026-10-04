@@ -3,17 +3,18 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   importDeliveryStream, importDeliveryVoice, confirmDelivery, listSuppliers, getRestaurantSettings,
-  getImportDraft, createImportDraft, deleteImportDraft, chatDeliveryEdit,
+  getImportDraft, createImportDraft, updateImportDraft, deleteImportDraft,
   getStockCategories, createStockCategory,
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
-  DeliveryStreamDone, ChatItemSnapshot, ChatTurn, ChatPatch,
 } from '@/lib/api';
 
-import { SparklesIcon, FileTextIcon, SendHorizonalIcon, MicIcon, ScanIcon } from 'lucide-react';
-import { useI18n, useCurrency } from '@/lib/i18n';
+import { SparklesIcon, MicIcon, ScanIcon } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import SearchableSelect from '@/components/SearchableSelect';
 import { FoodySpinner } from '@/components/FoodySpinner';
+import Modal from '@/components/Modal';
+import { Button, ConfirmDialog, Field, FullScreenEditor, Input } from '@/components/ds';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import StockQuantityForm, {
   StockInput, BaseUnit, PackagingUnit, deriveTotals,
@@ -162,1187 +163,207 @@ function stockInputToLinePatch(i: StockInput): Partial<ConfirmDeliveryItemInput>
 }
 
 interface DeliveryImportModalProps {
-  rid: number;
-  stockItems: StockItem[];
-  draftId?: number; // If provided, resume this draft on open
-  onClose: () => void;
-  onImported: () => void;
+  rid:number;stockItems:StockItem[];draftId?:number;onClose:()=>void;onImported:()=>void|Promise<void>;
 }
 
-export default function DeliveryImportModal({ rid, stockItems, draftId, onClose, onImported }: DeliveryImportModalProps) {
-  const { t, locale, direction } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-  const [step, setStep] = useState<'upload' | 'review'>('upload');
-  const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [extraction, setExtraction] = useState<DeliveryExtraction | null>(null);
-  const [editedItems, setEditedItems] = useState<ConfirmDeliveryItemInput[]>([]);
-  // Per-line form state. Stored alongside editedItems so mode+packaging fields
-  // persist across renders (the line item alone can't represent mode when all
-  // packaging fields are zero — that's why toggling Basic→Advanced on an empty
-  // line used to snap back).
-  const [formStates, setFormStates] = useState<StockInput[]>([]);
-  // Indexes of flagged rows (`needs_review === true`) that the user has
-  // acknowledged — either by clicking "Mark as checked" or by editing any
-  // field on the row. Used to gate the "Confirm import" button.
-  const [reviewedItems, setReviewedItems] = useState<Set<number>>(new Set());
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewType, setPreviewType] = useState<string>(''); // MIME type for preview (from file or draft)
-  // S3 URL of the scanned bill once it's been persisted (via draft upload).
-  // Populated when resuming a draft; populated lazily on confirm for fresh
-  // imports so the resulting Approvisionnement keeps a reference to the bill.
-  const [documentUrl, setDocumentUrl] = useState<string>('');
-  const [documentType, setDocumentType] = useState<string>('');
-  const [reviewTab, setReviewTab] = useState<'document' | 'items'>('items');
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [stockCategoryNames, setStockCategoryNames] = useState<string[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
-  const [newSupplierName, setNewSupplierName] = useState('');
-  const [vatRate, setVatRate] = useState(18);
-  // Pick up the HT/TTC display preference from the shared localStorage key so
-  // the delivery review page entry mode matches the stock table.
-  const [vatDisplayMode, setVatDisplayMode] = useState<'ex' | 'inc'>('inc');
-  useEffect(() => {
-    try {
-      const v = localStorage.getItem('foody.stock.vatDisplay');
-      if (v === 'ex' || v === 'inc') setVatDisplayMode(v);
-    } catch { /* ignore */ }
-  }, []);
-  const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
-  const [savingDraft, setSavingDraft] = useState(false);
-  const [importMode, setImportMode] = useState<'scan' | 'voice'>('scan');
-  const [streaming, setStreaming] = useState(false);
-  const [streamError, setStreamError] = useState('');
-  // Last submitted blob — kept so the Retry button on the error banner can
-  // re-send the same audio without forcing the user to re-record.
-  const lastVoiceRef = useRef<{ blob: Blob; mediaType: string } | null>(null);
-  const [summaryDismissed, setSummaryDismissed] = useState(false);
-  // Whisper transcript from the most recent voice import — rendered in the
-  // left pane so the user can see exactly what the AI heard before reviewing
-  // the extracted items. Cleared between scans.
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  const abortRef = useRef<AbortController | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
+/** Delivery review scoped to one restaurant and one resumed draft. */
+export default function DeliveryImportModal(props:DeliveryImportModalProps) {
+  return <DeliveryImportWorkspace key={`${props.rid}:${props.draftId??'new'}`} {...props}/>;
+}
 
-  // Load restaurant suppliers + VAT rate, and resume draft if draftId provided
-  useEffect(() => {
-    listSuppliers(rid).then(setSuppliers).catch(() => {});
-    getStockCategories(rid)
-      .then((categories) => setStockCategoryNames(categories.map((category) => category.name)))
-      .catch(() => {});
-    getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
-    if (draftId) {
-      getImportDraft(rid, draftId).then((detail) => {
-        setExtraction(detail.extraction);
-        setEditedItems(detail.edited_items);
-        setFormStates(detail.edited_items.map(lineToStockInput));
-        setReviewedItems(new Set());
-        setSelectedSupplierId(detail.draft.supplier_id ?? 0);
-        setNewSupplierName('');
-        // Use the S3 document URL for preview
-        if (detail.draft.document_url) {
-          setPreviewUrl(detail.draft.document_url);
-          setPreviewType(detail.draft.document_type || '');
-          setDocumentUrl(detail.draft.document_url);
-          setDocumentType(detail.draft.document_type || '');
+function DeliveryImportWorkspace({rid,stockItems,draftId,onClose,onImported}:DeliveryImportModalProps) {
+  const {t,locale}=useI18n();
+  const {hasAnyPermission}=usePermissions();
+  const canManage=hasAnyPermission('kitchen.manage');
+  const [step,setStep]=useState<'upload'|'review'>('upload');
+  const [mode,setMode]=useState<'scan'|'voice'>('scan');
+  const [file,setFile]=useState<File|null>(null);
+  const [filePreview,setFilePreview]=useState('');
+  const [extraction,setExtraction]=useState<DeliveryExtraction|null>(null);
+  const [editedItems,setEditedItems]=useState<ConfirmDeliveryItemInput[]>([]);
+  const [formStates,setFormStates]=useState<StockInput[]>([]);
+  const [reviewed,setReviewed]=useState<Set<number>>(new Set());
+  const [suppliers,setSuppliers]=useState<Supplier[]>([]);
+  const [categoryNames,setCategoryNames]=useState<string[]>([]);
+  const [supplierId,setSupplierId]=useState(0);
+  const [newSupplier,setNewSupplier]=useState('');
+  const [vatRate,setVatRate]=useState(18);
+  const [vatMode,setVatMode]=useState<'ex'|'inc'>('inc');
+  const [documentUrl,setDocumentUrl]=useState('');
+  const [documentType,setDocumentType]=useState('');
+  const [currentDraft,setCurrentDraft]=useState<number|undefined>(draftId);
+  const [loaded,setLoaded]=useState(false);
+  const [loadError,setLoadError]=useState('');
+  const [attempt,setAttempt]=useState(0);
+  const [streaming,setStreaming]=useState(false);
+  const [streamError,setStreamError]=useState('');
+  const [transcript,setTranscript]=useState('');
+  const [reviewTab,setReviewTab]=useState<'document'|'items'>('items');
+  const [saving,setSaving]=useState<'draft'|'confirm'|'category'|null>(null);
+  const [error,setError]=useState('');
+  const [savedDraft,setSavedDraft]=useState(false);
+  const [confirmed,setConfirmed]=useState(false);
+  const [missingDocument,setMissingDocument]=useState(false);
+  const [withoutDocument,setWithoutDocument]=useState(false);
+  const [discard,setDiscard]=useState(false);
+  const [voiceDirty,setVoiceDirty]=useState(false);
+  const discardAction=useRef<()=>void>(onClose);
+  const [restart,setRestart]=useState(false);
+  const pendingRestart=useRef<(()=>void)|null>(null);
+  const lock=useRef(false);
+  const generation=useRef(0);
+  const extracting=useRef(false);
+  const abort=useRef<AbortController|null>(null);
+  const lastVoice=useRef<{blob:Blob;type:string}|null>(null);
+  const baseline=useRef<string|null>(null);
+  const receipt=useRef<{confirmed:boolean;draftId?:number;draftDeleted:boolean;documentUrl:string;documentType:string}>({confirmed:false,draftDeleted:false,documentUrl:'',documentType:''});
+  const busy=!!saving;
+  const supplierName=supplierId===-1?newSupplier.trim():supplierId>0?(suppliers.find(supplier=>supplier.id===supplierId)?.name??extraction?.supplier_name??''):(extraction?.supplier_name??'');
+  const supplierReady=supplierId>0||(supplierId===-1&&!!newSupplier.trim());
+  const fingerprint=JSON.stringify({editedItems,formStates,supplierId,newSupplier,file:file?.name,mode});
+  const dirty=baseline.current!==null&&fingerprint!==baseline.current;
+  useEffect(()=>{if(loaded&&baseline.current===null)baseline.current=fingerprint;},[loaded,fingerprint]);
+  useEffect(()=>{
+    try{const value=localStorage.getItem('foody.stock.vatDisplay');if(value==='ex'||value==='inc')setVatMode(value);}catch{/* A display preference is optional. */}
+    const requestGeneration=generation;
+    return()=>{requestGeneration.current++;abort.current?.abort();};
+  },[]);
+  useEffect(()=>{
+    if(!file){setFilePreview('');return;}
+    const url=URL.createObjectURL(file);setFilePreview(url);return()=>URL.revokeObjectURL(url);
+  },[file]);
+  useEffect(()=>{
+    let active=true;setLoaded(false);setLoadError('');
+    Promise.all([listSuppliers(rid),getStockCategories(rid),getRestaurantSettings(rid),draftId?getImportDraft(rid,draftId):Promise.resolve(null)]).then(([nextSuppliers,categories,settings,detail])=>{
+      if(!active)return;setSuppliers(nextSuppliers);setCategoryNames(categories.map(category=>category.name));setVatRate(settings.vat_rate??18);
+      if(detail){setExtraction(detail.extraction);setEditedItems(detail.edited_items);setFormStates(detail.edited_items.map(lineToStockInput));setSupplierId(detail.draft.supplier_id??0);setDocumentUrl(detail.draft.document_url);setDocumentType(detail.draft.document_type);setStep('review');receipt.current={confirmed:false,draftId:detail.draft.id,draftDeleted:false,documentUrl:detail.draft.document_url,documentType:detail.draft.document_type};}
+      setLoaded(true);
+    }).catch(cause=>{if(active)setLoadError(cause instanceof Error?cause.message:t('workspaceLoadError'));});
+    return()=>{active=false;};
+  },[rid,draftId,attempt,t]);
+  const close=()=>{if(lock.current)return;if((dirty||voiceDirty||streaming)&&!confirmed){discardAction.current=onClose;setDiscard(true);}else onClose();};
+  const changeMode=(value:'scan'|'voice')=>{if(value===mode)return;if(voiceDirty){discardAction.current=()=>{setVoiceDirty(false);setMode(value);};setDiscard(true);}else setMode(value);};
+  useEffect(()=>{
+    const warn=(event:BeforeUnloadEvent)=>{if(((dirty||voiceDirty||streaming)&&!confirmed)||lock.current){event.preventDefault();event.returnValue='';}};
+    window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);
+  },[dirty,voiceDirty,streaming,confirmed]);
+  const chooseFile=(next:File|undefined)=>{
+    if(!next||!canManage||busy)return;
+    setError('');
+    if(!['image/jpeg','image/png','image/gif','image/webp','application/pdf'].includes(next.type)||next.size>10*1024*1024){setError(t('deliveryFileRequirements'));return;}
+    setFile(next);
+  };
+  const makeLine=(item:DeliveryExtraction['items'][number]):ConfirmDeliveryItemInput=>{
+    const matched=stockItems.find(stock=>stock.id===item.matched_item_id);
+    return {stock_item_id:item.matched_item_id??undefined,name:item.translated_name||item.original_name,original_name:item.original_name,sku:item.sku||'',quantity:item.quantity,unit:item.unit,category:localizeAiCategory(item.category,t),cost_per_unit:item.estimated_cost,pack_count:item.pack_count??0,units_per_pack:item.units_per_pack??0,price_per_pack:item.price_per_pack||0,total_price:item.total_price||(item.estimated_cost*item.quantity),unit_size:item.unit_size||0,unit_size_unit:item.unit_size_unit||'',container_type:item.container_type||'',unit_type:item.unit_type||'',vat_rate_override:matched?.vat_rate_override??null,row_index:item.row_index,needs_review:item.needs_review,review_reason:item.review_reason};
+  };
+  const beginExtraction=()=>{
+    const id=++generation.current;extracting.current=true;setStreaming(true);setStreamError('');setError('');setEditedItems([]);setFormStates([]);setReviewed(new Set());setExtraction({supplier_name:'',delivery_date:'',items:[],raw_notes:''});setTranscript('');setSavedDraft(false);setConfirmed(false);setCurrentDraft(undefined);setDocumentUrl('');setDocumentType('');setMissingDocument(false);setWithoutDocument(false);receipt.current={confirmed:false,draftDeleted:false,documentUrl:'',documentType:''};setStep('review');setReviewTab('items');return id;
+  };
+  const scan=async()=>{
+    if(!file||!canManage||!loaded||lock.current||extracting.current||receipt.current.confirmed||!supplierReady)return;
+    const id=beginExtraction();const controller=new AbortController();abort.current=controller;let ended=false;
+    try{
+      await importDeliveryStream(rid,file,{lang:locale,supplierId:supplierId>0?supplierId:undefined},{
+        onMeta:meta=>{if(id===generation.current)setExtraction(previous=>previous?{...previous,supplier_name:meta.supplier_name??previous.supplier_name,delivery_date:meta.delivery_date??previous.delivery_date}:previous);},
+        onItem:item=>{if(id!==generation.current)return;const line=makeLine(item);setEditedItems(previous=>[...previous,line]);setFormStates(previous=>[...previous,lineToStockInput(line)]);setExtraction(previous=>previous?{...previous,items:[...previous.items,item]}:previous);},
+        onProgress:()=>{},
+        onDone:done=>{ended=true;if(id!==generation.current)return;setEditedItems(previous=>previous.map((item,index)=>({...item,...(done.late_flags?.duplicate_row_indexes?.includes(index)?{needs_review:true,review_reason:item.review_reason||'duplicate_row'}:{}),...(done.late_flags?.deduped_indexes?.includes(index)?{skipped:true}:{})})));setExtraction(previous=>previous?{...previous,raw_notes:done.raw_notes??previous.raw_notes}:previous);},
+        onError:failure=>{ended=true;if(id===generation.current)setStreamError(failure.message);},
+      },controller.signal);
+      if(id===generation.current&&!ended)setStreamError(t('deliveryStreamIncomplete'));
+    }catch(cause){if(id===generation.current&&!(cause instanceof DOMException&&cause.name==='AbortError'))setStreamError(cause instanceof Error?cause.message:t('workspaceLoadError'));}
+    finally{if(id===generation.current){extracting.current=false;setStreaming(false);abort.current=null;}}
+  };
+  const voice=async(blob:Blob,type:string)=>{
+    if(!canManage||!loaded||lock.current||extracting.current||receipt.current.confirmed||!supplierReady)return;
+    lastVoice.current={blob,type};setVoiceDirty(false);setFile(null);const id=beginExtraction();
+    try{const response=await importDeliveryVoice(rid,blob,type,locale,supplierId>0?supplierId:undefined);if(id!==generation.current)return;setTranscript(response.transcript);setExtraction(response.extraction);const lines=response.extraction.items.map(makeLine);setEditedItems(lines);setFormStates(lines.map(lineToStockInput));}
+    catch(cause){if(id===generation.current)setStreamError(cause instanceof Error?cause.message:t('workspaceLoadError'));}
+    finally{if(id===generation.current){extracting.current=false;setStreaming(false); }}
+  };
+  const cancelScan=()=>{generation.current++;extracting.current=false;abort.current?.abort();abort.current=null;setStreaming(false);setStreamError(t('deliveryStreamCancelled'));};
+  const requestRestart=(action:()=>void)=>{if(editedItems.length>0){pendingRestart.current=action;setRestart(true);}else action();};
+  const retryScan=()=>requestRestart(()=>{if(mode==='voice'&&lastVoice.current)void voice(lastVoice.current.blob,lastVoice.current.type);else void scan();});
+  const draftPayload=()=>({supplier_id:supplierId>0?supplierId:undefined,supplier_name:supplierName,extraction:extraction!,edited_items:editedItems});
+  const saveDraft=async()=>{
+    if(!canManage||!loaded||!extraction||lock.current||streaming||confirmed)return;lock.current=true;setSaving('draft');setError('');
+    try{
+      const draft=currentDraft?await updateImportDraft(rid,currentDraft,draftPayload()):await createImportDraft(rid,file,draftPayload());
+      setCurrentDraft(draft.id);receipt.current.draftId=draft.id;receipt.current.documentUrl=draft.document_url;receipt.current.documentType=draft.document_type;setDocumentUrl(draft.document_url);setDocumentType(draft.document_type);setSavedDraft(true);baseline.current=fingerprint;
+      if(file&&!draft.document_url)setMissingDocument(true);else onClose();
+    }catch(cause){setError(cause instanceof Error?cause.message:t('saveFailed'));}
+    finally{lock.current=false;setSaving(null);}
+  };
+  const activeItems=editedItems.filter(item=>!item.skipped);
+  const unchecked=editedItems.filter((item,index)=>item.needs_review&&!item.skipped&&!reviewed.has(index)).length;
+  const confirm=async()=>{
+    if(!canManage||!loaded||lock.current||streaming||(!receipt.current.confirmed&&(activeItems.length===0||unchecked>0)))return;
+    lock.current=true;setSaving('confirm');setError('');
+    try{
+      const saved=receipt.current;
+      if(!saved.confirmed){
+        if(file&&!saved.documentUrl&&!saved.draftId&&extraction){
+          const draft=await createImportDraft(rid,file,draftPayload());saved.draftId=draft.id;saved.documentUrl=draft.document_url;saved.documentType=draft.document_type;setCurrentDraft(draft.id);setDocumentUrl(draft.document_url);setDocumentType(draft.document_type);
         }
-        setStep('review');
-      }).catch(() => {});
-    }
-  }, [rid, draftId]);
-
-  const handleSaveDraft = async () => {
-    if (!extraction) return;
-    setSavingDraft(true);
-    try {
-      const supplierName = selectedSupplierId === -1
-        ? newSupplierName.trim()
-        : (selectedSupplierId > 0
-          ? suppliers.find((s) => s.id === selectedSupplierId)?.name
-          : extraction.supplier_name) ?? '';
-      const draft = await createImportDraft(rid, file, {
-        supplier_id: selectedSupplierId > 0 ? selectedSupplierId : undefined,
-        supplier_name: supplierName,
-        extraction,
-        edited_items: editedItems,
-      });
-      setCurrentDraftId(draft.id);
-      onClose();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setSavingDraft(false);
-    }
-  };
-
-  // Cleanup blob URL on unmount (only for locally created blob URLs, not S3 URLs)
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
-
-  const handleUpload = async () => {
-    if (!file) return;
-    setStreamError('');
-    setEditedItems([]);
-    setFormStates([]);
-    setReviewedItems(new Set());
-    setExtraction({ supplier_name: '', delivery_date: '', items: [], raw_notes: '' });
-    setPreviewUrl(URL.createObjectURL(file));
-    setPreviewType(file.type);
-    setStep('review');
-    setStreaming(true);
-    setSummaryDismissed(false);
-    setVoiceTranscript('');
-
-    const ac = new AbortController();
-    abortRef.current = ac;
-
-    const appendItem = (it: DeliveryExtraction['items'][number]) => {
-      const matched = it.matched_item_id ? stockItems.find((s) => s.id === it.matched_item_id) : null;
-      const line: ConfirmDeliveryItemInput = {
-        stock_item_id: it.matched_item_id ?? undefined,
-        name: it.translated_name || it.original_name,
-        original_name: it.original_name,
-        sku: it.sku || '',
-        quantity: it.quantity,
-        unit: it.unit,
-        // The AI emits a fixed English enum for category (Meat / Dairy / …).
-        // Translate to the active locale before storing so the admin doesn't
-        // show English labels in a French/Hebrew UI, and so the value matches
-        // what the user would type if they created a category manually.
-        category: localizeAiCategory(it.category, t),
-        cost_per_unit: it.estimated_cost,
-        pack_count: it.pack_count ?? 0,
-        units_per_pack: it.units_per_pack ?? 0,
-        price_per_pack: it.price_per_pack || 0,
-        total_price: it.total_price || (it.estimated_cost * it.quantity),
-        unit_size: it.unit_size || 0,
-        unit_size_unit: it.unit_size_unit || '',
-        container_type: it.container_type || '',
-        unit_type: it.unit_type || '',
-        vat_rate_override: matched?.vat_rate_override ?? null,
-        row_index: it.row_index,
-        needs_review: it.needs_review,
-        review_reason: it.review_reason,
-      };
-      setEditedItems((prev) => [...prev, line]);
-      setFormStates((prev) => [...prev, lineToStockInput(line)]);
-    };
-
-    const applyLateFlags = (done: DeliveryStreamDone) => {
-      const flags = done.late_flags;
-      if (flags) {
-        setEditedItems((prev) => prev.map((item, idx) => {
-          let next = item;
-          if (flags.duplicate_row_indexes?.includes(idx)) {
-            next = {
-              ...next,
-              needs_review: true,
-              review_reason: next.review_reason || 'duplicate_row',
-            };
-          }
-          if (flags.deduped_indexes?.includes(idx)) {
-            next = { ...next, skipped: true };
-          }
-          return next;
-        }));
+        if(file&&!saved.documentUrl&&!withoutDocument){setMissingDocument(true);return;}
+        await confirmDelivery(rid,{supplier_name:supplierName,document_url:saved.documentUrl,document_type:saved.documentType,items:activeItems});saved.confirmed=true;setConfirmed(true);
       }
-      setExtraction((prev) => prev ? { ...prev, raw_notes: done.raw_notes ?? prev.raw_notes } : prev);
-    };
-
-    try {
-      await importDeliveryStream(rid, file,
-        { lang: locale, supplierId: selectedSupplierId > 0 ? selectedSupplierId : undefined },
-        {
-          onMeta: (m) => setExtraction((prev) => prev
-            ? { ...prev, supplier_name: m.supplier_name ?? prev.supplier_name, delivery_date: m.delivery_date ?? prev.delivery_date }
-            : prev),
-          onItem: appendItem,
-          onProgress: () => {},
-          onDone: (done) => { applyLateFlags(done); setStreaming(false); },
-          onError: ({ message }) => { setStreamError(message); setStreaming(false); },
-        },
-        ac.signal,
-      );
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === 'AbortError')) {
-        setStreamError((err as Error).message);
-      }
-      setStreaming(false);
-    }
+      if(saved.draftId&&!saved.draftDeleted){await deleteImportDraft(rid,saved.draftId);saved.draftDeleted=true;}
+      await onImported();onClose();
+    }catch(cause){setError(cause instanceof Error?cause.message:t('saveFailed'));}
+    finally{lock.current=false;setSaving(null);}
   };
-
-  // ── Voice import: record → transcribe → review ────────────────────────
-  // Reuses the same streaming-UI state as the bill-scan path: while the
-  // backend transcribes + parses we flip `streaming=true` so the user sees
-  // the FoodySpinner banner with cycling verbs. When the extraction arrives,
-  // we batch-insert every item just like a list arriving at the end.
-  const handleVoiceSubmit = async (audioBlob: Blob, mediaType: string) => {
-    lastVoiceRef.current = { blob: audioBlob, mediaType };
-    setStreamError('');
-    setEditedItems([]);
-    setFormStates([]);
-    setReviewedItems(new Set());
-    setExtraction({ supplier_name: '', delivery_date: '', items: [], raw_notes: '' });
-    setPreviewUrl(null);
-    setPreviewType('');
-    setReviewTab('items');
-    setStep('review');
-    setStreaming(true);
-    setSummaryDismissed(false);
-    setVoiceTranscript('');
-
-    try {
-      const { extraction: result, transcript } = await importDeliveryVoice(
-        rid,
-        audioBlob,
-        mediaType,
-        locale,
-        selectedSupplierId > 0 ? selectedSupplierId : undefined,
-      );
-      setVoiceTranscript(transcript);
-      setExtraction(result);
-      const newItems: ConfirmDeliveryItemInput[] = result.items.map((i) => {
-        const matched = i.matched_item_id ? stockItems.find((s) => s.id === i.matched_item_id) : null;
-        return {
-          stock_item_id: i.matched_item_id ?? undefined,
-          name: i.translated_name || i.original_name,
-          original_name: i.original_name,
-          sku: i.sku || '',
-          quantity: i.quantity,
-          unit: i.unit,
-          category: localizeAiCategory(i.category, t),
-          cost_per_unit: i.estimated_cost,
-          pack_count: i.pack_count ?? 0,
-          units_per_pack: i.units_per_pack ?? 0,
-          price_per_pack: i.price_per_pack || 0,
-          total_price: i.total_price || (i.estimated_cost * i.quantity),
-          unit_size: i.unit_size || 0,
-          unit_size_unit: i.unit_size_unit || '',
-          container_type: i.container_type || '',
-          unit_type: i.unit_type || '',
-          vat_rate_override: matched?.vat_rate_override ?? null,
-          row_index: i.row_index,
-          needs_review: i.needs_review,
-          review_reason: i.review_reason,
-        };
-      });
-      setEditedItems(newItems);
-      setFormStates(newItems.map(lineToStockInput));
-    } catch (err) {
-      setStreamError((err as Error).message);
-    } finally {
-      setStreaming(false);
-    }
+  const markReviewed=(index:number)=>setReviewed(previous=>new Set([...Array.from(previous),index]));
+  const updateItem=(index:number,patch:Partial<ConfirmDeliveryItemInput>)=>{if(!canManage||lock.current||confirmed)return;setSavedDraft(false);setEditedItems(previous=>previous.map((item,i)=>i===index?{...item,...patch}:item));markReviewed(index);};
+  const updateForm=(index:number,value:StockInput)=>{if(!canManage||lock.current||confirmed)return;setFormStates(previous=>previous.map((item,i)=>i===index?value:item));updateItem(index,stockInputToLinePatch(value));};
+  const categories=Array.from(new Set([...categoryNames,...stockItems.map(item=>item.category).filter(Boolean)])).sort((a,b)=>a.localeCompare(b,locale));
+  const createCategory=async(name:string)=>{
+    if(!canManage||lock.current||confirmed)throw new Error(t('saveFailed'));
+    const existing=categories.find(category=>category.localeCompare(name.trim(),locale,{sensitivity:'accent'})===0);if(existing)return existing;
+    lock.current=true;setSaving('category');
+    try{const created=await createStockCategory(rid,{name:name.trim()});setCategoryNames(previous=>[...previous,created.name]);return created.name;}finally{lock.current=false;setSaving(null);}
   };
-
-  const cancelStream = () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    lastVoiceRef.current = null;
-    setStreaming(false);
-    setEditedItems([]);
-    setFormStates([]);
-    setStep('upload');
-  };
-
-  // ── Chat: targeted AI edits over the current items ─────────────────────
-  // Builds a slim snapshot of the current items, sends the user's message
-  // + history to the chat endpoint, and applies the returned patches to
-  // editedItems/formStates in place.
-  const applyChatPatches = (patches: ChatPatch[]) => {
-    if (patches.length === 0) return;
-    setEditedItems((prev) => {
-      const next = prev.slice();
-      const formNext = formStates.slice();
-      for (const p of patches) {
-        if (p.item_index < 0 || p.item_index >= next.length) continue;
-        const cur = next[p.item_index];
-        const patched: ConfirmDeliveryItemInput = {
-          ...cur,
-          ...(p.name !== undefined ? { name: p.name } : {}),
-          ...(p.category !== undefined ? { category: p.category } : {}),
-          ...(p.quantity !== undefined ? { quantity: p.quantity } : {}),
-          ...(p.total_price !== undefined ? { total_price: p.total_price } : {}),
-          ...(p.cost_per_unit !== undefined ? { cost_per_unit: p.cost_per_unit } : {}),
-          ...(p.vat_rate_override !== undefined ? { vat_rate_override: p.vat_rate_override } : {}),
-          ...(p.skipped !== undefined ? { skipped: p.skipped } : {}),
-        };
-        // If price or quantity changed, total_price stays as patched (server
-        // already converted units / VAT). Recompute cost_per_unit if the
-        // model didn't give us one but moved the total or quantity.
-        if (p.cost_per_unit === undefined && (p.total_price !== undefined || p.quantity !== undefined)) {
-          const q = patched.quantity || cur.quantity;
-          patched.cost_per_unit = q > 0 ? (patched.total_price ?? 0) / q : 0;
-        }
-        next[p.item_index] = patched;
-        formNext[p.item_index] = lineToStockInput(patched);
-      }
-      setFormStates(formNext);
-      return next;
-    });
-    // Treat AI edits as acknowledged for any flagged rows we touched.
-    setReviewedItems((prev) => {
-      const next = new Set(prev);
-      patches.forEach((p) => next.add(p.item_index));
-      return next;
-    });
-  };
-
-  const sendChat = async () => {
-    const message = chatInput.trim();
-    if (!message || chatLoading) return;
-    setChatLoading(true);
-    const nextHistory: ChatTurn[] = [...chatHistory, { role: 'user', content: message }];
-    setChatHistory(nextHistory);
-    setChatInput('');
-
-    const snapshot: ChatItemSnapshot[] = editedItems.map((i, index) => ({
-      index,
-      name: i.name,
-      original_name: i.original_name,
-      category: i.category,
-      unit: i.unit,
-      quantity: i.quantity,
-      cost_per_unit: i.cost_per_unit,
-      total_price: i.total_price ?? 0,
-      pack_count: i.pack_count,
-      units_per_pack: i.units_per_pack,
-      unit_size: i.unit_size,
-      unit_size_unit: i.unit_size_unit,
-      container_type: i.container_type,
-      unit_type: i.unit_type,
-      vat_rate_override: i.vat_rate_override,
-      skipped: i.skipped,
-    }));
-
-    try {
-      const res = await chatDeliveryEdit(rid, {
-        items: snapshot,
-        history: chatHistory,
-        message,
-        vat_display_mode: vatDisplayMode,
-        default_vat_rate: vatRate,
-        lang: locale,
-      });
-      applyChatPatches(res.patches);
-      setChatHistory([
-        ...nextHistory,
-        { role: 'assistant', content: res.assistant_message || (res.patches.length > 0 ? t('aiPatchApplied') : t('aiNoChange')) },
-      ]);
-    } catch (err) {
-      setChatHistory([
-        ...nextHistory,
-        { role: 'assistant', content: t('aiErrorGeneric') + ' (' + (err as Error).message + ')' },
-      ]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  // Count of flagged rows that haven't been edited/acknowledged and aren't skipped.
-  const unreviewedFlaggedCount = editedItems.reduce((n, it, idx) => (
-    it.needs_review && !it.skipped && !reviewedItems.has(idx) ? n + 1 : n
-  ), 0);
-
-  const markReviewed = (idx: number) => {
-    setReviewedItems((prev) => {
-      if (prev.has(idx)) return prev;
-      const next = new Set(prev);
-      next.add(idx);
-      return next;
-    });
-  };
-
-  const handleConfirm = async () => {
-    const itemsToImport = editedItems.filter((i) => !i.skipped);
-    if (itemsToImport.length === 0) {
-      alert(t('nothingToImport'));
-      return;
-    }
-    if (unreviewedFlaggedCount > 0) {
-      alert(t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)));
-      return;
-    }
-    setLoading(true);
-    try {
-      // Use user-typed name for new suppliers, otherwise use AI-extracted or DB supplier name
-      const supplierName = selectedSupplierId === -1
-        ? newSupplierName.trim()
-        : (selectedSupplierId > 0
-          ? suppliers.find((s) => s.id === selectedSupplierId)?.name
-          : extraction?.supplier_name) ?? '';
-
-      // Ensure the scanned bill is on S3 before confirming, so the
-      // Approvisionnement page can render it later. Resumed drafts already
-      // have an S3 URL; fresh imports upload via a transient draft that we
-      // delete right after confirm.
-      let draftIdToDelete = currentDraftId;
-      let docUrl = documentUrl;
-      let docType = documentType;
-      if (!docUrl && file && extraction) {
-        try {
-          const draft = await createImportDraft(rid, file, {
-            supplier_id: selectedSupplierId > 0 ? selectedSupplierId : undefined,
-            supplier_name: supplierName,
-            extraction,
-            edited_items: editedItems,
-          });
-          draftIdToDelete = draft.id;
-          docUrl = draft.document_url || '';
-          docType = draft.document_type || '';
-        } catch {
-          // Non-fatal: confirm without a document reference.
-        }
-      }
-
-      await confirmDelivery(rid, {
-        supplier_name: supplierName,
-        document_url: docUrl,
-        document_type: docType,
-        items: itemsToImport,
-      });
-      if (draftIdToDelete) {
-        deleteImportDraft(rid, draftIdToDelete).catch(() => {});
-      }
-      onImported();
-      onClose();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateItem = (idx: number, patch: Partial<ConfirmDeliveryItemInput>) => {
-    setEditedItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
-    // Editing any field implicitly acknowledges the warning.
-    markReviewed(idx);
-  };
-
-  const updateFormState = (idx: number, v: StockInput) => {
-    setFormStates((prev) => {
-      if (prev[idx] === v) return prev;
-      const next = prev.slice();
-      next[idx] = v;
-      return next;
-    });
-    updateItem(idx, stockInputToLinePatch(v));
-  };
-
-  const updateVatDisplayMode = (mode: 'ex' | 'inc') => {
-    setVatDisplayMode(mode);
-    try { localStorage.setItem('foody.stock.vatDisplay', mode); } catch { /* ignore */ }
-  };
-
-  const existingCategories = Array.from(new Set([
-    ...stockCategoryNames,
-    ...stockItems.map((s) => s.category).filter(Boolean),
-  ])).sort((a, b) => a.localeCompare(b, locale));
-
-  const handleCreateCategory = async (name: string): Promise<string> => {
-    const trimmedName = name.trim();
-    const existing = existingCategories.find(
-      (category) => category.localeCompare(trimmedName, locale, { sensitivity: 'accent' }) === 0,
-    );
-    if (existing) return existing;
-
-    const created = await createStockCategory(rid, { name: trimmedName });
-    setStockCategoryNames((current) => Array.from(new Set([...current, created.name])));
-    return created.name;
-  };
-
-  const stockOptions = [
-    { value: '', label: `— ${t('newItem')} —`, sublabel: '' },
-    ...stockItems.map((s) => ({ value: String(s.id), label: s.name, sublabel: s.unit })),
-  ];
-
-  // ─── Upload Step (compact dialog) ─────────────────────────────────────────
-
-  if (step === 'upload') {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="rounded-modal shadow-xl p-6 w-full max-w-md mx-4" style={{ background: 'var(--surface)' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-fg-primary flex items-center gap-2">
-              <SparklesIcon className="w-5 h-5 text-brand-500" />
-              {t('aiDeliveryImport')}
-            </h3>
-            <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
-          </div>
-
-          <div className="space-y-4">
-            {/* Mode picker — Scan vs Voice. Voice is faster for hands-busy
-                kitchens; scan is more accurate when a printed bill is on hand. */}
-            <div className="grid grid-cols-2 gap-2 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
-              <button
-                type="button"
-                onClick={() => setImportMode('scan')}
-                className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${importMode === 'scan' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
-              >
-                <ScanIcon className="w-4 h-4" />
-                {t('importModeScan')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setImportMode('voice')}
-                className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${importMode === 'voice' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
-              >
-                <MicIcon className="w-4 h-4" />
-                {t('importModeVoice')}
-              </button>
-            </div>
-
-            {importMode === 'scan' && (
-              <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
-            )}
-
-            {/* Supplier selector — shared across modes */}
-            <div>
-              <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('selectSupplier')} *</label>
-              <SearchableSelect
-                value={selectedSupplierId === -1 ? '__new__' : selectedSupplierId ? String(selectedSupplierId) : ''}
-                onChange={(val) => {
-                  if (val === '__new__') {
-                    setSelectedSupplierId(-1);
-                    setNewSupplierName('');
-                  } else {
-                    setSelectedSupplierId(val ? +val : 0);
-                    setNewSupplierName('');
-                  }
-                }}
-                options={[
-                  ...suppliers.map((s) => ({ value: String(s.id), label: s.name })),
-                  { value: '__new__', label: `+ ${t('newSupplier')}` },
-                ]}
-                placeholder={t('selectSupplier')}
-              />
-              {selectedSupplierId === -1 && (
-                <input
-                  className="input w-full py-2 text-sm mt-2"
-                  value={newSupplierName}
-                  onChange={(e) => setNewSupplierName(e.target.value)}
-                  placeholder={t('supplierName')}
-                  autoFocus
-                />
-              )}
-            </div>
-
-            {importMode === 'scan' && (
-              <>
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="input w-full py-2 text-sm"
-                />
-                {/* File thumbnail preview */}
-                {file && file.type.startsWith('image/') && (
-                  <div className="rounded-lg overflow-hidden border border-[var(--divider)] max-h-40">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
-                  </div>
-                )}
-                {file && file.type === 'application/pdf' && (
-                  <div className="flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] text-sm text-fg-secondary">
-                    <FileTextIcon className="w-5 h-5" />
-                    {file.name}
-                  </div>
-                )}
-                <div className="flex justify-end gap-2">
-                  <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-                  {canManage && (
-                    <button
-                      onClick={handleUpload}
-                      disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())}
-                      className="btn-primary text-sm inline-flex items-center gap-2"
-                    >
-                      {loading && <FoodySpinner size={14} className="opacity-90" />}
-                      {loading ? t('analyzing') : t('uploadAndAnalyze')}
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-
-            {importMode === 'voice' && canManage && (
-              <VoiceRecorder
-                t={t}
-                disabled={!selectedSupplierId && !newSupplierName.trim()}
-                onSubmit={handleVoiceSubmit}
-              />
-            )}
-          </div>
+  const stockOptions=[{value:'',label:`— ${t('newItem')} —`},...stockItems.map(item=>({value:String(item.id),label:item.name,sublabel:item.unit}))];
+  const frozen=!canManage||busy||confirmed;
+  const preview=filePreview||documentUrl;
+  const previewType=file?.type||documentType;
+  const loadState=!loaded?<div className="space-y-4 p-5">{loadError?<><p role="alert" className="text-sm text-[var(--danger-500)]">{loadError}</p><Button size="lg" variant="secondary" onClick={()=>setAttempt(value=>value+1)}>{t('retry')}</Button></>:<p role="status" className="text-sm text-fg-secondary">{t('loading')}</p>}</div>:null;
+  const notices=<>{savedDraft&&<p role="status" className="text-sm">{t('deliveryDraftSaved')}</p>}{confirmed&&<p role="status" className="text-sm">{t('deliveryConfirmedRecovery')}</p>}{missingDocument&&<div className="space-y-3 rounded-r-md border border-[var(--warning-500)] p-3 text-sm"><p>{t('deliveryDocumentMissing')}</p>{!confirmed&&<label className="flex min-h-11 items-center gap-3"><input type="checkbox" className="size-5 shrink-0" disabled={busy} checked={withoutDocument} onChange={event=>setWithoutDocument(event.target.checked)}/><span>{t('deliveryWithoutDocument')}</span></label>}</div>}{error&&<p role="alert" className="text-sm text-[var(--danger-500)]">{error}</p>}</>;
+  const confirmations=<><ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={()=>{setDiscard(false);discardAction.current();}}/><ConfirmDialog open={restart} onOpenChange={setRestart} title={t('deliveryRestartTitle')} description={t('deliveryRestartHint')} confirmLabel={t('continue')} cancelLabel={t('cancel')} onConfirm={()=>{setRestart(false);pendingRestart.current?.();pendingRestart.current=null;}}/></>;
+  if(step==='upload')return <>
+    <Modal title={t('aiDeliveryImport')} icon={<SparklesIcon/>} size="lg" onClose={close} closeDisabled={busy}>
+      {loadState||<div className="space-y-5"><div role="group" aria-label={t('type')} className="flex flex-wrap gap-2">{(['scan','voice']as const).map(value=><Button key={value} type="button" variant="secondary" size="lg" aria-pressed={mode===value} className={mode===value?'bg-[var(--brand-soft)] text-[var(--brand-ink)] border-[var(--brand-ink)]':''} onClick={()=>changeMode(value)}>{value==='scan'?<ScanIcon/>:<MicIcon/>}{t(value==='scan'?'importModeScan':'importModeVoice')}</Button>)}</div>
+        {mode==='scan'&&<p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>}
+        <fieldset disabled={!canManage||busy} className="min-w-0 space-y-4"><div className="space-y-2"><p className="text-sm font-medium">{t('selectSupplier')}</p><SearchableSelect value={supplierId===-1?'__new__':supplierId?String(supplierId):''} onChange={value=>{setSupplierId(value==='__new__'?-1:Number(value));setNewSupplier('');}} options={[...suppliers.map(supplier=>({value:String(supplier.id),label:supplier.name})),{value:'__new__',label:`+ ${t('newSupplier')}`}]} placeholder={t('selectSupplier')} className="min-h-11"/>{supplierId===-1&&<Field label={t('supplierName')}><Input className="min-h-11" value={newSupplier} onChange={event=>setNewSupplier(event.target.value)}/></Field>}</div>
+          {mode==='scan'?<><Field label={t('deliveryFile')} hint={t('deliveryFileRequirements')}><input aria-label={t('deliveryFile')} type="file" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" className="min-h-11 max-w-full rounded-r-md border border-[var(--line-strong)] p-2 text-sm" onChange={event=>{chooseFile(event.target.files?.[0]);event.target.value='';}}/></Field>{file&&<p className="break-words text-sm">{file.name}</p>}{filePreview&&file?.type.startsWith('image/')&&<div className="rounded-r-md border border-[var(--line)] p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={filePreview} alt={t('originalDocument')} className="max-h-48 w-full object-contain"/>
+          </div>}<Button type="button" size="lg" className="w-full" disabled={!file||!supplierReady} onClick={()=>requestRestart(()=>void scan())}>{t('uploadAndAnalyze')}</Button></>:<VoiceRecorder t={t} onDraftChange={setVoiceDirty} disabled={!canManage||!supplierReady||busy} onSubmit={(blob,type)=>requestRestart(()=>void voice(blob,type))}/>}
+        </fieldset>{notices}
+      </div>}
+    </Modal>{confirmations}
+  </>;
+  return <>
+    <FullScreenEditor open title={t('aiDeliveryImport')} subtitle={`${supplierName} · ${activeItems.length} ${t('items')}`} showCancel={false} onOpenChange={value=>{if(!value)close();}} closeDisabled={busy} bodyClassName="flex flex-col overflow-hidden" contentClassName="flex min-h-0 flex-1 flex-col p-0 md:p-0"
+      footer={<div className="space-y-3">{notices}<div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 sm:flex sm:justify-between"><Button size="lg" variant="secondary" disabled={busy||confirmed||streaming} onClick={()=>setStep('upload')}>{t('back')}</Button><div className="contents sm:flex sm:flex-wrap sm:gap-2">{canManage&&!confirmed&&<Button size="lg" variant="secondary" disabled={busy||streaming||!loaded||!extraction} onClick={()=>void saveDraft()}>{t(saving==='draft'?'saving':'saveDraft')}</Button>}{canManage&&<Button size="lg" className="col-span-2" disabled={busy||streaming||!loaded||(!confirmed&&(activeItems.length===0||unchecked>0||(missingDocument&&!withoutDocument)))} onClick={()=>void confirm()}>{t(saving==='confirm'?'confirming':confirmed?'retry':'confirmImport')}</Button>}</div></div></div>}>
+      {loadState||<>
+        <div className="flex shrink-0 border-b border-[var(--line)] lg:hidden" role="group" aria-label={t('aiDeliveryImport')}>{(['document','items']as const).map(value=><button type="button" key={value} aria-pressed={reviewTab===value} className={`min-h-11 flex-1 px-4 py-3 text-sm ${reviewTab===value?'border-b-2 border-[var(--brand-ink)] text-[var(--brand-ink)] font-semibold':'text-fg-secondary'}`} onClick={()=>setReviewTab(value)}>{t(value==='items'?'items':mode==='voice'?'voiceTranscript':'originalDocument')}</button>)}</div>
+        <div className="min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <section aria-label={t(mode==='voice'?'voiceTranscript':'originalDocument')} className={`${reviewTab==='document'?'block':'hidden'} h-full min-w-0 overflow-auto border-e border-[var(--line)] bg-[var(--surface-2)] p-4 lg:block`}><h2 className="mb-4 text-sm font-semibold">{t(mode==='voice'?'voiceTranscript':'originalDocument')}</h2>{mode==='voice'?<p className="whitespace-pre-wrap text-sm" dir="auto">{transcript||t('voiceTranscriptPending')}</p>:preview?previewType==='application/pdf'?<iframe src={preview} title={t('originalDocument')} className="h-full min-h-96 w-full"/>:
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={preview} alt={t('originalDocument')} className="h-auto w-full rounded-r-md"/>
+          :<p className="text-sm text-fg-secondary">{t('deliveryDocumentMissing')}</p>}</section>
+          <section aria-label={t('items')} className={`${reviewTab==='items'?'block':'hidden'} h-full min-w-0 overflow-auto p-4 lg:block`}>
+            {!confirmed&&<StreamingHeader streaming={streaming} count={editedItems.length} error={streamError} errorDetail={streamError} onCancel={cancelScan} onRetry={retryScan} t={t}/>}
+            {unchecked>0&&<p role="status" className="mb-4 rounded-r-md bg-[var(--warning-50)] p-3 text-sm">{t('reviewBlockedBanner').replace('{n}',String(unchecked))}</p>}
+            <fieldset disabled={frozen||streaming} className="min-w-0"><ItemsList editedItems={editedItems} formStates={formStates} stockItems={stockItems} stockOptions={stockOptions} existingCategories={categories} updateItem={updateItem} updateFormState={updateForm} vatRate={vatRate} vatDisplayMode={vatMode} onVatDisplayModeChange={value=>{setVatMode(value);try{localStorage.setItem('foody.stock.vatDisplay',value);}catch{/* Display preference is optional. */}}} onCreateCategory={createCategory} t={t} reviewedItems={reviewed} markReviewed={markReviewed} streaming={streaming}/></fieldset>
+            {!streaming&&!streamError&&editedItems.length===0&&<p role="status" className="py-10 text-center text-sm text-fg-secondary">{t('nothingToImport')}</p>}
+          </section>
         </div>
-      </div>
-    );
-  }
-
-  // ─── Review Step (full-screen split) ──────────────────────────────────────
-
-  const isRtl = direction === 'rtl';
-
-  return (
-    <div className="fixed inset-0 z-50 pt-safe-t pb-safe-b flex flex-col" style={{ background: 'var(--surface)' }}>
-      {(() => {
-        const displaySupplier = selectedSupplierId === -1
-          ? newSupplierName
-          : selectedSupplierId > 0
-            ? suppliers.find((s) => s.id === selectedSupplierId)?.name
-            : extraction?.supplier_name;
-        const skipped = editedItems.filter((i) => i.skipped).length;
-        const active = editedItems.length - skipped;
-        const skippedSuffix = skipped > 0
-          ? ` · ${skipped} ${t('skipped').toLowerCase()}`
-          : '';
-        return (
-          <>
-            {/* ─ Header ─ Compact on mobile (X · title · count), inline on lg+. */}
-            <div
-              className="flex items-center justify-between gap-3 px-3 lg:px-5 py-3 border-b border-[var(--divider)]"
-              style={{ background: 'var(--surface-subtle)' }}
-            >
-              <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
-                {/* Mobile-only close X (lg+ keeps it on the right of the action group) */}
-                <button
-                  onClick={onClose}
-                  aria-label={t('close')}
-                  className="lg:hidden text-fg-secondary hover:text-fg-primary text-2xl leading-none px-1 shrink-0"
-                >
-                  &times;
-                </button>
-                <SparklesIcon className="w-5 h-5 text-brand-500 shrink-0" />
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-fg-primary truncate">
-                    {t('aiDeliveryImport')}
-                  </h3>
-                  {/* Mobile: supplier + count stacked under the title */}
-                  <div className="lg:hidden flex items-center gap-2 text-xs text-fg-secondary mt-0.5 min-w-0">
-                    {displaySupplier && (
-                      <span className="truncate min-w-0">{displaySupplier}</span>
-                    )}
-                    <span className="px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium shrink-0">
-                      {active} {t('items')}{skippedSuffix}
-                    </span>
-                  </div>
-                </div>
-                {/* Desktop: supplier + count inline next to the title */}
-                {displaySupplier && (
-                  <span className="hidden lg:inline text-sm text-fg-secondary">
-                    — {displaySupplier}
-                  </span>
-                )}
-                <span className="hidden lg:inline-flex text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
-                  {active} {t('items')}{skippedSuffix}
-                </span>
-              </div>
-              {/* Desktop action group — buttons live in a sticky footer on mobile (see bottom of modal). */}
-              <div className="hidden lg:flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => { if (streaming) { cancelStream(); return; } setStep('upload'); }}
-                  className="btn-secondary text-sm"
-                >
-                  {t('back')}
-                </button>
-                {canManage && (
-                  <>
-                    <button
-                      onClick={handleSaveDraft}
-                      disabled={savingDraft || streaming}
-                      title={streaming ? t('waitingForScan') : undefined}
-                      className="btn-secondary text-sm"
-                    >
-                      {savingDraft ? t('saving') : t('saveDraft')}
-                    </button>
-                    <button
-                      onClick={handleConfirm}
-                      disabled={loading || unreviewedFlaggedCount > 0 || streaming}
-                      title={
-                        streaming ? t('waitingForScan') :
-                        unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
-                        undefined
-                      }
-                      className="btn-primary text-sm"
-                    >
-                      {loading ? t('confirming') : t('confirmImport')}
-                    </button>
-                  </>
-                )}
-                <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none px-2">&times;</button>
-              </div>
-            </div>
-          </>
-        );
-      })()}
-
-      {/* ─ Mobile tabs (below lg) ─ */}
-      <div className="flex lg:hidden border-b border-[var(--divider)]">
-        <button
-          className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${reviewTab === 'document' ? 'text-brand-500 border-b-2 border-brand-500' : 'text-fg-secondary'}`}
-          onClick={() => setReviewTab('document')}
-        >
-          {importMode === 'voice' ? t('voiceTranscript') : t('originalDocument')}
-        </button>
-        <button
-          className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${reviewTab === 'items' ? 'text-brand-500 border-b-2 border-brand-500' : 'text-fg-secondary'}`}
-          onClick={() => setReviewTab('items')}
-        >
-          {t('items')} ({editedItems.length})
-        </button>
-      </div>
-
-      {/* ─ Main content ─ */}
-      <div className={`flex flex-1 min-h-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
-        {/* ─ Document / Transcript pane (left on LTR, right on RTL) ─
-            Same slot serves both modes: bill scan shows the original
-            image/PDF; voice import shows the Whisper transcript so the
-            user can verify what the AI heard. */}
-        <div className={`w-1/2 border-[var(--divider)] overflow-auto p-4 hidden lg:flex flex-col ${isRtl ? 'border-l' : 'border-r'}`}>
-          <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">
-            {importMode === 'voice' ? t('voiceTranscript') : t('originalDocument')}
-          </h4>
-          <div className="flex-1 rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-            {importMode === 'voice' ? (
-              voiceTranscript ? (
-                <p className="p-4 text-sm text-fg-primary whitespace-pre-wrap leading-relaxed" dir="auto">
-                  {voiceTranscript}
-                </p>
-              ) : (
-                <p className="p-4 text-sm text-fg-tertiary italic">
-                  {t('voiceTranscriptPending')}
-                </p>
-              )
-            ) : (
-              <>
-                {previewUrl && previewType.startsWith('image/') && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
-                )}
-                {previewUrl && previewType === 'application/pdf' && (
-                  <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* ─ Mobile document / transcript view ─ */}
-        {reviewTab === 'document' && (
-          <div className="flex-1 overflow-auto p-4 lg:hidden">
-            <div className="rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-              {importMode === 'voice' ? (
-                voiceTranscript ? (
-                  <p className="p-4 text-sm text-fg-primary whitespace-pre-wrap leading-relaxed" dir="auto">
-                    {voiceTranscript}
-                  </p>
-                ) : (
-                  <p className="p-4 text-sm text-fg-tertiary italic">
-                    {t('voiceTranscriptPending')}
-                  </p>
-                )
-              ) : (
-                <>
-                  {previewUrl && previewType.startsWith('image/') && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
-                  )}
-                  {previewUrl && previewType === 'application/pdf' && (
-                    <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ─ Items editor (right on LTR, left on RTL) ─ */}
-        <div className={`w-1/2 overflow-y-auto p-4 hidden lg:block`}>
-          <StreamingHeader
-            streaming={streaming}
-            count={editedItems.length}
-            error={streamError}
-            errorDetail={streamError}
-            onCancel={cancelStream}
-            onRetry={() => {
-              if (lastVoiceRef.current) {
-                handleVoiceSubmit(lastVoiceRef.current.blob, lastVoiceRef.current.mediaType);
-              } else {
-                handleUpload();
-              }
-            }}
-            t={t}
-          />
-          {/* AI summary bubble — temporarily hidden, may revisit.
-          {!streaming && !streamError && (
-            <AiSummaryBubble
-              items={editedItems}
-              supplier={
-                (selectedSupplierId === -1
-                  ? newSupplierName
-                  : selectedSupplierId > 0
-                    ? suppliers.find((s) => s.id === selectedSupplierId)?.name
-                    : extraction?.supplier_name) ?? ''
-              }
-              vatRate={vatRate}
-              dismissed={summaryDismissed}
-              onDismiss={() => setSummaryDismissed(true)}
-              t={t}
-            />
-          )}
-          */}
-          <ItemsList
-            editedItems={editedItems}
-            formStates={formStates}
-            stockItems={stockItems}
-            stockOptions={stockOptions}
-            existingCategories={existingCategories}
-            updateItem={updateItem}
-            updateFormState={updateFormState}
-            vatRate={vatRate}
-            vatDisplayMode={vatDisplayMode}
-            onVatDisplayModeChange={updateVatDisplayMode}
-            onCreateCategory={handleCreateCategory}
-            t={t}
-            reviewedItems={reviewedItems}
-            markReviewed={markReviewed}
-            streaming={streaming}
-          />
-          {/* AI chat panel — temporarily hidden, may revisit.
-          {!streaming && !streamError && editedItems.length > 0 && (
-            <div className="mt-4">
-              <ChatPanel
-                open={chatOpen}
-                onToggle={() => setChatOpen((o) => !o)}
-                history={chatHistory}
-                input={chatInput}
-                loading={chatLoading}
-                onInput={setChatInput}
-                onSend={sendChat}
-                t={t}
-              />
-            </div>
-          )}
-          */}
-        </div>
-
-        {/* ─ Mobile items view ─ */}
-        {reviewTab === 'items' && (
-          <div className="flex-1 overflow-y-auto p-4 lg:hidden">
-            <StreamingHeader
-              streaming={streaming}
-              count={editedItems.length}
-              error={streamError}
-              errorDetail={streamError}
-              onCancel={cancelStream}
-              onRetry={() => {
-                if (lastVoiceRef.current) {
-                  handleVoiceSubmit(lastVoiceRef.current.blob, lastVoiceRef.current.mediaType);
-                } else {
-                  handleUpload();
-                }
-              }}
-              t={t}
-            />
-            {/* AI summary bubble — temporarily hidden, may revisit.
-            {!streaming && !streamError && (
-              <AiSummaryBubble
-                items={editedItems}
-                supplier={
-                  (selectedSupplierId === -1
-                    ? newSupplierName
-                    : selectedSupplierId > 0
-                      ? suppliers.find((s) => s.id === selectedSupplierId)?.name
-                      : extraction?.supplier_name) ?? ''
-                }
-                vatRate={vatRate}
-                dismissed={summaryDismissed}
-                onDismiss={() => setSummaryDismissed(true)}
-                t={t}
-              />
-            )}
-            */}
-            <ItemsList
-              editedItems={editedItems}
-              formStates={formStates}
-              stockItems={stockItems}
-              stockOptions={stockOptions}
-              existingCategories={existingCategories}
-              updateItem={updateItem}
-              updateFormState={updateFormState}
-              vatRate={vatRate}
-              vatDisplayMode={vatDisplayMode}
-              onVatDisplayModeChange={updateVatDisplayMode}
-              onCreateCategory={handleCreateCategory}
-              t={t}
-              reviewedItems={reviewedItems}
-              markReviewed={markReviewed}
-              streaming={streaming}
-            />
-            {/* AI chat panel — temporarily hidden, may revisit.
-            {!streaming && !streamError && editedItems.length > 0 && (
-              <div className="mt-4">
-                <ChatPanel
-                  open={chatOpen}
-                  onToggle={() => setChatOpen((o) => !o)}
-                  history={chatHistory}
-                  input={chatInput}
-                  loading={chatLoading}
-                  onInput={setChatInput}
-                  onSend={sendChat}
-                  t={t}
-                />
-              </div>
-            )}
-            */}
-          </div>
-        )}
-      </div>
-
-      {/* ─ Mobile sticky action bar ─
-          The desktop layout puts Back / Save draft / Confirm in the header.
-          On phones those got clipped off-screen, so they live in a
-          full-width footer bar instead. The Back link doubles as a small
-          tertiary action on the left. */}
-      <div
-        className="lg:hidden flex items-center gap-2 px-3 py-3 border-t border-[var(--divider)] shrink-0"
-        style={{ background: 'var(--surface-subtle)' }}
-      >
-        <button
-          onClick={() => { if (streaming) { cancelStream(); return; } setStep('upload'); }}
-          className="text-fg-secondary hover:text-fg-primary text-sm px-2 shrink-0"
-        >
-          {t('back')}
-        </button>
-        {canManage && (
-          <>
-            <button
-              onClick={handleSaveDraft}
-              disabled={savingDraft || streaming}
-              title={streaming ? t('waitingForScan') : undefined}
-              className="btn-secondary text-sm flex-1 min-w-0"
-            >
-              {savingDraft ? t('saving') : t('saveDraft')}
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={loading || unreviewedFlaggedCount > 0 || streaming}
-              title={
-                streaming ? t('waitingForScan') :
-                unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
-                undefined
-              }
-              className="btn-primary text-sm flex-1 min-w-0"
-            >
-              {loading ? t('confirming') : t('confirmImport')}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Items List (shared between desktop and mobile) ───────────────────────
-
-// ItemSkeleton mirrors the shape of an item card (title + subtitle, metadata
-// line, ARTICLE section, quantity grid). The `delay` staggers the pulse
-// animation across multiple placeholders so they don't all flash in lock-step,
-// which reads as a more natural "AI is thinking" feel.
-function ItemSkeleton({ delay = 0 }: { delay?: number }) {
-  return (
-    <div
-      className="p-4 rounded-lg space-y-4 animate-pulse"
-      style={{ background: 'var(--surface-subtle)', animationDelay: `${delay}ms` }}
-    >
-      {/* Header: title + subtitle + status chip */}
-      <div className="space-y-1.5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 space-y-1.5">
-            <div className="h-5 w-3/4 rounded bg-fg-tertiary/15" />
-            <div className="h-3.5 w-1/2 rounded bg-fg-tertiary/15" />
-          </div>
-          <div className="h-5 w-14 rounded-full bg-fg-tertiary/15 shrink-0" />
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="h-3 w-14 rounded bg-fg-tertiary/15" />
-          <div className="h-3 flex-1 rounded bg-fg-tertiary/15" />
-          <div className="h-5 w-14 rounded-full bg-fg-tertiary/15" />
-        </div>
-      </div>
-      {/* Article section */}
-      <div className="space-y-3 border-t border-[var(--divider)] pt-3">
-        <div className="h-2.5 w-12 rounded bg-fg-tertiary/15" />
-        <div className="h-9 w-full rounded bg-fg-tertiary/15" />
-      </div>
-      {/* Quantity section */}
-      <div className="border-t border-[var(--divider)] pt-3">
-        <div className="grid grid-cols-3 gap-2">
-          <div className="h-9 rounded bg-fg-tertiary/15" />
-          <div className="h-9 rounded bg-fg-tertiary/15" />
-          <div className="h-9 rounded bg-fg-tertiary/15" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// AiSummaryBubble is a one-shot, computed-locally trust-builder shown above
-// the items list once the stream completes. It re-reads from the items
-// themselves so it stays accurate as the user edits.
-function AiSummaryBubble({
-  items, supplier, vatRate, dismissed, onDismiss, t,
-}: {
-  items: ConfirmDeliveryItemInput[];
-  supplier: string;
-  vatRate: number;
-  dismissed: boolean;
-  onDismiss: () => void;
-  t: (key: string) => string;
-}) {
-  const { money } = useCurrency();
-  if (dismissed) return null;
-  const active = items.filter((i) => !i.skipped);
-  if (active.length === 0) return null;
-
-  const totalHt = active.reduce((s, i) => s + (i.total_price ?? 0), 0);
-  const totalTtc = active.reduce((s, i) => {
-    const rate = i.vat_rate_override ?? vatRate;
-    return s + (i.total_price ?? 0) * (1 + rate / 100);
-  }, 0);
-  const fmt = (n: number) => n.toFixed(2);
-
-  const top = [...active]
-    .sort((a, b) => (b.total_price ?? 0) - (a.total_price ?? 0))
-    .slice(0, 3)
-    .map((i) => `${i.name} (${money(i.total_price ?? 0)})`)
-    .join(', ');
-
-  const readKey = supplier ? 'aiSummaryRead' : 'aiSummaryReadNoSupplier';
-  const readMsg = t(readKey)
-    .replace('{n}', String(active.length))
-    .replace('{supplier}', supplier)
-    .replace('{totalTtc}', fmt(totalTtc))
-    .replace('{totalHt}', fmt(totalHt));
-
-  return (
-    <div className="mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-start gap-3">
-      <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
-      <div className="flex-1 min-w-0 space-y-1">
-        <p className="text-sm text-fg-primary">{readMsg}</p>
-        {active.length >= 2 && (
-          <p className="text-xs text-fg-secondary">
-            {t('aiSummaryTopItems').replace('{items}', top)}
-          </p>
-        )}
-        <p className="text-xs text-fg-tertiary">{t('aiSummaryCheckTotal')}</p>
-      </div>
-      <button
-        type="button"
-        onClick={onDismiss}
-        aria-label="dismiss"
-        className="shrink-0 text-fg-tertiary hover:text-fg-primary text-lg leading-none px-1"
-      >
-        &times;
-      </button>
-    </div>
-  );
-}
-
-// ChatPanel is the interactive natural-language editor docked below the
-// items list. Collapsed by default to a single trigger line; expands into
-// a transcript + input. Stateless across re-renders — its conversation
-// history lives on the parent component.
-function ChatPanel({
-  open, onToggle, history, input, loading, onInput, onSend, t,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  history: ChatTurn[];
-  input: string;
-  loading: boolean;
-  onInput: (v: string) => void;
-  onSend: () => void;
-  t: (key: string) => string;
-}) {
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] bg-[var(--surface-subtle)] hover:bg-[var(--surface)] transition-colors text-left"
-      >
-        <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0" />
-        <span className="text-sm text-fg-secondary flex-1 truncate">{t('askAi')}</span>
-        <span className="text-xs text-fg-tertiary shrink-0">▴</span>
-      </button>
-    );
-  }
-  return (
-    <div className="rounded-lg border border-[var(--divider)] bg-[var(--surface-subtle)] overflow-hidden flex flex-col" style={{ maxHeight: '40vh' }}>
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--divider)]">
-        <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0" />
-        <span className="text-sm font-medium text-fg-primary flex-1">{t('aiAssistant')}</span>
-        <button onClick={onToggle} className="text-xs text-fg-tertiary hover:text-fg-primary px-1">▾</button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[8rem]">
-        {history.length === 0 && (
-          <p className="text-xs text-fg-tertiary italic">{t('askAiPlaceholder')}</p>
-        )}
-        {history.map((turn, i) => (
-          <div
-            key={i}
-            className={`text-sm leading-snug ${turn.role === 'user' ? 'text-fg-primary' : 'text-fg-secondary'}`}
-          >
-            <span className={`text-[10px] uppercase tracking-wider mr-2 ${turn.role === 'user' ? 'text-fg-tertiary' : 'text-brand-500'}`}>
-              {turn.role === 'user' ? '·' : '✨'}
-            </span>
-            {turn.content}
-          </div>
-        ))}
-        {loading && (
-          <div className="text-sm text-fg-tertiary italic flex items-center gap-2">
-            <span className="text-brand-500">✨</span>
-            {t('aiThinking')}
-            <span className="inline-flex gap-1 items-end">
-              <span className="w-1 h-1 rounded-full bg-fg-tertiary animate-bounce" style={{ animationDelay: '-300ms' }} />
-              <span className="w-1 h-1 rounded-full bg-fg-tertiary animate-bounce" style={{ animationDelay: '-150ms' }} />
-              <span className="w-1 h-1 rounded-full bg-fg-tertiary animate-bounce" />
-            </span>
-          </div>
-        )}
-      </div>
-      <div className="flex items-center gap-2 p-2 border-t border-[var(--divider)]">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => onInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              onSend();
-            }
-          }}
-          placeholder={t('askAiPlaceholder')}
-          disabled={loading}
-          className="flex-1 bg-transparent text-sm px-2 py-1.5 outline-none focus:ring-1 focus:ring-brand-500 rounded"
-        />
-        <button
-          onClick={onSend}
-          disabled={loading || !input.trim()}
-          aria-label={t('aiSend')}
-          className="shrink-0 p-1.5 rounded-md text-brand-500 hover:bg-brand-500/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-        >
-          <SendHorizonalIcon className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
+      </>}
+    </FullScreenEditor>{confirmations}
+  </>;
 }
 
 function StreamingHeader({
@@ -1376,7 +397,7 @@ function StreamingHeader({
       .replace('{verb}', verb)
       .replace('{n}', String(count));
     return (
-      <div className="mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-center gap-3">
+      <div role="status" className="mb-3 rounded-r-md border border-[var(--line)] bg-[var(--info-50)] p-3 flex items-center gap-3">
         <FoodySpinner size={20} className="shrink-0" />
         <span
           key={verbIndex}
@@ -1384,7 +405,7 @@ function StreamingHeader({
         >
           {msg}
         </span>
-        <button onClick={onCancel} className="text-xs text-fg-secondary hover:text-fg-primary px-2 py-1 rounded border border-[var(--divider)] shrink-0">
+        <button onClick={onCancel} className="min-h-11 text-xs text-fg-secondary hover:text-fg-primary px-2 py-1 rounded border border-[var(--divider)] shrink-0">
           {t('cancelScan')}
         </button>
       </div>
@@ -1392,18 +413,18 @@ function StreamingHeader({
   }
   if (error) {
     return (
-      <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex items-start gap-3">
+      <div role="alert" className="mb-3 rounded-r-md border border-[var(--warning-500)] bg-[var(--warning-50)] p-3 flex items-start gap-3">
         <div className="flex-1 min-w-0 space-y-1">
-          <p className="text-sm text-amber-600">
+          <p className="text-sm text-[var(--warning-600)]">
             {t('scanInterrupted').replace('{n}', String(count))}
           </p>
           {errorDetail && (
-            <p className="text-xs text-amber-600/80 break-words font-mono">
+            <p className="min-h-11 text-xs text-fg-secondary break-words font-mono">
               {errorDetail}
             </p>
           )}
         </div>
-        <button onClick={onRetry} className="shrink-0 text-xs px-2 py-1 rounded border border-amber-500/40 hover:bg-amber-500/20 text-amber-600">
+        <button onClick={onRetry} className="min-h-11 shrink-0 text-xs px-2 py-1 rounded border border-amber-500/40 hover:bg-amber-500/20 text-[var(--warning-600)]">
           {t('retry')}
         </button>
       </div>
@@ -1434,13 +455,13 @@ function ItemsList({
   return (
     <div className="space-y-3">
       {editedItems.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 rounded-r-md border border-[var(--divider)] bg-[var(--surface)] p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium text-fg-primary">{t('priceEntryMode')}</p>
             <p className="mt-0.5 text-xs text-fg-tertiary">{t('priceEntryModeHint')}</p>
           </div>
           <div
-            className="inline-flex self-start rounded-lg bg-[var(--surface-subtle)] p-1 sm:self-auto"
+            className="inline-flex self-start rounded-r-md bg-[var(--surface-subtle)] p-1 sm:self-auto"
             role="group"
             aria-label={t('priceEntryMode')}
           >
@@ -1452,9 +473,9 @@ function ItemsList({
                   type="button"
                   aria-pressed={selected}
                   onClick={() => onVatDisplayModeChange(mode)}
-                  className={`min-w-14 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                  className={`min-h-11 min-w-14 rounded-r-md px-3 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 ${
                     selected
-                      ? 'bg-[var(--surface)] text-brand-500 shadow-sm'
+                      ? 'bg-[var(--surface)] text-[var(--brand-ink)] shadow-sm'
                       : 'text-fg-secondary hover:text-fg-primary'
                   }`}
                 >
@@ -1482,22 +503,23 @@ function ItemsList({
         const statusChip = isSkipped
           ? { label: t('skipped'), cls: 'bg-fg-tertiary/10 text-fg-secondary' }
           : isExisting
-            ? { label: t('existing'), cls: 'bg-green-500/10 text-green-500' }
-            : { label: t('new'), cls: 'bg-amber-500/10 text-amber-500' };
+            ? { label: t('existing'), cls: 'bg-[var(--success-50)] text-[var(--success-600)]' }
+            : { label: t('new'), cls: 'bg-[var(--warning-50)] text-[var(--warning-600)]' };
         return (
           <div
             key={idx}
-            className={`p-4 rounded-lg space-y-4 animate-in fade-in slide-in-from-top-1 duration-200 ${isFlagged ? 'border-l-4 border-amber-500' : ''}`}
-            style={{ background: 'var(--surface-subtle)', opacity: isSkipped ? 0.5 : 1 }}
+            role="region" aria-label={`${t('item')} ${idx+1} — ${item.name||item.original_name}`}
+            className={`p-4 rounded-r-md space-y-4 animate-in fade-in slide-in-from-top-1 duration-200 ${isFlagged ? 'border-s-4 border-[var(--warning-500)]' : ''}`}
+            style={{ background: 'var(--surface-subtle)', opacity: 1 }}
           >
             {isFlagged && (
-              <div className="flex items-start gap-2 p-2 rounded-md bg-amber-500/10 text-amber-600 text-xs">
+              <div className="flex items-start gap-2 p-2 rounded-md bg-[var(--warning-50)] text-[var(--warning-600)] text-xs">
                 <span aria-hidden className="mt-0.5">⚠</span>
                 <span className="flex-1">{t(reasonKey)}</span>
                 <button
                   type="button"
                   onClick={() => markReviewed(idx)}
-                  className="shrink-0 text-[11px] px-2 py-0.5 rounded-full border border-amber-500/40 hover:bg-amber-500/20"
+                  className="min-h-11 shrink-0 text-xs px-2 py-2 rounded-r-sm border border-amber-500/40 hover:bg-amber-500/20"
                 >
                   {t('reviewAcknowledge')}
                 </button>
@@ -1509,32 +531,33 @@ function ItemsList({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h4
-                    className="text-base font-semibold text-fg-primary truncate"
+                    className="text-base font-semibold text-fg-primary break-words"
                     dir="auto"
                     style={{ textDecoration: isSkipped ? 'line-through' : undefined }}
                   >
                     {item.name || item.original_name || '—'}
                   </h4>
                   {item.original_name && item.original_name !== item.name && (
-                    <p className="text-sm text-fg-secondary truncate">
+                    <p className="text-sm text-fg-secondary break-words">
                       <bdi>{item.original_name}</bdi>
                     </p>
                   )}
                 </div>
-                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 ${statusChip.cls}`}>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-r-sm whitespace-nowrap shrink-0 ${statusChip.cls}`}>
                   {statusChip.label}
                 </span>
               </div>
 
               {/* Metadata line: line number + editable SKU + skip toggle */}
-              <div className="flex items-center gap-3 text-xs text-fg-tertiary">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-fg-secondary">
                 {item.row_index && item.row_index > 0 ? (
                   <span className="shrink-0">{t('rowNumber').replace('{n}', String(item.row_index))}</span>
                 ) : null}
-                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <div className="order-last flex w-full items-center gap-2 sm:order-none sm:w-auto sm:flex-1 min-w-0">
                   <span className="shrink-0">{t('sku')}</span>
                   <input
-                    className="bg-transparent border-b border-[var(--divider)]/40 hover:border-[var(--divider)] focus:border-brand-500 outline-none text-xs flex-1 min-w-0 px-0.5 py-0.5 text-fg-secondary transition-colors"
+                    className="bg-transparent border-b border-[var(--divider)]/40 hover:border-[var(--divider)] focus:border-brand-500 outline-none min-h-11 text-sm flex-1 min-w-0 px-0.5 py-0.5 text-fg-secondary transition-colors"
+                    aria-label={t('sku')}
                     value={item.sku ?? ''}
                     disabled={isSkipped}
                     onChange={(e) => updateItem(idx, { sku: e.target.value })}
@@ -1545,7 +568,7 @@ function ItemsList({
                 <button
                   type="button"
                   onClick={() => updateItem(idx, { skipped: !isSkipped })}
-                  className="ml-auto text-xs px-2 py-0.5 rounded-full whitespace-nowrap border border-[var(--divider)] hover:bg-[var(--surface)] text-fg-secondary shrink-0"
+                  className="ms-auto min-h-11 text-sm px-3 py-2 rounded-r-sm whitespace-nowrap border border-[var(--divider)] hover:bg-[var(--surface)] text-fg-secondary shrink-0"
                   style={{ pointerEvents: 'auto' }}
                 >
                   {isSkipped ? t('unskip') : t('skip')}
@@ -1554,12 +577,12 @@ function ItemsList({
             </div>
 
             {/* ── Article section: match + name/category ──────────────── */}
-            <div
-              className="space-y-3 border-t border-[var(--divider)] pt-3"
+            <fieldset disabled={isSkipped}
+              className="min-w-0 space-y-3 border-t border-[var(--divider)] pt-3"
               style={{ pointerEvents: isSkipped ? 'none' : undefined }}
               aria-disabled={isSkipped}
             >
-              <div className="text-[10px] uppercase tracking-wider text-fg-tertiary font-semibold">
+              <div className="text-sm text-fg-secondary font-medium">
                 {t('articleSection')}
               </div>
               <SearchableSelect
@@ -1574,13 +597,15 @@ function ItemsList({
                 }}
                 options={stockOptions}
                 placeholder={t('matchToStockItem')}
+                className="min-h-11"
               />
               {!isExisting && (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('name')}</label>
                     <input
-                      className="input w-full py-1.5 text-sm"
+                      className="input min-h-11 w-full py-2 text-sm"
+                      aria-label={t('name')}
                       value={item.name}
                       disabled={isSkipped}
                       onChange={(e) => updateItem(idx, { name: e.target.value })}
@@ -1598,11 +623,11 @@ function ItemsList({
                   </div>
                 </div>
               )}
-            </div>
+            </fieldset>
 
             {/* ── Quantity / packaging / price ────────────────────────── */}
-            <div
-              className="border-t border-[var(--divider)] pt-3"
+            <fieldset disabled={isSkipped}
+              className="min-w-0 border-t border-[var(--divider)] pt-3"
               style={{ pointerEvents: isSkipped ? 'none' : undefined }}
               aria-disabled={isSkipped}
             >
@@ -1615,17 +640,11 @@ function ItemsList({
                 vatDisplayMode={vatDisplayMode}
                 compact
               />
-            </div>
+            </fieldset>
           </div>
         );
       })}
-      {streaming && (
-        <>
-          <ItemSkeleton delay={0} />
-          <ItemSkeleton delay={200} />
-          <ItemSkeleton delay={400} />
-        </>
-      )}
+
     </div>
   );
 }
@@ -1646,6 +665,7 @@ function CategoryPicker({
   const [error, setError] = useState('');
 
   const closeCreator = () => {
+    if(saving)return;
     setCreating(false);
     setName('');
     setError('');
@@ -1653,7 +673,7 @@ function CategoryPicker({
 
   const saveCategory = async () => {
     const trimmedName = name.trim();
-    if (!trimmedName || saving) return;
+    if (!trimmedName || saving || disabled) return;
     setSaving(true);
     setError('');
     try {
@@ -1673,7 +693,8 @@ function CategoryPicker({
         <label className="mb-1 block text-xs font-medium text-fg-secondary">{t('newCategory')}</label>
         <div>
           <input
-            className="input w-full py-1.5 text-sm"
+            className="input min-h-11 w-full py-2 text-sm"
+            aria-label={t('categoryName')}
             value={name}
             disabled={saving}
             onChange={(event) => setName(event.target.value)}
@@ -1682,7 +703,7 @@ function CategoryPicker({
                 event.preventDefault();
                 void saveCategory();
               }
-              if (event.key === 'Escape') closeCreator();
+              if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(!saving)closeCreator();}
             }}
             placeholder={t('categoryName')}
             autoFocus
@@ -1693,7 +714,7 @@ function CategoryPicker({
             type="button"
             onClick={() => void saveCategory()}
             disabled={!name.trim() || saving}
-            className="btn-primary shrink-0 px-3 py-1.5 text-xs"
+            className="btn-primary min-h-11 shrink-0 px-3 py-1.5 text-xs"
           >
             {saving ? t('creating') : t('create')}
           </button>
@@ -1701,12 +722,12 @@ function CategoryPicker({
             type="button"
             onClick={closeCreator}
             disabled={saving}
-            className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
+            className="btn-secondary min-h-11 shrink-0 px-3 py-1.5 text-xs"
           >
             {t('cancel')}
           </button>
         </div>
-        {error && <p className="mt-1 text-xs text-[var(--danger-500)]">{error}</p>}
+        {error && <p role="alert" className="mt-1 text-sm text-[var(--danger-500)]">{error}</p>}
       </div>
     );
   }
@@ -1719,13 +740,14 @@ function CategoryPicker({
           type="button"
           onClick={() => setCreating(true)}
           disabled={disabled}
-          className="text-xs font-medium text-brand-500 hover:text-brand-400 disabled:opacity-40"
+          className="min-h-11 text-xs font-medium text-[var(--brand-ink)] hover:text-[var(--brand-ink)] disabled:opacity-40"
         >
           + {t('createCategory')}
         </button>
       </div>
       <select
-        className="input w-full py-1.5 text-sm"
+        className="input min-h-11 w-full py-2 text-sm"
+        aria-label={t('category')}
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

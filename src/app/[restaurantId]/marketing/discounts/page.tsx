@@ -1,193 +1,100 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { listDiscounts, deleteDiscount, Discount } from '@/lib/api';
-import { discountStatus, formatDiscountValue } from '@/lib/discounts';
-import { useI18n } from '@/lib/i18n';
+import { listDiscounts, deleteDiscount, getRestaurant, type Discount } from '@/lib/api';
+import { discountDay, discountStatus, formatDiscountValue } from '@/lib/discounts';
+import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { PlusIcon, PencilIcon, TrashIcon, TagIcon } from 'lucide-react';
-import { Button, PageHead } from '@/components/ds';
-import {
-  DataTable,
-  DataTableHead,
-  DataTableHeadCell,
-  DataTableHeadSpacerCell,
-  DataTableBody,
-  DataTableRow,
-  DataTableCell,
-} from '@/components/data-table';
+import { Plus, Pencil, Trash2, Tag } from 'lucide-react';
+import { Button, ConfirmDialog, Field, Input, PageHead } from '@/components/ds';
+import { DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableBody, DataTableRow, DataTableCell } from '@/components/data-table';
 import DiscountEditModal from '@/components/marketing/DiscountEditModal';
+import { checkedDiscount } from '@/components/marketing/discount-form';
 
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case 'active': return 'badge badge-ready';
-    case 'scheduled': return 'badge badge-accepted';
-    case 'expired': return 'badge badge-neutral';
-    case 'exhausted': return 'badge badge-neutral';
-    case 'inactive': return 'badge badge-rejected';
-    default: return 'badge badge-neutral';
-  }
-}
-
+/** Manage the restaurant's promotion codes, including read-only inspection and recoverable deletion. */
 export default function DiscountsPage() {
   const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
-  const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
+  return <DiscountsWorkspace key={String(restaurantId)} rid={Number(restaurantId)} />;
+}
+function DiscountsWorkspace({ rid }: { rid: number }) {
+  const { t, locale } = useI18n(), { code: currency } = useCurrency(), { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('discounts.edit');
-
-  const [discounts, setDiscounts] = useState<Discount[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editModal, setEditModal] = useState<{ open: boolean; editing?: Discount }>({ open: false });
-
-  const reload = useCallback(async () => {
-    setLoading(true);
+  const [discounts, setDiscounts] = useState<Discount[]>([]), [timezone, setTimezone] = useState('Asia/Jerusalem');
+  const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false), [now, setNow] = useState(() => new Date()), [search, setSearch] = useState('');
+  const [editor, setEditor] = useState<{ editing?: Discount; today: string } | null>(null);
+  const [confirmation, setConfirmation] = useState<Discount | null>(null), [pending, setPending] = useState<Discount | null>(null);
+  const [busy, setBusy] = useState(false), [readError, setReadError] = useState(false), [notice, setNotice] = useState<string | null>(null);
+  const lock = useRef(false), lifetime = useRef({ generation: 0, sequence: 0 });
+  const load = useCallback(async () => {
+    const generation = lifetime.current.generation, sequence = ++lifetime.current.sequence;
+    const current = () => generation === lifetime.current.generation && sequence === lifetime.current.sequence;
+    setLoading(true); setLoadError(false);
     try {
-      setDiscounts(await listDiscounts(rid));
-    } finally {
-      setLoading(false);
-    }
+      const [rows, restaurant] = await Promise.all([listDiscounts(rid), getRestaurant(rid)]);
+      if (!Array.isArray(rows) || restaurant.id !== rid) throw new Error('Incomplete discount workspace');
+      const checked = rows.map(row => checkedDiscount(row, rid));
+      let zone = restaurant.timezone?.trim() || 'Asia/Jerusalem';
+      try { new Intl.DateTimeFormat('en', { timeZone: zone }).format(); } catch { zone = 'Asia/Jerusalem'; }
+      if (current()) { setDiscounts(checked); setTimezone(zone); }
+    } catch { if (current()) setLoadError(true); }
+    finally { if (current()) setLoading(false); }
   }, [rid]);
-
-  useEffect(() => { reload(); }, [reload]);
-
-  const handleDelete = async (d: Discount) => {
-    if (!confirm(t('deleteDiscountConfirm'))) return;
-    await deleteDiscount(rid, d.id);
-    reload();
+  useEffect(() => { const current = lifetime.current; void load(); return () => { current.generation++; }; }, [load]);
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60_000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => { const unload = (event: BeforeUnloadEvent) => { if (lock.current || pending) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', unload); return () => window.removeEventListener('beforeunload', unload); }, [pending]);
+  const remove = async () => {
+    const row = confirmation; setConfirmation(null);
+    if (!row || !canEdit || lock.current || pending) return;
+    lock.current = true; setBusy(true); setNotice(null); setReadError(false);
+    const generation = lifetime.current.generation;
+    try { await deleteDiscount(rid, row.id); if (generation === lifetime.current.generation) { setDiscounts(previous => previous.filter(item => item.id !== row.id)); setNotice('discountDeleted'); } }
+    catch { if (generation === lifetime.current.generation) setPending(row); }
+    finally { if (generation === lifetime.current.generation) { lock.current = false; setBusy(false); } }
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-[var(--s-5)]">
-      <PageHead
-        title={t('discounts')}
-        desc={t('discountsSubtitle')}
-        actions={
-          canEdit ? (
-            <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
-              <PlusIcon />
-              {t('createDiscount')}
-            </Button>
-          ) : undefined
-        }
-      />
-
-      {discounts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <div className="text-4xl"><TagIcon className="w-10 h-10 text-fg-tertiary" /></div>
-          <h2 className="text-lg font-semibold text-fg-primary">{t('noDiscountsYet')}</h2>
-          <p className="text-sm text-fg-secondary max-w-sm text-center">
-            {t('noDiscountsHint')}
-          </p>
-          {canEdit && (
-            <button
-              onClick={() => setEditModal({ open: true })}
-              className="btn-primary mt-2"
-            >
-              {t('createDiscount')}
-            </button>
-          )}
-        </div>
-      ) : (
-        <DataTable>
-          <DataTableHead>
-            <DataTableHeadCell>{t('discountCode')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('discountName')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('discountType')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('appliesTo')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('statusColumn')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('redemptions')}</DataTableHeadCell>
-            <DataTableHeadCell>{t('endsAt')}</DataTableHeadCell>
-            <DataTableHeadSpacerCell />
-          </DataTableHead>
-          <DataTableBody>
-            {discounts.map((d, index) => {
-              const v = formatDiscountValue(d);
-              const st = discountStatus(d);
-              const scopeKey = d.scope === 'whole_sale'
-                ? 'scopeWholeSale'
-                : d.scope === 'category'
-                ? 'scopeCategory'
-                : 'scopeSpecificItem';
-              const redemptionText = d.total_cap != null
-                ? `${d.redemption_count}/${d.total_cap}`
-                : String(d.redemption_count);
-              const endDateText = d.ends_at
-                ? new Date(d.ends_at).toLocaleDateString()
-                : '';
-
-              return (
-                <DataTableRow
-                  key={d.id}
-                  index={index}
-                  onClick={() => setEditModal({ open: true, editing: d })}
-                  className="cursor-pointer"
-                >
-                  <DataTableCell mobilePrimary className="font-mono font-medium text-fg-primary">
-                    {d.code}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('discountName')} className="text-fg-secondary">
-                    {d.name}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('discountType')} className="text-fg-secondary">
-                    {v === 'freeDelivery' ? t('typeFreeDelivery') : v}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('appliesTo')} className="text-fg-secondary">
-                    {t(scopeKey)}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('statusColumn')}>
-                    <span className={statusBadgeClass(st)}>{t(st)}</span>
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('redemptions')} className="text-fg-secondary">
-                    {redemptionText}
-                  </DataTableCell>
-                  <DataTableCell mobileLabel={t('endsAt')} className="text-fg-secondary">
-                    {endDateText}
-                  </DataTableCell>
-                  <DataTableCell>
-                    {canEdit && (
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setEditModal({ open: true, editing: d }); }}
-                          className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(d); }}
-                          className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </DataTableCell>
-                </DataTableRow>
-              );
-            })}
-          </DataTableBody>
-        </DataTable>
-      )}
-
-      {editModal.open && (
-        <DiscountEditModal
-          key={editModal.editing?.id ?? 'new'}
-          open
-          editing={editModal.editing}
-          restaurantId={rid}
-          onClose={() => setEditModal({ open: false })}
-          onSaved={() => { setEditModal({ open: false }); reload(); }}
-        />
-      )}
-    </div>
-  );
+  const verifyRemoval = async () => {
+    if (!pending || lock.current) return;
+    lock.current = true; setBusy(true); setReadError(false);
+    const generation = lifetime.current.generation;
+    try {
+      const rows = (await listDiscounts(rid)).map(row => checkedDiscount(row, rid));
+      if (generation === lifetime.current.generation) { setDiscounts(rows); setNotice(rows.some(row => row.id === pending.id) ? 'discountDeleteStillPresent' : 'discountDeleteVerified'); setPending(null); }
+    } catch { if (generation === lifetime.current.generation) setReadError(true); }
+    finally { if (generation === lifetime.current.generation) { lock.current = false; setBusy(false); } }
+  };
+  const accept = (row: Discount) => setDiscounts(previous => previous.some(item => item.id === row.id) ? previous.map(item => item.id === row.id ? row : item) : [row, ...previous]);
+  const open = (editing?: Discount) => { if (!busy && !pending) setEditor({ editing, today: discountDay(new Date(), timezone) }); };
+  const date = (value: string | null) => {
+    if (!value) return t('discountNoEnd');
+    const dayOnly = /^\d{4}-\d{2}-\d{2}$/.test(value), parsed = new Date(dayOnly ? `${value}T12:00:00Z` : value);
+    return Number.isFinite(parsed.getTime()) ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: dayOnly ? 'UTC' : timezone }).format(parsed) : value;
+  };
+  const filtered = discounts.filter(row => `${row.code} ${row.name}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+  const active = discounts.filter(row => discountStatus(row, now, timezone) === 'active').length;
+  return <div className="mx-auto max-w-[1200px] space-y-6">
+    <PageHead title={t('discounts')} desc={t('discountsSubtitle')} actions={canEdit && <Button disabled={loading || loadError || busy || !!pending} onClick={() => open()}><Plus />{t('createDiscount')}</Button>} />
+    {loading ? <p role="status" className="py-12 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3 rounded-r-lg border border-[var(--line)] p-5"><p className="text-sm text-[var(--danger-500)]">{t('discountLoadError')}</p><Button onClick={() => void load()}>{t('retry')}</Button></div> : <>
+      <div className="flex flex-wrap items-center justify-between gap-5 rounded-r-lg bg-[var(--summary-bg)] p-5 text-[var(--summary-fg)]"><div className="flex items-center gap-3"><Tag className="size-5 shrink-0" aria-hidden="true" /><p className="font-semibold">{t('discountSummary').replace('{active}', String(active)).replace('{total}', String(discounts.length))}</p></div><p className="text-xs leading-5">{t('discountCalendar')} <bdi>{timezone}</bdi></p></div>
+      {pending && <div role="alert" className="space-y-3 rounded-r-lg border border-[var(--danger-500)] p-5"><p className="text-sm leading-6">{t('discountDeleteUnconfirmed')} <bdi className="font-semibold">{pending.code}</bdi></p>{readError && <p className="text-sm text-[var(--danger-500)]">{t('discountReadError')}</p>}<Button variant="secondary" disabled={busy} onClick={() => void verifyRemoval()}>{t('discountVerifyDeletion')}</Button></div>}
+      {notice && <p role="status" className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t(notice)}</p>}
+      {discounts.length === 0 ? <div className="space-y-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-5 py-14 text-center"><h2 className="text-lg font-semibold">{t('noDiscountsYet')}</h2><p className="text-sm text-[var(--fg-muted)]">{t('noDiscountsHint')}</p></div> : <>
+        <div className="max-w-md"><Field label={t('discountSearch')}><Input type="search" value={search} onChange={event => setSearch(event.target.value)} /></Field></div>
+        {filtered.length === 0 ? <p role="status" className="py-8 text-sm text-[var(--fg-muted)]">{t('discountNoResults')}</p> : <DataTable><DataTableHead><DataTableHeadCell>{t('discountCode')}</DataTableHeadCell><DataTableHeadCell>{t('discountName')}</DataTableHeadCell><DataTableHeadCell>{t('discountType')}</DataTableHeadCell><DataTableHeadCell>{t('appliesTo')}</DataTableHeadCell><DataTableHeadCell>{t('statusColumn')}</DataTableHeadCell><DataTableHeadCell>{t('redemptions')}</DataTableHeadCell><DataTableHeadCell>{t('endsAt')}</DataTableHeadCell><DataTableHeadSpacerCell /></DataTableHead><DataTableBody>{filtered.map((row, index) => {
+          const status = discountStatus(row, now, timezone), value = formatDiscountValue(row, currency);
+          return <DataTableRow key={row.id} index={index}>
+            <DataTableCell mobilePrimary className="md:min-w-[144px]"><button type="button" disabled={busy || !!pending} className="rounded-r-sm text-start font-semibold text-[var(--brand-ink)] underline decoration-transparent underline-offset-4 hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand-ink)] disabled:opacity-50" onClick={() => open(row)}><bdi className="break-all">{row.code}</bdi></button></DataTableCell>
+            <DataTableCell mobileLabel={t('discountName')} className="md:max-w-[280px]"><span dir="auto" className="whitespace-normal break-words">{row.name || '—'}</span></DataTableCell>
+            <DataTableCell mobileLabel={t('discountType')}><bdi>{value === 'freeDelivery' ? t('typeFreeDelivery') : value}</bdi></DataTableCell>
+            <DataTableCell mobileLabel={t('appliesTo')}>{t(row.scope === 'whole_sale' ? 'scopeWholeSale' : row.scope === 'category' ? 'scopeCategory' : 'scopeSpecificItem')}</DataTableCell>
+            <DataTableCell mobileLabel={t('statusColumn')}><span className={`badge ${status === 'active' ? 'badge-ready' : status === 'scheduled' ? 'badge-accepted' : status === 'inactive' ? 'badge-rejected' : 'badge-neutral'}`}>{t(status)}</span></DataTableCell>
+            <DataTableCell mobileLabel={t('redemptions')}><bdi>{row.redemption_count}{row.total_cap != null ? ` / ${row.total_cap}` : ''}</bdi></DataTableCell>
+            <DataTableCell mobileLabel={t('endsAt')} className="md:whitespace-nowrap"><bdi>{date(row.ends_at)}</bdi></DataTableCell>
+            <DataTableCell>{canEdit && <div className="flex justify-end gap-1"><Button variant="ghost" icon aria-label={`${t('edit')} ${row.code}`} disabled={busy || !!pending} onClick={() => open(row)}><Pencil /></Button><Button variant="ghost" icon className="text-[var(--danger-500)]" aria-label={`${t('delete')} ${row.code}`} disabled={busy || !!pending} onClick={() => setConfirmation(row)}><Trash2 /></Button></div>}</DataTableCell>
+          </DataTableRow>;
+        })}</DataTableBody></DataTable>}
+      </>}
+    </>}
+    {editor && <DiscountEditModal key={editor.editing?.id ?? 'new'} open editing={editor.editing} restaurantId={rid} canEdit={canEdit} today={editor.today} timezone={timezone} onClose={() => setEditor(null)} onCurrent={accept} onSaved={(row, verified) => { accept(row); setEditor(null); setNotice(verified ? 'discountSaveVerified' : 'discountSaved'); }} />}
+    <ConfirmDialog open={!!confirmation} onOpenChange={open => { if (!open) setConfirmation(null); }} title={`${t('delete')} ${confirmation?.code ?? ''}`} description={t('deleteDiscountConfirm')} confirmLabel={t('delete')} cancelLabel={t('cancel')} danger onConfirm={() => void remove()} />
+  </div>;
 }

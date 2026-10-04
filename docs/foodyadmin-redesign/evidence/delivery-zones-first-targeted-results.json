@@ -1,0 +1,1040 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/delivery-zones.spec.ts"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "delivery-zones.spec.ts",
+      "file": "delivery-zones.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "delivery zones responsive fr 375",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 15388,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:29:46.376Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-735026240d41a1c9e7a3",
+          "file": "delivery-zones.spec.ts",
+          "line": 41,
+          "column": 78
+        },
+        {
+          "title": "delivery zones responsive he 1440",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2473,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:30:02.198Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-fe570b0f194a5a730101",
+          "file": "delivery-zones.spec.ts",
+          "line": 41,
+          "column": 78
+        },
+        {
+          "title": "delivery zones responsive en 820",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2189,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:30:04.681Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-26fcbfab09acc6645795",
+          "file": "delivery-zones.spec.ts",
+          "line": 41,
+          "column": 78
+        },
+        {
+          "title": "delivery order-only roles can manage zones without loading protected restaurant settings",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 7127,
+                  "error": {
+                    "message": "Error: page.goto: net::ERR_ABORTED at http://localhost:3103/1/dashboard\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3103/1/dashboard\", waiting until \"load\"\u001b[22m\n",
+                    "stack": "Error: page.goto: net::ERR_ABORTED at http://localhost:3103/1/dashboard\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3103/1/dashboard\", waiting until \"load\"\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:42:297",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                      "column": 297,
+                      "line": 42
+                    },
+                    "snippet": "  40 | async function edit(page:Page,n=0){await page.getByRole('button',{name:seed()[n].name,exact:true}).click();}\n  41 | for(const [locale,width] of [['fr',375],['he',1440],['en',820]] as const)test(`delivery zones responsive ${locale} ${width}`,async({page},info)=>{const state=await install(page,{locale});await page.setViewportSize({width,height:1000});await open(page);await expect(page.getByRole('button',{name:seed()[3].name,exact:true})).toHaveCount(0);await page.screenshot({path:info.outputPath(`delivery-zones-list-${locale}.png`)});await edit(page);await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath(`delivery-zones-editor-${locale}.png`),animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(state.fixture.unhandled).toEqual([]);});\n> 42 | test('delivery order-only roles can manage zones without loading protected restaurant settings',async({page})=>{const state=await install(page,{permissions:['orders.manage']});await open(page);await expect(minimumInput(page)).toHaveCount(0);expect(state.control.settingsReads).toBe(0);await page.goto('/1/dashboard');await expect(page.getByRole('link',{name:'Paramètres',exact:true})).toHaveAttribute('href','/1/settings/delivery');});\n     |                                                                                                                                                                                                                                                                                                         ^\n  43 | test('delivery settings-only viewer sees readonly minimum without requesting order-managed zones',async({page})=>{const state=await install(page,{permissions:['settings.view']});await page.goto('/1/settings/delivery');await expect(minimumInput(page)).toHaveValue('50');await expect(minimumInput(page)).toBeDisabled();await expect(page.getByText(/La gestion des zones nécessite/)).toBeVisible();await expect(page.getByRole('button',{name:'Ajouter une zone',exact:true})).toHaveCount(0);expect(state.control.zoneReads).toBe(0);expect(state.control.geoReads).toBe(0);expect(state.writes).toHaveLength(0);});\n  44 | test('delivery zone and minimum failures remain independent and retryable',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/delivery');await expect(page.getByText('Impossible de charger les zones de livraison.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveValue('50');state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Impossible de charger les zones de livraison.',{exact:true})).toBeVisible();state.control.malformed=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('button',{name:seed()[0].name,exact:true})).toBeVisible();});\n  45 | test('delivery minimum load error never becomes an editable zero fallback',async({page})=>{const state=await install(page);state.control.failMinimumRead=true;await open(page);await expect(page.getByText('Impossible de charger le minimum de commande global.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveCount(0);state.control.failMinimumRead=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(minimumInput(page)).toHaveValue('50');});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                        "column": 297,
+                        "line": 42
+                      },
+                      "message": "Error: page.goto: net::ERR_ABORTED at http://localhost:3103/1/dashboard\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3103/1/dashboard\", waiting until \"load\"\u001b[22m\n\n\n  40 | async function edit(page:Page,n=0){await page.getByRole('button',{name:seed()[n].name,exact:true}).click();}\n  41 | for(const [locale,width] of [['fr',375],['he',1440],['en',820]] as const)test(`delivery zones responsive ${locale} ${width}`,async({page},info)=>{const state=await install(page,{locale});await page.setViewportSize({width,height:1000});await open(page);await expect(page.getByRole('button',{name:seed()[3].name,exact:true})).toHaveCount(0);await page.screenshot({path:info.outputPath(`delivery-zones-list-${locale}.png`)});await edit(page);await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath(`delivery-zones-editor-${locale}.png`),animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(state.fixture.unhandled).toEqual([]);});\n> 42 | test('delivery order-only roles can manage zones without loading protected restaurant settings',async({page})=>{const state=await install(page,{permissions:['orders.manage']});await open(page);await expect(minimumInput(page)).toHaveCount(0);expect(state.control.settingsReads).toBe(0);await page.goto('/1/dashboard');await expect(page.getByRole('link',{name:'Paramètres',exact:true})).toHaveAttribute('href','/1/settings/delivery');});\n     |                                                                                                                                                                                                                                                                                                         ^\n  43 | test('delivery settings-only viewer sees readonly minimum without requesting order-managed zones',async({page})=>{const state=await install(page,{permissions:['settings.view']});await page.goto('/1/settings/delivery');await expect(minimumInput(page)).toHaveValue('50');await expect(minimumInput(page)).toBeDisabled();await expect(page.getByText(/La gestion des zones nécessite/)).toBeVisible();await expect(page.getByRole('button',{name:'Ajouter une zone',exact:true})).toHaveCount(0);expect(state.control.zoneReads).toBe(0);expect(state.control.geoReads).toBe(0);expect(state.writes).toHaveLength(0);});\n  44 | test('delivery zone and minimum failures remain independent and retryable',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/delivery');await expect(page.getByText('Impossible de charger les zones de livraison.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveValue('50');state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Impossible de charger les zones de livraison.',{exact:true})).toBeVisible();state.control.malformed=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('button',{name:seed()[0].name,exact:true})).toBeVisible();});\n  45 | test('delivery minimum load error never becomes an editable zero fallback',async({page})=>{const state=await install(page);state.control.failMinimumRead=true;await open(page);await expect(page.getByText('Impossible de charger le minimum de commande global.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveCount(0);state.control.failMinimumRead=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(minimumInput(page)).toHaveValue('50');});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:42:297"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:30:06.881Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-or-67270-otected-restaurant-settings/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-or-67270-otected-restaurant-settings/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-or-67270-otected-restaurant-settings/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                    "column": 297,
+                    "line": 42
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-5b12b8a843f788578510",
+          "file": "delivery-zones.spec.ts",
+          "line": 42,
+          "column": 5
+        },
+        {
+          "title": "delivery settings-only viewer sees readonly minimum without requesting order-managed zones",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3349,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:30:14.575Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-01f1210557e9811c6c77",
+          "file": "delivery-zones.spec.ts",
+          "line": 43,
+          "column": 5
+        },
+        {
+          "title": "delivery zone and minimum failures remain independent and retryable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2122,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:30:18.071Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-1dc78e2d0111eada82e0",
+          "file": "delivery-zones.spec.ts",
+          "line": 44,
+          "column": 5
+        },
+        {
+          "title": "delivery minimum load error never becomes an editable zero fallback",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2140,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:30:20.207Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-a454355fb8de034ef9a2",
+          "file": "delivery-zones.spec.ts",
+          "line": 45,
+          "column": 5
+        },
+        {
+          "title": "delivery radius price edit preserves its original centre and explicit zero minimum",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 17300,
+                  "error": {
+                    "message": "TimeoutError: locator.fill: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('textbox', { name: 'Commande minimum (₪)', exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.fill: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('textbox', { name: 'Commande minimum (₪)', exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:46:352",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                      "column": 352,
+                      "line": 46
+                    },
+                    "snippet": "  44 | test('delivery zone and minimum failures remain independent and retryable',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/delivery');await expect(page.getByText('Impossible de charger les zones de livraison.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveValue('50');state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Impossible de charger les zones de livraison.',{exact:true})).toBeVisible();state.control.malformed=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('button',{name:seed()[0].name,exact:true})).toBeVisible();});\n  45 | test('delivery minimum load error never becomes an editable zero fallback',async({page})=>{const state=await install(page);state.control.failMinimumRead=true;await open(page);await expect(page.getByText('Impossible de charger le minimum de commande global.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveCount(0);state.control.failMinimumRead=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(minimumInput(page)).toHaveValue('50');});\n> 46 | test('delivery radius price edit preserves its original centre and explicit zero minimum',async({page})=>{const state=await install(page);await open(page,2);await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('15.5');await dialog(page).getByRole('textbox',{name:'Commande minimum (₪)',exact:true}).fill('0');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'PUT',path:'/api/v1/delivery/zones/1',rid:'2',query:'?restaurant_id=2',body:{center_lat:32.01,center_lng:34.75,radius_m:5000,delivery_fee:15.5,min_order:0}});expect(state.writes[0].body.tour_only).toBeUndefined();});\n     |                                                                                                                                                                                                                                                                                                                                                                ^\n  47 | test('delivery radius can explicitly adopt the current restaurant origin',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({center_lat:32.08,center_lng:34.82});});\n  48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                        "column": 352,
+                        "line": 46
+                      },
+                      "message": "TimeoutError: locator.fill: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('textbox', { name: 'Commande minimum (₪)', exact: true })\u001b[22m\n\n\n  44 | test('delivery zone and minimum failures remain independent and retryable',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/delivery');await expect(page.getByText('Impossible de charger les zones de livraison.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveValue('50');state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Impossible de charger les zones de livraison.',{exact:true})).toBeVisible();state.control.malformed=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('button',{name:seed()[0].name,exact:true})).toBeVisible();});\n  45 | test('delivery minimum load error never becomes an editable zero fallback',async({page})=>{const state=await install(page);state.control.failMinimumRead=true;await open(page);await expect(page.getByText('Impossible de charger le minimum de commande global.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveCount(0);state.control.failMinimumRead=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(minimumInput(page)).toHaveValue('50');});\n> 46 | test('delivery radius price edit preserves its original centre and explicit zero minimum',async({page})=>{const state=await install(page);await open(page,2);await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('15.5');await dialog(page).getByRole('textbox',{name:'Commande minimum (₪)',exact:true}).fill('0');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'PUT',path:'/api/v1/delivery/zones/1',rid:'2',query:'?restaurant_id=2',body:{center_lat:32.01,center_lng:34.75,radius_m:5000,delivery_fee:15.5,min_order:0}});expect(state.writes[0].body.tour_only).toBeUndefined();});\n     |                                                                                                                                                                                                                                                                                                                                                                ^\n  47 | test('delivery radius can explicitly adopt the current restaurant origin',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({center_lat:32.08,center_lng:34.82});});\n  48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:46:352"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:30:22.354Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ra-66ad4-e-and-explicit-zero-minimum/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ra-66ad4-e-and-explicit-zero-minimum/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ra-66ad4-e-and-explicit-zero-minimum/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                    "column": 352,
+                    "line": 46
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-0c9264b5675125332bdb",
+          "file": "delivery-zones.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "delivery radius can explicitly adopt the current restaurant origin",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 19035,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: /^Enregistrer$|^Enregistrement/ })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: /^Enregistrer$|^Enregistrement/ })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:47:296",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                      "column": 296,
+                      "line": 47
+                    },
+                    "snippet": "  45 | test('delivery minimum load error never becomes an editable zero fallback',async({page})=>{const state=await install(page);state.control.failMinimumRead=true;await open(page);await expect(page.getByText('Impossible de charger le minimum de commande global.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveCount(0);state.control.failMinimumRead=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(minimumInput(page)).toHaveValue('50');});\n  46 | test('delivery radius price edit preserves its original centre and explicit zero minimum',async({page})=>{const state=await install(page);await open(page,2);await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('15.5');await dialog(page).getByRole('textbox',{name:'Commande minimum (₪)',exact:true}).fill('0');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'PUT',path:'/api/v1/delivery/zones/1',rid:'2',query:'?restaurant_id=2',body:{center_lat:32.01,center_lng:34.75,radius_m:5000,delivery_fee:15.5,min_order:0}});expect(state.writes[0].body.tour_only).toBeUndefined();});\n> 47 | test('delivery radius can explicitly adopt the current restaurant origin',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({center_lat:32.08,center_lng:34.82});});\n     |                                                                                                                                                                                                                                                                                                        ^\n  48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n  50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                        "column": 296,
+                        "line": 47
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: /^Enregistrer$|^Enregistrement/ })\u001b[22m\n\n\n  45 | test('delivery minimum load error never becomes an editable zero fallback',async({page})=>{const state=await install(page);state.control.failMinimumRead=true;await open(page);await expect(page.getByText('Impossible de charger le minimum de commande global.',{exact:true})).toBeVisible();await expect(minimumInput(page)).toHaveCount(0);state.control.failMinimumRead=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(minimumInput(page)).toHaveValue('50');});\n  46 | test('delivery radius price edit preserves its original centre and explicit zero minimum',async({page})=>{const state=await install(page);await open(page,2);await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('15.5');await dialog(page).getByRole('textbox',{name:'Commande minimum (₪)',exact:true}).fill('0');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'PUT',path:'/api/v1/delivery/zones/1',rid:'2',query:'?restaurant_id=2',body:{center_lat:32.01,center_lng:34.75,radius_m:5000,delivery_fee:15.5,min_order:0}});expect(state.writes[0].body.tour_only).toBeUndefined();});\n> 47 | test('delivery radius can explicitly adopt the current restaurant origin',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({center_lat:32.08,center_lng:34.82});});\n     |                                                                                                                                                                                                                                                                                                        ^\n  48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n  50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:47:296"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:30:40.263Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ra-dd4ca-e-current-restaurant-origin/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ra-dd4ca-e-current-restaurant-origin/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ra-dd4ca-e-current-restaurant-origin/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                    "column": 296,
+                    "line": 47
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-b12ecd45a0e48f689f2c",
+          "file": "delivery-zones.spec.ts",
+          "line": 47,
+          "column": 5
+        },
+        {
+          "title": "delivery geocoding outage preserves an existing zone but blocks a new radius without origin",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 17478,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: /^Enregistrer$|^Enregistrement/ })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: /^Enregistrer$|^Enregistrement/ })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:48:434",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                      "column": 434,
+                      "line": 48
+                    },
+                    "snippet": "  46 | test('delivery radius price edit preserves its original centre and explicit zero minimum',async({page})=>{const state=await install(page);await open(page,2);await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('15.5');await dialog(page).getByRole('textbox',{name:'Commande minimum (₪)',exact:true}).fill('0');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'PUT',path:'/api/v1/delivery/zones/1',rid:'2',query:'?restaurant_id=2',body:{center_lat:32.01,center_lng:34.75,radius_m:5000,delivery_fee:15.5,min_order:0}});expect(state.writes[0].body.tour_only).toBeUndefined();});\n  47 | test('delivery radius can explicitly adopt the current restaurant origin',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({center_lat:32.08,center_lng:34.82});});\n> 48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                  ^\n  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n  50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});\n  51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                        "column": 434,
+                        "line": 48
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: /^Enregistrer$|^Enregistrement/ })\u001b[22m\n\n\n  46 | test('delivery radius price edit preserves its original centre and explicit zero minimum',async({page})=>{const state=await install(page);await open(page,2);await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('15.5');await dialog(page).getByRole('textbox',{name:'Commande minimum (₪)',exact:true}).fill('0');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'PUT',path:'/api/v1/delivery/zones/1',rid:'2',query:'?restaurant_id=2',body:{center_lat:32.01,center_lng:34.75,radius_m:5000,delivery_fee:15.5,min_order:0}});expect(state.writes[0].body.tour_only).toBeUndefined();});\n  47 | test('delivery radius can explicitly adopt the current restaurant origin',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({center_lat:32.08,center_lng:34.82});});\n> 48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                  ^\n  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n  50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});\n  51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:48:434"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:31:00.019Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ge-a3562-a-new-radius-without-origin/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ge-a3562-a-new-radius-without-origin/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ge-a3562-a-new-radius-without-origin/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                    "column": 434,
+                    "line": 48
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-5265a17a602ff2c6cd42",
+          "file": "delivery-zones.spec.ts",
+          "line": 48,
+          "column": 5
+        },
+        {
+          "title": "delivery city draft handles postal codes, duplicate names and unadded text",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 7022,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog').getByText('Cette ville ou ce code postal est déjà inclus.', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByText('Cette ville ou ce code postal est déjà inclus.', { exact: true })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog').getByText('Cette ville ou ce code postal est déjà inclus.', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByText('Cette ville ou ce code postal est déjà inclus.', { exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:49:515",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                      "column": 515,
+                      "line": 49
+                    },
+                    "snippet": "  47 | test('delivery radius can explicitly adopt the current restaurant origin',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({center_lat:32.08,center_lng:34.82});});\n  48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n> 49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   ^\n  50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});\n  51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});\n  52 | test('delivery zone draft and pending city guard dismissal',async({page})=>{const state=await install(page);await open(page);await edit(page,1);await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true})).toHaveValue('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(0);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                        "column": 515,
+                        "line": 49
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog').getByText('Cette ville ou ce code postal est déjà inclus.', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByText('Cette ville ou ce code postal est déjà inclus.', { exact: true })\u001b[22m\n\n\n  47 | test('delivery radius can explicitly adopt the current restaurant origin',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({center_lat:32.08,center_lng:34.82});});\n  48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n> 49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   ^\n  50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});\n  51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});\n  52 | test('delivery zone draft and pending city guard dismissal',async({page})=>{const state=await install(page);await open(page);await edit(page,1);await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true})).toHaveValue('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(0);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:49:515"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:31:18.103Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ci-2d1fb-cate-names-and-unadded-text/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ci-2d1fb-cate-names-and-unadded-text/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-ci-2d1fb-cate-names-and-unadded-text/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                    "column": 515,
+                    "line": 49
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-17380a83361aea5f7e62",
+          "file": "delivery-zones.spec.ts",
+          "line": 49,
+          "column": 5
+        },
+        {
+          "title": "delivery legacy polygon survives a fee edit and can be viewed without new drawing tools",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 7429,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog').getByText(/Polygone enregistré · 3 points/)\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByText(/Polygone enregistré · 3 points/)\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog').getByText(/Polygone enregistré · 3 points/)\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByText(/Polygone enregistré · 3 points/)\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:50:251",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                      "column": 251,
+                      "line": 50
+                    },
+                    "snippet": "  48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n> 50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});\n     |                                                                                                                                                                                                                                                           ^\n  51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});\n  52 | test('delivery zone draft and pending city guard dismissal',async({page})=>{const state=await install(page);await open(page);await edit(page,1);await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true})).toHaveValue('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(0);});\n  53 | test('delivery minimum serializes a scoped zero save and never sends other settings',async({page})=>{const state=await install(page);await open(page,2);await minimumInput(page).fill('');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(page.getByText(/Indiquez 0 pour aucun minimum/)).toBeVisible();await minimumInput(page).fill('0');let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await page.getByRole('button',{name:'Enregistrer',exact:true}).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(minimumInput(page)).toBeDisabled();release();state.control.gate=null;await expect(page.getByText('Enregistré',{exact:true})).toBeVisible();expect(state.writes).toEqual([{method:'PUT',path:'/api/v1/restaurants/2/settings',rid:'2',query:'',body:{minimum_order_delivery:0}}]);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                        "column": 251,
+                        "line": 50
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog').getByText(/Polygone enregistré · 3 points/)\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByText(/Polygone enregistré · 3 points/)\u001b[22m\n\n\n  48 | test('delivery geocoding outage preserves an existing zone but blocks a new radius without origin',async({page})=>{const state=await install(page);state.control.geoUnavailable=true;await open(page);await edit(page);await expect(dialog(page).getByText(/La recherche d’adresse est momentanément indisponible/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('9');await save(page).click();await expect(dialog(page)).toHaveCount(0);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouveau rayon');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();expect(state.writes).toHaveLength(1);await expect(page.locator('.foody-zone-home')).toHaveCount(0);state.control.geoUnavailable=false;await dialog(page).getByRole('button',{name:'Réessayer',exact:true}).click();await dialog(page).getByRole('button',{name:'Utiliser l’adresse actuelle du restaurant comme centre',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(2);});\n  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n> 50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});\n     |                                                                                                                                                                                                                                                           ^\n  51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});\n  52 | test('delivery zone draft and pending city guard dismissal',async({page})=>{const state=await install(page);await open(page);await edit(page,1);await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true})).toHaveValue('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(0);});\n  53 | test('delivery minimum serializes a scoped zero save and never sends other settings',async({page})=>{const state=await install(page);await open(page,2);await minimumInput(page).fill('');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(page.getByText(/Indiquez 0 pour aucun minimum/)).toBeVisible();await minimumInput(page).fill('0');let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await page.getByRole('button',{name:'Enregistrer',exact:true}).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(minimumInput(page)).toBeDisabled();release();state.control.gate=null;await expect(page.getByText('Enregistré',{exact:true})).toBeVisible();expect(state.writes).toEqual([{method:'PUT',path:'/api/v1/restaurants/2/settings',rid:'2',query:'',body:{minimum_order_delivery:0}}]);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:50:251"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:31:25.655Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-le-0f36c-d-without-new-drawing-tools/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-le-0f36c-d-without-new-drawing-tools/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-le-0f36c-d-without-new-drawing-tools/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                    "column": 251,
+                    "line": 50
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-a21aac806bc1d8bb1ea8",
+          "file": "delivery-zones.spec.ts",
+          "line": 50,
+          "column": 5
+        },
+        {
+          "title": "delivery invalid radius and negative fee do not mutate",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 6,
+                  "parallelIndex": 0,
+                  "status": "interrupted",
+                  "duration": 15788,
+                  "error": {
+                    "message": "Error: locator.click: Test ended.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: /^Enregistrer$|^Enregistrement/ })\u001b[22m\n",
+                    "stack": "Error: locator.click: Test ended.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: /^Enregistrer$|^Enregistrement/ })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:51:248",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                      "column": 248,
+                      "line": 51
+                    },
+                    "snippet": "  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n  50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});\n> 51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});\n     |                                                                                                                                                                                                                                                        ^\n  52 | test('delivery zone draft and pending city guard dismissal',async({page})=>{const state=await install(page);await open(page);await edit(page,1);await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true})).toHaveValue('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(0);});\n  53 | test('delivery minimum serializes a scoped zero save and never sends other settings',async({page})=>{const state=await install(page);await open(page,2);await minimumInput(page).fill('');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(page.getByText(/Indiquez 0 pour aucun minimum/)).toBeVisible();await minimumInput(page).fill('0');let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await page.getByRole('button',{name:'Enregistrer',exact:true}).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(minimumInput(page)).toBeDisabled();release();state.control.gate=null;await expect(page.getByText('Enregistré',{exact:true})).toBeVisible();expect(state.writes).toEqual([{method:'PUT',path:'/api/v1/restaurants/2/settings',rid:'2',query:'',body:{minimum_order_delivery:0}}]);});\n  54 | for(const kind of ['create','update','delete','minimum'])test(`delivery uncertain ${kind} reconciles by GET without repeated writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='minimum'){await minimumInput(page).fill('0');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();}else if(kind==='delete'){await page.getByRole('button',{name:`Supprimer · ${seed()[1].name}`,exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}else{if(kind==='create'){await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouvelle ville');await dialog(page).getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('cities');await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville démo');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();}else{await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('8');}await save(page).click();}await expect(verify(page)).toBeVisible();await verify(page).click();await expect(page.getByText(/Impossible de vérifier/)).toBeVisible();state.control.failRead=false;state.control.failMinimumRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                        "column": 248,
+                        "line": 51
+                      },
+                      "message": "Error: locator.click: Test ended.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: /^Enregistrer$|^Enregistrement/ })\u001b[22m\n\n\n  49 | test('delivery city draft handles postal codes, duplicate names and unadded text',async({page},info)=>{const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);await edit(page,1);const city=dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true});await city.fill(' tel aviv ');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();await expect(dialog(page).getByText('Cette ville ou ce code postal est déjà inclus.',{exact:true})).toBeVisible();await city.fill('05678');await save(page).click();await expect(dialog(page).getByText(/Ajoutez la ville saisie ou videz le champ/)).toBeVisible();await city.press('Enter');await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath('delivery-zones-cities-fr.png'),animations:'disabled'});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.cities).toEqual(['Tel Aviv','01234','05678']);expect(state.writes[0].body.min_order).toBe(0);});\n  50 | test('delivery legacy polygon survives a fee edit and can be viewed without new drawing tools',async({page})=>{const state=await install(page);await open(page);await edit(page,2);await expect(dialog(page).getByText(/Polygone enregistré · 3 points/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('7');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.polygon).toEqual(seed()[2].polygon);expect(state.writes[0].body.type).toBe('polygon');});\n> 51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});\n     |                                                                                                                                                                                                                                                        ^\n  52 | test('delivery zone draft and pending city guard dismissal',async({page})=>{const state=await install(page);await open(page);await edit(page,1);await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true})).toHaveValue('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(0);});\n  53 | test('delivery minimum serializes a scoped zero save and never sends other settings',async({page})=>{const state=await install(page);await open(page,2);await minimumInput(page).fill('');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(page.getByText(/Indiquez 0 pour aucun minimum/)).toBeVisible();await minimumInput(page).fill('0');let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await page.getByRole('button',{name:'Enregistrer',exact:true}).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(minimumInput(page)).toBeDisabled();release();state.control.gate=null;await expect(page.getByText('Enregistré',{exact:true})).toBeVisible();expect(state.writes).toEqual([{method:'PUT',path:'/api/v1/restaurants/2/settings',rid:'2',query:'',body:{minimum_order_delivery:0}}]);});\n  54 | for(const kind of ['create','update','delete','minimum'])test(`delivery uncertain ${kind} reconciles by GET without repeated writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='minimum'){await minimumInput(page).fill('0');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();}else if(kind==='delete'){await page.getByRole('button',{name:`Supprimer · ${seed()[1].name}`,exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}else{if(kind==='create'){await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouvelle ville');await dialog(page).getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('cities');await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville démo');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();}else{await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('8');}await save(page).click();}await expect(verify(page)).toBeVisible();await verify(page).click();await expect(page.getByText(/Impossible de vérifier/)).toBeVisible();state.control.failRead=false;state.control.failMinimumRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:51:248"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:31:33.576Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-in-c55b4--negative-fee-do-not-mutate/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-in-c55b4--negative-fee-do-not-mutate/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-in-c55b4--negative-fee-do-not-mutate/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                    "column": 248,
+                    "line": 51
+                  }
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-32c097eca78c0d856816",
+          "file": "delivery-zones.spec.ts",
+          "line": 51,
+          "column": 5
+        },
+        {
+          "title": "delivery zone draft and pending city guard dismissal",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-8e8afc3e8dfd333f7e26",
+          "file": "delivery-zones.spec.ts",
+          "line": 52,
+          "column": 5
+        },
+        {
+          "title": "delivery minimum serializes a scoped zero save and never sends other settings",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-7d55b68bb5ce029c9a4c",
+          "file": "delivery-zones.spec.ts",
+          "line": 53,
+          "column": 5
+        },
+        {
+          "title": "delivery uncertain create reconciles by GET without repeated writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-76706f1944eece0b3016",
+          "file": "delivery-zones.spec.ts",
+          "line": 54,
+          "column": 62
+        },
+        {
+          "title": "delivery uncertain update reconciles by GET without repeated writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-daa59b408fec83e2678c",
+          "file": "delivery-zones.spec.ts",
+          "line": 54,
+          "column": 62
+        },
+        {
+          "title": "delivery uncertain delete reconciles by GET without repeated writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-92b37fc912fa942f0a16",
+          "file": "delivery-zones.spec.ts",
+          "line": 54,
+          "column": 62
+        },
+        {
+          "title": "delivery uncertain minimum reconciles by GET without repeated writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-66a374414bdcb748f4bd",
+          "file": "delivery-zones.spec.ts",
+          "line": 54,
+          "column": 62
+        },
+        {
+          "title": "delivery differing zone readback preserves the draft until confirmed adoption",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-0b25d35538c77245ccc5",
+          "file": "delivery-zones.spec.ts",
+          "line": 55,
+          "column": 5
+        },
+        {
+          "title": "delivery last active zone deactivation explains the actual coverage rule",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-1c78c82241bf559ee5dc",
+          "file": "delivery-zones.spec.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "delivery tour protection is explained without deletion or automatic retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-910e5d45e2ca9bd6f829",
+          "file": "delivery-zones.spec.ts",
+          "line": 57,
+          "column": 5
+        },
+        {
+          "title": "delivery filtering and mobile map preview remain usable with failed tiles",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-117aec30f415eb59185e",
+          "file": "delivery-zones.spec.ts",
+          "line": 58,
+          "column": 5
+        },
+        {
+          "title": "delivery language change preserves loaded data without refetching zones or minimum",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-b0f8362018eea96d8883",
+          "file": "delivery-zones.spec.ts",
+          "line": 59,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T15:29:44.885Z",
+    "duration": 124911.55500000001,
+    "expected": 6,
+    "skipped": 12,
+    "unexpected": 6,
+    "flaky": 0
+  }
+}

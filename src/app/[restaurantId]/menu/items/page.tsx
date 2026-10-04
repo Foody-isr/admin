@@ -82,7 +82,7 @@ const PAGE_SIZE = 25;
  */
 function openEditor(item: FlatItem, rid: number, router: ReturnType<typeof useRouter>) {
   try {
-    sessionStorage.setItem(`foody.menuItem.${item.id}`, JSON.stringify(item));
+    sessionStorage.setItem(`foody.menuItem.${rid}.${item.id}`, JSON.stringify(item));
   } catch {
     /* quota or SSR — fall through */
   }
@@ -525,13 +525,11 @@ export default function ItemLibraryPage() {
                 <Button
                   variant="primary"
                   size="lg"
-                  icon
                   onClick={() => router.push(`/${rid}/menu/items/new`)}
                   aria-label={t('createItem')}
                   title={t('createItem')}
-                  className="rounded-full text-white shadow-sm"
                 >
-                  <Plus />
+                  <Plus /> {t('createItem')}
                 </Button>
               )}
             </>
@@ -603,7 +601,7 @@ export default function ItemLibraryPage() {
                 {availabilityMenuOpen && (
                   <div
                     role="menu"
-                    className="absolute end-0 top-full mt-1 w-60 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl overflow-hidden z-20"
+                    className="absolute end-0 top-full mt-1 w-60 bg-[var(--surface)] border border-[var(--line)] rounded-r-md shadow-3 overflow-hidden z-20"
                   >
                     {([
                       { value: 'auto', label: t('availabilityOverrideAuto') },
@@ -617,8 +615,8 @@ export default function ItemLibraryPage() {
                           setAvailabilityMenuOpen(false);
                           handleBulkAvailability(opt.value);
                         }}
-                        className={`flex w-full items-center gap-2 px-4 py-3 text-sm text-neutral-800 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors text-start ${
-                          i > 0 ? 'border-t border-neutral-200 dark:border-neutral-700' : ''
+                        className={`flex w-full items-center gap-2 px-4 py-3 text-sm text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors text-start ${
+                          i > 0 ? 'border-t border-[var(--line)]' : ''
                         }`}
                       >
                         {opt.label}
@@ -1011,7 +1009,7 @@ export default function ItemLibraryPage() {
                               {item.name}
                             </span>
                             {item.item_type === 'combo' && (
-                              <span className="ms-2 rounded-r-sm bg-[var(--brand-50)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand-600)]">
+                              <span className="ms-2 rounded-r-sm bg-[var(--brand-50)] px-1.5 py-0.5 text-fs-micro font-semibold text-[var(--brand-600)]">
                                 Combo
                               </span>
                             )}
@@ -1047,7 +1045,7 @@ export default function ItemLibraryPage() {
                       <DataTableCell className="px-3 py-2" data-mobile-role="menu" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           {canEdit && (
-                          <RowActionsMenu
+                          <RowActionsMenu label={`${t('actions')} — ${item.name}`}
                             actions={[
                               {
                                 label: t('edit'),
@@ -1192,8 +1190,8 @@ export default function ItemLibraryPage() {
         }
         onSelect={handleCategorySelect}
         selectionCount={selectionCount}
-        onCreateCategory={handleCreateCategory}
-        onEditCategory={handleEditCategory}
+        onCreateCategory={canEdit ? handleCreateCategory : undefined}
+        onEditCategory={canEdit ? handleEditCategory : undefined}
         processing={bulkProcessing}
       />
 

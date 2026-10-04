@@ -51,6 +51,7 @@ import {
   Section,
 } from '@/components/ds';
 import { InfoTip } from '@/components/help/InfoTip';
+import { comparableDelta } from '@/lib/dashboard-comparison';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -226,11 +227,6 @@ function fmtPercentDelta(n: number, locale = 'fr-FR') {
     maximumFractionDigits: 1,
     signDisplay: 'exceptZero',
   }).format(n / 100);
-}
-
-function pct(now: number, before: number) {
-  if (!before) return now > 0 ? 100 : 0;
-  return ((now - before) / before) * 100;
 }
 
 // Per-metric accessor into a day of the series — keeps the chart, sparklines and
@@ -519,12 +515,12 @@ export default function DashboardPage() {
 
   // KPI definitions, driven by the period totals. Presentational only.
   const revenueModeHint = t(`${revenueMode}DashboardHint`);
-  const metrics: { key: MetricKey; label: string; value: string; delta: number; hint?: string; accent: string }[] = [
+  const metrics: { key: MetricKey; label: string; value: string; delta: number | null; hint?: string; accent: string }[] = [
     {
       key: 'revenue',
       label: t('grossRevenue'),
       value: fmtMoney(current?.total_revenue ?? 0, dateLocale, 0, currency),
-      delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
+      delta: comparableDelta(current?.total_revenue, previous?.total_revenue),
       accent: 'var(--brand-500)',
       hint: revenueModeHint,
     },
@@ -532,7 +528,7 @@ export default function DashboardPage() {
       key: 'orders',
       label: t('orders'),
       value: String(current?.total_orders ?? 0),
-      delta: pct(current?.total_orders ?? 0, previous?.total_orders ?? 0),
+      delta: comparableDelta(current?.total_orders, previous?.total_orders),
       accent: 'var(--cat-4)',
       hint: revenueModeHint,
     },
@@ -540,14 +536,14 @@ export default function DashboardPage() {
       key: 'avgTicket',
       label: t('avgTicket'),
       value: fmtMoney(current?.avg_ticket ?? 0, dateLocale, 1, currency),
-      delta: pct(current?.avg_ticket ?? 0, previous?.avg_ticket ?? 0),
+      delta: comparableDelta(current?.avg_ticket, previous?.avg_ticket),
       accent: 'var(--cat-5)',
     },
     {
       key: 'itemsSold',
       label: t('itemsSold'),
       value: String(current?.items_sold ?? 0),
-      delta: pct(current?.items_sold ?? 0, previous?.items_sold ?? 0),
+      delta: comparableDelta(current?.items_sold, previous?.items_sold),
       accent: 'var(--success-500)',
     },
   ];
@@ -721,7 +717,7 @@ export default function DashboardPage() {
                     key={o.id}
                     type="button"
                     onClick={() => router.push(orderDetailPath(rid, o.id))}
-                    className="group flex w-full items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] text-left transition-colors first:border-t-0 hover:bg-[var(--surface-2)]"
+                    className="group flex w-full items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] text-start transition-colors first:border-t-0 hover:bg-[var(--surface-2)]"
                   >
                     <div
                       className="h-2 w-2 shrink-0 rounded-full"
@@ -766,7 +762,7 @@ interface DashboardMetric {
   key: MetricKey;
   label: string;
   value: string;
-  delta: number;
+  delta: number | null;
   hint?: string;
   accent: string;
 }
@@ -891,8 +887,8 @@ function OperationsBar({
   ];
 
   return (
-    <section className="mb-[var(--s-4)] border-y border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_65%,var(--surface))] px-[var(--s-4)] py-[var(--s-4)] md:px-[var(--s-5)]">
-      <div className="grid grid-cols-1 items-center gap-[var(--s-5)] xl:grid-cols-[minmax(280px,1fr)_minmax(460px,auto)_auto] xl:gap-[var(--s-4)]">
+    <section className="mb-[var(--s-6)] rounded-r-lg bg-[var(--summary-bg)] px-[var(--s-4)] py-[var(--s-4)] md:px-[var(--s-5)]">
+      <div className="grid grid-cols-1 items-center gap-[var(--s-5)] 2xl:grid-cols-[minmax(240px,1fr)_minmax(440px,auto)_auto] xl:gap-[var(--s-4)]">
         <div className="flex items-center gap-[var(--s-3)] min-w-0">
           <div
             className="h-10 w-10 rounded-full grid place-items-center shrink-0"
@@ -916,7 +912,7 @@ function OperationsBar({
 
         <div className="grid min-w-0 grid-cols-2 divide-x divide-[var(--line)] sm:grid-cols-4">
           {stats.map((stat) => (
-            <div key={stat.label} className="min-w-0 px-[var(--s-4)] first:pl-0 xl:first:pl-[var(--s-4)]">
+            <div key={stat.label} className="min-w-0 px-[var(--s-4)] first:ps-0 xl:first:ps-[var(--s-4)]">
               <div className={`text-[22px] font-semibold leading-none tabular-nums ${stat.attention ? 'text-[var(--warning-500)]' : 'text-[var(--fg)]'}`}>{stat.value}</div>
               <div className="mt-1 text-[13px] leading-snug text-[var(--fg-muted)]">{stat.label}</div>
             </div>
@@ -954,46 +950,45 @@ function PerformanceOverview({
   channels: React.ReactNode;
 }) {
   const primary = metrics[0];
-  const primaryUp = primary.delta >= 0;
+  const primaryUp = (primary.delta ?? 0) > 0;
   return (
-    <section className="overflow-hidden rounded-[var(--r-xl)] border border-[var(--line)] bg-[var(--surface)] shadow-1">
-      <div className="h-1.5 bg-[var(--brand-500)]" />
-      <div style={{ background: 'linear-gradient(120deg, color-mix(in oklab, var(--brand-500) 7%, var(--surface)) 0%, var(--surface) 48%)' }}>
+    <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+      <div>
         <header className="flex flex-wrap items-start justify-between gap-[var(--s-4)] px-[var(--s-5)] pt-[var(--s-4)] md:px-[var(--s-6)]">
           <h2 className="text-fs-xl font-semibold text-[var(--fg)]">{title}</h2>
           {chartNote && <span className="text-fs-xs text-[var(--fg-subtle)]">{chartNote}</span>}
         </header>
 
         <div className="grid grid-cols-1 items-end gap-[var(--s-6)] px-[var(--s-5)] pb-[var(--s-5)] pt-[var(--s-4)] md:px-[var(--s-6)] xl:grid-cols-[minmax(180px,0.68fr)_minmax(330px,1.32fr)] xl:gap-[var(--s-4)]">
-          <div className="min-w-0 xl:pr-[var(--s-1)]">
+          <div className="min-w-0 xl:pe-[var(--s-1)]">
             <div className="text-fs-sm font-medium text-[var(--fg-muted)]">{primary.label}</div>
             <FormattedMoney
               amount={revenue}
               locale={locale}
-              className="mt-[var(--s-2)] text-[clamp(2.5rem,3.5vw,3.5rem)] font-semibold leading-[0.94] tracking-[-0.04em] text-[var(--fg)]"
+              className="mt-[var(--s-2)] text-[clamp(2.25rem,3vw,3rem)] font-semibold leading-[1.15] tracking-[-0.04em] text-[var(--fg)]"
             />
-            {showDelta && (
+            {showDelta && primary.delta !== null && (
               <div className="mt-[var(--s-3)] flex flex-wrap items-center gap-[var(--s-2)] text-fs-xs">
                 <span
-                  className={`rounded-full px-2.5 py-1 font-semibold tabular-nums ${primaryUp ? 'text-[var(--success-500)] bg-[var(--success-50)]' : 'text-[var(--danger-500)] bg-[var(--danger-50)]'}`}
+                  className={`rounded-full px-2.5 py-1 font-semibold tabular-nums ${primary.delta === 0 ? 'text-[var(--fg-muted)] bg-[var(--surface-2)]' : primaryUp ? 'text-[var(--success-500)] bg-[var(--success-50)]' : 'text-[var(--danger-500)] bg-[var(--danger-50)]'}`}
                 >
-                  {primaryUp ? '↑' : '↓'} {fmtPercentDelta(primary.delta, locale)}
+                  {primary.delta === 0 ? '—' : primaryUp ? '↑' : '↓'} {fmtPercentDelta(primary.delta, locale)}
                 </span>
                 <span className="text-[var(--fg-muted)]">{comparisonLabel}</span>
               </div>
             )}
           </div>
 
-          <div className="grid grid-cols-1 gap-[var(--s-3)] border-t border-[var(--line-strong)] pt-[var(--s-5)] sm:grid-cols-3 xl:border-l xl:border-t-0 xl:pl-[var(--s-4)] xl:pt-0">
+          <div className="grid grid-cols-1 gap-[var(--s-3)] border-t border-[var(--line-strong)] pt-[var(--s-5)] sm:grid-cols-3 xl:border-s xl:border-t-0 xl:ps-[var(--s-4)] xl:pt-0">
             {metrics.slice(1).map((metric) => {
-              const up = metric.delta >= 0;
+              const up = (metric.delta ?? 0) > 0;
               return (
-                <div key={metric.key} className="min-w-0 border-t-2 pt-[var(--s-3)]" style={{ borderTopColor: metric.accent }}>
+                <div key={metric.key} className="min-w-0 pt-[var(--s-3)]">
                   <div className="text-[13px] leading-snug text-[var(--fg-muted)]">{kpiLabel(metric.label, metric.hint)}</div>
                   <div className="mt-1.5 whitespace-nowrap text-[clamp(1.2rem,1.5vw,1.375rem)] font-semibold leading-none tabular-nums text-[var(--fg)]">{metric.value}</div>
-                  {showDelta && (
-                    <div className={`mt-1.5 text-[12px] font-semibold tabular-nums ${up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
-                      {up ? '↑' : '↓'} {fmtPercentDelta(metric.delta, locale)}
+                  {showDelta && metric.delta !== null && (
+                    <div className={`mt-1.5 text-[12px] font-semibold tabular-nums ${metric.delta === 0 ? 'text-[var(--fg-muted)]' : up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
+                      {metric.delta === 0 ? '—' : up ? '↑' : '↓'} {fmtPercentDelta(metric.delta, locale)}
                     </div>
                   )}
                 </div>

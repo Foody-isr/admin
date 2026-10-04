@@ -5,19 +5,18 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Tailwind default orange ramp (matches Figma Make palette exactly).
-        // orange-500 = #f97316, orange-600 = #ea580c.
+        // RGB channels preserve Tailwind opacity modifiers while matching the brand.
         brand: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
-          800: '#9a3412',
-          900: '#7c2d12',
+          50: 'rgb(var(--brand-50-rgb) / <alpha-value>)',
+          100: 'rgb(var(--brand-100-rgb) / <alpha-value>)',
+          200: 'rgb(var(--brand-200-rgb) / <alpha-value>)',
+          300: 'rgb(var(--brand-300-rgb) / <alpha-value>)',
+          400: 'rgb(var(--brand-400-rgb) / <alpha-value>)',
+          500: 'rgb(var(--brand-500-rgb) / <alpha-value>)',
+          600: 'rgb(var(--brand-600-rgb) / <alpha-value>)',
+          700: 'rgb(var(--brand-700-rgb) / <alpha-value>)',
+          800: 'rgb(var(--brand-800-rgb) / <alpha-value>)',
+          900: 'rgb(var(--brand-900-rgb) / <alpha-value>)',
         },
         status: {
           pending: '#F18A47',
@@ -147,7 +146,7 @@ module.exports = {
       },
       fontSize: {
         // Foody design-token sizes — 'fs-*' prefix to avoid clashing with Tailwind's xs/sm/base
-        'fs-micro': ['11px', { lineHeight: 'var(--lh-snug)' }],
+        'fs-micro': ['12px', { lineHeight: 'var(--lh-snug)' }],
         'fs-xs':    ['12px', { lineHeight: 'var(--lh-snug)' }],
         'fs-sm':    ['13px', { lineHeight: 'var(--lh-base)' }],
         'fs-md':    ['14px', { lineHeight: 'var(--lh-base)' }],

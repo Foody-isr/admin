@@ -40,7 +40,7 @@ export default function StockKpiRow({
       value: String(total),
       detail: `${categoriesCount} ${t('categoriesCount') || 'catégories'}`,
       icon: PackageIcon,
-      tone: 'text-[var(--brand-600)] bg-[var(--brand-50)]',
+      tone: 'text-[var(--brand-ink)] bg-[var(--brand-soft)]',
       onClick: () => onStatusChange(null),
     },
     {
@@ -90,14 +90,14 @@ export default function StockKpiRow({
                 <Icon className="size-4" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block whitespace-nowrap text-fs-xs font-medium text-[var(--fg-muted)]">
+                <span className="block break-words text-fs-xs font-medium text-[var(--fg-muted)]">
                   {metric.label}
                 </span>
-                <span className="flex items-baseline gap-2 whitespace-nowrap">
-                  <span className="num text-fs-lg font-semibold leading-tight text-[var(--fg)] sm:text-fs-xl">
+                <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <span className="num break-all text-fs-lg font-semibold leading-tight text-[var(--fg)] sm:text-fs-xl">
                     {metric.value}
                   </span>
-                  <span className="hidden text-[11px] text-[var(--fg-subtle)] sm:inline">
+                  <span className="text-xs text-[var(--fg-muted)]">
                     {metric.detail}
                   </span>
                 </span>

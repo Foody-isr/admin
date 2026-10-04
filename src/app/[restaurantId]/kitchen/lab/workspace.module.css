@@ -1,0 +1,15 @@
+.container { container-type: inline-size; }
+.imageLayout { display: grid; gap: 1.25rem; }
+.imageControls { display: grid; gap: .75rem; }
+.generatedImages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.importLayout { display: grid; }
+.importPreview { border-block-start: 1px solid var(--line); }
+@container (min-width: 620px) {
+  .imageLayout { grid-template-columns: 180px minmax(0, 1fr); align-items: start; }
+  .imageControls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (min-width: 800px) {
+  .importLayout { grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr); }
+  .importPreview { border-block-start: 0; border-inline-start: 1px solid var(--line); }
+  .importResults { max-height: 330px; overflow-y: auto; }
+}

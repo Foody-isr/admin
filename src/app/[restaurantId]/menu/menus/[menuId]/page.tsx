@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import {
   listMenus, getRestaurant, deleteGroup, deleteMenu, duplicateMenu, reorderGroups,
@@ -18,23 +17,15 @@ import { getCarteHealth, CarteHealthReport, CarteHealthProblem } from '@/lib/car
 import { addDays, isoDate } from '@/lib/weeks';
 import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import { BatchPicker } from '@/components/menu/BatchPicker';
-import { AvailabilityPill, availabilityToggleTarget } from '@/components/menu/AvailabilityPill';
-import { useI18n, useCurrency } from '@/lib/i18n';
+import { availabilityToggleTarget } from '@/components/menu/AvailabilityPill';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import {
-  ArrowLeftIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
-  MoreHorizontalIcon,
-  PlusIcon,
-  LayoutGridIcon,
-  XIcon,
-  SearchIcon,
-  GripVerticalIcon,
-  MonitorSmartphoneIcon,
-  ExternalLinkIcon,
-  AlertTriangleIcon,
-} from 'lucide-react';
+import { ArrowLeft, ChevronUp, ChevronDown, MoreHorizontal, Plus, GripVertical, MonitorSmartphone, ExternalLink, AlertTriangle } from 'lucide-react';
+import { PageHead, Button, ConfirmDialog, EmptyState } from '@/components/ds';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { CarteItemRow, CARTE_ITEM_COLUMNS } from '@/components/menu/CarteItemRow';
+import { AddRemoveItemsModal, MoveToGroupModal, ReplaceItemsModal } from '@/components/menu/CarteItemDialogs';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 
 type TFn = (k: string) => string;
 
@@ -42,37 +33,12 @@ type TFn = (k: string) => string;
 // future-week preview. Matches the env contract used by the website editor.
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
 
-// Grid column template — applied at md+ only. On mobile each row collapses to a
-// stacked card with inline labels (see ItemRow below).
-const GRID_COLS_DESKTOP = 'md:grid md:grid-cols-[40px_1.5fr_1fr_1fr_1fr_minmax(120px,1fr)_80px_40px] md:items-center';
-
-function channelsMeta(m: Menu, t: TFn): string {
-  const parts = [m.pos_enabled && t('posSystem'), m.web_enabled && 'Web'].filter(Boolean) as string[];
-  if (parts.length === 0) return t('noChannels');
-  if (parts.length === 1) return parts[0];
-  return `${parts[0]}+ ${parts.length - 1} ${t('andNMore').replace('{n}', String(parts.length - 1)).replace(/^\+ \d+ /, '')}`;
-}
-
-function hoursRange(m: Menu): string | null {
-  const hours = m.availability_hours;
-  if (!hours || hours.length === 0 || m.follows_restaurant_hours) return null;
-  const open = hours.filter((h) => !h.is_closed);
-  if (open.length === 0) return null;
-  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-  const first = open[0];
-  const last = open[open.length - 1];
-  if (first.day_of_week === last.day_of_week) return `${dayNames[first.day_of_week]}, ${first.open_time} - ${first.close_time}`;
-  return `${dayNames[first.day_of_week]} - ${dayNames[last.day_of_week]}, ${first.open_time} - ${last.close_time}`;
-}
-
-// ─── Tag / Pill ──────────────────────────────────────────────────────────────
-
-function Tag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[var(--surface-subtle)] text-[var(--text-secondary)]">
-      {children}
-    </span>
-  );
+function hoursRange(menu: Menu, locale: string): string | null {
+  if (menu.follows_restaurant_hours) return null;
+  return menu.availability_hours?.filter(hour => !hour.is_closed).map(hour => {
+    const day = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 0, 7 + hour.day_of_week)));
+    return `${day} ${hour.open_time}–${hour.close_time}`;
+  }).join(' · ') || null;
 }
 
 // serieDayOf resolves the ISO date (YYYY-MM-DD) a batch cycle is scoped to:
@@ -122,16 +88,16 @@ function CarteHealthBanner({ report, t }: { report: CarteHealthReport | null; t:
   const tone = alarming.length === 0
     ? 'border-[var(--divider)] bg-[var(--surface-subtle)] text-[var(--text-secondary)]'
     : hasError
-      ? 'border-red-300 bg-red-50 text-red-900'
-      : 'border-amber-300 bg-amber-50 text-amber-900';
+      ? 'border-[var(--danger-500)] bg-[var(--danger-50)] text-[var(--danger-500)]'
+      : 'border-[var(--warning-500)] bg-[var(--warning-50)] text-[var(--warning-500)]';
   const iconTone = alarming.length === 0
     ? 'text-[var(--text-muted)]'
-    : hasError ? 'text-red-500' : 'text-amber-500';
+    : hasError ? 'text-[var(--danger-500)]' : 'text-[var(--warning-500)]';
 
   return (
-    <div className={`rounded-xl border px-4 py-3 ${tone}`} role="alert">
+    <div className={`rounded-r-lg border px-4 py-3 ${tone}`} role="alert">
       <div className="flex items-start gap-3">
-        <AlertTriangleIcon className={`w-5 h-5 mt-0.5 shrink-0 ${iconTone}`} />
+        <AlertTriangle className={`w-5 h-5 mt-0.5 shrink-0 ${iconTone}`} />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm">
             {alarming.length > 0
@@ -139,7 +105,7 @@ function CarteHealthBanner({ report, t }: { report: CarteHealthReport | null; t:
               : (t('carteHealthOrphanCount') || '').replace('{n}', String(orphans.length))}
           </p>
           {alarming.length > 0 && (
-            <ul className="mt-1.5 space-y-1 text-sm list-disc pl-4">
+            <ul className="mt-1.5 space-y-1 text-sm list-disc ps-4">
               {alarming.map((p, i) => (
                 <li key={i}>{healthLine(p, t)}</li>
               ))}
@@ -158,15 +124,33 @@ function CarteHealthBanner({ report, t }: { report: CarteHealthReport | null; t:
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
+/** Keying by route isolates drafts and late responses when switching menus. */
 export default function MenuDetailPage() {
+  const { restaurantId, menuId } = useParams();
+  return <MenuDetailContent key={`${restaurantId}.${menuId}`} />;
+}
+
+function MenuDetailContent() {
   const { restaurantId, menuId } = useParams();
   const rid = Number(restaurantId);
   const mid = Number(menuId);
   const router = useRouter();
   const pathname = usePathname();
-  const { t } = useI18n();
+  const { t, locale, direction } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [healthError, setHealthError] = useState(false);
+  const [healthRetry, setHealthRetry] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const requestGuard = useRef(new RestaurantRequestGuard());
+  const returnFocus = useRef<HTMLButtonElement | null>(null);
+  const [confirmation, setConfirmation] = useState<{ title: string; description: string; action: () => Promise<void> } | null>(null);
+  const moveProgress = useRef({ added: false, removed: new Set<number>() });
+  const replacementProgress = useRef({ removed: new Set<number>(), added: new Set<number>() });
+  requestGuard.current.enterRestaurant(rid);
 
   // Last-known data for this carte, kept across route round-trips (e.g.
   // carte → article editor → back) so the page renders instantly instead of
@@ -188,10 +172,6 @@ export default function MenuDetailPage() {
   // Groups start expanded on first load only — reloads must not stomp the
   // user's collapsed/expanded choices.
   const expandInitializedRef = useRef(!!cached);
-  const [addDropdownOpen, setAddDropdownOpen] = useState(false);
-  const [headerDropdownOpen, setHeaderDropdownOpen] = useState(false);
-  const [duplicating, setDuplicating] = useState(false);
-  const [groupDropdown, setGroupDropdown] = useState<number | null>(null);
   const [itemPickerGroupId, setItemPickerGroupId] = useState<number | null>(null);
   const [allItems, setAllItems] = useState<MenuItem[]>([]);
   // All item categories — used only to power the category filter chips in the
@@ -226,54 +206,49 @@ export default function MenuDetailPage() {
   // Per-série carte health (empty groups, short combo steps, orphan items).
   const [health, setHealth] = useState<CarteHealthReport | null>(null);
 
-  const reload = useCallback(() => {
-    setSyncing(true);
-    Promise.all([listMenus(rid), listAllItems(rid)]).then(async ([menus, items]) => {
+  const reload = useCallback(async () => {
+    const guard = requestGuard.current;
+    const token = guard.begin(rid);
+    setSyncing(true); setLoadError('');
+    try {
+      const [menus, items, restaurantDetails, categories] = await Promise.all([listMenus(rid), listAllItems(rid), getRestaurant(rid), getAllCategories(rid)]);
+      if (!guard.isCurrent(token)) return;
+      const found = menus.find(m => m.id === mid);
+      // A failed membership request must not turn a future series into today's menu.
+      const config = found?.is_weekly_rotating ? await getBatchFulfillmentConfig(rid) : null;
+      const groupList = found?.groups ?? [];
+      const memberships = found?.is_weekly_rotating ? await Promise.all(groupList.map(g => listGroupMemberships(rid, g.id))) : [];
+      if (!guard.isCurrent(token)) return;
+      setBatchConfig(config);
+      setMembershipsByGroup(new Map(groupList.map((g, index) => [g.id, memberships[index] ?? []])));
       setPageCache(cacheKey, { menus, items });
-      const found = menus.find((m) => m.id === mid);
-      setMenu(found ?? null);
-      setAllMenus(menus);
-      setAllItems(items);
-      setOrderedGroupIds(null);
-      setItemOrderByGroup(new Map());
-      setSelectedItemsByGroup(new Map());
-      if (!expandInitializedRef.current && found?.groups) {
-        setExpanded(new Set(found.groups.map((g) => g.id)));
-        expandInitializedRef.current = true;
-      }
-      // Batch-aware extras: only fired when the menu has the rotating flag.
-      if (found?.is_weekly_rotating) {
-        const groupList = found.groups ?? [];
-        const [config, ...memberships] = await Promise.all([
-          getBatchFulfillmentConfig(rid).catch(() => null),
-          ...groupList.map((g) => listGroupMemberships(rid, g.id).catch(() => [])),
-        ]);
-        setBatchConfig(config);
-        const next = new Map<number, MenuGroupMembership[]>();
-        groupList.forEach((g, idx) => next.set(g.id, memberships[idx] ?? []));
-        setMembershipsByGroup(next);
-      } else {
-        setBatchConfig(null);
-        setMembershipsByGroup(new Map());
-      }
-    }).finally(() => { setLoading(false); setSyncing(false); });
+      setMenu(found ?? null); setAllMenus(menus); setAllItems(items); setRestaurant(restaurantDetails); setAllCats(categories);
+      setOrderedGroupIds(null); setItemOrderByGroup(new Map()); setSelectedItemsByGroup(new Map());
+      if (!expandInitializedRef.current && found?.groups) { setExpanded(new Set(found.groups.map(g => g.id))); expandInitializedRef.current = true; }
+    } catch (cause) { if (guard.isCurrent(token)) setLoadError(cause instanceof Error ? cause.message : 'libraryOperationFailed'); }
+    finally { if (guard.isCurrent(token)) { setLoading(false); setSyncing(false); } }
   }, [rid, mid, cacheKey]);
 
-  useEffect(() => { reload(); getRestaurant(rid).then(setRestaurant).catch(() => null); }, [reload, rid]);
+  useEffect(() => { const guard = requestGuard.current; void reload(); return () => guard.invalidate(); }, [reload]);
+
+  const mutate = async (operation: () => Promise<void>) => {
+    if (!canEdit || busyRef.current || syncing || loadError) return;
+    busyRef.current = true; setBusy(true); setActionError('');
+    try { await operation(); }
+    catch (cause) { setActionError(`${cause instanceof Error ? cause.message : t('libraryOperationFailed')} ${t('menuSavePartial')}`); await reload(); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
 
   // Fetch carte health for the selected série (server defaults to today when no
   // rotating cycle is picked). Refetches when the operator switches série.
   useEffect(() => {
     let cancelled = false;
+    setHealthError(false);
     getCarteHealth(rid, serieDayOf(batchConfig, selectedCycleIndex) ?? undefined)
       .then((r) => { if (!cancelled) setHealth(r); })
-      .catch(() => { if (!cancelled) setHealth(null); });
+      .catch(() => { if (!cancelled) { setHealth(null); setHealthError(true); } });
     return () => { cancelled = true; };
-  }, [rid, batchConfig, selectedCycleIndex]);
-
-  // Categories load independently of the menu reload — they only feed the
-  // Replace modal's filter chips, so they don't need to block the main view.
-  useEffect(() => { getAllCategories(rid).then(setAllCats).catch(() => null); }, [rid]);
+  }, [rid, batchConfig, selectedCycleIndex, healthRetry]);
 
   // Returning from the article editor: put the user back on the exact row
   // they left. The offset was saved by openItem() below.
@@ -293,58 +268,21 @@ export default function MenuDetailPage() {
 
   // Quick "86" from the carte's availability pill. Binary toggle keyed on the
   // item's visible state via availabilityToggleTarget (shared with the Library
-  // list) — always a forced override, never 'auto', so the optimistic flip
-  // matches the reloaded truth and the pill never bounces. Availability is
+  // list) — always a forced override, never 'auto', so the confirmed state
+  // matches the reloaded truth. Availability is
   // global to the item, so this takes it off (or back on) every menu and
   // channel, not just this carte.
-  const handleToggleSoldOut = async (groupId: number, item: MenuItem) => {
+  const handleToggleSoldOut = async (item: MenuItem) => {
     const next = availabilityToggleTarget(item.availability_state, item.availability_override);
-    patchGroupItems(groupId, (items) =>
-      items.map((i) =>
-        i.id === item.id
-          ? {
-              ...i,
-              availability_override: next,
-              availability_state: next === 'force_sold_out' ? 'sold_out' : 'available',
-            }
-          : i,
-      ),
-    );
-    try {
-      await updateMenuItem(rid, item.id, { availability_override: next });
-      reload();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update availability');
-      reload(); // revert optimistic patch to server truth
-    }
+    await mutate(async () => { await updateMenuItem(rid, item.id, { availability_override: next }); await reload(); });
   };
 
-  // Bulk availability for the selected items in a group — same global override
-  // mutation, applied to each selection. Optimistic patch flips them at once.
   const bulkSetAvailability = async (groupId: number, value: AvailabilityOverride) => {
     const ids = Array.from(selectedInGroup(groupId));
-    if (ids.length === 0) return;
-    patchGroupItems(groupId, (items) =>
-      items.map((i) =>
-        ids.includes(i.id)
-          ? {
-              ...i,
-              availability_override: value,
-              availability_state: value === 'force_sold_out' ? 'sold_out' : 'available',
-            }
-          : i,
-      ),
-    );
-    try {
-      for (const id of ids) {
-        await updateMenuItem(rid, id, { availability_override: value });
-      }
-      clearGroupSelection(groupId);
-      reload();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update availability');
-      reload();
-    }
+    await mutate(async () => {
+      for (const id of ids) await updateMenuItem(rid, id, { availability_override: value });
+      clearGroupSelection(groupId); await reload();
+    });
   };
 
   // Navigate to the article editor with a return address: the editor's Back
@@ -354,7 +292,7 @@ export default function MenuDetailPage() {
   // restore effect above.
   const openItem = (item: MenuItem) => {
     try {
-      sessionStorage.setItem(`foody.menuItem.${item.id}`, JSON.stringify(item));
+      sessionStorage.setItem(`foody.menuItem.${rid}.${item.id}`, JSON.stringify(item));
     } catch {
       /* quota or SSR — fall through */
     }
@@ -362,13 +300,7 @@ export default function MenuDetailPage() {
     router.push(`/${rid}/menu/items/${item.id}?from=${encodeURIComponent(pathname)}`);
   };
 
-  const handleDeleteGroup = async (group: MenuGroup) => {
-    if (!confirm(`${t('delete')} "${group.name}"?`)) return;
-    await deleteGroup(rid, group.id);
-    setGroupDropdown(null);
-    setMenu((prev) => prev ? { ...prev, groups: prev.groups?.filter((g) => g.id !== group.id) } : prev);
-    reload();
-  };
+  const handleDeleteGroup = (group: MenuGroup) => setConfirmation({ title: t('delete'), description: group.name, action: async () => { await deleteGroup(rid, group.id); await reload(); } });
 
   const toggleExpand = (id: number) => {
     setExpanded((prev) => {
@@ -378,36 +310,23 @@ export default function MenuDetailPage() {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!menu) {
-    return (
-      <div className="text-center py-16 text-[var(--text-secondary)]">
-        Menu not found.
-        <button onClick={() => router.back()} className="ml-2 underline">{t('back')}</button>
-      </div>
-    );
-  }
+  if (loading) return <p role="status" className="py-16 text-center text-fg-secondary">{t('loading')}</p>;
+  if (loadError) return <div role="alert" className="space-y-4 rounded-r-lg border border-[var(--line)] p-6"><p className="text-[var(--danger-500)]">{t(loadError)}</p><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>;
+  if (!menu) return <EmptyState title={t('menuNotFound')} action={<Button variant="secondary" onClick={() => router.push(`/${rid}/menu/menus`)}>{t('back')}</Button>} />;
 
   const baseGroups = menu.groups ?? [];
   const groups: MenuGroup[] = orderedGroupIds
     ? (orderedGroupIds.map((id) => baseGroups.find((g) => g.id === id)).filter(Boolean) as MenuGroup[])
     : baseGroups;
 
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, groupId: number) => {
+  const handleDragStart = (e: React.DragEvent<HTMLElement>, groupId: number) => {
     setDraggingGroupId(groupId);
     e.dataTransfer.effectAllowed = 'move';
     // Required for Firefox to initiate drag
     e.dataTransfer.setData('text/plain', String(groupId));
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, groupId: number) => {
+  const handleDragOver = (e: React.DragEvent<HTMLElement>, groupId: number) => {
     if (draggingGroupId === null) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -513,8 +432,7 @@ export default function MenuDetailPage() {
   // Quick "Add to this batch" — used by the inactive expander to re-activate
   // a single item for the selected cycle without going through the modal.
   const addItemToCurrentBatch = async (groupId: number, itemId: number) => {
-    await addItemsToGroup(rid, groupId, [itemId], currentBatchScope);
-    reload();
+    await mutate(async () => { await addItemsToGroup(rid, groupId, [itemId], currentBatchScope); await reload(); });
   };
 
   // ── Item drag-and-drop within a group ─────────────────────────────────────
@@ -557,11 +475,7 @@ export default function MenuDetailPage() {
     if (!drag || drag.groupId !== groupId) return;
     const finalOrder = itemOrderByGroup.get(groupId);
     if (!finalOrder) return;
-    try {
-      await reorderGroupItems(rid, groupId, finalOrder);
-    } catch {
-      reload();
-    }
+    await mutate(async () => { await reorderGroupItems(rid, groupId, finalOrder); await reload(); });
   };
 
   // ── Bulk selection ────────────────────────────────────────────────────────
@@ -603,7 +517,6 @@ export default function MenuDetailPage() {
   const bulkRemoveFromGroup = async (groupId: number) => {
     const ids = Array.from(selectedInGroup(groupId));
     if (ids.length === 0) return;
-    if (!confirm(t('removeSelectedFromGroupConfirm').replace('{n}', String(ids.length)))) return;
     for (const itemId of ids) {
       await removeItemForBatch(groupId, itemId);
     }
@@ -623,9 +536,9 @@ export default function MenuDetailPage() {
     if (sourceGroupId === targetGroupId) return;
     const ids = Array.from(selectedInGroup(sourceGroupId));
     if (ids.length === 0) return;
-    await addItemsToGroup(rid, targetGroupId, ids);
+    if (!moveProgress.current.added) { await addItemsToGroup(rid, targetGroupId, ids); moveProgress.current.added = true; }
     for (const itemId of ids) {
-      await removeItemFromGroup(rid, sourceGroupId, itemId);
+      if (!moveProgress.current.removed.has(itemId)) { await removeItemFromGroup(rid, sourceGroupId, itemId); moveProgress.current.removed.add(itemId); }
     }
     clearGroupSelection(sourceGroupId);
     setMoveModalSourceGroupId(null);
@@ -657,8 +570,8 @@ export default function MenuDetailPage() {
       return;
     }
     for (const { oldId, newId } of replacements) {
-      await removeItemForBatch(groupId, oldId);
-      await addItemsToGroup(rid, groupId, [newId], currentBatchScope);
+      if (!replacementProgress.current.removed.has(oldId)) { await removeItemForBatch(groupId, oldId); replacementProgress.current.removed.add(oldId); }
+      if (!replacementProgress.current.added.has(newId)) { await addItemsToGroup(rid, groupId, [newId], currentBatchScope); replacementProgress.current.added.add(newId); }
     }
     clearGroupSelection(groupId);
     setReplaceModalSourceGroupId(null);
@@ -671,7 +584,7 @@ export default function MenuDetailPage() {
     reload();
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetGroupId: number) => {
+  const handleDrop = async (e: React.DragEvent<HTMLElement>, targetGroupId: number) => {
     e.preventDefault();
     const dragId = draggingGroupId;
     clearDragState();
@@ -687,1218 +600,94 @@ export default function MenuDetailPage() {
     next.splice(toIdx, 0, dragId);
     setOrderedGroupIds(next);
 
-    try {
-      await reorderGroups(rid, mid, next);
-    } catch {
-      reload();
-    }
+    await mutate(async () => { await reorderGroups(rid, mid, next); await reload(); });
   };
 
-  return (
-    <div className="space-y-6 w-full min-w-0">
-      {/* ── Page Header ── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push(`/${rid}/menu/menus`)}
-            className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
-          >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-[var(--text-primary)]">{menu.name}</h1>
-              {syncing && (
-                <div
-                  className="animate-spin w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full shrink-0"
-                  aria-label={t('loading')}
-                />
-              )}
-              {canEdit && (
-              <div className="relative">
-                <button
-                  onClick={() => setHeaderDropdownOpen(!headerDropdownOpen)}
-                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors text-2xl leading-none px-1"
-                >
-                  ···
-                </button>
-                {headerDropdownOpen && (
-                  <div className="absolute left-0 top-10 z-30 w-72 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
-                    <button
-                      onClick={() => { setHeaderDropdownOpen(false); router.push(`/${rid}/menu/menus/${mid}/edit`); }}
-                      className="w-full text-left px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors"
-                    >
-                      <p className="text-sm font-medium text-[var(--text-primary)]">{t('editMenuOption')}</p>
-                      <p className="text-xs text-[var(--text-muted)] mt-0.5">{t('editMenuOptionDesc')}</p>
-                    </button>
-                    <div className="border-t border-[var(--divider)]" />
-                    <button
-                      disabled={duplicating}
-                      onClick={async () => {
-                        setHeaderDropdownOpen(false);
-                        if (duplicating) return;
-                        setDuplicating(true);
-                        try {
-                          const copy = await duplicateMenu(rid, mid);
-                          router.push(`/${rid}/menu/menus/${copy.id}`);
-                        } catch {
-                          setDuplicating(false);
-                          alert(t('duplicateMenuFailed'));
-                        }
-                      }}
-                      className="w-full text-start px-4 py-3 text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {t('duplicateMenu')}
-                    </button>
-                    <div className="border-t border-[var(--divider)]" />
-                    <button
-                      onClick={async () => {
-                        setHeaderDropdownOpen(false);
-                        if (!confirm(`${t('deleteMenuOption')} "${menu.name}"?`)) return;
-                        await deleteMenu(rid, mid);
-                        router.push(`/${rid}/menu/menus`);
-                      }}
-                      className="w-full text-left px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
-                    >
-                      {t('deleteMenuOption')}
-                    </button>
-                  </div>
-                )}
-              </div>
-              )}
-            </div>
-            <div className="flex items-center gap-0 mt-1 text-sm text-[var(--text-secondary)]">
-              {restaurant?.name && (
-                <>
-                  <button
-                    onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}
-                    className="flex items-center gap-1.5 hover:text-[var(--text-primary)] hover:underline transition-colors cursor-pointer"
-                  >
-                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>
-                    {restaurant.name}
-                  </button>
-                  <span className="mx-2 text-[var(--text-muted)]">|</span>
-                </>
-              )}
-              <button
-                onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}
-                className="flex items-center gap-1.5 hover:text-[var(--text-primary)] hover:underline transition-colors cursor-pointer"
-              >
-                <LayoutGridIcon className="w-4 h-4 shrink-0" />
-                {channelsMeta(menu, t)}
-              </button>
-              {hoursRange(menu) && (
-                <>
-                  <span className="mx-2 text-[var(--text-muted)]">|</span>
-                  <button
-                    onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}
-                    className="flex items-center gap-1.5 hover:text-[var(--text-primary)] hover:underline transition-colors cursor-pointer"
-                  >
-                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                    {hoursRange(menu)}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0 flex-wrap">
-          {isRotating && cycles.length > 0 && (
-            <BatchPicker
-              cycles={cycles}
-              selectedIndex={selectedCycleIndex}
-              onChange={setSelectedCycleIndex}
-            />
-          )}
-          {healthAlarmCount > 0 && (
-            <span
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700"
-              title={(t('carteHealthBadge') || '').replace('{n}', String(healthAlarmCount))}
-            >
-              <AlertTriangleIcon className="w-3.5 h-3.5" />
-              {healthAlarmCount}
-            </span>
-          )}
-          {/* Preview the selected série on the live guest site (view-only). Opens
-              foodyweb with ?preview_date pinned to the cycle's fulfilment day, so
-              the operator sees exactly what customers will see that week. */}
-          {isRotating && selectedDay && restaurant?.slug && (
-            <button
-              className="btn-secondary rounded-full flex items-center gap-2"
-              onClick={() =>
-                window.open(
-                  `${WEB_URL}/r/${restaurant.slug}/order?preview_date=${selectedDay}`,
-                  '_blank',
-                  'noopener'
-                )
-              }
-              title={t('previewWeekHint') || 'Open the guest order page for this série (view-only)'}
-            >
-              <ExternalLinkIcon className="w-4 h-4" />
-              {t('previewOnWeb') || 'Preview on web'}
-            </button>
-          )}
-          {isRotating && cycles.length === 0 && (
-            <button
-              onClick={() => router.push(`/${rid}/settings/orders`)}
-              className="text-xs text-[var(--text-muted)] italic underline hover:text-[var(--text-primary)] transition-colors"
-            >
-              {t('configureBatchFirst') || 'Configurez les commandes anticipées dans les paramètres'}
-            </button>
-          )}
-          {canEdit && (
-          <button
-            className="btn-secondary rounded-full flex items-center gap-2"
-            onClick={() => router.push(`/${rid}/menu/menus/${mid}/pos-display`)}
-          >
-            <MonitorSmartphoneIcon className="w-4 h-4" />
-            {t('editPosLayout')}
-          </button>
-          )}
-          {canEdit && (
-          <div className="relative">
-            <button
-              onClick={() => setAddDropdownOpen(!addDropdownOpen)}
-              className="btn-primary rounded-full flex items-center gap-1.5"
-            >
-              {t('add')} <ChevronDownIcon className="w-3.5 h-3.5" />
-            </button>
-            {addDropdownOpen && (
-              <div className="absolute right-0 top-12 z-30 w-56 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
-                <button
-                  onClick={() => { setAddDropdownOpen(false); router.push(`/${rid}/menu/items/new?menuId=${mid}`); }}
-                  className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-                >
-                  {t('addArticle')}
-                </button>
-                <div className="border-t border-[var(--divider)]" />
-                <button
-                  onClick={() => { setAddDropdownOpen(false); router.push(`/${rid}/menu/menus/${mid}/group/new`); }}
-                  className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-                >
-                  {t('addGroup')}
-                </button>
-              </div>
-            )}
-          </div>
-          )}
-        </div>
-      </div>
-
-      <CarteHealthBanner report={health} t={t} />
-
-      {/* ── Accordion Groups ── */}
-      <div className="space-y-3">
-        {groups.length === 0 && (
-          <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] text-center py-16 text-sm text-[var(--text-muted)]">
-            {t('noGroupsYet')}
-          </div>
-        )}
-
-        {groups.map((group) => {
-          const allItemsInGroup = itemsForGroup(group);
-          const { active: items, inactive: inactiveItems } = splitForBatch(group, allItemsInGroup);
-          const itemIds = items.map((i) => i.id);
-          const selected = selectedInGroup(group.id);
-          const inactiveExpanded = showInactiveByGroup.has(group.id);
-          const allSelected = items.length > 0 && selected.size === items.length;
-          const someSelected = selected.size > 0 && !allSelected;
-          const isExpanded = expanded.has(group.id);
-          const isDragging = draggingGroupId === group.id;
-          const isDragTarget = dragOverGroupId === group.id && draggingGroupId !== null && draggingGroupId !== group.id;
-          return (
-            <div
-              key={group.id}
-              draggable={canEdit && draggingItem === null}
-              onDragStart={(e) => handleDragStart(e, group.id)}
-              onDragOver={(e) => handleDragOver(e, group.id)}
-              onDrop={(e) => handleDrop(e, group.id)}
-              onDragEnd={clearDragState}
-              onDragLeave={() => { if (dragOverGroupId === group.id) setDragOverGroupId(null); }}
-              className={`rounded-xl border bg-[var(--surface)] transition-all ${isDragging ? 'opacity-40' : ''} ${isDragTarget ? 'border-brand-500 ring-2 ring-brand-500/30' : 'border-[var(--divider)]'}`}
-            >
-              {/* ── Group Header ── */}
-              <div
-                className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors ${isExpanded ? '' : 'rounded-xl'}`}
-                onClick={() => toggleExpand(group.id)}
-              >
-                {/* Drag handle is desktop-only — touch reorder isn't supported. */}
-                {canEdit && (
-                  <GripVerticalIcon className="hidden md:block w-5 h-5 text-[var(--text-muted)] shrink-0 cursor-grab active:cursor-grabbing" />
-                )}
-                {isExpanded
-                  ? <ChevronUpIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
-                  : <ChevronDownIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
-                }
-                <span className="font-bold text-base text-[var(--text-primary)]">{group.name}</span>
-                <span className="text-sm text-[var(--text-secondary)]">{t('nArticles').replace('{n}', String(items.length))}</span>
-                <div className="flex-1" />
-                {canEdit && (
-                <div className="relative">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setGroupDropdown(groupDropdown === group.id ? null : group.id); }}
-                    className="p-1.5 rounded-lg hover:bg-[var(--surface-subtle)] text-[var(--text-muted)] transition-colors"
-                  >
-                    <MoreHorizontalIcon className="w-5 h-5" />
-                  </button>
-                  {groupDropdown === group.id && (
-                    <div className="absolute right-0 top-9 z-30 w-48 bg-[var(--surface-elevated,var(--surface))] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setGroupDropdown(null); saveScroll(cacheKey); router.push(`/${rid}/menu/menus/${mid}/group/${group.id}`); }}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-                      >
-                        {t('edit')}
-                      </button>
-                      <div className="border-t border-[var(--divider)]" />
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group); }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
-                      >
-                        {t('delete')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                )}
-              </div>
-
-              {/* ── Group Content (expanded) ── */}
-              {isExpanded && (
-                <div className="border-t border-[var(--divider)] rounded-b-xl">
-                  {/* Bulk-action bar — shown when any items in this group are selected. */}
-                  {canEdit && selected.size > 0 && (
-                    <div className="flex items-center gap-3 px-4 py-2.5 bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] border-b border-[var(--divider)]">
-                      <span className="text-sm font-medium text-[var(--text-primary)]">
-                        {t('nSelected').replace('{n}', String(selected.size))}
-                      </span>
-                      <div className="flex-1" />
-                      <button
-                        onClick={() => clearGroupSelection(group.id)}
-                        className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                      >
-                        {t('cancel')}
-                      </button>
-                      <button
-                        onClick={() => setReplaceModalSourceGroupId(group.id)}
-                        className="text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        {t('replace')}
-                      </button>
-                      <button
-                        onClick={() => setMoveModalSourceGroupId(group.id)}
-                        className="text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        {t('moveToGroup')}
-                      </button>
-                      <button
-                        onClick={() => bulkSetAvailability(group.id, 'force_sold_out')}
-                        className="text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        {t('quickMarkSoldOut')}
-                      </button>
-                      <button
-                        onClick={() => bulkSetAvailability(group.id, 'force_available')}
-                        className="text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        {t('quickMarkAvailable')}
-                      </button>
-                      <button
-                        onClick={() => bulkRemoveFromGroup(group.id)}
-                        className="text-sm font-medium text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
-                      >
-                        {t('removeFromGroup')}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Table Header Row — desktop only, mobile rows show inline labels */}
-                  {items.length > 0 && (
-                    <div className={`hidden ${GRID_COLS_DESKTOP} px-4 py-2.5 border-b-2 border-[var(--text-primary)]`}>
-                      <div>
-                        {canEdit && (
-                          <input
-                            type="checkbox"
-                            className="rounded border-[var(--divider)]"
-                            checked={allSelected}
-                            ref={(el) => { if (el) el.indeterminate = someSelected; }}
-                            onChange={() => toggleSelectAllInGroup(group.id, itemIds)}
-                          />
-                        )}
-                      </div>
-                      <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('article')}</div>
-                      <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('pointOfSale')}</div>
-                      <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('salesChannels')}</div>
-                      <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('modifiers')}</div>
-                      <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('availability')}</div>
-                      <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide text-right">{t('price')}</div>
-                      <div />
-                    </div>
-                  )}
-
-                  {/* Item Rows */}
-                  {items.map((item) => (
-                    <ItemRow
-                      key={item.id}
-                      item={item}
-                      restaurantName={restaurant?.name}
-                      menu={menu}
-                      t={t}
-                      rid={rid}
-                      groupId={group.id}
-                      removeCutoff={batchRemoveCutoff}
-                      canEdit={canEdit}
-                      isSelected={selected.has(item.id)}
-                      onToggleSelected={() => toggleItemSelected(group.id, item.id)}
-                      isDragging={draggingItem?.itemId === item.id && draggingItem.groupId === group.id}
-                      onItemDragStart={(e) => handleItemDragStart(e, group.id, item.id)}
-                      onItemDragOver={(e) => handleItemDragOver(e, group.id, item.id)}
-                      onItemDrop={(e) => handleItemDrop(e, group.id)}
-                      onItemDragEnd={() => setDraggingItem(null)}
-                      onOpen={() => openItem(item)}
-                      onToggleSoldOut={() => handleToggleSoldOut(group.id, item)}
-                      onRemoved={() => {
-                        patchGroupItems(group.id, (items) => items.filter((i) => i.id !== item.id));
-                        reload();
-                      }}
-                    />
-                  ))}
-
-                  {/* Add Item Row */}
-                  {canEdit && (
-                  <button
-                    onClick={() => setItemPickerGroupId(group.id)}
-                    className={`flex md:grid md:grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_40px] md:items-center w-full px-4 py-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors border-t border-[var(--divider)]`}
-                  >
-                    <div className="hidden md:block" />
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <PlusIcon className="w-4 h-4" />
-                      {t('addArticle')}
-                    </div>
-                    <div className="hidden md:block" />
-                    <div className="hidden md:block" />
-                    <div className="hidden md:block" />
-                    <div className="hidden md:block" />
-                    <div className="hidden md:block" />
-                  </button>
-                  )}
-
-                  {/* Inactive items expander — only shown for rotating cartes
-                      when the selected batch has items currently filtered out. */}
-                  {isRotating && inactiveItems.length > 0 && (
-                    <div className="border-t border-[var(--divider)]">
-                      <button
-                        onClick={() => toggleInactiveExpanded(group.id)}
-                        className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors"
-                      >
-                        {inactiveExpanded
-                          ? <ChevronUpIcon className="w-4 h-4" />
-                          : <ChevronDownIcon className="w-4 h-4" />
-                        }
-                        {(t('nItemsNotInThisBatch') || '{n} articles hors de cette série').replace('{n}', String(inactiveItems.length))}
-                      </button>
-                      {inactiveExpanded && (
-                        <div className="px-4 pb-3 flex flex-col gap-1">
-                          {inactiveItems.map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center gap-3 py-2 text-sm text-[var(--text-secondary)]"
-                            >
-                              <span className="flex-1 truncate">{item.name}</span>
-                              {canEdit && (
-                                <button
-                                  onClick={() => addItemToCurrentBatch(group.id, item.id)}
-                                  className="text-xs font-medium px-3 py-1 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors"
-                                >
-                                  {t('addToThisBatch') || 'Ajouter à cette série'}
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* ── Add Group Card ── */}
-        {canEdit && (
-        <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden">
-          <button
-            onClick={() => router.push(`/${rid}/menu/menus/${mid}/group/new`)}
-            className="flex items-center gap-3 w-full px-4 py-4 hover:bg-[var(--surface-subtle)] transition-colors text-base font-bold text-[var(--text-primary)]"
-          >
-            <PlusIcon className="w-5 h-5" />
-            {t('addGroup')}
-          </button>
-        </div>
-        )}
-      </div>
-
-      {/* ── Add/Remove Items Modal ── */}
-      {itemPickerGroupId !== null && (
-        <AddRemoveItemsModal
-          t={t}
-          rid={rid}
-          groupId={itemPickerGroupId}
-          allItems={allItems}
-          allCats={allCats}
-          groupItems={groups.find((g) => g.id === itemPickerGroupId)?.items ?? []}
-          addScope={currentBatchScope}
-          removeCutoff={batchRemoveCutoff}
-          onClose={() => setItemPickerGroupId(null)}
-          onDone={(added, removed) => {
-            const groupId = itemPickerGroupId;
-            setItemPickerGroupId(null);
-            patchGroupItems(groupId, (items) => [
-              ...items.filter((i) => !removed.includes(i.id)),
-              ...allItems.filter((i) => added.includes(i.id) && !items.some((g) => g.id === i.id)),
-            ]);
-            reload();
-          }}
-          onCreateNew={() => { setItemPickerGroupId(null); router.push(`/${rid}/menu/items/new`); }}
-        />
-      )}
-
-      {/* ── Bulk Move-to-Group Modal ── */}
-      {moveModalSourceGroupId !== null && (
-        <MoveToGroupModal
-          t={t}
-          menus={allMenus}
-          sourceGroupId={moveModalSourceGroupId}
-          itemCount={selectedInGroup(moveModalSourceGroupId).size}
-          onClose={() => setMoveModalSourceGroupId(null)}
-          onPick={(targetGroupId) => bulkMoveToGroup(moveModalSourceGroupId, targetGroupId)}
-        />
-      )}
-
-      {/* ── Bulk Replace Modal (step-by-step) ── */}
-      {replaceModalSourceGroupId !== null && (() => {
-        const groupId = replaceModalSourceGroupId;
-        const selectedIds = selectedInGroup(groupId);
-        const groupItems = groups.find((g) => g.id === groupId)?.items ?? [];
-        const itemsToReplace = groupItems.filter((i) => selectedIds.has(i.id));
-        const groupItemIds = new Set<number>(groupItems.map((i) => i.id));
-        if (itemsToReplace.length === 0) return null;
-        return (
-          <ReplaceItemsModal
-            t={t}
-            itemsToReplace={itemsToReplace}
-            allItems={allItems}
-            allCats={allCats}
-            groupItemIds={groupItemIds}
-            onClose={() => setReplaceModalSourceGroupId(null)}
-            onDone={(replacements) => bulkReplace(groupId, replacements)}
-          />
-        );
-      })()}
+  const pending = busy || syncing;
+  const moveGroup = (index: number, delta: number) => {
+    const order = groups.map(group => group.id);
+    [order[index], order[index + delta]] = [order[index + delta], order[index]];
+    void mutate(async () => { await reorderGroups(rid, mid, order); await reload(); });
+  };
+  const moveItem = (group: MenuGroup, index: number, delta: number) => {
+    const order = splitForBatch(group, itemsForGroup(group)).active.map(item => item.id);
+    [order[index], order[index + delta]] = [order[index + delta], order[index]];
+    void mutate(async () => { await reorderGroupItems(rid, group.id, order); await reload(); });
+  };
+  const closePicker = (changed = false) => { setItemPickerGroupId(null); if (changed) void reload(); };
+  const channels = [menu.pos_enabled ? t('posSystem') : '', menu.web_enabled ? 'Web' : ''].filter(Boolean).join(' · ') || t('noChannels');
+  return <div className="min-w-0 space-y-5">
+    <Button variant="ghost" onClick={() => router.push(`/${rid}/menu/menus`)}><ArrowLeft className="rtl:rotate-180" />{t('menus')}</Button>
+    <PageHead title={<span className="break-words">{menu.name}</span>} desc={[restaurant?.name, channels].filter(Boolean).join(' · ')} actions={<>
+      {canEdit && <><Button variant="secondary" disabled={pending} onClick={() => router.push(`/${rid}/menu/menus/${mid}/pos-display`)}><MonitorSmartphone />{t('editPosLayout')}</Button>
+      <DropdownMenu dir={direction}><DropdownMenuTrigger asChild><Button variant="primary" disabled={pending}>{t('add')}<ChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="max-w-[calc(100vw-2rem)] [&_[role=menuitem]]:min-h-11"><DropdownMenuItem onSelect={() => router.push(`/${rid}/menu/items/new?menuId=${mid}`)}>{t('addArticle')}</DropdownMenuItem><DropdownMenuItem onSelect={() => router.push(`/${rid}/menu/menus/${mid}/group/new`)}>{t('addGroup')}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+      <DropdownMenu dir={direction}><DropdownMenuTrigger asChild><Button variant="secondary" disabled={pending} aria-label={`${t('actions')} · ${menu.name}`} onFocus={event => { returnFocus.current = event.currentTarget; }}><MoreHorizontal /></Button></DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="max-w-[calc(100vw-2rem)] [&_[role=menuitem]]:min-h-11">
+          <DropdownMenuItem onSelect={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}>{t('editMenuDetails')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void mutate(async () => { const copy = await duplicateMenu(rid, mid); router.push(`/${rid}/menu/menus/${copy.id}`); })}>{t('duplicateMenu')}</DropdownMenuItem>
+          <DropdownMenuSeparator /><DropdownMenuItem variant="destructive" onSelect={() => setConfirmation({ title: t('deleteMenu'), description: menu.name, action: async () => { await deleteMenu(rid, mid); router.push(`/${rid}/menu/menus`); } })}>{t('deleteMenu')}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu></>}
+    </>} />
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-r-lg bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">
+      <button type="button" className="min-h-11 min-w-0 break-words text-start hover:underline" onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}>{menu.follows_restaurant_hours ? t('followsRestaurantHours') : hoursRange(menu, locale) || t('menuNoCustomHours')}</button>
+      {syncing && <span role="status">{t('loading')}</span>}
+      {isRotating && cycles.length > 0 && <BatchPicker cycles={cycles} selectedIndex={selectedCycleIndex} onChange={index => { setSelectedCycleIndex(index); setSelectedItemsByGroup(new Map()); }} />}
+      {healthAlarmCount > 0 && <span className="flex items-center gap-2"><AlertTriangle className="size-4" />{t('carteHealthBadge').replace('{n}', String(healthAlarmCount))}</span>}
+      {isRotating && selectedDay && restaurant?.slug && <Button variant="secondary" title={t('previewWeekHint')} onClick={() => window.open(`${WEB_URL}/r/${restaurant.slug}/order?preview_date=${selectedDay}`, '_blank', 'noopener')}><ExternalLink />{t('previewOnWeb')}</Button>}
+      {isRotating && !cycles.length && <Button variant="secondary" onClick={() => router.push(`/${rid}/settings/orders`)}>{t('configureBatchFirst')}</Button>}
     </div>
-  );
-}
-
-// ─── Add/Remove Items Modal ──────────────────────────────────────────────────
-
-function AddRemoveItemsModal({ t, rid, groupId, allItems, allCats, groupItems, addScope, removeCutoff, onClose, onDone, onCreateNew }: {
-  t: TFn;
-  rid: number;
-  groupId: number;
-  allItems: MenuItem[];
-  allCats: MenuCategory[];
-  groupItems: MenuItem[];
-  /** When set (non-empty), newly added items are scoped to the given date
-   *  window. Used by the carte page when a non-current batch is selected. */
-  addScope?: GroupItemScope;
-  /** When set, removals soft-retire the membership at this date (day before the
-   *  selected future cycle) instead of hard-deleting, so the item stays live in
-   *  earlier weeks. undefined → hard delete (current cycle / non-rotating). */
-  removeCutoff?: string;
-  onClose: () => void;
-  onDone: (added: number[], removed: number[]) => void;
-  onCreateNew: () => void;
-}) {
-  const [search, setSearch] = useState('');
-  const [catFilter, setCatFilter] = useState<number | null>(null); // null = all categories
-  const [saving, setSaving] = useState(false);
-
-  // Track which items are checked — initialize with items already in the group
-  const originalIds = useMemo(() => new Set(groupItems.map((i) => i.id)), [groupItems]);
-  const [checked, setChecked] = useState<Set<number>>(() => new Set(groupItems.map((i) => i.id)));
-
-  // Categories that actually hold items, for the filter chips.
-  const categories = useMemo(
-    () => allCats.filter((c) => (c.items?.length ?? 0) > 0),
-    [allCats],
-  );
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return allItems.filter((item) =>
-      (catFilter == null || item.category_id === catFilter) &&
-      (!q || item.name.toLowerCase().includes(q))
-    );
-  }, [allItems, catFilter, search]);
-
-  const selectedCount = checked.size;
-
-  const toggle = (id: number) => {
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const handleDone = async () => {
-    setSaving(true);
-    try {
-      // Items to add (checked now but weren't before)
-      const toAdd = Array.from(checked).filter((id) => !originalIds.has(id));
-      // Items to remove (were checked before but aren't now)
-      const toRemove = Array.from(originalIds).filter((id) => !checked.has(id));
-
-      if (toAdd.length > 0) {
-        await addItemsToGroup(rid, groupId, toAdd, addScope ?? {});
-      }
-      for (const id of toRemove) {
-        await removeItemFromGroup(rid, groupId, id, removeCutoff);
-      }
-      onDone(toAdd, toRemove);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50" onClick={onClose}>
-      <div
-        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[var(--divider)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="p-6 pb-4">
-          <div className="flex items-center justify-between mb-5">
-            <button
-              onClick={onClose}
-              className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
-            >
-              <XIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleDone}
-              disabled={saving}
-              className="btn-secondary rounded-full disabled:opacity-40"
-            >
-              {saving ? '...' : t('done')}
-            </button>
-          </div>
-          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">{t('addOrRemoveItems')}</h2>
-
-          {/* Search */}
-          <div className="relative mb-4">
-            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              className="input w-full pl-12 rounded-full"
-              placeholder={t('search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          {/* Category filter chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <button
-              onClick={() => setCatFilter(null)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${catFilter == null ? 'bg-[var(--text-primary)] text-[var(--surface)] border-[var(--text-primary)]' : 'border-[var(--divider)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]'}`}
-            >
-              {t('allCategoriesFilter')}
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setCatFilter(c.id)}
-                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${catFilter === c.id ? 'bg-[var(--text-primary)] text-[var(--surface)] border-[var(--text-primary)]' : 'border-[var(--divider)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]'}`}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
+    {actionError && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
+    {healthError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-r-md bg-[var(--warning-50)] p-3 text-sm text-[var(--warning-500)]"><p className="flex-1">{t('carteHealthUnavailable')}</p><Button variant="secondary" onClick={() => setHealthRetry(value => value + 1)}>{t('retry')}</Button></div>}
+    <CarteHealthBanner report={health} t={t} />
+    {!groups.length && <EmptyState title={t('noGroupsYet')} />}
+    {groups.map((group, groupIndex) => {
+      const { active: items, inactive: inactiveItems } = splitForBatch(group, itemsForGroup(group));
+      const selected = selectedInGroup(group.id);
+      const allSelected = items.length > 0 && selected.size === items.length;
+      const isExpanded = expanded.has(group.id);
+      return <section key={group.id} aria-label={group.name} draggable={canEdit && !pending && draggingItem === null} onDragStart={event => handleDragStart(event, group.id)} onDragOver={event => handleDragOver(event, group.id)} onDrop={event => void handleDrop(event, group.id)} onDragEnd={clearDragState} onDragLeave={() => { if (dragOverGroupId === group.id) setDragOverGroupId(null); }}
+        className={`min-w-0 rounded-r-lg border bg-[var(--surface)] ${draggingGroupId === group.id ? 'opacity-40' : ''} ${dragOverGroupId === group.id ? 'border-[var(--brand-500)]' : 'border-[var(--line)]'}`}>
+        <div className="flex items-center gap-2 rounded-t-r-lg bg-[var(--summary-bg)] px-3 py-2 text-[var(--summary-fg)]">
+          {canEdit && <GripVertical aria-hidden className="hidden size-4 shrink-0 cursor-grab xl:block" />}
+          <h2 className="min-w-0 flex-1"><button type="button" aria-expanded={isExpanded} aria-controls={`carte-group-${group.id}`} onClick={() => toggleExpand(group.id)} className="flex min-h-11 w-full items-center gap-3 text-start">{isExpanded ? <ChevronUp className="size-4 shrink-0" /> : <ChevronDown className="size-4 shrink-0" />}<span className="min-w-0 flex-1 break-words font-semibold">{group.name}</span><span className="shrink-0 text-sm font-normal">{t('nArticles').replace('{n}', String(items.length))}</span></button></h2>
+          {canEdit && <DropdownMenu dir={direction}><DropdownMenuTrigger asChild><button type="button" disabled={pending} aria-label={`${t('actions')} · ${group.name}`} onFocus={event => { returnFocus.current = event.currentTarget; }} className="grid size-11 shrink-0 place-items-center rounded-r-md hover:bg-[var(--surface)]"><MoreHorizontal className="size-5" /></button></DropdownMenuTrigger><DropdownMenuContent align="end" className="max-w-[calc(100vw-2rem)] min-w-52 [&_[role=menuitem]]:min-h-11">
+            <DropdownMenuItem onSelect={() => { saveScroll(cacheKey); router.push(`/${rid}/menu/menus/${mid}/group/${group.id}`); }}>{t('edit')}</DropdownMenuItem>
+            <DropdownMenuItem disabled={groupIndex === 0} onSelect={() => moveGroup(groupIndex, -1)}>{t('moveUp')}</DropdownMenuItem><DropdownMenuItem disabled={groupIndex === groups.length - 1} onSelect={() => moveGroup(groupIndex, 1)}>{t('moveDown')}</DropdownMenuItem>
+            <DropdownMenuSeparator /><DropdownMenuItem variant="destructive" onSelect={() => handleDeleteGroup(group)}>{t('delete')}</DropdownMenuItem>
+          </DropdownMenuContent></DropdownMenu>}
         </div>
-
-        {/* Subheader */}
-        <div className="flex items-center justify-between px-6 pb-2">
-          <span className="text-sm font-medium text-[var(--text-secondary)]">{t('articlesGroup')}</span>
-          <span className="text-sm text-[var(--text-secondary)]">{selectedCount} {t('selected')}</span>
-        </div>
-        <div className="mx-6 border-t-2 border-[var(--text-primary)]" />
-
-        {/* Scrollable list */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
-          {/* Create new */}
-          <button
-            onClick={onCreateNew}
-            className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors"
-          >
-            <div className="w-10 h-10 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-              <PlusIcon className="w-5 h-5 text-[var(--text-primary)]" />
-            </div>
-            <span className="text-base font-medium text-[var(--text-primary)]">{t('createNewItems')}</span>
-          </button>
-
-          {/* Items list */}
-          {filtered.map((item) => (
-            <label
-              key={item.id}
-              className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
-            >
-              {item.image_url ? (
-                <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-              ) : (
-                <div className="w-10 h-10 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V5.25a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v14.25a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-medium text-[var(--text-primary)] truncate">{item.name}</p>
-                {(item.variant_groups?.length ?? 0) > 0 && (
-                  <p className="text-sm text-[var(--text-secondary)]">{item.variant_groups!.length} {t('variants')}</p>
-                )}
-              </div>
-              <input
-                type="checkbox"
-                checked={checked.has(item.id)}
-                onChange={() => toggle(item.id)}
-                className="w-5 h-5 rounded border-2 border-[var(--divider)] text-brand-500 shrink-0"
-              />
-            </label>
-          ))}
-
-          {filtered.length === 0 && (
-            <p className="text-sm text-[var(--text-muted)] text-center py-8">{t('noResults')}</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Replace Items Modal (step-by-step) ──────────────────────────────────────
-
-function ReplaceItemsModal({ t, itemsToReplace, allItems, allCats, groupItemIds, onClose, onDone }: {
-  t: TFn;
-  itemsToReplace: MenuItem[];
-  allItems: MenuItem[];
-  allCats: MenuCategory[];
-  groupItemIds: Set<number>;
-  onClose: () => void;
-  onDone: (replacements: { oldId: number; newId: number }[]) => void;
-}) {
-  const { money } = useCurrency();
-  const [stepIndex, setStepIndex] = useState(0);
-  // oldItemId -> chosen replacement itemId. Built up as the operator advances
-  // through one step per item being replaced.
-  const [replacements, setReplacements] = useState<Map<number, number>>(new Map());
-  const [search, setSearch] = useState('');
-  const [catFilter, setCatFilter] = useState<number | null>(null); // null = all categories
-  const [saving, setSaving] = useState(false);
-
-  const current: MenuItem | undefined = itemsToReplace[stepIndex];
-  const isLast = stepIndex >= itemsToReplace.length - 1;
-
-  // Categories that actually hold selectable items, used for the filter chips.
-  const categories = useMemo(
-    () => allCats.filter((c) => (c.items?.length ?? 0) > 0),
-    [allCats],
-  );
-
-  // Replacements chosen for the *other* steps — excluded so the operator can't
-  // assign the same item to two slots at once.
-  const usedReplacementIds = useMemo(() => {
-    const set = new Set<number>();
-    replacements.forEach((newId, oldId) => {
-      if (oldId !== current?.id) set.add(newId);
-    });
-    return set;
-  }, [replacements, current]);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return allItems.filter((item) =>
-      !groupItemIds.has(item.id) &&          // not already in this group
-      !usedReplacementIds.has(item.id) &&    // not picked for another slot
-      (catFilter == null || item.category_id === catFilter) &&
-      (!q || item.name.toLowerCase().includes(q))
-    );
-  }, [allItems, groupItemIds, usedReplacementIds, catFilter, search]);
-
-  if (!current) return null;
-
-  const selectedNewId = replacements.get(current.id) ?? null;
-
-  const choose = (id: number) => {
-    setReplacements((prev) => {
-      const next = new Map(prev);
-      if (next.get(current.id) === id) next.delete(current.id); else next.set(current.id, id);
-      return next;
-    });
-  };
-
-  const advanceWith = async (map: Map<number, number>) => {
-    if (isLast) {
-      setSaving(true);
-      try {
-        await onDone(Array.from(map).map(([oldId, newId]) => ({ oldId, newId })));
-      } finally {
-        setSaving(false);
-      }
-    } else {
-      setStepIndex((i) => i + 1);
-      setSearch('');
-    }
-  };
-
-  const handleNext = () => advanceWith(replacements);
-
-  const handleSkip = () => {
-    const next = new Map(replacements);
-    next.delete(current.id);
-    setReplacements(next);
-    advanceWith(next);
-  };
-
-  const goBack = () => {
-    if (stepIndex > 0) { setStepIndex((i) => i - 1); setSearch(''); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50" onClick={onClose}>
-      <div
-        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[var(--divider)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="p-6 pb-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onClose}
-                className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
-              >
-                <XIcon className="w-5 h-5" />
-              </button>
-              {stepIndex > 0 && (
-                <button onClick={goBack} className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3 py-2 rounded-lg hover:bg-[var(--surface-subtle)] transition-colors">
-                  {t('back')}
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={handleSkip} disabled={saving} className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3 py-2 rounded-lg hover:bg-[var(--surface-subtle)] transition-colors disabled:opacity-40">
-                {t('skip')}
-              </button>
-              <button
-                onClick={handleNext}
-                disabled={selectedNewId == null || saving}
-                className="btn-secondary rounded-full disabled:opacity-40"
-              >
-                {saving ? '...' : isLast ? t('done') : t('next')}
-              </button>
+        {isExpanded && <div id={`carte-group-${group.id}`}>
+          {canEdit && <div className="flex flex-wrap items-center gap-2 border-b border-[var(--line)] px-4 py-2">
+            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" aria-label={`${t('selectAll')} · ${group.name}`} checked={allSelected} disabled={pending || !items.length} ref={element => { if (element) element.indeterminate = selected.size > 0 && !allSelected; }} onChange={() => toggleSelectAllInGroup(group.id, items.map(item => item.id))} className="size-5 accent-[var(--brand-500)]" />{t('selectAll')}</label>
+            {selected.size > 0 && <><span className="text-sm text-fg-secondary">{t('nSelected').replace('{n}', String(selected.size))}</span>
+              <Button size="sm" variant="ghost" disabled={pending} onClick={() => clearGroupSelection(group.id)}>{t('cancel')}</Button>
+              <Button size="sm" variant="secondary" disabled={pending} onClick={() => { replacementProgress.current = { removed: new Set(), added: new Set() }; setReplaceModalSourceGroupId(group.id); }}>{t('replace')}</Button>
+              <Button size="sm" variant="secondary" disabled={pending} onClick={() => { moveProgress.current = { added: false, removed: new Set() }; setMoveModalSourceGroupId(group.id); }}>{t('moveToGroup')}</Button>
+              <Button size="sm" variant="secondary" disabled={pending} onClick={() => void bulkSetAvailability(group.id, 'force_sold_out')}>{t('quickMarkSoldOut')}</Button><Button size="sm" variant="secondary" disabled={pending} onClick={() => void bulkSetAvailability(group.id, 'force_available')}>{t('quickMarkAvailable')}</Button>
+              <Button size="sm" variant="danger" disabled={pending} onFocus={event => { returnFocus.current = event.currentTarget; }} onClick={() => setConfirmation({ title: t('carteRemoveFromGroup'), description: t('removeSelectedFromGroupConfirm').replace('{n}', String(selected.size)), action: () => bulkRemoveFromGroup(group.id) })}>{t('carteRemoveFromGroup')}</Button>
+            </>}
+          </div>}
+          <div className="overflow-x-auto">
+            <div className="xl:min-w-[940px]">
+              {!!items.length && <div aria-hidden className={`hidden ${CARTE_ITEM_COLUMNS} border-b border-[var(--line)] px-4 py-3 text-sm text-fg-secondary`}><span /><span>{t('article')}</span><span>{t('pointOfSale')}</span><span>{t('salesChannels')}</span><span>{t('modifiers')}</span><span>{t('availability')}</span><span className="text-end">{t('price')}</span><span /></div>}
+              {items.map((item, index) => <CarteItemRow key={item.id} item={item} restaurantName={restaurant?.name} menu={menu} canEdit={canEdit} busy={pending} isSelected={selected.has(item.id)} onToggleSelected={() => toggleItemSelected(group.id, item.id)}
+                isDragging={draggingItem?.itemId === item.id && draggingItem.groupId === group.id} onItemDragStart={event => handleItemDragStart(event, group.id, item.id)} onItemDragOver={event => handleItemDragOver(event, group.id, item.id)} onItemDrop={event => void handleItemDrop(event, group.id)} onItemDragEnd={() => setDraggingItem(null)}
+                onOpen={() => openItem(item)} onToggleSoldOut={() => handleToggleSoldOut(item)} onRemove={() => void mutate(async () => { await removeItemForBatch(group.id, item.id); await reload(); })}
+                onMoveUp={index ? () => moveItem(group, index, -1) : undefined} onMoveDown={index < items.length - 1 ? () => moveItem(group, index, 1) : undefined} />)}
             </div>
           </div>
-          <p className="text-sm font-medium text-[var(--text-secondary)] mb-1">
-            {t('replaceStepProgress')
-              .replace('{current}', String(stepIndex + 1))
-              .replace('{total}', String(itemsToReplace.length))}
-          </p>
-          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">
-            {t('replaceSelectFor').replace('{name}', current.name)}
-          </h2>
-
-          {/* Search */}
-          <div className="relative mb-4">
-            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              className="input w-full pl-12 rounded-full"
-              placeholder={t('search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          {/* Category filter chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <button
-              onClick={() => setCatFilter(null)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${catFilter == null ? 'bg-[var(--text-primary)] text-[var(--surface)] border-[var(--text-primary)]' : 'border-[var(--divider)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]'}`}
-            >
-              {t('allCategoriesFilter')}
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setCatFilter(c.id)}
-                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${catFilter === c.id ? 'bg-[var(--text-primary)] text-[var(--surface)] border-[var(--text-primary)]' : 'border-[var(--divider)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]'}`}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mx-6 border-t-2 border-[var(--text-primary)]" />
-
-        {/* Scrollable list */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
-          {filtered.map((item) => (
-            <label
-              key={item.id}
-              className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
-            >
-              {item.image_url ? (
-                <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-              ) : (
-                <div className="w-10 h-10 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V5.25a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v14.25a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-medium text-[var(--text-primary)] truncate">{item.name}</p>
-                <p className="text-sm text-[var(--text-secondary)]">{money(item.price)}</p>
-              </div>
-              <input
-                type="radio"
-                name={`replace-${current.id}`}
-                checked={selectedNewId === item.id}
-                onChange={() => choose(item.id)}
-                className="w-5 h-5 shrink-0 accent-[var(--brand-500)]"
-              />
-            </label>
-          ))}
-          {filtered.length === 0 && (
-            <p className="text-sm text-[var(--text-muted)] text-center py-8">{t('noResults')}</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Move-to-Group Modal ────────────────────────────────────────────────────
-
-function MoveToGroupModal({ t, menus, sourceGroupId, itemCount, onClose, onPick }: {
-  t: TFn;
-  menus: Menu[];
-  sourceGroupId: number;
-  itemCount: number;
-  onClose: () => void;
-  onPick: (targetGroupId: number) => void;
-}) {
-  const [search, setSearch] = useState('');
-  const [picked, setPicked] = useState<number | null>(null);
-
-  const visibleMenus = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const out: { menu: Menu; groups: MenuGroup[] }[] = [];
-    for (const m of menus) {
-      const menuMatches = !q || m.name.toLowerCase().includes(q);
-      const groups = (m.groups ?? []).filter((g) => {
-        if (g.id === sourceGroupId) return false;
-        if (!q) return true;
-        return menuMatches || g.name.toLowerCase().includes(q);
-      });
-      if (groups.length === 0) continue;
-      out.push({ menu: m, groups });
-    }
-    return out;
-  }, [menus, search, sourceGroupId]);
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[8vh] bg-black/50" onClick={onClose}>
-      <div
-        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col border border-[var(--divider)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-6 pb-4">
-          <div className="flex items-center justify-between mb-5">
-            <button
-              onClick={onClose}
-              className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
-            >
-              <XIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => picked !== null && onPick(picked)}
-              disabled={picked === null}
-              className="btn-secondary rounded-full disabled:opacity-40"
-            >
-              {t('move')}
-            </button>
-          </div>
-          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">{t('moveToGroup')}</h2>
-          <p className="text-sm text-[var(--text-secondary)] mb-4">
-            {t('moveToGroupDesc').replace('{n}', String(itemCount))}
-          </p>
-          <div className="relative">
-            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              className="input w-full pl-12 rounded-full"
-              placeholder={t('search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
-          {visibleMenus.length === 0 ? (
-            <p className="text-sm text-[var(--text-muted)] text-center py-8">{t('noResults')}</p>
-          ) : (
-            visibleMenus.map(({ menu: m, groups }) => (
-              <div key={m.id} className="mb-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-2">
-                  {m.name}
-                </div>
-                {groups.map((g) => (
-                  <label
-                    key={g.id}
-                    className="flex items-center gap-3 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
-                    onClick={() => setPicked(g.id)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base font-medium text-[var(--text-primary)] truncate">{g.name}</p>
-                    </div>
-                    <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${picked === g.id ? 'border-fg-primary' : 'border-[var(--divider)]'}`}>
-                      {picked === g.id && <div className="w-2.5 h-2.5 rounded-full bg-fg-primary" />}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Item Row (CSS Grid) ─────────────────────────────────────────────────────
-
-function ItemRow({
-  item, restaurantName, menu, t, rid, groupId, removeCutoff, onOpen, onRemoved, onToggleSoldOut,
-  isSelected, onToggleSelected, canEdit,
-  isDragging, onItemDragStart, onItemDragOver, onItemDrop, onItemDragEnd,
-}: {
-  item: MenuItem;
-  restaurantName?: string;
-  menu: Menu;
-  t: TFn;
-  rid: number;
-  groupId: number;
-  /** Soft-retire cutoff when viewing a future cycle; undefined → hard delete.
-   *  See batchRemoveCutoff on the page component. */
-  removeCutoff?: string;
-  onOpen: () => void;
-  onRemoved: () => void;
-  onToggleSoldOut: () => Promise<void>;
-  isSelected: boolean;
-  onToggleSelected: () => void;
-  canEdit: boolean;
-  isDragging: boolean;
-  onItemDragStart: (e: React.DragEvent<HTMLElement>) => void;
-  onItemDragOver: (e: React.DragEvent<HTMLElement>) => void;
-  onItemDrop: (e: React.DragEvent<HTMLElement>) => void;
-  onItemDragEnd: () => void;
-}) {
-  const { money } = useCurrency();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
-  const [toggling, setToggling] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  const handleQuickToggle = async () => {
-    setToggling(true);
-    try {
-      await onToggleSoldOut();
-    } finally {
-      setToggling(false);
-    }
-  };
-
-  const openDropdown = () => {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setDropdownPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    setDropdownOpen(true);
-  };
-
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const close = () => setDropdownOpen(false);
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [dropdownOpen]);
-
-  const modifierNames = (item.modifier_sets ?? []).map((ms) => ms.name).join(', ') || '—';
-  const channelTags: string[] = [];
-  if (menu.pos_enabled) channelTags.push(t('posSystem'));
-  if (menu.web_enabled) channelTags.push('Web');
-
-  const handleRemoveFromGroup = async () => {
-    setDropdownOpen(false);
-    if (!confirm(`${t('removeFromGroupConfirm')} "${item.name}"?`)) return;
-    await removeItemFromGroup(rid, groupId, item.id, removeCutoff);
-    onRemoved();
-  };
-
-  return (
-    <div
-      draggable={canEdit}
-      onDragStart={onItemDragStart}
-      onDragOver={onItemDragOver}
-      onDrop={onItemDrop}
-      onDragEnd={onItemDragEnd}
-      className={`relative flex flex-col gap-2 ${GRID_COLS_DESKTOP} md:gap-0 px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer ${isDragging ? 'opacity-40' : ''}`}
-      onClick={onOpen}
-    >
-      {/* Checkbox + drag handle — desktop only; cards collapse on mobile */}
-      <div className="hidden md:flex md:items-center md:gap-1.5" onClick={(e) => e.stopPropagation()}>
-        {canEdit && (
-          <>
-            <GripVerticalIcon className="w-4 h-4 text-[var(--text-muted)] cursor-grab active:cursor-grabbing shrink-0" />
-            <input
-              type="checkbox"
-              className="rounded border-[var(--divider)]"
-              checked={isSelected}
-              onChange={onToggleSelected}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Article name + image (card heading on mobile) */}
-      <div className="flex items-center gap-3 min-w-0 pe-20 md:pe-0">
-        {item.image_url ? (
-          <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
-        ) : (
-          <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-            <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V5.25a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v14.25a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-          </div>
-        )}
-        <span className="text-sm font-medium text-[var(--text-primary)] truncate">{item.name}</span>
-      </div>
-
-      {/* Point of sale */}
-      <div className="flex items-center justify-between md:block gap-3">
-        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('pointOfSale')}</span>
-        <div>{restaurantName && <Tag>{restaurantName}</Tag>}</div>
-      </div>
-
-      {/* Sales channels */}
-      <div className="flex items-center justify-between md:block gap-3">
-        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('salesChannels')}</span>
-        <div className="flex gap-1.5 flex-wrap justify-end md:justify-start">
-          {channelTags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
-        </div>
-      </div>
-
-      {/* Modifiers */}
-      <div className="flex items-center justify-between md:block gap-3 min-w-0">
-        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] shrink-0">{t('modifiers')}</span>
-        <div className="text-sm text-[var(--text-secondary)] truncate text-end md:text-start">{modifierNames}</div>
-      </div>
-
-      {/* Availability — same pill (and one-click toggle) as the Library list */}
-      <div className="flex items-center justify-between md:block gap-3" onClick={(e) => e.stopPropagation()}>
-        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('availability')}</span>
-        <div className="flex justify-end md:justify-start">
-          <AvailabilityPill
-            state={item.availability_state}
-            override={item.availability_override}
-            isActive={item.is_active}
-            bottleneck={item.availability_bottleneck}
-            canEdit={canEdit}
-            pending={toggling}
-            onToggle={handleQuickToggle}
-          />
-        </div>
-      </div>
-
-      {/* Price */}
-      <div className="flex items-center justify-between md:block gap-3">
-        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('price')}</span>
-        <div className="text-sm font-semibold text-[var(--text-primary)] text-end">
-          {money(item.price)}
-        </div>
-      </div>
-
-      {/* Actions — pinned to top-end corner on mobile, inline on desktop */}
-      {canEdit && (
-      <div className="absolute top-3 end-4 flex items-center gap-0.5 md:static md:justify-center" onClick={(e) => e.stopPropagation()}>
-        <button
-          ref={buttonRef}
-          onClick={() => (dropdownOpen ? setDropdownOpen(false) : openDropdown())}
-          className="p-1 rounded-lg hover:bg-[var(--surface-subtle)] text-[var(--text-muted)] transition-colors"
-        >
-          <MoreHorizontalIcon className="w-4 h-4" />
-        </button>
-        {dropdownOpen && dropdownPos && createPortal(
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-            <div
-              className="fixed z-50 w-64 bg-[var(--surface-elevated,var(--surface))] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden"
-              style={{ top: dropdownPos.top, right: dropdownPos.right }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => { setDropdownOpen(false); onOpen(); }}
-                className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-              >
-                {t('editItemDetails')}
-              </button>
-              <div className="border-t border-[var(--divider)]" />
-              <button
-                onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
-                className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-              >
-                {t('duplicateItem')}
-              </button>
-              <div className="border-t border-[var(--divider)]" />
-              <button
-                onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
-                className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-              >
-                {t('changeModifiers')}
-              </button>
-              <div className="border-t border-[var(--divider)]" />
-              <button
-                onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
-                className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-              >
-                {t('archiveItem')}
-              </button>
-              <div className="border-t border-[var(--divider)]" />
-              <button
-                onClick={handleRemoveFromGroup}
-                className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
-              >
-                {t('removeFromGroup')}
-              </button>
-            </div>
-          </>,
-          document.body,
-        )}
-      </div>
-      )}
-    </div>
-  );
+          {canEdit && <Button variant="ghost" disabled={pending} className="m-2" onClick={() => setItemPickerGroupId(group.id)}><Plus />{t('addArticle')}</Button>}
+          {isRotating && inactiveItems.length > 0 && <div className="border-t border-[var(--line)] p-3"><button type="button" aria-expanded={showInactiveByGroup.has(group.id)} className="flex min-h-11 items-center gap-2 text-start text-sm text-fg-secondary" onClick={() => toggleInactiveExpanded(group.id)}><ChevronDown className={`size-4 shrink-0 ${showInactiveByGroup.has(group.id) ? 'rotate-180' : ''}`} />{t('nItemsNotInThisBatch').replace('{n}', String(inactiveItems.length))}</button>
+            {showInactiveByGroup.has(group.id) && inactiveItems.map(item => <div key={item.id} className="flex flex-wrap items-center gap-3 border-t border-[var(--line)] py-3"><span className="min-w-0 flex-1 break-words text-sm" dir="auto">{item.name}</span>{canEdit && <Button size="sm" variant="secondary" disabled={pending} onClick={() => void addItemToCurrentBatch(group.id, item.id)}>{t('addToThisBatch')}</Button>}</div>)}
+          </div>}
+        </div>}
+      </section>;
+    })}
+    {canEdit && <Button variant="secondary" disabled={pending} onClick={() => router.push(`/${rid}/menu/menus/${mid}/group/new`)}><Plus />{t('addGroup')}</Button>}
+    {itemPickerGroupId !== null && <AddRemoveItemsModal t={t} rid={rid} groupId={itemPickerGroupId} allItems={allItems} allCats={allCats} groupItems={groups.find(group => group.id === itemPickerGroupId)?.items ?? []} addScope={currentBatchScope} removeCutoff={batchRemoveCutoff} onClose={closePicker} onDone={() => closePicker(true)} onCreateNew={() => router.push(`/${rid}/menu/items/new`)} />}
+    {moveModalSourceGroupId !== null && <MoveToGroupModal t={t} menus={allMenus} sourceGroupId={moveModalSourceGroupId} itemCount={selectedInGroup(moveModalSourceGroupId).size} onClose={() => { setMoveModalSourceGroupId(null); if (moveProgress.current.added || moveProgress.current.removed.size) void reload(); }} onPick={target => bulkMoveToGroup(moveModalSourceGroupId, target)} />}
+    {replaceModalSourceGroupId !== null && <ReplaceItemsModal t={t} allItems={allItems} allCats={allCats} itemsToReplace={(groups.find(group => group.id === replaceModalSourceGroupId)?.items ?? []).filter(item => selectedInGroup(replaceModalSourceGroupId).has(item.id))} groupItemIds={new Set((groups.find(group => group.id === replaceModalSourceGroupId)?.items ?? []).map(item => item.id))} onClose={() => { setReplaceModalSourceGroupId(null); if (replacementProgress.current.removed.size || replacementProgress.current.added.size) void reload(); }} onDone={replacements => bulkReplace(replaceModalSourceGroupId, replacements)} />}
+    <ConfirmDialog returnFocusRef={returnFocus} open={confirmation !== null} onOpenChange={open => { if (!open) setConfirmation(null); }} title={confirmation?.title} description={confirmation?.description} danger confirmLabel={t('confirm')} cancelLabel={t('cancel')} onConfirm={() => { if (confirmation) void mutate(confirmation.action); }} />
+  </div>;
 }

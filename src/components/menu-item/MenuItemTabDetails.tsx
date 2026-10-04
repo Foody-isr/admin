@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, Boxes, ArrowRight, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Boxes, ArrowRight, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -141,7 +141,6 @@ export default function MenuItemTabDetails({
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
-  const [categoryOpen, setCategoryOpen] = useState(false);
   // Track which field is currently being re-translated so we can show a spinner
   // and disable the button. `'all'` covers the strip-level "Re-translate all"
   // action; individual field names cover the per-field links.
@@ -189,7 +188,6 @@ export default function MenuItemTabDetails({
     userPickedLocale.current = true;
     setActiveLocale(loc);
   };
-  const activeCategory = categories.find((c) => c.id === categoryId);
   const isCombo = itemType === 'combo';
 
   const isSourceTab = !i18nEnabled || activeLocale === effectiveSource;
@@ -345,9 +343,9 @@ export default function MenuItemTabDetails({
 
         {/* Row 1 — Nom | Catégorie */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--s-4)]">
-          <Field label={t('itemNameLabel') || "Nom de l'article"}>
+          <Field htmlFor="menu-item-name" label={t('itemNameLabel') || "Nom de l'article"}>
             {isSourceTab ? (
-              <Input
+              <Input disabled={!canEdit} id="menu-item-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t('nameRequired') || 'Nom *'}
@@ -355,7 +353,7 @@ export default function MenuItemTabDetails({
               />
             ) : (
               <>
-                <Input
+                <Input disabled={!canEdit} id="menu-item-name"
                   value={nameTranslation}
                   onChange={(e) => setTranslatedField('name', e.target.value)}
                   placeholder={name || (t('nameRequired') || 'Nom *')}
@@ -386,40 +384,11 @@ export default function MenuItemTabDetails({
             )}
           </Field>
 
-          <Field label={t('category') || 'Catégorie'}>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setCategoryOpen((v) => !v)}
-                className="flex items-center justify-between w-full h-9 px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm hover:border-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
-              >
-                <span className={activeCategory ? 'text-[var(--fg)]' : 'text-[var(--fg-subtle)]'}>
-                  {activeCategory?.name ?? (t('addToCategories') || 'Ajouter à une catégorie')}
-                </span>
-                <ChevronDown className="w-4 h-4 text-[var(--fg-muted)]" />
-              </button>
-              {categoryOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--line)] rounded-r-md shadow-3 z-20 max-h-64 overflow-y-auto">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => {
-                        setCategoryId(cat.id);
-                        setCategoryOpen(false);
-                      }}
-                      className={`w-full text-start px-[var(--s-3)] py-2 hover:bg-[var(--surface-2)] transition-colors text-fs-sm ${
-                        cat.id === categoryId
-                          ? 'text-[var(--brand-500)] font-medium'
-                          : 'text-[var(--fg)]'
-                      }`}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+          <Field htmlFor="menu-item-category" label={t('category')}>
+            <select id="menu-item-category" disabled={!canEdit} value={categoryId} onChange={event => setCategoryId(Number(event.target.value))} className="input text-sm">
+              {!categories.some(category => category.id === categoryId) && <option value={categoryId}>{t('addToCategories')}</option>}
+              {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
           </Field>
         </div>
 
@@ -474,12 +443,12 @@ export default function MenuItemTabDetails({
                 hint={t('pricePerKgHint') || 'Rate charged against the measured weight.'}
               >
                 <div className="relative">
-                  <NumberField
+                  <NumberField disabled={!canEdit} aria-label={t('pricePerKgLabel')}
                     min={0}
                     value={pricePerKg}
                     onChange={setPricePerKg}
                     placeholder="0.00"
-                    className="pe-16 font-mono"
+                    className="pe-16 tabular-nums"
                   />
                   <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
                     {symbol}/kg
@@ -492,12 +461,12 @@ export default function MenuItemTabDetails({
                 hint={t('estimatedWeightHint') || 'Used to place the card hold before weighing.'}
               >
                 <div className="relative">
-                  <NumberField
+                  <NumberField disabled={!canEdit} aria-label={t('estimatedWeightLabel')}
                     min={0}
                     value={estimatedWeightGrams}
                     onChange={setEstimatedWeightGrams}
                     placeholder="0"
-                    className="pe-10 font-mono"
+                    className="pe-10 tabular-nums"
                   />
                   <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
                     g
@@ -518,12 +487,12 @@ export default function MenuItemTabDetails({
                 </div>
               ) : (
                 <div className="relative">
-                  <NumberField
+                  <NumberField disabled={!canEdit} aria-label={priceLabel}
                     min={0}
                     value={price}
                     onChange={setPrice}
                     placeholder="0.00"
-                    className="pe-8 font-mono"
+                    className="pe-8 tabular-nums"
                   />
                   <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">{symbol}</span>
                 </div>
@@ -533,14 +502,15 @@ export default function MenuItemTabDetails({
 
           <Field label={t('vat') || 'TVA'}>
             <div className="relative">
-              <Input
+              <Input disabled={!canEdit}
                 type="text"
+                aria-label={t('vat')}
                 value={`${vatRate}`}
                 readOnly
-                className="pr-8 cursor-not-allowed font-mono"
+                className="pe-8 cursor-not-allowed tabular-nums"
                 title={`${t('vat')} — ${vatRate}%`}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+              <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
                 %
               </span>
             </div>
@@ -597,9 +567,9 @@ export default function MenuItemTabDetails({
         )}
 
         {/* Description */}
-        <Field label={t('description') || 'Description'}>
+        <Field htmlFor="menu-item-description" label={t('description') || 'Description'}>
           {isSourceTab ? (
-            <Textarea
+            <Textarea disabled={!canEdit} id="menu-item-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t('addDescription') || 'Ajouter une description'}
@@ -607,7 +577,7 @@ export default function MenuItemTabDetails({
             />
           ) : (
             <>
-              <Textarea
+              <Textarea disabled={!canEdit} id="menu-item-description"
                 value={descriptionTranslation}
                 onChange={(e) => setTranslatedField('description', e.target.value)}
                 placeholder={description || (t('addDescription') || 'Ajouter une description')}
@@ -657,7 +627,7 @@ export default function MenuItemTabDetails({
               'Private notes that help the AI assistant describe this dish accurately. Never shown to customers.'
             }
           >
-            <Textarea
+            <Textarea disabled={!canEdit}
               value={aiContext || ''}
               onChange={(e) => setAiContext(e.target.value)}
               placeholder={
@@ -678,14 +648,14 @@ export default function MenuItemTabDetails({
           hint={t('portionHint') || 'Affichée sous le titre côté client. Pour les articles sans tailles (ex. « par personne »).'}
         >
           {isSourceTab ? (
-            <Input
+            <Input disabled={!canEdit}
               value={portion}
               onChange={(e) => setPortion(e.target.value)}
               placeholder={t('portionPlaceholder') || 'ex. par personne'}
             />
           ) : (
             <>
-              <Input
+              <Input disabled={!canEdit}
                 value={portionTranslation}
                 onChange={(e) => setTranslatedField('portion', e.target.value)}
                 placeholder={portion || (t('portionPlaceholder') || 'ex. par personne')}
@@ -721,6 +691,7 @@ export default function MenuItemTabDetails({
             don't silently land in whichever group happens to be first. */}
         <Field label={t('menus') || 'Cartes'} hint={t('cartesPickHint') || 'Où cet article apparaît côté client.'}>
           <MenuGroupPicker
+            disabled={!canEdit}
             menus={menus}
             selectedGroupIds={selectedGroupIds}
             onChange={setSelectedGroupIds}

@@ -167,7 +167,7 @@ export function MoneyPanel({
           <div className="min-w-0">
             <span
               id={`order-${order.id}-payment-summary`}
-              className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--fg-muted)]"
+              className="inline-flex items-center gap-1.5 text-fs-micro font-semibold uppercase tracking-[0.1em] text-[var(--fg-muted)]"
             >
               <ReceiptTextIcon className="size-3.5" />
               {t('total') || 'Total'}
@@ -238,7 +238,7 @@ export function MoneyPanel({
             {hasPartialPaidAmount && (
               <>
                 <span className="font-medium text-[var(--fg)]">{t('amountAlreadyPaid')}</span>
-                <Money value={chargedAmount} className="text-end font-medium text-[var(--success-600)]" />
+                <Money value={chargedAmount} className="text-end font-medium text-[var(--success-500)]" />
                 <span className="font-semibold text-[var(--warning-700)]">{t('balanceDue')}</span>
                 <Money value={balanceDue} className="text-end font-semibold text-[var(--warning-700)]" />
               </>
@@ -315,7 +315,7 @@ export function MoneyPanel({
                   )}
                 </div>
                 {hasBalanceDue ? (
-                  <div className="flex items-baseline justify-between gap-2 text-[10px] leading-4 text-[var(--fg-muted)]">
+                  <div className="flex items-baseline justify-between gap-2 text-fs-micro leading-4 text-[var(--fg-muted)]">
                     <span className="min-w-0 truncate">
                       {unpaidCount > 0
                         ? t('balanceItemsUnpaid').replace('{n}', String(unpaidCount))

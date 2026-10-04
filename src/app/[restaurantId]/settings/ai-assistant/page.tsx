@@ -1,329 +1,122 @@
 'use client';
 
-/**
- * AI Ordering Assistant — settings sub-page.
- * Lets the restaurant enable/disable the guest-facing chat concierge on
- * foodyweb and shape how it behaves (upselling, direct ordering, and
- * free-form guidance fed into the assistant's instructions).
- */
-
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
-import {
-  getRestaurantSettings,
-  updateRestaurantSettings,
-  RestaurantSettings,
-} from '@/lib/api';
-import { useI18n, useCurrency } from '@/lib/i18n';
+import { getRestaurantSettings, updateRestaurantSettings, type RestaurantSettings } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Button, Field, NumberField, PageHead, Section, Select, Textarea } from '@/components/ds';
+import { Badge, Button, ConfirmDialog, Field, NumberField, PageHead, Section, Select, Textarea } from '@/components/ds';
 
-type TriggerMode = 'manual' | 'immediate' | 'delay';
-
-export default function AIAssistantSettingsPage() {
-  const { symbol } = useCurrency();
-  const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
-  const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canEdit = hasAnyPermission('settings.edit');
-
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  const [enabled, setEnabled] = useState(false);
-  const [upsell, setUpsell] = useState(true);
-  const [autoOrder, setAutoOrder] = useState(true);
-  const [guidance, setGuidance] = useState('');
-  const [aliases, setAliases] = useState('');
-  const [pairings, setPairings] = useState('');
-  const [faq, setFaq] = useState('');
-  const [trigger, setTrigger] = useState<TriggerMode>('manual');
-  const [triggerDelay, setTriggerDelay] = useState(45);
-
-  useEffect(() => {
-    getRestaurantSettings(rid)
-      .then((s: RestaurantSettings) => {
-        setEnabled(s.ai_assistant_enabled ?? false);
-        setUpsell(s.ai_assistant_upsell ?? true);
-        setAutoOrder(s.ai_assistant_auto_order ?? true);
-        setGuidance(s.ai_assistant_guidance ?? '');
-        setAliases(s.ai_assistant_aliases ?? '');
-        setPairings(s.ai_assistant_pairings ?? '');
-        setFaq(s.ai_assistant_faq ?? '');
-        setTrigger((s.ai_assistant_trigger as TriggerMode) ?? 'manual');
-        setTriggerDelay(s.ai_assistant_trigger_delay ?? 45);
-      })
-      .finally(() => setLoading(false));
-  }, [rid]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateRestaurantSettings(rid, {
-        ai_assistant_enabled: enabled,
-        ai_assistant_upsell: upsell,
-        ai_assistant_auto_order: autoOrder,
-        ai_assistant_guidance: guidance,
-        ai_assistant_aliases: aliases,
-        ai_assistant_pairings: pairings,
-        ai_assistant_faq: faq,
-        ai_assistant_trigger: trigger,
-        ai_assistant_trigger_delay: triggerDelay,
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } finally {
-      setSaving(false);
-    }
+type Draft = Required<Pick<RestaurantSettings, 'ai_assistant_enabled' | 'ai_assistant_upsell' | 'ai_assistant_auto_order' | 'ai_assistant_guidance' | 'ai_assistant_aliases' | 'ai_assistant_pairings' | 'ai_assistant_faq' | 'ai_assistant_trigger' | 'ai_assistant_trigger_delay'>>;
+const TEXT_FIELDS = [
+  { key: 'ai_assistant_guidance', label: 'aiGuidance', hint: 'aiGuidanceHint', placeholder: 'aiGuidancePlaceholder', max: 1000, rows: 4 },
+  { key: 'ai_assistant_aliases', label: 'aiAliases', hint: 'aiAliasesHint', placeholder: 'aiAliasesPlaceholder', max: 4000, rows: 4 },
+  { key: 'ai_assistant_pairings', label: 'aiPairings', hint: 'aiPairingsHint', placeholder: 'aiPairingsPlaceholder', max: 4000, rows: 4 },
+  { key: 'ai_assistant_faq', label: 'aiFaq', hint: 'aiFaqHint', placeholder: 'aiFaqPlaceholder', max: 6000, rows: 5 },
+] as const;
+function toDraft(settings: RestaurantSettings): Draft {
+  const trigger = settings.ai_assistant_trigger ?? 'manual';
+  if (!['manual', 'immediate', 'delay'].includes(trigger)) throw new Error('Unsupported assistant trigger');
+  return {
+    ai_assistant_enabled: settings.ai_assistant_enabled ?? false,
+    ai_assistant_upsell: settings.ai_assistant_upsell ?? true,
+    ai_assistant_auto_order: settings.ai_assistant_auto_order ?? true,
+    ai_assistant_guidance: settings.ai_assistant_guidance ?? '',
+    ai_assistant_aliases: settings.ai_assistant_aliases ?? '',
+    ai_assistant_pairings: settings.ai_assistant_pairings ?? '',
+    ai_assistant_faq: settings.ai_assistant_faq ?? '',
+    ai_assistant_trigger: trigger,
+    ai_assistant_trigger_delay: settings.ai_assistant_trigger_delay ?? 45,
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-[880px]">
-      <PageHead
-        title={t('aiOrderAssistant') || 'AI Ordering Assistant'}
-        desc={
-          t('aiAssistantDesc') ||
-          'A chat concierge on your ordering page that helps guests pick dishes and order.'
-        }
-      />
-
-      <Section title={t('aiOrderAssistant') || 'AI Ordering Assistant'}>
-        <ToggleRow
-          label={t('aiEnable') || 'Enable AI assistant'}
-          sub={
-            t('aiEnableDesc') ||
-            'Show the "Ask AI" button on your foodyweb ordering page.'
-          }
-          checked={enabled}
-          onChange={setEnabled}
-        />
-      </Section>
-
-      <Section
-        title={t('aiBehavior') || 'Behaviour'}
-        desc={
-          t('aiBehaviorDesc') ||
-          'Control how the assistant guides guests through their order.'
-        }
-      >
-        <div className={enabled ? '' : 'opacity-50 pointer-events-none'}>
-          <ToggleRow
-            label={t('aiUpsell') || 'Suggest add-ons (upselling)'}
-            sub={
-              t('aiUpsellDesc') ||
-              'Let the assistant recommend drinks, sides, desserts and upgrades to grow order value — without being pushy.'
-            }
-            checked={upsell}
-            onChange={setUpsell}
-          />
-          <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
-          <ToggleRow
-            label={t('aiAutoOrder') || 'Let the assistant place orders'}
-            sub={
-              t('aiAutoOrderDesc') ||
-              'Allow the assistant to collect the guest’s details and submit the order with a payment link. When off, it only helps build the order and hands off to checkout.'
-            }
-            checked={autoOrder}
-            onChange={setAutoOrder}
-          />
-
-          <Field
-            grow
-            label={t('aiGuidance') || 'Guidance for the assistant'}
-            hint={
-              t('aiGuidanceHint') ||
-              'Free-form instructions, e.g. “Push the chef’s specials”, “We are a vegan kitchen”, or a tone of voice. Leave blank for the default.'
-            }
-            className="mt-[var(--s-5)]"
-          >
-            <Textarea
-              rows={4}
-              value={guidance}
-              maxLength={1000}
-              onChange={(e) => setGuidance(e.target.value)}
-              placeholder={
-                t('aiGuidancePlaceholder') ||
-                'e.g. Prioritise our signature pizzas and always suggest a drink.'
-              }
-            />
-          </Field>
-        </div>
-      </Section>
-
-      <Section
-        title={t('aiKnowledge') || 'Knowledge from past conversations'}
-        desc={
-          t('aiKnowledgeDesc') ||
-          'Teach the assistant your restaurant’s specifics — ideal for insights mined from years of past ordering chats (e.g. WhatsApp). The more you add here, the more accurate and relevant it gets.'
-        }
-      >
-        <div className={enabled ? '' : 'opacity-50 pointer-events-none'}>
-          <Field
-            grow
-            label={t('aiAliases') || 'What customers call things'}
-            hint={
-              t('aiAliasesHint') ||
-              'Map the names, slang, misspellings and other-language terms customers use to your real menu items — one per line, e.g. “the spicy chicken thing = Buffalo Wings”.'
-            }
-          >
-            <Textarea
-              rows={4}
-              value={aliases}
-              maxLength={4000}
-              onChange={(e) => setAliases(e.target.value)}
-              placeholder={
-                t('aiAliasesPlaceholder') ||
-                'shawarma plate = Shawarma Laffa\ncoke / cola / coca = Coca-Cola'
-              }
-            />
-          </Field>
-
-          <Field
-            grow
-            label={t('aiPairings') || 'Popular pairings'}
-            hint={
-              t('aiPairingsHint') ||
-              'Dishes commonly ordered together, so the assistant can suggest relevant add-ons. One per line.'
-            }
-            className="mt-[var(--s-5)]"
-          >
-            <Textarea
-              rows={4}
-              value={pairings}
-              maxLength={4000}
-              onChange={(e) => setPairings(e.target.value)}
-              placeholder={
-                t('aiPairingsPlaceholder') ||
-                'Burger → fries + a soft drink\nHummus → fresh pita, Israeli salad'
-              }
-            />
-          </Field>
-
-          <Field
-            grow
-            label={t('aiFaq') || 'Frequent questions & answers'}
-            hint={
-              t('aiFaqHint') ||
-              'Recurring customer questions and the answers the assistant should give (hours, delivery zones, allergens, substitutions…). One Q/A per line.'
-            }
-            className="mt-[var(--s-5)]"
-          >
-            <Textarea
-              rows={5}
-              value={faq}
-              maxLength={6000}
-              onChange={(e) => setFaq(e.target.value)}
-              placeholder={
-                t('aiFaqPlaceholder') ||
-                `Do you deliver to Ramat Gan? — Yes, orders over ${symbol}80.\nIs the falafel gluten-free? — Yes, fried separately.`
-              }
-            />
-          </Field>
-        </div>
-      </Section>
-
-      <Section
-        title={t('aiTrigger') || 'When it appears'}
-        desc={
-          t('aiTriggerDesc') ||
-          'Choose whether the assistant waits to be tapped or proactively offers help.'
-        }
-      >
-        <div className={enabled ? '' : 'opacity-50 pointer-events-none'}>
-          <div className="flex flex-wrap gap-[var(--s-4)] items-end">
-            <Field grow label={t('aiTriggerMode') || 'Behaviour'}>
-              <Select
-                value={trigger}
-                onChange={(e) => setTrigger(e.target.value as TriggerMode)}
-              >
-                <option value="manual">{t('aiTriggerManual') || 'Only when the guest taps the button'}</option>
-                <option value="immediate">{t('aiTriggerImmediate') || 'Pop up right away'}</option>
-                <option value="delay">{t('aiTriggerDelay') || 'Pop up after a delay'}</option>
-              </Select>
-            </Field>
-            {trigger === 'delay' && (
-              <Field
-                label={t('aiTriggerDelaySeconds') || 'Delay (seconds)'}
-                hint={
-                  t('aiTriggerDelayHint') ||
-                  'Only shows if the guest hasn’t added anything to their cart yet.'
-                }
-              >
-                <NumberField
-                  min={0}
-                  max={600}
-                  value={triggerDelay}
-                  onChange={setTriggerDelay}
-                  className="font-mono tabular-nums text-right"
-                  style={{ width: 100 }}
-                />
-              </Field>
-            )}
-          </div>
-        </div>
-      </Section>
-
-      <div className="flex items-center gap-[var(--s-3)]">
-        {canEdit && (
-          <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
-            {saving ? t('saving') : t('saveChanges')}
-          </Button>
-        )}
-        {saved && (
-          <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>
-        )}
-        {!enabled && (
-          <span className="flex items-center gap-1 text-fs-xs text-[var(--fg-subtle)]">
-            <Sparkles className="w-3.5 h-3.5" />
-            {t('aiDisabledHint') || 'Assistant is currently hidden from guests.'}
-          </span>
-        )}
-      </div>
-    </div>
-  );
 }
 
-function ToggleRow({
-  label,
-  sub,
-  checked,
-  onChange,
-}: {
-  label: string;
-  sub: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center justify-between gap-[var(--s-4)] cursor-pointer">
-      <div className="min-w-0">
-        <div className="text-fs-sm font-medium text-[var(--fg)]">{label}</div>
-        <div className="text-fs-xs text-[var(--fg-subtle)]">{sub}</div>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
-        style={{ background: checked ? 'var(--brand-500)' : 'var(--surface-3)' }}
-      >
-        <span
-          className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
-          style={{ transform: checked ? 'translateX(22px)' : 'translateX(2px)' }}
-        />
-      </button>
-    </label>
-  );
+/** Configure the guest assistant without invoking a model or changing the current draft on failure. */
+export default function AIAssistantSettingsPage() {
+  const { restaurantId } = useParams();
+  return <AssistantWorkspace key={String(restaurantId)} rid={Number(restaurantId)} />;
+}
+function AssistantWorkspace({ rid }: { rid: number }) {
+  const { t } = useI18n();
+  const router = useRouter();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [baseline, setBaseline] = useState<Draft | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [leaving, setLeaving] = useState<string | null>(null);
+  const lock = useRef(false);
+  const lifetime = useRef({ generation: 0, sequence: 0 });
+  const dirty = !!draft && JSON.stringify(draft) !== JSON.stringify(baseline);
+  const load = useCallback(async () => {
+    const generation = lifetime.current.generation, sequence = ++lifetime.current.sequence;
+    const current = () => generation === lifetime.current.generation && sequence === lifetime.current.sequence;
+    setLoading(true); setLoadError(false);
+    try { const value = toDraft(await getRestaurantSettings(rid)); if (current()) { setDraft(value); setBaseline(value); } }
+    catch { if (current()) setLoadError(true); }
+    finally { if (current()) setLoading(false); }
+  }, [rid]);
+  useEffect(() => { const current = lifetime.current; void load(); return () => { current.generation += 1; }; }, [load]);
+  useEffect(() => {
+    const guard = (event: BeforeUnloadEvent) => { if (dirty || lock.current) { event.preventDefault(); event.returnValue = ''; } };
+    const navigate = (event: MouseEvent) => {
+      if ((!dirty && !lock.current) || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = (event.target as Element).closest?.('a[href]');
+      if (!(link instanceof HTMLAnchorElement) || link.target === '_blank' || link.hasAttribute('download') || link.origin !== location.origin || link.href === location.href) return;
+      event.preventDefault(); event.stopPropagation();
+      if (!lock.current) setLeaving(link.pathname + link.search + link.hash);
+    };
+    window.addEventListener('beforeunload', guard); document.addEventListener('click', navigate, true);
+    return () => { window.removeEventListener('beforeunload', guard); document.removeEventListener('click', navigate, true); };
+  }, [dirty]);
+  const patch = (value: Partial<Draft>) => { if (canEdit && !lock.current) { setDraft(current => current ? { ...current, ...value } : null); setSaved(false); setSaveError(false); } };
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault(); if (!canEdit || !draft || !dirty || lock.current || loadError || loading) return;
+    lock.current = true; setSaving(true); setSaveError(false); setSaved(false);
+    const generation = lifetime.current.generation;
+    try {
+      const response = await updateRestaurantSettings(rid, draft);
+      if (generation !== lifetime.current.generation) return;
+      const confirmed = toDraft({ ...draft, ...response });
+      setDraft(confirmed); setBaseline(confirmed); setSaved(true);
+    } catch { if (generation === lifetime.current.generation) setSaveError(true); }
+    finally { if (generation === lifetime.current.generation) { lock.current = false; setSaving(false); } }
+  };
+  const toggle = (key: 'ai_assistant_enabled' | 'ai_assistant_upsell' | 'ai_assistant_auto_order', title: string, hint: string) => draft && <label className="flex min-h-11 items-start gap-4 py-2">
+    <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t(title)}</span><span id={`${key}-hint`} className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t(hint)}</span></span>
+    <input role="switch" type="checkbox" className="mt-1 size-5 shrink-0 accent-[var(--action)]" aria-label={t(title)} aria-describedby={`${key}-hint`} checked={draft[key]} disabled={!canEdit || saving || (key !== 'ai_assistant_enabled' && !draft.ai_assistant_enabled)} onChange={event => patch({ [key]: event.target.checked })} />
+  </label>;
+  const textField = (field: typeof TEXT_FIELDS[number]) => draft && <Field key={field.key} label={t(field.label)} hint={<span id={`${field.key}-hint`}>{t(field.hint)}</span>}>
+    <Textarea aria-label={t(field.label)} aria-describedby={`${field.key}-hint`} dir="auto" rows={field.rows} readOnly={!canEdit || saving || !draft.ai_assistant_enabled} value={draft[field.key]} maxLength={Math.max(field.max, baseline?.[field.key].length ?? 0)} onChange={event => patch({ [field.key]: event.target.value })} placeholder={t(field.placeholder)} />
+  </Field>;
+  return <div className="max-w-4xl space-y-6">
+    <PageHead title={t('aiOrderAssistant')} desc={t('aiAssistantDesc')} actions={canEdit && <Button type="submit" form="assistant-settings" disabled={loading || loadError || !dirty || saving}>{t(saving ? 'saving' : 'saveChanges')}</Button>} />
+    {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('loadFailed')}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div> : draft && <form id="assistant-settings" onSubmit={save} className="space-y-6">
+      {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
+      <Section title={<span className="flex items-center gap-2"><Sparkles className="size-5" aria-hidden="true" />{t('aiOrderAssistant')}</span>} aside={<Badge tone={baseline?.ai_assistant_enabled ? 'success' : 'neutral'}>{t(baseline?.ai_assistant_enabled ? 'aiEnabledSaved' : 'aiDisabledSaved')}</Badge>}>
+        {toggle('ai_assistant_enabled', 'aiEnable', 'aiEnableDesc')}
+        {!draft.ai_assistant_enabled && <p className="mt-4 rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('aiDisabledDraftHint')}</p>}
+      </Section>
+      <Section title={t('aiBehavior')} desc={t('aiBehaviorDesc')}>
+        <div className="space-y-5">{toggle('ai_assistant_upsell', 'aiUpsell', 'aiUpsellDesc')}{toggle('ai_assistant_auto_order', 'aiAutoOrder', 'aiAutoOrderDesc')}{textField(TEXT_FIELDS[0])}</div>
+      </Section>
+      <Section title={t('aiKnowledge')} desc={t('aiKnowledgeDesc')}><div className="space-y-5">{TEXT_FIELDS.slice(1).map(textField)}</div></Section>
+      <Section title={t('aiTrigger')} desc={t('aiTriggerDesc')}>
+        <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+          <Field label={t('aiTriggerMode')}><Select value={draft.ai_assistant_trigger} disabled={!canEdit || saving || !draft.ai_assistant_enabled} onChange={event => patch({ ai_assistant_trigger: event.target.value as Draft['ai_assistant_trigger'] })}>
+            <option value="manual">{t('aiTriggerManual')}</option><option value="immediate">{t('aiTriggerImmediate')}</option><option value="delay">{t('aiTriggerDelay')}</option>
+          </Select></Field>
+          {draft.ai_assistant_trigger === 'delay' && <Field label={t('aiTriggerDelaySeconds')} hint={<span id="ai-delay-hint">{t('aiTriggerDelayHint')}</span>}><NumberField required integer min={0} max={Math.max(600, baseline?.ai_assistant_trigger_delay ?? 0)} format={String} value={draft.ai_assistant_trigger_delay} aria-label={t('aiTriggerDelaySeconds')} aria-describedby="ai-delay-hint" disabled={!canEdit || saving || !draft.ai_assistant_enabled} onChange={value => patch({ ai_assistant_trigger_delay: value })} /></Field>}
+        </div>
+        {draft.ai_assistant_trigger === 'delay' && draft.ai_assistant_trigger_delay === 0 && <p className="mt-4 rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('aiZeroDelayHint')}</p>}
+      </Section>
+      {saveError && <p role="alert" className="text-sm text-[var(--danger-500)]">{t('saveFailed')}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-5"><p role="status" className="text-sm text-[var(--fg-muted)]">{t(saving ? 'saving' : dirty ? 'settingsUnsaved' : saved ? 'saved' : 'settingsUnchanged')}</p>{canEdit && <div className="flex gap-2"><Button type="button" variant="secondary" disabled={!dirty || saving} onClick={() => setLeaving('reset')}>{t('reset')}</Button><Button type="submit" disabled={!dirty || saving}>{t(saving ? 'saving' : 'saveChanges')}</Button></div>}</div>
+    </form>}
+    <ConfirmDialog open={leaving !== null} onOpenChange={open => { if (!open) setLeaving(null); }} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { const target = leaving; setLeaving(null); setDraft(baseline); setSaveError(false); setSaved(false); if (target && target !== 'reset') router.push(target); }} />
+  </div>;
 }

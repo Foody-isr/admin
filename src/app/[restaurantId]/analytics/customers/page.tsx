@@ -28,9 +28,9 @@ import {
 type SortField = 'total_spent' | 'total_orders' | 'avg_order_value' | 'last_order_date' | 'customer_name';
 
 function StatusBadge({ days, t }: { days: number; t: (k: string) => string }) {
-  if (days <= 30) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-600">{t('active')}</span>;
-  if (days <= 60) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-600">{t('atRisk')}</span>;
-  return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600">{t('churned')}</span>;
+  if (days <= 30) return <span className="inline-flex rounded-r-sm px-2 py-1 text-xs font-medium bg-[var(--success-50)] text-[var(--success-500)]">{t('active')}</span>;
+  if (days <= 60) return <span className="inline-flex rounded-r-sm px-2 py-1 text-xs font-medium bg-[var(--warning-50)] text-[var(--warning-500)]">{t('atRisk')}</span>;
+  return <span className="inline-flex rounded-r-sm px-2 py-1 text-xs font-medium bg-[var(--danger-50)] text-[var(--danger-500)]">{t('churned')}</span>;
 }
 
 function daysAgoLabel(days: number, t: (k: string) => string): string {
@@ -131,21 +131,21 @@ export default function CustomersInsightsPage() {
 
       {/* KPI strip */}
       {data && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)]">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 rounded-r-lg bg-[var(--summary-bg)] p-5">
           {[
-            { v: data.total, l: t('totalCustomers'), c: 'var(--fg)' },
+            { v: data.total, l: t('totalCustomers'), c: 'var(--summary-fg)' },
             { v: data.total_active, l: t('activeCustomers'), c: 'var(--success-500)' },
             { v: data.total_at_risk, l: t('atRiskCustomers'), c: 'var(--warning-500)' },
             { v: data.total_churned, l: t('churnedCustomers'), c: 'var(--danger-500)' },
           ].map((k, i) => (
             <div
               key={i}
-              className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)] flex flex-col gap-[var(--s-2)]"
+              className="min-w-0 flex flex-col gap-2"
             >
-              <div className="text-fs-3xl font-semibold tabular-nums" style={{ color: k.c }}>
+              <div className="text-fs-2xl font-semibold tabular-nums break-words" style={{ color: k.c }}>
                 {k.v}
               </div>
-              <div className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+              <div className="text-fs-sm text-[var(--fg-muted)] font-medium">
                 {k.l}
               </div>
             </div>
@@ -155,13 +155,14 @@ export default function CustomersInsightsPage() {
 
       {/* Search */}
       <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-secondary" />
+        <SearchIcon className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-secondary" />
         <input
-          type="text"
+          type="search"
+          aria-label={t('searchByNameOrPhone')}
           placeholder={t('searchByNameOrPhone')}
           value={search}
           onChange={e => handleSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 rounded-lg border border-divider bg-surface-subtle text-fg-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="w-full h-10 ps-10 pe-4 rounded-r-md border border-[var(--line-strong)] bg-surface text-fg-primary text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)]"
         />
       </div>
 
@@ -169,17 +170,17 @@ export default function CustomersInsightsPage() {
       <div className="space-y-[var(--s-4)]">
         {loadFailed ? (
           <div className="flex flex-col items-center gap-3 py-12" role="alert">
-            <p className="text-sm text-[var(--danger-600)]">{t('couldNotLoad')}</p>
+            <p className="text-sm text-[var(--danger-500)]">{t('couldNotLoad')}</p>
             <button
               type="button"
-              className="rounded border border-divider px-3 py-1.5 text-sm hover:bg-surface-subtle"
+              className="min-h-10 rounded-r-md border border-[var(--line-strong)] px-4 text-sm hover:bg-surface-subtle"
               onClick={() => fetchData(search, sortBy, sortDir, page)}
             >
               {t('retry')}
             </button>
           </div>
         ) : loading && !data ? (
-          <div className="flex justify-center py-16">
+          <div className="flex justify-center py-16" role="status" aria-label={t('loading')}>
             <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
           </div>
         ) : !data || data.customers.length === 0 ? (
@@ -238,16 +239,16 @@ export default function CustomersInsightsPage() {
                     className="cursor-pointer"
                     onClick={() => setSelectedPhone(c.customer_phone)}
                   >
-                    <DataTableCell mobilePrimary className="whitespace-nowrap">
-                      <div className="text-fg-primary font-medium">{c.customer_name || '—'}</div>
-                      <div className="text-xs text-fg-secondary">{c.customer_phone}</div>
+                    <DataTableCell mobilePrimary className="min-w-48">
+                      <button type="button" aria-haspopup="dialog" className="text-start font-semibold text-fg-primary underline-offset-4 hover:underline min-h-10" onClick={event => { event.stopPropagation(); setSelectedPhone(c.customer_phone); }}>{c.customer_name || c.customer_phone}</button>
+                      <div className="text-xs text-fg-secondary"><bdi>{c.customer_phone}</bdi></div>
                     </DataTableCell>
                     <DataTableCell align="right" mobileLabel={t('orders')} className="text-fg-primary whitespace-nowrap">{c.total_orders}</DataTableCell>
                     <DataTableCell align="right" mobileLabel={t('totalSpent')} className="font-medium text-fg-primary whitespace-nowrap">{money(c.total_spent, { decimals: 0 })}</DataTableCell>
                     <DataTableCell align="right" mobileLabel={t('avgOrder')} className="text-fg-secondary whitespace-nowrap">{money(c.avg_order_value, { decimals: 0 })}</DataTableCell>
                     <DataTableCell align="right" mobileLabel={t('lastOrder')} className="text-fg-secondary whitespace-nowrap">{daysAgoLabel(c.days_since_last_order, t)}</DataTableCell>
                     <DataTableCell mobileLabel={t('topItems')}>
-                      <div className="text-xs text-fg-secondary truncate max-w-[200px]">
+                      <div className="text-xs text-fg-secondary max-w-[260px]">
                         {c.favorite_items.length > 0
                           ? c.favorite_items.map(f => f.name).join(', ')
                           : '—'}
@@ -263,7 +264,7 @@ export default function CustomersInsightsPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm text-fg-secondary">
                   {t('pageXofY').replace('{page}', String(page)).replace('{total}', String(totalPages)).replace('{count}', String(data.total))}
                 </div>
@@ -271,14 +272,14 @@ export default function CustomersInsightsPage() {
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="px-3 py-1 rounded text-sm border border-divider disabled:opacity-40 hover:bg-surface-subtle"
+                    className="min-h-10 px-4 rounded-r-md text-sm border border-[var(--line-strong)] disabled:opacity-40 hover:bg-surface-subtle"
                   >
                     {t('previous')}
                   </button>
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="px-3 py-1 rounded text-sm border border-divider disabled:opacity-40 hover:bg-surface-subtle"
+                    className="min-h-10 px-4 rounded-r-md text-sm border border-[var(--line-strong)] disabled:opacity-40 hover:bg-surface-subtle"
                   >
                     {t('next')}
                   </button>

@@ -1,16 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlaskConical,
   RefreshCw,
   Check,
-  SlidersHorizontal,
   DollarSign,
   ArrowDown,
   ArrowUp,
   Info,
-  ChevronRight,
 } from 'lucide-react';
 import {
   setItemOptionPrice,
@@ -22,23 +20,17 @@ import {
 import {
   costExVat,
   vatMultiplierForStock,
-  buildVariantOptions,
   type ItemCostSummary,
   type VariantOption,
 } from '@/lib/cost-utils';
 import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { usePermissions } from '@/lib/permissions-context';
-import { useCurrency } from '@/lib/i18n';
+import { useCurrency, useI18n } from '@/lib/i18n';
+import { Button } from '@/components/ds';
 
-// "Et si… ?" simulator card — Figma reference:
-//   foodyadmin/foody-os-handoff/design-reference/screens/item-editor.jsx (WhatIfSimulator).
-//
-// Three levers (portion · sell price · per-ingredient cost) and a side-by-side
-// outcome panel (% material cost gauge + side-by-side material cost / gross
-// profit cards). Apply persists in three places: variant price+portion (or
-// item.price+portion when no variant) and per-stock cost_per_unit.
-
+/** The persisted price, in the API's inclusive-VAT basis, if changed. */
+export interface SimulatorReceipt { price?: number; variantId?: string }
 
 interface Props {
   rid: number;
@@ -61,7 +53,8 @@ interface Props {
    *  scenario stays tied to one (variant, basis) pair. */
   resetKey?: string;
   /** Called after a successful Apply so the parent can refetch. */
-  onApplied?: () => void | Promise<void>;
+  onApplied?: (receipt: SimulatorReceipt) => void | Promise<void>;
+  onStateChange?: (state: {dirty: boolean; busy: boolean; pending: boolean}) => void;
   t: (k: string) => string;
 }
 
@@ -92,7 +85,8 @@ type CostLever =
       color: string;
     };
 
-const SWATCH = ['#f97316', '#05df72', '#3b82f6', '#8e51ff', '#f59e0b', '#ec4899'];
+// Tags keep ingredient rows identifiable without relying on colour.
+const SWATCH = ['var(--summary-fg)'];
 
 export default function WhatIfSimulator({
   rid,
@@ -105,11 +99,13 @@ export default function WhatIfSimulator({
   showCostsExVat,
   resetKey,
   onApplied,
+  onStateChange,
   t,
 }: Props) {
   const { money, symbol } = useCurrency();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
+  const canEditStock = hasAnyPermission('kitchen.manage');
   // ── Bases ────────────────────────────────────────────────────────────────
   const basePrice = effectivePrice;
   const baseFoodCost = summary.foodCost;
@@ -125,11 +121,18 @@ export default function WhatIfSimulator({
   const [simPrice, setSimPrice] = useState<number>(basePrice);
   const [simStockCosts, setSimStockCosts] = useState<Record<number, number>>({});
 
+  const operation = useRef<{steps: Array<() => Promise<unknown>>; completed: number; receipt: SimulatorReceipt} | null>(null);
+  const applyLock = useRef(false);
+  const [pending, setPending] = useState(false);
+  const [saved, setSaved] = useState(false);
+
   // Reset when the parent signals (variant change, VAT toggle, etc.). Also
   // covers initial mount when basePrice arrives after an async load.
   useEffect(() => {
-    setSimPrice(basePrice);
-    setSimStockCosts({});
+    if (!operation.current) {
+      setSimPrice(basePrice);
+      setSimStockCosts({});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey, basePrice]);
 
@@ -297,81 +300,72 @@ export default function WhatIfSimulator({
     return null;
   }
 
+  const unsupportedPrice = priceChanged && !!activeVariant && (
+    !activeVariant.id.startsWith('opt:') || setIdForOption(Number(activeVariant.id.slice(4))) == null
+  );
+  const permissionMissing = (priceChanged && !canEdit) || (ingChanged && !canEditStock);
+  const unsupportedCost = summary.lines.some(line => line.unitCost <= 0 && (
+    (line.ingredient.stock_item?.id != null && simStockCosts[line.ingredient.stock_item.id] != null)
+    || line.ingredient.prep_item?.ingredients?.some(ingredient => ingredient.stock_item?.id != null && simStockCosts[ingredient.stock_item.id] != null)
+  ));
+  useEffect(() => { onStateChange?.({dirty: dirty || pending, busy: applying, pending}); }, [dirty, pending, applying, onStateChange]);
+
   async function handleApply() {
-    if (!dirty || applying) return;
-    setApplyError(null);
-    setApplying(true);
+    if ((!dirty && !operation.current) || applyLock.current || permissionMissing || unsupportedPrice || unsupportedCost) return;
+    applyLock.current = true;
+    setApplyError(null); setSaved(false); setApplying(true);
     try {
-      const calls: Promise<unknown>[] = [];
-
-      // Menu prices are stored inc-VAT at the restaurant rate. When the user
-      // is editing on the HT (ex-VAT) basis, inflate back to TTC before save.
-      const restaurantMultiplier = 1 + vatRate / 100;
-      const priceForStorage = showCostsExVat ? simPrice * restaurantMultiplier : simPrice;
-
-      // 1) Variant-level price updates. Option-set variants use
-      //    setItemOptionPrice; legacy `var:` variants only support price via
-      //    updateVariant.
-      if (activeVariant && priceChanged) {
-        if (activeVariant.id.startsWith('opt:')) {
-          const optionId = Number(activeVariant.id.slice(4));
-          const setId = setIdForOption(optionId);
-          if (setId != null) {
-            calls.push(
-              setItemOptionPrice(rid, setId, item.id, optionId, {
-                price: priceForStorage,
-                is_active: true,
-              }),
-            );
+      if (!operation.current) {
+        const steps: Array<() => Promise<unknown>> = [];
+        const priceForStorage = showCostsExVat ? simPrice * (1 + vatRate / 100) : simPrice;
+        const receipt: SimulatorReceipt = {};
+        if (priceChanged) {
+          receipt.price = priceForStorage;
+          receipt.variantId = activeVariant?.id;
+          if (activeVariant) {
+            const optionId = Number(activeVariant.id.slice(4));
+            const setId = setIdForOption(optionId)!;
+            steps.push(() => setItemOptionPrice(rid, setId, item.id, optionId, {price: priceForStorage, is_active:true}));
+          } else {
+            steps.push(() => updateMenuItem(rid, item.id, {price:priceForStorage}));
           }
         }
-      } else if (priceChanged) {
-        // No active variant — apply to the item itself.
-        calls.push(updateMenuItem(rid, item.id, { price: priceForStorage }));
-      }
-
-      // 2) Stock cost overrides — one PUT per stock_item. Storage is always
-      //    ex-VAT (migration 059), so when the user is viewing inc-VAT we
-      //    must deflate by the stock's effective VAT rate before saving.
-      for (const [sid, cost] of Object.entries(simStockCosts)) {
-        const stockId = Number(sid);
-        let exVat = cost;
-        if (!showCostsExVat) {
-          // Find the stock's VAT rate via the existing summary's lines so we
-          // don't need an extra fetch. Falls back to the restaurant rate.
-          let stockForRate: { vat_rate_override?: number | null } | undefined;
+        for (const [sid, cost] of Object.entries(simStockCosts)) {
+          const stockId = Number(sid);
+          let stockForRate: {vat_rate_override?: number | null} | undefined;
           for (const line of summary.lines) {
-            if (line.ingredient.stock_item?.id === stockId) {
-              stockForRate = line.ingredient.stock_item;
-              break;
-            }
-            const subs = line.ingredient.prep_item?.ingredients ?? [];
-            const sub = subs.find((pi) => pi.stock_item?.id === stockId);
-            if (sub?.stock_item) {
-              stockForRate = sub.stock_item;
-              break;
-            }
+            const direct = line.ingredient.stock_item;
+            const nested = line.ingredient.prep_item?.ingredients?.find(ingredient => ingredient.stock_item?.id === stockId)?.stock_item;
+            if (direct?.id === stockId || nested) { stockForRate = direct?.id === stockId ? direct : nested; break; }
           }
           const multiplier = vatMultiplierForStock(stockForRate, vatRate);
-          if (multiplier > 0) exVat = cost / multiplier;
+          const storedCost = !showCostsExVat && multiplier > 0 ? cost / multiplier : cost;
+          steps.push(() => updateStockItem(rid, stockId, {cost_per_unit:storedCost}));
         }
-        calls.push(updateStockItem(rid, stockId, { cost_per_unit: exVat }));
+        operation.current = {steps, completed:0, receipt};
       }
-
-      await Promise.all(calls);
-      await onApplied?.();
-      // Local levers reset on the next props pass (parent re-fetches → resetKey
-      // changes via new base values), but clear them now for snappy feedback.
-      setSimStockCosts({});
-    } catch (err) {
-      setApplyError(err instanceof Error ? err.message : String(err));
+      const current = operation.current;
+      setPending(true);
+      while (current.completed < current.steps.length) {
+        await current.steps[current.completed]();
+        current.completed += 1;
+      }
+      await onApplied?.(current.receipt);
+      operation.current = null;
+      setPending(false); setSimStockCosts({}); setSaved(true);
+    } catch (error) {
+      if (operation.current?.completed === 0) { operation.current = null; setPending(false); }
+      setApplyError(error instanceof Error ? error.message : String(error));
     } finally {
+      applyLock.current = false;
       setApplying(false);
     }
   }
 
   // ── Quick-action chips (empty state)
   const reset = () => {
+    if (operation.current || applyLock.current) return;
+    setSaved(false);
     setSimPrice(basePrice);
     setSimStockCosts({});
     setApplyError(null);
@@ -412,7 +406,7 @@ export default function WhatIfSimulator({
 
   return (
     <>
-    <section
+    <section aria-label={t('simulatorTitle')} aria-busy={applying}
       className="rounded-r-lg overflow-hidden"
       style={{
         marginTop: 'var(--s-5)',
@@ -426,17 +420,17 @@ export default function WhatIfSimulator({
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div
-        className="flex items-center justify-between gap-[var(--s-3)] p-[var(--s-5)]"
+        className="flex flex-wrap items-start justify-between gap-4 p-[var(--s-5)]"
         style={{ borderBottom: '1px dashed var(--line)' }}
       >
-        <div className="flex items-start gap-[var(--s-3)] min-w-0">
+        <div className="flex flex-1 basis-72 items-start gap-[var(--s-3)] min-w-0">
           <span
             className="shrink-0 inline-grid place-items-center rounded-r-md"
             style={{
               width: 32,
               height: 32,
               background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-              color: 'var(--brand-500)',
+              color: 'var(--brand-ink)',
             }}
           >
             <FlaskConical className="w-3.5 h-3.5" />
@@ -447,10 +441,10 @@ export default function WhatIfSimulator({
                 {t('simulatorTitle') || 'Et si… ?'}
               </h4>
               <span
-                className="inline-flex items-center h-[18px] px-[6px] rounded-r-xs text-[10px] font-semibold uppercase tracking-[.04em]"
+                className="inline-flex items-center h-[18px] px-[6px] rounded-r-xs text-xs font-semibold uppercase tracking-[.04em]"
                 style={{
                   background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-                  color: 'var(--brand-500)',
+                  color: 'var(--brand-ink)',
                 }}
               >
                 {t('simulatorBadge') || 'SIMULATEUR'}
@@ -461,12 +455,12 @@ export default function WhatIfSimulator({
                   whole header (and section below) jumps. */}
               <span
                 aria-hidden={!dirty}
-                className={`inline-flex items-center h-[18px] px-[6px] rounded-r-xs text-[10px] font-semibold ${
+                className={`inline-flex items-center h-[18px] px-[6px] rounded-r-xs text-xs font-semibold ${
                   dirty ? '' : 'invisible'
                 }`}
                 style={{
                   background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-                  color: 'var(--brand-500)',
+                  color: 'var(--brand-ink)',
                 }}
               >
                 {(t('simulatorChangesInProgress') || '{n} changements en cours').replace(
@@ -492,68 +486,29 @@ export default function WhatIfSimulator({
           </div>
         </div>
 
-        <div className="flex items-center gap-[var(--s-2)] shrink-0">
-          {/* Always rendered (just invisible when clean) so the right-side
-              width — and thus the wrapping of the description on the left —
-              stays constant between clean and dirty states. */}
-          <button
-            type="button"
-            onClick={reset}
-            aria-hidden={!dirty}
-            tabIndex={dirty ? 0 : -1}
-            className={`inline-flex items-center gap-1.5 h-8 px-[var(--s-3)] rounded-r-sm text-fs-xs font-medium transition-colors ${
-              dirty
-                ? 'text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]'
-                : 'invisible pointer-events-none'
-            }`}
-          >
-            <RefreshCw className="w-3 h-3" />
-            {t('simulatorReset') || 'Réinitialiser'}
-          </button>
-          {canEdit && (
-            <button
-              type="button"
-              disabled={!dirty || applying}
-              onClick={handleApply}
-              className="inline-flex items-center gap-1.5 h-8 px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors"
-              style={{
-                border: '1px solid var(--line)',
-                background: dirty ? 'var(--surface)' : 'transparent',
-                color: dirty ? 'var(--fg)' : 'var(--fg-subtle)',
-                opacity: dirty && !applying ? 1 : 0.5,
-                cursor: dirty && !applying ? 'pointer' : 'not-allowed',
-              }}
-            >
-              {applying ? (
-                <RefreshCw className="w-3 h-3 animate-spin" />
-              ) : (
-                <Check className="w-3 h-3" />
-              )}
-              {t('simulatorApply') || 'Appliquer les changements'}
-            </button>
-          )}
+        <div className="flex flex-wrap items-center gap-2">
+          {dirty && <Button type="button" size="lg" variant="secondary" onClick={reset} disabled={applying || pending}><RefreshCw className="size-4"/>{t('simulatorReset')}</Button>}
+          {(canEdit || canEditStock) && <Button type="button" size="lg" onClick={handleApply} disabled={(!dirty && !pending) || applying || permissionMissing || unsupportedPrice || unsupportedCost}>
+            {applying ? <RefreshCw className="size-4 animate-spin"/> : <Check className="size-4"/>}{pending ? t('retry') : t('simulatorApply')}
+          </Button>}
         </div>
       </div>
-
-      {applyError && (
-        <div
-          className="px-[var(--s-5)] py-[var(--s-3)] text-fs-xs"
-          style={{
-            background: 'color-mix(in oklab, var(--danger-500) 10%, transparent)',
-            color: 'var(--danger-500)',
-            borderBottom: '1px solid color-mix(in oklab, var(--danger-500) 25%, var(--line))',
-          }}
-        >
-          {applyError}
-        </div>
-      )}
+      <div className="space-y-2 border-b border-[var(--line)] px-5 py-3 text-sm text-fg-secondary">
+        <p>{t('simulatorApplyScope')}</p>
+        {permissionMissing && <p>{t('simulatorPermissionHint')}</p>}
+        {unsupportedPrice && <p>{t('simulatorUnsupportedPrice')}</p>}
+        {unsupportedCost && <p className="text-[var(--warning-500)]">{t('simulatorZeroCostHint')}</p>}
+        {saved && !dirty && <p role="status" className="text-[var(--success-500)]">{t('simulatorSaved')}</p>}
+        {pending && operation.current && <p role="status">{operation.current.completed === operation.current.steps.length ? t('simulatorRefreshPending') : t('simulatorPartialSave').replace('{done}',String(operation.current.completed)).replace('{total}',String(operation.current.steps.length))}</p>}
+        {applyError && <p role="alert" className="text-[var(--danger-500)]">{applyError}</p>}
+      </div>
 
       {/* ── Body: 2 columns (Levers | Outcome) ───────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-[1.15fr_1fr]">
+      <fieldset disabled={applying || pending} className="min-w-0 grid grid-cols-1 xl:grid-cols-[1.15fr_1fr]">
         {/* ===== LEVERS ===== */}
         <div
           className="p-[var(--s-5)]"
-          style={{ borderRight: '1px solid var(--line)' }}
+          style={{ borderInlineEnd: '1px solid var(--line)' }}
         >
           <SectionLabel>{t('simulatorLeversTitle') || 'Leviers à actionner'}</SectionLabel>
 
@@ -571,7 +526,7 @@ export default function WhatIfSimulator({
               dirty={priceChanged}
               min={priceMin}
               max={priceMax}
-              step={0.5}
+              step={0.01}
               value={simPrice}
               onChange={setSimPrice}
               ticks={[
@@ -597,9 +552,8 @@ export default function WhatIfSimulator({
                     return (
                       <div
                         key={row.key}
-                        className="grid items-center gap-[var(--s-3)] p-[var(--s-3)] rounded-r-md"
+                        className="grid grid-cols-[24px_minmax(0,1fr)] items-center gap-3 p-3 rounded-r-md"
                         style={{
-                          gridTemplateColumns: '24px 1fr 140px',
                           background: 'var(--surface-2)',
                           border: overridden
                             ? '1px solid color-mix(in oklab, var(--brand-500) 35%, var(--line))'
@@ -607,36 +561,36 @@ export default function WhatIfSimulator({
                         }}
                       >
                         <span
-                          className="inline-grid place-items-center text-white font-bold rounded-r-xs"
+                          className="inline-grid place-items-center text-[var(--summary-bg)] font-semibold rounded-r-xs"
                           style={{
                             width: 24,
                             height: 24,
                             background: row.color,
-                            fontSize: 10,
+                            fontSize: 12,
                           }}
                         >
                           {row.tag}
                         </span>
                         <div className="min-w-0">
-                          <div className="text-fs-sm font-medium truncate">{row.name}</div>
-                          <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5">
+                          <div className="text-fs-sm font-medium break-words">{row.name}</div>
+                          <div className="text-xs text-[var(--fg-subtle)] mt-0.5">
                             {t('base') || 'Base'} ·{' '}
-                            <span className="tabular-nums">
+                            <bdi dir="ltr" className="tabular-nums">
                               {symbol}
                               {row.baseUnitCost.toFixed(2)}
                               {row.unitSuffix}
-                            </span>
+                            </bdi>
                           </div>
                         </div>
                         <div
-                          className="flex items-center gap-1 h-8 px-[var(--s-2)] rounded-r-sm bg-[var(--surface)]"
+                          dir="ltr" className="col-start-2 flex items-center gap-2 min-h-11 px-3 rounded-r-md bg-[var(--surface)]"
                           style={{
                             border: `1px solid ${overridden ? 'var(--brand-500)' : 'var(--line)'}`,
                           }}
                         >
                           <span className="text-fs-xs text-[var(--fg-subtle)]">{symbol}</span>
                           <NumberInput
-                            min={0}
+                            min={0} aria-label={`${t('unitCost')} — ${row.name}`}
                             value={overrideVal != null ? overrideVal : row.baseUnitCost}
                             onChange={(v) => {
                               setSimStockCosts((prev) => {
@@ -652,7 +606,7 @@ export default function WhatIfSimulator({
                               });
                             }}
                             format={(n) => n.toFixed(2)}
-                            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-fs-sm tabular-nums text-right text-[var(--fg)]"
+                            className="min-h-11 flex-1 min-w-0 bg-transparent border-0 outline-none text-fs-sm tabular-nums text-end text-[var(--fg)]"
                           />
                           <span className="text-fs-xs text-[var(--fg-subtle)]">
                             {row.unitSuffix.replace('/', '')}
@@ -670,9 +624,9 @@ export default function WhatIfSimulator({
                       type="button"
                       key={row.key}
                       onClick={() => setOpenPrepIng(row.ingredient)}
-                      className="grid items-center gap-[var(--s-3)] p-[var(--s-3)] rounded-r-md text-left transition-colors hover:bg-[var(--surface-3,var(--surface-2))]"
+                      className="grid items-center gap-[var(--s-3)] p-[var(--s-3)] rounded-r-md text-start transition-colors hover:bg-[var(--surface-3,var(--surface-2))]"
                       style={{
-                        gridTemplateColumns: '24px 1fr auto auto',
+                        gridTemplateColumns: '24px minmax(0,1fr) auto',
                         background: 'var(--surface-2)',
                         border: overridden
                           ? '1px solid color-mix(in oklab, var(--brand-500) 35%, var(--line))'
@@ -680,41 +634,41 @@ export default function WhatIfSimulator({
                       }}
                     >
                       <span
-                        className="inline-grid place-items-center text-white font-bold rounded-r-xs"
+                        className="inline-grid place-items-center text-[var(--summary-bg)] font-semibold rounded-r-xs"
                         style={{
                           width: 24,
                           height: 24,
                           background: row.color,
-                          fontSize: 10,
+                          fontSize: 12,
                         }}
                       >
                         {row.tag}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-fs-sm font-medium truncate flex items-center gap-1.5">
+                        <div className="text-fs-sm font-medium break-words flex items-center gap-1.5">
                           <FlaskConical className="w-3 h-3 text-[var(--fg-subtle)] shrink-0" />
                           {row.name}
                         </div>
-                        <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5">
+                        <div className="text-xs text-[var(--fg-subtle)] mt-0.5">
                           {t('preparation') || 'Préparation'} ·{' '}
-                          <span className="tabular-nums">
+                          <bdi dir="ltr" className="tabular-nums">
                             {symbol}
                             {row.baseUnitCost.toFixed(2)}
                             {row.unitSuffix}
-                          </span>
+                          </bdi>
                         </div>
                       </div>
                       <div
                         className="text-fs-sm font-semibold tabular-nums whitespace-nowrap"
-                        style={{ color: overridden ? 'var(--brand-500)' : 'var(--fg)' }}
+                        style={{ color: overridden ? 'var(--brand-ink)' : 'var(--fg)' }}
                       >
                         {symbol}
                         {liveUnitCost.toFixed(2)}
-                        <span className="text-[10px] text-[var(--fg-subtle)] font-normal">
+                        <span className="text-xs text-[var(--fg-subtle)] font-normal">
                           {row.unitSuffix}
                         </span>
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-[var(--fg-subtle)]" />
+
                     </button>
                   );
                 })}
@@ -756,7 +710,7 @@ export default function WhatIfSimulator({
                 )}
               </p>
             </div>
-            <div className="flex items-baseline gap-[var(--s-3)]">
+            <div className="flex flex-wrap items-baseline gap-[var(--s-3)]">
               <p
                 className="font-semibold tabular-nums leading-none"
                 style={{
@@ -824,7 +778,7 @@ export default function WhatIfSimulator({
               />
             </div>
             <div
-              className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--fg-subtle)]"
+              className="flex items-center justify-between mt-1.5 text-xs text-[var(--fg-subtle)]"
               dir="ltr"
             >
               <span>0%</span>
@@ -855,7 +809,7 @@ export default function WhatIfSimulator({
           </div>
 
           {/* Side-by-side: Coût matière + Marge brute */}
-          <div className="grid grid-cols-2 gap-[var(--s-3)] mt-[var(--s-5)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--s-3)] mt-[var(--s-5)]">
             <ResultCard
               label={t('simulatorMaterialCost') || 'Coût matière'}
               value={money(simFoodCost)}
@@ -904,7 +858,7 @@ export default function WhatIfSimulator({
           )}
 
         </div>
-      </div>
+      </fieldset>
     </section>
 
     {/* Recipe drill-down: clicking a prep row in the levers list opens the
@@ -949,7 +903,7 @@ export default function WhatIfSimulator({
 function SectionLabel({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
     <div className="mb-[var(--s-2)]">
-      <p className="text-fs-xs uppercase tracking-[.08em] font-bold text-[var(--fg-muted)]">
+      <p className="text-sm font-semibold text-[var(--fg-muted)]">
         {children}
       </p>
       {sub && <p className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{sub}</p>}
@@ -982,7 +936,7 @@ function Lever({
 
   return (
     <div className="mb-[var(--s-5)]">
-      <div className="flex items-center justify-between mb-[var(--s-2)] gap-[var(--s-3)]">
+      <div className="flex flex-wrap items-center justify-between mb-[var(--s-2)] gap-[var(--s-3)]">
         <div className="flex items-center gap-[var(--s-2)] min-w-0">
           <span
             className="inline-grid place-items-center shrink-0 rounded-r-xs text-[var(--fg-muted)]"
@@ -991,11 +945,11 @@ function Lever({
             {icon}
           </span>
           <div className="min-w-0">
-            <p className="text-fs-sm font-semibold truncate">{title}</p>
-            <p className="text-[10px] text-[var(--fg-subtle)] mt-0.5">{sub}</p>
+            <p className="text-fs-sm font-semibold">{title}</p>
+            <p className="text-xs text-[var(--fg-subtle)] mt-0.5">{sub}</p>
           </div>
         </div>
-        <div className="text-right shrink-0">
+        <div className="text-end shrink-0">
           <div className="flex items-center gap-1.5 justify-end">
             {dirty && baseLabel && (
               <span className="text-fs-xs tabular-nums text-[var(--fg-subtle)] line-through">
@@ -1004,7 +958,7 @@ function Lever({
             )}
             <span
               className="text-fs-lg font-semibold tabular-nums"
-              style={{ color: dirty ? 'var(--brand-500)' : 'var(--fg)' }}
+              style={{ color: dirty ? 'var(--brand-ink)' : 'var(--fg)' }}
             >
               {valueLabel}
             </span>
@@ -1023,13 +977,13 @@ function Lever({
           while the visual track + thumb use physical `left`/`width`, so the
           two would run opposite each other. Pinning the slider to LTR keeps
           drag-right = increase and matches the fill direction. */}
-      <div className="relative" style={{ height: 32, marginTop: 8 }} dir="ltr">
+      <div className="relative rounded-r-sm focus-within:shadow-ring" style={{ height: 44, marginTop: 8 }} dir="ltr">
         <input
           type="range"
           min={min}
           max={max}
           step={step}
-          value={value}
+          value={Number(value.toFixed(2))}
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className="absolute inset-0 w-full h-full opacity-0 cursor-grab z-10"
           aria-label={title}
@@ -1083,7 +1037,7 @@ function Lever({
       {/* tick labels — pinned to LTR to stay aligned with the slider's
           physical fill direction (min on the left, max on the right). */}
       <div
-        className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--fg-subtle)]"
+        className="flex items-center justify-between mt-1.5 text-xs text-[var(--fg-subtle)]"
         dir="ltr"
       >
         {ticks.map((tk) => {
@@ -1109,6 +1063,7 @@ function Delta({
   value, unit = '', inverse = false,
 }: { value: number; unit?: string; inverse?: boolean }) {
   const { symbol } = useCurrency();
+  const { t } = useI18n();
   if (!Number.isFinite(value) || Math.abs(value) < 0.001) return null;
   const isDown = value < 0;
   const good = inverse ? isDown : !isDown;
@@ -1118,14 +1073,14 @@ function Delta({
   const decimals = unit === 'pt' || unit === '%' ? 1 : 2;
   return (
     <span
-      className="inline-flex items-center gap-0.5 text-fs-xs font-semibold tabular-nums"
+      dir="ltr" className="inline-flex items-center gap-0.5 text-fs-xs font-semibold tabular-nums"
       style={{ color }}
     >
       {isDown ? <ArrowDown className="w-2.5 h-2.5" /> : <ArrowUp className="w-2.5 h-2.5" />}
       {sign}
       {unit === symbol ? unit : ''}
       {abs.toFixed(decimals)}
-      {unit !== symbol ? unit : ''}
+      {unit === 'pt' ? t('simulatorPoints') : unit !== symbol ? unit : ''}
     </span>
   );
 }
@@ -1148,10 +1103,10 @@ function ResultCard({
       className="p-[var(--s-4)] rounded-r-md"
       style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}
     >
-      <p className="text-[10px] uppercase tracking-[.08em] font-bold text-[var(--fg-subtle)]">
+      <p className="text-xs font-medium text-[var(--fg-subtle)]">
         {label}
       </p>
-      <div className="flex items-baseline gap-[var(--s-2)] mt-[var(--s-2)]">
+      <div className="flex flex-wrap items-baseline gap-[var(--s-2)] mt-[var(--s-2)]">
         <p
           className="font-semibold tabular-nums leading-none"
           style={{
@@ -1166,7 +1121,7 @@ function ResultCard({
       </div>
       {dirty && (
         <div className="flex items-center gap-1.5 mt-1.5">
-          <span className="text-[10px] tabular-nums text-[var(--fg-subtle)] line-through">
+          <span className="text-xs tabular-nums text-[var(--fg-subtle)] line-through">
             {base}
           </span>
           <Delta value={delta!} unit={symbol} inverse={inverse} />
@@ -1181,14 +1136,9 @@ function QuickChip({ children, onClick }: { children: React.ReactNode; onClick?:
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 h-7 px-[var(--s-3)] rounded-r-xl text-fs-xs font-medium border border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:border-[var(--line-strong,var(--line))] transition-colors"
+      className="inline-flex items-center gap-1.5 min-h-11 px-[var(--s-3)] rounded-r-xl text-fs-xs font-medium border border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:border-[var(--line-strong,var(--line))] transition-colors"
     >
       {children}
     </button>
   );
-}
-
-function formatPortion(n: number): string {
-  // Avoid trailing ".0" for integers, but keep one decimal for fractional grams
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }

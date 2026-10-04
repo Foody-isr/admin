@@ -23,7 +23,7 @@ export const CONTEXT_BLOCK_SHELL =
 
 /** The block's eyebrow. Same reason. */
 export const CONTEXT_BLOCK_EYEBROW =
-  'text-[11px] leading-4 font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]';
+  'text-fs-xs leading-4 font-semibold text-[var(--fg-subtle)]';
 
 export function ContextBlock({
   label,

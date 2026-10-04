@@ -1,634 +1,236 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Bell, BellOff, Smartphone, AlertTriangle, ShoppingCart, XCircle, CreditCard, PackageX, Trash2, Monitor } from 'lucide-react';
-import { Badge, Button, PageHead } from '@/components/ds';
-import { useI18n, i18nOr } from '@/lib/i18n';
+import { Bell, BellOff, CreditCard, Monitor, PackageX, ShoppingCart, Smartphone, Trash2, XCircle } from 'lucide-react';
+import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
-  getCurrentSubscription,
-  getEnvironment,
-  getNotificationPreferences,
-  listDevices,
-  removeDevice,
-  sendTestPush,
-  subscribe,
-  unsubscribe,
-  updateNotificationPreferences,
-  type NotificationPreferences,
-  type NotificationPreferencesUpdate,
-  type PushDevice,
-  type PushEnvironment,
+  getCurrentSubscription, getEnvironment, getNotificationPreferences, listDevices,
+  removeDevice, sendTestPush, subscribe, unsubscribe, unsubscribeLocally,
+  updateNotificationPreferences, PushClientError, PushUnsubscribeError,
+  type NotificationPreferences, type PushDevice, type PushEnvironment,
 } from '@/lib/push';
 
-type Status = 'idle' | 'subscribing' | 'unsubscribing' | 'testing';
+type Resource = 'browser' | 'preferences' | 'devices';
+type PrefKey = 'new_order_enabled' | 'order_canceled_enabled' | 'payment_failure_enabled' | 'low_stock_enabled';
+// big_order_enabled has no separate Web Push trigger; do not advertise it here.
+const EVENTS = [
+  { key: 'new_order_enabled', title: 'prefNewOrderTitle', desc: 'prefNewOrderDesc', icon: ShoppingCart },
+  { key: 'order_canceled_enabled', title: 'prefOrderCanceledTitle', desc: 'prefOrderCanceledDesc', icon: XCircle },
+  { key: 'payment_failure_enabled', title: 'prefPaymentFailureTitle', desc: 'prefPaymentFailureDesc', icon: CreditCard },
+  { key: 'low_stock_enabled', title: 'prefLowStockTitle', desc: 'prefLowStockDesc', icon: PackageX },
+] as const;
 
-/** Subset of preference keys exposed in the UI today. `big_order_enabled`
- *  isn't shown because no Web Push trigger fires for it yet (would be
- *  redundant with new_order anyway). Add the toggle back if/when a
- *  separate "big order" template gets wired. */
-type ExposedPrefKey =
-  | 'new_order_enabled'
-  | 'order_canceled_enabled'
-  | 'payment_failure_enabled'
-  | 'low_stock_enabled';
-
+/** Manage browser delivery and the user's notification preferences for this restaurant. */
 export default function NotificationsSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  return <NotificationsWorkspace key={rid} rid={rid} />;
+}
+
+function NotificationsWorkspace({ rid }: { rid: number }) {
   const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
-
   const [env, setEnv] = useState<PushEnvironment | null>(null);
-  const [subscribed, setSubscribed] = useState(false);
-  const [currentEndpoint, setCurrentEndpoint] = useState<string | null>(null);
-  const [status, setStatus] = useState<Status>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [endpoint, setEndpoint] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
-  const [savingPref, setSavingPref] = useState<ExposedPrefKey | null>(null);
-  const [devices, setDevices] = useState<PushDevice[] | null>(null);
-  const [removingId, setRemovingId] = useState<number | null>(null);
+  const [devices, setDevices] = useState<PushDevice[]>([]);
+  const [loading, setLoading] = useState<Record<Resource, boolean>>({ browser: true, preferences: true, devices: true });
+  const [loadErrors, setLoadErrors] = useState<Record<Resource, boolean>>({ browser: false, preferences: false, devices: false });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [cleanupPending, setCleanupPending] = useState(false);
+  const [removing, setRemoving] = useState<PushDevice | null>(null);
+  const lifetime = useRef({ generation: 0 });
+  const sequences = useRef({ browser: 0, preferences: 0, devices: 0 });
+  const lock = useRef(false);
 
-  const loadDevices = useCallback(async () => {
+  const load = useCallback(async (resource: Resource) => {
+    const generation = lifetime.current.generation;
+    const sequence = ++sequences.current[resource];
+    const current = () => generation === lifetime.current.generation && sequence === sequences.current[resource];
+    setLoading(value => ({ ...value, [resource]: true }));
+    setLoadErrors(value => ({ ...value, [resource]: false }));
     try {
-      setDevices(await listDevices(rid));
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[notifications] failed to load devices:', err);
+      if (resource === 'browser') {
+        const environment = getEnvironment();
+        const subscription = await getCurrentSubscription();
+        if (current()) { setEnv(environment); setEndpoint(subscription?.endpoint ?? null); }
+      } else if (resource === 'preferences') {
+        const value = await getNotificationPreferences(rid);
+        if (current()) setPrefs(value);
+      } else {
+        const value = await listDevices(rid);
+        if (current()) setDevices(value);
+      }
+    } catch {
+      if (current()) setLoadErrors(value => ({ ...value, [resource]: true }));
+    } finally {
+      if (current()) setLoading(value => ({ ...value, [resource]: false }));
     }
   }, [rid]);
-
-  const refresh = useCallback(async () => {
-    setEnv(getEnvironment());
-    const existing = await getCurrentSubscription();
-    setSubscribed(Boolean(existing));
-    setCurrentEndpoint(existing?.endpoint ?? null);
-    // Fetch prefs + devices in parallel — don't block the toggle UI if the
-    // endpoint is slow. Errors here aren't fatal (the toggles just
-    // won't show until next refresh).
-    try {
-      const p = await getNotificationPreferences(rid);
-      setPrefs(p);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[notifications] failed to load prefs:', err);
-    }
-    await loadDevices();
-  }, [rid, loadDevices]);
-
+  const refresh = useCallback(() => Promise.all([load('browser'), load('preferences'), load('devices')]), [load]);
   useEffect(() => {
-    refresh();
+    const current = lifetime.current;
+    void refresh();
+    return () => { current.generation += 1; };
   }, [refresh]);
+  useEffect(() => {
+    if (!busy && !cleanupPending) return;
+    const guard = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [busy, cleanupPending]);
 
-  const handleTogglePref = async (key: ExposedPrefKey, next: boolean) => {
-    if (!prefs) return;
-    // Optimistic update so the switch flips instantly; revert on failure.
-    const prev = prefs[key];
-    setPrefs({ ...prefs, [key]: next });
-    setSavingPref(key);
-    try {
-      const update: NotificationPreferencesUpdate = { [key]: next };
-      const fresh = await updateNotificationPreferences(rid, update);
-      setPrefs(fresh);
-    } catch (err) {
-      setPrefs({ ...prefs, [key]: prev });
-      setError(err instanceof Error ? err.message : String(err));
+  const activeLoad = Object.values(loading).some(Boolean);
+  const blocked = !!busy || activeLoad;
+  const isCurrent = (device: PushDevice) => !!endpoint && !!device.endpoint_tail && endpoint.endsWith(device.endpoint_tail);
+  const linked = !!endpoint && devices.some(isCurrent);
+  const run = async (name: string, work: (current: () => boolean) => Promise<void>) => {
+    if (lock.current || activeLoad) return;
+    lock.current = true;
+    const generation = lifetime.current.generation;
+    const current = () => generation === lifetime.current.generation;
+    setBusy(name); setError(''); setNotice('');
+    try { await work(current); }
+    catch (cause) {
+      if (!current()) return;
+      if (cause instanceof PushUnsubscribeError) {
+        setCleanupPending(cause.serverRemoved && !cause.browserRemoved);
+        setError(t(cause.serverRemoved ? 'pushLocalStopPending' : cause.browserRemoved ? 'pushServerStopPending' : 'pushStopFailed'));
+      } else if (cause instanceof PushClientError) {
+        const key = { unsupported: 'pushUnsupported', permissionDenied: 'notificationsBlockedDesc', workerUnavailable: 'pushWorkerUnavailable', noSubscription: 'testPushNoneSent', localStopFailed: 'pushBrowserStopFailed' }[cause.code];
+        setError(t(key));
+      } else setError(t('pushActionFailed'));
+      if (name !== 'preference') await refresh();
     } finally {
-      setSavingPref(null);
+      if (current()) { lock.current = false; setBusy(null); }
     }
   };
-
-  const handleEnable = async () => {
-    setError(null);
-    setStatus('subscribing');
-    try {
+  const enable = () => {
+    if (!canEdit || cleanupPending || loadErrors.browser || loadErrors.devices) return;
+    void run('enable', async current => {
       await subscribe(rid);
+      if (!current()) return;
+      setNotice(t('notificationsEnabled'));
       await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setStatus('idle');
-    }
+    });
   };
-
-  const handleDisable = async () => {
-    setError(null);
-    setStatus('unsubscribing');
-    try {
+  const disable = () => {
+    if (!canEdit || cleanupPending || !endpoint) return;
+    void run('disable', async current => {
       await unsubscribe(rid);
+      if (!current()) return;
+      setEndpoint(null); setNotice(t('pushDisabledHere'));
       await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setStatus('idle');
-    }
+    });
   };
-
-  const handleTest = async () => {
-    setError(null);
-    setTestResult(null);
-    setStatus('testing');
-    try {
+  const finishLocalStop = () => {
+    if (!canEdit || !cleanupPending) return;
+    void run('cleanup', async current => {
+      await unsubscribeLocally();
+      if (!current()) return;
+      setCleanupPending(false); setEndpoint(null); setNotice(t('pushDisabledHere'));
+      await refresh();
+    });
+  };
+  const togglePreference = (key: PrefKey, value: boolean) => {
+    if (!canEdit || !prefs || loadErrors.preferences) return;
+    void run('preference', async current => {
+      const next = await updateNotificationPreferences(rid, { [key]: value });
+      if (current()) { setPrefs(next); setNotice(t('saved')); }
+    });
+  };
+  const test = () => {
+    if (!linked || cleanupPending || loadErrors.devices || loadErrors.browser) return;
+    void run('test', async current => {
       const result = await sendTestPush(rid);
-      if (result.sent > 0) {
-        setTestResult(
-          t('testPushSent')
-            || 'Notification de test envoyée. Si elle n’apparaît pas dans quelques secondes, vérifiez les autorisations système.',
-        );
-      } else if (!result.current_device_known) {
-        // The server had no subscription row for this device's endpoint.
-        setTestResult(
-          t('testPushNoneSent')
-            || 'Cet appareil n’est pas abonné. Touchez « Activer » pour recevoir les notifications ici.',
-        );
-      } else {
-        // Subscribed on this device, but the push service refused delivery.
-        setTestResult(
-          t('testPushFailed')
-            || 'Impossible de livrer sur cet appareil. Désactivez puis réactivez les notifications ici.',
-        );
-      }
-      // Delivery touches last_used_at server-side; refresh so the list reflects it.
-      await loadDevices();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setStatus('idle');
-    }
+      if (!current()) return;
+      setNotice(t(result.sent > 0 ? 'testPushSent' : !result.current_device_known ? 'testPushNoneSent' : 'testPushFailed'));
+      await Promise.all([load('browser'), load('devices')]);
+    });
   };
-
-  const handleRemoveDevice = async (device: PushDevice) => {
-    setError(null);
-    setRemovingId(device.id);
-    try {
-      await removeDevice(rid, device.id);
-      // If we just removed the device we're on, also drop the local browser
-      // subscription so the toggle above flips back to "not subscribed".
-      const isCurrent = Boolean(currentEndpoint && currentEndpoint.endsWith(device.endpoint_tail));
-      if (isCurrent) {
-        await unsubscribe(rid).catch(() => {});
+  const remove = (device: PushDevice) => {
+    if (!canEdit || cleanupPending || loadErrors.devices || loadErrors.browser) return;
+    void run('remove', async current => {
+      const currentDevice = isCurrent(device);
+      try { await removeDevice(rid, device.id, currentDevice); }
+      catch (cause) {
+        if (current() && cause instanceof PushUnsubscribeError && cause.serverRemoved) setDevices(rows => rows.filter(row => row.id !== device.id));
+        throw cause;
       }
-      setTestResult(null);
+      if (!current()) return;
+      setDevices(rows => rows.filter(row => row.id !== device.id));
+      if (currentDevice) setEndpoint(null);
+      setNotice(t('pushDeviceRemoved'));
       await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setRemovingId(null);
-    }
+    });
+  };
+  const resourceState = (resource: Resource) => loading[resource]
+    ? <p role="status" className="py-5 text-sm text-[var(--fg-muted)]">{t('loading')}</p>
+    : loadErrors[resource] ? <div role="alert" className="space-y-3 py-3"><p className="text-sm text-[var(--danger-500)]">{t('pushLoadFailed')}</p><Button variant="secondary" disabled={!!busy} onClick={() => void load(resource)}>{t('retry')}</Button></div> : null;
+  const showInstallHint = env?.isIOS && !env.isStandalone;
+  const date = (value: string) => {
+    const parsed = value ? new Date(value) : null;
+    return parsed && !Number.isNaN(parsed.getTime()) ? parsed.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
   };
 
-  // Three top-level UI states, in priority order:
-  //   1. Browser doesn't support Web Push at all → show a "not available" card
-  //   2. iOS but not installed to Home Screen → show install instructions
-  //   3. Supported and reachable → show the enable / disable toggle
-  const showInstallHint = env?.supported && env.isIOS && !env.isStandalone;
-
-  return (
-    <div className="max-w-2xl">
-      <PageHead
-        title={t('notifications') || 'Notifications'}
-        desc={
-          t('notificationsDesc')
-          || 'Recevez une alerte sur ce téléphone quand une nouvelle commande arrive.'
-        }
-      />
-
-      {!env ? null : !env.supported ? (
-        <UnsupportedCard t={t} />
-      ) : showInstallHint ? (
-        <InstallToHomeScreenCard t={t} />
-      ) : env.permission === 'denied' ? (
-        <PermissionDeniedCard t={t} />
-      ) : (
-        <ToggleCard
-          subscribed={subscribed}
-          status={status}
-          onEnable={handleEnable}
-          onDisable={handleDisable}
-          onTest={handleTest}
-          canEdit={canEdit}
-          t={t}
-        />
-      )}
-
-      {/* Per-event opt-ins. Editable from any device — prefs are stored
-          per-user-per-restaurant, not per-device, so you can configure
-          them from desktop and have them apply to phone subscriptions
-          (and vice-versa). Only hidden if push isn't supported at all
-          (no point editing prefs that can never fire). */}
-      {env?.supported && prefs && (
-        <div className="mt-[var(--s-4)]">
-          <EventPreferences prefs={prefs} saving={savingPref} onToggle={handleTogglePref} canEdit={canEdit} t={t} />
-        </div>
-      )}
-
-      {/* Subscribed devices. Lets the user see every phone/computer receiving
-          notifications and prune stale ones — the main defense against the
-          old "sends succeeded but not on my phone" confusion caused by dead
-          subscriptions piling up. */}
-      {env?.supported && devices && devices.length > 0 && (
-        <div className="mt-[var(--s-4)]">
-          <DeviceList
-            devices={devices}
-            currentEndpoint={currentEndpoint}
-            removingId={removingId}
-            canEdit={canEdit}
-            onRemove={handleRemoveDevice}
-            locale={locale}
-            t={t}
-          />
-        </div>
-      )}
-
-      {testResult && (
-        <div className="mt-[var(--s-4)] p-[var(--s-4)] rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] text-fs-sm text-[var(--fg-muted)]">
-          {testResult}
-        </div>
-      )}
-
-      {error && (
-        <div className="mt-[var(--s-4)] p-[var(--s-4)] rounded-r-md bg-[color-mix(in_oklab,var(--danger-500)_8%,transparent)] border border-[color-mix(in_oklab,var(--danger-500)_30%,var(--line))] text-fs-sm text-[var(--danger-500)] flex items-start gap-[var(--s-2)]">
-          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <div className="min-w-0 break-words">{error}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ToggleCard({
-  subscribed,
-  status,
-  onEnable,
-  onDisable,
-  onTest,
-  canEdit,
-  t,
-}: {
-  subscribed: boolean;
-  status: Status;
-  onEnable: () => void;
-  onDisable: () => void;
-  onTest: () => void;
-  canEdit: boolean;
-  t: (k: string) => string;
-}) {
-  return (
-    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
-      <div className="flex items-start gap-[var(--s-4)]">
-        <div
-          className="w-10 h-10 shrink-0 rounded-r-md grid place-items-center"
-          style={{
-            background:
-              'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-            color: 'var(--brand-500)',
-          }}
-        >
-          {subscribed ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-[var(--s-2)] flex-wrap">
-            <h2 className="text-fs-md font-semibold text-[var(--fg)]">
-              {t('newOrderAlerts') || 'Nouvelles commandes'}
-            </h2>
-            {subscribed && <Badge tone="success">{t('enabled') || 'Activées'}</Badge>}
-          </div>
-          <p className="text-fs-sm text-[var(--fg-muted)] mt-1.5">
-            {t('newOrderAlertsDesc')
-              || 'Une notification push apparaît sur ce téléphone à chaque nouvelle commande pour ce restaurant.'}
-          </p>
-        </div>
-      </div>
-      <div className="mt-[var(--s-5)] flex justify-end gap-[var(--s-2)] flex-wrap">
-        {subscribed && (
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={onTest}
-            disabled={status !== 'idle'}
-          >
-            {status === 'testing'
-              ? t('sendingTestPush') || 'Envoi…'
-              : t('sendTestPush') || 'Envoyer un test'}
-          </Button>
-        )}
-        {canEdit && (subscribed ? (
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={onDisable}
-            disabled={status !== 'idle'}
-          >
-            {status === 'unsubscribing'
-              ? t('disabling') || 'Désactivation…'
-              : t('disable') || 'Désactiver'}
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            size="md"
-            onClick={onEnable}
-            disabled={status !== 'idle'}
-          >
-            <Bell className="w-4 h-4" />
-            {status === 'subscribing'
-              ? t('enabling') || 'Activation…'
-              : t('enableNotifications') || 'Activer les notifications'}
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function InstallToHomeScreenCard({ t }: { t: (k: string) => string }) {
-  return (
-    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
-      <div className="flex items-start gap-[var(--s-4)]">
-        <div
-          className="w-10 h-10 shrink-0 rounded-r-md grid place-items-center"
-          style={{
-            background:
-              'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-            color: 'var(--brand-500)',
-          }}
-        >
-          <Smartphone className="w-5 h-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-fs-md font-semibold text-[var(--fg)]">
-            {t('addToHomeScreenTitle') || "Ajouter à l'écran d'accueil d'abord"}
-          </h2>
-          <p className="text-fs-sm text-[var(--fg-muted)] mt-1.5">
-            {t('addToHomeScreenDesc')
-              || "iOS n'envoie de notifications que sur les applications installées. Touchez le bouton Partager dans Safari, puis « Sur l'écran d'accueil ». Rouvrez Foody Admin depuis l'icône installée et revenez sur cette page."}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PermissionDeniedCard({ t }: { t: (k: string) => string }) {
-  return (
-    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
-      <div className="flex items-start gap-[var(--s-4)]">
-        <div
-          className="w-10 h-10 shrink-0 rounded-r-md grid place-items-center"
-          style={{
-            background:
-              'color-mix(in oklab, var(--warning-500) 14%, transparent)',
-            color: 'var(--warning-500)',
-          }}
-        >
-          <BellOff className="w-5 h-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-fs-md font-semibold text-[var(--fg)]">
-            {t('notificationsBlocked') || 'Notifications bloquées'}
-          </h2>
-          <p className="text-fs-sm text-[var(--fg-muted)] mt-1.5">
-            {t('notificationsBlockedDesc')
-              || "Vous avez refusé les notifications pour ce site. Réautorisez-les dans les réglages du navigateur (ou de l'application installée), puis revenez sur cette page."}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function UnsupportedCard({ t }: { t: (k: string) => string }) {
-  return (
-    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
-      <p className="text-fs-sm text-[var(--fg-muted)]">
-        {t('pushUnsupported')
-          || "Ce navigateur ne prend pas en charge les notifications push. Essayez Chrome, Edge, Firefox, ou Safari sur iOS 16.4+ après avoir ajouté l'application à l'écran d'accueil."}
-      </p>
-    </div>
-  );
-}
-
-// ─── Per-event preference toggles ───────────────────────────────────────────
-
-interface EventDef {
-  key: ExposedPrefKey;
-  icon: React.ComponentType<{ className?: string }>;
-  titleKey: string;
-  titleFallback: string;
-  descKey: string;
-  descFallback: string;
-}
-
-// Order matters — most actionable / highest-frequency first.
-const EVENTS: EventDef[] = [
-  {
-    key: 'new_order_enabled',
-    icon: ShoppingCart,
-    titleKey: 'prefNewOrderTitle',
-    titleFallback: 'Nouvelle commande',
-    descKey: 'prefNewOrderDesc',
-    descFallback: 'Une notification dès qu’une commande payée arrive.',
-  },
-  {
-    key: 'order_canceled_enabled',
-    icon: XCircle,
-    titleKey: 'prefOrderCanceledTitle',
-    titleFallback: 'Commande annulée',
-    descKey: 'prefOrderCanceledDesc',
-    descFallback: 'Quand une commande déjà acceptée est annulée ou rejetée.',
-  },
-  {
-    key: 'payment_failure_enabled',
-    icon: CreditCard,
-    titleKey: 'prefPaymentFailureTitle',
-    titleFallback: 'Échec de paiement',
-    descKey: 'prefPaymentFailureDesc',
-    descFallback: 'Quand le débit d’un client échoue après confirmation.',
-  },
-  {
-    key: 'low_stock_enabled',
-    icon: PackageX,
-    titleKey: 'prefLowStockTitle',
-    titleFallback: 'Stock bas',
-    descKey: 'prefLowStockDesc',
-    descFallback: 'Quand un article passe sous son seuil de réapprovisionnement.',
-  },
-];
-
-function EventPreferences({
-  prefs,
-  saving,
-  onToggle,
-  canEdit,
-  t,
-}: {
-  prefs: NotificationPreferences;
-  saving: ExposedPrefKey | null;
-  onToggle: (key: ExposedPrefKey, next: boolean) => void;
-  canEdit: boolean;
-  t: (k: string) => string;
-}) {
-  return (
-    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
-      <h3 className="text-fs-sm font-semibold uppercase tracking-[0.06em] text-[var(--fg-muted)] mb-[var(--s-4)]">
-        {t('prefEventsHeading') || 'Que voulez-vous recevoir ?'}
-      </h3>
-      <ul className="flex flex-col gap-[var(--s-3)]">
-        {EVENTS.map((ev) => {
-          const Icon = ev.icon;
-          const enabled = prefs[ev.key];
-          const title = i18nOr(t, ev.titleKey, ev.titleFallback);
-          const desc = i18nOr(t, ev.descKey, ev.descFallback);
-          return (
-            <li key={ev.key} className="flex items-start gap-[var(--s-3)]">
-              <div
-                className="w-9 h-9 shrink-0 rounded-r-md grid place-items-center bg-[var(--surface-2)]"
-                aria-hidden
-              >
-                <Icon className="w-4 h-4 text-[var(--fg-muted)]" />
+  return <div className="max-w-5xl space-y-6">
+    <PageHead title={t('notifications')} desc={t('pushSettingsIntro')} actions={<Button variant="secondary" disabled={blocked} onClick={() => void refresh()}>{t('refresh')}</Button>} />
+    {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
+    {(error || notice || cleanupPending) && <div className="space-y-3 rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-4">
+      {error && <p role="alert" className="text-sm leading-6 text-[var(--danger-500)]">{error}</p>}
+      {notice && <p role="status" className="text-sm leading-6 text-[var(--fg)]">{notice}</p>}
+      {cleanupPending && canEdit && <Button variant="secondary" disabled={blocked} onClick={finishLocalStop}>{t('pushFinishLocalStop')}</Button>}
+    </div>}
+    <div className="grid items-start gap-6 lg:grid-cols-2">
+      <Section role="region" aria-label={t('pushThisBrowser')} className="mb-0" title={<span className="flex items-center gap-2"><Bell aria-hidden="true" className="size-5" />{t('pushThisBrowser')}</span>} desc={t('pushBrowserDesc')}>
+        {resourceState('browser') || (env && <div className="space-y-4">
+          {!env.supported ? <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('pushUnsupported')}</p>
+            : showInstallHint ? <div className="space-y-2"><h3 className="font-semibold">{t('addToHomeScreenTitle')}</h3><p className="text-sm leading-6 text-[var(--fg-muted)]">{t('addToHomeScreenDesc')}</p></div>
+            : env.permission === 'denied' ? <div className="space-y-2"><h3 className="font-semibold">{t('notificationsBlocked')}</h3><p className="text-sm leading-6 text-[var(--fg-muted)]">{t('notificationsBlockedDesc')}</p></div>
+            : <>
+              {loading.devices || loadErrors.devices ? <p className="text-sm text-[var(--fg-muted)]">{t('pushRegistrationUnknown')}</p>
+                : <><Badge tone={linked && !cleanupPending ? 'success' : 'neutral'}>{t(linked && !cleanupPending ? 'notificationsEnabled' : 'pushNotActiveHere')}</Badge>{endpoint && !linked && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('pushDeviceUnlinked')}</p>}</>}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {canEdit && !linked && <Button onClick={enable} disabled={blocked || cleanupPending || loadErrors.devices}><Bell aria-hidden="true" />{t(busy === 'enable' ? 'enabling' : 'enableNotifications')}</Button>}
+                {linked && <Button variant="secondary" onClick={test} disabled={blocked || cleanupPending || loadErrors.devices}>{t(busy === 'test' ? 'sendingTestPush' : 'sendTestPush')}</Button>}
+                {canEdit && endpoint && <Button variant="ghost" onClick={disable} disabled={blocked || cleanupPending}><BellOff aria-hidden="true" />{t(busy === 'disable' ? 'disabling' : 'disable')}</Button>}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-fs-md font-medium text-[var(--fg)]">{title}</p>
-                <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5 leading-snug">{desc}</p>
-              </div>
-              {canEdit && (
-                <PreferenceSwitch
-                  checked={enabled}
-                  disabled={saving === ev.key}
-                  onChange={(next) => onToggle(ev.key, next)}
-                  ariaLabel={title}
-                />
-              )}
-            </li>
-          );
+            </>}
+        </div>)}
+      </Section>
+      <Section role="region" aria-label={t('prefEventsHeading')} className="mb-0" title={t('prefEventsHeading')} desc={t('pushPreferencesScope')}>
+        {resourceState('preferences') || (prefs && <ul className="divide-y divide-[var(--line)]">
+          {EVENTS.map(({ key, title, desc, icon: Icon }) => <li key={key} className="py-4 first:pt-1 last:pb-0">
+            <label className="flex items-start gap-3" htmlFor={`push-${key}`}>
+              <Icon aria-hidden="true" className="mt-1 size-4 shrink-0 text-[var(--fg-muted)]" />
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t(title)}</span><span id={`push-${key}-hint`} className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t(desc)}</span></span>
+              <input id={`push-${key}`} role="switch" type="checkbox" aria-label={t(title)} aria-describedby={`push-${key}-hint`} checked={prefs[key]} disabled={!canEdit || blocked} onChange={event => togglePreference(key, event.target.checked)} className="mt-1 size-5 shrink-0 cursor-pointer accent-[var(--action)] disabled:cursor-default" />
+            </label>
+          </li>)}
+        </ul>)}
+      </Section>
+    </div>
+    <Section role="region" aria-label={t('yourDevices')} title={t('yourDevices')} desc={t('yourDevicesDesc')}>
+      {resourceState('devices') || (devices.length === 0 ? <p className="py-5 text-sm text-[var(--fg-muted)]">{t('pushDevicesEmpty')}</p> : <ul className="divide-y divide-[var(--line)]">
+        {devices.map(device => {
+          const current = !loadErrors.browser && !loading.browser && isCurrent(device);
+          const Icon = /iPhone|iPad|Android/.test(device.label) ? Smartphone : Monitor;
+          return <li key={device.id} className="grid grid-cols-[40px_minmax(0,1fr)] gap-3 py-5 sm:grid-cols-[40px_minmax(0,1fr)_auto]">
+            <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-r-md bg-[var(--surface-2)] text-[var(--fg-muted)]"><Icon className="size-5" /></span>
+            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="break-words text-sm font-semibold" dir="auto">{device.label || t('pushThisBrowser')}</h3>{current && <Badge tone="neutral">{t('thisDevice')}</Badge>}</div>
+              <dl className="mt-2 space-y-1 text-xs text-[var(--fg-muted)]"><div><dt className="inline">{t('pushDeviceAdded')} </dt><dd className="inline"><bdi>{date(device.created_at)}</bdi></dd></div><div><dt className="inline">{t('lastUsed')} </dt><dd className="inline"><bdi>{date(device.last_used_at)}</bdi></dd></div></dl>
+            </div>
+            {canEdit && <Button variant="ghost" className="col-start-2 justify-self-start sm:col-start-auto sm:self-center" disabled={blocked || cleanupPending || loadErrors.browser} aria-label={`${t('deviceRemove')} · ${device.label}`} onClick={() => setRemoving(device)}><Trash2 aria-hidden="true" />{t('deviceRemove')}</Button>}
+          </li>;
         })}
-      </ul>
-    </div>
-  );
-}
-
-// ─── Subscribed devices ─────────────────────────────────────────────────────
-
-/** Pick an icon for a device from its "OS · Browser" label. */
-function deviceIcon(label: string): React.ComponentType<{ className?: string }> {
-  return /iPhone|iPad|Android/.test(label) ? Smartphone : Monitor;
-}
-
-/** Format a subscription timestamp as a short, locale-aware date + time.
- *  Falls back to the raw string if it can't be parsed. */
-function formatDeviceDate(iso: string, locale: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(locale, {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function DeviceList({
-  devices,
-  currentEndpoint,
-  removingId,
-  canEdit,
-  onRemove,
-  locale,
-  t,
-}: {
-  devices: PushDevice[];
-  currentEndpoint: string | null;
-  removingId: number | null;
-  canEdit: boolean;
-  onRemove: (device: PushDevice) => void;
-  locale: string;
-  t: (k: string) => string;
-}) {
-  return (
-    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
-      <h3 className="text-fs-sm font-semibold uppercase tracking-[0.06em] text-[var(--fg-muted)]">
-        {t('yourDevices') || 'Vos appareils'}
-      </h3>
-      <p className="text-fs-sm text-[var(--fg-muted)] mt-1.5 mb-[var(--s-4)]">
-        {t('yourDevicesDesc')
-          || 'Téléphones et ordinateurs abonnés aux notifications pour ce restaurant. Retirez ceux que vous n’utilisez plus.'}
-      </p>
-      <ul className="flex flex-col gap-[var(--s-3)]">
-        {devices.map((d) => {
-          const isCurrent = Boolean(currentEndpoint && currentEndpoint.endsWith(d.endpoint_tail));
-          const Icon = deviceIcon(d.label);
-          return (
-            <li key={d.id} className="flex items-center gap-[var(--s-3)]">
-              <div
-                className="w-9 h-9 shrink-0 rounded-r-md grid place-items-center bg-[var(--surface-2)]"
-                aria-hidden
-              >
-                <Icon className="w-4 h-4 text-[var(--fg-muted)]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-[var(--s-2)] flex-wrap">
-                  <p className="text-fs-md font-medium text-[var(--fg)] truncate">{d.label}</p>
-                  {isCurrent && <Badge tone="success">{t('thisDevice') || 'Cet appareil'}</Badge>}
-                </div>
-                <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-                  {(t('deviceLastActive') || 'Dernière activité')}: {formatDeviceDate(d.last_used_at, locale)}
-                </p>
-              </div>
-              {canEdit && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => onRemove(d)}
-                  disabled={removingId === d.id}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {removingId === d.id
-                    ? t('deviceRemoving') || 'Retrait…'
-                    : t('deviceRemove') || 'Retirer'}
-                </Button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-/** Minimal ARIA-compliant toggle switch — the design system doesn't ship one
- *  so we inline a small implementation here. Brand-colored when checked, neutral
- *  when off, dimmed while a save round-trip is in flight. */
-function PreferenceSwitch({
-  checked,
-  disabled,
-  onChange,
-  ariaLabel,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (next: boolean) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={ariaLabel}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-fast ${
-        checked ? 'bg-[var(--brand-500)]' : 'bg-[var(--surface-2)] border border-[var(--line)]'
-      } ${disabled ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-fast ${
-          checked ? 'translate-x-6' : 'translate-x-1'
-        }`}
-      />
-    </button>
-  );
+      </ul>)}
+    </Section>
+    <ConfirmDialog open={!!removing} onOpenChange={open => { if (!open) setRemoving(null); }} title={t('deviceRemove')} description={t('pushRemoveHint').replace('{name}', removing?.label ?? '')} danger confirmLabel={t('deviceRemove')} cancelLabel={t('cancel')} onConfirm={() => { const device = removing; setRemoving(null); if (device) remove(device); }} />
+  </div>;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   createPurchaseOrder,
@@ -36,10 +36,12 @@ import {
   type TranslationMap,
 } from "@/lib/api";
 import Modal from "@/components/Modal";
+import { RestaurantRequestGuard } from "@/lib/restaurant-request-state";
+import { useKitchenMutation } from "@/components/kitchen/useKitchenMutation";
 import SupplierHubTabs, {
   type SupplierHubTab,
 } from "@/components/suppliers/SupplierHubTabs";
-import { Button, EmptyState, PageHead } from "@/components/ds";
+import { Button, ConfirmDialog, EmptyState, FullScreenEditor, PageHead } from "@/components/ds";
 import { NumberInput } from "@/components/ui/NumberInput";
 import { labelForRaw } from "@/components/stock/StockQuantityForm";
 import { useI18n, useCurrency } from "@/lib/i18n";
@@ -74,10 +76,8 @@ import {
   Plus,
   Search,
   Send,
-  Settings2,
   Trash2,
   Truck,
-  X,
   XCircle,
 } from "lucide-react";
 
@@ -222,9 +222,13 @@ function nextSchedule(supplier: Supplier): {
   );
 }
 
+/** Restaurant-scoped supplier purchasing workspace. */
 export default function SuppliersPage() {
   const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
+  return <SuppliersWorkspace key={String(restaurantId)} rid={Number(restaurantId)}/>;
+}
+
+function SuppliersWorkspace({rid}:{rid:number}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { t, locale } = useI18n();
@@ -241,6 +245,9 @@ export default function SuppliersPage() {
   const [restaurantName, setRestaurantName] = useState("Foody");
   const [sourceLocale, setSourceLocale] = useState<Locale>("en");
   const [loading, setLoading] = useState(true);
+  const [loaded,setLoaded]=useState(false);
+  const guard=useRef(new RestaurantRequestGuard());
+  guard.current.enterRestaurant(rid);
   const [error, setError] = useState("");
   const [supplierModal, setSupplierModal] = useState<{
     open: boolean;
@@ -253,8 +260,10 @@ export default function SuppliersPage() {
   const [sendOrder, setSendOrder] = useState<PurchaseOrder | null>(null);
   const [receiveOrder, setReceiveOrder] = useState<PurchaseOrder | null>(null);
 
+  const [removal,setRemoval]=useState<{title:string;description:string;confirmLabel?:string;execute:()=>Promise<unknown>}|null>(null);
   const reload = useCallback(async () => {
-    setError("");
+    const request=guard.current.begin(rid);
+    setLoading(true);setError("");
     try {
       const [supplierData, orderData, stockData, restaurant] =
         await Promise.all([
@@ -263,31 +272,31 @@ export default function SuppliersPage() {
           listStockItems(rid),
           getRestaurant(rid),
         ]);
+      if(!guard.current.isCurrent(request))return;
+      setLoaded(true);
       setSuppliers(supplierData);
       setOrders(orderData);
       setStockItems(stockData);
       setRestaurantName(restaurant.name);
       setSourceLocale(supportedOrderLocale(restaurant.default_locale));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("supplierLoadFailed"));
+      if(guard.current.isCurrent(request))setError(err instanceof Error ? err.message : t("supplierLoadFailed"));
+      throw err;
     } finally {
-      setLoading(false);
+      if(guard.current.isCurrent(request))setLoading(false);
     }
   }, [rid, t]);
 
   useEffect(() => {
-    void reload();
+    void reload().catch(()=>{});
+    const requests=guard.current;return()=>requests.invalidate();
   }, [reload]);
   const lowItems = useMemo(() => stockItems.filter(isLow), [stockItems]);
-  const setTab = (tab: SupplierHubTab) =>
-    router.replace(`/${rid}/kitchen/suppliers?tab=${tab}`);
+  const setTab = (tab: SupplierHubTab) => {
+    const query=new URLSearchParams(searchParams.toString());query.set('tab',tab);
+    router.replace(`/${rid}/kitchen/suppliers?${query}`);
+  };
 
-  if (loading)
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="size-8 animate-spin rounded-full border-4 border-[var(--brand-500)] border-t-transparent" />
-      </div>
-    );
 
   return (
     <div className="min-w-0">
@@ -299,10 +308,10 @@ export default function SuppliersPage() {
           canManage ? (
             <div className="w-full sm:w-auto">
               <Button
-                size="md"
+                size="lg"
                 className="h-11 w-full px-5 sm:w-auto"
                 onClick={() => setOrderSeed({})}
-                disabled={suppliers.length === 0}
+                disabled={!loaded||loading||suppliers.length === 0}
               >
                 <Plus /> {t("newPurchaseOrder")}
               </Button>
@@ -320,11 +329,12 @@ export default function SuppliersPage() {
           role="alert"
           className="mb-4 rounded-r-md border border-[var(--danger-500)]/30 bg-[var(--danger-50)] px-4 py-3 text-fs-sm text-[var(--danger-500)]"
         >
-          {error}
+          <p>{error}</p><Button variant="secondary" size="lg" disabled={loading} onClick={()=>void reload().catch(()=>{})}>{t("retry")}</Button>
         </div>
       )}
 
-      {activeTab === "needs" && (
+      {!loaded&&loading&&<p role="status" className="py-16 text-center text-fg-secondary">{t("loading")}</p>}
+      {loaded&&activeTab === "needs" && (
         <NeedsTab
           suppliers={suppliers}
           stockItems={stockItems}
@@ -334,26 +344,18 @@ export default function SuppliersPage() {
           onOpenSuppliers={() => setTab("suppliers")}
         />
       )}
-      {activeTab === "orders" && (
+      {loaded&&activeTab === "orders" && (
         <OrdersTab
           orders={orders}
           locale={locale}
           canManage={canManage}
           onSend={setSendOrder}
           onReceive={setReceiveOrder}
-          onCancel={async (order) => {
-            await updatePurchaseOrderStatus(rid, order.id, "cancelled");
-            await reload();
-          }}
-          onDelete={async (order) => {
-            if (confirm(t("deletePurchaseOrderConfirm"))) {
-              await deletePurchaseOrder(rid, order.id);
-              await reload();
-            }
-          }}
+          onCancel={order=>setRemoval({title:t('cancelPurchaseOrderTitle'),description:`PO-${order.id} · ${order.supplier?.name??''}`,execute:()=>updatePurchaseOrderStatus(rid,order.id,'cancelled')})}
+          onDelete={order=>setRemoval({title:t('deletePurchaseOrderConfirm'),confirmLabel:t('delete'),description:`PO-${order.id} · ${order.supplier?.name??''}`,execute:()=>deletePurchaseOrder(rid,order.id)})}
         />
       )}
-      {activeTab === "suppliers" && (
+      {loaded&&activeTab === "suppliers" && (
         <SuppliersTab
           suppliers={suppliers}
           locale={locale}
@@ -364,12 +366,7 @@ export default function SuppliersPage() {
           }
           onProducts={setProductsSupplier}
           onOrder={(supplier) => setOrderSeed({ supplierId: supplier.id })}
-          onDelete={async (supplier) => {
-            if (confirm(t("deleteSupplierConfirm"))) {
-              await deleteSupplier(rid, supplier.id);
-              await reload();
-            }
-          }}
+          onDelete={supplier=>setRemoval({title:t('deleteSupplierConfirm'),confirmLabel:t('delete'),description:`${supplier.name}. ${t('supplierDeleteImpact')}`,execute:()=>deleteSupplier(rid,supplier.id)})}
         />
       )}
 
@@ -378,13 +375,8 @@ export default function SuppliersPage() {
           editing={supplierModal.editing}
           sourceLocale={sourceLocale}
           onClose={() => setSupplierModal({ open: false })}
-          onSave={async (input) => {
-            if (supplierModal.editing)
-              await updateSupplier(rid, supplierModal.editing.id, input);
-            else await createSupplier(rid, input);
-            setSupplierModal({ open: false });
-            await reload();
-          }}
+          onSave={input=>supplierModal.editing?updateSupplier(rid,supplierModal.editing.id,input):createSupplier(rid,input)}
+          onSaved={reload}
         />
       )}
       {productsSupplier && (
@@ -395,7 +387,7 @@ export default function SuppliersPage() {
           sourceLocale={sourceLocale}
           onClose={() => {
             setProductsSupplier(null);
-            void reload();
+            void reload().catch(()=>{});
           }}
         />
       )}
@@ -407,7 +399,6 @@ export default function SuppliersPage() {
           seed={orderSeed}
           onClose={() => setOrderSeed(null)}
           onCreated={async (order, continueToSend) => {
-            setOrderSeed(null);
             await reload();
             if (continueToSend) setSendOrder(order);
             else setTab("orders");
@@ -421,7 +412,6 @@ export default function SuppliersPage() {
           restaurantName={restaurantName}
           onClose={() => setSendOrder(null)}
           onSent={async () => {
-            setSendOrder(null);
             await reload();
             setTab("orders");
           }}
@@ -433,13 +423,22 @@ export default function SuppliersPage() {
           order={receiveOrder}
           onClose={() => setReceiveOrder(null)}
           onReceived={async () => {
-            setReceiveOrder(null);
             await reload();
           }}
         />
       )}
+      {removal&&<SupplierActionDialog title={removal.title} description={removal.description} confirmLabel={removal.confirmLabel} execute={removal.execute} onSaved={reload} onClose={()=>setRemoval(null)}/>}
     </div>
   );
+}
+
+function SupplierActionDialog({title,description,confirmLabel,execute,onSaved,onClose}:{title:string;description:string;confirmLabel?:string;execute:()=>Promise<unknown>;onSaved:()=>Promise<void>;onClose:()=>void}) {
+  const {t}=useI18n();
+  const session=useKitchenMutation<unknown>('',onClose);
+  return <Modal title={title} onClose={session.close} closeDisabled={session.busy}
+    footer={<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={session.busy} onClick={session.close}>{t('cancel')}</Button><Button size="lg" variant="danger" disabled={session.busy||!session.canManage} onClick={()=>void session.run(execute,onSaved)}>{session.busy?t('saving'):session.saved?t('retry'):(confirmLabel??t('confirm'))}</Button></div>}>
+    <div className="space-y-4"><p className="text-sm text-fg-secondary">{description}</p>{session.feedback}</div>
+  </Modal>;
 }
 
 function NeedsTab({
@@ -485,7 +484,7 @@ function NeedsTab({
           </div>
           {lowItems.length > 0 && (
             <span className="inline-flex items-center rounded-full bg-[var(--danger-50)] px-2.5 py-1 text-fs-xs font-semibold text-[var(--danger-500)]">
-              {lowItems.length} {t("items")}
+              {`${lowItems.length} ${t("items")}`}
             </span>
           )}
         </div>
@@ -507,7 +506,7 @@ function NeedsTab({
                 >
                   <div className="flex flex-col items-stretch justify-between gap-4 border-b border-[var(--line)] px-4 py-4 sm:flex-row sm:items-center sm:gap-5">
                     <div className="flex min-w-0 items-start gap-3">
-                      <div className="grid size-10 shrink-0 place-items-center rounded-r-md bg-[var(--brand-500)]/10 text-fs-sm font-semibold text-[var(--brand-700)] dark:text-[var(--brand-500)]">
+                      <div className="grid size-10 shrink-0 place-items-center rounded-r-md bg-[var(--brand-500)]/10 text-fs-sm font-semibold text-[var(--brand-ink)]">
                         {supplier.name
                           .trim()
                           .charAt(0)
@@ -515,7 +514,7 @@ function NeedsTab({
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="truncate font-semibold text-[var(--fg)]">
+                          <h3 className="break-words font-semibold text-[var(--fg)]">
                             {supplier.name}
                           </h3>
                           <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-semibold text-[var(--fg-muted)]">
@@ -551,8 +550,8 @@ function NeedsTab({
                     {canManage && (
                       <Button
                         variant="secondary"
-                        size="sm"
-                        className="h-10 w-full px-4 sm:w-auto"
+                        size="lg"
+                        className="min-h-11 w-full px-4 sm:w-auto"
                         onClick={() =>
                           onOrder({
                             supplierId: supplier.id,
@@ -583,7 +582,7 @@ function NeedsTab({
                           )}
                         </div>
                         <div className="min-w-0">
-                          <div className="truncate font-medium text-[var(--fg)]">
+                          <div className="break-words font-medium text-[var(--fg)]">
                             {item.name}
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-fs-xs text-[var(--fg-muted)] md:hidden">
@@ -630,8 +629,8 @@ function NeedsTab({
                   {canManage && (
                     <Button
                       variant="secondary"
-                      size="sm"
-                      className="h-10 w-full sm:w-auto"
+                      size="lg"
+                      className="min-h-11 w-full sm:w-auto"
                       onClick={onOpenSuppliers}
                     >
                       {t("manageSuppliers")}
@@ -676,10 +675,10 @@ function WeeklyDeliveryRail({
     <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3.5">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-r-md bg-[var(--brand-500)]/10 text-[var(--brand-600)] dark:text-[var(--brand-500)]">
+          <div className="grid size-9 shrink-0 place-items-center rounded-r-md bg-[var(--brand-500)]/10 text-[var(--brand-ink)] dark:text-[var(--brand-500)]">
             <CalendarDays className="size-4" />
           </div>
-          <h2 className="truncate font-semibold text-[var(--fg)]">
+          <h2 className="break-words font-semibold text-[var(--fg)]">
             {t("upcomingDeliveries")}
           </h2>
         </div>
@@ -705,7 +704,7 @@ function WeeklyDeliveryRail({
             }`}
           >
             <span
-              className={`w-full truncate text-center text-[10px] font-medium ${index === 0 ? "text-[var(--brand-500)]" : ""}`}
+              className={`w-full break-words text-center text-[10px] font-medium ${index === 0 ? "text-[var(--brand-500)]" : ""}`}
             >
               {new Intl.DateTimeFormat(locale, { weekday: "narrow" }).format(
                 date,
@@ -732,7 +731,7 @@ function WeeklyDeliveryRail({
               key={`${supplier.id}-${schedule.id}`}
               className="flex items-center justify-between gap-3 rounded-r-md bg-[var(--brand-500)]/10 px-3 py-2 text-fs-xs"
             >
-              <span className="truncate font-semibold text-[var(--fg)]">
+              <span className="break-words font-semibold text-[var(--fg)]">
                 {supplier.name}
               </span>
               <span className="shrink-0 text-[var(--fg-muted)]">
@@ -755,7 +754,7 @@ function WeeklyDeliveryRail({
                 }).format(date)}
               </div>
               {index === 0 && (
-                <span className="rounded-full bg-[var(--brand-500)]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand-700)] dark:text-[var(--brand-500)]">
+                <span className="rounded-full bg-[var(--brand-500)]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand-ink)]">
                   {t("today")}
                 </span>
               )}
@@ -772,7 +771,7 @@ function WeeklyDeliveryRail({
                     key={`${supplier.id}-${schedule.id}`}
                     className="rounded-r-sm border border-[var(--brand-500)]/25 bg-[var(--brand-500)]/10 px-2 py-1.5 text-fs-xs text-[var(--brand-800)] dark:text-[var(--brand-400)]"
                   >
-                    <div className="truncate font-semibold">
+                    <div className="break-words font-semibold">
                       {supplier.name}
                     </div>
                     <div>
@@ -824,6 +823,7 @@ function SuppliersTab({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t("searchSuppliers")}
+            aria-label={t("searchSuppliers")}
             className="h-11 w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] ps-10 pe-3 text-base outline-none focus:shadow-ring sm:text-fs-sm"
           />
         </label>
@@ -841,8 +841,8 @@ function SuppliersTab({
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Truck />}
-          title={t("noSuppliers")}
-          desc={t("noSuppliersHint")}
+          title={t(search ? "noResults" : "noSuppliers")}
+          desc={t(search ? "tryAdjustingFilters" : "noSuppliersHint")}
           action={
             canManage ? (
               <Button onClick={onAdd}>{t("addSupplier")}</Button>
@@ -907,9 +907,10 @@ function SuppliersTab({
                   </div>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="lg"
                     onClick={() => onProducts(supplier)}
-                    className="w-fit px-2 text-[var(--brand-600)]"
+                    aria-label={`${t("supplierProducts")} — ${supplier.name}`}
+                    className="w-fit px-2 text-[var(--brand-ink)]"
                   >
                     {supplier.products?.length ?? 0} {t("products")}
                   </Button>
@@ -917,32 +918,32 @@ function SuppliersTab({
                     <div className="flex items-center gap-1 border-t border-[var(--line)] pt-3 md:justify-end md:border-0 md:pt-0">
                       <Button
                         variant="ghost"
-                        size="md"
+                        size="lg"
                         icon
                         onClick={() => onOrder(supplier)}
                         title={t("newPurchaseOrder")}
-                        aria-label={t("newPurchaseOrder")}
-                        className="text-[var(--brand-600)] hover:bg-[var(--brand-500)]/10"
+                        aria-label={`${t("newPurchaseOrder")} — ${supplier.name}`}
+                        className="text-[var(--brand-ink)] hover:bg-[var(--brand-500)]/10"
                       >
                         <Send className="size-4" />
                       </Button>
                       <Button
                         variant="ghost"
-                        size="md"
+                        size="lg"
                         icon
                         onClick={() => onEdit(supplier)}
                         title={t("edit")}
-                        aria-label={t("edit")}
+                        aria-label={`${t("edit")} — ${supplier.name}`}
                       >
                         <Pencil className="size-4" />
                       </Button>
                       <Button
                         variant="ghost"
-                        size="md"
+                        size="lg"
                         icon
                         onClick={() => onDelete(supplier)}
                         title={t("delete")}
-                        aria-label={t("delete")}
+                        aria-label={`${t("delete")} — ${supplier.name}`}
                         className="text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
                       >
                         <Trash2 className="size-4" />
@@ -1035,12 +1036,12 @@ function OrdersTab({
                 {order.status === "draft" && (
                   <Button
                     variant="ghost"
-                    size="md"
+                    size="lg"
                     icon
                     onClick={() => onSend(order)}
-                    className="text-[var(--brand-600)] hover:bg-[var(--brand-500)]/10"
+                    className="text-[var(--brand-ink)] hover:bg-[var(--brand-500)]/10"
                     title={t("sendOrder")}
-                    aria-label={t("sendOrder")}
+                    aria-label={`${t("sendOrder")} — PO-${order.id}`}
                   >
                     <Send className="size-4" />
                   </Button>
@@ -1048,12 +1049,12 @@ function OrdersTab({
                 {order.status === "sent" && (
                   <Button
                     variant="ghost"
-                    size="md"
+                    size="lg"
                     icon
                     onClick={() => onReceive(order)}
                     className="text-[var(--success-500)] hover:bg-[var(--success-50)]"
                     title={t("receiveOrder")}
-                    aria-label={t("receiveOrder")}
+                    aria-label={`${t("receiveOrder")} — PO-${order.id}`}
                   >
                     <CheckCircle2 className="size-4" />
                   </Button>
@@ -1061,12 +1062,12 @@ function OrdersTab({
                 {(order.status === "draft" || order.status === "sent") && (
                   <Button
                     variant="ghost"
-                    size="md"
+                    size="lg"
                     icon
                     onClick={() => onCancel(order)}
                     className="text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
                     title={t("cancel")}
-                    aria-label={t("cancel")}
+                    aria-label={`${t("cancel")} — PO-${order.id}`}
                   >
                     <XCircle className="size-4" />
                   </Button>
@@ -1074,11 +1075,11 @@ function OrdersTab({
                 {order.status === "draft" && (
                   <Button
                     variant="ghost"
-                    size="md"
+                    size="lg"
                     icon
                     onClick={() => onDelete(order)}
                     title={t("delete")}
-                    aria-label={t("delete")}
+                    aria-label={`${t("delete")} — PO-${order.id}`}
                   >
                     <Trash2 className="size-4" />
                   </Button>
@@ -1097,11 +1098,13 @@ function SupplierFormModal({
   sourceLocale,
   onClose,
   onSave,
+  onSaved,
 }: {
   editing?: Supplier;
   sourceLocale: Locale;
   onClose: () => void;
-  onSave: (input: Parameters<typeof createSupplier>[1]) => Promise<void>;
+  onSave: (input: Parameters<typeof createSupplier>[1]) => Promise<Supplier>;
+  onSaved:()=>Promise<void>;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? "");
@@ -1136,7 +1139,8 @@ function SupplierFormModal({
       }),
     ),
   );
-  const [saving, setSaving] = useState(false);
+  const formId=useId();
+  const session=useKitchenMutation<Supplier>(JSON.stringify({name,translations,contactName,phone,email,address,notes,channel,language,schedules}),onClose);
   const updateSchedule = (
     index: number,
     patch: Partial<SupplierDeliveryScheduleInput>,
@@ -1144,31 +1148,19 @@ function SupplierFormModal({
     setSchedules((current) =>
       current.map((item, i) => (i === index ? { ...item, ...patch } : item)),
     );
-  const save = async () => {
-    setSaving(true);
-    try {
-      await onSave({
-        name: name.trim(),
-        translations,
-        contact_name: contactName,
-        phone,
-        email,
-        address,
-        notes,
-        preferred_channel: channel,
-        preferred_language: language,
-        schedules,
-      });
-    } finally {
-      setSaving(false);
-    }
+  const save = () => {
+    if(!name.trim())return;
+    void session.run(()=>onSave({name:name.trim(),translations,contact_name:contactName,phone,email,address,notes,preferred_channel:channel,preferred_language:language,schedules}),onSaved);
   };
-  return (
+  return (<>
     <Modal
       title={editing ? t("editSupplier") : t("addSupplier")}
-      onClose={onClose}
+      onClose={session.close}
+      closeDisabled={session.busy}
+      size="3xl"
+      footer={<div className="space-y-3">{session.feedback}<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={session.busy} onClick={session.close}>{t(session.saved?'close':'cancel')}</Button><Button size="lg" type="submit" form={formId} disabled={session.busy||!session.canManage||!name.trim()}>{t(session.busy?'saving':session.saved?'retry':'save')}</Button></div></div>}
     >
-      <div className="space-y-5">
+      <form id={formId} onSubmit={event=>{event.preventDefault();save();}}><fieldset disabled={session.frozen} className="min-w-0 space-y-5">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <LocalizedOrderNameField
@@ -1232,8 +1224,9 @@ function SupplierFormModal({
               </p>
             </div>
             <Button
+              type="button"
               variant="secondary"
-              size="sm"
+              size="lg"
               onClick={() =>
                 setSchedules((current) => [
                   ...current,
@@ -1255,7 +1248,7 @@ function SupplierFormModal({
             {schedules.map((schedule, index) => (
               <div
                 key={index}
-                className="grid gap-2 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-3 sm:grid-cols-[1.1fr_.8fr_.8fr_.8fr_.8fr_auto] sm:items-end"
+                className="grid gap-2 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-3 sm:grid-cols-2 lg:grid-cols-[1.1fr_.8fr_.8fr_.8fr_.8fr_auto] sm:items-end"
               >
                 <SelectField
                   label={t("day")}
@@ -1303,12 +1296,14 @@ function SupplierFormModal({
                   type="time"
                 />
                 <button
+                  type="button"
+                  aria-label={`${t("delete")} — ${t("weekday_"+schedule.weekday)}`}
                   onClick={() =>
                     setSchedules((current) =>
                       current.filter((_, i) => i !== index),
                     )
                   }
-                  className="mb-0.5 rounded-r-sm p-2 text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
+                  className="mb-0.5 min-h-11 min-w-11 rounded-r-sm p-2 text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
                 >
                   <Trash2 className="size-4" />
                 </button>
@@ -1332,16 +1327,8 @@ function SupplierFormModal({
             className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-fs-sm outline-none focus:shadow-ring"
           />
         </label>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            {t("cancel")}
-          </Button>
-          <Button disabled={saving || !name.trim()} onClick={save}>
-            {saving ? t("saving") : t("save")}
-          </Button>
-        </div>
-      </div>
-    </Modal>
+      </fieldset></form>
+    </Modal>{session.confirmation}</>
   );
 }
 
@@ -1380,29 +1367,25 @@ function OrderComposer({
   const [expectedDeliveryEnd, setExpectedDeliveryEnd] = useState("");
   const [deliveryError, setDeliveryError] = useState("");
   const [productSearch, setProductSearch] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [productLoading,setProductLoading]=useState(true);
+  const [productLoaded,setProductLoaded]=useState(false);
+  const [productError,setProductError]=useState('');
+  const [loadAttempt,setLoadAttempt]=useState(0);
+  const [switchSupplier,setSwitchSupplier]=useState<number|null>(null);
+  const cleanInitialized=useRef(false);
+  const session=useKitchenMutation<{order:PurchaseOrder;continueToSend:boolean}>(JSON.stringify({supplierId,quantities,selectedUnits,packagings,notes,expectedDelivery,expectedDeliveryEnd}),onClose);
+  useEffect(()=>{if(productLoaded&&!cleanInitialized.current){cleanInitialized.current=true;session.acceptBaseline();}},[productLoaded,session]);
+  const changeSupplier=(next:number)=>{if(next===supplierId)return;if(session.dirty)setSwitchSupplier(next);else setSupplierId(next);};
   const supplier = suppliers.find((item) => item.id === supplierId);
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onClose]);
-  useEffect(() => {
     if (!supplierId) return;
-    let active = true;
+    let active = true;setProductLoading(true);setProductLoaded(false);setProductError('');cleanInitialized.current=false;
     void Promise.all([
       listSupplierProducts(rid, supplierId),
-      listSupplierOrderUnitPreferences(rid, supplierId).catch(() => []),
+      listSupplierOrderUnitPreferences(rid, supplierId),
     ]).then(([data, preferences]) => {
       if (!active) return;
-      setProducts(data);
+      setProducts(data);setProductLoaded(true);
       const nextQuantities: Record<string, number> = {};
       const nextPackagings: Record<string, PackagingDraft> = {};
       const nextSelectedUnits: Record<string, string> = {};
@@ -1455,11 +1438,11 @@ function OrderComposer({
       setSelectedUnits(nextSelectedUnits);
       setProductSearch("");
       setEditingPackagingKey(null);
-    });
+    }).catch(cause=>{if(active)setProductError(cause instanceof Error?cause.message:t('supplierLoadFailed'));}).finally(()=>{if(active)setProductLoading(false);});
     return () => {
       active = false;
     };
-  }, [rid, seed.stockItemIds, stockItems, supplierId]);
+  }, [rid, seed.stockItemIds, stockItems, supplierId,loadAttempt,t]);
   useEffect(() => {
     if (!supplier) return;
     const upcoming = nextSchedule(supplier);
@@ -1521,7 +1504,7 @@ function OrderComposer({
       [key]: { ...current[key], ...update },
     }));
   const create = async (continueToSend: boolean) => {
-    if (!supplier || selectedRows.length === 0) return;
+    if (!supplier || !productLoaded || productLoading || selectedRows.length === 0) return;
     setDeliveryError("");
     if (continueToSend && !expectedDelivery) {
       setDeliveryError(t("deliveryDateRequired"));
@@ -1535,8 +1518,7 @@ function OrderComposer({
       setDeliveryError(t("deliveryWindowInvalid"));
       return;
     }
-    setSaving(true);
-    try {
+    await session.run(async()=>{
       const items: PurchaseOrderItemInput[] = selectedRows.map((row) => {
         const packaging =
           packagings[row.key] ?? packagingFromStock(row.stockItem);
@@ -1593,46 +1575,21 @@ function OrderComposer({
         notes,
         items,
       });
-      await onCreated(order, continueToSend);
-    } finally {
-      setSaving(false);
-    }
+      return {order,continueToSend};
+    },value=>onCreated(value.order,value.continueToSend));
   };
-  return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end overflow-hidden bg-black/50 backdrop-blur-[2px]"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="purchase-order-title"
-    >
-      <div className="flex h-[100dvh] min-w-0 w-full flex-col overflow-hidden bg-[var(--surface)] shadow-3 sm:max-w-3xl">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--line)] px-4 pb-3 pt-[max(var(--s-3),var(--safe-top))] sm:px-6 sm:py-4">
-          <div className="min-w-0 pt-0.5">
-            <h2
-              id="purchase-order-title"
-              className="text-fs-lg font-semibold leading-tight text-[var(--fg)] sm:text-fs-xl"
-            >
-              {t("newPurchaseOrder")}
-            </h2>
-            <p className="mt-1 text-fs-xs leading-snug text-[var(--fg-muted)] sm:text-fs-sm">
-              {t("newPurchaseOrderDesc")}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("cancel")}
-            className="grid size-11 shrink-0 place-items-center rounded-r-md text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
-        <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-5 sm:p-6">
+  return <>
+    <FullScreenEditor open title={t('newPurchaseOrder')} subtitle={t('newPurchaseOrderDesc')} showCancel={false} onOpenChange={open=>{if(!open)session.close();}} closeDisabled={session.busy}
+      footer={<div className="space-y-3">{session.feedback}<div className="flex flex-wrap items-center justify-end gap-2"><span className="me-auto text-sm text-fg-secondary">{t('itemsSelectedCount').replace('{count}',String(selectedRows.length))}</span><Button size="lg" variant="secondary" disabled={session.busy} onClick={session.close}>{t(session.saved?'close':'cancel')}</Button>{session.saved?<Button size="lg" disabled={session.busy} onClick={()=>void create(false)}>{t('retry')}</Button>:<><Button size="lg" variant="secondary" disabled={session.frozen||!productLoaded||productLoading||selectedRows.length===0} onClick={()=>void create(false)}>{t('saveDraft')}</Button><Button size="lg" disabled={session.frozen||!productLoaded||productLoading||selectedRows.length===0} onClick={()=>void create(true)}>{t('continueToSend')}<ChevronRight className="rtl:rotate-180"/></Button></>}</div></div>}>
+      <div className="mx-auto max-w-5xl space-y-4">
+        {productLoading&&<p role="status" className="text-sm text-fg-secondary">{t('loading')}</p>}
+        {productError&&<div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{productError}</p><Button variant="secondary" size="lg" onClick={()=>setLoadAttempt(value=>value+1)}>{t('retry')}</Button></div>}
+        <fieldset disabled={session.frozen||productLoading||!productLoaded} className="min-w-0 space-y-5">
           <div className="grid gap-3 sm:grid-cols-3">
             <SelectField
               label={t("supplier")}
               value={String(supplierId)}
-              onChange={(value) => setSupplierId(Number(value))}
+              onChange={(value) => changeSupplier(Number(value))}
               options={suppliers.map((item) => [String(item.id), item.name])}
             />
             <Field
@@ -1680,7 +1637,7 @@ function OrderComposer({
               <span>{t("quantity")}</span>
             </div>
             <div className="space-y-2 sm:space-y-0 sm:divide-y sm:divide-[var(--line)] sm:overflow-hidden sm:rounded-r-lg sm:border sm:border-[var(--line)]">
-              {visibleRows.map((row) => {
+              {productLoaded&&visibleRows.map((row) => {
                 const packaging =
                   packagings[row.key] ?? packagingFromStock(row.stockItem);
                 const amount = quantities[row.key] ?? 0;
@@ -1716,7 +1673,7 @@ function OrderComposer({
                     key={row.key}
                     className={`overflow-hidden rounded-r-lg border sm:rounded-none sm:border-0 ${
                       amount > 0
-                        ? "border-[var(--brand-500)]/35 bg-[var(--brand-50)]/60"
+                        ? "border-[var(--brand-500)]/35 bg-[var(--brand-soft)]"
                         : "border-[var(--line)] bg-[var(--surface)]"
                     }`}
                   >
@@ -1734,7 +1691,7 @@ function OrderComposer({
                         )}
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-fs-sm font-semibold text-[var(--fg)]">
+                        <div className="break-words text-fs-sm font-semibold text-[var(--fg)]">
                           {row.name}
                         </div>
                         <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
@@ -1749,7 +1706,7 @@ function OrderComposer({
                             onClick={() =>
                               setEditingPackagingKey(editing ? null : row.key)
                             }
-                            className="mt-1.5 flex max-w-full items-start gap-1 text-start text-fs-xs font-medium leading-snug text-[var(--brand-600)] hover:text-[var(--brand-700)]"
+                            className="mt-1.5 flex min-h-11 max-w-full items-center gap-1 text-start text-fs-xs font-medium leading-snug text-[var(--brand-ink)] hover:text-[var(--brand-ink)]"
                           >
                             <span className="min-w-0">
                               {packaging.packagingSet
@@ -1781,7 +1738,7 @@ function OrderComposer({
                               }))
                             }
                             aria-label={`${t("quantity")} · ${row.name}`}
-                            className="h-11 min-w-0 flex-1 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-center text-base font-semibold text-[var(--fg)] outline-none focus:shadow-ring sm:h-9 sm:rounded-r-sm sm:px-2 sm:text-fs-sm sm:font-normal"
+                            className="h-11 min-w-0 flex-1 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-center text-base font-semibold text-[var(--fg)] outline-none focus:shadow-ring sm:h-11 sm:rounded-r-sm sm:px-2 sm:text-fs-sm sm:font-normal"
                           />
                           <select
                             value={selectedUnit}
@@ -1792,7 +1749,7 @@ function OrderComposer({
                               }))
                             }
                             aria-label={`${t("orderUnit")} · ${row.name}`}
-                            className="h-11 min-w-[7rem] max-w-[10rem] rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-2.5 text-base font-semibold text-[var(--fg)] outline-none focus:shadow-ring sm:h-9 sm:min-w-[5.5rem] sm:max-w-[8rem] sm:rounded-r-sm sm:text-fs-sm sm:font-normal"
+                            className="h-11 min-w-[7rem] max-w-[10rem] rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-2.5 text-base font-semibold text-[var(--fg)] outline-none focus:shadow-ring sm:h-11 sm:min-w-[5.5rem] sm:max-w-[8rem] sm:rounded-r-sm sm:text-fs-sm sm:font-normal"
                           >
                             {unitOptions.map((option) => (
                               <option key={option.value} value={option.value}>
@@ -1824,7 +1781,7 @@ function OrderComposer({
                   </div>
                 );
               })}
-              {visibleRows.length === 0 && (
+              {productLoaded&&visibleRows.length === 0 && (
                 <div className="p-8 text-center text-fs-sm text-[var(--fg-muted)]">
                   {rows.length === 0
                     ? t("noSupplierProductsHint")
@@ -1844,41 +1801,11 @@ function OrderComposer({
               className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-base text-[var(--fg)] outline-none focus:shadow-ring sm:text-fs-sm"
             />
           </label>
-        </div>
-        <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] gap-2 border-t border-[var(--line)] bg-[var(--surface)] px-4 pt-3 pb-[max(var(--s-4),var(--safe-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] sm:flex sm:flex-wrap sm:justify-end sm:bg-[var(--surface-2)]/50 sm:px-6 sm:py-4 sm:shadow-none">
-          <span className="order-1 self-center text-fs-xs font-medium text-[var(--fg-muted)] sm:me-auto">
-            {t("itemsSelectedCount").replace(
-              "{count}",
-              String(selectedRows.length),
-            )}
-          </span>
-          <Button
-            variant="secondary"
-            onClick={onClose}
-            className="order-3 min-w-0 w-full sm:order-none sm:w-auto"
-          >
-            {t("cancel")}
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={saving || selectedRows.length === 0}
-            onClick={() => create(false)}
-            className="order-4 min-w-0 w-full text-fs-xs sm:order-none sm:w-auto sm:text-fs-sm"
-          >
-            {t("saveDraft")}
-          </Button>
-          <Button
-            disabled={saving || selectedRows.length === 0}
-            onClick={() => create(true)}
-            className="order-2 col-span-2 h-11 w-full sm:order-none sm:w-auto"
-          >
-            {t("continueToSend")}
-            <ChevronRight />
-          </Button>
-        </div>
+        </fieldset>
       </div>
-    </div>
-  );
+    </FullScreenEditor>{session.confirmation}
+    <ConfirmDialog open={switchSupplier!==null} onOpenChange={open=>{if(!open)setSwitchSupplier(null);}} title={t('supplierSwitchTitle')} description={t('supplierSwitchHint')} confirmLabel={t('continue')} cancelLabel={t('cancel')} onConfirm={()=>{setSupplierId(switchSupplier!);setSwitchSupplier(null);}}/>
+  </>;
 }
 
 function PackagingEditor({
@@ -1910,7 +1837,7 @@ function PackagingEditor({
         </div>
         {!packaging.packagingSet && (
           <Button
-            size="sm"
+            size="lg"
             variant="secondary"
             className="w-full sm:w-auto"
             onClick={() =>
@@ -1939,7 +1866,7 @@ function PackagingEditor({
                 onChange={(event) =>
                   onChange({ containerType: event.target.value })
                 }
-                className="h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
+                className="h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-11 sm:text-fs-sm"
               />
             </label>
             <label className="block">
@@ -1950,7 +1877,7 @@ function PackagingEditor({
                 min={0}
                 value={packaging.unitsPerPack}
                 onChange={(value) => onChange({ unitsPerPack: value })}
-                className="h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
+                className="h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-11 sm:text-fs-sm"
               />
             </label>
             <label className="block">
@@ -1962,7 +1889,7 @@ function PackagingEditor({
                 maxLength={20}
                 placeholder={t("innerUnitPlaceholder")}
                 onChange={(event) => onChange({ unitType: event.target.value })}
-                className="h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
+                className="h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-11 sm:text-fs-sm"
               />
             </label>
             <label className="block">
@@ -1974,14 +1901,15 @@ function PackagingEditor({
                   min={0}
                   value={packaging.unitSize}
                   onChange={(value) => onChange({ unitSize: value })}
-                  className="h-11 min-w-0 flex-1 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
+                  className="h-11 min-w-0 flex-1 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base outline-none focus:shadow-ring sm:h-11 sm:text-fs-sm"
                 />
                 <select
+                  aria-label={t("stockContentUnit")}
                   value={packaging.unitSizeUnit}
                   onChange={(event) =>
                     onChange({ unitSizeUnit: event.target.value })
                   }
-                  className="h-11 max-w-24 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-2 text-base outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
+                  className="h-11 max-w-24 rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-2 text-base outline-none focus:shadow-ring sm:h-11 sm:text-fs-sm"
                 >
                   {UNITS.map((unit) => (
                     <option key={unit} value={unit}>
@@ -2013,606 +1941,183 @@ function PackagingEditor({
   );
 }
 
-function SendOrderModal({
-  rid,
-  order,
-  restaurantName,
-  onClose,
-  onSent,
-}: {
-  rid: number;
-  order: PurchaseOrder;
-  restaurantName: string;
-  onClose: () => void;
-  onSent: () => Promise<void>;
-}) {
-  const { t } = useI18n();
-  const [preparedOrder, setPreparedOrder] = useState(order);
-  const supplier = preparedOrder.supplier;
-  const [language, setLanguage] = useState<SupplierOrderLanguage>(
-    order.supplier.preferred_language || "he",
-  );
-  const [channel, setChannel] = useState<SupplierOrderChannel>(
-    order.supplier.preferred_channel || "whatsapp",
-  );
-  const [expectedDelivery, setExpectedDelivery] = useState(
-    dateTimeLocalValue(order.expected_delivery_at),
-  );
-  const [expectedDeliveryEnd, setExpectedDeliveryEnd] = useState(
-    dateTimeLocalValue(order.expected_delivery_end_at),
-  );
-  const [message, setMessage] = useState("");
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
-  const [preparing, setPreparing] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    setPreparedOrder(order);
-    setExpectedDelivery(dateTimeLocalValue(order.expected_delivery_at));
-    setExpectedDeliveryEnd(dateTimeLocalValue(order.expected_delivery_end_at));
-    setPreparing(true);
-    refreshPurchaseOrderTranslations(rid, order.id)
-      .then((refreshed) => {
-        if (active) {
-          setPreparedOrder(refreshed);
-          setExpectedDelivery(
-            dateTimeLocalValue(refreshed.expected_delivery_at),
-          );
-          setExpectedDeliveryEnd(
-            dateTimeLocalValue(refreshed.expected_delivery_end_at),
-          );
-        }
-      })
-      .catch(() => {
-        if (active) setError(t("translationPreparationFailed"));
-      })
-      .finally(() => {
-        if (active) setPreparing(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [order, rid, t]);
-  useEffect(
-    () =>
-      setMessage(
-        buildPurchaseOrderMessage(
-          {
-            restaurantName,
-            supplierName: localizedSupplierName(supplier, language),
-            expectedDeliveryAt: expectedDelivery
-              ? new Date(expectedDelivery).toISOString()
-              : null,
-            expectedDeliveryEndAt: expectedDeliveryEnd
-              ? new Date(expectedDeliveryEnd).toISOString()
-              : null,
-            items: preparedOrder.items,
-            notes: preparedOrder.notes,
-          },
-          language,
-        ),
-      ),
-    [
-      expectedDelivery,
-      expectedDeliveryEnd,
-      language,
-      preparedOrder,
-      restaurantName,
-      supplier,
-    ],
-  );
-  const validateDelivery = () => {
-    if (!expectedDelivery) {
-      setError(t("deliveryDateRequired"));
-      return false;
-    }
-    if (
-      expectedDeliveryEnd &&
-      new Date(expectedDeliveryEnd) <= new Date(expectedDelivery)
-    ) {
-      setError(t("deliveryWindowInvalid"));
-      return false;
-    }
+function SendOrderModal({rid,order,restaurantName,onClose,onSent}:{rid:number;order:PurchaseOrder;restaurantName:string;onClose:()=>void;onSent:()=>Promise<void>}) {
+  const {t}=useI18n();
+  const [preparedOrder,setPreparedOrder]=useState(order);
+  const [language,setLanguage]=useState<SupplierOrderLanguage>(order.supplier.preferred_language||'he');
+  const [channel,setChannel]=useState<SupplierOrderChannel>(order.supplier.preferred_channel||'whatsapp');
+  const [expectedDelivery,setExpectedDelivery]=useState(dateTimeLocalValue(order.expected_delivery_at));
+  const [expectedDeliveryEnd,setExpectedDeliveryEnd]=useState(dateTimeLocalValue(order.expected_delivery_end_at));
+  const [override,setOverride]=useState<string|null>(null);
+  const [awaitingConfirmation,setAwaitingConfirmation]=useState(false);
+  const [preparing,setPreparing]=useState(true);
+  const [loadError,setLoadError]=useState('');
+  const [deliveryError,setDeliveryError]=useState('');
+  const [attempt,setAttempt]=useState(0);
+  const [rebuild,setRebuild]=useState(false);
+  const pendingChange=useRef<(()=>void)|null>(null);
+  const deliveryReceipt=useRef('');
+  const baselineReady=useRef(false);
+  const supplier=preparedOrder.supplier;
+  const iso=(value:string)=>value&&!Number.isNaN(new Date(value).getTime())?new Date(value).toISOString():null;
+  const generated=buildPurchaseOrderMessage({restaurantName,supplierName:localizedSupplierName(supplier,language),expectedDeliveryAt:iso(expectedDelivery),expectedDeliveryEndAt:iso(expectedDeliveryEnd),items:preparedOrder.items,notes:preparedOrder.notes},language);
+  const message=channel==='whatsapp'?(override??generated):generated;
+  const session=useKitchenMutation<void>(JSON.stringify({language,channel,expectedDelivery,expectedDeliveryEnd,message}),onClose);
+  useEffect(()=>{
+    if(!session.canManage){setPreparing(false);return;}
+    let active=true;setPreparing(true);setLoadError('');
+    refreshPurchaseOrderTranslations(rid,order.id).then(next=>{if(active)setPreparedOrder(next);})
+      .catch(cause=>{if(active)setLoadError(cause instanceof Error?cause.message:t('translationPreparationFailed'));})
+      .finally(()=>{if(active)setPreparing(false);});
+    return()=>{active=false;};
+  },[rid,order.id,attempt,session.canManage,t]);
+  useEffect(()=>{if(!preparing&&!loadError&&!baselineReady.current){baselineReady.current=true;session.acceptBaseline();}},[preparing,loadError,session]);
+  const changeMessageSource=(action:()=>void)=>{
+    const apply=()=>{action();setOverride(null);setAwaitingConfirmation(false);setDeliveryError('');};
+    if(override!==null&&override!==generated){pendingChange.current=apply;setRebuild(true);}else apply();
+  };
+  const validDelivery=()=>{
+    if(!iso(expectedDelivery)){setDeliveryError(t('deliveryDateRequired'));return false;}
+    if(expectedDeliveryEnd&&(!iso(expectedDeliveryEnd)||new Date(expectedDeliveryEnd)<=new Date(expectedDelivery))){setDeliveryError(t('deliveryWindowInvalid'));return false;}
     return true;
   };
-  const persistDelivery = async () => {
-    if (!validateDelivery()) return null;
-    return await updatePurchaseOrder(rid, preparedOrder.id, {
-      supplier_id: preparedOrder.supplier_id,
-      expected_delivery_at: new Date(expectedDelivery).toISOString(),
-      expected_delivery_end_at: expectedDeliveryEnd
-        ? new Date(expectedDeliveryEnd).toISOString()
-        : null,
-      notes: preparedOrder.notes,
-      items: preparedOrder.items.map((item) => ({
-        supplier_product_id: item.supplier_product_id,
-        stock_item_id: item.stock_item_id,
-        name: item.name,
-        unit: item.unit,
-        quantity: item.quantity,
-        order_quantity: item.order_quantity,
-        order_unit: item.order_unit,
-        packaging_set: item.packaging_set,
-        package_count: item.package_count,
-        units_per_pack: item.units_per_pack,
-        unit_size: item.unit_size,
-        unit_size_unit: item.unit_size_unit,
-        container_type: item.container_type,
-        unit_type: item.unit_type,
-        translations: item.translations,
-        price_per_unit: item.price_per_unit,
-      })),
-    });
+  const persistDelivery=async()=>{
+    const payload={
+      supplier_id:preparedOrder.supplier_id,expected_delivery_at:iso(expectedDelivery),expected_delivery_end_at:iso(expectedDeliveryEnd),notes:preparedOrder.notes,
+      items:preparedOrder.items.map(item=>({supplier_product_id:item.supplier_product_id,stock_item_id:item.stock_item_id,name:item.name,unit:item.unit,quantity:item.quantity,order_quantity:item.order_quantity,order_unit:item.order_unit,packaging_set:item.packaging_set,package_count:item.package_count,units_per_pack:item.units_per_pack,unit_size:item.unit_size,unit_size_unit:item.unit_size_unit,container_type:item.container_type,unit_type:item.unit_type,translations:item.translations,price_per_unit:item.price_per_unit})),
+    };
+    const key=JSON.stringify(payload);
+    if(deliveryReceipt.current===key)return;
+    await updatePurchaseOrder(rid,preparedOrder.id,payload);
+    deliveryReceipt.current=key;
   };
-  const send = async () => {
-    setError("");
-    if (channel === "whatsapp") {
-      if (!validateDelivery()) return;
-      const url = buildWhatsAppUrl(supplier.phone, message);
-      if (!url) {
-        setError(t("invalidWhatsAppPhone"));
-        return;
-      }
-      window.open(url, "_blank", "noopener,noreferrer");
-      setAwaitingConfirmation(true);
-      return;
-    }
-    if (!supplier.email) {
-      setError(t("supplierEmailMissing"));
-      return;
-    }
-    setSending(true);
-    try {
-      if (!(await persistDelivery())) return;
-      await sendOrderEmail(rid, preparedOrder.id, { language });
-      await onSent();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("sendOrderFailed"));
-    } finally {
-      setSending(false);
-    }
+  const confirmSend=()=>{
+    setDeliveryError('');
+    if(!session.saved&&!validDelivery())return;
+    if(!session.saved&&channel==='email'&&!supplier.email){setDeliveryError(t('supplierEmailMissing'));return;}
+    void session.run(async()=>{
+      await persistDelivery();
+      if(channel==='email'){const result=await sendOrderEmail(rid,preparedOrder.id,{language});if(!result.sent)throw new Error(t('sendOrderFailed'));}
+      else await updatePurchaseOrderStatus(rid,preparedOrder.id,'sent',{channel:'whatsapp',language});
+    },onSent);
   };
-  const confirmWhatsApp = async () => {
-    setError("");
-    setSending(true);
-    try {
-      if (!(await persistDelivery())) return;
-      await updatePurchaseOrderStatus(rid, preparedOrder.id, "sent", {
-        channel: "whatsapp",
-        language,
-      });
-      await onSent();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("sendOrderFailed"));
-    } finally {
-      setSending(false);
-    }
+  const send=()=>{
+    if(session.frozen||preparing||loadError)return;
+    setDeliveryError('');
+    if(!validDelivery())return;
+    if(channel==='email'){confirmSend();return;}
+    const url=buildWhatsAppUrl(supplier.phone,message);
+    if(!url){setDeliveryError(t('invalidWhatsAppPhone'));return;}
+    window.open(url,'_blank','noopener,noreferrer');
+    setAwaitingConfirmation(true);
   };
-  return (
-    <Modal
-      title={t("sendPurchaseOrder")}
-      onClose={onClose}
-      size="lg"
-      bodyClassName="!p-4 sm:!p-6"
-    >
+  return <>
+    <Modal title={t('sendPurchaseOrder')} subtitle={`PO-${order.id} · ${supplier.name}`} size="3xl" onClose={session.close} closeDisabled={session.busy}
+      footer={<div className="space-y-3">{session.feedback}{deliveryError&&<p role="alert" className="text-sm text-[var(--danger-500)]">{deliveryError}</p>}
+        {session.saved?<div className="flex justify-end"><Button size="lg" disabled={session.busy} onClick={confirmSend}>{t('retry')}</Button></div>:awaitingConfirmation?<div className="space-y-3"><p className="text-sm">{t('whatsAppConfirmHint')}</p><div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={session.busy} onClick={()=>setAwaitingConfirmation(false)}>{t('notYet')}</Button><Button size="lg" disabled={session.busy||!session.canManage} onClick={confirmSend}><Check/>{t('markSent')}</Button></div></div>:<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={session.busy} onClick={session.close}>{t('cancel')}</Button><Button size="lg" disabled={session.frozen||preparing||!!loadError} onClick={send}>{channel==='whatsapp'?<MessageCircle/>:<Mail/>}{t(channel==='whatsapp'?'openWhatsApp':'sendEmail')}</Button></div>}
+      </div>}>
       <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <button
-            onClick={() => {
-              setChannel("whatsapp");
-              setAwaitingConfirmation(false);
-            }}
-            className={`min-w-0 rounded-r-md border p-3 text-start sm:p-4 ${channel === "whatsapp" ? "border-[var(--brand-500)] bg-[var(--brand-50)] shadow-ring" : "border-[var(--line)]"}`}
-          >
-            <MessageCircle className="mb-2 size-5 text-[var(--success-500)]" />
-            <div className="font-semibold">WhatsApp</div>
-            <div className="mt-1 text-fs-xs text-[var(--fg-muted)]">
-              {supplier.phone || t("phoneMissing")}
-            </div>
-          </button>
-          <button
-            onClick={() => {
-              setChannel("email");
-              setAwaitingConfirmation(false);
-            }}
-            className={`min-w-0 rounded-r-md border p-3 text-start sm:p-4 ${channel === "email" ? "border-[var(--brand-500)] bg-[var(--brand-50)] shadow-ring" : "border-[var(--line)]"}`}
-          >
-            <Mail className="mb-2 size-5 text-[var(--info-500)]" />
-            <div className="font-semibold">{t("email")}</div>
-            <div className="mt-1 truncate text-fs-xs text-[var(--fg-muted)]">
-              {supplier.email || t("emailMissing")}
-            </div>
-          </button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field
-            label={t("deliveryWindowStart")}
-            value={expectedDelivery}
-            onChange={(value) => {
-              setExpectedDelivery(value);
-              setAwaitingConfirmation(false);
-              setError("");
-            }}
-            type="datetime-local"
-          />
-          <Field
-            label={t("deliveryWindowEnd")}
-            value={expectedDeliveryEnd}
-            onChange={(value) => {
-              setExpectedDeliveryEnd(value);
-              setAwaitingConfirmation(false);
-              setError("");
-            }}
-            type="datetime-local"
-          />
-        </div>
-        <p className="-mt-2 text-fs-xs text-[var(--fg-muted)]">
-          {t("deliveryTimingHint")}
-        </p>
-        <SelectField
-          label={t("messageLanguage")}
-          value={language}
-          onChange={(value) => {
-            setLanguage(value as SupplierOrderLanguage);
-            setAwaitingConfirmation(false);
-          }}
-          options={[
-            ["he", t("language_he")],
-            ["fr", t("language_fr")],
-            ["en", t("language_en")],
-          ]}
-        />
-        {preparing && (
-          <p className="text-fs-xs text-[var(--fg-muted)]" role="status">
-            {t("preparingTranslatedNames")}
-          </p>
-        )}
-        <label className="block">
-          <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
-            {t("messagePreview")}
-          </span>
-          <textarea
-            dir={language === "he" ? "rtl" : "ltr"}
-            lang={language}
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            rows={9}
-            className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface-2)] px-3 py-3 text-base leading-relaxed [unicode-bidi:plaintext] outline-none focus:bg-[var(--surface)] focus:shadow-ring sm:text-fs-sm"
-          />
-        </label>
-        {error && (
-          <p role="alert" className="text-fs-sm text-[var(--danger-500)]">
-            {error}
-          </p>
-        )}
-        {awaitingConfirmation ? (
-          <div className="rounded-r-md border border-[var(--info-500)]/30 bg-[var(--info-50)] p-4">
-            <p className="text-fs-sm font-medium text-[var(--fg)]">
-              {t("whatsAppOpened")}
-            </p>
-            <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
-              {t("whatsAppConfirmHint")}
-            </p>
-            <div className="mt-3 grid gap-2 sm:flex">
-              <Button
-                disabled={preparing || sending}
-                onClick={confirmWhatsApp}
-                className="h-11 w-full sm:w-auto"
-              >
-                <Check />
-                {t("markSent")}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setAwaitingConfirmation(false)}
-                className="w-full sm:w-auto"
-              >
-                {t("notYet")}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-2 sm:flex sm:justify-end">
-            <Button
-              variant="secondary"
-              onClick={onClose}
-              className="order-2 w-full sm:order-1 sm:w-auto"
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              disabled={preparing || sending}
-              onClick={send}
-              className="order-1 h-11 w-full sm:order-2 sm:w-auto"
-            >
-              {channel === "whatsapp" ? <MessageCircle /> : <Mail />}
-              {channel === "whatsapp" ? t("openWhatsApp") : t("sendEmail")}
-            </Button>
-          </div>
-        )}
+        {preparing&&<p role="status" className="text-sm text-fg-secondary">{t('preparingTranslatedNames')}</p>}
+        {loadError&&<div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{loadError}</p><Button size="lg" variant="secondary" onClick={()=>setAttempt(value=>value+1)}>{t('retry')}</Button></div>}
+        <fieldset disabled={session.frozen||preparing||!!loadError||awaitingConfirmation} className="min-w-0 space-y-4">
+          <div role="group" aria-label={t('preferredChannel')} className="grid gap-3 sm:grid-cols-2">{(['whatsapp','email']as const).map(value=><button key={value} type="button" aria-pressed={channel===value} onClick={()=>{setChannel(value);setDeliveryError('');}} className={`min-w-0 rounded-r-md border p-4 text-start ${channel===value?'border-[var(--brand-ink)] bg-[var(--brand-soft)]':'border-[var(--line-strong)]'}`}>
+            <span className="flex items-center gap-2 font-semibold">{value==='whatsapp'?<MessageCircle className="size-5"/>:<Mail className="size-5"/>}{value==='whatsapp'?'WhatsApp':t('email')}</span><bdi className="mt-2 block break-all text-sm text-fg-secondary">{value==='whatsapp'?(supplier.phone||t('phoneMissing')):(supplier.email||t('emailMissing'))}</bdi>
+          </button>)}</div>
+          <div className="grid gap-3 sm:grid-cols-2"><Field label={t('deliveryWindowStart')} value={expectedDelivery} type="datetime-local" onChange={value=>changeMessageSource(()=>setExpectedDelivery(value))}/><Field label={t('deliveryWindowEnd')} value={expectedDeliveryEnd} type="datetime-local" onChange={value=>changeMessageSource(()=>setExpectedDeliveryEnd(value))}/></div>
+          <p className="text-sm text-fg-secondary">{t('deliveryTimingHint')}</p>
+          <SelectField label={t('messageLanguage')} value={language} onChange={value=>changeMessageSource(()=>setLanguage(value as SupplierOrderLanguage))} options={['he','fr','en'].map(value=>[value,t(`language_${value}`)])}/>
+          {channel==='email'&&<p className="text-sm text-fg-secondary">{t('supplierEmailPreviewHint')}</p>}
+          <label className="block space-y-2 text-sm"><span>{t('messagePreview')}</span><textarea dir={language==='he'?'rtl':'ltr'} lang={language} value={message} readOnly={channel==='email'} onChange={event=>setOverride(event.target.value)} rows={9} className="input w-full resize-y px-3 py-3 text-base leading-relaxed [unicode-bidi:plaintext]"/></label>
+        </fieldset>
       </div>
-    </Modal>
-  );
+    </Modal>{session.confirmation}
+    <ConfirmDialog open={rebuild} onOpenChange={setRebuild} title={t('supplierRebuildMessageTitle')} description={t('supplierRebuildMessageHint')} confirmLabel={t('continue')} cancelLabel={t('cancel')} onConfirm={()=>{setRebuild(false);pendingChange.current?.();pendingChange.current=null;}}/>
+  </>;
 }
 
-function ReceiveOrderModal({
-  rid,
-  order,
-  onClose,
-  onReceived,
-}: {
-  rid: number;
-  order: PurchaseOrder;
-  onClose: () => void;
-  onReceived: () => Promise<void>;
-}) {
-  const { t } = useI18n();
-  const [items, setItems] = useState(
-    order.items.map((item) => ({
-      item_id: item.id,
-      received_qty: item.quantity,
-    })),
-  );
-  const [saving, setSaving] = useState(false);
-  return (
-    <Modal title={t("receiveOrder")} onClose={onClose}>
-      <div className="space-y-4">
-        <p className="text-fs-sm text-[var(--fg-muted)]">
-          PO-{order.id} · {order.supplier?.name}
-        </p>
-        <div className="divide-y divide-[var(--line)] overflow-hidden rounded-r-md border border-[var(--line)]">
-          {order.items.map((item, index) => (
-            <div
-              key={item.id}
-              className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-3 px-3 py-3"
-            >
-              <div>
-                <div className="text-fs-sm font-medium">{item.name}</div>
-                <div className="text-fs-xs text-[var(--fg-muted)]">
-                  {t("ordered")}: {item.quantity} {item.unit}
-                </div>
-              </div>
-              <NumberInput
-                min={0}
-                value={items[index].received_qty}
-                onChange={(value) =>
-                  setItems((current) =>
-                    current.map((entry, i) =>
-                      i === index ? { ...entry, received_qty: value } : entry,
-                    ),
-                  )
-                }
-                className="h-9 rounded-r-sm border border-[var(--line-strong)] px-2"
-              />
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            {t("cancel")}
-          </Button>
-          <Button
-            disabled={saving}
-            onClick={async () => {
-              setSaving(true);
-              try {
-                await receivePurchaseOrder(rid, order.id, items);
-                await onReceived();
-              } finally {
-                setSaving(false);
-              }
-            }}
-          >
-            <PackageCheck />
-            {t("markAsReceived")}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
+function ReceiveOrderModal({rid,order,onClose,onReceived}:{rid:number;order:PurchaseOrder;onClose:()=>void;onReceived:()=>Promise<void>}) {
+  const {t}=useI18n();
+  const formId=useId();
+  const [items,setItems]=useState(order.items.map(item=>({item_id:item.id,received_qty:item.quantity})));
+  const session=useKitchenMutation<PurchaseOrder>(JSON.stringify(items),onClose);
+  return <>
+    <Modal title={t('receiveOrder')} subtitle={`PO-${order.id} · ${order.supplier?.name??''}`} size="3xl" onClose={session.close} closeDisabled={session.busy}
+      footer={<div className="space-y-3">{session.feedback}<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={session.busy} onClick={session.close}>{t(session.saved?'close':'cancel')}</Button><Button size="lg" type="submit" form={formId} disabled={session.busy||!session.canManage}><PackageCheck/>{t(session.busy?'saving':session.saved?'retry':'markAsReceived')}</Button></div></div>}>
+      <p className="mb-5 text-sm text-fg-secondary">{t('receivePurchaseImpact')}</p>
+      <form id={formId} onSubmit={event=>{event.preventDefault();void session.run(()=>receivePurchaseOrder(rid,order.id,items),onReceived);}}><fieldset disabled={session.frozen} className="min-w-0 divide-y divide-[var(--line)]">{order.items.map((item,index)=><div key={item.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-center">
+        <div className="min-w-0"><h3 className="break-words text-base font-semibold"><bdi>{item.name}</bdi></h3><p className="mt-1 text-sm text-fg-secondary">{t('ordered')} : <bdi>{item.quantity} {labelForRaw(item.unit,t)}</bdi></p>{!item.stock_item_id&&<p className="mt-1 text-sm text-fg-secondary">{t('notLinkedToStock')}</p>}</div>
+        <label className="space-y-2 text-sm"><span>{t('receivedQty')} · <bdi>{labelForRaw(item.unit,t)}</bdi></span><NumberInput min={0} className="input min-h-11 w-full" aria-label={`${t('receivedQty')} — ${item.name} (${item.unit})`} value={items[index].received_qty} onChange={value=>setItems(previous=>previous.map((entry,i)=>i===index?{...entry,received_qty:value}:entry))}/></label>
+      </div>)}</fieldset></form>
+    </Modal>{session.confirmation}
+  </>;
 }
 
-function SupplierProductsModal({
-  supplier,
-  rid,
-  stockItems,
-  sourceLocale,
-  onClose,
-}: {
-  supplier: Supplier;
-  rid: number;
-  stockItems: StockItem[];
-  sourceLocale: Locale;
-  onClose: () => void;
+function SupplierProductsModal({supplier,rid,stockItems,sourceLocale,onClose}: {
+  supplier:Supplier;rid:number;stockItems:StockItem[];sourceLocale:Locale;onClose:()=>void;
 }) {
-  const { t } = useI18n();
-  const [products, setProducts] = useState<SupplierProduct[]>([]);
-  const [editing, setEditing] = useState<SupplierProduct | null | undefined>(
-    undefined,
-  );
-  const load = useCallback(
-    () => listSupplierProducts(rid, supplier.id).then(setProducts),
-    [rid, supplier.id],
-  );
-  useEffect(() => {
-    void load();
-  }, [load]);
-  return (
-    <Modal
-      title={`${supplier.name} · ${t("supplierProducts")}`}
-      onClose={onClose}
-    >
+  const {t}=useI18n();
+  const {money}=useCurrency();
+  const {hasAnyPermission}=usePermissions();
+  const canManage=hasAnyPermission('kitchen.manage');
+  const [products,setProducts]=useState<SupplierProduct[]>([]);
+  const [loaded,setLoaded]=useState(false);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [editing,setEditing]=useState<SupplierProduct|null|undefined>();
+  const [removing,setRemoving]=useState<SupplierProduct|null>(null);
+  const guard=useRef(new RestaurantRequestGuard());
+  guard.current.enterRestaurant(rid);
+  const load=useCallback(async()=>{
+    const request=guard.current.begin(rid);setLoading(true);setError('');
+    try{const next=await listSupplierProducts(rid,supplier.id);if(guard.current.isCurrent(request)){setProducts(next);setLoaded(true);}}
+    catch(cause){if(guard.current.isCurrent(request))setError(cause instanceof Error?cause.message:t('supplierLoadFailed'));throw cause;}
+    finally{if(guard.current.isCurrent(request))setLoading(false);}
+  },[rid,supplier.id,t]);
+  useEffect(()=>{void load().catch(()=>{});const requests=guard.current;return()=>requests.invalidate();},[load]);
+  return <>
+    <Modal title={t('supplierProducts')} subtitle={supplier.name} size="3xl" onClose={onClose} closeDisabled={editing!==undefined||!!removing}>
       <div className="space-y-4">
-        <div className="flex justify-end">
-          <Button size="sm" onClick={() => setEditing(null)}>
-            <Plus />
-            {t("addProduct")}
-          </Button>
-        </div>
-        <div className="divide-y divide-[var(--line)] overflow-hidden rounded-r-md border border-[var(--line)]">
-          {products.map((product) => (
-            <div
-              key={product.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-3"
-            >
-              <div>
-                <div className="text-fs-sm font-medium">{product.name}</div>
-                <div className="text-fs-xs text-[var(--fg-muted)]">
-                  {product.sku || "—"} · {product.price_per_unit} /{" "}
-                  {product.unit}
-                </div>
-              </div>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setEditing(product)}
-                  className="rounded-r-sm p-2 hover:bg-[var(--surface-2)]"
-                >
-                  <Pencil className="size-4" />
-                </button>
-                <button
-                  onClick={async () => {
-                    if (confirm(t("deleteProductConfirm"))) {
-                      await deleteSupplierProduct(rid, supplier.id, product.id);
-                      await load();
-                    }
-                  }}
-                  className="rounded-r-sm p-2 text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-          {products.length === 0 && (
-            <p className="p-8 text-center text-fs-sm text-[var(--fg-muted)]">
-              {t("noSupplierProductsHint")}
-            </p>
-          )}
-        </div>
-        {editing !== undefined && (
-          <ProductEditor
-            editing={editing ?? undefined}
-            stockItems={stockItems}
-            sourceLocale={sourceLocale}
-            onClose={() => setEditing(undefined)}
-            onSave={async (input) => {
-              if (editing)
-                await updateSupplierProduct(
-                  rid,
-                  supplier.id,
-                  editing.id,
-                  input,
-                );
-              else await createSupplierProduct(rid, supplier.id, input);
-              setEditing(undefined);
-              await load();
-            }}
-          />
-        )}
+        {error&&<div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button variant="secondary" size="lg" disabled={loading} onClick={()=>void load().catch(()=>{})}>{t('retry')}</Button></div>}
+        {canManage&&<div className="flex justify-end"><Button size="lg" disabled={!loaded||loading} onClick={()=>setEditing(null)}><Plus/>{t('addProduct')}</Button></div>}
+        {!loaded&&loading?<p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p>:loaded&&products.length===0?<p role="status" className="py-12 text-center text-sm text-fg-secondary">{t('noSupplierProductsHint')}</p>:<ul className="divide-y divide-[var(--line)]">{products.map(product=><li key={product.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="min-w-0 flex-1"><h3 className="break-words font-semibold"><bdi>{product.name}</bdi></h3><p className="mt-1 text-sm text-fg-secondary"><bdi>{product.sku||'—'}</bdi> · <bdi>{money(product.price_per_unit)} / {labelForRaw(product.unit,t)}</bdi></p><p className="mt-1 text-xs text-fg-secondary">{product.stock_item_id?<bdi>{stockItems.find(item=>item.id===product.stock_item_id)?.name||product.stock_item?.name||`#${product.stock_item_id}`}</bdi>:t('notLinkedToStock')}</p></div>
+          {canManage&&<div className="flex gap-2"><Button variant="ghost" size="lg" icon aria-label={`${t('edit')} — ${product.name}`} onClick={()=>setEditing(product)}><Pencil/></Button><Button variant="ghost" size="lg" icon aria-label={`${t('delete')} — ${product.name}`} onClick={()=>setRemoving(product)}><Trash2/></Button></div>}
+        </li>)}</ul>}
       </div>
     </Modal>
-  );
+    {editing!==undefined&&<ProductEditor key={editing?.id??'new'} editing={editing??undefined} stockItems={stockItems} sourceLocale={sourceLocale} onClose={()=>setEditing(undefined)} onSave={input=>editing?updateSupplierProduct(rid,supplier.id,editing.id,input):createSupplierProduct(rid,supplier.id,input)} onSaved={load}/>}
+    {removing&&<SupplierActionDialog title={t('deleteProductConfirm')} confirmLabel={t('delete')} description={removing.name} execute={()=>deleteSupplierProduct(rid,supplier.id,removing.id)} onSaved={load} onClose={()=>setRemoving(null)}/>}
+  </>;
 }
 
-function ProductEditor({
-  editing,
-  stockItems,
-  sourceLocale,
-  onClose,
-  onSave,
-}: {
-  editing?: SupplierProduct;
-  stockItems: StockItem[];
-  sourceLocale: Locale;
-  onClose: () => void;
-  onSave: (input: SupplierProductInput) => Promise<void>;
+function ProductEditor({editing,stockItems,sourceLocale,onClose,onSave,onSaved}: {
+  editing?:SupplierProduct;stockItems:StockItem[];sourceLocale:Locale;onClose:()=>void;onSave:(input:SupplierProductInput)=>Promise<SupplierProduct>;onSaved:()=>Promise<void>;
 }) {
-  const { t } = useI18n();
-  const [name, setName] = useState(editing?.name ?? "");
-  const [translations, setTranslations] = useState<TranslationMap>(
-    editing?.translations ?? {},
-  );
-  const [sku, setSku] = useState(editing?.sku ?? "");
-  const [unit, setUnit] = useState<StockUnit>(
-    (editing?.unit as StockUnit) ?? "unit",
-  );
-  const [price, setPrice] = useState(editing?.price_per_unit ?? 0);
-  const [stockItemId, setStockItemId] = useState(
-    editing?.stock_item_id ? String(editing.stock_item_id) : "",
-  );
-  return (
-    <div className="rounded-r-md border border-[var(--brand-200)] bg-[var(--brand-50)]/40 p-4">
-      <div className="mb-3 flex items-center gap-2 font-semibold">
-        <Settings2 className="size-4" />
-        {editing ? t("editProduct") : t("addProduct")}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <LocalizedOrderNameField
-            sourceLocale={sourceLocale}
-            name={name}
-            translations={translations}
-            onNameChange={setName}
-            onTranslationsChange={setTranslations}
-          />
+  const {t}=useI18n();
+  const formId=useId();
+  const [name,setName]=useState(editing?.name??'');
+  const [translations,setTranslations]=useState<TranslationMap>(editing?.translations??{});
+  const [sku,setSku]=useState(editing?.sku??'');
+  const [unit,setUnit]=useState(editing?.unit??'unit');
+  const [price,setPrice]=useState(editing?.price_per_unit??0);
+  const [stockItemId,setStockItemId]=useState(editing?.stock_item_id?String(editing.stock_item_id):'');
+  const session=useKitchenMutation<SupplierProduct>(JSON.stringify({name,translations,sku,unit,price,stockItemId}),onClose);
+  const save=()=>{if(!name.trim())return;void session.run(()=>onSave({name:name.trim(),translations,sku,unit,price_per_unit:price,stock_item_id:stockItemId?Number(stockItemId):null}),onSaved);};
+  return <>
+    <Modal title={t(editing?'editProduct':'addProduct')} size="xl" onClose={session.close} closeDisabled={session.busy}
+      footer={<div className="space-y-3">{session.feedback}<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={session.busy} onClick={session.close}>{t(session.saved?'close':'cancel')}</Button><Button size="lg" type="submit" form={formId} disabled={session.busy||!session.canManage||!name.trim()}>{t(session.busy?'saving':session.saved?'retry':'save')}</Button></div></div>}>
+      <form id={formId} onSubmit={event=>{event.preventDefault();save();}}><fieldset disabled={session.frozen} className="min-w-0 space-y-4">
+        <LocalizedOrderNameField sourceLocale={sourceLocale} name={name} translations={translations} onNameChange={setName} onTranslationsChange={setTranslations}/>
+        <div className="grid gap-4 sm:grid-cols-2"><Field label={t('sku')} value={sku} onChange={setSku}/><SelectField label={t('unit')} value={unit} onChange={setUnit} options={Array.from(new Set([...UNITS,unit])).map(value=>[value,labelForRaw(value,t)])}/>
+          <label className="min-w-0 space-y-2 text-sm"><span>{t('pricePerUnit')}</span><NumberInput className="input min-h-11 w-full" min={0} value={price} onChange={setPrice}/></label>
         </div>
-        <Field label={t("sku")} value={sku} onChange={setSku} />
-        <SelectField
-          label={t("unit")}
-          value={unit}
-          onChange={(value) => setUnit(value as StockUnit)}
-          options={UNITS.map((value) => [value, t(value)])}
-        />
-        <label>
-          <span className="mb-1 block text-fs-xs font-medium text-[var(--fg-muted)]">
-            {t("pricePerUnit")}
-          </span>
-          <NumberInput
-            min={0}
-            value={price}
-            onChange={setPrice}
-            className="h-10 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3"
-          />
-        </label>
-        <div className="sm:col-span-2">
-          <SelectField
-            label={t("linkedStockItem")}
-            value={stockItemId}
-            onChange={setStockItemId}
-            options={[
-              ["", "—"],
-              ...stockItems.map((item) => [
-                String(item.id),
-                `${item.name} (${item.unit})`,
-              ]),
-            ]}
-          />
-        </div>
-      </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <Button size="sm" variant="secondary" onClick={onClose}>
-          {t("cancel")}
-        </Button>
-        <Button
-          size="sm"
-          disabled={!name.trim()}
-          onClick={() =>
-            onSave({
-              name: name.trim(),
-              translations,
-              sku,
-              unit,
-              price_per_unit: price,
-              stock_item_id: stockItemId ? Number(stockItemId) : null,
-            })
-          }
-        >
-          {t("save")}
-        </Button>
-      </div>
-    </div>
-  );
+        <SelectField label={t('linkedStockItem')} value={stockItemId} onChange={setStockItemId} options={[
+          ['', '—'],...stockItems.map(item=>[String(item.id),`${item.name} (${item.unit})`]),
+          ...(stockItemId&&!stockItems.some(item=>String(item.id)===stockItemId)?[[stockItemId,editing?.stock_item?.name||`#${stockItemId}`]]:[]),
+        ]}/>
+      </fieldset></form>
+    </Modal>{session.confirmation}
+  </>;
 }
 
 function Field({
@@ -2639,7 +2144,7 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         required={required}
-        className="h-11 min-w-0 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base text-[var(--fg)] outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
+        className="h-11 min-w-0 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base text-[var(--fg)] outline-none focus:shadow-ring sm:h-11 sm:text-fs-sm"
       />
     </label>
   );
@@ -2664,7 +2169,7 @@ function SelectField({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 min-w-0 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base text-[var(--fg)] outline-none focus:shadow-ring sm:h-10 sm:text-fs-sm"
+        className="h-11 min-w-0 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-base text-[var(--fg)] outline-none focus:shadow-ring sm:h-11 sm:text-fs-sm"
       >
         {options.map(([optionValue, optionLabel]) => (
           <option key={optionValue} value={optionValue}>

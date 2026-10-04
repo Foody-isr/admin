@@ -3,21 +3,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import {
-  listPrepItems, listStockItems, createPrepItem, updatePrepItem, deletePrepItem,
-  getPrepItem, getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
-  getDailyPrepPlan, createPrepTransaction,
-  getPrepCategories, createPrepCategory, updatePrepCategory,
-  getPrepRecipeSteps, setPrepRecipeSteps, updatePrepRecipeMeta,
-  PrepItem, PrepItemInput, PrepIngredientInput, PrepCategory, PrepRecipeStepInput,
-  StockItem, StockUnit, ProduceBatchResult, DailyPlanItem, PrepTransactionType,
-} from '@/lib/api';
-import Modal from '@/components/Modal';
-import FormModal from '@/components/FormModal';
-import FormSection from '@/components/FormSection';
-import SearchableListField from '@/components/SearchableListField';
-import StatusPill from '@/components/StatusPill';
-import StockItemPickerModal from '@/components/stock/StockItemPickerModal';
+import { listPrepItems, listStockItems, getPrepCategories, createPrepCategory, updatePrepCategory, type PrepItem, type PrepCategory, type StockItem } from '@/lib/api';
+import PrepItemEditor from '@/components/prep/PrepItemEditor';
+import { BatchProduceDialog, PrepTransactionDialog, DailyPrepPlanDialog, PrepDeleteDialog } from '@/components/prep/PrepOperations';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import StockFiltersDrawer, {
   FilterView,
   FilterCategory,
@@ -49,21 +38,13 @@ import { usePermissions } from '@/lib/permissions-context';
 import { Button, Kpi, PageHead } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
 import RecipeImportModal from '../RecipeImportModal';
-import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, NumberField, Textarea } from '@/components/ds';
-import { NumberInput } from '@/components/ui/NumberInput';
-import { Layers as LayersIcon } from 'lucide-react';
-import RecipeStepsEditor, {
-  splitInstruction, joinInstruction, type StepView,
-} from '@/components/recipe/RecipeStepsEditor';
-import { prepIngredientBaseQuantity, prepIngredientUnitOptions } from '@/lib/prep-ingredient-units';
-
-const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
-const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-
 export default function PrepPage() {
+  const {restaurantId}=useParams();
+  return <PrepWorkspace key={String(restaurantId)} rid={Number(restaurantId)}/>;
+}
+
+function PrepWorkspace({rid}:{rid:number}) {
   const { money } = useCurrency();
-  const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -75,6 +56,11 @@ export default function PrepPage() {
   const [items, setItems] = useState<PrepItem[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loaded,setLoaded]=useState(false);
+  const [error,setError]=useState('');
+  const [removing,setRemoving]=useState<PrepItem[]|null>(null);
+  const guard=useRef(new RestaurantRequestGuard());
+  guard.current.enterRestaurant(rid);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -112,11 +98,6 @@ export default function PrepPage() {
   // alongside items via the dedicated /prep/categories endpoint. Enables
   // image upload + rename from the drawer without touching the items list.
   const [categoryMeta, setCategoryMeta] = useState<PrepCategory[]>([]);
-  const reloadCategoryMeta = useCallback(async () => {
-    const cats = await getPrepCategories(rid);
-    setCategoryMeta(cats);
-  }, [rid]);
-
   // Modals
   const [itemModal, setItemModal] = useState<{ open: boolean; editing?: PrepItem }>({ open: false });
   const [batchModal, setBatchModal] = useState<{ open: boolean; item?: PrepItem }>({ open: false });
@@ -125,21 +106,26 @@ export default function PrepPage() {
   const [importModal, setImportModal] = useState(false);
 
   const reload = useCallback(async () => {
+    const request=guard.current.begin(rid);setLoading(true);setError('');
     try {
       const [prepItems, rawItems, cats] = await Promise.all([
         listPrepItems(rid),
         listStockItems(rid),
         getPrepCategories(rid),
       ]);
-      setItems(prepItems);
+      if(!guard.current.isCurrent(request))return;
+      setLoaded(true);setItems(prepItems);
       setStockItems(rawItems);
       setCategoryMeta(cats);
+    } catch(cause) {
+      if(guard.current.isCurrent(request))setError(cause instanceof Error?cause.message:t('loadFailed'));
+      throw cause;
     } finally {
-      setLoading(false);
+      if(guard.current.isCurrent(request))setLoading(false);
     }
-  }, [rid]);
+  }, [rid,t]);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { void reload().catch(()=>{});const requests=guard.current;return()=>requests.invalidate(); }, [reload]);
 
   // Deep-link support: `?edit=<prepId>` opens the prep editor directly on the
   // matching item. Used by the menu-item Cost tab warning when a prep has no
@@ -214,11 +200,7 @@ export default function PrepPage() {
     return (a.shelf_life_hours - b.shelf_life_hours) * dir;
   });
 
-  const handleDelete = async (id: number) => {
-    if (!confirm(t('deletePrepItemConfirm'))) return;
-    await deletePrepItem(rid, id);
-    reload();
-  };
+  const handleDelete = (id:number) => {if(canManage)setRemoving(items.filter(item=>item.id===id));};
 
   const toggleSelectAll = () => {
     const ids = filtered.map((i) => i.id);
@@ -233,23 +215,9 @@ export default function PrepPage() {
       return next;
     });
   };
-  const handleBulkDelete = async () => {
-    if (selected.size === 0) return;
-    if (!confirm(t('bulkDeleteConfirm').replace('{count}', String(selected.size)))) return;
-    for (const id of Array.from(selected)) {
-      await deletePrepItem(rid, id);
-    }
-    setSelected(new Set());
-    reload();
-  };
+  const handleBulkDelete = () => {if(canManage&&selected.size)setRemoving(items.filter(item=>selected.has(item.id)));};
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  if(!loaded)return <div><PageHead title={t('preparations')} desc={t('preparationsDesc')}/>{loading?<p role="status" className="py-16 text-center text-fg-secondary">{t('loading')}</p>:<div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button size="lg" variant="secondary" onClick={()=>void reload().catch(()=>{})}>{t('retry')}</Button></div>}</div>;
 
   // KPI derivations — used by the collapsible KPI row.
   const totalCost = items.reduce(
@@ -281,32 +249,32 @@ export default function PrepPage() {
     <div className="flex flex-col">
       <PageHead
         title={t('preparations') || 'Préparations'}
-        desc={`${t('preparationsDesc') || 'Sous-recettes et bases réutilisées dans vos plats'} · ${items.length} ${t('activePreparations') || 'préparations actives'}`}
+        desc={t('preparationsDesc')}
         actions={
           <>
             <Button
               variant="ghost"
-              size="md"
+              size="lg"
               icon
               onClick={() => setShowKpis((v) => !v)}
-              aria-label="Toggle KPIs"
+              aria-label={t(showKpis?'hideKpis':'showKpis')}
               title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
               className="hidden md:inline-flex"
             >
               {showKpis ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </Button>
-            <Button variant="secondary" size="md" onClick={() => setPlanModal(true)}>
+            <Button variant="secondary" size="lg" onClick={() => setPlanModal(true)}>
               <CalendarDaysIcon />
               {t('dailyPlan') || 'Plan du jour'}
             </Button>
-            <Button asChild variant="secondary" size="md">
+            <Button asChild variant="secondary" size="lg">
               <Link href={`/${rid}/kitchen/lab`}>
                 <SparklesIcon />
                 {t('createWithLab')}
               </Link>
             </Button>
             {canManage && (
-              <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>
+              <Button variant="primary" size="lg" onClick={() => setItemModal({ open: true })}>
                 <PlusIcon />
                 {t('newPreparation') || t('addPrepItem')}
               </Button>
@@ -315,7 +283,8 @@ export default function PrepPage() {
         }
       />
 
-      <FeatureIntro feature="prep" />
+      <FeatureIntro feature="prep" compactOnMobile />
+      {error&&<div role="alert" className="mb-5 space-y-3 rounded-r-md border border-[var(--danger-500)]/30 bg-[var(--danger-50)] p-4"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button size="lg" variant="secondary" disabled={loading} onClick={()=>void reload().catch(()=>{})}>{t('retry')}</Button></div>}
 
       <header className="mb-[var(--s-4)]">
         {/* KPI strip — clickable shortcuts that set filters directly (mirrors Stock).
@@ -324,35 +293,28 @@ export default function PrepPage() {
         {showKpis && (
           <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
             <Kpi
-              label={t('activePreps') || 'Préparations actives'}
+              label={t('preparations')}
               value={items.length}
               sub={`${categoryNames.length} ${t('categoriesCount') || 'catégories'}`}
               onClick={() => filterByStatus(null)}
             />
             <Kpi
               label={t('totalCost') || 'Coût total en stock'}
-              value={
-                <>
-                  {money(Math.round(totalCost), { decimals: 0, grouped: true })}
-                  <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
-                    .{String(Math.round((totalCost % 1) * 100)).padStart(2, '0')}
-                  </span>
-                </>
-              }
-              sub="HT · basé sur recettes"
+              value={money(totalCost)}
+              sub={t('prepValuationHint')}
             />
             <Kpi
               tone={expiringCount > 0 ? 'warning' : 'default'}
               label={t('expiringSoon') || 'À consommer bientôt'}
               value={expiringCount}
-              sub={t('shelfUnder48h') || 'DLC < 48h'}
+              sub={t('prepExpiryEstimate')}
               onClick={() => filterByStatus('expiring')}
             />
             <Kpi
               tone={expiredCount > 0 ? 'danger' : 'default'}
               label={t('expired') || 'Périmées'}
               value={expiredCount}
-              sub={t('toDiscard') || 'À jeter'}
+              sub={t('prepExpiryEstimate')}
               onClick={() => filterByStatus('expired')}
             />
           </div>
@@ -360,14 +322,14 @@ export default function PrepPage() {
 
         {/* Bulk toolbar — orange banner matching Stock & Articles. */}
         {selected.size > 0 && (
-          <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl flex items-center justify-between gap-4 flex-wrap">
+          <div className="mb-4 p-4 bg-[var(--brand-soft)] border border-[var(--line-strong)] rounded-r-md flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-orange-900 dark:text-orange-300">
+              <span className="font-semibold text-[var(--brand-ink)]">
                 {t('itemsSelected').replace('{count}', String(selected.size))}
               </span>
               <button
                 onClick={() => setSelected(new Set())}
-                className="text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 text-sm font-medium"
+                className="text-[var(--brand-ink)] min-h-11 text-sm font-medium"
               >
                 {t('deselectAll') || 'Tout désélectionner'}
               </button>
@@ -376,7 +338,7 @@ export default function PrepPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleBulkDelete}
-                  className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400"
+                  className="px-4 py-2.5 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md hover:bg-[var(--danger-50)] transition-colors flex items-center gap-2 text-sm font-medium text-[var(--danger-500)]"
                 >
                   <TrashIcon className="w-4 h-4" />
                   {t('delete')} ({selected.size})
@@ -392,6 +354,7 @@ export default function PrepPage() {
             <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
             <input
               type="text"
+              aria-label={t('searchPrepItems')}
               placeholder={t('searchPrepItems') || 'Rechercher une préparation…'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -401,10 +364,10 @@ export default function PrepPage() {
           <button
             type="button"
             onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm break-words font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
           >
             <span className="text-[var(--fg-muted)]">{t('category')} ·</span>
-            <span className="text-[var(--brand-500)] font-semibold">
+            <span className="text-[var(--brand-ink)] font-semibold">
               {selectedCategories.size === 0
                 ? t('all')
                 : selectedCategories.size === 1
@@ -416,7 +379,7 @@ export default function PrepPage() {
           <button
             type="button"
             onClick={() => openFiltersDrawer('index')}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm break-words font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
           >
             {t('allFilters')}
             <ChevronDownIcon className="w-4 h-4" />
@@ -424,7 +387,7 @@ export default function PrepPage() {
           <ActionsDropdown
             actions={[
               ...(canManage ? [{ label: t('importRecipe'), onClick: () => setImportModal(true), icon: <SparklesIcon className="w-4 h-4" /> }] : []),
-              { label: t('refresh'), onClick: reload, icon: <RefreshCwIcon className="w-4 h-4" /> },
+              { label: t('refresh'), onClick: ()=>void reload().catch(()=>{}), icon: <RefreshCwIcon className="w-4 h-4" /> },
             ]}
           />
         </div>
@@ -441,9 +404,9 @@ export default function PrepPage() {
                 type="button"
                 onClick={() => selectPill(name)}
                 aria-pressed={active}
-                className={`inline-flex items-center h-10 px-[var(--s-4)] rounded-r-lg text-fs-sm font-semibold uppercase tracking-[.02em] transition-colors whitespace-nowrap ${
+                className={`inline-flex items-center min-h-11 px-[var(--s-4)] rounded-r-lg text-fs-sm font-medium transition-colors whitespace-nowrap ${
                   active
-                    ? 'bg-[var(--brand-500)] text-white shadow-1'
+                    ? 'bg-[var(--brand-soft)] text-[var(--brand-ink)] border border-[var(--brand-ink)]'
                     : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
                 }`}
               >
@@ -454,6 +417,7 @@ export default function PrepPage() {
         </div>
       )}
 
+      <p className="mb-4 text-sm text-fg-secondary">{t('prepExpiryHint')}</p>
       {/* Items table */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
@@ -461,7 +425,7 @@ export default function PrepPage() {
             {items.length === 0 ? t('addFirstPrepRecipe') : t('tryAdjustingFilters')}
           </p>
           {items.length === 0 && canManage && (
-            <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>
+            <Button variant="primary" size="lg" onClick={() => setItemModal({ open: true })}>
               {t('addPrepItem')}
             </Button>
           )}
@@ -522,12 +486,12 @@ export default function PrepPage() {
                       <button
                         type="button"
                         onClick={() => setItemModal({ open: true, editing: item })}
-                        className="flex items-center gap-3 text-left hover:text-orange-500 transition-colors"
+                        className="flex min-h-11 min-w-0 items-center gap-3 text-start hover:text-[var(--brand-ink)] transition-colors"
                       >
-                        <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900 dark:to-orange-800 flex items-center justify-center shrink-0">
-                          <BeakerIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
+                        <div className="size-12 rounded-r-md bg-[var(--info-50)] flex items-center justify-center shrink-0">
+                          <BeakerIcon className="w-5 h-5 text-[var(--info-500)]" />
                         </div>
-                        <span className="font-medium text-neutral-900 dark:text-white">
+                        <span className="break-words font-medium text-[var(--fg)]">
                           {item.name}
                         </span>
                       </button>
@@ -537,24 +501,24 @@ export default function PrepPage() {
                         {item.category || '—'}
                       </span>
                     </DataTableCell>
-                    <DataTableCell mobileLabel={t('stock')} className="font-mono tabular-nums text-neutral-900 dark:text-white">
+                    <DataTableCell mobileLabel={t('stock')} className="font-mono tabular-nums text-[var(--fg)]">
                       {item.quantity}{' '}
-                      <span className="text-neutral-500 dark:text-neutral-400 text-xs">{item.unit}</span>
+                      <span className="text-[var(--fg-muted)] text-xs">{item.unit}</span>
                     </DataTableCell>
-                    <DataTableCell mobileLabel={t('yieldPerBatch')} className="font-mono tabular-nums text-neutral-900 dark:text-white">
+                    <DataTableCell mobileLabel={t('yieldPerBatch')} className="font-mono tabular-nums text-[var(--fg)]">
                       {item.yield_per_batch > 0 ? `${item.yield_per_batch} ${item.unit}` : '—'}
                     </DataTableCell>
-                    <DataTableCell mobileLabel={t('shelfLife')} className="font-mono tabular-nums text-neutral-500 dark:text-neutral-400">
+                    <DataTableCell mobileLabel={t('shelfLife')} className="font-mono tabular-nums text-[var(--fg-muted)]">
                       {item.shelf_life_hours > 0 ? (
                         <span className="inline-flex items-center gap-1">
-                          <ClockIcon className="w-3.5 h-3.5 text-neutral-400" />
+                          <ClockIcon className="w-3.5 h-3.5 text-[var(--fg-subtle)]" />
                           {item.shelf_life_hours}h
                         </span>
                       ) : '—'}
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('status')}>
                       {low ? (
-                        <span className="inline-flex items-center gap-1 text-red-500 text-xs font-medium">
+                        <span className="inline-flex items-center gap-1 text-[var(--danger-500)] text-xs font-medium">
                           <AlertTriangleIcon className="w-4 h-4" /> {t('low')}
                         </span>
                       ) : (
@@ -562,7 +526,7 @@ export default function PrepPage() {
                       )}
                     </DataTableCell>
                     <DataTableCell>
-                      <RowActionsMenu
+                      <RowActionsMenu label={`${t('actions')} — ${item.name}`}
                         actions={[
                           ...(canManage ? [
                             { label: t('produceBatch'), onClick: () => setBatchModal({ open: true, item }), icon: <PlayIcon className="w-4 h-4" /> },
@@ -606,18 +570,21 @@ export default function PrepPage() {
           selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ''
         }
         onSelect={handleCategorySelect}
-        onCreateCategory={canManage ? async ({ name }) => {
-          await createPrepCategory(rid, { name });
-          await reload();
-        } : undefined}
-        onEditCategory={canManage ? async (oldName, patch) => {
-          const existing = categoryMeta.find((c) => c.name === oldName);
-          const ensured = existing ?? (await createPrepCategory(rid, { name: oldName }));
-          if (patch.name && patch.name !== oldName) {
-            await updatePrepCategory(rid, ensured.id, { name: patch.name });
+        onCreateCategory={canManage ? async ({name})=>{
+          const created=await createPrepCategory(rid,{name});
+          setCategoryMeta(previous=>previous.some(category=>category.name===created.name)?previous.map(category=>category.name===created.name?created:category):[...previous,created]);
+        }:undefined}
+        onEditCategory={canManage ? async (oldName,patch)=>{
+          const existing=categoryMeta.find(category=>category.name===oldName);
+          const ensured=existing??await createPrepCategory(rid,{name:oldName});
+          if(!existing)setCategoryMeta(previous=>[...previous,ensured]);
+          if(patch.name&&patch.name!==oldName){
+            const renamed=await updatePrepCategory(rid,ensured.id,{name:patch.name});
+            setCategoryMeta(previous=>previous.map(category=>category.name===oldName?renamed:category));
+            setItems(previous=>previous.map(item=>item.category===oldName?{...item,category:renamed.name}:item));
+            setSelectedCategories(previous=>new Set(Array.from(previous).map(name=>name===oldName?renamed.name:name)));
           }
-          await reload();
-        } : undefined}
+        }:undefined}
       />
 
       <StockFiltersDrawer
@@ -632,9 +599,10 @@ export default function PrepPage() {
         onStatusChange={setSelectedStatuses}
       />
 
+      {removing&&<PrepDeleteDialog rid={rid} items={removing} onClose={()=>setRemoving(null)} onSaved={async()=>{await reload();setSelected(previous=>new Set(Array.from(previous).filter(id=>!removing.some(item=>item.id===id))));}}/>}
       {/* Modals */}
       {itemModal.open && (
-        <PrepItemModal rid={rid} editing={itemModal.editing} categories={categoryNames} stockItems={stockItems} onClose={() => setItemModal({ open: false })} onSaved={reload} />
+        <PrepItemEditor rid={rid} editing={itemModal.editing} categories={categoryNames} stockItems={stockItems} onClose={() => setItemModal({ open: false })} onSaved={reload} />
       )}
       {importModal && (
         <RecipeImportModal
@@ -646,961 +614,14 @@ export default function PrepPage() {
         />
       )}
       {batchModal.open && batchModal.item && (
-        <BatchProduceModal rid={rid} item={batchModal.item} onClose={() => setBatchModal({ open: false })} onProduced={reload} />
+        <BatchProduceDialog rid={rid} item={batchModal.item} onClose={() => setBatchModal({ open: false })} onSaved={reload} />
       )}
       {txModal.open && txModal.item && (
-        <PrepTxModal rid={rid} item={txModal.item} onClose={() => setTxModal({ open: false })} onSaved={reload} />
+        <PrepTransactionDialog rid={rid} item={txModal.item} onClose={() => setTxModal({ open: false })} onSaved={reload} />
       )}
       {planModal && (
-        <DailyPlanModal rid={rid} onClose={() => setPlanModal(false)} />
+        <DailyPrepPlanDialog rid={rid} onClose={() => setPlanModal(false)} />
       )}
-    </div>
-  );
-}
-
-// ─── Prep Item Create/Edit Modal (with inline ingredients) ─────────────────
-
-function PrepItemModal({
-  rid, editing, categories, stockItems, onClose, onSaved,
-}: {
-  rid: number; editing?: PrepItem; categories: string[]; stockItems: StockItem[]; onClose: () => void; onSaved: () => void;
-}) {
-  const { money } = useCurrency();
-  const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-  const [name, setName] = useState(editing?.name ?? '');
-  const [unit, setUnit] = useState<StockUnit>(editing?.unit ?? 'unit');
-  const [quantity, setQuantity] = useState(editing?.quantity ?? 0);
-  const [yieldPerBatch, setYieldPerBatch] = useState(editing?.yield_per_batch ?? 0);
-  const [reorder, setReorder] = useState(editing?.reorder_threshold ?? 0);
-  const [shelfLife, setShelfLife] = useState(editing?.shelf_life_hours ?? 0);
-  const [category, setCategory] = useState(editing?.category ?? '');
-  const [notes, setNotes] = useState(editing?.notes ?? '');
-  const [isActive, setIsActive] = useState(editing?.is_active ?? true);
-
-  const [ingredients, setIngredients] = useState<PrepIngredientInput[]>([]);
-  const [loadingIngs, setLoadingIngs] = useState(!!editing);
-  const [saving, setSaving] = useState(false);
-
-  // Cooking instructions (Recette tab). Steps are loaded for an existing prep;
-  // a new prep starts empty and is saved after the item is created.
-  const [tab, setTab] = useState<'details' | 'recipe'>('details');
-  const [steps, setSteps] = useState<StepView[]>([]);
-  const [prepTime, setPrepTime] = useState<number>(editing?.prep_time_mins ?? 0);
-  const [loadingSteps, setLoadingSteps] = useState(!!editing);
-  const [importOpen, setImportOpen] = useState(false);
-
-  // Load (and reload, e.g. after an AI import) the existing prep's recipe:
-  // prep time, ingredients and cooking steps.
-  const reloadRecipe = useCallback(async () => {
-    if (!editing) return;
-    try {
-      const [item, ings, stepData] = await Promise.all([
-        getPrepItem(rid, editing.id).catch(() => null),
-        getPrepIngredients(rid, editing.id),
-        getPrepRecipeSteps(rid, editing.id).catch(() => [] as Awaited<ReturnType<typeof getPrepRecipeSteps>>),
-      ]);
-      if (item) setPrepTime(item.prep_time_mins ?? 0);
-      setIngredients(ings.map((i) => ({
-        stock_item_id: i.stock_item_id,
-        quantity_needed: i.recipe_quantity > 0 ? i.recipe_quantity : i.quantity_needed,
-        unit: i.recipe_unit || i.stock_item?.unit || stockItems.find((s) => s.id === i.stock_item_id)?.unit,
-      })));
-      setSteps((stepData ?? []).map((s) => {
-        const parts = splitInstruction(s.instruction);
-        return { title: parts.title, description: parts.description, duration_mins: s.duration_mins ?? 0 };
-      }));
-    } finally {
-      setLoadingIngs(false);
-      setLoadingSteps(false);
-    }
-  }, [rid, editing, stockItems]);
-
-  useEffect(() => { void reloadRecipe(); }, [reloadRecipe]);
-
-  const removeIngredient = (idx: number) => setIngredients(ingredients.filter((_, i) => i !== idx));
-  const updateIngredient = (idx: number, patch: Partial<PrepIngredientInput>) => {
-    setIngredients(ingredients.map((ing, i) => i === idx ? { ...ing, ...patch } : ing));
-  };
-
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'add' | 'swap'>('add');
-  const [pickerSwapIdx, setPickerSwapIdx] = useState<number | null>(null);
-
-  const openAddPicker = () => {
-    setPickerMode('add');
-    setPickerSwapIdx(null);
-    setPickerOpen(true);
-  };
-  const openSwapPicker = (idx: number) => {
-    setPickerMode('swap');
-    setPickerSwapIdx(idx);
-    setPickerOpen(true);
-  };
-  const onPickerConfirm = (ids: number[]) => {
-    if (pickerMode === 'swap' && pickerSwapIdx != null) {
-      if (ids[0] != null) updateIngredient(pickerSwapIdx, {
-        stock_item_id: ids[0], quantity_needed: 0,
-        unit: stockItems.find((item) => item.id === ids[0])?.unit,
-      });
-    } else {
-      setIngredients((prev) => [
-        ...prev,
-        ...ids.map((id) => ({ stock_item_id: id, quantity_needed: 0, unit: stockItems.find((item) => item.id === id)?.unit })),
-      ]);
-    }
-  };
-
-  const handleSubmit = async () => {
-    setSaving(true);
-    try {
-      for (const ing of ingredients) {
-        const stockItem = stockItems.find((item) => item.id === ing.stock_item_id);
-        if (!stockItem || !Number.isFinite(ing.quantity_needed) || ing.quantity_needed <= 0) {
-          throw new Error(t('prepIngredientQuantityRequired'));
-        }
-        if (prepIngredientBaseQuantity(stockItem, ing.quantity_needed, ing.unit || stockItem.unit) === null) {
-          throw new Error(t('prepIngredientConversionMissing'));
-        }
-      }
-      const payload: PrepItemInput = {
-        name, unit, quantity, yield_per_batch: yieldPerBatch,
-        reorder_threshold: reorder, shelf_life_hours: shelfLife,
-        category, notes, is_active: isActive,
-      };
-      let itemId: number;
-      if (editing) {
-        await updatePrepItem(rid, editing.id, payload);
-        itemId = editing.id;
-      } else {
-        const created = await createPrepItem(rid, payload);
-        itemId = created.id;
-      }
-      await setPrepIngredients(rid, itemId, ingredients);
-      // Persist cooking instructions + prep time. setPrepRecipeSteps replaces
-      // the full set (an empty array clears removed steps); recipe-meta carries
-      // the prep time (notes is kept in sync via the rail field).
-      const stepsPayload: PrepRecipeStepInput[] = steps.map((s, i) => ({
-        step_number: i + 1,
-        instruction: joinInstruction(s.title, s.description),
-        duration_mins: s.duration_mins,
-      }));
-      await setPrepRecipeSteps(rid, itemId, stepsPayload);
-      await updatePrepRecipeMeta(rid, itemId, { prep_time_mins: prepTime, notes });
-      onSaved();
-      onClose();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Per-unit cost estimate for the rail hero
-  const costTotal = ingredients.reduce((s, ing) => {
-    const si = stockItems.find((x) => x.id === ing.stock_item_id);
-    if (!si) return s;
-    const baseQuantity = prepIngredientBaseQuantity(si, ing.quantity_needed, ing.unit || si.unit);
-    return s + si.cost_per_unit * (baseQuantity ?? 0);
-  }, 0);
-  const perUnit = yieldPerBatch > 0 ? costTotal / yieldPerBatch : 0;
-
-  const rail = (
-    <>
-      {/* Icon tile instead of photo */}
-      <div
-        className="w-full aspect-square rounded-r-lg grid place-items-center text-white"
-        style={{ background: 'linear-gradient(135deg, var(--brand-700), var(--brand-900))' }}
-      >
-        <LayersIcon className="w-20 h-20" strokeWidth={1.5} />
-      </div>
-
-      <div className="mt-[var(--s-4)]">
-        <div className="text-fs-xl font-semibold -tracking-[0.01em] text-[var(--fg)]">
-          {name || (t('addPrepItem') || 'Nouvelle préparation')}
-        </div>
-        <div className="flex items-center gap-[var(--s-2)] mt-1.5">
-          {category && <Badge tone="neutral">{category.toUpperCase()}</Badge>}
-          <Badge tone={isActive ? 'success' : 'neutral'} dot>
-            {isActive ? (t('fresh') || 'Frais') : t('inactive')}
-          </Badge>
-        </div>
-      </div>
-
-      <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
-
-      {/* Cost summary — key metric */}
-      <div className="text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--fg-subtle)] mb-[var(--s-3)]">
-        {t('costPerUnit') || 'Coût de revient'}
-      </div>
-      <div className="flex items-baseline gap-1 font-display text-fs-2xl font-semibold tabular-nums -tracking-[0.02em]">
-        {money(perUnit)}
-        <span className="text-fs-sm text-[var(--fg-muted)] font-normal font-sans">/ {unit}</span>
-      </div>
-      <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">
-        {t('yieldLabel') || 'Rendement'} {yieldPerBatch || 0} {unit} · {t('totalLabel') || 'total'} {money(costTotal)}
-      </div>
-
-      <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
-
-      {/* Status toggle */}
-      {canManage && (
-        <div className="flex items-center justify-between">
-          <span className="text-fs-sm text-[var(--fg-muted)]">{t('status')}</span>
-          <StatusPill
-            active={isActive}
-            onToggle={() => setIsActive(!isActive)}
-            activeLabel={t('active')}
-            inactiveLabel={t('inactive')}
-          />
-        </div>
-      )}
-
-      {editing && (
-        <>
-          <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
-          {/* Utilisation summary */}
-          <div className="text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--fg-subtle)] mb-[var(--s-3)]">
-            {t('usageHeader') || 'Utilisation'}
-          </div>
-          <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--fg-muted)]">{t('ingredientsCount') || 'Ingrédients'}</span>
-              <span className="font-mono tabular-nums">{ingredients.length}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--fg-muted)]">{t('lastUpdated') || 'Dernière MAJ'}</span>
-              <span className="text-fs-xs">
-                {new Date(editing.updated_at).toLocaleDateString()}
-              </span>
-            </div>
-            {editing.shelf_life_hours > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="text-[var(--fg-muted)]">{t('shelfLifeHours') || 'DLC'}</span>
-                <span className="font-mono tabular-nums text-fs-xs">
-                  {editing.shelf_life_hours}h
-                </span>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
-
-      {/* Notes */}
-      <div className="text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--fg-subtle)] mb-[var(--s-2)]">
-        {t('notes')}
-      </div>
-      <Textarea
-        rows={3}
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder={t('notes')}
-        className="text-fs-sm"
-      />
-
-      {editing && canManage && (
-        <>
-          <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
-          {/* Quick actions — reference has Dupliquer + Archiver ghost buttons */}
-          <div className="flex flex-col gap-[var(--s-2)]">
-            <button
-              type="button"
-              onClick={async () => {
-                if (!editing) return;
-                try {
-                  const payload: PrepItemInput = {
-                    name: `${name} (copie)`,
-                    unit,
-                    quantity: 0,
-                    yield_per_batch: yieldPerBatch,
-                    reorder_threshold: reorder,
-                    shelf_life_hours: shelfLife,
-                    category,
-                    notes,
-                    is_active: false,
-                  };
-                  const created = await createPrepItem(rid, payload);
-                  if (ingredients.length > 0) {
-                    await setPrepIngredients(rid, created.id, ingredients);
-                  }
-                  // Carry the recipe (cooking steps + prep time) onto the copy.
-                  if (steps.length > 0) {
-                    await setPrepRecipeSteps(rid, created.id, steps.map((s, i) => ({
-                      step_number: i + 1,
-                      instruction: joinInstruction(s.title, s.description),
-                      duration_mins: s.duration_mins,
-                    })));
-                  }
-                  if (prepTime > 0) {
-                    await updatePrepRecipeMeta(rid, created.id, { prep_time_mins: prepTime, notes });
-                  }
-                  onSaved();
-                  onClose();
-                } catch (err: any) {
-                  alert(err.message);
-                }
-              }}
-              className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-8 rounded-r-md text-fs-sm font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors self-start"
-            >
-              <LayersIcon className="w-3.5 h-3.5" />
-              {t('duplicate') || 'Dupliquer'}
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!editing) return;
-                if (!confirm(t('deletePrepItemConfirm'))) return;
-                try {
-                  await deletePrepItem(rid, editing.id);
-                  onSaved();
-                  onClose();
-                } catch (err: any) {
-                  alert(err.message);
-                }
-              }}
-              className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-8 rounded-r-md text-fs-sm font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors self-start"
-            >
-              <TrashIcon className="w-3.5 h-3.5" />
-              {t('archive') || 'Archiver'}
-            </button>
-          </div>
-        </>
-      )}
-    </>
-  );
-
-  return (
-    <FullScreenEditor
-      open
-      onOpenChange={(v) => { if (!v) onClose(); }}
-      title={editing ? t('editPrepItem') : t('addPrepItem')}
-      subtitle={editing ? `${t('editingItem') || 'Modification'} · ${editing.name}` : undefined}
-      onSave={canManage ? handleSubmit : undefined}
-      saveLabel={editing ? t('update') : t('create')}
-      saveDisabled={!name.trim() || saving}
-      cancelLabel={t('cancel')}
-      rail={rail}
-    >
-      {/* Tabs: Détails | Recette */}
-      <div className="max-w-3xl mb-[var(--s-5)] flex gap-[var(--s-1)] border-b border-[var(--line)]">
-        {(['details', 'recipe'] as const).map((tk) => (
-          <button
-            key={tk}
-            type="button"
-            onClick={() => setTab(tk)}
-            className={`px-[var(--s-4)] py-[var(--s-2)] text-fs-sm font-medium -mb-px border-b-2 transition-colors ${
-              tab === tk
-                ? 'border-[var(--brand-500)] text-[var(--fg)]'
-                : 'border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]'
-            }`}
-          >
-            {tk === 'details' ? (t('tabDetails') || 'Détails') : (t('tabRecipe') || 'Recette')}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'details' && (
-      <div className="max-w-3xl">
-        <EditorSectionHead title={t('identityAndYield') || 'Identité & rendement'} />
-
-        {/* Name */}
-        <div className="mb-[var(--s-5)]">
-          <Field label={t('nameLabel') || "Nom de la préparation"}>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('nameLabel') + ' *'}
-              autoFocus
-            />
-          </Field>
-        </div>
-
-        {/* Classification */}
-        <div className="mb-[var(--s-5)]">
-          <h3 className="text-fs-sm font-semibold text-[var(--fg)] mb-[var(--s-3)]">
-            {t('classification') || 'Classification'}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-3)]">
-            <Field label={t('category')}>
-              <SearchableListField
-                mode="single"
-                allowCustom
-                placeholder={t('category')}
-                options={categories.map((c) => ({ value: c, label: c }))}
-                value={category}
-                onChange={setCategory}
-              />
-            </Field>
-            <Field label={t('shelfLifeHours') || 'DLC (heures)'}>
-              <NumberField
-                min={0}
-                value={shelfLife}
-                onChange={setShelfLife}
-              />
-            </Field>
-            <Field label={t('reorderThreshold') || 'Seuil'}>
-              <NumberField
-                min={0}
-                value={reorder}
-                onChange={setReorder}
-              />
-            </Field>
-          </div>
-        </div>
-
-        {/* Yield + quantity */}
-        <div className="mb-[var(--s-5)]">
-          <h3 className="text-fs-sm font-semibold text-[var(--fg)] mb-[var(--s-3)]">
-            {t('yieldAndStock') || 'Rendement & stock'}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-3)]">
-            <Field label={t('unitLabel') || 'Unité'}>
-              <select
-                className="h-9 w-full px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm"
-                value={unit}
-                onChange={(e) => setUnit(e.target.value as StockUnit)}
-              >
-                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </Field>
-            <Field label={t('yieldPerBatchLabel') || 'Rendement / batch'}>
-              <NumberField
-                min={0}
-                value={yieldPerBatch}
-                onChange={setYieldPerBatch}
-              />
-            </Field>
-            <Field label={t('currentStock') || 'Stock actuel'}>
-              <NumberField
-                min={0}
-                value={quantity}
-                onChange={setQuantity}
-              />
-            </Field>
-          </div>
-        </div>
-
-      </div>
-      )}
-
-      {tab === 'recipe' && (
-        <div className="max-w-3xl">
-          {/* AI import shortcut — like the article recipe tab. Only for an
-              existing prep (it replaces this prep's recipe; creating a new prep
-              from a recipe is done from the page's Actions menu). */}
-          {editing && canManage && (
-            <div className="flex justify-end mb-[var(--s-4)]">
-              <button
-                type="button"
-                onClick={() => setImportOpen(true)}
-                className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm border border-[var(--line-strong)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors"
-              >
-                <SparklesIcon className="w-4 h-4" />
-                {t('importRecipe') || 'Importer une recette'}
-              </button>
-            </div>
-          )}
-
-          {/* Ingredients — same layout as the article recipe tab (RecipeTable),
-              adapted to preps (stock-only ingredients, no variants). */}
-          <div className="mb-[var(--s-6)]">
-            <div className="flex items-center justify-between mb-[var(--s-3)]">
-              <div>
-                <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
-                  {t('ingredients') || 'Ingrédients'}
-                  <span className="text-[var(--fg-muted)] font-normal ms-1.5">
-                    · {ingredients.length} {ingredients.length === 1 ? 'élément' : 'éléments'}
-                  </span>
-                </h4>
-                <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-                  {(yieldPerBatch ?? 0) > 0
-                    ? t('rawIngredientsDesc').replace('{yield}', String(yieldPerBatch)).replace('{unit}', unit)
-                    : (t('prepIngredientsSubtitle') || 'Saisissez la quantité de chaque ingrédient pour 1 batch.')}
-                </p>
-                <p className="text-fs-xs text-[var(--fg-muted)] mt-1">{t('prepIngredientUnitHint')}</p>
-              </div>
-              {canManage && (
-                <button
-                  type="button"
-                  onClick={openAddPicker}
-                  className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-                >
-                  <PlusIcon className="w-3.5 h-3.5" />
-                  {t('addIngredient') || 'Ajouter un ingrédient'}
-                </button>
-              )}
-            </div>
-
-            {loadingIngs ? (
-              <div className="flex justify-center py-4">
-                <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
-              </div>
-            ) : ingredients.length === 0 ? (
-              <p className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-8)] text-center rounded-r-md border-2 border-dashed border-[var(--line-strong)]">
-                {t('noIngredients') || 'Aucun ingrédient ajouté.'}
-              </p>
-            ) : (
-              <div className="overflow-x-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)]">
-                <table className="w-full text-fs-sm" role="table">
-                  <thead className="bg-[var(--surface-2)]">
-                    <tr>
-                      <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
-                        Ingrédient
-                      </th>
-                      <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider w-[140px]">
-                        Unité
-                      </th>
-                      <th className="text-end px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
-                        Quantité
-                      </th>
-                      <th className="w-10" aria-hidden />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ingredients.map((ing, idx) => {
-                      const si = stockItems.find((s) => s.id === ing.stock_item_id);
-                      const selectedUnit = ing.unit || si?.unit || '';
-                      const options = si ? prepIngredientUnitOptions(si) : [];
-                      const baseQuantity = si ? prepIngredientBaseQuantity(si, ing.quantity_needed, selectedUnit) : null;
-                      return (
-                        <tr key={idx} className="border-t border-[var(--line)] hover:bg-[var(--surface-2)]/50 transition-colors">
-                          <td className="px-[var(--s-3)] py-[var(--s-2)]">
-                            <button
-                              type="button"
-                              onClick={() => openSwapPicker(idx)}
-                              className="flex items-center gap-[var(--s-2)] min-w-0 text-start"
-                            >
-                              {si?.image_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={si.image_url} alt="" className="w-7 h-7 rounded-r-sm object-cover shrink-0" />
-                              ) : (
-                                <div className="shrink-0 w-7 h-7 rounded-full grid place-items-center text-white" style={{ background: 'var(--brand-700)' }} aria-hidden>
-                                  <ImageIcon className="w-3.5 h-3.5" />
-                                </div>
-                              )}
-                              <span className="text-fs-sm font-medium text-[var(--fg)] truncate hover:underline">
-                                {si?.name || '—'}
-                              </span>
-                            </button>
-                          </td>
-                          <td className="px-[var(--s-3)] py-[var(--s-2)] text-[var(--fg-muted)]">
-                            <select
-                              value={selectedUnit}
-                              onChange={(event) => updateIngredient(idx, { unit: event.target.value })}
-                              aria-label={t('prepIngredientUnit')}
-                              className="w-full bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm px-1.5 py-1 text-fs-sm text-[var(--fg)]"
-                            >
-                              {!options.some((option) => option.unit === selectedUnit) && selectedUnit && (
-                                <option value={selectedUnit}>{selectedUnit}</option>
-                              )}
-                              {options.map((option) => (
-                                <option key={option.unit} value={option.unit}>
-                                  {['pack', 'carton', 'crate', 'sack', 'case'].includes(option.unit)
-                                    ? t(`ct_${option.unit}`)
-                                    : ['packet', 'box', 'sachet', 'can', 'jar', 'brick'].includes(option.unit)
-                                      ? t(`ut_${option.unit}`)
-                                      : option.unit}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-[var(--s-3)] py-[var(--s-2)] text-end">
-                            <NumberInput
-                              min={0}
-                              value={ing.quantity_needed}
-                              onChange={(v) => updateIngredient(idx, { quantity_needed: v })}
-                              placeholder="0"
-                              className="w-full max-w-[100px] px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)]"
-                            />
-                            {si && baseQuantity !== null && selectedUnit !== si.unit && ing.quantity_needed > 0 && (
-                              <span className="block mt-1 text-fs-xs text-[var(--fg-muted)] font-mono tabular-nums">
-                                ≈ {Number(baseQuantity.toFixed(4))} {si.unit}
-                              </span>
-                            )}
-                            {si && baseQuantity === null && ing.quantity_needed > 0 && (
-                              <span className="block mt-1 text-fs-xs text-[var(--danger-500)]">
-                                {t('prepIngredientConversionMissing')}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-[var(--s-2)] py-[var(--s-2)] text-end">
-                            {canManage && (
-                              <button
-                                type="button"
-                                onClick={() => removeIngredient(idx)}
-                                className="p-1.5 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-                                aria-label={t('delete')}
-                              >
-                                <TrashIcon className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="bg-[var(--surface-2)]">
-                    <tr className="border-t-2 border-[var(--line-strong)]">
-                      <td className="px-[var(--s-3)] py-[var(--s-2)] text-fs-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]" colSpan={2}>
-                        Coût matière (HT)
-                      </td>
-                      <td className="px-[var(--s-3)] py-[var(--s-2)] text-end font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
-                        {costTotal > 0 ? money(costTotal) : '—'}
-                      </td>
-                      <td aria-hidden />
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Instructions — shared with the article recipe tab */}
-          {loadingSteps ? (
-            <div className="flex justify-center py-4">
-              <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
-            </div>
-          ) : (
-            <RecipeStepsEditor
-              steps={steps}
-              prepTime={prepTime}
-              showNotes={false}
-              onStepsChange={setSteps}
-              onPrepTimeChange={setPrepTime}
-            />
-          )}
-        </div>
-      )}
-
-      {pickerOpen && (
-        <StockItemPickerModal
-          stockItems={stockItems}
-          mode={pickerMode}
-          excludeIds={
-            pickerMode === 'add'
-              ? new Set(ingredients.map((i) => i.stock_item_id))
-              : undefined
-          }
-          initialSelectedId={
-            pickerMode === 'swap' && pickerSwapIdx != null
-              ? ingredients[pickerSwapIdx]?.stock_item_id
-              : undefined
-          }
-          onConfirm={onPickerConfirm}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
-
-      {importOpen && editing && (
-        <RecipeImportModal
-          rid={rid}
-          stockItems={stockItems}
-          mode={{ kind: 'prep', prepItem: editing }}
-          onClose={() => setImportOpen(false)}
-          onImported={async () => {
-            setImportOpen(false);
-            await reloadRecipe();
-            onSaved();
-          }}
-        />
-      )}
-    </FullScreenEditor>
-  );
-}
-
-// ─── Batch Produce Modal ────────────────────────────────────────────────────
-
-function BatchProduceModal({
-  rid, item, onClose, onProduced,
-}: {
-  rid: number; item: PrepItem; onClose: () => void; onProduced: () => void;
-}) {
-  const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-  const [quantity, setQuantity] = useState(item.yield_per_batch);
-  const [preview, setPreview] = useState<ProduceBatchResult | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const handlePreview = async () => {
-    setLoading(true);
-    try {
-      const result = await previewPrepBatch(rid, item.id, { quantity });
-      setPreview(result);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProduce = async () => {
-    setLoading(true);
-    try {
-      await producePrepBatch(rid, item.id, { quantity });
-      onProduced();
-      onClose();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal title={t('produce').replace('{name}', item.name)} onClose={onClose}>
-      <div className="space-y-4">
-        <div>
-          <label className="text-xs text-fg-secondary block mb-1">
-            {t('quantityToProduce').replace('{unit}', item.unit)}
-          </label>
-          <NumberInput
-            integer={item.unit === 'unit'}
-            min={item.unit === 'unit' ? 1 : 0.01}
-            className="input w-full py-2 text-sm"
-            value={quantity}
-            onChange={(value) => { setQuantity(value); setPreview(null); }}
-          />
-          <p className="text-xs text-fg-secondary mt-1">
-            {t('batchEquivalent')
-              .replace('{batches}', (quantity / item.yield_per_batch).toFixed(2).replace(/\.?0+$/, ''))
-              .replace('{yield}', String(item.yield_per_batch))
-              .replace('{unit}', item.unit)}
-          </p>
-        </div>
-
-        {!preview ? (
-          <div className="flex justify-end gap-2">
-            <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-            {canManage && (
-              <button onClick={handlePreview} disabled={loading} className="btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50">{loading ? t('checking') : t('preview')}</button>
-            )}
-          </div>
-        ) : (
-          (() => {
-            const previewIngredients = preview.ingredients ?? [];
-            const previewInsufficient = preview.insufficient ?? [];
-            return (
-              <>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-fg-primary">{t('ingredientsToConsume')}</p>
-                  {previewIngredients.map((ing) => (
-                    <div key={ing.stock_item_id} className="flex justify-between text-sm">
-                      <span className="text-fg-secondary">{ing.stock_item_name}</span>
-                      <span className="font-mono text-fg-primary">
-                        -{ing.quantity_used.toFixed(2)} {ing.unit}{' '}
-                        ({t('remainingAmount')
-                          .replace('{amount}', ing.remaining.toFixed(2))
-                          .replace('{unit}', ing.unit)})
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {previewInsufficient.length > 0 && (
-                  <div className="bg-red-500/10 rounded-lg p-3 space-y-1">
-                    <p className="text-sm font-medium text-red-500 flex items-center gap-1">
-                      <AlertTriangleIcon className="w-4 h-4" /> {t('insufficientStock')}
-                    </p>
-                    {previewInsufficient.map((s) => (
-                      <p key={s.stock_item_id} className="text-sm text-red-400">
-                        {t('insufficientDetail')
-                          .replace('{name}', s.stock_item_name)
-                          .replace('{required}', s.required.toFixed(2))
-                          .replace('{available}', s.available.toFixed(2))
-                          .replaceAll('{unit}', s.unit)}
-                      </p>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-2">
-                  <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-                  {canManage && (
-                    <button onClick={handleProduce} disabled={loading || previewInsufficient.length > 0} className="btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50">
-                      {loading ? t('producing') : t('confirmProduce')}
-                    </button>
-                  )}
-                </div>
-              </>
-            );
-          })()
-        )}
-      </div>
-    </Modal>
-  );
-}
-
-// ─── Prep Transaction (Waste/Adjust) Modal ──────────────────────────────────
-
-function PrepTxModal({
-  rid, item, onClose, onSaved,
-}: {
-  rid: number; item: PrepItem; onClose: () => void; onSaved: () => void;
-}) {
-  const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
-  const [type, setType] = useState<PrepTransactionType>('waste');
-  const [qty, setQty] = useState(0);
-  const [notes, setNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (qty <= 0) return alert('Quantity must be positive');
-    setSaving(true);
-    try {
-      await createPrepTransaction(rid, {
-        prep_item_id: item.id,
-        type,
-        quantity_delta: -qty,
-        notes,
-      });
-      onSaved();
-      onClose();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal title={t('adjustItem').replace('{name}', item.name)} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex gap-2">
-          {(['waste', 'adjust'] as PrepTransactionType[]).map((txType) => (
-            <button
-              key={txType}
-              type="button"
-              onClick={() => setType(txType)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                type === txType ? 'border border-brand-500 text-brand-500 bg-brand-500/5' : 'border border-divider text-fg-secondary hover:text-fg-primary'
-              }`}
-            >
-              {t(txType)}
-            </button>
-          ))}
-        </div>
-
-        <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('quantityUnit').replace('{unit}', item.unit)}</label>
-          <NumberInput min={0} required className="input w-full py-2 text-sm" value={qty} onChange={setQty} />
-        </div>
-
-        <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('notes')}</label>
-          <input className="input w-full py-2 text-sm" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-          {canManage && (
-            <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('confirm')}</button>
-          )}
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-// ─── Daily Prep Plan Modal ──────────────────────────────────────────────────
-
-function DailyPlanModal({ rid, onClose }: { rid: number; onClose: () => void }) {
-  const { t } = useI18n();
-  const [dayOfWeek, setDayOfWeek] = useState(new Date().getDay());
-  const [plan, setPlan] = useState<DailyPlanItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const loadPlan = useCallback(async () => {
-    setLoading(true);
-    try {
-      const items = await getDailyPrepPlan(rid, { day_of_week: dayOfWeek });
-      setPlan(items);
-    } catch {
-      setPlan([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [rid, dayOfWeek]);
-
-  useEffect(() => { loadPlan(); }, [loadPlan]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-modal shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-fg-primary">{t('dailyPrepPlan')}</h3>
-          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
-        </div>
-
-        <div className="mb-4">
-          <select className="input py-2 text-sm" value={dayOfWeek} onChange={(e) => setDayOfWeek(+e.target.value)}>
-            {DAY_KEYS.map((d, i) => <option key={i} value={i}>{t(d)}</option>)}
-          </select>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full" />
-          </div>
-        ) : plan.length === 0 ? (
-          <p className="text-sm text-fg-secondary text-center py-8">{t('noPrepRecommendations')}</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-fg-secondary uppercase" style={{ borderBottom: '1px solid var(--divider)' }}>
-                <th className="py-2 px-3 font-medium">{t('prepItem')}</th>
-                <th className="py-2 px-3 font-medium text-right">{t('current')}</th>
-                <th className="py-2 px-3 font-medium text-right">{t('demand')}</th>
-                <th className="py-2 px-3 font-medium text-right">{t('batches')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plan.map((p) => {
-                const priorityStyles =
-                  p.priority === 'high'
-                    ? { color: 'var(--danger-500)', bg: 'color-mix(in oklab, var(--danger-500) 12%, transparent)' }
-                    : p.priority === 'medium'
-                      ? { color: 'var(--warning-500)', bg: 'color-mix(in oklab, var(--warning-500) 12%, transparent)' }
-                      : { color: 'var(--fg-muted)', bg: 'var(--surface-2)' };
-                return (
-                  <tr key={p.prep_item_id} style={{ borderBottom: '1px solid var(--divider)' }}>
-                    <td className="py-2 px-3 font-medium text-fg-primary">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="inline-flex items-center h-[20px] px-2 rounded-r-sm text-[10px] font-semibold uppercase tracking-[.04em]"
-                          style={{ color: priorityStyles.color, background: priorityStyles.bg }}
-                        >
-                          {p.priority}
-                        </span>
-                        <span>{p.prep_item_name}</span>
-                      </div>
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono text-fg-secondary">
-                      {p.current_qty.toFixed(1)} {p.unit}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono text-fg-primary">
-                      {p.required_qty.toFixed(1)} {p.unit}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-500">
-                      {p.batches_needed}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-
-        <div className="flex justify-end pt-4">
-          <button onClick={onClose} className="btn-secondary text-sm">{t('close')}</button>
-        </div>
-      </div>
     </div>
   );
 }

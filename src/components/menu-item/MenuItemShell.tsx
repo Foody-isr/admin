@@ -1,7 +1,8 @@
 'use client';
 
 import { Save, X } from 'lucide-react';
-import { useEffect } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { useDialogReturnFocus } from '@/lib/use-dialog-return-focus';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
@@ -16,12 +17,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-/**
- * Item-editor shell — inset full-screen modal with 280px left rail.
- * Aligned to the Foody OS design-reference FullScreenEditor pattern
- * (see design-reference/design/drawer.jsx): 60px head, close-left,
- * centered title, save/cancel right. API preserved for existing callers.
- */
+/** Accessible item editor with a summary rail and independently scrollable form. */
 export default function MenuItemShell({
   title,
   onClose,
@@ -35,22 +31,12 @@ export default function MenuItemShell({
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
 
-  // Esc to close — parity with Radix Dialog UX.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const focus = useDialogReturnFocus();
 
   return (
-    <div className="fixed inset-0 z-50">
-      {/* Backdrop — matches FullScreenEditor (Stock/Prep) entrance animation */}
-      <div
-        className="absolute inset-0 bg-black/50 animate-in fade-in-0 duration-200"
-        onClick={onClose}
-      />
+    <Dialog.Root open onOpenChange={open => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+      <Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)]" />
 
       {/* Inset container — 32px top, 24px bottom, 24px each side on desktop;
           full-screen edge-to-edge on mobile. Symmetric left/right insets
@@ -59,19 +45,19 @@ export default function MenuItemShell({
           and get inverted by the RTL containing-block rules.
           Entrance animation (fade-in + subtle zoom) matches the Radix-powered
           FullScreenEditor used by Stock / Prep editors. */}
-      <div
-        className="absolute inset-0 md:top-[32px] md:bottom-[24px] md:left-[24px] md:right-[24px] pt-safe-t pb-safe-b flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
+      <Dialog.Content {...focus} aria-describedby={undefined}
+        className="fixed z-50 inset-0 md:top-[32px] md:bottom-[24px] md:left-[24px] md:right-[24px] pt-safe-t pb-safe-b flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
       >
         {/* Head — 60px, close-left · centered title · save/cancel right.
             Cancel button hides on mobile (X already cancels). */}
-        <div className="h-[60px] shrink-0 px-[var(--s-4)] md:px-[var(--s-5)] flex items-center gap-[var(--s-3)] md:gap-[var(--s-4)] bg-[var(--surface)] border-b border-[var(--line)]">
+        <div className="min-h-[64px] py-3 shrink-0 px-[var(--s-4)] md:px-[var(--s-5)] flex items-center gap-[var(--s-3)] md:gap-[var(--s-4)] bg-[var(--surface)] border-b border-[var(--line)]">
           <Button variant="ghost" size="md" icon onClick={onClose} aria-label={t('cancel')}>
             <X />
           </Button>
           <div className="flex-1 text-center min-w-0">
-            <h2 className="text-fs-md font-semibold text-[var(--fg)] truncate">
+            <Dialog.Title className="text-fs-md font-semibold text-[var(--fg)] leading-snug">
               {title}
-            </h2>
+            </Dialog.Title>
           </div>
           <div className="flex items-center gap-[var(--s-2)] shrink-0">
             <Button variant="secondary" size="md" onClick={onClose} className="hidden md:inline-flex">
@@ -102,7 +88,8 @@ export default function MenuItemShell({
             {children}
           </main>
         </div>
-      </div>
-    </div>
+      </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

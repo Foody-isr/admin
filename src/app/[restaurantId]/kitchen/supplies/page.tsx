@@ -1,814 +1,206 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import {
-  listSupplies, getSupplyDetail,
-  listImportDrafts, deleteImportDraft,
-  SupplySummary, StockTransaction, DeliveryImportDraft,
-} from '@/lib/api';
-import {
-  DataTable,
-  DataTableHead,
-  DataTableHeadCell,
-  SortableHeadCell,
-  DataTableBody,
-  DataTableRow,
-  DataTableCell,
-  DataTableHeadSpacerCell,
-} from '@/components/data-table';
-import { Badge, Button, Drawer, Kpi, PageHead, Section } from '@/components/ds';
-import RowActionsMenu from '@/components/common/RowActionsMenu';
-import {
-  TruckIcon, FileTextIcon, ImageIcon, EyeIcon, MaximizeIcon,
-  XIcon, SearchIcon, ChevronDownIcon, ChevronUpIcon,
-  TrashIcon, SparklesIcon, RefreshCwIcon, DownloadIcon,
-} from 'lucide-react';
+import { Eye, FileText, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { listSupplies, getSupplyDetail, getRestaurant, listImportDrafts, deleteImportDraft,
+  type SupplySummary, type StockTransaction, type DeliveryImportDraft } from '@/lib/api';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { Badge, Button, Drawer, Field, Input, PageHead, Section } from '@/components/ds';
+import Modal from '@/components/Modal';
+import { DataTable, DataTableHead, DataTableHeadCell, SortableHeadCell, DataTableBody,
+  DataTableRow, DataTableCell, DataTableHeadSpacerCell } from '@/components/data-table';
+import RowActionsMenu from '@/components/common/RowActionsMenu';
 import SupplierHubTabs from '@/components/suppliers/SupplierHubTabs';
+import SupplyDocumentViewer from '@/components/suppliers/SupplyDocumentViewer';
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-}
-function formatTime(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-}
-function isImage(mime?: string) {
-  return !!mime && mime.startsWith('image/');
-}
-function isPdf(mime?: string) {
-  return mime === 'application/pdf';
-}
-
-// ─── Page ──────────────────────────────────────────────────────────────────
-
+interface DocumentRef { url: string; type: string }
 type SortKey = 'date' | 'supplier' | 'items' | 'total';
 
+/** Received deliveries and resumable import drafts, isolated by restaurant. */
 export default function SuppliesPage() {
-  const { money } = useCurrency();
   const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
-  const { t } = useI18n();
+  return <SuppliesWorkspace key={String(restaurantId)} rid={Number(restaurantId)} />;
+}
+
+function SuppliesWorkspace({ rid }: { rid: number }) {
+  const { t, locale } = useI18n();
+  const { money } = useCurrency();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
-
   const [supplies, setSupplies] = useState<SupplySummary[]>([]);
   const [drafts, setDrafts] = useState<DeliveryImportDraft[]>([]);
+  const [timeZone, setTimeZone] = useState<string>();
+  const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  // Filters
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
-  const [docFilter, setDocFilter] = useState<'all' | 'with' | 'without'>('all');
+  const [docFilter, setDocFilter] = useState('all');
   const [showKpis, setShowKpis] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const toggleSort = (k: SortKey) => {
-    if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortKey(k); setSortDir(k === 'date' ? 'desc' : 'asc'); }
-  };
-
-  // Drawer state
-  const [openBatchId, setOpenBatchId] = useState<string | null>(null);
-  const [batchDetails, setBatchDetails] = useState<Record<string, StockTransaction[]>>({});
-  const [loadingDetail, setLoadingDetail] = useState(false);
-
-  // Document fullscreen viewer
-  const [viewerDoc, setViewerDoc] = useState<{ url: string; type: string } | null>(null);
+  const [openSupply, setOpenSupply] = useState<SupplySummary | null>(null);
+  const [viewer, setViewer] = useState<DocumentRef | null>(null);
+  const [deleting, setDeleting] = useState<DeliveryImportDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const lock = useRef(false);
+  const guard = useRef(new RestaurantRequestGuard());
+  guard.current.enterRestaurant(rid);
 
   const reload = useCallback(async () => {
+    const request = guard.current.begin(rid);
+    setLoading(true); setError('');
     try {
-      const [data, draftData] = await Promise.all([
-        listSupplies(rid),
-        listImportDrafts(rid),
+      const [nextSupplies, nextDrafts, restaurant] = await Promise.all([
+        listSupplies(rid), listImportDrafts(rid), getRestaurant(rid),
       ]);
-      setSupplies(data);
-      setDrafts(draftData);
+      if (!guard.current.isCurrent(request)) return;
+      setSupplies(nextSupplies); setDrafts(nextDrafts); setTimeZone(restaurant.timezone); setLoaded(true);
+    } catch (cause) {
+      if (guard.current.isCurrent(request)) setError(cause instanceof Error ? cause.message : t('workspaceLoadError'));
     } finally {
-      setLoading(false);
+      if (guard.current.isCurrent(request)) setLoading(false);
     }
-  }, [rid]);
-  useEffect(() => { reload(); }, [reload]);
+  }, [rid, t]);
+  useEffect(() => {
+    void reload();
+    const requests = guard.current;
+    return () => requests.invalidate();
+  }, [reload]);
 
-  const handleDeleteDraft = async (draftId: number) => {
-    if (!confirm(t('deleteDraft') || 'Delete this draft?')) return;
-    await deleteImportDraft(rid, draftId);
-    setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+  const removeDraft = async () => {
+    if (!deleting || !canManage || lock.current) return;
+    lock.current = true; setSaving(true); setDeleteError('');
+    try {
+      await deleteImportDraft(rid, deleting.id);
+      setDrafts(previous => previous.filter(draft => draft.id !== deleting.id));
+      setDeleting(null);
+    } catch (cause) { setDeleteError(cause instanceof Error ? cause.message : t('saveFailed')); }
+    finally { lock.current = false; setSaving(false); }
   };
-
-  const openDrawer = async (batchId: string) => {
-    setOpenBatchId(batchId);
-    if (!batchDetails[batchId]) {
-      setLoadingDetail(true);
-      try {
-        const txs = await getSupplyDetail(rid, batchId);
-        setBatchDetails((prev) => ({ ...prev, [batchId]: txs }));
-      } finally {
-        setLoadingDetail(false);
-      }
-    }
-  };
-
-  // Derived: unique suppliers, KPIs, filtering, sorting
-  const supplierNames = useMemo(
-    () => Array.from(new Set(supplies.map((s) => s.supplier_name).filter(Boolean))).sort(),
-    [supplies],
-  );
-
+  const names = useMemo(() => Array.from(new Set(supplies.map(supply => supply.supplier_name).filter(Boolean))).sort((a, b) => a.localeCompare(b, locale)), [supplies, locale]);
   const filtered = useMemo(() => {
-    return supplies.filter((s) => {
-      if (search && !(s.supplier_name || '').toLowerCase().includes(search.toLowerCase())) return false;
-      if (supplierFilter && s.supplier_name !== supplierFilter) return false;
-      if (docFilter === 'with' && !s.document_url) return false;
-      if (docFilter === 'without' && s.document_url) return false;
-      return true;
-    });
-  }, [supplies, search, supplierFilter, docFilter]);
+    const query = search.trim().toLocaleLowerCase(locale);
+    const rows = supplies.filter(supply => (!query || supply.supplier_name.toLocaleLowerCase(locale).includes(query))
+      && (!supplierFilter || supply.supplier_name === supplierFilter)
+      && (docFilter === 'all' || Boolean(supply.document_url) === (docFilter === 'with')));
+    const direction = sortDir === 'asc' ? 1 : -1;
+    return rows.sort((a, b) => direction * (sortKey === 'date' ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      : sortKey === 'supplier' ? a.supplier_name.localeCompare(b.supplier_name, locale)
+      : sortKey === 'items' ? a.item_count - b.item_count : a.total_cost - b.total_cost));
+  }, [supplies, search, supplierFilter, docFilter, sortKey, sortDir, locale]);
+  const sort = (key: string) => {
+    if (key === sortKey) setSortDir(previous => previous === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key as SortKey); setSortDir(key === 'date' ? 'desc' : 'asc'); }
+  };
+  const date = (value: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(new Date(value));
+  const total = supplies.reduce((sum, supply) => sum + supply.total_cost, 0);
+  const last30 = supplies.filter(supply => (Date.now() - new Date(supply.created_at).getTime()) / 86_400_000 <= 30).length;
+  const metrics = [
+    { label: t('supplierDeliveries'), value: supplies.length, hint: `${names.length} ${t('suppliers')}` },
+    { label: t('totalValue'), value: money(total, {grouped:true}), hint: t('exVat') },
+    { label: t('avgPerDelivery'), value: money(supplies.length ? total / supplies.length : 0, {grouped:true}), hint: t('exVat') },
+    { label: t('pendingImports'), value: drafts.length, hint: `${last30} ${t('inLast30Days')}` },
+  ];
+  const viewDocument = (supply: SupplySummary) => setViewer({ url: supply.document_url!, type: supply.document_type || '' });
 
-  const sorted = useMemo(() => {
-    const dir = sortDir === 'asc' ? 1 : -1;
-    return [...filtered].sort((a, b) => {
-      switch (sortKey) {
-        case 'date':
-          return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
-        case 'supplier':
-          return (a.supplier_name || '').localeCompare(b.supplier_name || '') * dir;
-        case 'items':
-          return (a.item_count - b.item_count) * dir;
-        case 'total':
-          return (a.total_cost - b.total_cost) * dir;
-      }
-    });
-  }, [filtered, sortKey, sortDir]);
-
-  // KPIs from the unfiltered list — easier to spot trends.
-  const totalDeliveries = supplies.length;
-  const totalSpent = supplies.reduce((s, x) => s + x.total_cost, 0);
-  const avgPerDelivery = totalDeliveries > 0 ? totalSpent / totalDeliveries : 0;
-  const last30 = supplies.filter((s) => {
-    const ageDays = (Date.now() - new Date(s.created_at).getTime()) / 86_400_000;
-    return ageDays <= 30;
-  }).length;
-
-  const openSupply = openBatchId ? supplies.find((s) => s.batch_id === openBatchId) ?? null : null;
-  const openItems = openBatchId ? batchDetails[openBatchId] ?? [] : [];
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand" />
+  return <div className="min-w-0 space-y-5">
+    <PageHead title={t('supplierDeliveries')} desc={t('supplierDeliveriesDesc')} actions={<>
+      <Button variant="ghost" size="lg" aria-pressed={showKpis} onClick={() => setShowKpis(value => !value)}>{t(showKpis ? 'hideKpis' : 'showKpis')}</Button>
+      <Button variant="secondary" size="lg" disabled={loading} onClick={() => void reload()}><RefreshCw />{t('refresh')}</Button>
+    </>} />
+    <SupplierHubTabs restaurantId={rid} active="deliveries" />
+    {error && <div role="alert" className="space-y-3 rounded-r-md border border-[var(--danger-500)] p-4"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button variant="secondary" size="lg" disabled={loading} onClick={() => void reload()}>{t('retry')}</Button></div>}
+    {!loaded ? loading && <p role="status" className="py-16 text-center text-fg-secondary">{t('loading')}</p> : <>
+      {showKpis && <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">{metrics.map(metric => <div key={metric.label} className="min-w-0 rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-4">
+        <dt className="text-sm text-fg-secondary">{metric.label}</dt><dd className="my-2 break-words text-xl font-semibold tabular-nums md:text-2xl"><bdi>{metric.value}</bdi></dd><p className="text-xs text-fg-secondary">{metric.hint}</p>
+      </div>)}</dl>}
+      <p className="max-w-3xl text-sm text-fg-secondary">{t('suppliesValuationHint')} {t('suppliesListLimit')}</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <Field label={t('search')}><div className="relative"><Search className="pointer-events-none absolute start-3 top-3.5 size-4 text-fg-secondary" /><Input className="min-h-11 ps-10" aria-label={t('search')} value={search} onChange={event => setSearch(event.target.value)} /></div></Field>
+        <Field label={t('supplier')}><select className="input min-h-11 w-full" value={supplierFilter} onChange={event => setSupplierFilter(event.target.value)}><option value="">{t('all')}</option>{names.map(name => <option key={name} value={name}>{name}</option>)}</select></Field>
+        <Field label={t('document')}><select className="input min-h-11 w-full" value={docFilter} onChange={event => setDocFilter(event.target.value)}><option value="all">{t('all')}</option><option value="with">{t('withDocument')}</option><option value="without">{t('withoutDocument')}</option></select></Field>
       </div>
-    );
-  }
-
-  // ── Pills row (All / supplier names) — same as Stock page
-  const ALL_PILL = '__all__';
-  const allLabel = t('all');
-  const pillSuppliers = [ALL_PILL, ...supplierNames];
-  const activePill = supplierFilter || ALL_PILL;
-  const selectPill = (name: string) => setSupplierFilter(name === ALL_PILL ? '' : name);
-
-  return (
-    <div className="flex flex-col">
-      <PageHead
-	        title={t('supplierDeliveries')}
-	        desc={t('supplierDeliveriesDesc')}
-        actions={
-          <>
-            <Button
-              variant="ghost"
-              size="md"
-              icon
-              onClick={() => setShowKpis((v) => !v)}
-              aria-label="Toggle KPIs"
-              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
-              className="hidden md:inline-flex"
-            >
-              {showKpis ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            </Button>
-            <Button variant="secondary" size="md" onClick={reload}>
-              <RefreshCwIcon /> {t('refresh') || 'Actualiser'}
-            </Button>
-          </>
-        }
-      />
-
-      <SupplierHubTabs restaurantId={rid} active="deliveries" />
-
-      <header className="mb-[var(--s-4)]">
-        {/* KPIs — desktop only (mobile keeps the table primary) */}
-        {showKpis && (
-          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
-            <Kpi
-	              label={t('supplierDeliveries')}
-              value={totalDeliveries}
-              sub={`${supplierNames.length} ${t('suppliers') || 'fournisseurs'}`}
-            />
-            <Kpi
-              label={t('totalValue') || 'Valeur totale'}
-              value={
-                <>
-                  {money(Math.round(totalSpent), { decimals: 0, grouped: true })}
-                  <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
-                    .{String(Math.round((totalSpent % 1) * 100)).padStart(2, '0')}
-                  </span>
-                </>
-              }
-              sub={t('exVat') || 'HT'}
-            />
-            <Kpi
-              label={t('avgPerDelivery') || 'Moy. / livraison'}
-              value={
-                <>
-                  {money(Math.round(avgPerDelivery), { decimals: 0, grouped: true })}
-                </>
-              }
-              sub={`${totalDeliveries} ${t('deliveries') || 'livraisons'}`}
-            />
-            <Kpi
-              tone={drafts.length > 0 ? 'warning' : 'default'}
-              label={t('pendingImports') || 'Imports en attente'}
-              value={drafts.length}
-              sub={last30 > 0 ? `${last30} ${t('inLast30Days') || 'sur 30 j'}` : 'OK'}
-            />
+      {drafts.length > 0 && <section aria-label={t('pendingImports')} className="space-y-3"><h2 className="text-base font-semibold">{t('pendingImports')} ({drafts.length})</h2>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{drafts.map(draft => <article key={draft.id} className="min-w-0 space-y-3 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
+          <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><h3 className="break-words font-semibold"><bdi>{draft.supplier_name || t('unknownSupplier')}</bdi></h3><p className="mt-1 text-sm text-fg-secondary">{draft.item_count} {t('items')} · <bdi>{date(draft.created_at)}</bdi></p></div>
+            {canManage && <Button variant="ghost" size="lg" icon aria-label={`${t('deleteDraft')} — ${draft.supplier_name || t('unknownSupplier')}`} onClick={() => { setDeleteError(''); setDeleting(draft); }}><Trash2 /></Button>}
           </div>
-        )}
-
-        {/* Search + filter row */}
-        <div className="flex flex-wrap items-center gap-[var(--s-3)]">
-          <div className="relative flex-1 min-w-[240px]">
-            <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
-            <input
-              type="text"
-              placeholder={t('search') || 'Rechercher'}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
-            />
-          </div>
-
-          {/* Document filter */}
-          <button
-            type="button"
-            onClick={() =>
-              setDocFilter((d) => (d === 'all' ? 'with' : d === 'with' ? 'without' : 'all'))
-            }
-            className={`inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 rounded-r-lg text-fs-sm font-medium transition-colors whitespace-nowrap ${
-              docFilter === 'all'
-                ? 'bg-[var(--surface)] border border-[var(--line-strong)] text-[var(--fg)] hover:bg-[var(--surface-2)]'
-                : 'bg-[var(--brand-500)]/10 border border-[var(--brand-500)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/15'
-            }`}
-            title={t('filterDocument') || 'Filtrer par document'}
-          >
-            <FileTextIcon className="w-4 h-4" />
-            <span className="text-[var(--fg-muted)]">{t('document') || 'Document'} ·</span>
-            <span className="font-semibold">
-              {docFilter === 'all'
-                ? (t('all') || 'Tous')
-                : docFilter === 'with'
-                  ? (t('withDocument') || 'Avec document')
-                  : (t('withoutDocument') || 'Sans document')}
-            </span>
-          </button>
-        </div>
-      </header>
-
-      {/* Supplier pills */}
-      {pillSuppliers.length > 1 && (
-        <div className="mb-[var(--s-4)] flex flex-wrap gap-[var(--s-2)]">
-          {pillSuppliers.map((name) => {
-            const active = activePill === name;
-            const label = name === ALL_PILL ? allLabel : name;
-            return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => selectPill(name)}
-                aria-pressed={active}
-                className={`inline-flex items-center h-10 px-[var(--s-4)] rounded-r-lg text-fs-sm font-semibold uppercase tracking-[.02em] transition-colors whitespace-nowrap ${
-                  active
-                    ? 'bg-[var(--brand-500)] text-white shadow-1'
-                    : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Pending drafts strip */}
-      {drafts.length > 0 && (
-        <div className="mb-[var(--s-5)]">
-          <h2 className="text-fs-sm font-semibold text-[var(--fg-muted)] uppercase tracking-wider flex items-center gap-2 mb-[var(--s-3)]">
-            <SparklesIcon className="w-4 h-4 text-[var(--brand-500)]" />
-            {t('pendingImports') || 'Imports en attente'} ({drafts.length})
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--s-3)]">
-            {drafts.map((draft) => (
-              <div
-                key={draft.id}
-                className="rounded-r-lg border border-[var(--brand-500)]/25 p-[var(--s-4)] space-y-[var(--s-3)]"
-                style={{ background: 'var(--surface-2)' }}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-[var(--s-2)]">
-                    {isImage(draft.document_type) && draft.document_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={draft.document_url}
-                        alt=""
-                        className="w-10 h-10 rounded object-cover border border-[var(--line)]"
-                      />
-                    ) : (
-                      <FileTextIcon className="w-10 h-10 text-[var(--fg-subtle)]" />
-                    )}
-                    <div>
-                      <p className="text-fs-sm font-medium text-[var(--fg)]">
-                        {draft.supplier_name || (t('unknownSupplier') || 'Fournisseur inconnu')}
-                      </p>
-                      <p className="text-fs-xs text-[var(--fg-muted)]">
-                        {draft.item_count} {t('items') || 'articles'} · {formatDate(draft.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                  {canManage && (
-                    <button
-                      onClick={() => handleDeleteDraft(draft.id)}
-                      className="p-1 text-red-500 hover:text-red-400"
-                      aria-label={t('delete') || 'Supprimer'}
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                {canManage && (
-                  <Button
-                    variant="primary"
-                    size="md"
-                    className="w-full"
-                    onClick={() => {
-                      window.location.href = `/${rid}/kitchen/stock?draft=${draft.id}`;
-                    }}
-                  >
-                    {t('resumeDraft') || 'Reprendre'}
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        {sorted.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <TruckIcon className="w-12 h-12 text-[var(--fg-subtle)]" />
-            <p className="text-base text-[var(--fg-muted)] text-center max-w-md">
-              {supplies.length === 0 ? (t('noSupplies') || 'Aucun approvisionnement') : (t('tryAdjustingFilters') || 'Aucun résultat — ajustez vos filtres.')}
-            </p>
-          </div>
-        ) : (
-          <DataTable>
-            <DataTableHead>
-              <SortableHeadCell sortKey="date" currentSortKey={sortKey} sortDir={sortDir} onSort={(k) => toggleSort(k as SortKey)}>
-                {t('date') || 'Date'}
-              </SortableHeadCell>
-              <SortableHeadCell sortKey="supplier" currentSortKey={sortKey} sortDir={sortDir} onSort={(k) => toggleSort(k as SortKey)}>
-                {t('supplier') || 'Fournisseur'}
-              </SortableHeadCell>
-              <SortableHeadCell sortKey="items" currentSortKey={sortKey} sortDir={sortDir} onSort={(k) => toggleSort(k as SortKey)}>
-                {t('items') || 'Articles'}
-              </SortableHeadCell>
-              <SortableHeadCell sortKey="total" currentSortKey={sortKey} sortDir={sortDir} onSort={(k) => toggleSort(k as SortKey)}>
-                {t('supplyTotal') || 'Total'}
-              </SortableHeadCell>
-              <DataTableHeadCell>{t('document') || 'Document'}</DataTableHeadCell>
-              <DataTableHeadSpacerCell />
-            </DataTableHead>
-            <DataTableBody>
-              {sorted.map((supply, index) => {
-                const docPresent = !!supply.document_url;
-                return (
-                  <DataTableRow
-                    key={supply.batch_id}
-                    index={index}
-                    onClick={() => openDrawer(supply.batch_id)}
-                    className="cursor-pointer"
-                  >
-                    <DataTableCell mobileLabel={t('date') || 'Date'}>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-neutral-900 dark:text-white tabular-nums">
-                          {formatDate(supply.created_at)}
-                        </span>
-                        <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
-                          {formatTime(supply.created_at)}
-                        </span>
-                      </div>
-                    </DataTableCell>
-                    <DataTableCell mobilePrimary>
-                      <div className="flex items-center gap-[var(--s-3)]">
-                        <div className="w-9 h-9 rounded-lg bg-[var(--brand-500)]/10 grid place-items-center shrink-0">
-                          <TruckIcon className="w-4 h-4 text-[var(--brand-500)]" />
-                        </div>
-                        <span className="font-medium text-neutral-900 dark:text-white">
-                          {supply.supplier_name || (t('unknownSupplier') || 'Fournisseur inconnu')}
-                        </span>
-                      </div>
-                    </DataTableCell>
-                    <DataTableCell mobileLabel={t('items') || 'Articles'}>
-                      <Badge tone="neutral">
-                        {supply.item_count} {t('items') || 'articles'}
-                      </Badge>
-                    </DataTableCell>
-                    <DataTableCell mobileLabel={t('supplyTotal') || 'Total'}>
-                      <span className="font-semibold tabular-nums text-neutral-900 dark:text-white">
-                        {money(supply.total_cost)}
-                      </span>
-                    </DataTableCell>
-                    <DataTableCell mobileLabel={t('document') || 'Document'}>
-                      {docPresent ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setViewerDoc({ url: supply.document_url!, type: supply.document_type || '' });
-                          }}
-                          className="inline-flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--brand-500)] hover:underline"
-                          title={t('viewDocument') || 'Voir le document'}
-                        >
-                          {isImage(supply.document_type) ? (
-                            <ImageIcon className="w-4 h-4" />
-                          ) : (
-                            <FileTextIcon className="w-4 h-4" />
-                          )}
-                          {t('view') || 'Voir'}
-                        </button>
-                      ) : (
-                        <span className="text-fs-xs text-[var(--fg-subtle)]">—</span>
-                      )}
-                    </DataTableCell>
-                    <DataTableCell onClick={(e) => e.stopPropagation()}>
-                      <RowActionsMenu
-                        actions={[
-                          {
-                            label: t('viewDetails') || 'Voir le détail',
-                            onClick: () => openDrawer(supply.batch_id),
-                            icon: <EyeIcon className="w-4 h-4" />,
-                          },
-                          ...(docPresent
-                            ? [{
-                                label: t('viewDocument') || 'Voir le document',
-                                onClick: () =>
-                                  setViewerDoc({ url: supply.document_url!, type: supply.document_type || '' }),
-                                icon: <FileTextIcon className="w-4 h-4" />,
-                              }]
-                            : []),
-                        ]}
-                      />
-                    </DataTableCell>
-                  </DataTableRow>
-                );
-              })}
-            </DataTableBody>
-          </DataTable>
-        )}
-
-        {sorted.length > 0 && (
-          <div className="mt-6 flex items-center justify-between flex-wrap gap-3">
-            <p className="text-[var(--fg-muted)] text-fs-sm">
-              {sorted.length} {sorted.length > 1 ? (t('deliveries') || 'livraisons') : (t('delivery') || 'livraison')}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Right detail drawer */}
-      <SupplyDetailDrawer
-        supply={openSupply}
-        items={openItems}
-        loading={loadingDetail}
-        onClose={() => setOpenBatchId(null)}
-        onViewDocument={(url, type) => setViewerDoc({ url, type })}
-      />
-
-      {/* Fullscreen document viewer */}
-      <DocumentViewer
-        doc={viewerDoc}
-        onClose={() => setViewerDoc(null)}
-        closeLabel={t('close') || 'Fermer'}
-      />
-    </div>
-  );
+          <p className="text-sm text-fg-secondary">{t(draft.document_url ? 'withDocument' : 'withoutDocument')}</p>
+          {canManage && <Button asChild variant="secondary" size="lg" className="w-full"><Link href={`/${rid}/kitchen/stock?draft=${draft.id}`}>{t('resumeDraft')}</Link></Button>}
+        </article>)}</div>
+      </section>}
+      {filtered.length === 0 ? <p role="status" className="rounded-r-md border border-[var(--line)] px-4 py-16 text-center text-sm text-fg-secondary">{t(supplies.length ? 'tryAdjustingFilters' : 'noSupplies')}</p> : <>
+        <DataTable><DataTableHead>
+          {(['date', 'supplier', 'items', 'total'] as const).map(key => <SortableHeadCell key={key} sortKey={key} currentSortKey={sortKey} sortDir={sortDir} onSort={sort}>{t(key === 'total' ? 'supplyTotal' : key)}</SortableHeadCell>)}
+          <DataTableHeadCell>{t('document')}</DataTableHeadCell><DataTableHeadSpacerCell />
+        </DataTableHead><DataTableBody>{filtered.map((supply, index) => <DataTableRow key={supply.batch_id} index={index} onClick={() => setOpenSupply(supply)}>
+          <DataTableCell mobileLabel={t('date')}><time dateTime={supply.created_at}><bdi>{date(supply.created_at)}</bdi></time></DataTableCell>
+          <DataTableCell mobilePrimary><button className="min-h-11 text-start font-semibold hover:underline" onClick={event => { event.stopPropagation(); setOpenSupply(supply); }}><bdi>{supply.supplier_name || t('unknownSupplier')}</bdi></button></DataTableCell>
+          <DataTableCell mobileLabel={t('items')}><Badge>{supply.item_count}</Badge></DataTableCell>
+          <DataTableCell mobileLabel={t('supplyTotal')}><bdi className="font-semibold tabular-nums">{money(supply.total_cost)}</bdi></DataTableCell>
+          <DataTableCell mobileLabel={t('document')}>{supply.document_url ? <Button variant="ghost" size="lg" onClick={event => { event.stopPropagation(); viewDocument(supply); }}><FileText />{t('viewDocument')}</Button> : <span className="text-fg-secondary">{t('withoutDocument')}</span>}</DataTableCell>
+          <DataTableCell onClick={event => event.stopPropagation()}><RowActionsMenu label={`${t('actions')} — ${supply.supplier_name || t('unknownSupplier')} — ${date(supply.created_at)}`} actions={[
+            { label: t('viewDetails'), icon: <Eye />, onClick: () => setOpenSupply(supply) },
+            ...(supply.document_url ? [{ label: t('viewDocument'), icon: <FileText />, onClick: () => viewDocument(supply) }] : []),
+          ]} /></DataTableCell>
+        </DataTableRow>)}</DataTableBody></DataTable>
+        <p className="text-sm text-fg-secondary">{filtered.length} {t(filtered.length === 1 ? 'delivery' : 'deliveries')}</p>
+      </>}
+    </>}
+    {openSupply && <SupplyDetailDrawer key={openSupply.batch_id} rid={rid} supply={openSupply} timeZone={timeZone} onClose={() => setOpenSupply(null)} onViewDocument={() => viewDocument(openSupply)} />}
+    {viewer && <SupplyDocumentViewer doc={viewer} onClose={() => setViewer(null)} />}
+    {deleting && <Modal title={t('deleteDraft')} subtitle={deleting.supplier_name} size="md" onClose={() => { if (!lock.current) setDeleting(null); }} closeDisabled={saving} footer={<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={saving} onClick={() => setDeleting(null)}>{t('cancel')}</Button><Button size="lg" variant="danger" disabled={saving || !canManage} onClick={() => void removeDraft()}>{t(saving ? 'deleting' : 'delete')}</Button></div>}>
+      <p className="text-sm text-fg-secondary">{t('suppliesDeleteDraftHint')}</p>{deleteError && <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">{deleteError}</p>}
+    </Modal>}
+  </div>;
 }
 
-// ─── Supply Detail Drawer ──────────────────────────────────────────────────
-
-function SupplyDetailDrawer({
-  supply, items, loading, onClose, onViewDocument,
-}: {
-  supply: SupplySummary | null;
-  items: StockTransaction[];
-  loading: boolean;
-  onClose: () => void;
-  onViewDocument: (url: string, type: string) => void;
+function SupplyDetailDrawer({ rid, supply, timeZone, onClose, onViewDocument }: {
+  rid: number; supply: SupplySummary; timeZone?: string; onClose: () => void; onViewDocument: () => void;
 }) {
+  const { t, locale } = useI18n();
   const { money } = useCurrency();
-  const { t } = useI18n();
-
-  if (!supply) {
-    // Render a closed Drawer so the slide-out animation plays cleanly.
-    return (
-      <Drawer open={false} onOpenChange={(v) => { if (!v) onClose(); }} title="" width={920}>
-        {' '}
-      </Drawer>
-    );
-  }
-
-  const totalUnits = items.reduce((s, t) => s + Math.abs(t.quantity_delta), 0);
-  const docPresent = !!supply.document_url;
-
-  const headerSubtitle = (
-    <span className="flex items-center gap-1.5 min-w-0">
-      <span
-        className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-        style={{ background: 'var(--brand-500)' }}
-      />
-      <span className="font-semibold tracking-[-0.005em]" style={{ color: 'var(--brand-500)' }}>
-        {formatDate(supply.created_at)} · {formatTime(supply.created_at)}
-      </span>
-      <span className="opacity-40">·</span>
-      <span className="shrink-0">
-        {supply.item_count} {t('items') || 'articles'}
-      </span>
-    </span>
-  );
-
-  return (
-    <Drawer
-      open={!!supply}
-      onOpenChange={(v) => { if (!v) onClose(); }}
-      title={supply.supplier_name || (t('unknownSupplier') || 'Fournisseur inconnu')}
-      subtitle={headerSubtitle}
-      width={920}
-      primaryAction={
-        docPresent ? (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onViewDocument(supply.document_url!, supply.document_type || '')}
-          >
-            <FileTextIcon /> {t('viewDocument') || 'Voir le document'}
-          </Button>
-        ) : null
-      }
-    >
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-[var(--s-5)]">
-        {/* LEFT — items */}
-        <div className="flex flex-col gap-[var(--s-4)]">
-          <Section
-            title={`${items.length || supply.item_count} ${t('items') || 'articles'} · ${totalUnits.toFixed(2)} ${t('totalUnits') || 'unités'}`}
-          >
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand" />
-              </div>
-            ) : items.length === 0 ? (
-              <div className="text-center py-8 text-fs-sm text-[var(--fg-muted)]">
-                {t('noItems') || 'Aucun article'}
-              </div>
-            ) : (
-              <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-                <table className="w-full text-fs-sm">
-                  <thead>
-                    <tr
-                      className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-wider"
-                      style={{ background: 'var(--surface-2)' }}
-                    >
-                      <th className="text-left px-[var(--s-5)] py-[var(--s-2)] font-semibold">{t('name') || 'Nom'}</th>
-                      <th className="text-right px-[var(--s-5)] py-[var(--s-2)] font-semibold">{t('quantity') || 'Quantité'}</th>
-                      <th className="text-right px-[var(--s-5)] py-[var(--s-2)] font-semibold">{t('unit') || 'Unité'}</th>
-                      <th className="text-right px-[var(--s-5)] py-[var(--s-2)] font-semibold">{t('unitCost') || 'Prix unitaire'}</th>
-                      <th className="text-right px-[var(--s-5)] py-[var(--s-2)] font-semibold">{t('supplyTotal') || 'Total'}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--line)]">
-                    {items.map((tx) => {
-                      const itemName = tx.stock_item?.name || '—';
-                      const unit = tx.stock_item?.unit || '';
-                      const costPerUnit = tx.stock_item?.cost_per_unit || 0;
-                      const lineCost = tx.quantity_delta * costPerUnit;
-                      return (
-                        <tr key={tx.id}>
-                          <td className="px-[var(--s-5)] py-[var(--s-3)] text-[var(--fg)] font-medium">
-                            {itemName}
-                          </td>
-                          <td className="px-[var(--s-5)] py-[var(--s-3)] text-[var(--fg-muted)] text-right tabular-nums">
-                            {tx.quantity_delta}
-                          </td>
-                          <td className="px-[var(--s-5)] py-[var(--s-3)] text-[var(--fg-muted)] text-right">
-                            {unit}
-                          </td>
-                          <td className="px-[var(--s-5)] py-[var(--s-3)] text-[var(--fg-muted)] text-right tabular-nums">
-                            {money(costPerUnit)}
-                          </td>
-                          <td className="px-[var(--s-5)] py-[var(--s-3)] text-[var(--fg)] text-right font-semibold tabular-nums">
-                            {money(lineCost)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Section>
-        </div>
-
-        {/* RIGHT — totals + document */}
-        <div className="flex flex-col gap-[var(--s-4)]">
-          <Section title={t('summary') || 'Résumé'}>
-            <div className="flex flex-col gap-[var(--s-2)]">
-              <div className="flex items-center justify-between">
-                <span className="text-fs-sm text-[var(--fg-muted)]">{t('items') || 'Articles'}</span>
-                <span className="font-mono tabular-nums text-fs-sm">{supply.item_count}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-fs-sm text-[var(--fg-muted)]">{t('supplyTotal') || 'Total'}</span>
-                <span className="font-mono tabular-nums text-fs-sm font-semibold">
-                  {money(supply.total_cost)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-fs-sm text-[var(--fg-muted)]">{t('date') || 'Date'}</span>
-                <span className="font-mono tabular-nums text-fs-sm">
-                  {formatDate(supply.created_at)} {formatTime(supply.created_at)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-fs-sm text-[var(--fg-muted)]">{t('batchId') || 'Batch ID'}</span>
-                <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-subtle)] truncate ms-2 max-w-[140px]" title={supply.batch_id}>
-                  {supply.batch_id.slice(0, 8)}…
-                </span>
-              </div>
-            </div>
-          </Section>
-
-          <Section
-            title={t('document') || 'Document'}
-            aside={
-              docPresent ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onViewDocument(supply.document_url!, supply.document_type || '')}
-                >
-                  <MaximizeIcon /> {t('fullscreen') || 'Plein écran'}
-                </Button>
-              ) : null
-            }
-          >
-            {!docPresent ? (
-              <div className="text-center py-6 text-fs-sm text-[var(--fg-muted)]">
-                <FileTextIcon className="w-10 h-10 mx-auto mb-[var(--s-2)] text-[var(--fg-subtle)]" />
-                {t('noDocument') || 'Aucun document scanné'}
-              </div>
-            ) : isImage(supply.document_type) ? (
-              <button
-                type="button"
-                onClick={() => onViewDocument(supply.document_url!, supply.document_type || '')}
-                className="block w-full rounded-r-md overflow-hidden border border-[var(--line)] hover:border-[var(--brand-500)] transition-colors group"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={supply.document_url}
-                  alt={t('scannedDocument') || 'Document scanné'}
-                  className="w-full max-h-[320px] object-contain bg-[var(--surface-2)]"
-                />
-                <div className="px-[var(--s-3)] py-[var(--s-2)] text-fs-xs text-[var(--fg-muted)] text-center group-hover:text-[var(--brand-500)] transition-colors">
-                  {t('clickToOpenFullscreen') || 'Cliquer pour ouvrir en plein écran'}
-                </div>
-              </button>
-            ) : isPdf(supply.document_type) ? (
-              <div className="flex flex-col gap-[var(--s-3)]">
-                <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-5)] flex flex-col items-center text-center gap-[var(--s-2)]">
-                  <FileTextIcon className="w-10 h-10 text-[var(--fg-subtle)]" />
-                  <span className="text-fs-sm font-medium text-[var(--fg)]">PDF</span>
-                  <span className="text-fs-xs text-[var(--fg-muted)]">
-                    {t('pdfPreviewHint') || 'Aperçu PDF en plein écran'}
-                  </span>
-                </div>
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={() => onViewDocument(supply.document_url!, supply.document_type || '')}
-                >
-                  <MaximizeIcon /> {t('openFullscreen') || 'Ouvrir en plein écran'}
-                </Button>
-              </div>
-            ) : (
-              <a
-                href={supply.document_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--brand-500)] hover:underline"
-              >
-                <DownloadIcon className="w-4 h-4" />
-                {t('downloadDocument') || 'Télécharger le document'}
-              </a>
-            )}
-          </Section>
-        </div>
-      </div>
-    </Drawer>
-  );
-}
-
-// ─── Fullscreen Document Viewer ────────────────────────────────────────────
-
-function DocumentViewer({
-  doc, onClose, closeLabel,
-}: {
-  doc: { url: string; type: string } | null;
-  onClose: () => void;
-  closeLabel: string;
-}) {
-  const open = !!doc;
-  return (
-    <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <Dialog.Portal>
-        <Dialog.Overlay
-          className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
-        />
-        <Dialog.Content
-          className="fixed inset-0 z-[60] pt-safe-t pb-safe-b flex flex-col focus:outline-none"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          <Dialog.Title className="sr-only">{closeLabel}</Dialog.Title>
-          {/* Top bar */}
-          <div className="h-14 shrink-0 px-[var(--s-5)] flex items-center justify-between gap-[var(--s-3)] bg-black/60 text-white">
-            <div className="flex items-center gap-[var(--s-2)] min-w-0">
-              <FileTextIcon className="w-4 h-4 shrink-0" />
-              <span className="text-fs-sm font-medium truncate">
-                {doc?.type || 'document'}
-              </span>
-            </div>
-            <div className="flex items-center gap-[var(--s-2)]">
-              {doc && (
-                <a
-                  href={doc.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-[var(--s-2)] h-9 px-[var(--s-3)] rounded-r-md bg-white/10 hover:bg-white/20 text-fs-sm transition-colors"
-                >
-                  <DownloadIcon className="w-4 h-4" />
-                  {closeLabel === 'Close' ? 'Open' : 'Ouvrir'}
-                </a>
-              )}
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex items-center justify-center w-9 h-9 rounded-r-md bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label={closeLabel}
-              >
-                <XIcon className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Body */}
-          <div className="flex-1 min-h-0 grid place-items-center bg-black p-[var(--s-3)]">
-            {doc && isImage(doc.type) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={doc.url}
-                alt=""
-                className="max-w-full max-h-full object-contain"
-              />
-            ) : doc && isPdf(doc.type) ? (
-              <iframe
-                src={doc.url}
-                title="document"
-                className="w-full h-full bg-white"
-              />
-            ) : doc ? (
-              <iframe
-                src={doc.url}
-                title="document"
-                className="w-full h-full bg-white"
-              />
-            ) : null}
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
+  const [items, setItems] = useState<StockTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true; setLoading(true); setError('');
+    getSupplyDetail(rid, supply.batch_id).then(result => { if (active) setItems(result); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : t('workspaceLoadError')); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [rid, supply.batch_id, attempt, t]);
+  const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(new Date(supply.created_at));
+  const totalUnits = items.reduce((sum, item) => sum + Math.abs(item.quantity_delta), 0);
+  return <Drawer open onOpenChange={open => { if (!open) onClose(); }} title={supply.supplier_name || t('unknownSupplier')} subtitle={<bdi>{date}</bdi>} width={920} footer={supply.document_url && <Button size="lg" variant="secondary" className="w-full sm:w-auto" onClick={onViewDocument}><FileText />{t('viewDocument')}</Button>}>
+    <div className="space-y-5">
+      <Section title={t('summary')}><dl className="grid gap-4 sm:grid-cols-3">
+        <div><dt className="text-sm text-fg-secondary">{t('items')}</dt><dd className="mt-1 text-lg font-semibold">{supply.item_count}</dd></div>
+        <div><dt className="text-sm text-fg-secondary">{t('supplyTotal')}</dt><dd className="mt-1 break-words text-lg font-semibold"><bdi>{money(supply.total_cost)}</bdi></dd></div>
+        <div><dt className="text-sm text-fg-secondary">{t('document')}</dt><dd className="mt-1 text-sm">{t(supply.document_url ? 'withDocument' : 'withoutDocument')}</dd></div>
+      </dl><p className="mt-4 text-sm text-fg-secondary">{t('suppliesValuationHint')}</p></Section>
+      {loading ? <p role="status" className="py-10 text-center">{t('loading')}</p> : error ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button variant="secondary" size="lg" onClick={() => setAttempt(value => value + 1)}>{t('retry')}</Button></div> : items.length === 0 ? <p role="status" className="py-10 text-center text-sm">{t('noItems')}</p> : <>
+        <DataTable><DataTableHead>{['name', 'quantity', 'unit', 'unitCost', 'supplyTotal'].map(key => <DataTableHeadCell key={key}>{t(key)}</DataTableHeadCell>)}</DataTableHead><DataTableBody>{items.map((item, index) => <DataTableRow key={item.id} index={index}>
+          <DataTableCell mobilePrimary><bdi>{item.stock_item?.name || '—'}</bdi></DataTableCell><DataTableCell mobileLabel={t('quantity')}><bdi>{item.quantity_delta}</bdi></DataTableCell><DataTableCell mobileLabel={t('unit')}><bdi>{item.stock_item?.unit || '—'}</bdi></DataTableCell>
+          <DataTableCell mobileLabel={t('unitCost')}><bdi>{money(item.stock_item?.cost_per_unit || 0)}</bdi></DataTableCell><DataTableCell mobileLabel={t('supplyTotal')}><bdi>{money(item.quantity_delta * (item.stock_item?.cost_per_unit || 0))}</bdi></DataTableCell>
+        </DataTableRow>)}</DataTableBody></DataTable>
+        <p className="text-xs text-fg-secondary">{t('totalUnits')} : <bdi>{totalUnits.toFixed(2)}</bdi>. {t('suppliesQuantityHint')}</p>
+      </>}
+      <Section title={t('document')}>{supply.document_url ? <div className="space-y-3">
+        {supply.document_type?.startsWith('image/') && <button type="button" className="block w-full rounded-r-md border border-[var(--line)] p-3" onClick={onViewDocument} aria-label={t('viewDocument')}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={supply.document_url} alt={t('scannedDocument')} className="max-h-64 w-full object-contain" />
+        </button>}
+        <Button size="lg" variant="secondary" onClick={onViewDocument}><FileText />{t('openFullscreen')}</Button>
+      </div> : <p className="text-sm text-fg-secondary">{t('noDocument')}</p>}</Section>
+      <div className="text-xs text-fg-secondary"><p>{t('batchId')}</p><bdi className="mt-1 block break-all">{supply.batch_id}</bdi></div>
+    </div>
+  </Drawer>;
 }

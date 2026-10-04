@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { XIcon } from 'lucide-react';
+import { Drawer, Button } from '@/components/ds';
+import { RevenueBars } from '@/components/analytics/RevenueBars';
 import { getAnalyticsItemDetail, ItemSalesDetail, type DateBasis } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { Badge } from '@/components/ds';
@@ -120,26 +121,6 @@ function SalesSplitBar({
   );
 }
 
-/** Daily revenue bars over the selected window. Labels show DD (day of month). */
-function DailyChart({ data, noDataLabel }: { data: ItemSalesDetail['daily']; noDataLabel: string }) {
-  const { money } = useCurrency();
-  if (data.length === 0) return <span className="text-xs text-fg-secondary">{noDataLabel}</span>;
-  const max = Math.max(...data.map(d => d.revenue), 1);
-  return (
-    <div className="flex items-end gap-1 h-24">
-      {data.map(d => (
-        <div key={d.date} className="flex-1 flex flex-col items-center gap-1" title={`${d.date}: ${money(d.revenue, { decimals: 0 })} · ${d.quantity}`}>
-          <div
-            className="w-full bg-brand-500 rounded-t min-h-[2px]"
-            style={{ height: `${(d.revenue / max) * 100}%` }}
-          />
-          <span className="text-[10px] text-fg-secondary">{d.date.slice(8)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function ItemDetailPanel({
   restaurantId, itemId, scope, basis, onClose,
 }: {
@@ -167,6 +148,7 @@ export default function ItemDetailPanel({
     visibleState.status === 'ready' && currentSelection === null
   );
   const loadFailed = visibleState.status === 'error';
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const guard = requestGuardRef.current;
@@ -185,53 +167,42 @@ export default function ItemDetailPanel({
       });
     // scope is a fresh object each render; depend on its stable fields.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [restaurantId, itemId, scope.from, scope.to, basis]);
+  }, [restaurantId, itemId, scope.from, scope.to, basis, attempt]);
 
   useEffect(() => () => requestGuardRef.current.invalidate(), []);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-
-      {/* Panel */}
-      <div className="relative w-full max-w-xl bg-surface shadow-xl overflow-y-auto pb-safe-b">
-        <div className="sticky top-0 bg-surface z-10 flex items-center justify-between gap-3 p-4 pt-[max(var(--s-4),var(--safe-top))] border-b border-divider">
-          <h2 className="text-lg font-semibold text-fg-primary">{t('itemDetails')}</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-surface-subtle">
-            <XIcon className="w-5 h-5 text-fg-secondary" />
-          </button>
-        </div>
-
+    <Drawer open onOpenChange={open => { if (!open) onClose(); }} title={t('itemDetails')} width={576}>
         {loading ? (
-          <div className="flex justify-center py-16">
+          <div className="flex justify-center py-16" role="status" aria-label={t('loading')}>
             <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
           </div>
         ) : !detail ? (
-          <p className="text-sm text-fg-secondary p-6">
-            {loadFailed ? t('couldNotLoad') : t('itemNotFound')}
-          </p>
+          <div className="space-y-3 py-8 text-sm text-fg-secondary" role={loadFailed ? 'alert' : 'status'}>
+            <p>{loadFailed ? t('couldNotLoad') : t('itemNotFound')}</p>
+            {loadFailed && <Button variant="secondary" onClick={() => setAttempt(value => value + 1)}>{t('retry')}</Button>}
+          </div>
         ) : (
-          <div className="p-4 space-y-6">
+          <div className="space-y-6">
             {/* Header */}
             <div>
-              <h3 className="text-xl font-bold text-fg-primary">{detail.name}</h3>
+              <h3 className="text-xl font-semibold text-fg-primary break-words">{detail.name}</h3>
               {detail.category_name && <p className="text-sm text-fg-secondary">{detail.category_name}</p>}
-              <div className="grid grid-cols-4 gap-3 mt-3">
-                <div className="card text-center py-3">
-                  <div className="text-lg font-bold text-fg-primary">{money(detail.revenue, { decimals: 0 })}</div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-5 mt-4 rounded-r-lg bg-[var(--summary-bg)] p-4">
+                <div className="min-w-0">
+                  <div className="text-xl font-semibold text-[var(--summary-fg)] tabular-nums break-words">{money(detail.revenue, { decimals: 0 })}</div>
                   <div className="text-xs text-fg-secondary">{t('revenue')}</div>
                 </div>
-                <div className="card text-center py-3">
-                  <div className="text-lg font-bold text-fg-primary">{detail.quantity}</div>
+                <div className="min-w-0">
+                  <div className="text-xl font-semibold text-[var(--summary-fg)] tabular-nums break-words">{detail.quantity}</div>
                   <div className="text-xs text-fg-secondary">{t('quantitySold')}</div>
                 </div>
-                <div className="card text-center py-3">
-                  <div className="text-lg font-bold text-fg-primary">{detail.order_count}</div>
+                <div className="min-w-0">
+                  <div className="text-xl font-semibold text-[var(--summary-fg)] tabular-nums break-words">{detail.order_count}</div>
                   <div className="text-xs text-fg-secondary">{t('ordersLabel')}</div>
                 </div>
-                <div className="card text-center py-3">
-                  <div className="text-lg font-bold text-fg-primary">{money(detail.avg_price, { decimals: 0 })}</div>
+                <div className="min-w-0">
+                  <div className="text-xl font-semibold text-[var(--summary-fg)] tabular-nums break-words">{money(detail.avg_price, { decimals: 0 })}</div>
                   <div className="text-xs text-fg-secondary">{t('avgPrice')}</div>
                 </div>
               </div>
@@ -255,7 +226,7 @@ export default function ItemDetailPanel({
             {/* Daily trend */}
             <div>
               <h4 className="text-sm font-medium text-fg-primary mb-2">{t('dailyTrend')}</h4>
-              <DailyChart data={detail.daily} noDataLabel={t('noData')} />
+              <RevenueBars data={detail.daily} />
             </div>
 
             {/* Breakdowns */}
@@ -274,30 +245,30 @@ export default function ItemDetailPanel({
             {detail.variants.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-fg-primary mb-2">{t('variants')}</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                <div className="overflow-x-auto overscroll-x-contain">
+                  <table className="w-full text-sm tabular-nums [&_th]:pe-3 [&_td]:pe-3 [&_th:last-child]:pe-0 [&_td:last-child]:pe-0">
                     <thead>
                       <tr className="border-b border-divider">
-                        <th className="text-left py-1.5 text-fg-secondary font-medium">{t('variant')}</th>
-                        <th className="text-right py-1.5 text-fg-secondary font-medium">{t('qty')}</th>
-                        <th className="text-right py-1.5 text-fg-secondary font-medium">{t('revenue')}</th>
+                        <th className="text-start py-2.5 text-fg-secondary font-medium">{t('variant')}</th>
+                        <th className="text-end py-2.5 text-fg-secondary font-medium">{t('qty')}</th>
+                        <th className="text-end py-2.5 text-fg-secondary font-medium">{t('revenue')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {detail.variants.map((v, i) => (
                         <tr key={i} className="border-b border-divider">
-                          <td className="py-1.5 text-fg-primary">
+                          <td className="py-2.5 text-fg-primary">
                             {v.variant_name || t('standardVariant')}
                             {v.combo_quantity > 0 && (
                               <ComboTooltip quantity={v.quantity} revenue={v.revenue} comboQty={v.combo_quantity} comboRevenue={v.combo_revenue}>
-                                <span className="ml-2 text-[10px] cursor-help underline decoration-dotted underline-offset-2" style={{ color: COMBO_COLOR }}>
+                                <span className="ms-2 text-xs cursor-help underline decoration-dotted underline-offset-2 text-[#7c3aed] dark:text-[#a78bfa]">
                                   {v.combo_quantity} {t('inComboSuffix')}
                                 </span>
                               </ComboTooltip>
                             )}
                           </td>
-                          <td className="py-1.5 text-right text-fg-secondary">{v.quantity}</td>
-                          <td className="py-1.5 text-right font-medium text-fg-primary">{money(v.revenue, { decimals: 0 })}</td>
+                          <td className="py-2.5 text-end text-fg-secondary">{v.quantity}</td>
+                          <td className="py-2.5 text-end font-medium text-fg-primary">{money(v.revenue, { decimals: 0 })}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -312,20 +283,20 @@ export default function ItemDetailPanel({
               {detail.top_customers.length === 0 ? (
                 <p className="text-xs text-fg-secondary">{t('noCustomerData')}</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                <div className="overflow-x-auto overscroll-x-contain">
+                  <table className="w-full text-sm tabular-nums [&_th]:pe-3 [&_td]:pe-3 [&_th:last-child]:pe-0 [&_td:last-child]:pe-0">
                     <thead>
                       <tr className="border-b border-divider">
-                        <th className="text-left py-1.5 text-fg-secondary font-medium">{t('customer')}</th>
-                        <th className="text-right py-1.5 text-fg-secondary font-medium">{t('orders')}</th>
-                        <th className="text-right py-1.5 text-fg-secondary font-medium">{t('qty')}</th>
-                        <th className="text-right py-1.5 text-fg-secondary font-medium">{t('revenue')}</th>
+                        <th className="text-start py-2.5 text-fg-secondary font-medium">{t('customer')}</th>
+                        <th className="text-end py-2.5 text-fg-secondary font-medium">{t('orders')}</th>
+                        <th className="text-end py-2.5 text-fg-secondary font-medium">{t('qty')}</th>
+                        <th className="text-end py-2.5 text-fg-secondary font-medium">{t('revenue')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {detail.top_customers.map((c) => (
                         <tr key={c.customer_phone} className="border-b border-divider">
-                          <td className="py-1.5 text-fg-primary">
+                          <td className="py-2.5 text-fg-primary">
                             <div className="flex items-center gap-1.5">
                               <span>{c.customer_name || '—'}</span>
                               {c.combo_quantity > 0 && (
@@ -334,11 +305,11 @@ export default function ItemDetailPanel({
                                 </ComboTooltip>
                               )}
                             </div>
-                            <div className="text-[11px] text-fg-secondary">{c.customer_phone}</div>
+                            <div className="text-xs text-fg-secondary"><bdi>{c.customer_phone}</bdi></div>
                           </td>
-                          <td className="py-1.5 text-right text-fg-secondary">{c.orders}</td>
-                          <td className="py-1.5 text-right text-fg-secondary">{c.quantity}</td>
-                          <td className="py-1.5 text-right font-medium text-fg-primary">{money(c.revenue, { decimals: 0 })}</td>
+                          <td className="py-2.5 text-end text-fg-secondary">{c.orders}</td>
+                          <td className="py-2.5 text-end text-fg-secondary">{c.quantity}</td>
+                          <td className="py-2.5 text-end font-medium text-fg-primary">{money(c.revenue, { decimals: 0 })}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -348,7 +319,6 @@ export default function ItemDetailPanel({
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Drawer>
   );
 }

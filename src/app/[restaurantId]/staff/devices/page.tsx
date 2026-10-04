@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, KeyRound, RefreshCw, ShieldOff } from 'lucide-react';
-import { Button, PageHead } from '@/components/ds';
+import { Badge, Button, PageHead } from '@/components/ds';
 import Modal from '@/components/Modal';
 import {
   DataTable,
@@ -21,6 +21,7 @@ import {
   revokePOSAccessCredential,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 
 type DeviceStatus = 'active' | 'expired' | 'revoked';
 
@@ -39,20 +40,26 @@ export default function POSAccessCredentialsPage() {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<POSAccessCredential | null>(null);
   const [revoking, setRevoking] = useState(false);
+  const [revokeError, setRevokeError] = useState('');
+  const requestGuard = useRef(new RestaurantRequestGuard());
+  requestGuard.current.enterRestaurant(rid);
 
   const load = useCallback(async () => {
+    const guard = requestGuard.current;
+    const token = guard.begin(rid);
     setLoading(true);
     setError('');
     try {
-      setDevices(await listPOSAccessCredentials(rid));
+      const result = await listPOSAccessCredentials(rid);
+      if (guard.isCurrent(token)) setDevices(result);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t('failedToLoadPOSTerminals'));
+      if (guard.isCurrent(token)) setError(cause instanceof Error ? cause.message : t('failedToLoadPOSTerminals'));
     } finally {
-      setLoading(false);
+      if (guard.isCurrent(token)) setLoading(false);
     }
   }, [rid, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const guard = requestGuard.current; void load(); return () => guard.invalidate(); }, [load]);
 
   const dateTime = useMemo(
     () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
@@ -61,14 +68,15 @@ export default function POSAccessCredentialsPage() {
   const activeCount = devices.filter((device) => statusOf(device) === 'active').length;
 
   const revoke = async () => {
-    if (!selected) return;
+    if (!selected || revoking) return;
+    setRevokeError('');
     setRevoking(true);
     try {
       await revokePOSAccessCredential(rid, selected.id);
       setSelected(null);
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t('failedToRevokePOSTerminal'));
+      setRevokeError(cause instanceof Error ? cause.message : t('failedToRevokePOSTerminal'));
     } finally {
       setRevoking(false);
     }
@@ -80,9 +88,9 @@ export default function POSAccessCredentialsPage() {
         title={t('posAccess')}
         desc={t('posAccessDesc')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" size="md" asChild>
-              <Link href={`/${rid}/staff`}><ArrowLeft />{t('back')}</Link>
+              <Link href={`/${rid}/staff`}><ArrowLeft className="rtl:rotate-180" />{t('back')}</Link>
             </Button>
             <Button variant="secondary" size="md" onClick={() => void load()} disabled={loading}>
               <RefreshCw />{t('refresh')}
@@ -91,20 +99,21 @@ export default function POSAccessCredentialsPage() {
         }
       />
 
-      <div className="flex items-center gap-4 border-y border-[var(--divider)] py-4">
-        <div className="grid h-11 w-11 place-items-center rounded-xl bg-brand-500/10 text-brand-600">
+      {!loading && !error && <div className="flex flex-wrap items-center gap-4 rounded-r-lg bg-[var(--summary-bg)] p-5">
+        <div className="grid h-11 w-11 place-items-center rounded-r-lg bg-[var(--surface)] text-[var(--summary-fg)]">
           <KeyRound className="h-5 w-5" />
         </div>
         <div>
-          <div className="text-2xl font-semibold text-fg-primary">{activeCount}</div>
+          <div className="text-2xl font-semibold text-[var(--summary-fg)] tabular-nums">{activeCount}</div>
           <div className="text-sm text-fg-muted">{t('activePOSTerminals')}</div>
         </div>
-        <p className="ml-auto max-w-xl text-sm text-fg-secondary">{t('posTerminalSecurityHint')}</p>
-      </div>
+        <p className="ms-auto max-w-xl text-sm text-fg-secondary">{t('posTerminalSecurityHint')}</p>
+      </div>}
 
-      {error && <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {error && <div role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)] flex flex-wrap items-center justify-between gap-3"><span>{error}</span><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>}
+      {loading && <p role="status" className="py-12 text-center text-sm text-fg-secondary">{t('loading')}</p>}
 
-      <DataTable>
+      {!loading && !error && <DataTable>
         <DataTableHead>
           <DataTableHeadCell>{t('terminalName')}</DataTableHeadCell>
           <DataTableHeadCell>{t('status')}</DataTableHeadCell>
@@ -123,9 +132,9 @@ export default function POSAccessCredentialsPage() {
                   <div className="text-xs text-fg-muted">#{device.id}</div>
                 </DataTableCell>
                 <DataTableCell mobileLabel={t('status')}>
-                  <span className={status === 'active' ? 'text-green-600 font-medium' : 'text-fg-muted'}>
+                  <Badge tone={status === 'active' ? 'success' : 'neutral'}>
                     {t(`posTerminalStatus_${status}`)}
-                  </span>
+                  </Badge>
                 </DataTableCell>
                 <DataTableCell mobileLabel={t('authorizedBy')}>{device.enrolled_by_name || '—'}</DataTableCell>
                 <DataTableCell mobileLabel={t('lastUsed')}>
@@ -134,7 +143,7 @@ export default function POSAccessCredentialsPage() {
                 <DataTableCell mobileLabel={t('expires')}>{dateTime.format(new Date(device.expires_at))}</DataTableCell>
                 <DataTableCell align="right">
                   {status === 'active' && (
-                    <Button variant="ghost" size="sm" onClick={() => setSelected(device)}>
+                    <Button variant="ghost" size="sm" onClick={() => { setRevokeError(''); setSelected(device); }}>
                       <ShieldOff />{t('revokeAccess')}
                     </Button>
                   )}
@@ -148,7 +157,7 @@ export default function POSAccessCredentialsPage() {
             </DataTableRow>
           )}
         </DataTableBody>
-      </DataTable>
+      </DataTable>}
 
       {selected && (
         <Modal
@@ -166,6 +175,7 @@ export default function POSAccessCredentialsPage() {
           }
         >
           <p className="text-sm text-fg-secondary">{t('revokePOSTerminalConfirm')}</p>
+          {revokeError && <p role="alert" className="mt-4 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{revokeError}</p>}
         </Modal>
       )}
     </div>

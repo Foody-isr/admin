@@ -46,7 +46,7 @@ export function ActivityTimeline({
         <Fragment key={`${e.at}-${i}`}>
         {spansDays && (i === 0 || dayKey(e.at) !== dayKey(events[i - 1].at)) && (
           <div className="flex items-center gap-[var(--s-2)] pt-[var(--s-1)] first:pt-0">
-            <span className="font-medium uppercase tracking-[.06em] text-[10px] text-[var(--fg-muted)]">
+            <span className="font-medium uppercase tracking-[.06em] text-fs-micro text-[var(--fg-muted)]">
               {formatEventDay(e.at)}
             </span>
             <span className="flex-1 h-px" style={{ background: 'var(--line)' }} />
@@ -63,7 +63,7 @@ export function ActivityTimeline({
             />
           )}
           {/* Timestamp */}
-          <span className="font-mono text-[var(--fg-subtle)] text-[11px] shrink-0 w-[34px] tabular-nums pt-px">
+          <span className="font-mono text-[var(--fg-subtle)] text-fs-xs shrink-0 w-[34px] tabular-nums pt-px">
             {formatTime(e.at)}
           </span>
           {/* Dot */}

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -22,27 +23,20 @@ interface BranchSwitcherProps {
  */
 export default function BranchSwitcher({ restaurantId, restaurantName }: BranchSwitcherProps) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, direction } = useI18n();
   const { hasPermission, isOwner } = usePermissions();
   const [overview, setOverview] = useState<ChainOverview | null>(null);
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
+    setOverview(null);
+    setOpen(false);
     getChainBranches(restaurantId)
       .then((o) => { if (alive) setOverview(o); })
       .catch(() => { /* switcher is non-critical; stay on plain label */ });
     return () => { alive = false; };
   }, [restaurantId]);
-
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
 
   const branches = overview?.branches ?? [];
   const hasChain = overview?.chain_id != null && branches.length > 1;
@@ -60,26 +54,25 @@ export default function BranchSwitcher({ restaurantId, restaurantName }: BranchS
   const currentName = current?.name ?? restaurantName;
 
   return (
-    <div className="relative" ref={ref}>
+    <DropdownMenu open={open} onOpenChange={setOpen} dir={direction}>
+      <DropdownMenuTrigger asChild>
       <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-[var(--s-2)] px-2 py-1 rounded-r-md hover:bg-[var(--sidebar-hover)] transition-colors max-w-[220px]"
+        className="flex items-center gap-[var(--s-2)] px-2 min-h-11 rounded-r-md hover:bg-[var(--sidebar-hover)] transition-colors max-w-full sm:max-w-[260px]"
       >
         <Building2Icon className="w-4 h-4 text-[var(--fg-muted)] shrink-0" />
         <span className="text-[var(--fg)] font-medium truncate">{currentName}</span>
         <ChevronDownIcon className="w-3.5 h-3.5 text-[var(--fg-muted)] shrink-0" />
       </button>
-
-      {open && (
-        <div className="absolute start-0 top-full mt-1 w-64 rounded-r-md shadow-3 py-1 z-50 bg-[var(--surface)] border border-[var(--line)]">
-          <div className="px-3 py-2 text-fs-xs font-semibold uppercase tracking-wide text-[var(--fg-subtle)]">
+      </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-72 max-w-[calc(100vw-2rem)]">
+          <DropdownMenuLabel className="px-3 py-2 text-fs-xs font-medium text-[var(--fg-muted)]">
             {overview?.chain_name || t('branch_switcher_title')}
-          </div>
+          </DropdownMenuLabel>
 
           {branches.map((b) => (
-            <button
+            <DropdownMenuItem
               key={b.id}
-              onClick={() => { setOpen(false); router.push(`/${b.id}/dashboard`); }}
+              onSelect={() => { setOpen(false); router.push(`/${b.id}/dashboard`); }}
               className="w-full flex items-center gap-[var(--s-3)] px-3 py-2 text-fs-sm transition-colors hover:bg-[var(--surface-2)] text-[var(--fg)]"
             >
               <span className="flex-1 text-start truncate">
@@ -89,33 +82,32 @@ export default function BranchSwitcher({ restaurantId, restaurantName }: BranchS
                 )}
               </span>
               {b.is_current && <CheckIcon className="w-4 h-4 text-[var(--brand-500)] shrink-0" />}
-            </button>
+            </DropdownMenuItem>
           ))}
 
-          <div className="my-1 border-t border-[var(--line)]" />
+          <DropdownMenuSeparator />
 
           {/* Global merged reports only make sense once a chain exists. */}
           {hasChain && overview?.chain_id != null && (
-            <button
-              onClick={() => { setOpen(false); router.push(`/chain/${overview.chain_id}/dashboard`); }}
+            <DropdownMenuItem
+              onSelect={() => { setOpen(false); router.push(`/chain/${overview.chain_id}/dashboard`); }}
               className="w-full flex items-center gap-[var(--s-3)] px-3 py-2 text-fs-sm transition-colors hover:bg-[var(--surface-2)] text-[var(--fg)]"
             >
               <LayersIcon className="w-4 h-4 text-[var(--fg-muted)] shrink-0" />
               {t('branch_switcher_global')}
-            </button>
+            </DropdownMenuItem>
           )}
 
           {canManage && (
-            <button
-              onClick={() => { setOpen(false); router.push(`/${restaurantId}/chain/branches`); }}
+            <DropdownMenuItem
+              onSelect={() => { setOpen(false); router.push(`/${restaurantId}/chain/branches`); }}
               className="w-full flex items-center gap-[var(--s-3)] px-3 py-2 text-fs-sm transition-colors hover:bg-[var(--surface-2)] text-[var(--fg-muted)]"
             >
               <SettingsIcon className="w-4 h-4 shrink-0" />
               {t('branch_switcher_manage')}
-            </button>
+            </DropdownMenuItem>
           )}
-        </div>
-      )}
-    </div>
+        </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
