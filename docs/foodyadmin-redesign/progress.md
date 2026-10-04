@@ -1,11 +1,16 @@
 # Progression — 4 octobre 2026
 
-**État actuel : refonte en cours, 79/91 types de routes dans le périmètre produit courant documentés individuellement (souvent partiels), 12 encore à traiter.** Inventaire historique102 : Traiteur6 et Tournées reportés ; Website/V2 supprimés avec redirections vers V3 ; les2 aperçus internes sont conservés hors périmètre produit. Dernier global compilé505/505 ; lot ciblé paramètres74/74. Retrait des anciens éditeurs validé :629 tests unitaires et7 scénarios compilés ; lint/types/build réussis. Premier lot autorisé pour develop : commit/PR/déploiement en préparation, puis poursuite des12 types restants.
+## Priorité actuelle : gabarit Square et refonte UX
+
+Le dernier lot local remplace la direction précédente par le gabarit de tableaux et la navigation intégrée demandés dans les captures Square. **189 scénarios navigateur ciblés et 641 tests unitaires passent ; lint, types et build réussissent.** Portée, preuves et limites dans [ux-reference-audit.md](ux-reference-audit.md). Les compteurs et choix visuels des sections ci-dessous sont des checkpoints historiques ; ils ne prouvent pas une migration exhaustive selon cette nouvelle direction. Le nouveau lot n’est pas déployé.
+
+
+**État actuel : refonte en cours, 81/91 types de routes dans le périmètre produit courant documentés individuellement (souvent partiels), 10 encore à traiter.** Inventaire historique102 : Traiteur6 et Tournées reportés ; Website/V2 supprimés avec redirections vers V3 ; les2 aperçus internes sont conservés hors périmètre produit. Dernier global compilé505/505 ; lot ciblé paramètres74/74. Retrait des anciens éditeurs validé :629 tests unitaires et7 scénarios compilés ; lint/types/build réussis. Premier lot publié et vérifié sur dev-admin via PR#452 ; suite locale sur feat/admin-landing-alignment-next. Le lot chaîne passe38 scénarios compilés ;10 types restent inventoriés.
 
 
 ## Cadre
 
-Travail isolé : `foodyadmin-redesign`, branche `feat/admin-landing-alignment`, base `bd3b4d9a`. Le checkout `foodyadmin` et ses modifications cuisine sont préservés. Aucun commit, push, PR, déploiement, paiement réel ou mutation de production effectué. FoodyLanding local reste en lecture seule ; son ancien site publié n’est pas la référence.
+Travail isolé : `foodyadmin-redesign`. Premier lot feat/admin-landing-alignment fusionné via PR#452 ; suite sur `feat/admin-landing-alignment-next`, base `2c1bede1`. Les mentions d’absence de commit/déploiement plus bas décrivent les checkpoints historiques antérieurs à cette publication en développement. Le checkout `foodyadmin` et ses modifications cuisine sont préservés. Aucun paiement réel ni mutation de production effectué. Le premier lot a été livré en développement via PR#452 ; les changements suivants restent locaux. FoodyLanding local reste en lecture seule ; son ancien site publié n’est pas la référence.
 
 L’intégration C2 préexistante est conservée : wordmark et symbole, icônes, accès, chargements et appareils. Le diff initial est sauvegardé dans `/tmp/foodyadmin-redesign-logo-baseline.patch`. Les sources produit inspectées sont les démonstrations POS, production et food cost de la landing locale.
 
@@ -213,3 +218,20 @@ Restent12 types à traiter : chaîne branches/dashboard2 ; commandes mode livreu
 629 tests unitaires passent ; lint avec20 avertissements préexistants restants (23 avant suppression), types et compilation réussis. Aucun import src alias non résolu. Le manifeste de compilation ne contient que website-v3 parmi les éditeurs. Les7 scénarios compilés réussissent sans échec/skip/flaky : redirections307 et conservation des query/restaurant2, accès au V3 existant sans écriture, refus sans settings.edit et404 des deux aperçus internes. Début2026-10-04T16:01:19.270Z, durée3288ms. Preuve `evidence/website-retirement-compiled-results.json`, journaux `/tmp/foody-website-retirement-{unit,lint,types,build,compiled}.log`.
 
 Cette passe prouve le retrait et la compatibilité des accès ; elle ne constitue pas la refonte visuelle de V3, toujours à réaliser. Le global505 et les lots précédents restent des checkpoints séparés. Aucun appel métier réel, commit, push ou déploiement.
+
+
+## Premier lot publié en développement
+
+Demande utilisateur explicite exécutée : commit `fe74c937ead44aa74c321aaaa4553dfab5a73052`, PR https://github.com/Foody-isr/admin/pull/452 fusionnée dans develop le2026-10-04 à16:11UTC (19:11Asia/Jerusalem), merge `2c1bede1b5ef2039037c07626f8d2d1bf8ea3173`. Arbre de fusion identique au commit validé. CI GitHub Audit/Test/Build et i18n réussis, prévisualisation Vercel réussie.
+
+Déploiement develop Vercel réussi, GitHub deployment6843408543, environnement Preview, URL https://admin-4ueehmmrc-mickaz.vercel.app. Adresse utilisateur https://dev-admin.foody-pos.co.il/login :HTTP200, écran FR rendu dans Chromium isolé, Manrope/Heebo chargés, champs email/mot de passe présents, aucune erreur runtime ni écriture. Favicon servi identique à la source fusionnée. Preuves `evidence/development-login-fr.png` et `evidence/development-login-verification.json`. Aucun parcours authentifié ni mutation métier réelle exécuté pour cette vérification.
+
+Suite locale sur `feat/admin-landing-alignment-next`, depuis le merge develop. Aucun push ultérieur de cette suite avant nouvelle demande de publication. Les12 types de pages restants et finitions transversales continuent ; Traiteur/Tournées demeurent reportés.
+
+## Dashboard de chaîne — lot suivant local
+
+La route `/chain/[chainId]/dashboard` a sa migration individuelle : synthèse, tableau par établissement, authentification avant lecture, contrôle des réponses, erreurs récupérables, montants cloisonnés par devise. 17/17 scénarios Playwright en mode développement et3 tests unitaires ciblés réussissent ; types et lint ciblé passent. Le build compilé passe les17 scénarios ; lint/types/build et632 tests unitaires passent. Audit `chain-dashboard-audit.md`. La version en développement publiée reste celle de PR#452. Prochain lot : gestion des établissements.
+
+## Gestion des établissements — lot local chaîne38
+
+Les deux surfaces de chaîne passent38/38 scénarios compilés :21 pour établissements et17 pour le dashboard. Début2026-10-04T16:47:41.014Z, durée22517ms, aucun échec/skip/flaky. Lint/types/build et632 tests unitaires réussissent ;20 avertissements existants et6696 clés i18n. Création, brouillons, rôles, vérifications après erreur et vues mobiles/RTL décrits dans chain-branches-audit.md. 81/91 types actifs documentés individuellement (partiels),10 encore inventoriés. Ce lot reste local ; PR#452 est la version publiée en développement. Prochain lot : feuille de production des commandes.

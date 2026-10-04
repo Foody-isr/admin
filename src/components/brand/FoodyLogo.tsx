@@ -7,8 +7,8 @@ type FoodyLogoProps = Omit<SVGProps<SVGSVGElement>, "children"> & {
   decorative?: boolean;
 };
 
-/** Approved C2 identity, using inherited text color and a fixed Foody accent. */
-export default function FoodyLogo({ variant = "wordmark", monochrome = false, decorative = false, width, style, ...props }: FoodyLogoProps) {
+/** Approved C2 identity, using the monochrome variant in the admin workspace. */
+export default function FoodyLogo({ variant = "wordmark", monochrome = true, decorative = false, width, style, ...props }: FoodyLogoProps) {
   const symbol = variant === "symbol";
   const lockup = variant === "lockup";
   return (

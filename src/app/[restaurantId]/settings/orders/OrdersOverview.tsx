@@ -9,7 +9,6 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, Input, Section, Select } from '@/components/ds';
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace';
-import { ordersSettingsNavigation } from './navigation';
 import { Switch } from './_components';
 
 const CHANNELS = ['pickup','dine_in','delivery'] as const;
@@ -97,7 +96,7 @@ function OverviewWorkspace({ rid }: { rid: number }) {
     { id: 'workflow', title: 'orderWorkflow', desc: 'ordersWorkflowDesc', icon: ListChecks },
   ];
   const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return <SettingsWorkspace title={t('ordersAndAvailability')} description={t('ordersHubDesc')} activeId="overview" navLabel={t('ordersSettingsNavigation')} items={ordersSettingsNavigation(rid,t)}>
+  return <SettingsWorkspace title={t('ordersAndAvailability')} description={t('ordersHubDesc')}>
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('ordersLoadError')}</p><Button onClick={() => void load()}>{t('retry')}</Button></div> : restaurant && settings && <div className="space-y-6">
       <Section role="region" aria-label={t('ordersCurrentStatus')} title={t('ordersCurrentStatus')}>
         <div className="rounded-r-lg bg-[var(--summary-bg)] p-5 text-[var(--summary-fg)]"><p className="text-xl font-semibold">{t(paused ? 'ordersPausedBadge' : 'ordersPauseInactive')}</p><p className="mt-2 text-sm leading-6">{t(paused ? 'ordersPausedBannerDesc' : 'ordersStatusScopeHint')}</p>{paused && settings.orders_paused_until && !settings.rush_mode && <p className="mt-3 text-sm font-medium">{t('pauseUntilWhen')} : <bdi>{new Intl.DateTimeFormat(locale,{ dateStyle: 'medium',timeStyle: 'short',timeZone: timezoneOf(restaurant) }).format(new Date(settings.orders_paused_until))}</bdi> · <bdi>{timezoneOf(restaurant)}</bdi></p>}</div>

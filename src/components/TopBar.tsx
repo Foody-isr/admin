@@ -23,7 +23,7 @@ export default function TopBar({ restaurantId, restaurantName, onToggleSidebar }
   const initials = user?.full_name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
   const languages = { en: 'English', fr: 'Français', he: 'עברית' };
   return (
-    <header className="sticky top-0 z-20 h-[var(--topbar-total-h)] flex items-center gap-3 pt-safe-t px-4 sm:px-6 lg:px-8 border-b border-[var(--line)] bg-[var(--topbar-bg)] text-[var(--fg)]">
+    <header className="sticky top-0 z-20 lg:hidden h-[var(--topbar-total-h)] flex items-center gap-3 pt-safe-t px-4 sm:px-6 lg:px-8 border-b border-[var(--line)] bg-[var(--topbar-bg)] text-[var(--fg)]">
       <button type="button" onClick={onToggleSidebar} className="lg:hidden size-11 shrink-0 grid place-items-center rounded-r-md hover:bg-[var(--sidebar-hover)]" aria-label={t('menu')}>
         <Menu className="size-5" />
       </button>

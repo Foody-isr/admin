@@ -31,13 +31,13 @@ import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import { useOrderSeries } from '@/lib/series';
 import {
-  SearchIcon, Volume2Icon, VolumeXIcon,
-  ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon,
-  PlusIcon, XIcon, PauseIcon, PlayIcon,
+  PauseIcon, PlayIcon,
   ListFilterIcon, ClipboardListIcon,
 } from 'lucide-react';
-import { Button, ConfirmDialog, PageHead } from '@/components/ds';
-import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
+import { Button, ConfirmDialog } from '@/components/ds';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { ListToolbar, ListPagination } from '@/components/data-table';
+import { ListFilterButton, ListChoiceFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
@@ -49,14 +49,6 @@ import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
 import { OrderColumnPicker } from '@/components/orders/OrderColumnPicker';
 import { useOrdersTableConfig } from '@/lib/orders/useOrdersTableConfig';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { OrdersOperationsRail } from '@/components/orders/OrdersOperationsRail';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
 import {
   getOrderTiming,
@@ -112,7 +104,6 @@ const TABS: Tab[] = [
   { key: 'all', labelKey: 'all', active: undefined },
 ];
 
-const ARCHIVE_TABS = TABS.filter((tab) => ['scheduled', 'completed', 'canceled', 'all'].includes(tab.key));
 
 const PAGE_SIZE = 25;
 
@@ -179,6 +170,9 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [searchSubmitted, setSearchSubmitted] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [filterView, setFilterView] = useState<string | null>(null);
+  const [draftRange, setDraftRange] = useState<DateRange>(defaultDateRange);
+  const [draftBasis, setDraftBasis] = useState<DateBasis>('created');
   const [paymentFilter, setPaymentFilter] = useState(
     paymentAttentionScope ? PAYMENT_ATTENTION_FILTER : '',
   );
@@ -196,8 +190,6 @@ export default function OrdersPage() {
   const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
   const serieList = useOrderSeries(rid);
   const [page, setPage] = useState(0);
-  const [queueCounts, setQueueCounts] = useState<Partial<Record<OperationsQueueKey, number>>>({});
-  const [queueCountsLoading, setQueueCountsLoading] = useState(true);
   const [, setClockTick] = useState(0);
 
   const orders = rawOrders;
@@ -445,42 +437,6 @@ export default function OrdersPage() {
 
   useEffect(() => { void fetchOrders(); }, [fetchOrders]);
 
-  const fetchQueueCounts = useCallback(async () => {
-    if (!filtersReady) return;
-    setQueueCountsLoading(true);
-    const base: ListOrdersParams = {
-      from: isoDate(dateRange.from),
-      to: isoDate(dateRange.to),
-      limit: 1,
-      offset: 0,
-    };
-    if (dateField === 'serie') base.date_field = 'serie';
-    if (typeFilter) base.type = typeFilter;
-    if (paymentFilter) base.payment_status = paymentFilter;
-
-    try {
-      const stageQueues = OPERATIONS_QUEUES.filter((queue) => queue.key !== 'active');
-      const results = await Promise.all(
-        stageQueues.map((queue) => listOrders(rid, { ...base, status: queue.statuses })),
-      );
-      const next: Partial<Record<OperationsQueueKey, number>> = {};
-      let active = 0;
-      stageQueues.forEach((queue, index) => {
-        next[queue.key] = results[index].total;
-        active += results[index].total;
-      });
-      next.active = active;
-      setQueueCounts(next);
-    } catch {
-      // Keep the last trustworthy counts. The live connection indicator above
-      // already communicates connectivity without replacing counts with false 0s.
-    } finally {
-      setQueueCountsLoading(false);
-    }
-  }, [rid, dateRange, dateField, typeFilter, paymentFilter, filtersReady]);
-
-  useEffect(() => { void fetchQueueCounts(); }, [fetchQueueCounts]);
-
   // ─── WebSocket ────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -508,7 +464,6 @@ export default function OrdersPage() {
     if (type === 'order.deleted') {
       setOrders((prev) => prev.filter((o) => o.id !== wsOrder.id));
       if (detailId === wsOrder.id) closeOrderDetail();
-      void fetchQueueCounts();
       return;
     }
 
@@ -524,7 +479,7 @@ export default function OrdersPage() {
     // day, and an update may have moved an existing row out of this série.
     // Re-read the filtered page instead of blindly upserting the websocket row.
     if (dateField === 'serie') {
-      void Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+      void fetchOrders(false);
       return;
     }
 
@@ -539,8 +494,7 @@ export default function OrdersPage() {
       next[idx] = { ...next[idx], ...liveOrder };
       return next;
     });
-    void fetchQueueCounts();
-  }, [lastEvent, isProcessing, playSound, notify, t, dateField, fetchOrders, fetchQueueCounts, setOrders, detailId, closeOrderDetail]);
+  }, [lastEvent, isProcessing, playSound, notify, t, dateField, fetchOrders, setOrders, detailId, closeOrderDetail]);
 
   // ─── Actions ──────────────────────────────────────────────────────
 
@@ -558,7 +512,7 @@ export default function OrdersPage() {
       // optimistic transition.
     } finally {
       removeProcessingGuard(orderId);
-      await Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+      await fetchOrders(false);
       setActionLoading(null);
     }
   };
@@ -580,7 +534,7 @@ export default function OrdersPage() {
       return undefined;
     } finally {
       removeProcessingGuard(orderId);
-      await Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+      await fetchOrders(false);
       setActionLoading(null);
     }
   };
@@ -772,7 +726,7 @@ export default function OrdersPage() {
       .catch(async () => { await fetchOrders(); })
       .finally(async () => {
         removeProcessingGuard(orderId);
-        await Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+        await fetchOrders(false);
         setActionLoading(null);
       });
   };
@@ -796,11 +750,6 @@ export default function OrdersPage() {
     setActiveTab(key);
     setPage(0);
     closeOrderDetail();
-  };
-
-  const handleSearch = () => {
-    setSearchSubmitted(search.trim());
-    setPage(0);
   };
 
   const runPrimaryAction = (order: Order, action: PrimaryAction) => {
@@ -834,8 +783,6 @@ export default function OrdersPage() {
   const activeQueueKey = OPERATIONS_QUEUES.some((queue) => queue.key === activeTab)
     ? activeTab as OperationsQueueKey
     : null;
-  const visibleStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
-  const visibleEnd = Math.min((page + 1) * PAGE_SIZE, total);
 
   const resetFilters = () => {
     setSearch('');
@@ -860,104 +807,45 @@ export default function OrdersPage() {
       .catch(() => setPreferenceSaveFailed(true));
   }, [rid, closeOrderDetail]);
 
+  const typeOptions = [{ value: '', label: t('all') }, { value: 'dine_in', label: t('dineIn') }, { value: 'pickup', label: t('pickup') }, { value: 'delivery', label: t('delivery') }];
+  const statusOptions = TABS.map(tab => ({ value: tab.key, label: t(tab.key === 'all' ? 'allOrders' : tab.labelKey) }));
+  const paymentOptions = [{ value: PAYMENT_ATTENTION_FILTER, label: t('ordersPaymentsToProcess') }, { value: 'paid', label: t('paid') }, { value: 'partially_paid', label: t('partiallyPaid') }, { value: 'pending', label: t('pending') }, { value: 'unpaid', label: t('unpaid') }, { value: 'refunded', label: t('refunded') }];
+  const listFilters = [
+    { id: 'type', label: t('type'), single: true, options: typeOptions.filter(option => option.value), selected: new Set(typeFilter ? [typeFilter] : []) },
+    { id: 'status', label: t('listState'), single: true, options: statusOptions, selected: new Set([activeTab]) },
+    { id: 'payment', label: t('paymentStatus'), single: true, options: paymentOptions, selected: new Set(paymentFilter ? [paymentFilter] : []) },
+  ];
+  const openListFilters = () => { setDraftRange(dateRange); setDraftBasis(dateField); setFilterView('index'); };
+
   // ─── Render ───────────────────────────────────────────────────────
 
   return (
     <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
       <div className="min-w-0 space-y-[var(--s-3)] md:space-y-[var(--s-4)]">
-        <PageHead
-          title={t('orders')}
-          className="mb-0 items-center"
-          desc={(
-            <span className="inline-flex flex-wrap items-center gap-1.5">
-              <span
-                className={`size-2 rounded-full ${
-                  wsStatus === 'connected'
-                    ? 'bg-[var(--success-500)]'
-                    : wsStatus === 'connecting'
-                      ? 'bg-[var(--warning-500)]'
-                      : 'bg-[var(--danger-500)]'
-                }`}
-                aria-hidden
-              />
-              <span>
-                {wsStatus === 'connected' ? t('live') : wsStatus === 'connecting' ? t('connecting') : t('offline')}
-              </span>
-              {lastUpdated && (
-                <>
-                  <span className="opacity-40">·</span>
-                  <span>
-                    {t('ordersUpdatedAt').replace(
-                      '{time}',
-                      lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    )}
-                  </span>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  const next = toggleSound();
-                  setSoundOn(next);
-                }}
-                className="ms-0.5 inline-flex size-7 items-center justify-center rounded-full text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
-                aria-label={t('ordersSound')}
-                aria-pressed={soundOn}
-                title={soundOn ? t('muteSound') : t('unmuteSound')}
-              >
-                {soundOn ? <Volume2Icon className="size-3.5" /> : <VolumeXIcon className="size-3.5" />}
-              </button>
-              {wsStatus === 'disconnected' && (
-                <button
-                  type="button"
-                  onClick={() => void Promise.allSettled([fetchOrders(), fetchQueueCounts()])}
-                  className="text-fs-xs font-medium text-[var(--brand-600)] hover:underline focus-visible:outline-none focus-visible:shadow-ring"
-                >
-                  {t('refresh')}
-                </button>
-              )}
-            </span>
-          )}
-          actions={
-            <>
-              {canManage && (
-                <Button
-                  variant="primary"
-                  size="lg"
-                  asChild
-                >
-                  <Link
-                    href={`/${rid}/orders/new`}
-                    aria-label={t('newOrder')}
-                    title={t('newOrder')}
-                  >
-                    <PlusIcon className="size-4" />
-                    {t('newOrder')}
-                  </Link>
-                </Button>
-              )}
-              {canManage && (
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  disabled={pauseSaving}
-                  onClick={() => {
-                    if (paused) {
-                      void togglePause(false);
-                    } else {
-                      setPauseConfirmationOpen(true);
-                    }
-                  }}
-                  aria-label={paused ? t('resumeOrders') : t('pauseOrders')}
-                  title={paused ? t('resumeOrders') : t('pauseOrders')}
-                >
-                  {paused ? <PlayIcon className="size-4" /> : <PauseIcon className="size-4" />}
-                  {paused ? t('resumeOrders') : t('pauseOrders')}
-                </Button>
-              )}
-            </>
-          }
+        <h1 className="sr-only">{t('orders')}</h1>
+        <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+          filters={<>
+            <ListChoiceFilter label={t('type')} options={typeOptions} value={typeFilter} onChange={value => { setTypeFilter(value); setPage(0); }} />
+            <ListChoiceFilter label={t('listState')} options={statusOptions} value={activeTab} onChange={switchTab} />
+            <ListFilterButton label={t('allFilters')} icon={<ListFilterIcon />} onClick={openListFilters} />
+          </>}
+          primaryAction={canManage && <Button asChild><Link href={`/${rid}/orders/new`}>{t('newOrder')}</Link></Button>}
+          actions={<ActionsDropdown actions={[
+            { label: t('refresh'), onClick: () => void fetchOrders() },
+            { label: t(soundOn ? 'muteSound' : 'unmuteSound'), onClick: () => setSoundOn(toggleSound()) },
+            ...(canManage ? [{ label: t(paused ? 'resumeOrders' : 'pauseOrders'), disabled: pauseSaving, onClick: () => { if (paused) void togglePause(false); else setPauseConfirmationOpen(true); } }] : []),
+            { label: t('ordersResetFilters'), onClick: resetFilters },
+          ]} />}
         />
+        <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters}
+          customFilters={[{ id: 'period', label: t('date'), summary: `${isoDate(draftRange.from)} – ${isoDate(draftRange.to)}`, onReset: () => { setDraftRange(defaultDateRange()); setDraftBasis(defaultDateField); }, content: <DateRangePicker value={draftRange} onChange={setDraftRange} weekStartDay={weekStartDay} workdays={workdays} restaurantId={rid} basis={draftBasis} onBasisChange={setDraftBasis} series={serieList} /> }]}
+          onApply={values => {
+            setTypeFilter(Array.from(values.type)[0] ?? ''); setPaymentFilter(Array.from(values.payment)[0] ?? ''); setDateRange(draftRange);
+            if (draftBasis !== dateField) changeDateField(draftBasis);
+            switchTab(Array.from(values.status)[0] ?? 'all');
+          }} />
+        {wsStatus !== 'connected' && <p role="status" className="text-sm text-[var(--fg-muted)]">{t(wsStatus === 'connecting' ? 'connecting' : 'offline')}</p>}
+        {preferenceSaveFailed && <p role="status" className="text-sm text-[var(--warning-600)]">{t('displayPreferenceSaveFailed')}</p>}
 
         {paused && (
           <div
@@ -991,135 +879,6 @@ export default function OrdersPage() {
           </div>
         )}
 
-        <section aria-label={t('ordersLiveQueues')}>
-          <OrdersOperationsRail
-            activeKey={activeQueueKey}
-            counts={queueCounts}
-            loading={queueCountsLoading}
-            onSelect={switchTab}
-          />
-        </section>
-
-        <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)]">
-          <HorizontalScrollRail activeKey={activeTab} edgeFlush>
-            <div className="inline-flex items-center gap-5 pe-4">
-              <span className="hidden py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)] md:inline">
-                {t('ordersHistory')}
-              </span>
-              {ARCHIVE_TABS.map((tab) => {
-                const selected = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => switchTab(tab.key)}
-                    aria-pressed={selected}
-                    data-rail-active={selected ? '' : undefined}
-                    className={`relative py-2.5 text-fs-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:shadow-ring ${
-                      selected
-                        ? 'text-[var(--fg)] after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-[var(--brand-500)]'
-                        : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-                    }`}
-                  >
-                    {tab.key === 'all' ? t('allOrders') : t(tab.labelKey)}
-                  </button>
-                );
-              })}
-            </div>
-          </HorizontalScrollRail>
-          <span className="hidden shrink-0 text-fs-xs text-[var(--fg-muted)] md:block">
-            {t('ordersShowingCompact')
-              .replace('{start}', String(visibleStart))
-              .replace('{end}', String(visibleEnd))
-              .replace('{total}', String(total))}
-          </span>
-        </div>
-
-        {/* The controls stick below the global top bar; the order rows scroll
-            independently on desktop so queue state never disappears. */}
-        <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 border-b border-transparent bg-[var(--bg)] px-1 py-2 max-md:border-[var(--line)]">
-          <div className="relative w-full md:w-[300px]">
-            <SearchIcon className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
-            <input
-              type="search"
-              placeholder={t('ordersSearchPlaceholder')}
-              aria-label={t('ordersSearchPlaceholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSearch();
-                if (e.key === 'Escape') setSearch('');
-              }}
-              className="input h-11 w-full ps-10 pe-10 text-fs-sm"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute end-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
-                aria-label={t('ordersClearSearch')}
-              >
-                <XIcon className="size-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="no-scrollbar flex w-full items-center gap-2 overflow-x-auto pb-0.5 md:contents">
-            <DateRangePicker
-              value={dateRange}
-              onChange={(range) => { setDateRange(range); setPage(0); }}
-              weekStartDay={weekStartDay}
-              workdays={workdays}
-              restaurantId={rid}
-              basis={dateField}
-              onBasisChange={changeDateField}
-              series={serieList}
-            />
-
-          <FilterDropdown
-            label={t('type')}
-            value={typeFilter}
-            onChange={(v) => { setTypeFilter(v); setPage(0); }}
-            options={[
-              { value: '', label: t('ordersAllTypes') },
-              { value: 'dine_in', label: t('dineIn') },
-              { value: 'pickup', label: t('pickup') },
-              { value: 'delivery', label: t('delivery') },
-            ]}
-          />
-
-          <FilterDropdown
-            label={t('paymentStatus')}
-            value={paymentFilter}
-            onChange={(v) => { setPaymentFilter(v); setPage(0); }}
-            options={[
-              { value: '', label: t('ordersAllPayments') },
-              { value: PAYMENT_ATTENTION_FILTER, label: t('ordersPaymentsToProcess') },
-              { value: 'paid', label: t('paid') },
-              { value: 'partially_paid', label: t('partiallyPaid') },
-              { value: 'pending', label: t('pending') },
-              { value: 'unpaid', label: t('unpaid') },
-              { value: 'refunded', label: t('refunded') },
-            ]}
-          />
-
-          {activeFilterCount > 0 && (
-            <Button variant="ghost" size="md" onClick={resetFilters}>
-              <ListFilterIcon />
-              {t('ordersResetFiltersWithCount').replace('{n}', String(activeFilterCount))}
-            </Button>
-          )}
-
-          {hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}
-
-          {preferenceSaveFailed && (
-            <span className="text-fs-xs text-[var(--warning-600)]" role="status">
-              {t('displayPreferenceSaveFailed')}
-            </span>
-          )}
-          </div>
-        </div>
-
         {/* Table */}
         {loading ? (
           <OrdersTableSkeleton
@@ -1150,7 +909,7 @@ export default function OrdersPage() {
         ) : (
           <>
             <DataTable
-              className="operational-table orders-operational-table md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
+              className="list-table operational-table orders-operational-table"
               data-density="compact"
             >
               <DataTableHead className="sticky top-0 z-[2]">
@@ -1158,7 +917,7 @@ export default function OrdersPage() {
                   <DataTableHeadCell
                     key={col.key}
                     align={col.align}
-                    className="bg-[var(--surface-2)] px-3 py-3 normal-case tracking-normal"
+                    className="bg-[var(--surface)] px-3 py-3 normal-case tracking-normal"
                   >
                     {t(col.labelKey)}
                   </DataTableHeadCell>
@@ -1166,11 +925,12 @@ export default function OrdersPage() {
                 {canManage && (
                   <DataTableHeadCell
                     align="right"
-                    className="sticky end-0 min-w-[150px] bg-[var(--surface-2)] px-3 py-3 normal-case tracking-normal"
+                    className="sticky end-0 min-w-[150px] bg-[var(--surface)] px-3 py-3 normal-case tracking-normal"
                   >
                     {t('ordersNextAction')}
                   </DataTableHeadCell>
                 )}
+                <DataTableHeadCell align="right" className="w-12 px-2 !py-1.5">{hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}</DataTableHeadCell>
               </DataTableHead>
               <DataTableBody>
                 {orders.map((order, index) => {
@@ -1249,39 +1009,15 @@ export default function OrdersPage() {
                           )}
                         </DataTableCell>
                       )}
+                      <DataTableCell />
                     </DataTableRow>
                   );
                 })}
               </DataTableBody>
             </DataTable>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--divider)' }}>
-                <span className="text-xs text-fg-secondary">
-                  {t('showing').replace('{start}', String(visibleStart)).replace('{end}', String(visibleEnd)).replace('{total}', String(total))}
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    disabled={page === 0}
-                    onClick={() => setPage(page - 1)}
-                    className="p-1.5 rounded-standard text-fg-secondary hover:text-fg-primary disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronLeftIcon className="w-4 h-4" />
-                  </button>
-                  <span className="text-xs text-fg-secondary px-2">
-                    {t('pageOf').replace('{page}', String(page + 1)).replace('{total}', String(totalPages))}
-                  </span>
-                  <button
-                    disabled={page >= totalPages - 1}
-                    onClick={() => setPage(page + 1)}
-                    className="p-1.5 rounded-standard text-fg-secondary hover:text-fg-primary disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronRightIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+            <ListPagination page={page + 1} totalPages={Math.max(1, totalPages)} pageSize={PAGE_SIZE} onPageChange={value => setPage(value - 1)} />
+            {lastUpdated && <p className="mt-3 text-xs text-[var(--fg-muted)]">{t('ordersUpdatedAt').replace('{time}', lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</p>}
           </>
         )}
       </div>
@@ -1490,38 +1226,3 @@ function OrdersTableSkeleton({
 }
 
 // ─── Filter Dropdown ─────────────────────────────────────────────────────────
-
-function FilterDropdown({ label, value, onChange, options }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  const displayLabel = options.find((o) => o.value === value)?.label ?? 'All';
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="md">
-          <ListFilterIcon />
-          {value ? (
-            <>
-              <span className="text-[var(--fg-muted)]">{label}</span>
-              <span>{displayLabel}</span>
-            </>
-          ) : displayLabel}
-          <ChevronDownIcon />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-52">
-        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value || 'all'} value={option.value}>
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}

@@ -9,11 +9,14 @@ import {
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
-  PlusIcon, TrashIcon, SlidersHorizontal,
+  ListFilter, TrashIcon, SlidersHorizontal,
 } from 'lucide-react';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { ListToolbar } from '@/components/data-table';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 import Modal from '@/components/Modal';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
-import { Button, PageHead, ConfirmDialog } from '@/components/ds';
+import { Button, ConfirmDialog } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import {
   DataTable,
@@ -48,6 +51,10 @@ export default function ModifiersPage() {
   const canEdit = hasAnyPermission('menu.edit');
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [search, setSearch] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [selectedActions, setSelectedActions] = useState<Set<string>>(new Set());
+  const [filterView, setFilterView] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [createModal, setCreateModal] = useState(false);
 
@@ -69,7 +76,10 @@ export default function ModifiersPage() {
   useEffect(() => { const guard = requestGuard.current; void reload(); return () => guard.invalidate(); }, [reload]);
 
   const allItems = flattenItems(categories);
-  const itemsWithModifiers = allItems.filter(item => (item.modifiers ?? []).length > 0);
+  const rows = allItems.flatMap(item => (item.modifiers ?? []).map(mod => ({ item, mod })));
+  const filtered = rows.filter(({ item, mod }) => `${mod.name} ${item.name}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) && (!selectedCategories.size || selectedCategories.has(item.category_name)) && (!selectedActions.size || selectedActions.has(mod.action)));
+  const actionOptions = [{ value: 'add', label: t('add') }, { value: 'remove', label: t('remove') }];
+  const listFilters = [{ id: 'category', label: t('category'), options: categories.map(category => ({ value: category.name, label: category.name })), selected: selectedCategories }, { id: 'action', label: t('action'), options: actionOptions, selected: selectedActions }];
   const handleDeleteModifier = async (modId: number) => {
     if (deleting || !canEdit) return;
     setDeleting(true);
@@ -81,28 +91,22 @@ export default function ModifiersPage() {
 
   return (
     <div className="space-y-[var(--s-5)]">
-      <PageHead
-        title={t('modifiers')}
-        desc={t('libraryModifiersDescription')}
-        actions={
-          canEdit ? (
-            <Button variant="primary" size="md" onClick={() => setCreateModal(true)}>
-              <PlusIcon />
-              {t('createModifier')}
-            </Button>
-          ) : undefined
-        }
+      <h1 className="sr-only">{t('modifiers')}</h1>
+      <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+        filters={<><ListFilterButton label={t('category')} value={selectedCategories.size || undefined} onClick={() => setFilterView('category')} /><ListStateFilter label={t('action')} options={actionOptions} selected={selectedActions} onChange={setSelectedActions} /><ListFilterButton label={t('allFilters')} icon={<ListFilter />} onClick={() => setFilterView('index')} /></>}
+        primaryAction={canEdit && <Button onClick={() => setCreateModal(true)}>{t('createModifier')}</Button>}
+        actions={<ActionsDropdown actions={[{ label: t('refresh'), onClick: () => void reload(), disabled: loading || deleting }]} />}
       />
-
+      <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters} onApply={values => { setSelectedCategories(values.category); setSelectedActions(values.action); }} />
       {actionError && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
       {loading ? <p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p>
         : error ? <div role="alert" className="rounded-r-lg border border-[var(--line)] p-5"><p className="mb-4 text-[var(--danger-500)]">{error}</p><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>
-        : itemsWithModifiers.length === 0 ? (
+        : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
           <SlidersHorizontal aria-hidden className="size-10 text-fg-secondary" />
           <h2 className="text-lg font-semibold text-fg-primary">{t('modifiers')}</h2>
           <p className="text-sm text-fg-secondary max-w-sm text-center">
-            {t('noModifiersForItem')}
+            {t(rows.length ? 'listNoMatches' : 'noModifiersForItem')}
           </p>
           {canEdit && (
             <button
@@ -114,52 +118,28 @@ export default function ModifiersPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-6">
-          {itemsWithModifiers.map((item) => (
-            <div key={item.id}>
-              <h2 className="rounded-t-r-lg border border-b-0 border-[var(--line)] bg-[var(--summary-bg)] p-4 text-sm font-semibold text-[var(--summary-fg)]">
-                {item.name} <span className="text-fg-secondary font-normal">({item.category_name})</span>
-              </h2>
-              <DataTable>
-                <DataTableHead>
-                  <DataTableHeadCell>{t('modifierName')}</DataTableHeadCell>
-                  <DataTableHeadCell>{t('action')}</DataTableHeadCell>
-                  <DataTableHeadCell>{t('categoryGroupName')}</DataTableHeadCell>
-                  <DataTableHeadCell align="right">{t('priceDelta').replace('{currency}', symbol)}</DataTableHeadCell>
-                  <DataTableHeadSpacerCell />
-                </DataTableHead>
-                <DataTableBody>
-                  {(item.modifiers ?? []).map((mod, modIdx) => (
-                    <DataTableRow key={mod.id} index={modIdx}>
-                      <DataTableCell mobilePrimary className="font-medium text-fg-primary">{mod.name}</DataTableCell>
-                      <DataTableCell mobileLabel={t('action')} className="text-fg-secondary">{t(mod.action === 'remove' ? 'remove' : 'add')}</DataTableCell>
-                      <DataTableCell mobileLabel={t('categoryGroupName')} className="text-fg-secondary">{mod.category || '—'}</DataTableCell>
-                      <DataTableCell align="right" mobileLabel={t('priceDelta').replace('{currency}', symbol)} className="text-fg-primary">
-                        {mod.price_delta !== 0
-                          ? `${mod.price_delta > 0 ? '+' : ''}${money(mod.price_delta)}`
-                          : '—'}
-                      </DataTableCell>
-                      <DataTableCell>
-                        {canEdit && (
-                          <button
-                            aria-label={`${t('delete')} · ${mod.name}`} disabled={deleting}
-                            onClick={() => setPendingDelete(mod)}
-                            className="grid size-11 place-items-center rounded-r-md hover:bg-[var(--danger-50)] text-fg-secondary hover:text-[var(--danger-500)] disabled:opacity-50"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                      </DataTableCell>
-                    </DataTableRow>
-                  ))}
-                </DataTableBody>
-              </DataTable>
-            </div>
-          ))}
-        </div>
+        <DataTable className="list-table">
+          <DataTableHead><DataTableHeadCell>{t('modifierName')}</DataTableHeadCell><DataTableHeadCell>{t('item')}</DataTableHeadCell><DataTableHeadCell>{t('action')}</DataTableHeadCell><DataTableHeadCell>{t('categoryGroupName')}</DataTableHeadCell><DataTableHeadCell align="right">{t('priceDelta').replace('{currency}', symbol)}</DataTableHeadCell><DataTableHeadSpacerCell /></DataTableHead>
+          <DataTableBody>{filtered.map(({ item, mod }) => <DataTableRow key={`${item.id}-${mod.id}`}>
+            <DataTableCell mobilePrimary>{mod.name}</DataTableCell>
+            <DataTableCell mobileLabel={t('item')}>{item.name}</DataTableCell>
+            <DataTableCell mobileLabel={t('action')}>{t(mod.action === 'remove' ? 'remove' : 'add')}</DataTableCell>
+            <DataTableCell mobileLabel={t('categoryGroupName')}>{mod.category || '—'}</DataTableCell>
+            <DataTableCell align="right" mobileLabel={t('priceDelta').replace('{currency}', symbol)}>{mod.price_delta !== 0 ? `${mod.price_delta > 0 ? '+' : ''}${money(mod.price_delta)}` : '—'}</DataTableCell>
+            <DataTableCell>{canEdit && <Button icon variant="ghost" aria-label={`${t('delete')} · ${mod.name}`} disabled={deleting} onClick={() => setPendingDelete(mod)}><TrashIcon /></Button>}</DataTableCell>
+          </DataTableRow>)}</DataTableBody>
+        </DataTable>
       )}
-
-      <ConfirmDialog open={!!pendingDelete} onOpenChange={open => { if (!open) setPendingDelete(null); }} title={t('deleteThisModifier')} description={pendingDelete?.name} danger confirmLabel={t('delete')} cancelLabel={t('cancel')} onConfirm={() => { if (pendingDelete) void handleDeleteModifier(pendingDelete.id); }} />
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={open => { if (!open) setPendingDelete(null); }}
+        title={t('deleteThisModifier')}
+        description={pendingDelete?.name}
+        danger
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        onConfirm={() => { if (pendingDelete) void handleDeleteModifier(pendingDelete.id); }}
+      />
       {createModal && (
         <CreateModifierModal
           restaurantId={rid}

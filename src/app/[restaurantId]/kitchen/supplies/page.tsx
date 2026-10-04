@@ -2,19 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { Eye, FileText, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { Eye, FileText, ListFilter, Trash2 } from 'lucide-react';
 import { listSupplies, getSupplyDetail, getRestaurant, listImportDrafts, deleteImportDraft,
   type SupplySummary, type StockTransaction, type DeliveryImportDraft } from '@/lib/api';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Badge, Button, Drawer, Field, Input, PageHead, Section } from '@/components/ds';
+import { Badge, Button, Drawer, Section } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { DataTable, DataTableHead, DataTableHeadCell, SortableHeadCell, DataTableBody,
   DataTableRow, DataTableCell, DataTableHeadSpacerCell } from '@/components/data-table';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
-import SupplierHubTabs from '@/components/suppliers/SupplierHubTabs';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { ListToolbar } from '@/components/data-table';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
+
 import SupplyDocumentViewer from '@/components/suppliers/SupplyDocumentViewer';
 
 interface DocumentRef { url: string; type: string }
@@ -38,9 +41,11 @@ function SuppliesWorkspace({ rid }: { rid: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [supplierFilter, setSupplierFilter] = useState('');
-  const [docFilter, setDocFilter] = useState('all');
-  const [showKpis, setShowKpis] = useState(true);
+  const router = useRouter();
+  const [supplierFilter, setSupplierFilter] = useState<Set<string>>(new Set());
+  const [docFilter, setDocFilter] = useState<Set<string>>(new Set());
+  const [filterView, setFilterView] = useState<string | null>(null);
+  const [draftsOpen, setDraftsOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [openSupply, setOpenSupply] = useState<SupplySummary | null>(null);
@@ -87,8 +92,8 @@ function SuppliesWorkspace({ rid }: { rid: number }) {
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase(locale);
     const rows = supplies.filter(supply => (!query || supply.supplier_name.toLocaleLowerCase(locale).includes(query))
-      && (!supplierFilter || supply.supplier_name === supplierFilter)
-      && (docFilter === 'all' || Boolean(supply.document_url) === (docFilter === 'with')));
+      && (!supplierFilter.size || supplierFilter.has(supply.supplier_name))
+      && (!docFilter.size || docFilter.has(supply.document_url ? 'with' : 'without')));
     const direction = sortDir === 'asc' ? 1 : -1;
     return rows.sort((a, b) => direction * (sortKey === 'date' ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       : sortKey === 'supplier' ? a.supplier_name.localeCompare(b.supplier_name, locale)
@@ -99,44 +104,34 @@ function SuppliesWorkspace({ rid }: { rid: number }) {
     else { setSortKey(key as SortKey); setSortDir(key === 'date' ? 'desc' : 'asc'); }
   };
   const date = (value: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(new Date(value));
-  const total = supplies.reduce((sum, supply) => sum + supply.total_cost, 0);
-  const last30 = supplies.filter(supply => (Date.now() - new Date(supply.created_at).getTime()) / 86_400_000 <= 30).length;
-  const metrics = [
-    { label: t('supplierDeliveries'), value: supplies.length, hint: `${names.length} ${t('suppliers')}` },
-    { label: t('totalValue'), value: money(total, {grouped:true}), hint: t('exVat') },
-    { label: t('avgPerDelivery'), value: money(supplies.length ? total / supplies.length : 0, {grouped:true}), hint: t('exVat') },
-    { label: t('pendingImports'), value: drafts.length, hint: `${last30} ${t('inLast30Days')}` },
+  const documentOptions = [{ value: 'with', label: t('withDocument') }, { value: 'without', label: t('withoutDocument') }];
+  const listFilters = [
+    { id: 'supplier', label: t('supplier'), options: names.map(name => ({ value: name, label: name })), selected: supplierFilter },
+    { id: 'document', label: t('document'), options: documentOptions, selected: docFilter },
   ];
   const viewDocument = (supply: SupplySummary) => setViewer({ url: supply.document_url!, type: supply.document_type || '' });
 
   return <div className="min-w-0 space-y-5">
-    <PageHead title={t('supplierDeliveries')} desc={t('supplierDeliveriesDesc')} actions={<>
-      <Button variant="ghost" size="lg" aria-pressed={showKpis} onClick={() => setShowKpis(value => !value)}>{t(showKpis ? 'hideKpis' : 'showKpis')}</Button>
-      <Button variant="secondary" size="lg" disabled={loading} onClick={() => void reload()}><RefreshCw />{t('refresh')}</Button>
-    </>} />
-    <SupplierHubTabs restaurantId={rid} active="deliveries" />
+    <h1 className="sr-only">{t('supplierDeliveries')}</h1>
+    <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+      filters={<>
+        <ListFilterButton label={t('supplier')} value={supplierFilter.size || undefined} onClick={() => setFilterView('supplier')} />
+        <ListStateFilter label={t('document')} options={documentOptions} selected={docFilter} onChange={setDocFilter} />
+        <ListFilterButton label={t('allFilters')} icon={<ListFilter />} onClick={() => setFilterView('index')} />
+      </>}
+      primaryAction={canManage && <Button onClick={() => router.push(`/${rid}/kitchen/stock?newDelivery=1`)}>{t('importDelivery')}</Button>}
+      actions={<ActionsDropdown actions={[
+        { label: t('refresh'), disabled: loading, onClick: () => void reload() },
+        { label: `${t('pendingImports')} (${drafts.length})`, onClick: () => setDraftsOpen(true) },
+        { label: t('suppliers'), onClick: () => router.push(`/${rid}/kitchen/suppliers?tab=suppliers`) },
+        { label: t('purchaseOrders'), onClick: () => router.push(`/${rid}/kitchen/suppliers?tab=orders`) },
+      ]} />}
+    />
+    <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters} onApply={values => { setSupplierFilter(values.supplier); setDocFilter(values.document); }} />
     {error && <div role="alert" className="space-y-3 rounded-r-md border border-[var(--danger-500)] p-4"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button variant="secondary" size="lg" disabled={loading} onClick={() => void reload()}>{t('retry')}</Button></div>}
     {!loaded ? loading && <p role="status" className="py-16 text-center text-fg-secondary">{t('loading')}</p> : <>
-      {showKpis && <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">{metrics.map(metric => <div key={metric.label} className="min-w-0 rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-4">
-        <dt className="text-sm text-fg-secondary">{metric.label}</dt><dd className="my-2 break-words text-xl font-semibold tabular-nums md:text-2xl"><bdi>{metric.value}</bdi></dd><p className="text-xs text-fg-secondary">{metric.hint}</p>
-      </div>)}</dl>}
-      <p className="max-w-3xl text-sm text-fg-secondary">{t('suppliesValuationHint')} {t('suppliesListLimit')}</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <Field label={t('search')}><div className="relative"><Search className="pointer-events-none absolute start-3 top-3.5 size-4 text-fg-secondary" /><Input className="min-h-11 ps-10" aria-label={t('search')} value={search} onChange={event => setSearch(event.target.value)} /></div></Field>
-        <Field label={t('supplier')}><select className="input min-h-11 w-full" value={supplierFilter} onChange={event => setSupplierFilter(event.target.value)}><option value="">{t('all')}</option>{names.map(name => <option key={name} value={name}>{name}</option>)}</select></Field>
-        <Field label={t('document')}><select className="input min-h-11 w-full" value={docFilter} onChange={event => setDocFilter(event.target.value)}><option value="all">{t('all')}</option><option value="with">{t('withDocument')}</option><option value="without">{t('withoutDocument')}</option></select></Field>
-      </div>
-      {drafts.length > 0 && <section aria-label={t('pendingImports')} className="space-y-3"><h2 className="text-base font-semibold">{t('pendingImports')} ({drafts.length})</h2>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{drafts.map(draft => <article key={draft.id} className="min-w-0 space-y-3 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
-          <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><h3 className="break-words font-semibold"><bdi>{draft.supplier_name || t('unknownSupplier')}</bdi></h3><p className="mt-1 text-sm text-fg-secondary">{draft.item_count} {t('items')} · <bdi>{date(draft.created_at)}</bdi></p></div>
-            {canManage && <Button variant="ghost" size="lg" icon aria-label={`${t('deleteDraft')} — ${draft.supplier_name || t('unknownSupplier')}`} onClick={() => { setDeleteError(''); setDeleting(draft); }}><Trash2 /></Button>}
-          </div>
-          <p className="text-sm text-fg-secondary">{t(draft.document_url ? 'withDocument' : 'withoutDocument')}</p>
-          {canManage && <Button asChild variant="secondary" size="lg" className="w-full"><Link href={`/${rid}/kitchen/stock?draft=${draft.id}`}>{t('resumeDraft')}</Link></Button>}
-        </article>)}</div>
-      </section>}
       {filtered.length === 0 ? <p role="status" className="rounded-r-md border border-[var(--line)] px-4 py-16 text-center text-sm text-fg-secondary">{t(supplies.length ? 'tryAdjustingFilters' : 'noSupplies')}</p> : <>
-        <DataTable><DataTableHead>
+        <DataTable className="list-table"><DataTableHead>
           {(['date', 'supplier', 'items', 'total'] as const).map(key => <SortableHeadCell key={key} sortKey={key} currentSortKey={sortKey} sortDir={sortDir} onSort={sort}>{t(key === 'total' ? 'supplyTotal' : key)}</SortableHeadCell>)}
           <DataTableHeadCell>{t('document')}</DataTableHeadCell><DataTableHeadSpacerCell />
         </DataTableHead><DataTableBody>{filtered.map((supply, index) => <DataTableRow key={supply.batch_id} index={index} onClick={() => setOpenSupply(supply)}>
@@ -153,6 +148,17 @@ function SuppliesWorkspace({ rid }: { rid: number }) {
         <p className="text-sm text-fg-secondary">{filtered.length} {t(filtered.length === 1 ? 'delivery' : 'deliveries')}</p>
       </>}
     </>}
+      {draftsOpen && <Modal title={t('pendingImports')} onClose={() => setDraftsOpen(false)}><section aria-label={t('pendingImports')} className="space-y-3"><h2 className="text-base font-semibold">{t('pendingImports')} ({drafts.length})</h2>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{drafts.map(draft => <article key={draft.id} className="min-w-0 space-y-3 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-4">
+          <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><h3 className="break-words font-semibold"><bdi>{draft.supplier_name || t('unknownSupplier')}</bdi></h3><p className="mt-1 text-sm text-fg-secondary">{draft.item_count} {t('items')} · <bdi>{date(draft.created_at)}</bdi></p></div>
+            {canManage && <Button variant="ghost" size="lg" icon aria-label={`${t('deleteDraft')} — ${draft.supplier_name || t('unknownSupplier')}`} onClick={() => { setDraftsOpen(false); setDeleteError(''); setDeleting(draft); }}><Trash2 /></Button>}
+          </div>
+          <p className="text-sm text-fg-secondary">{t(draft.document_url ? 'withDocument' : 'withoutDocument')}</p>
+          {canManage && <Button asChild variant="secondary" size="lg" className="w-full"><Link href={`/${rid}/kitchen/stock?draft=${draft.id}`}>{t('resumeDraft')}</Link></Button>}
+        </article>)}</div>
+        {drafts.length === 0 && <p className="py-8 text-center text-sm text-fg-secondary">{t('noResults')}</p>}
+      </section></Modal>}
+    <p className="text-sm text-fg-secondary">{t('suppliesValuationHint')} {t('suppliesListLimit')}</p>
     {openSupply && <SupplyDetailDrawer key={openSupply.batch_id} rid={rid} supply={openSupply} timeZone={timeZone} onClose={() => setOpenSupply(null)} onViewDocument={() => viewDocument(openSupply)} />}
     {viewer && <SupplyDocumentViewer doc={viewer} onClose={() => setViewer(null)} />}
     {deleting && <Modal title={t('deleteDraft')} subtitle={deleting.supplier_name} size="md" onClose={() => { if (!lock.current) setDeleting(null); }} closeDisabled={saving} footer={<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={saving} onClick={() => setDeleting(null)}>{t('cancel')}</Button><Button size="lg" variant="danger" disabled={saving || !canManage} onClick={() => void removeDraft()}>{t(saving ? 'deleting' : 'delete')}</Button></div>}>

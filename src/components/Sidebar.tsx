@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { DEVICE_INVENTORY_READ_PERMISSIONS } from '@/lib/route-permissions';
-import FoodyLogo from './brand/FoodyLogo';
+import { isSettingsDestinationActive, visibleSettingsNavigation } from '@/lib/settings-navigation';
+import BranchSwitcher from './BranchSwitcher';
+import SearchTriggerButton from './search/SearchTriggerButton';
 import { NavigationFrame, useDesktopNavigation } from './common/NavigationFrame';
 import { Drawer } from './ds';
 import { useEffect, useState } from 'react';
@@ -22,39 +23,19 @@ import {
   Settings,
   Globe,
   UserCog,
+  UserRound,
   Building2,
   X,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  ArrowLeft,
-  ArrowRight,
-  User as UserIcon,
-  CalendarClock,
   LogOut,
   Flame,
   Sun,
   Moon,
   Languages,
-  Tag,
-  DollarSign,
-  CreditCard,
-  Printer,
-  Bell,
-  BellRing,
-  LayoutGrid,
-  Armchair,
-  QrCode,
-  Sparkles,
-  Boxes,
-  Package,
-  MessageCircle,
-  MessageSquareText,
-  MapPin,
   Truck,
-  Fingerprint,
   PartyPopper,
-  MonitorSmartphone,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -73,6 +54,7 @@ interface SubItem {
   perm?: string[];
   /** Hide this entry when the sidebar is shown as the mobile drawer (<lg). */
   desktopOnly?: boolean;
+  exact?: boolean;
 }
 
 interface SubItemGroup {
@@ -110,13 +92,15 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const { hasAnyPermission, roleName, loading: permissionsLoading } = usePermissions();
   const { status: wsStatus } = useWs();
   const { t, direction, locale, setLocale } = useI18n();
-  const { collapsed: storedCollapsed, toggleCollapsed } = useSidebar();
+  const { collapsed: storedCollapsed, toggleCollapsed, setCollapsed } = useSidebar();
   const desktop = useDesktopNavigation();
   const collapsed = desktop && storedCollapsed;
 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [expansion, setExpansion] = useState<{ pathname: string; overrides: Record<string, boolean> }>({ pathname, overrides: {} });
+  const overrides = expansion.pathname === pathname ? expansion.overrides : {};
+  const settingsGroups = visibleSettingsNavigation(restaurantId, hasAnyPermission);
 
   useEffect(() => {
     if (permissionsLoading || isCourierRoleName(roleName)) return;
@@ -126,15 +110,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
   const base = `/${restaurantId}`;
   const isRtl = direction === 'rtl';
-  const BackArrow = isRtl ? ArrowRight : ArrowLeft;
 
-  function toggleKey(key: string) {
-    setExpandedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  function toggleKey(key: string, expanded: boolean) {
+    setExpansion(current => ({ pathname, overrides: { ...(current.pathname === pathname ? current.overrides : {}), [key]: !expanded } }));
   }
 
   const allNav: NavItem[] = [
@@ -255,10 +233,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       ],
     },
     {
-      href: hasAnyPermission('settings.view', 'settings.edit', 'tables.manage') ? `${base}/settings` : hasAnyPermission(...DEVICE_INVENTORY_READ_PERMISSIONS) ? `${base}/settings/devices` : `${base}/settings/delivery`,
+      href: `${base}/settings`,
       labelKey: 'settings',
       icon: Settings,
-      perm: [...DEVICE_INVENTORY_READ_PERMISSIONS, 'orders.manage'],
+      subGroups: settingsGroups,
     },
   ];
   const courierNav: NavItem[] = [
@@ -281,7 +259,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         ? { ...item, subItems: item.subItems.filter((s) => !s.perm || hasAnyPermission(...s.perm)) }
         : item,
     )
-    .filter((item) => !item.subItems || item.subItems.length > 0);
+    .filter((item) => (!item.subItems || item.subItems.length > 0) && (!item.subGroups || item.subGroups.length > 0));
 
   function getSubHrefs(item: NavItem): string[] {
     return [
@@ -310,76 +288,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     return !!(item.subItems?.length || item.subGroups?.length);
   }
 
-  // Settings sub-nav — when on /settings/*, the main rail is replaced by these
-  // groups so the user sees a single sidebar instead of two stacked. Mirrors
-  // design-reference/screens/settings.jsx SettingsShell groups.
-  const isSettingsRoute =
-    pathname === `${base}/settings` ||
-    pathname.startsWith(`${base}/settings/`) ||
-    // Tours live outside /settings but belong to the Commerce group below, so the
-    // settings rail must stay up on them or the entry vanishes once opened.
-    pathname.startsWith(`${base}/delivery/`) ||
-    pathname.startsWith(`${base}/restaurant/floor-plans`) ||
-    pathname.startsWith(`${base}/restaurant/sections`) ||
-    pathname.startsWith(`${base}/restaurant/table-status`) ||
-    pathname.startsWith(`${base}/restaurant/table-qr`) ||
-    pathname.startsWith(`${base}/restaurant/workflow`);
-  const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon; desktopOnly?: boolean; perm?: string[] }[] }[] = [
-    {
-      groupKey: 'settingsGroupAccount',
-      items: [
-        { id: 'general',       href: `${base}/settings`,                labelKey: 'general',       icon: Settings },
-        { id: 'branding',      href: `${base}/settings/branding`,        labelKey: 'branding',      icon: Tag },
-        { id: 'language',      href: `${base}/settings/language`,        labelKey: 'language',      icon: Languages },
-        { id: 'notifications', href: `${base}/settings/notifications`,   labelKey: 'notifications', icon: Bell },
-        { id: 'whatsapp',      href: `${base}/settings/whatsapp`,        labelKey: 'whatsapp',      icon: MessageCircle },
-        { id: 'message-templates', href: `${base}/settings/message-templates`, labelKey: 'messageTemplates', icon: MessageSquareText },
-        { id: 'security',      href: `${base}/settings/security`,        labelKey: 'security',      icon: Fingerprint },
-      ],
-    },
-    {
-      groupKey: 'settingsGroupCommerce',
-      items: [
-        { id: 'orders', href: `${base}/settings/orders`, labelKey: 'ordersAndAvailability', icon: CalendarClock },
-        { id: 'stock', href: `${base}/settings/stock`, labelKey: 'stockSettings', icon: Package },
-        { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign },
-        { id: 'cibus', href: `${base}/settings/cibus`, labelKey: 'cibusSettings', icon: CreditCard },
-        { id: 'ai-assistant', href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant', icon: Sparkles },
-        { id: 'delivery', href: `${base}/settings/delivery`, labelKey: 'deliveryZones', icon: MapPin, perm: ['orders.manage', 'settings.view', 'settings.edit'] },
-        { id: 'tours', href: `${base}/delivery/tours`, labelKey: 'tours', icon: Truck },
-      ],
-    },
-    {
-      groupKey: 'settingsGroupDevices',
-      items: [
-        { id: 'devices', href: `${base}/settings/devices`, labelKey: 'deviceManagementTitle', icon: MonitorSmartphone, perm: DEVICE_INVENTORY_READ_PERMISSIONS },
-        { id: 'printer-profiles', href: `${base}/settings/printers`, labelKey: 'printerProfilesTitle', icon: Printer, perm: ['printers.view', 'printers.manage'] },
-      ],
-    },
-    {
-      groupKey: 'settingsGroupRestaurant',
-      items: [
-        { id: 'floor-plans', href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', icon: LayoutGrid, desktopOnly: true },
-        { id: 'sections', href: `${base}/restaurant/sections`, labelKey: 'sections', icon: Boxes },
-        { id: 'table-assistance', href: `${base}/settings/table-assistance`, labelKey: 'tableServiceSettings', icon: BellRing },
-        { id: 'table-status', href: `${base}/restaurant/table-status`, labelKey: 'tableStatus', icon: Armchair },
-        { id: 'table-qr', href: `${base}/restaurant/table-qr`, labelKey: 'tableQrCodes', icon: QrCode },
-      ],
-    },
-    {
-      groupKey: 'settingsGroupOrg',
-      items: [
-        { id: 'team', href: `${base}/settings/team`, labelKey: 'staffAndRoles', icon: Users, perm: ['staff.view', 'staff.manage', 'roles.manage'] },
-      ],
-    },
-  ];
-  const isSettingsItemActive = (href: string): boolean => {
-    // /settings is the general page; only mark it active on exact match so
-    // it doesn't stay highlighted when visiting a sibling sub-page.
-    if (href === `${base}/settings`) return pathname === href;
-    return isPathActive(href);
-  };
-
   const sidebarWidth = collapsed
     ? 'w-[var(--sidebar-w-collapsed)]'
     : 'w-[var(--sidebar-w)]';
@@ -397,18 +305,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           ${isOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'}
         `}
       >
-        {/* Brand / restaurant header — height matches --topbar-h so it aligns
-            with the topbar across the column gutter. */}
-        <div className="h-[var(--topbar-h)] px-[var(--s-5)] border-b border-[var(--line)] flex items-center">
-          <button
-            onClick={() => setProfileOpen(true)}
-            className="w-full flex items-center gap-[var(--s-3)] text-start min-w-0"
-            aria-label={`Foody · ${t('profile')}`}
-          >
-            <FoodyLogo variant={collapsed ? 'symbol' : 'wordmark'} width={collapsed ? 28 : 108} decorative />
-            {!collapsed && <span className="ms-auto text-xs font-medium text-[var(--fg-muted)]">Admin</span>}
-          </button>
-        </div>
+        {desktop && !collapsed && <div className="space-y-4 px-4 py-4">
+          <div className="min-w-0 rounded-xl border border-[var(--line)] px-2 py-1 text-sm"><BranchSwitcher restaurantId={restaurantId} restaurantName={restaurantName ?? ''} /></div>
+          <SearchTriggerButton placement="sidebar" />
+        </div>}
 
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-2 lg:hidden">
@@ -421,70 +321,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-[var(--s-3)] space-y-0.5 overflow-y-auto">
-          {isSettingsRoute ? (
-            <>
-              {/* Back-to-app link */}
-              <Link
-                href={`${base}/dashboard`}
-                onClick={onClose}
-                className="w-full flex items-center gap-[var(--s-3)] min-h-10 py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out mb-[var(--s-2)]"
-              >
-                <BackArrow className="w-[18px] h-[18px] shrink-0" />
-                {!collapsed && <span className="truncate">{t('backToApp') || 'Back to app'}</span>}
-              </Link>
-              <div className="border-t border-[var(--line)] -mx-[var(--s-3)] mb-[var(--s-2)]" />
-              {!collapsed && (
-                <div className="text-fs-xs font-semibold text-[var(--fg-muted)] px-[var(--s-3)] pt-[var(--s-2)] pb-[var(--s-3)]">
-                  {t('settings')}
-                </div>
-              )}
-              {settingsSections.map((s) => {
-                const visibleItems = s.items.filter((it) => !it.perm || hasAnyPermission(...it.perm));
-                if (visibleItems.length === 0) return null;
-                const allDesktopOnly = visibleItems.every((it) => it.desktopOnly);
-                return (
-                <div
-                  key={s.groupKey}
-                  className={`mb-[var(--s-3)]${allDesktopOnly ? ' max-lg:hidden' : ''}`}
-                >
-                  {!collapsed && (
-                    <div className="text-xs font-semibold text-[var(--fg-subtle)] px-[var(--s-3)] py-[var(--s-2)]">
-                      {t(s.groupKey)}
-                    </div>
-                  )}
-                  {visibleItems.map((it) => {
-                    const active = isSettingsItemActive(it.href);
-                    const Icon = it.icon;
-                    return (
-                      <Link
-                        key={it.id}
-                        href={it.href}
-                        aria-current={active ? 'page' : undefined}
-                        title={collapsed ? t(it.labelKey) : undefined}
-                        aria-label={t(it.labelKey)}
-                        onClick={onClose}
-                        className={`relative w-full flex items-center gap-[var(--s-3)] min-h-10 py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
-                          it.desktopOnly ? 'max-lg:hidden ' : ''
-                        }${
-                          active
-                            ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
-                            : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
-                        }`}
-                      >
-                        <Icon className="w-[18px] h-[18px] shrink-0" />
-                        {!collapsed && <span className="flex-1 truncate">{t(it.labelKey)}</span>}
-                      </Link>
-                    );
-                  })}
-                </div>
-                );
-              })}
-            </>
-          ) : (
-            nav.map((item) => {
+        <nav aria-label={t('mainNavigation')} className="flex-1 p-[var(--s-3)] space-y-0.5 overflow-y-auto">
+          {            nav.map((item) => {
             const isActive = isItemActive(item);
-            const expanded = expandedKeys.has(item.labelKey) || isActive;
+            const expanded = overrides[item.labelKey] ?? isActive;
             const children = hasChildren(item);
             const totalBadge =
               (item.subItems?.reduce((a, s) => a + (s.badge ?? 0), 0) ?? 0) +
@@ -497,18 +337,18 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               <div key={item.labelKey} className={item.desktopOnly ? 'max-lg:hidden' : undefined}>
                 {/* Top-level row */}
                 {children ? (
-                  // Parent groups never get the orange gradient — only text color
-                  // shifts when expanded. Active state lives on the leaf child.
+                  // Expanding a section keeps the current workspace visible.
                   <button
                     aria-label={t(item.labelKey)}
                     title={collapsed ? t(item.labelKey) : undefined}
-                    aria-expanded={collapsed ? undefined : expanded}
+                    aria-expanded={!collapsed && expanded}
+                    aria-controls={`nav-${item.labelKey}`}
                     onClick={() => {
                       if (collapsed) {
-                        // In collapsed mode, clicking top-level navigates instead of expanding.
-                        window.location.href = getNavHref(item);
+                        setCollapsed(false);
+                        setExpansion(current => ({ pathname, overrides: { ...(current.pathname === pathname ? current.overrides : {}), [item.labelKey]: true } }));
                       } else {
-                        toggleKey(item.labelKey);
+                        toggleKey(item.labelKey, expanded);
                       }
                     }}
                     className={`w-full flex items-center justify-between gap-[var(--s-3)] min-h-10 py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
@@ -568,29 +408,24 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
                 {/* Expanded sub-items */}
                 {children && expanded && !collapsed && (
-                  <div className="mt-0.5 space-y-0.5 ps-[30px]">
-                    {item.subGroups?.map((group) => (
-                      <div key={group.labelKey} className="py-[var(--s-1)]">
-                        <p className="px-[var(--s-3)] pt-[var(--s-3)] pb-[var(--s-1)] text-xs font-semibold text-[var(--fg-subtle)]">
-                          {t(group.labelKey)}
-                        </p>
-                        {group.items.map((sub) => {
-                          const active = isPathActive(sub.href);
-                          return (
-                            <SubLink
-                              key={sub.href}
-                              href={sub.href}
-                              label={t(sub.labelKey)}
-                              badge={sub.badge}
-                              badgeLabel={sub.badgeLabelKey ? t(sub.badgeLabelKey) : undefined}
-                              active={active}
-                              desktopOnly={sub.desktopOnly}
-                              onClick={onClose}
-                            />
-                          );
-                        })}
-                      </div>
-                    ))}
+                  <div id={`nav-${item.labelKey}`} className="mt-0.5 space-y-0.5 ps-5">
+                    {item.subGroups?.map((group) => {
+                      const groupKey = `${item.labelKey}-${group.labelKey}`;
+                      const groupActive = group.items.some(sub => isSettingsDestinationActive(pathname, sub));
+                      const groupExpanded = overrides[groupKey] ?? groupActive;
+                      return <div key={groupKey}>
+                        <button type="button" aria-expanded={groupExpanded} aria-controls={`nav-${groupKey}`}
+                          onClick={() => toggleKey(groupKey, groupExpanded)}
+                          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-r-md px-3 py-2 text-start text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--sidebar-hover)]">
+                          <span>{t(group.labelKey)}</span>
+                          <ChevronDown aria-hidden className={`size-3.5 shrink-0 text-[var(--fg-subtle)] transition-transform ${groupExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                        {groupExpanded && <div id={`nav-${groupKey}`} className="ps-3">
+                          {group.items.map(sub => <SubLink key={sub.href} href={sub.href} label={t(sub.labelKey)}
+                            active={isSettingsDestinationActive(pathname, sub)} desktopOnly={sub.desktopOnly} onClick={onClose} />)}
+                        </div>}
+                      </div>;
+                    })}
                     {item.subItems?.map((sub) => {
                       const active = isPathActive(sub.href);
                       return (
@@ -611,15 +446,24 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               </div>
             );
             })
-          )}
+          }
         </nav>
 
-        {/* Footer — theme + collapse. */}
+        {/* Account stays accessible without a branded navigation header. */}
         <div className="border-t border-[var(--line)]">
-          <div className="flex">
+          <div className={collapsed ? 'grid grid-cols-1' : 'flex'}>
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              aria-label={`Foody · ${t('profile')}`}
+              title={t('profile')}
+              className="flex h-11 flex-1 items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]"
+            >
+              <UserRound aria-hidden className="size-4" />
+            </button>
             <button
               onClick={toggleTheme}
-              className={`flex-1 h-9 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out ${isRtl ? 'border-l' : 'border-r'} border-[var(--line)]`}
+              className="flex-1 h-11 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
               title={theme === 'dark' ? t('lightMode') : t('darkMode')}
             >
               {theme === 'dark' ? (
@@ -630,7 +474,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </button>
             <button
               onClick={toggleCollapsed}
-              className="flex-1 h-9 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
+              className="flex-1 h-11 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
               title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
             >
               {collapsed ? (
@@ -653,7 +497,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         {/* User info */}
         <div className="px-5 py-5 border-b border-[var(--line)]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-brand-500 text-white">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-[var(--action)] text-[var(--action-fg)]">
               <span className="text-sm font-bold">
                 {(user?.full_name || user?.email || '?')[0].toUpperCase()}
               </span>
@@ -721,14 +565,14 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </Link>
           )}
 
-          <Link
-            href={`/${restaurantId}/settings`}
+          {settingsGroups.length > 0 && <Link
+            href={settingsGroups.flatMap(group => group.items).find(item => item.href === `/${restaurantId}/settings`)?.href ?? settingsGroups[0].items[0].href}
             onClick={() => setProfileOpen(false)}
             className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
           >
             <Settings className="w-5 h-5" />
             {t('settings')}
-          </Link>
+          </Link>}
         </nav>
 
         <div className="border-t border-[var(--line)] px-5 py-4">

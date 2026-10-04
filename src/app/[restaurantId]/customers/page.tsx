@@ -6,9 +6,9 @@ import { getAnalyticsCustomers, listTrustedCustomers, type CustomerListResult, t
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
-import { PlusIcon, SearchIcon } from 'lucide-react';
-import { Button, Badge, Input, PageHead } from '@/components/ds';
-import { DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableBody, DataTableRow, DataTableCell } from '@/components/data-table';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { Button, Badge } from '@/components/ds';
+import { ListToolbar, ListPagination, DataTable, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableBody, DataTableRow, DataTableCell } from '@/components/data-table';
 import { MergeCustomersModal } from './MergeCustomersModal';
 import { DuplicateSuggestions } from './DuplicateSuggestions';
 import { CustomerAddModal, CustomerEditor, type CustomerEditorTarget } from '@/components/customers/CustomerForms';
@@ -48,12 +48,18 @@ function CustomerWorkspace({rid}:{rid:number}) {
  const toggle=(key:string)=>setSelected(current=>{const next=new Set(current);if(next.has(key))next.delete(key);else next.add(key);return next;});
  const refreshAfterMerge=async()=>{await reload();setSelected(new Set());};
  const date=(value:string|null)=>value?new Intl.DateTimeFormat(locale).format(new Date(value)):t('never');
- return <div className="space-y-5">
-  <PageHead title={t('customers')} desc={t('allCustomersDesc')} actions={canManage&&<Button onClick={()=>setAddOpen(true)}><PlusIcon/>{t('addCustomer')}</Button>}/>
-  <div className="flex flex-wrap items-center justify-between gap-3"><div className="relative w-full max-w-md"><SearchIcon aria-hidden="true" className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]"/><Input className="ps-10" aria-label={t('searchCustomers')} dir="auto" placeholder={t('searchCustomers')} value={searchInput} onChange={event=>setSearchInput(event.target.value)}/></div>{canManage&&selectedRows.length>=2&&!loading&&!error&&<Button onClick={()=>setMergeRows(selectedRows)}>{t('mergeCustomersSelected').replace('{n}',String(selectedRows.length))}</Button>}</div>
+ return <div>
+  <h1 className="sr-only">{t('customers')}</h1>
+  <ListToolbar search={{ value: searchInput, onChange: setSearchInput, label: t('search') }}
+    actions={<ActionsDropdown actions={[
+      { label: t('refresh'), onClick: () => void reload().catch(() => {}) },
+      ...(canManage && selectedRows.length >= 2 && !loading && !error ? [{ label: t('mergeCustomersSelected').replace('{n}',String(selectedRows.length)), onClick: () => setMergeRows(selectedRows) }] : []),
+      ...(selectedRows.length ? [{ label: t('listClearSelection'), onClick: () => setSelected(new Set()) }] : []),
+    ]} />}
+    primaryAction={canManage && <Button onClick={() => setAddOpen(true)}>{t('addCustomer')}</Button>} />
   {canManage&&<DuplicateSuggestions restaurantId={rid} onChanged={refreshAfterMerge}/>}
   {error?<div role="alert" className="rounded-xl border border-[var(--line)] p-5"><p className="text-sm text-[var(--danger-500)]">{error}</p><Button className="mt-3" variant="secondary" onClick={()=>void reload().catch(()=>{/* Error is displayed above. */})}>{t('retry')}</Button></div>:loading?<p role="status" className="py-12 text-center text-sm text-[var(--fg-muted)]">{t('loading')}</p>:rows.length===0?<div className="rounded-xl border border-[var(--line)] p-8 text-center text-[var(--fg-muted)]">{t('noCustomers')}</div>:<>
-   <DataTable>
+   <DataTable className="list-table">
     <DataTableHead>{canManage&&<DataTableHeadSpacerCell><label className="inline-flex min-h-11 min-w-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--action)]" aria-label={t('selectAll')} checked={rows.every(row=>selected.has(phoneKey(row.phone)))} onChange={event=>setSelected(event.target.checked?new Set(rows.map(row=>phoneKey(row.phone))):new Set())}/></label></DataTableHeadSpacerCell>}{['phone','name','address','orders','lastOrder','canPayCash'].map(key=><DataTableHeadCell key={key}>{t(key)}</DataTableHeadCell>)}</DataTableHead>
     <DataTableBody>{rows.map((row,index)=>{
      const address=formatDeliveryAddress({address:row.address,city:row.city,floor:row.floor,apt:row.apt,entryCode:row.entryCode},t,{compact:true});const key=phoneKey(row.phone);
@@ -66,7 +72,7 @@ function CustomerWorkspace({rid}:{rid:number}) {
      </DataTableRow>;
     })}</DataTableBody>
    </DataTable>
-   {totalPages>1&&<nav aria-label={t('customerPagination')} className="flex items-center justify-between gap-3"><Button variant="secondary" disabled={page<=1} onClick={()=>setPage(current=>Math.max(1,current-1))}>{t('previous')}</Button><span className="text-sm tabular-nums">{page} / {totalPages}</span><Button variant="secondary" disabled={page>=totalPages} onClick={()=>setPage(current=>Math.min(totalPages,current+1))}>{t('next')}</Button></nav>}
+   <ListPagination page={page} totalPages={totalPages} pageSize={PER_PAGE} onPageChange={setPage} />
   </>}
   {editRow&&<CustomerEditor key={editRow.phone} restaurantId={rid} row={editRow} onClose={()=>setEditRow(null)} onSaved={reload}/>}
   {addOpen&&<CustomerAddModal restaurantId={rid} onClose={()=>setAddOpen(false)} onSaved={reload}/>}

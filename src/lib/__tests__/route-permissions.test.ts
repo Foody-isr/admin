@@ -31,3 +31,10 @@ test('delivery settings combines the separate zone and minimum contracts without
 test('the retained website editor requires the original website editing permission', () => {
   assert.deepEqual(requiredPermissionsForPath('/2/website-v3'), ['settings.edit']);
 });
+
+
+test('integrated team settings follow staff permissions without opening general settings or role editing', () => {
+  assert.deepEqual(requiredPermissionsForPath('/2/settings/team'), ['staff.view', 'staff.manage', 'roles.manage']);
+  assert.equal(requiredPermissionsForPath('/2/settings').includes('staff.view'), false);
+  assert.equal(requiredPermissionsForPath('/2/roles').includes('staff.view'), false);
+});

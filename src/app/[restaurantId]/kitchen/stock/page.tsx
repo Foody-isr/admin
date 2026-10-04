@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import {
   listStockItems, deleteStockItem,
   getStockCategories,
@@ -17,22 +16,21 @@ import { StockTransactionDialog, StockHistoryDialog } from '@/components/stock/S
 import VatRateSelect from '@/components/stock/VatRateSelect';
 import DeliveryImportModal from './DeliveryImportModal';
 import CsvImportModal from '@/components/import/CsvImportModal';
-import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 import Modal from '@/components/Modal';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
-import StockKpiRow from '@/components/stock/StockKpiRow';
 import {
-  SearchIcon, PlusIcon, DownloadIcon,
+  PlusIcon, DownloadIcon,
   AlertTriangleIcon, TrashIcon, PencilIcon,
   ArrowRightLeftIcon,
-  SparklesIcon, ClockIcon, RefreshCwIcon,
-  ChevronDownIcon, ImageIcon, UploadIcon,
-	  RulerIcon, ListFilterIcon, XIcon, TagIcon, PercentIcon, ShoppingCartIcon,
+  ClockIcon,
+  ChevronDownIcon, ImageIcon,
+  RulerIcon, ListFilterIcon,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
-import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import {
+  ListToolbar,
   DataTable,
   DataTableHead,
   DataTableHeadCell,
@@ -109,7 +107,7 @@ function StockWorkspace({rid}: {rid:number}) {
   };
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
-  const [filtersDrawer, setFiltersDrawer] = useState<{ open: boolean; view: FilterView }>({
+  const [filtersDrawer, setFiltersDrawer] = useState<{ open: boolean; view: string }>({
     open: false,
     view: 'index',
   });
@@ -127,7 +125,7 @@ function StockWorkspace({rid}: {rid:number}) {
     [],
   );
 
-  const openFiltersDrawer = (view: FilterView) => setFiltersDrawer({ open: true, view });
+  const openFiltersDrawer = (view: string) => setFiltersDrawer({ open: true, view });
   const closeFiltersDrawer = () => setFiltersDrawer((prev) => ({ ...prev, open: false }));
 
   // Selection for bulk actions
@@ -192,6 +190,13 @@ function StockWorkspace({rid}: {rid:number}) {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!canManage || searchParams.get('newDelivery') !== '1') return;
+    setImportDraftId(undefined); setImportModal(true);
+    const query = new URLSearchParams(searchParams.toString()); query.delete('newDelivery');
+    router.replace(query.size ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [canManage, searchParams, router, pathname]);
+
   // Deep-link: `?edit=<stockItemId>` opens the stock item editor directly.
   // Used by the Food Cost ingredient table — clicking an ingredient name
   // navigates here so the user can edit quantity/price on the real editor.
@@ -228,7 +233,6 @@ function StockWorkspace({rid}: {rid:number}) {
   },[rid,t]);
   useEffect(()=>{const current=guard.current;void reload().catch(()=>{/* Rendered by loadError. */});return()=>current.invalidate();},[reload]);
 
-  const activeFilterCount = selectedCategories.size + selectedStatuses.size;
 
   const filtered = items.filter((item) => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -328,260 +332,47 @@ function StockWorkspace({rid}: {rid:number}) {
     finally{mutationLock.current=false;setBulkProcessing(false);}
   };
 
-  const filterByStatus = (status: 'low' | 'ok' | null) => {
-    setSelectedCategories(new Set());
-    setSelectedStatuses(status ? new Set([status]) : new Set());
-  };
-
   if(loading)return <div className="space-y-5"><PageHead title={t('stock')}/><p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p></div>;
   if(!loaded&&loadError)return <div className="space-y-5"><PageHead title={t('stock')}/><div role="alert" className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5 space-y-4"><p className="text-[var(--danger-500)]">{loadError}</p><Button size="lg" variant="secondary" disabled={refreshing} onClick={()=>void reload().catch(()=>{/* Rendered above. */})}>{t('retry')}</Button></div></div>;
 
-  // Operational overview — computed from the complete inventory, independently
-  // from the current filters so it remains a stable navigation aid.
-  const stockLow = items.filter((i) => stockStatusOf(i) === 'low').length;
-  const stockOk = items.length - stockLow;
-  const totalValue = items.reduce(
-    (sum, i) => sum + (i.quantity ?? 0) * adjustedCost(i),
-    0,
-  );
-
-  // Pill categories: an "all" sentinel + real category names.
-  const ALL_PILL = '__all__';
-  const allLabel = t('all');
-  const pillCategories = [ALL_PILL, ...categories.map((c) => c.name)];
-  const activePill = selectedCategories.size === 0
-    ? ALL_PILL
-    : selectedCategories.size === 1
-      ? Array.from(selectedCategories)[0]
-      : null;
-  const selectPill = (name: string) => {
-    if (name === ALL_PILL) setSelectedCategories(new Set());
-    else setSelectedCategories(new Set([name]));
-  };
+  const statusOptions = [{ value: 'low', label: t('lowStock') }, { value: 'ok', label: t('statusOk') }];
+  const listFilters = [
+    { id: 'category', label: t('category'), options: categories.map(category => ({ value: category.name, label: category.name })), selected: selectedCategories },
+    { id: 'status', label: t('listState'), options: statusOptions, selected: selectedStatuses },
+  ];
   const visibleStart = sorted.length > 0 ? 1 : 0;
   const visibleEnd = sorted.length;
-  const resetFilters = () => {
-    setSearch('');
-    setSelectedCategories(new Set());
-    setSelectedStatuses(new Set());
-  };
-
   return (
     <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
       <div className="min-w-0 space-y-[var(--s-3)] md:space-y-[var(--s-4)]">
-        <PageHead
-          title={t('stock') || 'Stock'}
-          desc={`${items.length} ${t('articlesUnit')} · ${categories.length} ${t('categoriesCount')}`}
-          className="mb-0 items-center"
-	          actions={
-	            canManage ? (<>
-	              <Button variant="secondary" size="lg" asChild>
-	                <Link href={`/${rid}/kitchen/suppliers?tab=needs`}>
-	                  <ShoppingCartIcon /> {t('orderStock')}
-	                </Link>
-	              </Button>
-	              <Button
-                variant="primary"
-                size="lg"
-                onClick={() => setItemModal({ open: true })}
-                aria-label={t('addItem')}
-                title={t('addItem')}
-	              >
-	                <PlusIcon/> {t('addItem')}
-	              </Button>
-	            </>) : null
-          }
-        />
-
+        <h1 className="sr-only">{t('stock')}</h1>
         {notice&&<p role="status" className="text-sm text-[var(--success-500)]">{notice}</p>}
         {loadError&&<div role="alert" className="space-y-3 rounded-r-md border border-[var(--line)] p-4"><p className="text-sm text-[var(--danger-500)]">{t('stockRefreshFailed')} {loadError}</p><Button variant="secondary" size="lg" disabled={refreshing} onClick={()=>void reload().catch(()=>{/* Rendered here. */})}>{t('retry')}</Button></div>}
-        <header>
-          <StockKpiRow
-            total={items.length}
-            categoriesCount={categories.length}
-            okCount={stockOk}
-            lowCount={stockLow}
-            totalValue={totalValue}
-            vatDisplayMode={vatDisplayMode}
-            onStatusChange={filterByStatus}
-          />
-
-          {canManage && selected.size > 0 && (
-            <div className="mt-[var(--s-4)] flex flex-wrap items-center justify-between gap-4 rounded-r-md border border-[var(--line)] bg-[var(--brand-soft)] px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span className="text-fs-sm font-semibold text-[var(--brand-ink)]">
-                  {t('itemsSelected').replace('{count}', String(selected.size))}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelected(new Set())}
-                  className="min-h-11 text-fs-xs font-medium text-[var(--brand-ink)] hover:text-[var(--brand-ink)] focus-visible:outline-none focus-visible:shadow-ring"
-                >
-                  {t('deselectAll') || 'Tout désélectionner'}
-                </button>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => setCategoryDrawer({ open: true, mode: 'bulk-assign' })}
-                  disabled={bulkProcessing}
-                >
-                  <TagIcon />
-                  {t('updateCategory')}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => {setMutationError('');setBulkVatValue(null);setBulkVatModal(true);}}
-                  disabled={bulkProcessing}
-                >
-                  <PercentIcon />
-                  {t('updateVat')}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={handleBulkDelete}
-                  disabled={bulkProcessing}
-                  className="text-[var(--danger-500)] hover:bg-[var(--danger-50)]"
-                >
-                  <TrashIcon />
-                  {t('delete')} ({selected.size})
-                </Button>
-              </div>
-            </div>
-          )}
-        </header>
-
-        {pillCategories.length > 0 && (
-          <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)]">
-            <HorizontalScrollRail activeKey={activePill} edgeFlush>
-              <div className="inline-flex items-center gap-5 pe-4">
-                <span className="hidden py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)] md:inline">
-                  {t('category')}
-                </span>
-                {pillCategories.map((name) => {
-                  const active = activePill === name;
-                  const label = name === ALL_PILL ? allLabel : name;
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => selectPill(name)}
-                      aria-pressed={active}
-                      data-rail-active={active ? '' : undefined}
-                      className={`relative whitespace-nowrap py-2.5 text-fs-sm font-medium outline-none transition-colors focus-visible:shadow-ring ${
-                        active
-                          ? 'text-[var(--fg)] after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-[var(--brand-500)]'
-                          : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </HorizontalScrollRail>
-            <span className="hidden shrink-0 text-fs-xs text-[var(--fg-muted)] md:block">
-              {t('showing')
-                .replace('{start}', String(visibleStart))
-                .replace('{end}', String(visibleEnd))
-                .replace('{total}', String(sorted.length))}
-            </span>
-          </div>
-        )}
-
-        <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 border-b border-transparent bg-[var(--bg)] px-1 py-2 max-md:border-[var(--line)]">
-          <div className="relative w-full md:w-[300px]">
-            <SearchIcon className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
-            <input
-              type="search"
-              placeholder={t('search')}
-              aria-label={t('search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setSearch('');
-              }}
-              className="input h-11 w-full ps-10 pe-10 text-fs-sm"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute end-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
-                aria-label={t('clearAll')}
-              >
-                <XIcon className="size-4" />
-              </button>
-            )}
-          </div>
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            className="max-md:flex-1"
-            onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
-          >
-            <span className="text-[var(--fg-muted)]">{t('category')}</span>
-            <span className="max-w-40 truncate font-semibold text-[var(--brand-ink)]">
-              {selectedCategories.size === 0
-                ? t('all')
-                : selectedCategories.size === 1
-                  ? Array.from(selectedCategories)[0]
-                  : selectedCategories.size}
-            </span>
-            <ChevronDownIcon />
-          </Button>
-
-          <Button type="button" variant="secondary" size="lg" className="max-md:flex-1" onClick={() => openFiltersDrawer('index')}>
-            <ListFilterIcon />
-            {t('allFilters')}
-            <ChevronDownIcon />
-          </Button>
-
-          {activeFilterCount > 0 && (
-            <Button type="button" variant="ghost" size="lg" onClick={resetFilters}>
-              <ListFilterIcon />
-              {t('ordersResetFiltersWithCount').replace('{n}', String(activeFilterCount))}
-            </Button>
-          )}
-
-          <div className="ms-auto max-md:ms-0 [&>button]:h-11 [&>button]:rounded-r-md [&>button]:border [&>button]:border-[var(--line-strong)] [&>button]:!bg-[var(--surface)] [&>button]:px-[var(--s-4)] [&>button]:text-fs-sm hover:[&>button]:!bg-[var(--surface-2)]">
-            <ActionsDropdown
-              compactOnMobile
-              actions={[
-                {
-                  label: vatDisplayMode === 'inc'
-                    ? `${t('displayPrice')}: ${t('exVat')}`
-                    : `${t('displayPrice')}: ${t('incVat')}`,
-                  onClick: toggleVatDisplay,
-                  icon: <ArrowRightLeftIcon className="w-4 h-4" />,
-                },
-                ...(canManage ? [
-                  {
-                    label: t('importDelivery'),
-                    onClick: () => { setImportDraftId(undefined); setImportModal(true); },
-                    icon: <SparklesIcon className="w-4 h-4" />,
-                  },
-                  {
-                    label: t('importCsv'),
-                    onClick: () => setCsvImportOpen(true),
-                    icon: <UploadIcon className="w-4 h-4" />,
-                  },
-                ] : []),
-                {
-                  label: t('refresh'),
-                  onClick: ()=>void reload().catch(()=>{/* Rendered by loadError. */}),
-                  icon: <RefreshCwIcon className="w-4 h-4" />,
-                },
-              ]}
-            />
-          </div>
-        </div>
-
+        <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+          filters={<>
+            <ListFilterButton label={t('category')} value={selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : selectedCategories.size > 1 ? selectedCategories.size : undefined} onClick={() => openFiltersDrawer('category')} />
+            <ListStateFilter label={t('listState')} options={statusOptions} selected={selectedStatuses} onChange={setSelectedStatuses} />
+            <ListFilterButton label={t('allFilters')} icon={<ListFilterIcon />} onClick={() => openFiltersDrawer('index')} />
+          </>}
+          primaryAction={canManage && <Button onClick={() => setItemModal({ open: true })}>{t('createItem')}</Button>}
+          actions={<ActionsDropdown actions={[
+            { label: `${t('displayPrice')}: ${t(vatDisplayMode === 'inc' ? 'exVat' : 'incVat')}`, onClick: toggleVatDisplay },
+            ...(canManage ? [
+              { label: t('orderStock'), onClick: () => router.push(`/${rid}/kitchen/suppliers?tab=needs`) },
+              { label: t('importDelivery'), onClick: () => { setImportDraftId(undefined); setImportModal(true); } },
+              { label: t('importCsv'), onClick: () => setCsvImportOpen(true) },
+              { label: t('categories'), onClick: () => setCategoryDrawer({ open: true, mode: 'filter' }) },
+            ] : []),
+            { label: t('refresh'), onClick: () => void reload().catch(() => { /* Rendered by loadError. */ }), disabled: refreshing },
+            ...(canManage && selected.size ? [
+              { label: t('updateCategory'), onClick: () => setCategoryDrawer({ open: true, mode: 'bulk-assign' }), disabled: bulkProcessing },
+              { label: t('updateVat'), onClick: () => { setMutationError(''); setBulkVatValue(null); setBulkVatModal(true); }, disabled: bulkProcessing },
+              { label: `${t('delete')} (${selected.size})`, onClick: handleBulkDelete, variant: 'danger' as const, disabled: bulkProcessing },
+              { label: t('deselectAll'), onClick: () => setSelected(new Set()) },
+            ] : []),
+          ]} />}
+        />
+        <span role="status" className="sr-only">{t('itemsSelected').replace('{count}', String(selected.size))}</span>
         <div>
 
       {/* Table — Figma App.tsx:600 (stock variant) */}
@@ -605,11 +396,11 @@ function StockWorkspace({rid}: {rid:number}) {
         </div>
       ) : (
         <DataTable
-          className="operational-table md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
+          className="list-table operational-table"
           data-density="compact"
         >
             <DataTableHead className="sticky top-0 z-[2]">
-                <DataTableHeadSpacerCell className="bg-[var(--surface-2)] px-3 py-2">
+                <DataTableHeadSpacerCell className="bg-[var(--surface)] px-3 py-2">
                   <Checkbox aria-label={t('selectAll')} disabled={!canManage||bulkProcessing}
                   checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
                   onCheckedChange={toggleSelectAll}
@@ -620,11 +411,11 @@ function StockWorkspace({rid}: {rid:number}) {
                   currentSortKey={sortKey}
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'name')}
-                  className="bg-[var(--surface-2)] px-3 py-2 normal-case tracking-normal [&_button]:normal-case [&_button]:tracking-normal"
+                  className="bg-[var(--surface)] px-3 py-2 normal-case tracking-normal [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('item') || 'Article'}
                 </SortableHeadCell>
-                <DataTableHeadCell className="bg-[var(--surface-2)] px-3 py-2 normal-case tracking-normal">
+                <DataTableHeadCell className="bg-[var(--surface)] px-3 py-2 normal-case tracking-normal">
                   {t('category') || 'Catégorie'}
                 </DataTableHeadCell>
                 <SortableHeadCell
@@ -633,7 +424,7 @@ function StockWorkspace({rid}: {rid:number}) {
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'quantity')}
                   align="right"
-                  className="bg-[var(--surface-2)] px-3 py-2 normal-case tracking-normal [&_button]:normal-case [&_button]:tracking-normal"
+                  className="bg-[var(--surface)] px-3 py-2 normal-case tracking-normal [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('quantity') || 'Quantité'}
                 </SortableHeadCell>
@@ -643,7 +434,7 @@ function StockWorkspace({rid}: {rid:number}) {
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'price')}
                   align="right"
-                  className="bg-[var(--surface-2)] px-3 py-2 normal-case tracking-normal [&_button]:normal-case [&_button]:tracking-normal"
+                  className="bg-[var(--surface)] px-3 py-2 normal-case tracking-normal [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('unitPrice') || 'Prix unitaire'}
                 </SortableHeadCell>
@@ -653,17 +444,17 @@ function StockWorkspace({rid}: {rid:number}) {
                   sortDir={sortDir}
                   onSort={(k) => toggleSort(k as 'total')}
                   align="right"
-                  className="bg-[var(--surface-2)] px-3 py-2 normal-case tracking-normal [&_button]:normal-case [&_button]:tracking-normal"
+                  className="bg-[var(--surface)] px-3 py-2 normal-case tracking-normal [&_button]:normal-case [&_button]:tracking-normal"
                 >
                   {t('totalValue') || 'Valeur totale'}
                 </SortableHeadCell>
-                <DataTableHeadCell className="bg-[var(--surface-2)] px-3 py-2 normal-case tracking-normal">
+                <DataTableHeadCell className="bg-[var(--surface)] px-3 py-2 normal-case tracking-normal">
                   {t('supplier') || 'Fournisseur'}
                 </DataTableHeadCell>
-                <DataTableHeadCell className="bg-[var(--surface-2)] px-3 py-2 normal-case tracking-normal">
+                <DataTableHeadCell className="bg-[var(--surface)] px-3 py-2 normal-case tracking-normal">
                   {t('status') || 'Statut'}
                 </DataTableHeadCell>
-                <DataTableHeadSpacerCell className="bg-[var(--surface-2)] px-3 py-2" />
+                <DataTableHeadSpacerCell className="bg-[var(--surface)] px-3 py-2" />
             </DataTableHead>
             <DataTableBody>
               {sorted.map((item, index) => {
@@ -829,21 +620,8 @@ function StockWorkspace({rid}: {rid:number}) {
         />
       )}
 
-      {/* Stock Filters Drawer (nested: index → category | status) */}
-      <StockFiltersDrawer
-        open={filtersDrawer.open}
-        initialView={filtersDrawer.view}
-        onClose={closeFiltersDrawer}
-        categories={categories}
-        selectedCategories={selectedCategories}
-        onCategoryChange={setSelectedCategories}
-        statuses={[
-          { value: 'low', label: t('lowStock') || 'Stock bas', color: '#ef4444' },
-          { value: 'ok', label: t('statusOk') || 'OK', color: '#10b981' },
-        ]}
-        selectedStatuses={selectedStatuses}
-        onStatusChange={setSelectedStatuses}
-      />
+      <ListFiltersDrawer open={filtersDrawer.open} initialView={filtersDrawer.view} onClose={closeFiltersDrawer} filters={listFilters}
+        onApply={values => { setSelectedCategories(values.category); setSelectedStatuses(values.status); }} />
 
       {/* AI Delivery Import Modal */}
       {importModal && (

@@ -1,0 +1,39 @@
+{
+  "lint": "passed (20 existing warnings)",
+  "typescript": "passed",
+  "production_build": "passed",
+  "unit_tests": 641,
+  "i18n_keys": 6729,
+  "browser_checkpoints": [
+    {
+      "file": "compiled-results.json",
+      "passed": 189
+    },
+    {
+      "file": "suppliers-compiled-results.json",
+      "passed": 19
+    },
+    {
+      "file": "final-targeted-results.json",
+      "passed": 31,
+      "scope": "Repeated UX foundations, team permission boundary and six delivery-history scenarios on the final build; overlaps the first checkpoint."
+    }
+  ],
+  "deployment": "local only; no new commit or push",
+  "api": "synthetic only",
+  "columns_followup": {
+    "lint": "passed (20 existing warnings)",
+    "typescript": "passed",
+    "production_build": "passed",
+    "targeted_unit_tests": 16,
+    "i18n_keys": 6732,
+    "browser_tests": {
+      "file": "columns-compiled-results.json",
+      "passed": 32,
+      "scope": "Repeated 25 UX foundations plus seven column picker, persistence, navigation and favicon scenarios; overlaps earlier checkpoints."
+    },
+    "storage": "Articles: browser-local per user and restaurant. Orders: unchanged shared restaurant configuration.",
+    "api": "synthetic only",
+    "deployment": "local only; no commit or push"
+  }
+}

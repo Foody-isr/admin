@@ -10,4 +10,23 @@ Vérifications sur les sources du lot :629 tests unitaires,16 tests de dépendan
 
 Les contrats serveur et mécanismes de paiement/publication restent ceux existants. Les limites du serveur sans idempotence/ETag, des parcours partiels et de la vérification par fixtures sont documentées ; la validation du vrai environnement de développement reste à faire avec l’utilisateur. Les tarifs de facturation existants ont été conservés, sans reprendre les tarifs marketing divergents.
 
-PR, CI et déploiement : en cours ; les liens et le résultat seront ajoutés au suivi après vérification.
+PR#452 fusionnée, CI et déploiement de développement vérifiés ; détails ci-dessous.
+
+
+## Premier lot publié en développement
+
+Demande utilisateur explicite exécutée : commit `fe74c937ead44aa74c321aaaa4553dfab5a73052`, PR https://github.com/Foody-isr/admin/pull/452 fusionnée dans develop le2026-10-04 à16:11UTC (19:11Asia/Jerusalem), merge `2c1bede1b5ef2039037c07626f8d2d1bf8ea3173`. Arbre de fusion identique au commit validé. CI GitHub Audit/Test/Build et i18n réussis, prévisualisation Vercel réussie.
+
+Déploiement develop Vercel réussi, GitHub deployment6843408543, environnement Preview, URL https://admin-4ueehmmrc-mickaz.vercel.app. Adresse utilisateur https://dev-admin.foody-pos.co.il/login :HTTP200, écran FR rendu dans Chromium isolé, Manrope/Heebo chargés, champs email/mot de passe présents, aucune erreur runtime ni écriture. Favicon servi identique à la source fusionnée. Preuves `evidence/development-login-fr.png` et `evidence/development-login-verification.json`. Aucun parcours authentifié ni mutation métier réelle exécuté pour cette vérification.
+
+Suite locale sur `feat/admin-landing-alignment-next`, depuis le merge develop. Aucun push ultérieur de cette suite avant nouvelle demande de publication. Les12 types de pages restants et finitions transversales continuent ; Traiteur/Tournées demeurent reportés.
+
+## Deuxième lot UX — candidat développement
+
+Nouvelle publication en développement demandée par l’utilisateur après validation du sélecteur de colonnes Articles et du retrait du logo dans la navigation. Le lot comprend les fondations monochromes, les tableaux et filtres partagés, les paramètres intégrés dans la navigation globale, les pages de chaîne terminées, les colonnes Articles personnelles et le favicon C2 noir.
+
+La feuille de production en cours (page, composants, hooks, normalisation API et traductions associées) et l’ébauche Tournées sont exclues du commit. Elles sont préservées dans le worktree local. Le client API existant est conservé dans ce candidat.
+
+Validation effectuée dans une copie exacte de l’index, sans les ébauches exclues : lint réussi avec 20 avertissements préexistants, TypeScript et build réussis, 640 tests unitaires, 16 tests de dépendance (installation partagée inchangée), audit npm sans vulnérabilité, 6 717 clés i18n synchronisées et 70 scénarios navigateur compilés réussis. Preuve : `evidence/ux-reference/development-candidate-results.json`. Les scénarios sont entièrement synthétiques ; cette vérification ne réalise aucune mutation métier réelle.
+
+La publication passe par une unique PR de `feat/admin-landing-alignment-next` vers `develop`, suivie du déploiement Vercel natif. Le résultat CI et le déploiement doivent être vérifiés avant d’annoncer la disponibilité en développement. Aucune publication en production n’est incluse dans cette demande.

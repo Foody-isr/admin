@@ -14,7 +14,7 @@ const alignClass: Record<Align, string> = {
 };
 
 const headCellBase =
-  'px-4 py-3 font-semibold text-[var(--fg-muted)] text-xs';
+  'px-4 py-4 font-semibold text-[var(--fg)] text-sm';
 
 export type SortDir = 'asc' | 'desc';
 
@@ -33,13 +33,13 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
     <div
       ref={ref}
       className={cn(
-        'bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto',
+        'bg-[var(--surface)] border-b border-[var(--line)] overflow-x-auto',
         responsive && 'responsive-table',
         className,
       )}
       {...props}
     >
-      <table className="w-full">{children}</table>
+      <table className="w-full border-collapse text-sm">{children}</table>
     </div>
   ),
 );
@@ -50,7 +50,7 @@ export const DataTableHead = React.forwardRef<
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, children, ...props }, ref) => (
   <thead ref={ref} className={className} {...props}>
-    <tr className="border-b border-[var(--line)] bg-[var(--surface-2)]">
+    <tr className="border-b border-[var(--line-strong)] bg-[var(--surface)]">
       {children}
     </tr>
   </thead>
@@ -65,6 +65,7 @@ export const DataTableHeadCell = React.forwardRef<HTMLTableCellElement, HeadCell
   ({ align = 'left', className, children, ...props }, ref) => (
     <th
       ref={ref}
+      scope="col"
       className={cn(alignClass[align], headCellBase, className)}
       {...props}
     >
@@ -88,6 +89,7 @@ export const SortableHeadCell = React.forwardRef<HTMLTableCellElement, SortableH
     return (
       <th
         ref={ref}
+        scope="col"
         aria-sort={isActive ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
         className={cn(alignClass[align], headCellBase, className)}
         {...props}
@@ -153,7 +155,7 @@ type RowProps = React.HTMLAttributes<HTMLTableRowElement> & {
 };
 
 export const DataTableRow = React.forwardRef<HTMLTableRowElement, RowProps>(
-  ({ index, striped = true, className, children, ...props }, ref) => {
+  ({ index, striped = false, className, children, ...props }, ref) => {
     const stripeCls =
       striped && index !== undefined && index % 2 !== 0
         ? 'bg-[var(--surface-2)]'

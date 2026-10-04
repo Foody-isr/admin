@@ -43,6 +43,7 @@ export function requiredPermissionsForPath(pathname: string): string[] {
   if (!section) return [];
   if (section === 'kitchen' && segments[2] === 'data') return ['kitchen.data_manage'];
   if (section === 'settings' && segments[2] === 'delivery') return ['orders.manage', 'settings.view', 'settings.edit'];
+  if (section === 'settings' && segments[2] === 'team') return ['staff.view', 'staff.manage', 'roles.manage'];
   if (section === 'settings' && segments[2] === 'devices') return DEVICE_INVENTORY_READ_PERMISSIONS;
   if (section === 'settings' && segments[2] === 'printers') {
     return ['printers.view', 'printers.manage'];

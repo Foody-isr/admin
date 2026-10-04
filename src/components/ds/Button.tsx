@@ -12,7 +12,7 @@ const buttonVariants = cva(
     'focus-visible:outline-none focus-visible:shadow-ring',
     'disabled:opacity-50 disabled:pointer-events-none',
     'active:translate-y-[0.5px]',
-    'rounded-r-md',
+    'rounded-full',
     '[&_svg]:w-4 [&_svg]:h-4 [&_svg]:shrink-0',
   ].join(' '),
   {
@@ -27,7 +27,7 @@ const buttonVariants = cva(
       },
       size: {
         sm: 'min-h-8 px-[var(--s-3)] text-fs-xs',
-        md: 'min-h-10 px-[var(--s-4)] text-fs-sm',
+        md: 'min-h-11 px-[var(--s-5)] text-fs-sm',
         lg: 'min-h-11 px-[var(--s-5)] text-fs-md',
       },
       icon: {
@@ -37,7 +37,7 @@ const buttonVariants = cva(
     },
     compoundVariants: [
       { icon: true, size: 'sm', class: 'w-8' },
-      { icon: true, size: 'md', class: 'w-10' },
+      { icon: true, size: 'md', class: 'w-11' },
       { icon: true, size: 'lg', class: 'w-11' },
     ],
     defaultVariants: { variant: 'primary', size: 'md', icon: false },

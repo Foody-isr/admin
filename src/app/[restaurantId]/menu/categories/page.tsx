@@ -10,12 +10,13 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { PlusIcon, PencilIcon, TrashIcon, ImageIcon, FolderOpen } from 'lucide-react';
 import Modal from '@/components/Modal';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
-import { Button, PageHead, ConfirmDialog } from '@/components/ds';
+import { Button, ConfirmDialog } from '@/components/ds';
 import {
+  ListToolbar, ListPagination, useListPagination, SortableHeadCell, type SortDir,
   DataTable,
   DataTableHead,
-  DataTableHeadCell,
   DataTableHeadSpacerCell,
   DataTableBody,
   DataTableRow,
@@ -25,10 +26,12 @@ import {
 export default function CategoriesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
 
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<{key: string; direction: SortDir}>({ key: 'name', direction: 'asc' });
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [editModal, setEditModal] = useState<{ open: boolean; editing?: MenuCategory }>({ open: false });
@@ -66,21 +69,17 @@ export default function CategoriesPage() {
     finally { setDeleting(false); }
   };
 
-  return (
-    <div className="space-y-[var(--s-5)]">
-      <PageHead
-        title={t('categories')}
-        desc={<>{t('libraryCategoriesDescription')}{!loading && !error && <span className="mt-2 block text-xs">{categories.length} {t('categoriesCount')}</span>}</>}
-        actions={
-          canEdit ? (
-            <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
-              <PlusIcon />
-              {t('createCategory')}
-            </Button>
-          ) : undefined
-        }
-      />
+  const filtered = categories.filter(category => category.name.toLocaleLowerCase(locale).includes(search.trim().toLocaleLowerCase(locale)))
+    .sort((a,b) => (sort.key === 'name' ? a.name.localeCompare(b.name, locale) : (a.items?.length ?? 0) - (b.items?.length ?? 0)) * (sort.direction === 'asc' ? 1 : -1));
+  const pagination = useListPagination(filtered, `${rid}:${search}:${sort.key}:${sort.direction}`);
+  const onSort = (key: string) => setSort(current => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
 
+  return (
+    <div>
+      <h1 className="sr-only">{t('categories')}</h1>
+      <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+        actions={<ActionsDropdown actions={[{ label: t('refresh'), onClick: () => void reload() }]} />}
+        primaryAction={canEdit && <Button onClick={() => setEditModal({ open: true })}>{t('createCategory')}</Button>} />
       {actionError && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
       {loading ? <p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p>
         : error ? <div role="alert" className="rounded-r-lg border border-[var(--line)] p-5"><p className="mb-4 text-[var(--danger-500)]">{error}</p><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>
@@ -100,15 +99,15 @@ export default function CategoriesPage() {
             </button>
           )}
         </div>
-      ) : (
-        <DataTable>
+      ) : filtered.length === 0 ? <div className="py-12 text-center text-fs-sm"><p>{t('listNoMatches')}</p><Button variant="secondary" className="mt-4" onClick={() => setSearch('')}>{t('reset')}</Button></div> : (<>
+        <DataTable className="list-table">
           <DataTableHead>
-            <DataTableHeadCell>{t('name')}</DataTableHeadCell>
-            <DataTableHeadCell align="right">{t('item')}</DataTableHeadCell>
+            <SortableHeadCell sortKey="name" currentSortKey={sort.key} sortDir={sort.direction} onSort={onSort}>{t('name')}</SortableHeadCell>
+            <SortableHeadCell align="right" sortKey="count" currentSortKey={sort.key} sortDir={sort.direction} onSort={onSort}>{t('item')}</SortableHeadCell>
             <DataTableHeadSpacerCell />
           </DataTableHead>
           <DataTableBody>
-            {categories.map((cat, index) => (
+            {pagination.rows.map((cat, index) => (
               <DataTableRow key={cat.id} index={index}>
                 <DataTableCell mobilePrimary className="font-medium text-fg-primary">
                   <div className="flex items-center gap-3">
@@ -150,7 +149,8 @@ export default function CategoriesPage() {
             ))}
           </DataTableBody>
         </DataTable>
-      )}
+        <ListPagination {...pagination} />
+      </>)}
 
       <ConfirmDialog open={!!pendingDelete} onOpenChange={open => { if (!open) setPendingDelete(null); }} title={t('delete')} description={pendingDelete?.name} danger confirmLabel={t('delete')} cancelLabel={t('cancel')} onConfirm={() => { if (pendingDelete) void handleDelete(pendingDelete); }} />
       {editModal.open && (

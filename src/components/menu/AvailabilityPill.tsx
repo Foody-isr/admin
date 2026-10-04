@@ -71,7 +71,7 @@ export function AvailabilityPill({ state, override, isActive, bottleneck, canEdi
     return (
       <span
         title={bottleneck || undefined}
-        className={`inline-block px-3 py-1 rounded-r-md text-sm font-medium ${cls}`}
+        className={`inline-block px-3 py-1 rounded-full text-sm font-normal ${cls}`}
       >
         {label}
       </span>
@@ -92,7 +92,7 @@ export function AvailabilityPill({ state, override, isActive, bottleneck, canEdi
         e.stopPropagation();
         onToggle!();
       }}
-      className={`group inline-flex min-h-11 items-center gap-1 px-3 py-1 rounded-r-md text-sm font-medium cursor-pointer transition-shadow hover:ring-1 hover:ring-inset hover:ring-current disabled:opacity-50 disabled:cursor-not-allowed ${cls}`}
+      className={`list-availability-pill group inline-flex min-h-11 items-center gap-1 px-3 py-1 rounded-full text-sm font-normal cursor-pointer transition-shadow hover:ring-1 hover:ring-inset hover:ring-current disabled:opacity-50 disabled:cursor-not-allowed ${cls}`}
     >
       {label}
       <ChevronDown className="w-3.5 h-3.5 opacity-0 group-hover:opacity-60 transition-opacity" />

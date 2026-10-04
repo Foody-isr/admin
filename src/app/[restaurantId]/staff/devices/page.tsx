@@ -1,10 +1,13 @@
 'use client';
 
-import Link from 'next/link';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { ListToolbar } from '@/components/data-table';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, KeyRound, RefreshCw, ShieldOff } from 'lucide-react';
-import { Badge, Button, PageHead } from '@/components/ds';
+import { useParams, useRouter } from 'next/navigation';
+import { ListFilter, ShieldOff } from 'lucide-react';
+import { Badge, Button } from '@/components/ds';
 import Modal from '@/components/Modal';
 import {
   DataTable,
@@ -34,6 +37,12 @@ function statusOf(device: POSAccessCredential): DeviceStatus {
 export default function POSAccessCredentialsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const router = useRouter();
+  const [search, setSearch] = useState('');
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
+  const [filterView, setFilterView] = useState<string | null>(null);
+
   const { t, locale } = useI18n();
   const [devices, setDevices] = useState<POSAccessCredential[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +74,10 @@ export default function POSAccessCredentialsPage() {
     () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
     [locale],
   );
-  const activeCount = devices.filter((device) => statusOf(device) === 'active').length;
+  const statusOptions = ['active', 'expired', 'revoked'].map(value => ({ value, label: t(`posTerminalStatus_${value}`) }));
+  const groupOptions = Array.from(new Set(devices.map(device => device.enrolled_by_name).filter(Boolean))).map(name => ({ value: name!, label: name! }));
+  const filtered = devices.filter(device => device.name.toLocaleLowerCase(locale).includes(search.trim().toLocaleLowerCase(locale)) && (!selectedGroups.size || selectedGroups.has(device.enrolled_by_name ?? '')) && (!selectedStatuses.size || selectedStatuses.has(statusOf(device))));
+  const listFilters = [{ id: 'group', label: t('authorizedBy'), options: groupOptions, selected: selectedGroups }, { id: 'status', label: t('listState'), options: statusOptions, selected: selectedStatuses }];
 
   const revoke = async () => {
     if (!selected || revoking) return;
@@ -84,36 +96,24 @@ export default function POSAccessCredentialsPage() {
 
   return (
     <div className="space-y-[var(--s-5)]">
-      <PageHead
-        title={t('posAccess')}
-        desc={t('posAccessDesc')}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="md" asChild>
-              <Link href={`/${rid}/staff`}><ArrowLeft className="rtl:rotate-180" />{t('back')}</Link>
-            </Button>
-            <Button variant="secondary" size="md" onClick={() => void load()} disabled={loading}>
-              <RefreshCw />{t('refresh')}
-            </Button>
-          </div>
-        }
+      <h1 className="sr-only">{t('posAccess')}</h1>
+      <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+        filters={<>
+          <ListFilterButton label={t('authorizedBy')} value={selectedGroups.size || undefined} onClick={() => setFilterView('group')} />
+          <ListStateFilter label={t('listState')} options={statusOptions} selected={selectedStatuses} onChange={setSelectedStatuses} />
+          <ListFilterButton label={t('allFilters')} icon={<ListFilter />} onClick={() => setFilterView('index')} />
+        </>}
+        actions={<ActionsDropdown actions={[
+          { label: t('refresh'), disabled: loading, onClick: () => void load() },
+          { label: t('staff'), onClick: () => router.push(`/${rid}/staff`) },
+        ]} />}
       />
-
-      {!loading && !error && <div className="flex flex-wrap items-center gap-4 rounded-r-lg bg-[var(--summary-bg)] p-5">
-        <div className="grid h-11 w-11 place-items-center rounded-r-lg bg-[var(--surface)] text-[var(--summary-fg)]">
-          <KeyRound className="h-5 w-5" />
-        </div>
-        <div>
-          <div className="text-2xl font-semibold text-[var(--summary-fg)] tabular-nums">{activeCount}</div>
-          <div className="text-sm text-fg-muted">{t('activePOSTerminals')}</div>
-        </div>
-        <p className="ms-auto max-w-xl text-sm text-fg-secondary">{t('posTerminalSecurityHint')}</p>
-      </div>}
-
+      <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters}
+        onApply={values => { setSelectedGroups(values.group); setSelectedStatuses(values.status); }} />
       {error && <div role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)] flex flex-wrap items-center justify-between gap-3"><span>{error}</span><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>}
       {loading && <p role="status" className="py-12 text-center text-sm text-fg-secondary">{t('loading')}</p>}
 
-      {!loading && !error && <DataTable>
+      {!loading && !error && <DataTable className="list-table">
         <DataTableHead>
           <DataTableHeadCell>{t('terminalName')}</DataTableHeadCell>
           <DataTableHeadCell>{t('status')}</DataTableHeadCell>
@@ -123,7 +123,7 @@ export default function POSAccessCredentialsPage() {
           <DataTableHeadSpacerCell />
         </DataTableHead>
         <DataTableBody>
-          {!loading && devices.map((device, index) => {
+          {!loading && filtered.map((device, index) => {
             const status = statusOf(device);
             return (
               <DataTableRow key={device.id} index={index}>
@@ -151,13 +151,14 @@ export default function POSAccessCredentialsPage() {
               </DataTableRow>
             );
           })}
-          {!loading && devices.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <DataTableRow index={0}>
               <DataTableCell colSpan={6} className="py-12 text-center text-fg-muted">{t('noPOSTerminals')}</DataTableCell>
             </DataTableRow>
           )}
         </DataTableBody>
       </DataTable>}
+      <p className="mt-6 text-sm text-fg-secondary">{t('posTerminalSecurityHint')}</p>
 
       {selected && (
         <Modal

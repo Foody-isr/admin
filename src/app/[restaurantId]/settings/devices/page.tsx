@@ -4,14 +4,13 @@ import FoodyLogo from '@/components/brand/FoodyLogo';
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
   Check,
   BatteryMedium,
-  ChevronLeft,
   ChevronRight,
   CircleAlert,
   CreditCard,
@@ -22,7 +21,6 @@ import {
   MonitorUp,
   Plus,
   Printer,
-  RefreshCw,
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
@@ -69,7 +67,6 @@ import {
   MenuLabel,
   MenuSeparator,
   MenuTrigger,
-  PageHead,
   Select,
   Table,
   TableShell,
@@ -80,10 +77,10 @@ import {
   Tr,
 } from '@/components/ds';
 import Modal from '@/components/Modal';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { ListToolbar, ListPagination } from '@/components/data-table';
+import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 
-type TypeFilter = 'all' | ManagedDeviceKind;
-type StatusFilter = 'all' | ManagedDeviceStatus;
-type AppFilter = 'all' | 'foodypos';
 type SortKey = 'name' | 'status' | 'battery' | 'application' | 'lastSeen' | 'displayName' | 'identifier';
 type SortDirection = 'asc' | 'desc';
 type ColumnId = 'status' | 'battery' | 'location' | 'lastApplication' | 'applications' | 'lastSeen' | 'displayName' | 'identifier';
@@ -95,7 +92,6 @@ const STATUS_TONES: Record<ManagedDeviceStatus, 'success' | 'neutral' | 'warning
   attention: 'danger',
   unconfigured: 'warning',
 };
-const PAGE_SIZES = [10, 25, 50];
 
 /** Inspect physical devices without interrupting drafts or repeating uncertain hardware actions. */
 export default function DeviceManagementPage() {
@@ -109,8 +105,10 @@ function DeviceWorkspace({ rid }: { rid: number }) {
   const [inventory, setInventory] = useState<RestaurantDevice[]>([]), [restaurantName, setRestaurantName] = useState('');
   const [loading, setLoading] = useState(true), [refreshing, setRefreshing] = useState(false), [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null), [notice, setNotice] = useState<{ key: string; count?: number; name?: string } | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [search, setSearch] = useState(''), [typeFilter, setTypeFilter] = useState<TypeFilter>('all'), [statusFilter, setStatusFilter] = useState<StatusFilter>('all'), [appFilter, setAppFilter] = useState<AppFilter>('all');
+  const router = useRouter();
+  const [filterView, setFilterView] = useState<string | null>(null);
+  const [listOptionsOpen, setListOptionsOpen] = useState(false);
+  const [search, setSearch] = useState(''), [typeFilter, setTypeFilter] = useState<Set<string>>(new Set()), [statusFilter, setStatusFilter] = useState<Set<string>>(new Set()), [appFilter, setAppFilter] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>('lastSeen'), [sortDirection, setSortDirection] = useState<SortDirection>('desc'), [page, setPage] = useState(0), [pageSize, setPageSize] = useState(10);
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnId, boolean>>({ status: true, battery: true, location: false, lastApplication: true, applications: false, lastSeen: true, displayName: false, identifier: false });
   const [selectedId, setSelectedId] = useState<string | null>(null), [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()), [showConnectHelp, setShowConnectHelp] = useState(false);
@@ -143,7 +141,7 @@ function DeviceWorkspace({ rid }: { rid: number }) {
   const selected = devices.find(device => device.id === selectedId) ?? null, selectedDevices = devices.filter(device => selectedIds.has(device.id));
   const sortedDevices = useMemo(() => {
     const query = search.trim().toLocaleLowerCase(locale);
-    return devices.filter(device => (typeFilter === 'all' || deviceMatchesKind(device, typeFilter)) && (statusFilter === 'all' || device.status === statusFilter) && (appFilter === 'all' || hasInstalledApplication(device, 'foody_pos')) && (!query || [device.deviceName, device.displayName, device.model, device.osName, device.osVersion, device.platform, device.host, device.identifier, ...device.profileNames, ...device.applicationNames].some(value => value?.toLocaleLowerCase(locale).includes(query)))).sort((a, b) => (sortDirection === 'asc' ? 1 : -1) * compareDevices(a, b, sortKey, locale));
+    return devices.filter(device => (!typeFilter.size || Array.from(typeFilter).some(kind => deviceMatchesKind(device, kind as ManagedDeviceKind))) && (!statusFilter.size || statusFilter.has(device.status)) && (!appFilter.size || hasInstalledApplication(device, 'foody_pos')) && (!query || [device.deviceName, device.displayName, device.model, device.osName, device.osVersion, device.platform, device.host, device.identifier, ...device.profileNames, ...device.applicationNames].some(value => value?.toLocaleLowerCase(locale).includes(query)))).sort((a, b) => (sortDirection === 'asc' ? 1 : -1) * compareDevices(a, b, sortKey, locale));
   }, [devices, typeFilter, statusFilter, appFilter, search, locale, sortDirection, sortKey]);
   useEffect(() => { setPage(0); }, [appFilter, pageSize, search, statusFilter, typeFilter]);
   const pageCount = Math.max(1, Math.ceil(sortedDevices.length / pageSize)), safePage = Math.min(page, pageCount - 1), pageDevices = sortedDevices.slice(safePage * pageSize, (safePage + 1) * pageSize);
@@ -218,20 +216,42 @@ function DeviceWorkspace({ rid }: { rid: number }) {
   </div>;
   const columnLabels: Record<ColumnId, string> = { status: t('status'), battery: t('deviceManagementBattery'), location: t('deviceManagementLocation'), lastApplication: t('deviceManagementLastApplication'), applications: t('deviceManagementInstalledApplications'), lastSeen: t('deviceManagementLastUpdated'), displayName: t('displayName'), identifier: t('deviceManagementIdentifier') };
   const sortLabels: Record<SortKey, string> = { name: t('name'), status: t('status'), battery: columnLabels.battery, application: columnLabels.lastApplication, lastSeen: columnLabels.lastSeen, displayName: columnLabels.displayName, identifier: columnLabels.identifier };
-  return <div className="mx-auto max-w-[1200px] space-y-6 pb-4">
-    <PageHead title={t('deviceManagementTitle')} desc={t('deviceManagementDesc')} actions={<Button disabled={busy} onClick={() => setShowConnectHelp(true)}><Plus />{t('deviceManagementAdd')}</Button>} />
+  const typeOptions = (['tablet', 'phone', 'payment_terminal', 'printer', 'computer', 'display', 'unknown'] as const).map(value => ({ value, label: deviceTypeLabel(value, t) }));
+  const statusOptions = ['online', 'offline', 'attention', 'unconfigured'].map(value => ({ value, label: t(`deviceStatus${value[0].toUpperCase()}${value.slice(1)}`) }));
+  const listFilters = [
+    { id: 'type', label: t('deviceManagementType'), options: typeOptions, selected: typeFilter },
+    { id: 'status', label: t('listState'), options: statusOptions, selected: statusFilter },
+    { id: 'app', label: t('deviceManagementInstalledApplications'), options: [{ value: 'foodypos', label: 'FoodyPOS' }], selected: appFilter },
+  ];
+  return <div className="min-w-0 space-y-4 pb-4">
+    <h1 className="sr-only">{t('deviceManagementTitle')}</h1>
+    <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
+      filters={<>
+        <ListFilterButton label={t('deviceManagementType')} value={typeFilter.size || undefined} onClick={() => setFilterView('type')} />
+        <ListStateFilter label={t('listState')} options={statusOptions} selected={statusFilter} onChange={setStatusFilter} />
+        <ListFilterButton label={t('allFilters')} icon={<Filter />} onClick={() => setFilterView('index')} />
+      </>}
+      primaryAction={<Button disabled={busy} onClick={() => setShowConnectHelp(true)}>{t('deviceManagementAdd')}</Button>}
+      actions={<ActionsDropdown actions={[
+        { label: t('refresh'), onClick: () => void load(), disabled: refreshing || frozen || loading },
+        { label: t('deviceSortBy'), onClick: () => setListOptionsOpen(true) },
+        ...(selectedDevices.length && selectedDevices.every(device => !frozen && canManageDevice(device)) ? [{ label: `${t('deviceManagementForget')} (${selectedDevices.length})`, variant: 'danger' as const, onClick: () => setDeleteTargets(selectedDevices) }] : []),
+        ...(canManagePosAccess ? [{ label: t('deviceManagementManagePosAccess'), onClick: () => router.push(`/${rid}/staff/devices`) }] : []),
+        ...(selectedDevices.length ? [{ label: t('deviceManagementClearSelection'), onClick: () => setSelectedIds(new Set()) }] : []),
+      ]} />}
+    />
+    <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters} onApply={values => { setTypeFilter(values.type); setStatusFilter(values.status); setAppFilter(values.app); }} />
+    {listOptionsOpen && <Modal title={t('deviceSortBy')} onClose={() => setListOptionsOpen(false)}><div className="flex items-end gap-3"><Field label={t('deviceSortBy')}><Select value={sortKey} onChange={event => setSortKey(event.target.value as SortKey)}>{Object.entries(sortLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></Field><Button variant="secondary" icon aria-label={t(sortDirection === 'asc' ? 'deviceSortDescending' : 'deviceSortAscending')} onClick={() => setSortDirection(value => value === 'asc' ? 'desc' : 'asc')}>{sortDirection === 'asc' ? <ArrowUp /> : <ArrowDown />}</Button></div></Modal>}
     {feedback}
-    {loaded && <div className="flex flex-wrap items-center justify-between gap-4 rounded-r-lg bg-[var(--summary-bg)] p-5 text-[var(--summary-fg)]"><div><p className="font-semibold" dir="auto">{restaurantName}</p><p className="mt-1 text-sm">{t('deviceInventorySummary').replace('{n}', String(devices.length)).replace('{online}', String(devices.filter(device => device.status === 'online').length))}</p></div><p className="max-w-sm text-xs leading-5">{t('deviceAutoRefreshHint')}</p></div>}
-    <div className="flex flex-wrap items-end gap-2"><Field label={t('deviceManagementSearch')} className="min-w-[200px] flex-1"><Input type="search" value={search} onChange={event => setSearch(event.target.value)} /></Field><Button variant="secondary" icon onClick={() => void load()} disabled={refreshing || frozen || loading} aria-label={t('refresh')}><RefreshCw className={refreshing ? 'animate-spin' : ''} /></Button><Button variant="secondary" className="md:hidden" aria-expanded={filtersOpen} aria-controls="device-filters" onClick={() => setFiltersOpen(value => !value)}><Filter />{t('deviceManagementFilters')}{[typeFilter !== 'all', statusFilter !== 'all', appFilter !== 'all'].filter(Boolean).length > 0 && ` · ${[typeFilter !== 'all', statusFilter !== 'all', appFilter !== 'all'].filter(Boolean).length}`}</Button></div>
-    <div id="device-filters" className={`${filtersOpen ? 'grid' : 'hidden'} gap-4 sm:grid-cols-2 md:grid lg:grid-cols-3`}><Field label={t('status')}><Select value={statusFilter} onChange={event => setStatusFilter(event.target.value as StatusFilter)}><option value="all">{t('deviceManagementStatusAll')}</option>{(['online', 'offline', 'attention', 'unconfigured'] as const).map(value => <option key={value} value={value}>{t(`deviceStatus${value[0].toUpperCase()}${value.slice(1)}`)}</option>)}</Select></Field><Field label={t('deviceManagementType')}><Select value={typeFilter} onChange={event => setTypeFilter(event.target.value as TypeFilter)}><option value="all">{t('deviceManagementTypeAll')}</option>{(['tablet', 'phone', 'payment_terminal', 'printer', 'computer', 'display', 'unknown'] as const).map(value => <option key={value} value={value}>{deviceTypeLabel(value, t)}</option>)}</Select></Field><Field label={t('deviceManagementInstalledApplications')}><Select value={appFilter} onChange={event => setAppFilter(event.target.value as AppFilter)}><option value="all">{t('deviceManagementAppsAll')}</option><option value="foodypos">FoodyPOS</option></Select></Field></div>
-    <div className={`${filtersOpen ? 'flex' : 'hidden'} flex-wrap items-end justify-between gap-3 md:flex`}><div className="flex min-w-0 flex-wrap items-end gap-2"><Field label={t('deviceSortBy')}><Select value={sortKey} onChange={event => setSortKey(event.target.value as SortKey)}>{Object.entries(sortLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></Field><Button variant="secondary" icon aria-label={t(sortDirection === 'asc' ? 'deviceSortDescending' : 'deviceSortAscending')} onClick={() => setSortDirection(value => value === 'asc' ? 'desc' : 'asc')}>{sortDirection === 'asc' ? <ArrowUp /> : <ArrowDown />}</Button></div><div className="flex flex-wrap gap-2">{(typeFilter !== 'all' || statusFilter !== 'all' || appFilter !== 'all' || search) && <Button variant="ghost" onClick={() => { setTypeFilter('all'); setStatusFilter('all'); setAppFilter('all'); setSearch(''); }}>{t('reset')}</Button>}<div className="hidden md:block"><ColumnMenu labels={columnLabels} visible={visibleColumns} onChange={setVisibleColumns} t={t} /></div></div></div>
+    <span className="sr-only" role="status">{t('listSelected').replace('{count}', String(selectedDevices.length))}</span>
     {loading ? <p role="status" className="py-12 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : !loaded ? null : devices.length === 0 ? <EmptyState icon={<MonitorSmartphone />} title={t('deviceManagementEmptyTitle')} desc={t('deviceManagementEmptyDesc')} /> : <>
-      <TableShell className="hidden overflow-x-auto md:block"><Table className="min-w-[800px]"><Thead><Tr><Th className="w-12"><SelectionCheckbox checked={allPageSelected} indeterminate={pageSelectedCount > 0 && !allPageSelected} onChange={togglePage} label={t('selectAll')} /></Th><SortableHeader label={t('name')} column="name" active={sortKey} direction={sortDirection} onSort={toggleSort} />{visibleColumns.status && <SortableHeader label={t('status')} column="status" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.battery && <SortableHeader label={columnLabels.battery} column="battery" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.location && <Th>{columnLabels.location}</Th>}{visibleColumns.lastApplication && <SortableHeader label={columnLabels.lastApplication} column="application" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.applications && <Th>{columnLabels.applications}</Th>}{visibleColumns.lastSeen && <SortableHeader label={columnLabels.lastSeen} column="lastSeen" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.displayName && <SortableHeader label={columnLabels.displayName} column="displayName" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.identifier && <SortableHeader label={columnLabels.identifier} column="identifier" active={sortKey} direction={sortDirection} onSort={toggleSort} />}</Tr></Thead><Tbody>{pageDevices.map(device => <Tr key={device.id}><Td><SelectionCheckbox checked={selectedIds.has(device.id)} onChange={() => toggleDevice(device.id)} label={`${t('select')} ${device.deviceName}`} /></Td><Td className="min-w-[200px] max-w-[300px]"><div className="flex items-center gap-3"><DeviceIcon kind={device.kind} /><div className="min-w-0"><button type="button" disabled={busy} dir="auto" className="break-words text-start font-semibold text-[var(--brand-ink)] underline underline-offset-4" onClick={() => setSelectedId(device.id)}>{device.deviceName}</button><p dir="auto" className="mt-1 break-words text-xs text-[var(--fg-muted)]">{device.displayName || deviceCapabilitySummary(device, t)}</p></div></div></Td>{visibleColumns.status && <Td><div className="flex flex-col items-start gap-2"><DeviceStatusBadge status={device.status} t={t} /><PendingPrintJobsBadge count={device.pendingJobCount} t={t} /></div></Td>}{visibleColumns.battery && <Td><BatteryValue device={device} fallback={t('deviceManagementBatteryUnavailable')} /></Td>}{visibleColumns.location && <Td><bdi>{restaurantName || '—'}</bdi></Td>}{visibleColumns.lastApplication && <Td><ApplicationActivity application={latestDeviceApplication(device)} dateTime={dateTime} fallback={t('never')} /></Td>}{visibleColumns.applications && <Td><ApplicationBadges names={device.applicationNames} /></Td>}{visibleColumns.lastSeen && <Td className="whitespace-nowrap"><bdi>{formatDate(device.lastSeenAt, dateTime, t('never'))}</bdi></Td>}{visibleColumns.displayName && <Td><bdi>{device.displayName || '—'}</bdi></Td>}{visibleColumns.identifier && <Td className="max-w-[220px] break-all text-xs"><bdi>{device.identifier || '—'}</bdi></Td>}</Tr>)}</Tbody></Table></TableShell>
+      <TableShell className="list-table hidden overflow-x-auto md:block"><Table className="min-w-[800px]"><Thead><Tr><Th className="w-12"><SelectionCheckbox checked={allPageSelected} indeterminate={pageSelectedCount > 0 && !allPageSelected} onChange={togglePage} label={t('selectAll')} /></Th><SortableHeader label={t('name')} column="name" active={sortKey} direction={sortDirection} onSort={toggleSort} />{visibleColumns.status && <SortableHeader label={t('status')} column="status" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.battery && <SortableHeader label={columnLabels.battery} column="battery" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.location && <Th>{columnLabels.location}</Th>}{visibleColumns.lastApplication && <SortableHeader label={columnLabels.lastApplication} column="application" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.applications && <Th>{columnLabels.applications}</Th>}{visibleColumns.lastSeen && <SortableHeader label={columnLabels.lastSeen} column="lastSeen" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.displayName && <SortableHeader label={columnLabels.displayName} column="displayName" active={sortKey} direction={sortDirection} onSort={toggleSort} />}{visibleColumns.identifier && <SortableHeader label={columnLabels.identifier} column="identifier" active={sortKey} direction={sortDirection} onSort={toggleSort} />}<Th><ColumnMenu labels={columnLabels} visible={visibleColumns} onChange={setVisibleColumns} t={t} /></Th></Tr></Thead><Tbody>{pageDevices.map(device => <Tr key={device.id}><Td><SelectionCheckbox checked={selectedIds.has(device.id)} onChange={() => toggleDevice(device.id)} label={`${t('select')} ${device.deviceName}`} /></Td><Td className="min-w-[200px] max-w-[300px]"><div className="flex items-center gap-3"><DeviceIcon kind={device.kind} /><div className="min-w-0"><button type="button" disabled={busy} dir="auto" className="break-words text-start font-semibold text-[var(--brand-ink)] underline underline-offset-4" onClick={() => setSelectedId(device.id)}>{device.deviceName}</button><p dir="auto" className="mt-1 break-words text-xs text-[var(--fg-muted)]">{device.displayName || deviceCapabilitySummary(device, t)}</p></div></div></Td>{visibleColumns.status && <Td><div className="flex flex-col items-start gap-2"><DeviceStatusBadge status={device.status} t={t} /><PendingPrintJobsBadge count={device.pendingJobCount} t={t} /></div></Td>}{visibleColumns.battery && <Td><BatteryValue device={device} fallback={t('deviceManagementBatteryUnavailable')} /></Td>}{visibleColumns.location && <Td><bdi>{restaurantName || '—'}</bdi></Td>}{visibleColumns.lastApplication && <Td><ApplicationActivity application={latestDeviceApplication(device)} dateTime={dateTime} fallback={t('never')} /></Td>}{visibleColumns.applications && <Td><ApplicationBadges names={device.applicationNames} /></Td>}{visibleColumns.lastSeen && <Td className="whitespace-nowrap"><bdi>{formatDate(device.lastSeenAt, dateTime, t('never'))}</bdi></Td>}{visibleColumns.displayName && <Td><bdi>{device.displayName || '—'}</bdi></Td>}{visibleColumns.identifier && <Td className="max-w-[220px] break-all text-xs"><bdi>{device.identifier || '—'}</bdi></Td>}<Td /></Tr>)}</Tbody></Table></TableShell>
       <div className="space-y-3 md:hidden">{pageDevices.map(device => <article key={device.id} className="space-y-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4"><div className="flex items-start gap-3"><SelectionCheckbox checked={selectedIds.has(device.id)} onChange={() => toggleDevice(device.id)} label={`${t('select')} ${device.deviceName}`} /><DeviceIcon kind={device.kind} /><div className="min-w-0 flex-1"><button type="button" disabled={busy} dir="auto" className="break-words text-start font-semibold text-[var(--brand-ink)] underline underline-offset-4" onClick={() => setSelectedId(device.id)}>{device.deviceName}</button><p dir="auto" className="mt-1 break-words text-xs text-[var(--fg-muted)]">{device.displayName || deviceCapabilitySummary(device, t)}</p></div></div><div className="flex flex-wrap items-center gap-2"><DeviceStatusBadge status={device.status} t={t} /><PendingPrintJobsBadge count={device.pendingJobCount} t={t} /><BatteryValue device={device} fallback={t('deviceManagementBatteryUnavailable')} /></div><p className="text-xs text-[var(--fg-muted)]"><bdi>{formatDate(device.lastSeenAt, dateTime, t('never'))}</bdi></p></article>)}</div>
       {sortedDevices.length === 0 && <p role="status" className="py-8 text-sm text-[var(--fg-muted)]">{t('deviceManagementNoResults')}</p>}
-      <div className="flex flex-wrap items-center justify-between gap-4"><Field label={t('deviceManagementResultsPerPage')}><Select value={pageSize} onChange={event => setPageSize(Number(event.target.value))}>{PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}</Select></Field><div className="flex items-center gap-2"><span className="text-xs text-[var(--fg-muted)]"><bdi>{sortedDevices.length ? `${safePage * pageSize + 1}–${Math.min((safePage + 1) * pageSize, sortedDevices.length)} / ${sortedDevices.length}` : '0 / 0'}</bdi></span><Button variant="secondary" icon disabled={safePage === 0} onClick={() => setPage(safePage - 1)} aria-label={t('previous')}><ChevronLeft className="rtl:rotate-180" /></Button><Button variant="secondary" icon disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)} aria-label={t('next')}><ChevronRight className="rtl:rotate-180" /></Button></div></div>
+      <ListPagination page={safePage + 1} totalPages={pageCount} pageSize={pageSize} onPageChange={value => setPage(value - 1)} onPageSizeChange={setPageSize} />
+      <p className="text-xs text-[var(--fg-muted)]">{t('deviceAutoRefreshHint')}</p>
     </>}
-    {selectedDevices.length > 0 && <SelectionBar devices={selectedDevices} canManageDevice={device => !frozen && canManageDevice(device)} canManagePosAccess={canManagePosAccess} rid={rid} t={t} onForget={setDeleteTargets} onReset={() => setSelectedIds(new Set())} />}
+
     <Drawer open={!!selected} closeDisabled={busy} onOpenChange={open => { if (!open) setSelectedId(null); }} title={selected ? <bdi className="break-words">{selected.displayName || selected.deviceName}</bdi> : ''} subtitle={selected?.displayName ? selected.deviceName : undefined} width={620} primaryAction={selected && <DeviceActions device={selected} canManagePrinters={canManagePrinters} canManagePosAccess={canManagePosAccess} canManageDevice={canManageDevice(selected)} rid={rid} testing={busy} blocked={frozen} t={t} onTest={() => void testSelectedPrinter()} onForget={() => setDeleteTargets([selected])} />}>
       {selected && <div className="space-y-5">{feedback}<DeviceDrawerContent device={selected} devices={devices} dateTime={dateTime} restaurantName={restaurantName} canManageDevice={canManageDevice(selected)} canManagePosAccess={canManagePosAccess} blocked={frozen} rid={rid} t={t} onRename={() => { setRename({ id: selected.id, draft: selected.displayName, initial: selected.displayName }); setError(null); setNotice(null); }} onSelectDevice={id => { if (!busy) setSelectedId(id); }} /><PrintQueueSection device={selected} canManage={canManagePrinters} cancelling={frozen} t={t} onCancel={() => setQueueTarget(selected)} /><p className="text-xs leading-5 text-[var(--fg-muted)]">{t('billingDatesZone')} <bdi>{Intl.DateTimeFormat().resolvedOptions().timeZone}</bdi></p></div>}
     </Drawer>
@@ -256,12 +276,6 @@ function SelectionCheckbox({ checked, indeterminate = false, onChange, label }: 
 
 function ColumnMenu({ labels, visible, onChange, t }: { labels: Record<ColumnId, string>; visible: Record<ColumnId, boolean>; onChange: React.Dispatch<React.SetStateAction<Record<ColumnId, boolean>>>; t: (key: string) => string }) {
   return <Menu><MenuTrigger asChild><Button variant="ghost" size="lg" icon className="shrink-0 rounded-full bg-[var(--surface-2)]" aria-label={t('columns')} title={t('columns')}><SlidersHorizontal /></Button></MenuTrigger><MenuContent align="end"><MenuLabel>{t('deviceManagementVisibleColumns')}</MenuLabel>{COLUMN_IDS.map((column) => <MenuItem key={column} role="menuitemcheckbox" aria-checked={visible[column]} onSelect={(event) => { event.preventDefault(); onChange((current) => ({ ...current, [column]: !current[column] })); }}><span className={`grid h-4 w-4 place-items-center rounded border ${visible[column] ? 'border-[var(--brand-500)] bg-[var(--brand-500)] text-white' : 'border-[var(--line-strong)]'}`}>{visible[column] && <Check className="h-3 w-3" />}</span>{labels[column]}</MenuItem>)}</MenuContent></Menu>;
-}
-
-function SelectionBar({ devices, canManageDevice, canManagePosAccess, rid, t, onForget, onReset }: { devices: ManagedDevice[]; canManageDevice: (device: ManagedDevice) => boolean; canManagePosAccess: boolean; rid: number; t: (key: string) => string; onForget: (devices: ManagedDevice[]) => void; onReset: () => void }) {
-  const hasPos = devices.some((device) => hasInstalledApplication(device, 'foody_pos'));
-  const canManageAll = devices.every(canManageDevice);
-  return <div className="sticky bottom-4 z-30 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-5 py-4 shadow-3"><strong>{devices.length} {t('selected')}</strong><div className="flex flex-wrap items-center gap-2"><Menu><MenuTrigger asChild><Button variant="secondary" size="lg">{t('actions')}<ArrowUp /></Button></MenuTrigger><MenuContent align="end" side="top">{canManageAll && <MenuItem danger onSelect={() => onForget(devices)}><Trash2 />{t('deviceManagementForget')} ({devices.length})</MenuItem>}{hasPos && canManagePosAccess && <MenuItem asChild><Link href={`/${rid}/staff/devices`}><ShieldCheck />{t('deviceManagementManagePosAccess')}</Link></MenuItem>}</MenuContent></Menu><Button variant="ghost" size="lg" onClick={onReset}>{t('deviceManagementClearSelection')}</Button></div></div>;
 }
 
 function DeviceActions({ device, canManagePrinters, canManagePosAccess, canManageDevice, rid, testing, blocked, t, onTest, onForget }: { device: ManagedDevice; canManagePrinters: boolean; canManagePosAccess: boolean; canManageDevice: boolean; rid: number; testing: boolean; blocked: boolean; t: (key: string) => string; onTest: () => void; onForget: () => void }) {
