@@ -3,12 +3,9 @@ import type {
   DraftSectionPayload,
   DraftAppearanceOverrides,
 } from "./types";
-import {
-  squareDefaultContent,
-  squareDefaultSettings,
-} from "./square-components";
 import { sectionBelongs } from "./section-operations";
-import { addNavigationPage } from "./navigation-links";
+import { publicAddressForPage } from "./url-model";
+import { DEFAULT_THEME_COPY, restaurantThemeMedia, restaurantThemeSection, type ThemeCopy } from "./restaurant-theme-blueprints";
 import { makeHomepagePage } from "./state";
 import { pageKey } from "./types";
 import { isReservedPublicWebsiteSlug } from "./public-route-segments";
@@ -213,46 +210,40 @@ export function inheritSiteDesign(
   return next;
 }
 
-/** Applies global styling atomically, preserving content, identity and commerce links. */
+export type ApplyRestaurantThemeOptions = {
+  allPages: boolean;
+  compose: boolean;
+  orderingOnly: boolean;
+  title: string;
+  description: string;
+  image: string;
+  cta: string;
+  copy?: ThemeCopy;
+  createId: () => string;
+};
+
+/** Builds the complete candidate once; preview and application must use this same snapshot. */
 export function applyRestaurantTheme(
   state: DraftStatePayload,
   theme: RestaurantTheme,
-  options: {
-    allPages: boolean;
-    compose: boolean;
-    orderingOnly: boolean;
-    title: string;
-    description: string;
-    image: string;
-    cta: string;
-    createId: () => string;
-  },
+  options: ApplyRestaurantThemeOptions,
 ): DraftStatePayload {
+  const complete = options.compose || options.orderingOnly;
+  const allPages = complete || options.allPages;
+  const copy = options.copy ?? DEFAULT_THEME_COPY;
   const typography = record(state.config.typography);
-  const cta = record(state.config.navbar_cta);
   let next: DraftStatePayload = {
     ...state,
     config: {
       ...state.config,
       theme_id: "custom",
-      custom_palette: {
-        mode: theme.mode,
-        bg: theme.bg,
-        surface: theme.surface,
-        ink: theme.ink,
-        accent: theme.accent,
-      },
+      custom_palette: { mode: theme.mode, bg: theme.bg, surface: theme.surface, ink: theme.ink, accent: theme.accent },
       brand_color: null,
+      section_colors: null,
       hero_name_font: theme.heading,
       typography: {
         ...typography,
-        site: {
-          ...record(typography.site),
-          template: theme.id,
-          headingFont: theme.heading,
-          bodyFont: theme.body,
-          buttonShape: theme.shape,
-        },
+        site: { headingFont: theme.heading, bodyFont: theme.body, buttonShape: theme.shape, template: theme.id },
       },
       navbar_color: theme.bg,
       navbar_text_color: theme.ink,
@@ -261,318 +252,170 @@ export function applyRestaurantTheme(
       navbar_font: theme.body,
       navbar_type: { weight: 700, size: 14 },
       navbar_link_style: "text",
-      nav_layout: {
-        ...record(state.config.nav_layout),
-        content: { desktop: "full", mobile: "compact" },
-      },
-      navbar_cta: {
-        ...cta,
-        shape: theme.shape,
+    },
+    pages: allPages ? state.pages.map(page => ({
+      ...page, appearance_overrides: inheritSiteDesign(page.appearance_overrides),
+    })) : state.pages,
+    sections: allPages && !options.orderingOnly ? state.sections.map(section => ({
+      ...section, settings: inheritSectionDesign(section.settings),
+    })) : state.sections,
+  };
+  if (!complete) return next;
+
+  const order = next.pages.find(page => page.type === "order" && page.is_default) ?? next.pages.find(page => page.type === "order");
+  next.config = {
+    ...next.config,
+    hide_navbar_name: false,
+    navbar_show_links: true,
+    navbar_hamburger: "mobile",
+    navbar_overlay_text_color: theme.ink,
+    navbar_scrolled_logo_url: "",
+    logo_size: 40,
+    nav_layout: {
+      content: { desktop: "full", mobile: "compact" },
+      shopping: { desktop: "compact", mobile: "compact" },
+      site_mode: options.orderingOnly ? "single_order" : "multi_page",
+      theme_pages: record(record(state.config.nav_layout).theme_pages),
+    },
+    navbar_cta: {
+      enabled: Boolean(order), text: options.cta,
+      link: order ? (options.orderingOnly ? "/" : order.is_default ? "/order" : `/${order.slug}`) : "",
+      shape: theme.shape, size: "md",
+      variant: theme.id === "mediterranean" ? "outline" : "filled",
+      solid: {
         variant: theme.id === "mediterranean" ? "outline" : "filled",
-        bg: theme.accent,
-        text_color: theme.mode === "dark" ? theme.bg : "#ffffff",
-        solid: {
-          variant: theme.id === "mediterranean" ? "outline" : "filled",
-          bg: theme.id === "mediterranean" ? "transparent" : theme.accent,
-          text_color:
-            theme.id === "mediterranean"
-              ? theme.ink
-              : theme.mode === "dark"
-                ? theme.bg
-                : "#ffffff",
-          border_color:
-            theme.id === "mediterranean" ? theme.ink : "transparent",
-        },
+        bg: theme.id === "mediterranean" ? "transparent" : theme.accent,
+        text_color: theme.id === "mediterranean" ? theme.ink : theme.mode === "dark" ? theme.bg : "#ffffff",
+        border_color: theme.id === "mediterranean" ? theme.ink : "transparent",
       },
     },
-    pages: options.allPages
-      ? state.pages.map((p) => ({
-          ...p,
-          appearance_overrides: inheritSiteDesign(p.appearance_overrides),
-        }))
-      : state.pages,
   };
-  if (options.allPages)
-    next = {
-      ...next,
-      sections: next.sections.map((section) => ({
-        ...section,
-        settings: inheritSectionDesign(section.settings),
-      })),
-    };
-  const navLayout = record(next.config.nav_layout);
-  const order =
-    next.pages.find((page) => page.type === "order" && page.is_default) ??
-    next.pages.find((page) => page.type === "order");
   if (options.orderingOnly) {
-    if (!order) return next;
+    if (!order) return state;
     next = makeHomepagePage(next, pageKey(order));
+    next = composeThemeFooter(next, order, theme, options, {
+      ...options, copy, links: { home: "/", order: "/" },
+    });
     return {
       ...next,
-      config: {
-        ...next.config,
-        nav_layout: { ...navLayout, site_mode: "single_order" },
-        typography: {
-          ...record(next.config.typography),
-          site: {
-            ...record(record(next.config.typography).site),
-            template: `ordering-${theme.id}`,
-          },
-        },
-      },
-      pages: next.pages.map((page) =>
-        pageKey(page) === pageKey(order)
-          ? {
-              ...page,
-              appearance_overrides: {
-                ...inheritSiteDesign(page.appearance_overrides),
-                cover_url: options.image,
-                hero_cover_layout: "card",
-                layout_default: "compact",
-                layout_default_mobile: "compact",
-                category_navigation: { mode: "sidebar", side: "start" },
-              },
-            }
-          : page,
-      ),
+      config: { ...next.config, typography: { ...record(next.config.typography), site: {
+        ...record(record(next.config.typography).site), template: `ordering-${theme.id}`,
+      }}},
+      pages: next.pages.map(page => ({
+        ...page, nav_visible: pageKey(page) === pageKey(order),
+        ...(pageKey(page) === pageKey(order) ? { appearance_overrides: {
+          ...completePageAppearance(page.appearance_overrides),
+          cover_url: options.image || restaurantThemeMedia(theme).hero,
+          hero_cover_layout: "card", layout_default: "compact", layout_default_mobile: "compact",
+          category_navigation: { mode: "sidebar", side: "start" },
+          navigation_mode: "inherit", navigation_mode_mobile: "inherit", footer_mode: "inherit",
+        }} : {}),
+      })),
     };
   }
-  if (!options.compose) return next;
-  let home =
-    next.pages.find(
-      (page) =>
-        page.is_homepage &&
-        (page.type === "landing" || page.type === "content"),
-    ) ?? next.pages.find((page) => page.type === "landing");
+
+  const previousRoles = record(record(state.config.nav_layout).theme_pages);
+  let home = next.pages.find(page => page.is_homepage && (page.type === "landing" || page.type === "content"))
+    ?? next.pages.find(page => page.type === "landing")
+    ?? next.pages.find(page => page.type === "content" && page.slug === previousRoles.home);
   if (!home) {
-    const slug = uniqueSlug(next, "home");
-    home = {
-      tmp_id: options.createId(),
-      type: "content",
-      title: options.title,
-      slug,
-      sort_order: 0,
-      nav_visible: true,
-      is_homepage: false,
-      is_default: false,
-      seo: {},
-      appearance_overrides: {},
-      settings: {},
-    };
+    home = { tmp_id: options.createId(), type: "content", title: copy.home, slug: uniqueSlug(next, "home"),
+      sort_order: 0, nav_visible: true, is_homepage: false, is_default: false, seo: {}, appearance_overrides: {}, settings: {} };
     next = { ...next, pages: [home, ...next.pages] };
   }
   next = makeHomepagePage(next, pageKey(home));
-  next = {
-    ...next,
-    config: {
-      ...next.config,
-      nav_layout: { ...navLayout, site_mode: "multi_page" },
-    },
-  };
+  next.config = { ...next.config, landing_enabled: true };
   const pageSections: Record<string, string[]> = {
-    about: ["hero_banner", "text_and_image", "text"],
-    locations: ["location_hours"],
-    contact: ["forms"],
-    menu: ["featured_menu"],
-    catering: ["text_and_image", "forms"],
-    events: ["events"],
+    about: ["hero_banner", "text_and_image", "text"], locations: ["location_hours"],
+    contact: ["forms"], menu: ["featured_menu"], catering: ["text_and_image", "forms"], events: ["events"],
   };
-  // Footer belongs to the whole site, including pages created by this theme.
-  const footer =
-    next.sections.find(
-      (section) =>
-        section.section_type === "footer" && section.page === "_site",
-    ) ??
-    next.sections.find(
-      (section) =>
-        section.section_type === "footer" && sectionBelongs(section, home!),
-    );
-  const sharedFooter: DraftSectionPayload = {
-    ...footer,
-    ...(!footer ? { tmp_id: options.createId() } : {}),
-    section_type: "footer",
-    page: "_site",
-    page_id: undefined,
-    page_tmp_id: undefined,
-    sort_order: 9999,
-    is_visible: footer?.is_visible ?? true,
-    layout: footer?.layout ?? "columns",
-    content: footer?.content ?? squareDefaultContent("footer"),
-    settings: {
-      ...squareDefaultSettings(),
-      ...inheritSectionDesign(footer?.settings ?? {}),
-    },
-  };
-  next = {
-    ...next,
-    sections: [
-      ...next.sections.filter((section) => section !== footer),
-      sharedFooter,
-    ],
-  };
-  const themePages = { ...record(navLayout.theme_pages) };
-  const targets = [{ page: home, types: theme.sections }];
-  for (const slug of theme.pages) {
-    let page = next.pages.find(
-      (page) =>
-        page.slug === (themePages[slug] ?? slug) && page.type === "content",
-    );
+  const targets = [{ page: next.pages.find(page => pageKey(page) === pageKey(home!))!, role: "home", types: theme.sections }];
+  for (const role of theme.pages) {
+    let page = next.pages.find(page => page.type === "content" &&
+      page.slug === (previousRoles[role] ?? role));
     if (!page) {
-      page = {
-        tmp_id: options.createId(),
-        type: "content",
-        title: slug.charAt(0).toUpperCase() + slug.slice(1),
-        slug: uniqueSlug(next, slug),
-        sort_order: next.pages.length,
-        nav_visible: true,
-        is_homepage: false,
-        is_default: false,
-        seo: {},
-        appearance_overrides: {},
-        settings: {},
-      };
+      page = { tmp_id: options.createId(), type: "content", title: copy[role as keyof ThemeCopy] || role,
+        slug: uniqueSlug(next, role), sort_order: next.pages.length, nav_visible: true,
+        is_homepage: false, is_default: false, seo: {}, appearance_overrides: {}, settings: {} };
       next = { ...next, pages: [...next.pages, page] };
     }
-    next = addNavigationPage(next, page);
-    themePages[slug] = page.slug;
-    targets.push({ page, types: pageSections[slug] ?? [] });
+    targets.push({ page, role, types: pageSections[role] ?? [] });
   }
+  const links = Object.fromEntries(targets.map(({role, page}) => [role, publicAddressForPage(page)]));
+  const currentOrder = next.pages.find(page => pageKey(page) === (order && pageKey(order)));
+  if (currentOrder) links.order = publicAddressForPage(currentOrder);
+  const context = { ...options, copy, links };
   next = {
     ...next,
-    config: {
-      ...next.config,
-      nav_layout: {
-        ...record(next.config.nav_layout),
-        theme_pages: { ...themePages },
-      },
-    },
+    config: { ...next.config, nav_layout: {
+      ...record(next.config.nav_layout),
+      theme_pages: { ...previousRoles, ...Object.fromEntries(targets.map(t => [t.role, t.page.slug])) },
+      links: targets.map(({page, role}) => ({ id: `page-${page.id ?? page.tmp_id}`, page_slug: page.slug, label: copy[role as keyof ThemeCopy] || page.title })),
+    }},
+    pages: next.pages.map(page => {
+      const target = targets.find(t => pageKey(t.page) === pageKey(page));
+      return target ? { ...page, title: copy[target.role as keyof ThemeCopy] || page.title,
+        nav_visible: true, sort_order: targets.indexOf(target),
+        appearance_overrides: { ...completePageAppearance(page.appearance_overrides),
+          navigation_mode: "inherit", navigation_mode_mobile: "inherit", footer_mode: "inherit" },
+      } : { ...page, nav_visible: false };
+    }),
   };
-  for (const { page, types } of targets) {
-    const existing = next.sections.filter((section) =>
-      sectionBelongs(section, page),
-    );
+
+  next = composeThemeFooter(next, home, theme, options, context);
+  for (const { page, role, types } of targets) {
+    const existing = next.sections.filter(section => sectionBelongs(section, page));
     const used = new Set<DraftSectionPayload>();
-    const composed = types
-      .filter(
-        (type) =>
-          type !== "footer" ||
-          !next.sections.some(
-            (section) =>
-              section.section_type === "footer" && section.page === "_site",
-          ),
-      )
-      .map((type, index) => {
-        const slot = `${page.slug}:${index}:${type}`;
-        const previous =
-          existing.find((section) => section.settings.theme_slot === slot) ??
-          existing.find(
-            (section) => section.section_type === type && !used.has(section),
-          ) ??
-          (["featured_menu", "menu_highlights"].includes(type)
-            ? existing.find(
-                (section) =>
-                  ["featured_menu", "menu_highlights"].includes(
-                    section.section_type,
-                  ) && !used.has(section),
-              )
-            : undefined);
-        if (previous) used.add(previous);
-        const content = previous?.content ?? {
-          ...squareDefaultContent(type),
-          ...(type === "hero_banner"
-            ? {
-                headline: options.title,
-                subheadline: options.description,
-                image_url: options.image,
-                cta_text: options.cta,
-                cta_link: order ? "/order" : "",
-              }
-            : {}),
-          ...(type === "text_and_image"
-            ? {
-                title: options.title,
-                body: options.description,
-                image_url: options.image,
-              }
-            : {}),
-          ...(type === "scrolling_text" ? { text: options.title } : {}),
-          ...(type === "text"
-            ? { title: options.title, body: options.description }
-            : {}),
-        };
-        return {
-          ...previous,
-          ...(!previous ? { tmp_id: options.createId() } : {}),
-          section_type: type,
-          page: page.slug,
-          page_id: page.id,
-          page_tmp_id: page.tmp_id,
-          sort_order: index,
-          is_visible: previous?.settings.theme_retired
-            ? true
-            : (previous?.is_visible ?? true),
-          layout:
-            type === "hero_banner"
-              ? theme.hero
-              : (previous?.layout ??
-                (type === "footer"
-                  ? "columns"
-                  : type === "location_hours"
-                    ? "map_right"
-                    : type === "text"
-                      ? "split"
-                      : "default")),
-          content,
-          settings: {
-            ...squareDefaultSettings(),
-            ...inheritSectionDesign(previous?.settings ?? {}),
-            theme_slot: slot,
-            theme_layout: theme.id,
-            theme_retired: false,
-            anchor:
-              previous?.settings.anchor ??
-              `section-${previous?.id ?? options.createId()}`,
-            ...(type === "hero_banner"
-              ? {
-                  height: "tall",
-                  bg_overlay: false,
-                  text_alignment: "center",
-                  inset_bg: theme.bg,
-                  inset_ink: theme.ink,
-                }
-              : {}),
-            ...(theme.id === "joy-bakery" &&
-            ["testimonials", "location_hours"].includes(type)
-              ? {
-                  color_style: "custom",
-                  custom_bg: theme.accent,
-                  custom_text: theme.bg,
-                }
-              : {}),
-            ...(theme.id === "youngs-place" && type === "text_and_image"
-              ? { image_only: true }
-              : {}),
-          },
-        } satisfies DraftSectionPayload;
-      });
-    const remaining = existing
-      .filter((section) => !used.has(section))
-      .map((section, index) => ({
-        ...section,
-        sort_order: composed.length + index,
-        // Preserve old content for undo/reuse, while the selected composition owns the visible layout.
-        is_visible: false,
-        settings: { ...section.settings, theme_retired: true },
-      }));
-    next = {
-      ...next,
-      sections: [
-        ...next.sections.filter((section) => !sectionBelongs(section, page)),
-        ...composed,
-        ...remaining,
-      ],
-    };
+    const occurrences = new Map<string, number>();
+    const composed = types.filter(type => type !== "footer").map((type, index) => {
+      const slot = `${page.slug}:${index}:${type}`;
+      const previous = existing.find(section => section.section_type === type && section.settings.theme_slot === slot && !used.has(section))
+        ?? existing.find(section => section.section_type === type && !used.has(section));
+      if (previous) used.add(previous);
+      const occurrence = occurrences.get(type) ?? 0;
+      occurrences.set(type, occurrence + 1);
+      const blueprint = restaurantThemeSection(theme, type, occurrence, role, context);
+      return {
+        ...previous, ...(!previous ? { tmp_id: options.createId() } : {}),
+        section_type: type, page: page.slug, page_id: page.id, page_tmp_id: page.tmp_id,
+        sort_order: index, is_visible: true, ...blueprint,
+        settings: { ...blueprint.settings, theme_slot: slot, theme_retired: false,
+          anchor: previous?.settings.anchor || `theme-${role}-${index}` },
+      } satisfies DraftSectionPayload;
+    });
+    const remaining = existing.filter(section => !used.has(section)).map((section, index) => ({
+      ...section, sort_order: composed.length + index, is_visible: false,
+      settings: { ...section.settings, theme_retired: true },
+    }));
+    next = { ...next, sections: [
+      ...next.sections.filter(section => !sectionBelongs(section, page)), ...composed, ...remaining,
+    ] };
   }
+  return next;
+}
+
+function composeThemeFooter(
+  state: DraftStatePayload,
+  home: DraftStatePayload["pages"][number],
+  theme: RestaurantTheme,
+  options: ApplyRestaurantThemeOptions,
+  context: Parameters<typeof restaurantThemeSection>[4],
+): DraftStatePayload {
+  const footer = state.sections.find(section => section.section_type === "footer" && section.page === "_site")
+    ?? state.sections.find(section => section.section_type === "footer" && sectionBelongs(section, home));
+  const sharedFooter: DraftSectionPayload = {
+    ...footer, ...(!footer ? { tmp_id: options.createId() } : {}),
+    section_type: "footer", page: "_site", page_id: undefined, page_tmp_id: undefined,
+    sort_order: 9999, is_visible: true,
+    ...restaurantThemeSection(theme, "footer", 0, "home", context),
+  };
+  return { ...state, sections: [...state.sections.filter(section => section !== footer), sharedFooter] };
+}
+
+function completePageAppearance(appearance: DraftAppearanceOverrides): DraftAppearanceOverrides {
+  const next = inheritSiteDesign(appearance);
+  delete next.navbar_cta;
+  delete next.hide_navbar_name;
   return next;
 }
 

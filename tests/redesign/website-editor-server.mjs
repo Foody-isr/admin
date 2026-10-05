@@ -90,6 +90,12 @@ let draft = {
   deleted_page_ids: [],
   deleted_section_ids: [],
 };
+if (process.env.FOODY_THEME_REGRESSION === "1") {
+  draft.sections[0].content = { headline: "blalbla", subheadline: "blablabla", image_url: "", cta_text: "", cta_link: "" };
+  draft.sections[0].settings = { show_image_url: false, show_cta_text: false, headline_uppercase: true, headline_size: "sm" };
+  draft.pages[0].appearance_overrides = { navbar_cta: { enabled: false }, navigation_mode: "hidden", footer_mode: "hidden" };
+  draft.config.nav_layout = { content: { desktop: "hidden" }, links: [{ id: "old", label: "Old theme", page_slug: "missing" }] };
+}
 let published = structuredClone(draft),
   dirty = false;
 const response = () => ({
@@ -105,7 +111,7 @@ const restaurant = () => ({
   slug: "atelier-foody",
   description: "Fresh ingredients. Made with care.",
   logo_url: "",
-  cover_url: image,
+  cover_url: process.env.FOODY_THEME_REGRESSION === "1" ? "" : image,
   default_locale: "en",
   catering_enabled: false,
   website_config: published.config,
