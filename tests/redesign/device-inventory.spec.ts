@@ -89,7 +89,7 @@ test('device inventory English empty and connect help retain scoped POS access l
   const state = await install(page, { locale: 'en' }); state.control.rows = []; await page.goto('/2/settings/devices'); await page.getByRole('button', { name: 'Add a device', exact: true }).click(); await expect(drawer(page).getByRole('link')).toHaveAttribute('href', '/2/staff/devices'); expect(state.writes).toHaveLength(0);
 });
 test('device inventory locale changes do not refetch data', async ({ page }) => {
-  const state = await install(page); await page.goto('/1/settings/devices'); await expect(page.getByRole('button', { name: device(0).system_name, exact: true })).toBeVisible(); const reads = state.control.reads; await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape'); await expect(page.getByRole('heading', { name: 'מכשירים', exact: true })).toBeVisible(); expect(state.control.reads).toBe(reads);
+  const state = await install(page); await page.goto('/1/settings/devices'); await expect(page.getByRole('button', { name: device(0).system_name, exact: true })).toBeVisible(); const reads = state.control.reads; await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('he'); await page.keyboard.press('Escape'); await expect(page.getByRole('heading', { name: 'מכשירים', exact: true })).toBeVisible(); expect(state.control.reads).toBe(reads);
 });
 
 test('device inventory mobile filters and navigation expose the allowed hardware route', async ({ page }) => {

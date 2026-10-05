@@ -89,9 +89,10 @@ test('table indicators validate the hex field, retry errors and serialize change
 
 test('table indicators protect navigation, reset and interface language changes', async ({ page }) => {
   const state = await install(page); await page.goto('/1/restaurant/table-status'); await yellow(page).fill('45'); const reads = state.control.settingsReads;
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Compte', exact: true }).click();
   await page.getByRole('link', { name: 'Sécurité', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('button', { name: 'Annuler', exact: true }).click(); await expect(yellow(page)).toHaveValue('45');
   await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click(); await page.getByRole('button', { name: 'Abandonner les modifications', exact: true }).click(); await expect(yellow(page)).toHaveValue('30');
-  await hex(page).fill('#123456'); await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape');
+  await hex(page).fill('#123456'); await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('he'); await page.keyboard.press('Escape');
   await expect(page.getByRole('textbox', { name: 'קוד צבע הקסדצימלי', exact: true })).toHaveValue('#123456'); expect(state.control.settingsReads).toBe(reads);
 });
 

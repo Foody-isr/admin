@@ -19,8 +19,7 @@ const SECTION_PERMISSIONS: Record<string, string[]> = {
   // Floor plans, sections, table status/QR live under /restaurant/*.
   restaurant: ['tables.view', 'tables.manage', 'settings.view', 'settings.edit'],
   catering: ['catering.view', 'catering.manage'],
-  // Branch management page (reached from the top-bar switcher). Owners bypass;
-  // the switcher itself works for any staff since it uses a separate API path.
+  // Branch management page, reached directly from the main navigation. Owners bypass.
   chain: ['chain.manage'],
 };
 

@@ -77,7 +77,7 @@ test('processing retains its draft through locale changes and confirms reset and
   const state = await install(page); await page.goto('/1/settings/orders/processing'); await prep(page).fill('45'); const reads = state.control.reads;
   await page.getByRole('link', { name: 'Horaires et disponibilité', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('button', { name: 'Annuler', exact: true }).click();
   await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click(); await page.getByRole('button', { name: 'Abandonner les modifications', exact: true }).click(); await expect(prep(page)).toHaveValue('20'); await prep(page).fill('45');
-  await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape'); await expect(prep(page)).toHaveValue('45'); expect(state.control.reads).toBe(reads);
+  await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('he'); await page.keyboard.press('Escape'); await expect(prep(page)).toHaveValue('45'); expect(state.control.reads).toBe(reads);
 });
 
 test('processing read-only users can review settings without changing policies', async ({ page }) => {

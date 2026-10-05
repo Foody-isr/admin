@@ -2,16 +2,14 @@
 
 import Link from 'next/link';
 import { isSettingsDestinationActive, visibleSettingsNavigation } from '@/lib/settings-navigation';
-import BranchSwitcher from './BranchSwitcher';
+import RestaurantAccountMenu from './RestaurantAccountMenu';
 import SearchTriggerButton from './search/SearchTriggerButton';
 import { NavigationFrame, useDesktopNavigation } from './common/NavigationFrame';
-import { Drawer } from './ds';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useWs } from '@/lib/ws-context';
-import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme-context';
 import { getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
@@ -23,17 +21,14 @@ import {
   Settings,
   Globe,
   UserCog,
-  UserRound,
   Building2,
   X,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  LogOut,
   Flame,
   Sun,
   Moon,
-  Languages,
   Truck,
   PartyPopper,
   type LucideIcon,
@@ -82,16 +77,13 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const LOCALE_LABELS: Record<Locale, string> = { en: 'English', he: 'עברית', fr: 'Français' };
-
+/** Restaurant navigation with permission-scoped destinations and account access. */
 export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, restaurantIds, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [profileOpen, setProfileOpen] = useState(false);
   const { hasAnyPermission, roleName, loading: permissionsLoading } = usePermissions();
   const { status: wsStatus } = useWs();
-  const { t, direction, locale, setLocale } = useI18n();
+  const { t, direction } = useI18n();
   const { collapsed: storedCollapsed, toggleCollapsed, setCollapsed } = useSidebar();
   const desktop = useDesktopNavigation();
   const collapsed = desktop && storedCollapsed;
@@ -232,6 +224,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { href: `${base}/catering/routing`, labelKey: 'nav_catering_routing', perm: ['catering.manage'] },
       ],
     },
+    { href: `${base}/chain/branches`, labelKey: 'chain_branches', icon: Building2, perm: ['chain.manage'] },
     {
       href: `${base}/settings`,
       labelKey: 'settings',
@@ -296,7 +289,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     <>
       <NavigationFrame open={isOpen} onClose={onClose}
         className={`
-          fixed top-0 z-30 h-dvh pt-safe-t pb-safe-b flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
+          restaurant-sidebar fixed top-0 z-30 h-dvh pt-safe-t pb-safe-b flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
           ${sidebarWidth}
           transition-[width,transform] duration-200 ease-in-out
           lg:translate-x-0
@@ -305,10 +298,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           ${isOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'}
         `}
       >
-        {desktop && !collapsed && <div className="space-y-4 px-4 py-4">
-          <div className="min-w-0 rounded-xl border border-[var(--line)] px-2 py-1 text-sm"><BranchSwitcher restaurantId={restaurantId} restaurantName={restaurantName ?? ''} /></div>
-          <SearchTriggerButton placement="sidebar" />
-        </div>}
+        <div className={collapsed ? 'p-3' : 'space-y-4 p-4'}>
+          <RestaurantAccountMenu restaurantId={restaurantId} restaurantName={restaurantName ?? 'Foody'} collapsed={collapsed} onNavigate={onClose} />
+          {!collapsed && <SearchTriggerButton placement="sidebar" />}
+        </div>
 
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-2 lg:hidden">
@@ -321,8 +314,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         </div>
 
         {/* Navigation */}
-        <nav aria-label={t('mainNavigation')} className="flex-1 p-[var(--s-3)] space-y-0.5 overflow-y-auto">
-          {            nav.map((item) => {
+        <nav aria-label={t('mainNavigation')} data-collapsed={collapsed || undefined} className="restaurant-sidebar-nav flex-1 overflow-y-auto">
+          {nav.map((item) => {
             const isActive = isItemActive(item);
             const expanded = overrides[item.labelKey] ?? isActive;
             const children = hasChildren(item);
@@ -351,14 +344,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                         toggleKey(item.labelKey, expanded);
                       }
                     }}
-                    className={`w-full flex items-center justify-between gap-[var(--s-3)] min-h-10 py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
-                      expanded
-                        ? 'text-[var(--fg)]'
-                        : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
-                    }`}
+                    className="restaurant-nav-row justify-between"
                   >
-                    <div className="flex items-center gap-[var(--s-3)] min-w-0">
-                      <item.icon className="w-[18px] h-[18px] shrink-0" />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <item.icon aria-hidden className="size-5 shrink-0" />
                       {!collapsed && <span className="truncate">{t(item.labelKey)}</span>}
                     </div>
                     {!collapsed && (
@@ -369,7 +358,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                           </span>
                         )}
                         <ChevronDown
-                          className={`w-3.5 h-3.5 shrink-0 transition-transform text-[var(--fg-subtle)] ${
+                          aria-hidden
+                          className={`restaurant-nav-chevron ${
                             expanded ? 'rotate-180' : ''
                           }`}
                         />
@@ -383,13 +373,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                     aria-current={isActive ? 'page' : undefined}
                     title={collapsed ? t(item.labelKey) : undefined}
                     onClick={onClose}
-                    className={`relative w-full flex items-center gap-[var(--s-3)] min-h-10 py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
-                      isActive
-                        ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
-                        : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
-                    }`}
+                    className="restaurant-nav-row"
                   >
-                    <item.icon className="w-[18px] h-[18px] shrink-0" />
+                    <item.icon aria-hidden className="size-5 shrink-0" />
                     {!collapsed && <span className="flex-1 truncate">{t(item.labelKey)}</span>}
                     {item.labelKey === 'orders' && !collapsed && (
                       <span
@@ -416,9 +402,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                       return <div key={groupKey}>
                         <button type="button" aria-expanded={groupExpanded} aria-controls={`nav-${groupKey}`}
                           onClick={() => toggleKey(groupKey, groupExpanded)}
-                          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-r-md px-3 py-2 text-start text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--sidebar-hover)]">
+                          className="restaurant-nav-sub justify-between">
                           <span>{t(group.labelKey)}</span>
-                          <ChevronDown aria-hidden className={`size-3.5 shrink-0 text-[var(--fg-subtle)] transition-transform ${groupExpanded ? 'rotate-180' : ''}`} />
+                          <ChevronDown aria-hidden className={`restaurant-nav-chevron ${groupExpanded ? 'rotate-180' : ''}`} />
                         </button>
                         {groupExpanded && <div id={`nav-${groupKey}`} className="ps-3">
                           {group.items.map(sub => <SubLink key={sub.href} href={sub.href} label={t(sub.labelKey)}
@@ -449,18 +435,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           }
         </nav>
 
-        {/* Account stays accessible without a branded navigation header. */}
+        {/* Display controls */}
         <div className="border-t border-[var(--line)]">
           <div className={collapsed ? 'grid grid-cols-1' : 'flex'}>
-            <button
-              type="button"
-              onClick={() => setProfileOpen(true)}
-              aria-label={`Foody · ${t('profile')}`}
-              title={t('profile')}
-              className="flex h-11 flex-1 items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]"
-            >
-              <UserRound aria-hidden className="size-4" />
-            </button>
             <button
               onClick={toggleTheme}
               className="flex-1 h-11 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
@@ -492,102 +469,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           </div>
         </div>
       </NavigationFrame>
-
-      <Drawer open={profileOpen} onOpenChange={setProfileOpen} title={t('profile')} width={360}>
-        {/* User info */}
-        <div className="px-5 py-5 border-b border-[var(--line)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-[var(--action)] text-[var(--action-fg)]">
-              <span className="text-sm font-bold">
-                {(user?.full_name || user?.email || '?')[0].toUpperCase()}
-              </span>
-            </div>
-            <div className="min-w-0">
-              {user?.full_name && (
-                <p className="text-sm font-semibold truncate text-[var(--fg)]">
-                  {user.full_name}
-                </p>
-              )}
-              {user?.email && (
-                <p className="text-xs truncate text-[var(--fg-muted)]">
-                  {user.email}
-                </p>
-              )}
-            </div>
-          </div>
-          {restaurantName && (
-            <p className="mt-3 text-xs font-medium text-[var(--fg-muted)]">
-              {restaurantName}
-            </p>
-          )}
-        </div>
-
-        {/* Drawer menu items */}
-        <nav className="flex-1 overflow-y-auto py-2">
-          <button
-            onClick={toggleTheme}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
-          >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            {theme === 'dark' ? t('lightMode') : t('darkMode')}
-          </button>
-
-          <div className="px-5 py-3">
-            <div className="flex items-center gap-3 mb-2">
-              <Languages className="w-5 h-5 text-[var(--fg)]" />
-              <span className="text-sm text-[var(--fg)]">{t('language')}</span>
-            </div>
-            <div className="flex gap-2 ms-8">
-              {SUPPORTED_LOCALES.map((loc) => (
-                <button
-                  key={loc}
-                  onClick={() => setLocale(loc)}
-                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                    locale === loc
-                      ? 'border-brand-500 text-brand-500 font-semibold'
-                      : 'border-[var(--line)] text-[var(--fg-muted)] hover:border-[var(--text-secondary)]'
-                  }`}
-                >
-                  {LOCALE_LABELS[loc]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {restaurantIds.length > 1 && (
-            <Link
-              href="/select-restaurant"
-              onClick={() => setProfileOpen(false)}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
-            >
-              <Building2 className="w-5 h-5" />
-              {t('switchRestaurant')}
-            </Link>
-          )}
-
-          {settingsGroups.length > 0 && <Link
-            href={settingsGroups.flatMap(group => group.items).find(item => item.href === `/${restaurantId}/settings`)?.href ?? settingsGroups[0].items[0].href}
-            onClick={() => setProfileOpen(false)}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
-          >
-            <Settings className="w-5 h-5" />
-            {t('settings')}
-          </Link>}
-        </nav>
-
-        <div className="border-t border-[var(--line)] px-5 py-4">
-          <button
-            onClick={() => {
-              setProfileOpen(false);
-              logout();
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors hover:bg-red-500/10 text-red-500"
-          >
-            <LogOut className="w-5 h-5" />
-            {t('signOut')}
-          </button>
-        </div>
-      </Drawer>
     </>
   );
 }
@@ -614,13 +495,7 @@ function SubLink({
       href={href}
       aria-current={active ? 'page' : undefined}
       onClick={onClick}
-      className={`w-full flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-2 rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
-        desktopOnly ? 'max-lg:hidden ' : ''
-      }${
-        active
-          ? 'bg-[var(--selection)] text-[var(--brand-ink)]'
-          : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
-      }`}
+      className={`restaurant-nav-sub justify-between ${desktopOnly ? 'max-lg:hidden' : ''}`}
     >
       <span className="truncate">{label}</span>
       {badge !== undefined && badge > 0 && (

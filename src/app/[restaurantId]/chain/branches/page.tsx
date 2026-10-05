@@ -76,7 +76,10 @@ function BranchManagement({ restaurantId }: { restaurantId: number }) {
   const frozen = busy || loading || permissionsLoading;
 
   return <div className="space-y-6">
-    <PageHead title={t('chain_branches')} desc={t('chain_branches_desc')} actions={canManage && overview && !needsIdentity ? <Button disabled={frozen} onClick={() => setEditor({ kind: 'create' })}><Plus />{t('chain_create_branch')}</Button> : undefined} />
+    <PageHead title={t('chain_branches')} desc={t('chain_branches_desc')} actions={<>
+      {overview?.chain_id != null && branches.length > 1 && <Button variant="secondary" asChild><Link href={`/chain/${overview.chain_id}/dashboard`}>{t('branch_switcher_global')}</Link></Button>}
+      {canManage && overview && !needsIdentity && <Button disabled={frozen} onClick={() => setEditor({ kind: 'create' })}><Plus />{t('chain_create_branch')}</Button>}
+    </>} />
     {message && <div role="status" className="rounded-r-lg border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-fs-sm text-[var(--fg-muted)]">{message}</div>}
     {loading ? <div role="status" className="py-16 text-center text-[var(--fg-muted)]">{t('loading')}</div>
       : error ? <div className="card px-5" role="alert"><EmptyState icon={<Network />} title={t('chain_load_error')} action={<Button variant="secondary" onClick={() => void load()}><RefreshCw />{t('retry')}</Button>} /></div>

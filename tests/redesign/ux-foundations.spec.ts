@@ -323,13 +323,13 @@ test('navigation starts with the restaurant, keeps profile access and uses a bla
   const sidebar = page.locator('aside');
   await expect(sidebar.locator('svg[viewBox="0 0 348 128"], svg[viewBox="0 0 100 100"]')).toHaveCount(0);
   await expect(sidebar.getByRole('button', { name: 'Atelier Foody', exact: true })).toBeVisible();
-  await sidebar.getByRole('button', { name: 'Foody · Profil', exact: true }).focus();
+  await sidebar.getByRole('button', { name: 'Atelier Foody', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('dialog', { name: 'Profil', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(sidebar.getByRole('button', { name: 'Foody · Profil', exact: true })).toBeFocused();
+  await expect(sidebar.getByRole('button', { name: 'Atelier Foody', exact: true })).toBeFocused();
   await sidebar.getByRole('button', { name: 'Réduire le menu', exact: true }).click();
-  const profile = sidebar.getByRole('button', { name: 'Foody · Profil', exact: true });
+  const profile = sidebar.getByRole('button', { name: 'Atelier Foody', exact: true });
   expect((await profile.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await profile.focus();
   await page.keyboard.press('Enter');

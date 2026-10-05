@@ -117,7 +117,7 @@ test('stories SDK loading error has a retry and no implicit connect request', as
 });
 
 test('stories locale changes preserve state and unknown thumbnails never request unsafe URLs', async ({ page }) => {
-  const state = await install(page); state.control.reels[0].thumbnail_url = 'javascript:alert(1)'; await page.goto('/1/reels'); await expect(reel(page, 1).getByRole('img')).toHaveCount(0); const reads = state.control.reads; await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape'); await expect(reel(page, 1).getByText('אין תצוגה מקדימה', { exact: true })).toBeVisible(); expect(state.control.reads).toBe(reads); expect(state.writes).toHaveLength(0);
+  const state = await install(page); state.control.reels[0].thumbnail_url = 'javascript:alert(1)'; await page.goto('/1/reels'); await expect(reel(page, 1).getByRole('img')).toHaveCount(0); const reads = state.control.reads; await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('he'); await page.keyboard.press('Escape'); await expect(reel(page, 1).getByText('אין תצוגה מקדימה', { exact: true })).toBeVisible(); expect(state.control.reads).toBe(reads); expect(state.writes).toHaveLength(0);
 });
 
 test('stories empty connected library distinguishes no media from an error', async ({ page }) => {

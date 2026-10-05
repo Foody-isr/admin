@@ -127,7 +127,7 @@ test('Cibus acknowledged write with failed readback retries GET only', async ({ 
 
 test('Cibus draft survives interface-language change without another GET', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/cibus'); await fillIdentity(page); const reads = state.control.cibusReads;
-  await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'English', exact: true }).click(); await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('en'); await page.keyboard.press('Escape');
   await expect(page.getByLabel('Cibus Restaurant ID', { exact: true })).toHaveValue('0001234'); expect(state.control.cibusReads).toBe(reads); expect(state.writes).toHaveLength(0);
 });
 
@@ -185,7 +185,7 @@ test('payments do not invent card connection, rounding, suggested-tip or weight-
 
 test('payments retain draft across locale changes and confirm reset to the saved baseline', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/payments'); await vat(page).fill('12'); const reads = state.control.settingsReads;
-  await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'English', exact: true }).click(); await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('en'); await page.keyboard.press('Escape');
   await expect(page.getByRole('textbox', { name: 'Default VAT rate (%)', exact: true })).toHaveValue('12'); expect(state.control.settingsReads).toBe(reads);
   await page.getByRole('button', { name: 'Reset', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Discard changes', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Default VAT rate (%)', exact: true })).toHaveValue('18'); expect(state.writes).toHaveLength(0); expect(await guarded(page)).toBe(false);
