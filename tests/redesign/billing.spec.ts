@@ -58,7 +58,7 @@ test('billing financial history preserves cents, event currency, zero, and unkno
 });
 
 test('billing empty history and locale changes preserve the loaded subscription', async ({ page }) => {
-  const state = await install(page); state.control.subscription.events = []; await page.goto('/1/billing'); await expect(page.getByText('Aucun événement de facturation pour le moment.', { exact: true })).toBeVisible(); const reads = state.control.reads; await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape'); await expect(page.getByText('אין עדיין אירועי חיוב.', { exact: true })).toBeVisible(); expect(state.control.reads).toBe(reads);
+  const state = await install(page); state.control.subscription.events = []; await page.goto('/1/billing'); await expect(page.getByText('Aucun événement de facturation pour le moment.', { exact: true })).toBeVisible(); const reads = state.control.reads; await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('he'); await page.keyboard.press('Escape'); await expect(page.getByText('אין עדיין אירועי חיוב.', { exact: true })).toBeVisible(); expect(state.control.reads).toBe(reads);
 });
 
 test('billing malformed subscription never exposes change actions', async ({ page }) => {

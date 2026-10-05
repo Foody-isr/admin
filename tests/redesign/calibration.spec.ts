@@ -133,7 +133,8 @@ test('scoped search is usable on mobile and opens the actual article editor',asy
 test('branch selection updates the active establishment',async({page})=>{
   await install(page);await page.goto('/1/dashboard');
   await page.getByRole('button',{name:'Atelier Foody',exact:true}).click();
-  await page.getByRole('menuitem',{name:'Jardin Foody',exact:true}).click();
+  await page.getByRole('dialog',{name:'Profil',exact:true}).getByRole('link',{name:'Changer de restaurant',exact:true}).click();
+  await page.getByRole('button',{name:/Jardin Foody/}).click();
   await expect(page).toHaveURL(/\/2\/dashboard$/);
   await expect(page.getByRole('button',{name:'Jardin Foody',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Atelier Foody',exact:true})).toHaveCount(0);

@@ -94,7 +94,7 @@ test('branding saves a valid new logo path without changing website drafts', asy
 test('branding draft survives language changes and guarded navigation before reset', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/branding'); await description(page).fill('Brouillon conservé'); const reads = state.control.reads;
   await page.getByRole('link', { name: 'Ouvrir l’éditeur du site', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click(); await expect(page).toHaveURL(/branding$/);
-  await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'English', exact: true }).click(); await page.keyboard.press('Escape'); await expect(description(page)).toHaveValue('Brouillon conservé'); expect(state.control.reads).toBe(reads);
+  await page.getByRole('button', { name: state.control.name, exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('en'); await page.keyboard.press('Escape'); await expect(description(page)).toHaveValue('Brouillon conservé'); expect(state.control.reads).toBe(reads);
   await page.getByRole('button', { name: 'Reset', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Discard changes', exact: true }).click(); await expect(description(page)).toHaveValue(state.control.description); expect(state.writes).toHaveLength(0); expect(await guarded(page)).toBe(false);
 });
 

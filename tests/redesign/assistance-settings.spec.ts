@@ -104,8 +104,8 @@ test('assistant settings serialize saves and preserve the draft on failure', asy
 test('assistant settings preserve the draft across an interface-language change', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/ai-assistant'); await guidance(page).fill('Unchanged local draft');
   const reads = state.control.settingsReads;
-  await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click();
+  await page.getByRole('dialog').getByRole('combobox').selectOption('he'); await page.keyboard.press('Escape');
   await expect(page.getByRole('textbox', { name: 'הנחיות לעוזר', exact: true })).toHaveValue('Unchanged local draft');
   expect(state.control.settingsReads).toBe(reads); expect(state.writes).toHaveLength(0);
 });
@@ -195,7 +195,7 @@ test('table assistance draft survives language changes and reset returns to the 
   const state = await install(page); state.faults.rulesSave = 1; await page.goto('/1/settings/table-assistance');
   await maxRequests(page).fill('8'); await checkDelay(page).fill('12'); await save(page).click(); await expect(page.locator('main [role=alert]')).toBeVisible();
   const reads = state.control.settingsReads;
-  await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'English', exact: true }).click(); await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('en'); await page.keyboard.press('Escape');
   await expect(page.getByRole('textbox', { name: 'Maximum requests', exact: true })).toHaveValue('8'); expect(state.control.settingsReads).toBe(reads);
   await page.getByRole('button', { name: 'Reset', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Discard changes', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Maximum requests', exact: true })).toHaveValue('8');

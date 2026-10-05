@@ -280,8 +280,9 @@ test('menu import restart protects the draft and resets the explicit primary-lan
 test('menu import preserves the draft when the interface language changes', async ({ page }) => {
   const state = await install(page);
   await review(page); await english(page).fill('Draft retained');
-  await page.getByRole('button', { name: 'Profil', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'English', exact: true }).click();
+  await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click();
+  await page.getByRole('dialog').getByRole('combobox').selectOption('en');
+  await page.keyboard.press('Escape');
   await expect(english(page)).toHaveValue('Draft retained');
   await expect(page.getByRole('combobox', { name: 'Main menu language', exact: true })).toHaveValue('fr');
   expect(state.writes.filter(write => write.path.endsWith('/preview'))).toHaveLength(1);
