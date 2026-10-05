@@ -44,6 +44,8 @@ import { EDITOR_ELEMENTS } from "@/lib/website-v3/editor-elements";
 import type { StatePath } from "@/lib/website-v3/types";
 import { componentGroupsForPage } from "./PreviewCanvas";
 
+import type { OrderEditorRegion } from "@/lib/website-v3/editor-selection";
+
 type Panel =
   "outline" | "pages" | "inspector" | "library" | "page-library" | "design";
 
@@ -56,6 +58,8 @@ export function EditorSidebar({
   tab,
   busy,
   inspector,
+  orderEditor,
+  onSelectOrderRegion,
   design,
   alerts,
   onTabChange,
@@ -89,6 +93,8 @@ export function EditorSidebar({
   tab: InspectorTab;
   busy: boolean;
   inspector: ReactNode;
+  orderEditor?: (region: OrderEditorRegion) => ReactNode;
+  onSelectOrderRegion?: (region: OrderEditorRegion) => void;
   design: (onEditShared: () => void) => ReactNode;
   alerts: ReactNode;
   onTabChange: (tab: InspectorTab) => void;
@@ -139,7 +145,9 @@ export function EditorSidebar({
     : null;
   const activeField =
     selection.kind === "section" ? selection.field : undefined;
+  const orderRegion = selection.kind === "page" ? selection.region : undefined;
   const activeKey = pageKey(activePage);
+  useEffect(() => { if (orderRegion) setPanel("inspector"); }, [orderRegion]);
   const sections = state.sections
     .filter((s) => !s.settings.theme_retired)
     .filter((s) =>
@@ -324,7 +332,7 @@ export function EditorSidebar({
                           ? "editorFooter"
                           : "editorSettings",
                     )
-                  : activePage.title}
+                  : orderRegion ? t(orderRegion === "order-items" ? "editorItemList" : orderRegion === "order-banner" ? "editorMainBanner" : "editorOrderFulfillment") : activePage.title}
         </h2>
         {panel === "inspector" && selectedSection && (
           <div className="sqe-more">
@@ -457,6 +465,15 @@ export function EditorSidebar({
               {t("editorHeader")}
             </button>
           </div>
+          {activePage.type === "order" && ([
+            ["order-banner", "editorMainBanner", Image],
+            ["order-fulfillment", "editorOrderFulfillment", Utensils],
+            ["order-items", "editorItemList", Columns3],
+          ] as const).map(([region, label, Icon]) => <div key={region} className="sqe-section-row"
+            data-hovered={hoveredSectionKey === `site:${region}` || undefined}
+            onMouseEnter={() => onHoverSection(`site:${region}`)} onMouseLeave={() => onHoverSection(null)}>
+            <button onClick={() => { onSelectOrderRegion?.(region); setPanel("inspector"); }}><Icon size={20} />{t(label)}</button>
+          </div>)}
           {sections
             .filter((s) => s.section_type !== "footer")
             .map((s, index) => (
@@ -554,7 +571,7 @@ export function EditorSidebar({
                 )}
               </div>
             ))}
-          {sections.length === 0 && (
+          {sections.length === 0 && activePage.type !== "order" && (
             <p className="sqe-panel-body">{t("editorEmptySections")}</p>
           )}
           <div
@@ -780,7 +797,7 @@ export function EditorSidebar({
         </div>
       )}
       {panel === "design" && design(() => editSite())}
-      {panel === "inspector" && (
+      {panel === "inspector" && orderRegion && orderEditor ? orderEditor(orderRegion) : panel === "inspector" && (
         <>
           {!selectedSection &&
             !(selection.kind === "site" && selection.region === "header") && (
