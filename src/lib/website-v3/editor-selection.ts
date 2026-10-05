@@ -4,9 +4,11 @@ import {
   type DraftPagePayload,
 } from "./types";
 
+export type OrderEditorRegion = "order-banner" | "order-items" | "order-fulfillment";
+
 export type RailSelection =
   | { kind: "site"; pageKey?: string; region?: "header" | "footer" }
-  | { kind: "page"; key: string }
+  | { kind: "page"; key: string; region?: OrderEditorRegion }
   | { kind: "section"; pageKey: string; sectionKey: string; field?: string };
 
 /** Keeps the current page visible when opening its shared header or footer. */

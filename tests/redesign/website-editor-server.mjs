@@ -173,7 +173,12 @@ http
       }
       result = { json: response() };
     } else if (path === "/api/v1/restaurants/1/website-publish") {
-      published = structuredClone(draft);
+      const pageIds = new Map(draft.pages.map((page, index) => [page.tmp_id, page.id ?? index + 100]));
+      published = {
+        ...structuredClone(draft),
+        pages: draft.pages.map(({tmp_id, ...page}, index) => ({...page, id: page.id ?? index + 100})),
+        sections: draft.sections.map(({tmp_id, page_tmp_id, ...section}, index) => ({...section, id: section.id ?? index + 1000, ...(page_tmp_id ? {page_id: pageIds.get(page_tmp_id)} : {})})),
+      };
       dirty = false;
       result = { json: response() };
     } else if (path === "/api/v1/restaurants/1/website-discard") {
@@ -215,6 +220,8 @@ http
           ],
         },
       };
+    else if (path === "/api/v1/public/delivery/check")
+      result = {json: {resolved: true, deliverable: !new URL(req.url, "http://localhost").searchParams.get("address")?.includes("outside"), delivery_fee: 12}};
     else if (path === "/api/v1/public/themes/catalog")
       result = { json: { themes: [], typography_pairings: [] } };
     else if (path.endsWith("/catering/services"))

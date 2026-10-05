@@ -33,6 +33,7 @@ export function PreviewCanvas({
   activeSectionKey,
   activeField,
   activeRegion,
+  orderDialog,
   onSelectRegion,
   hoveredSectionKey,
   onHoverSection,
@@ -56,8 +57,9 @@ export function PreviewCanvas({
   activePage: DraftPagePayload;
   activeSectionKey?: string;
   activeField?: string;
-  activeRegion?: "header" | "footer";
-  onSelectRegion?: (region: "header" | "footer") => void;
+  activeRegion?: "header" | "footer" | "order-banner" | "order-items" | "order-fulfillment";
+  orderDialog?: "fulfillment" | "item";
+  onSelectRegion?: (region: "header" | "footer" | "order-banner" | "order-items" | "order-fulfillment") => void;
   hoveredSectionKey?: string | null;
   onHoverSection: (key: string | null) => void;
   onEditElement: (key: string, field: string, value: string) => void;
@@ -92,6 +94,7 @@ export function PreviewCanvas({
     activeSectionKey,
     activeField,
     activeRegion,
+    orderDialog,
     hoveredSectionKey,
   });
   editorModeRef.current = {
@@ -99,6 +102,7 @@ export function PreviewCanvas({
     activeSectionKey,
     activeField,
     activeRegion,
+    orderDialog,
     hoveredSectionKey,
   };
   const readyRef = useRef(false);
@@ -127,6 +131,7 @@ export function PreviewCanvas({
           sectionKey: editorModeRef.current.activeSectionKey ?? null,
           field: editorModeRef.current.activeField ?? null,
           region: editorModeRef.current.activeRegion ?? null,
+          orderDialog: editorModeRef.current.orderDialog ?? null,
           hoveredSectionKey: editorModeRef.current.hoveredSectionKey ?? null,
         },
         targetOrigin,
@@ -152,6 +157,7 @@ export function PreviewCanvas({
     activeSectionKey,
     activeField,
     activeRegion,
+    orderDialog,
     hoveredSectionKey,
     postEditorMode,
   ]);
@@ -217,7 +223,8 @@ export function PreviewCanvas({
       ) {
         if (event.data.activePageKey !== pageKey(latestRef.current.activePage))
           return;
-        if (event.data.region === "header" || event.data.region === "footer")
+        if (event.data.region === "header" || event.data.region === "footer" ||
+          (latestRef.current.activePage.type === "order" && ["order-banner", "order-items", "order-fulfillment"].includes(event.data.region)))
           onSelectRegion?.(event.data.region);
         return;
       }
@@ -251,7 +258,8 @@ export function PreviewCanvas({
         if (!section) {
           if (
             event.data.type === "foody.website-v3.hover-section" &&
-            (id === "site:header" || id === "site:footer")
+            (id === "site:header" || id === "site:footer" ||
+              (latest.activePage.type === "order" && ["site:order-banner", "site:order-items", "site:order-fulfillment"].includes(id)))
           )
             onHoverSection(id);
           return;

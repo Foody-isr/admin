@@ -68,6 +68,7 @@ export type CateringPageOverride = {
 };
 
 export type DraftAppearanceOverrides = {
+  website_order?: Record<string, unknown>;
   foody_renderer_version?: number;
   bg?: string;
   ink?: string;

@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { loadWebsiteFont } from "@/lib/website-fonts";
 import type { ThemeCatalog } from "@/lib/api";
 import { PreviewCanvas } from "./PreviewCanvas";
+import { SITE_STYLES, applySiteStyle, defaultThemeStyle, type SiteStyle } from "@/lib/website-v3/site-styles";
 import type { ApplyRestaurantThemeOptions } from "@/lib/website-v3/restaurant-themes";
 import { pageKey } from "@/lib/website-v3/types";
 import type { DraftStatePayload } from "@/lib/website-v3/types";
@@ -51,7 +52,8 @@ export function SiteDesign({
   const { t } = useI18n();
   const [screen, setScreen] = useState<Screen>("root");
   const [candidate, setCandidate] = useState<RestaurantTheme | null>(null);
-  const [allPages, setAllPages] = useState(false);
+  const [styleCandidate, setStyleCandidate] = useState<SiteStyle | null>(null);
+  const allPages = true;
   const [compose, setCompose] = useState(false);
   const [ordering, setOrdering] = useState(false);
   const [applied, setApplied] = useState(false);
@@ -84,7 +86,7 @@ export function SiteDesign({
   }, [heading, body]);
   useEffect(() => {
     if (screen === "themes" || screen === "styles" || screen === "detail") {
-      RESTAURANT_THEMES.forEach((theme) => loadWebsiteFont(theme.heading));
+      [...RESTAURANT_THEMES, ...SITE_STYLES].forEach((theme) => loadWebsiteFont(theme.heading));
     }
   }, [screen]);
   useEffect(() => () => onPreview(null), [onPreview]);
@@ -102,7 +104,8 @@ export function SiteDesign({
     },
     createId: () => `section-${crypto.randomUUID()}`,
   }), [allPages, compose, ordering, restaurantName, description, image, t]);
-  const candidateDraft = useMemo(() => candidate ? applyRestaurantTheme(state, candidate, themeOptions) : null, [candidate, state, themeOptions]);
+  const compositionDraft = useMemo(() => candidate ? applyRestaurantTheme(state, candidate, themeOptions) : null, [candidate, state, themeOptions]);
+  const candidateDraft = useMemo(() => styleCandidate ? applySiteStyle(compositionDraft ?? state, styleCandidate) : compositionDraft, [compositionDraft, state, styleCandidate]);
   useEffect(() => onPreview(candidateDraft), [candidateDraft, onPreview]);
   const patch = (value: Record<string, unknown>) =>
     onChange({ ...state, config: { ...state.config, ...value } });
@@ -112,7 +115,7 @@ export function SiteDesign({
     setApplied(false);
     if (!withLayout) setOrdering(false);
     setCompose(withLayout);
-    if (withLayout) setAllPages(true);
+    setStyleCandidate(null);
     setCandidate(theme);
     setScreen("detail");
   };
@@ -123,14 +126,30 @@ export function SiteDesign({
     onApplied(candidateDraft);
     onPreview(null);
     setCandidate(null);
+    setStyleCandidate(null);
     setApplied(true);
     setScreen("root");
   };
   const back = () => {
     setCandidate(null);
+    setStyleCandidate(null);
     onPreview(null);
     setScreen("root");
   };
+  const previewStyle = (style: SiteStyle) => {
+    setApplied(false);
+    setStyleCandidate(style);
+  };
+  const styleCards = (styles: readonly SiteStyle[]) => (
+    <div className="sqe-style-grid">
+      {styles.map(style => <button key={style.id} aria-label={style.name}
+        aria-pressed={styleCandidate?.id === style.id || (!styleCandidate && style.id === (candidate ? `original-${candidate.id}` : site.style))}
+        onClick={() => previewStyle(style)}
+        style={{background: style.bg, color: style.ink, fontFamily: style.heading}}>
+        <strong>Aa</strong><i style={{background: style.accent, borderRadius: style.shape === "pill" ? 24 : style.shape === "rounded" ? 6 : 0}} />
+      </button>)}
+    </div>
+  );
   const fontOptions = Array.from(
     new Set([
       heading,
@@ -368,23 +387,8 @@ export function SiteDesign({
         <div className="sqe-panel-body">
           <h3>{t("editorStyles")}</h3>
           <p>{t("editorStylesHint")}</p>
-          <div className="sqe-style-grid">
-            {RESTAURANT_THEMES.map((theme) => (
-              <button
-                key={theme.id}
-                aria-label={theme.name}
-                onClick={() => previewTheme(theme)}
-                style={{
-                  background: theme.bg,
-                  color: theme.ink,
-                  fontFamily: theme.heading,
-                }}
-              >
-                <strong>Aa</strong>
-                <i style={{ background: theme.accent }} />
-              </button>
-            ))}
-          </div>
+          {styleCards(SITE_STYLES)}
+          {styleCandidate && <button className="sqe-button sqe-button--primary" style={{marginTop: 24}} onClick={apply}>{t("editorApplyStyle")}</button>}
         </div>
       )}
       {screen === "themes" && (
@@ -457,36 +461,16 @@ export function SiteDesign({
       {screen === "detail" && candidate && (
         <div className="sqe-panel-body">
           <h3>{candidate.name}</h3>
-          <p>{t(compose || ordering ? "editorThemePreserve" : "editorStylesHint")}</p>
-          <p role="status">{t("editorThemePreviewHint")}</p>
-          {!compose && !ordering && <label className="sqe-field">
-            <input
-              type="checkbox"
-              checked={allPages}
-              onChange={(e) => setAllPages(e.target.checked)}
-            />{" "}
-            {t("editorThemeScope")}
-          </label>}
-          {!compose && !ordering && allPages && <p>{t("editorThemeScopeHint")}</p>}
-          {!ordering && (
-            <label className="sqe-field">
-              <span>{t("editorLayout")}</span>
-              <select
-                value={compose ? "compose" : "style"}
-                onChange={(e) => setCompose(e.target.value === "compose")}
-              >
-                <option value="style">{t("editorThemeStyleOnly")}</option>
-                <option value="compose">{t("editorThemeCompose")}</option>
-              </select>
-            </label>
-          )}
+          <p>{t("editorStylesHint")}</p>
+          <h3>{t("editorRemixStyles")}</h3>
+          {styleCards([defaultThemeStyle(candidate), ...SITE_STYLES])}
           {candidateDraft && compose && !ordering && (
             <label className="sqe-field">
               <span>{t("editorPages")}</span>
               <select aria-label={t("editorPages")}
-                value={previewPageKey || pageKey(candidateDraft.pages.find(page => page.is_homepage)!)}
+                value={pageKey(candidateDraft.pages.find(page => pageKey(page) === previewPageKey) ?? candidateDraft.pages.find(page => page.is_homepage)!)}
                 onChange={event => onSelectPreviewPage(event.target.value)}>
-                {candidateDraft.pages.filter(page => page.nav_visible || page.is_homepage).map(page => (
+                {candidateDraft.pages.map(page => (
                   <option key={pageKey(page)} value={pageKey(page)}>{page.title}</option>
                 ))}
               </select>
@@ -495,26 +479,7 @@ export function SiteDesign({
           <button className="sqe-button sqe-button--primary" onClick={apply}>
             {t(compose || ordering ? "editorUseTheme" : "editorApplyStyle")}
           </button>
-          <div className="sqe-style-grid" style={{ marginTop: 32 }}>
-            {RESTAURANT_THEMES.filter(
-              (theme) => !ordering || theme.ordering,
-            ).map((theme) => (
-              <button
-                key={theme.id}
-                aria-label={theme.name}
-                aria-pressed={candidate.id === theme.id}
-                style={{
-                  background: theme.bg,
-                  color: theme.ink,
-                  fontFamily: theme.heading,
-                }}
-                onClick={() => setCandidate(theme)}
-              >
-                <strong>Aa</strong>
-                <i style={{ background: theme.accent }} />
-              </button>
-            ))}
-          </div>
+
         </div>
       )}
     </>

@@ -80,6 +80,7 @@ import {
 import type { PageTemplate } from "./PageLibrary";
 import { normalizeSlug } from "@/lib/website-v3/state";
 import { PageSettingsDialog } from "./PageSettingsDialog";
+import { OrderPageEditor } from "./OrderPageEditor";
 import { EditorSidebar } from "./EditorSidebar";
 import { SiteDesign } from "./SiteDesign";
 import {
@@ -229,6 +230,7 @@ function DesktopWebsiteV3Builder({
     null,
   );
   const [themePreviewPageKey, setThemePreviewPageKey] = useState<string | null>(null);
+  const [previewOrderItem, setPreviewOrderItem] = useState(false);
   const [loaded, setLoaded] = useState<LoadedBuilder | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -448,7 +450,9 @@ function DesktopWebsiteV3Builder({
       if (serialized === themePreviewRef.current) return;
       themePreviewRef.current = serialized;
       setThemePreview(draft);
-      setThemePreviewPageKey(null);
+      setThemePreviewPageKey(current =>
+        draft?.pages.some(page => pageKey(page) === current) ? current : null,
+      );
       bumpPreview(false);
     },
     [bumpPreview],
@@ -469,6 +473,7 @@ function DesktopWebsiteV3Builder({
   const previewPage =
     pageCandidate?.page ??
     themePreview?.pages.find((page) => pageKey(page) === themePreviewPageKey) ??
+    themePreview?.pages.find((page) => activePage && pageKey(page) === pageKey(activePage)) ??
     themePreview?.pages.find((page) => page.is_homepage) ??
     activePage;
   // Hover and selection messages must not resend the entire restaurant draft.
@@ -1375,16 +1380,20 @@ function DesktopWebsiteV3Builder({
                 image={String(loaded.restaurant.cover_url || "")}
                 onChange={setLocalState}
                 onPreview={previewTheme}
-                previewPageKey={themePreviewPageKey}
+                previewPageKey={themePreviewPageKey ?? pageKey(activePage)}
                 onSelectPreviewPage={selectPage}
                 onApplied={(next) => {
-                  const home = next.pages.find((page) => page.is_homepage);
-                  if (home) setSelection({ kind: "page", key: pageKey(home) });
+                  const page = next.pages.find(page => pageKey(page) === themePreviewPageKey)
+                    ?? next.pages.find(page => pageKey(page) === pageKey(activePage))
+                    ?? next.pages.find(page => page.is_homepage);
+                  if (page) setSelection({ kind: "page", key: pageKey(page) });
                   setRequestedSurface("page");
                 }}
                 onEditShared={onEditShared}
               />
             )}
+            orderEditor={region => <OrderPageEditor restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
+            onSelectOrderRegion={region => setSelection({kind: "page", key: pageKey(activePage), region})}
             inspector={
               <Inspector
                 restaurantId={restaurantId}
@@ -1435,9 +1444,14 @@ function DesktopWebsiteV3Builder({
               selection.kind === "section" ? selection.field : undefined
             }
             activeRegion={
-              selection.kind === "site" ? selection.region : undefined
+              selection.kind === "site" || selection.kind === "page" ? selection.region : undefined
             }
+            orderDialog={selection.kind === "page" && selection.region === "order-fulfillment" ? "fulfillment" : selection.kind === "page" && selection.region === "order-items" && previewOrderItem ? "item" : undefined}
             onSelectRegion={(region) => {
+              if (region === "order-items" || region === "order-banner" || region === "order-fulfillment") {
+                setSelection({kind: "page", key: pageKey(activePage), region});
+                return;
+              }
               setSelection({
                 kind: "site",
                 pageKey: pageKey(activePage),
