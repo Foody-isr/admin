@@ -1,7 +1,11 @@
 /** Semantic elements shared with the public renderer's editor interaction contract. */
 export const EDITOR_ELEMENTS: Record<string, readonly string[]> = {
   hero_banner: ["headline", "subheadline", "cta_text", "image_url"],
-  text_and_image: ["title", "body", "image_url"],
+  text_and_image: ["title", "body", "image_url", "cta_text"],
+  text: ["title", "subtitle", "body", "cta_text"],
+  button: ["cta_text"],
+  scrolling_text: ["text"],
+  donation: ["title", "body", "cta_text", "image_url"],
   promo_banner: ["title", "body", "image_url"],
 };
 

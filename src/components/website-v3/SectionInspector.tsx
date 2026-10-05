@@ -10,9 +10,9 @@ import {
   GalleryHorizontal,
 } from "lucide-react";
 import {
-  LAYOUT_OPTIONS,
-  SECTION_TYPE_META,
-} from "@/components/website/SectionEditors";
+  SQUARE_COMPONENTS,
+  squareLayouts,
+} from "@/lib/website-v3/square-components";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import {
   ColorField,
@@ -40,7 +40,7 @@ export function SectionInspector({
   onChange: (path: StatePath, value: unknown) => void;
 }) {
   const { t } = useI18n();
-  const meta = SECTION_TYPE_META[section.section_type];
+  const meta = SQUARE_COMPONENTS[section.section_type];
   const configuredPlacementGroupId = stableId(
     section.settings.placement_group_id,
   );
@@ -56,7 +56,7 @@ export function SectionInspector({
         title={
           section.section_type === "order_discovery"
             ? "Découverte & publicité"
-            : meta?.labelKey
+            : meta?.label
               ? humanize(section.section_type)
               : "Section"
         }
@@ -82,9 +82,7 @@ export function SectionInspector({
             <span>{t("editorLayout")}</span>
             <div className="sqe-layout-choices">
               {(
-                LAYOUT_OPTIONS[section.section_type] ?? [
-                  { value: "default", labelKey: "default" },
-                ]
+                squareLayouts(section.section_type)
               ).map((layout) => {
                 const Icon =
                   layout.value === "split"

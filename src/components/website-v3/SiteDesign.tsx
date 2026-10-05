@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowLeft, ChevronRight, Image as ImageIcon, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { loadWebsiteFont } from "@/lib/website-fonts";
 import type { ThemeCatalog } from "@/lib/api";
@@ -15,13 +15,7 @@ import {
 } from "@/lib/website-v3/restaurant-themes";
 
 type Screen =
-  | "root"
-  | "colors"
-  | "fonts"
-  | "styles"
-  | "themes"
-  | "detail"
-  | "buttons";
+  "root" | "colors" | "fonts" | "styles" | "themes" | "detail" | "buttons";
 
 /** Global site design with non-destructive theme previews and an explicit apply action. */
 export function SiteDesign({
@@ -119,6 +113,7 @@ export function SiteDesign({
     patch({ typography: { ...typography, site: { ...site, ...value } } });
   const previewTheme = (theme: RestaurantTheme, withLayout = false) => {
     setCompose(withLayout);
+    if (withLayout) setAllPages(true);
     setCandidate(theme);
     setScreen("detail");
   };
@@ -450,13 +445,7 @@ export function SiteDesign({
               ).map((theme) => (
                 <article className="sqe-theme-card" key={theme.id}>
                   <div className="sqe-theme-art">
-                    <ThemeThumbnail
-                      theme={theme}
-                      name={restaurantName}
-                      image={image}
-                      headline={t("editorWelcome")}
-                      cta={t("editorOrderNow")}
-                    />
+                    <ThemeThumbnail theme={theme} ordering={ordering} />
                   </div>
                   <footer>
                     <strong>{theme.name}</strong>
@@ -529,67 +518,30 @@ export function SiteDesign({
 
 function ThemeThumbnail({
   theme,
-  name,
-  image,
-  headline,
-  cta,
+  ordering = false,
 }: {
   theme: RestaurantTheme;
-  name: string;
-  image: string;
-  headline: string;
-  cta: string;
+  ordering?: boolean;
 }) {
+  const base = "https://www.weebly.com/app/website/static/thumbnails/themes/";
+  const image = `${ordering ? "OO_" : ""}${theme.thumbnail}`;
   return (
-    <div
-      className="sqe-theme-preview"
-      style={{ background: theme.bg, color: theme.ink }}
-    >
-      <div className="sqe-theme-nav">
-        <strong>{name}</strong>
-        <span>{cta}　☰</span>
-      </div>
-      <div
-        className="sqe-theme-hero"
-        style={
-          theme.hero !== "split" && image
-            ? {
-                backgroundImage: `linear-gradient(#0003,#0003),url(${JSON.stringify(image)})`,
-                color: "white",
-              }
-            : {}
-        }
-      >
-        <div>
-          <h2 style={{ fontFamily: theme.heading }}>{headline}</h2>
-          <span
-            style={{
-              background: theme.accent,
-              color: theme.mode === "dark" ? theme.bg : "white",
-              borderRadius:
-                theme.shape === "square"
-                  ? 0
-                  : theme.shape === "rounded"
-                    ? 6
-                    : 24,
-            }}
-          >
-            {cta}
-          </span>
-        </div>
-        {theme.hero === "split" &&
-          (image ? (
-            <div
-              style={{
-                width: "45%",
-                alignSelf: "stretch",
-                background: `center/cover url(${JSON.stringify(image)})`,
-              }}
-            />
-          ) : (
-            <ImageIcon size={64} strokeWidth={1} />
-          ))}
-      </div>
+    <div className="sqe-theme-reference">
+      {/* The gallery shows the reference composition; Preview uses the restaurant's actual content. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="sqe-theme-reference-desktop"
+        src={`${base}${image}_Desktop_en-GB.jpg`}
+        alt={theme.name}
+        loading="lazy"
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="sqe-theme-reference-mobile"
+        src={`${base}${image}_Mobile_en-GB.jpg`}
+        alt=""
+        loading="lazy"
+      />
     </div>
   );
 }

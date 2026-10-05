@@ -10394,3 +10394,8 @@ export async function parseKitchenData(rid: number, files: File[], retried = fal
   if (!res.ok) throw new ApiError(result.error || result.message || 'data_workspace_failed', res.status);
   return result;
 }
+
+/** Responses to a published website form, scoped to the active restaurant. */
+export function listWebsiteFormResponses(restaurantId: number, sectionId: number, before?: number) {
+  return apiFetch<Array<{ id: number; created_at: string; values: Record<string, string> }>>(`/api/v1/restaurants/${restaurantId}/website-forms/${sectionId}/submissions${before ? `?before=${before}` : ""}`, restaurantId);
+}

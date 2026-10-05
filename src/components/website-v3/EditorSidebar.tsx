@@ -21,9 +21,9 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import {
-  LAYOUT_OPTIONS,
-  SECTION_TYPE_META,
-} from "@/components/website/SectionEditors";
+  SQUARE_COMPONENTS,
+  squareLayouts,
+} from "@/lib/website-v3/square-components";
 import { isTechnicalSitePage } from "@/lib/website-v3/state";
 import {
   pageKey,
@@ -45,12 +45,7 @@ import type { StatePath } from "@/lib/website-v3/types";
 import { componentGroupsForPage } from "./PreviewCanvas";
 
 type Panel =
-  | "outline"
-  | "pages"
-  | "inspector"
-  | "library"
-  | "page-library"
-  | "design";
+  "outline" | "pages" | "inspector" | "library" | "page-library" | "design";
 
 /** A single contextual sidebar for pages, section editing and global design. */
 export function EditorSidebar({
@@ -73,6 +68,7 @@ export function EditorSidebar({
   onSelectSection,
   onAddPage,
   onPageSettings,
+  onMakeHomepage,
   onPreviewPage,
   onAddPageTemplate,
   onAddSection,
@@ -105,6 +101,7 @@ export function EditorSidebar({
   onClearSelection: () => void;
   onAddPage: () => void;
   onPageSettings: (key: string) => void;
+  onMakeHomepage: (key: string) => void;
   onPreviewPage: (
     template: PageTemplate | null,
     title?: string,
@@ -131,6 +128,7 @@ export function EditorSidebar({
   const [pendingSection, setPendingSection] = useState<string | null>(null);
   const [pendingLayout, setPendingLayout] = useState<string | null>(null);
   const [rowMenu, setRowMenu] = useState<string | null>(null);
+  const [addMenu, setAddMenu] = useState(false);
   const [pageMenu, setPageMenu] = useState<string | null>(null);
   const selectedSection =
     selection.kind === "section"
@@ -143,6 +141,7 @@ export function EditorSidebar({
     selection.kind === "section" ? selection.field : undefined;
   const activeKey = pageKey(activePage);
   const sections = state.sections
+    .filter((s) => !s.settings.theme_retired)
     .filter((s) =>
       s.page_id !== undefined
         ? s.page_id === activePage.id
@@ -151,7 +150,7 @@ export function EditorSidebar({
           : s.page === activePage.slug,
     )
     .sort((a, b) => a.sort_order - b.sort_order);
-  const groups = componentGroupsForPage(activePage.type, sections);
+  const groups = componentGroupsForPage(activePage.type);
   const lastSectionKey = useRef<string | null>(null);
   useEffect(() => {
     if (selectedSectionKey) {
@@ -187,7 +186,7 @@ export function EditorSidebar({
           menu_highlights: "editorFeaturedItems",
         } as Record<string, string>
       )[section.section_type] ??
-        SECTION_TYPE_META[section.section_type]?.labelKey ??
+        SQUARE_COMPONENTS[section.section_type]?.label ??
         section.section_type,
     );
   const editSite = (region?: "header" | "footer") => {
@@ -244,13 +243,57 @@ export function EditorSidebar({
           >
             <Settings size={22} />
           </button>
-          <button
-            className="sqe-icon-button"
-            aria-label={t("editorAddPage")}
-            onClick={() => setPanel("page-library")}
-          >
-            <Plus size={24} />
-          </button>
+          <div className="sqe-more">
+            <button
+              className="sqe-icon-button"
+              aria-label={t("editorAdd")}
+              aria-expanded={addMenu}
+              onClick={() => setAddMenu(!addMenu)}
+            >
+              <Plus size={24} />
+            </button>
+            {addMenu && (
+              <>
+                <button
+                  className="sqe-dismiss"
+                  aria-label={t("editorClose")}
+                  onClick={() => setAddMenu(false)}
+                />
+                <div className="sqe-menu">
+                  <button
+                    onClick={() => {
+                      setPanel("library");
+                      setAddMenu(false);
+                    }}
+                  >
+                    {t("editorAddSection")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPanel("page-library");
+                      setAddMenu(false);
+                    }}
+                  >
+                    {t("editorAddPage")}
+                  </button>
+                  <a
+                    href={`/${restaurantId}/menu/items`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {t("editorAddItem")} ↗
+                  </a>
+                  <a
+                    href={`/${restaurantId}/menu/categories`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {t("editorAddCategory")} ↗
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </>
     ) : (
@@ -384,6 +427,7 @@ export function EditorSidebar({
         onAdd={onAddPageTemplate}
         onClose={() => setPanel("outline")}
         onCommerce={onAddPage}
+        hasShop={state.pages.some((page) => page.type === "order")}
       />
     );
   const pages = state.pages
@@ -628,6 +672,16 @@ export function EditorSidebar({
                           >
                             {t("editorMoveDown")}
                           </button>
+                          {!p.is_homepage && (
+                            <button
+                              onClick={() => {
+                                onMakeHomepage(pageKey(p));
+                                setPageMenu(null);
+                              }}
+                            >
+                              {t("editorMakeHomepage")}
+                            </button>
+                          )}
                           {p.type !== "landing" && (
                             <>
                               <button
@@ -674,27 +728,26 @@ export function EditorSidebar({
             <section key={group.label}>
               <h3>{t(group.label)}</h3>
               {group.items.map((item) => (
-                <div key={item.type}>
+                <div
+                  key={item.type}
+                  className={`sqe-library-card ${pendingSection === item.type ? "is-selected" : ""}`}
+                >
                   <button
                     className="sqe-library-item"
                     aria-pressed={pendingSection === item.type}
                     onClick={() => {
                       setPendingSection(item.type);
-                      setPendingLayout(null);
-                      onPreviewSection(null);
+                      setPendingLayout(item.layouts[0]);
+                      onPreviewSection(item.type, item.layouts[0]);
                     }}
                   >
                     <SectionIcon type={item.type} />
-                    {t(SECTION_TYPE_META[item.type]?.labelKey ?? item.label)}
+                    {t(item.label)}
                   </button>
                   {pendingSection === item.type && (
                     <div className="sqe-library-layouts">
                       <div className="sqe-layout-choices">
-                        {(
-                          LAYOUT_OPTIONS[item.type] ?? [
-                            { value: "default", labelKey: "default" },
-                          ]
-                        ).map((layout) => (
+                        {squareLayouts(item.type).map((layout) => (
                           <button
                             key={layout.value}
                             className="sqe-layout-choice"
@@ -705,7 +758,15 @@ export function EditorSidebar({
                               onPreviewSection(item.type, layout.value);
                             }}
                           >
-                            <LayoutTemplate size={28} />
+                            <span
+                              aria-hidden="true"
+                              className={`sqe-layout-mini sqe-layout-mini--${layout.value}`}
+                            >
+                              <i />
+                              <i />
+                              <i />
+                              <b />
+                            </span>
                             <span>{t(layout.labelKey)}</span>
                           </button>
                         ))}

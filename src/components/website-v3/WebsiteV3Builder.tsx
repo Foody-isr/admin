@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  retargetNavigationPage,
+  addNavigationPage,
+} from "@/lib/website-v3/navigation-links";
 import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -22,9 +26,9 @@ import {
   type ChainOverview,
 } from "@/lib/api";
 import {
-  getDefaultContent,
-  getDefaultSettings,
-} from "@/components/website/SectionEditors";
+  squareDefaultContent as getDefaultContent,
+  squareDefaultSettings as getDefaultSettings,
+} from "@/lib/website-v3/square-components";
 import {
   createSerializedAutosave,
   AutosaveSuspendedError,
@@ -347,9 +351,11 @@ function DesktopWebsiteV3Builder({
             catalog: themeResult.catalog,
             catalogWarning: themeResult.warning,
           });
-          const firstPage = [...editorDraft.state.pages].sort(
-            (a, b) => a.sort_order - b.sort_order,
-          )[0];
+          const firstPage =
+            editorDraft.state.pages.find((page) => page.is_homepage) ??
+            [...editorDraft.state.pages].sort(
+              (a, b) => a.sort_order - b.sort_order,
+            )[0];
           setSelection({ kind: "page", key: pageKey(firstPage) });
           setSaveStatus(editorDraft.draft_dirty ? "saved" : "idle");
           if (reconciled.changed) {
@@ -675,10 +681,15 @@ function DesktopWebsiteV3Builder({
     if (path.length === 1 && path[0] === "slug") {
       slugManualRef.current.add(key);
     }
+    const previous = state.pages.find((page) => pageKey(page) === key);
+    const next = updateWebsitePageAtPath(state, key, path, value, {
+      slugManuallyEdited: slugManualRef.current.has(key),
+    });
+    const updated = next.pages.find((page) => pageKey(page) === key);
     setLocalState(
-      updateWebsitePageAtPath(state, key, path, value, {
-        slugManuallyEdited: slugManualRef.current.has(key),
-      }),
+      previous && updated
+        ? retargetNavigationPage(next, previous.slug, updated.slug)
+        : next,
     );
   };
 
@@ -686,7 +697,13 @@ function DesktopWebsiteV3Builder({
     if (!state) return;
     const index = state.pages.findIndex((page) => pageKey(page) === key);
     if (index < 0) return;
-    setLocalState(updateDraftAtPath(state, ["pages", index], replacement));
+    setLocalState(
+      retargetNavigationPage(
+        updateDraftAtPath(state, ["pages", index], replacement),
+        state.pages[index].slug,
+        replacement.slug,
+      ),
+    );
   };
 
   const updateSection = (key: string, path: StatePath, value: unknown) => {
@@ -737,7 +754,10 @@ function DesktopWebsiteV3Builder({
           : input.type === "landing"
             ? { ...base, type: "landing", settings: {}, is_default: false }
             : { ...base, type: "content", settings: {}, is_default: false };
-    let next = { ...state, pages: [...state.pages, page] };
+    let next = addNavigationPage(
+      { ...state, pages: [...state.pages, page] },
+      page,
+    );
     if (page.is_default) next = makeDefaultPage(next, pageKey(page));
     setLocalState(next);
     setSelection({ kind: "page", key: pageKey(page) });
@@ -749,7 +769,7 @@ function DesktopWebsiteV3Builder({
     if (!state || busyRef.current) return;
     const duplicated = duplicatePage(state, key, () => crypto.randomUUID());
     if (!duplicated) return;
-    setLocalState(duplicated.state);
+    setLocalState(addNavigationPage(duplicated.state, duplicated.page));
     setSelection({ kind: "page", key: pageKey(duplicated.page) });
   };
 
@@ -816,14 +836,20 @@ function DesktopWebsiteV3Builder({
       settings: {},
       appearance_overrides: {},
     };
-    const types =
-      template === "about"
-        ? ["hero_banner", "text_and_image"]
-        : template === "gallery"
-          ? ["hero_banner", "gallery"]
-          : template === "locations"
-            ? ["text_and_image", "footer"]
-            : [];
+    const types = {
+      about: ["hero_banner", "text_and_image", "text"],
+      gallery: ["gallery"],
+      locations: ["location_hours"],
+      menu: ["featured_menu"],
+      contact: ["forms", "location_hours"],
+      home: [
+        "hero_banner",
+        "menu_highlights",
+        "text_and_image",
+        "location_hours",
+      ],
+      blank: [],
+    }[template];
     const sections: DraftSectionPayload[] = types.map((type, index) => ({
       tmp_id: `section-${crypto.randomUUID()}`,
       section_type: type,
@@ -832,7 +858,10 @@ function DesktopWebsiteV3Builder({
       sort_order: index,
       is_visible: true,
       layout: "default",
-      settings: getDefaultSettings(type),
+      settings: {
+        ...getDefaultSettings(),
+        anchor: `section-${crypto.randomUUID()}`,
+      },
       content: {
         ...getDefaultContent(type),
         ...(type === "hero_banner"
@@ -852,11 +881,16 @@ function DesktopWebsiteV3Builder({
   };
   const addPageTemplate = () => {
     if (!state || !pageCandidate || busyRef.current) return;
-    setLocalState({
-      ...state,
-      pages: [...state.pages, pageCandidate.page],
-      sections: [...state.sections, ...pageCandidate.sections],
-    });
+    setLocalState(
+      addNavigationPage(
+        {
+          ...state,
+          pages: [...state.pages, pageCandidate.page],
+          sections: [...state.sections, ...pageCandidate.sections],
+        },
+        pageCandidate.page,
+      ),
+    );
     setSelection({ kind: "page", key: pageKey(pageCandidate.page) });
     setPageCandidate(null);
   };
@@ -874,8 +908,11 @@ function DesktopWebsiteV3Builder({
             sort_order: 0,
             is_visible: true,
             layout,
-            content: getDefaultContent(type),
-            settings: getDefaultSettings(type),
+            content: getDefaultContent(type, layout),
+            settings: {
+              ...getDefaultSettings(),
+              anchor: `section-${crypto.randomUUID()}`,
+            },
           }
         : null,
     );
@@ -894,8 +931,11 @@ function DesktopWebsiteV3Builder({
             page_tmp_id: activePage.tmp_id,
             sort_order: 0,
             is_visible: true,
-            content: getDefaultContent(type),
-            settings: getDefaultSettings(type),
+            content: getDefaultContent(type, layout),
+            settings: {
+              ...getDefaultSettings(),
+              anchor: `section-${crypto.randomUUID()}`,
+            },
           }),
       tmp_id: `section-${crypto.randomUUID()}`,
       layout,
@@ -1268,6 +1308,9 @@ function DesktopWebsiteV3Builder({
               setSelection({ kind: "page", key: pageKey(activePage) })
             }
             onPreviewPage={previewPageTemplate}
+            onMakeHomepage={(key) =>
+              setLocalState(makeHomepagePage(state, key))
+            }
             onAddPageTemplate={addPageTemplate}
             onPageSettings={setSettingsPageKey}
             onAddPage={() => setDialogOpen(true)}
@@ -1433,9 +1476,9 @@ function DesktopWebsiteV3Builder({
         state.pages.find((page) => pageKey(page) === settingsPageKey) && (
           <PageSettingsDialog
             key={settingsPageKey}
-            page={
-              state.pages.find((page) => pageKey(page) === settingsPageKey)!
-            }
+            page={state.pages.find(
+              (page) => pageKey(page) === settingsPageKey,
+            )!}
             pages={state.pages}
             restaurantId={restaurantId}
             onClose={() => setSettingsPageKey(null)}
@@ -1487,6 +1530,7 @@ function selectionAfterReload(
         !!preferredPage?.tmp_id && candidate.tmp_id === preferredPage.tmp_id,
     ) ??
     state.pages.find((candidate) => candidate.slug === preferredPage?.slug) ??
+    state.pages.find((candidate) => candidate.is_homepage) ??
     state.pages.find((candidate) => candidate.type === "landing") ??
     state.pages[0];
   return page ? { kind: "page", key: pageKey(page) } : { kind: "site" };

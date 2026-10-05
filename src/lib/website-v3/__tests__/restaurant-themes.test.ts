@@ -112,7 +112,9 @@ test("compositions reuse existing sections and stay idempotent", () => {
       "Original",
     );
     assert.equal(
-      next.sections.filter((s) => s.section_type === "hero_banner").length,
+      next.sections.filter(
+        (s) => s.section_type === "hero_banner" && s.page_id === 1,
+      ).length,
       1,
     );
     assert.equal(
@@ -131,6 +133,40 @@ test("ordering themes move the homepage without deleting editorial pages or menu
   assert.equal(next.pages.find((p) => p.is_homepage)?.id, 2);
   assert.deepEqual(next.sections, before.sections);
   assert.deepEqual(next.pages[1].settings, before.pages[1].settings);
+});
+test("switching back to a theme restores its retired sections without duplicating content", () => {
+  const mediterranean = applyRestaurantTheme(state(), RESTAURANT_THEMES[0], {
+    ...options,
+    compose: true,
+  });
+  const originalText = mediterranean.sections.find(
+    (section) => section.page_id === 1 && section.section_type === "text",
+  )!;
+  const youngsPlace = applyRestaurantTheme(
+    mediterranean,
+    RESTAURANT_THEMES[2],
+    { ...options, compose: true },
+  );
+  assert.equal(
+    youngsPlace.sections.find(
+      (section) => section.tmp_id === originalText.tmp_id,
+    )?.is_visible,
+    false,
+  );
+  const restored = applyRestaurantTheme(youngsPlace, RESTAURANT_THEMES[0], {
+    ...options,
+    compose: true,
+  });
+  assert.equal(
+    restored.sections.find((section) => section.tmp_id === originalText.tmp_id)
+      ?.is_visible,
+    true,
+  );
+  assert.deepEqual(
+    restored.sections.find((section) => section.tmp_id === originalText.tmp_id)
+      ?.content,
+    originalText.content,
+  );
 });
 test("theme changes are one undoable transaction and new edits invalidate redo", () => {
   const before = state(),
@@ -177,8 +213,8 @@ test("composing a theme reuses the shared footer and keeps photo text readable",
     "_site",
   );
   assert.equal(
-    next.sections.find((section) => section.id === 8)?.settings.headline_color,
-    "#ffffff",
+    next.sections.find((section) => section.id === 8)?.settings.inset_ink,
+    RESTAURANT_THEMES[0].ink,
   );
   const split = applyRestaurantTheme(next, RESTAURANT_THEMES[1], {
     ...options,
@@ -187,5 +223,79 @@ test("composing a theme reuses the shared footer and keeps photo text readable",
   assert.equal(
     split.sections.find((section) => section.id === 8)?.settings.headline_color,
     undefined,
+  );
+});
+
+test("restaurant themes have distinct multipage blueprints and only three single-order variants", () => {
+  assert.deepEqual(
+    RESTAURANT_THEMES.filter((theme) => theme.ordering).map(
+      (theme) => theme.id,
+    ),
+    ["mediterranean", "leaf-lemon", "youngs-place"],
+  );
+  const theme = RESTAURANT_THEMES.find((theme) => theme.id === "youngs-place")!;
+  const next = applyRestaurantTheme(state(), theme, {
+    ...options,
+    compose: true,
+  });
+  assert.equal(
+    next.sections.filter(
+      (section) =>
+        section.page_id === 1 && section.section_type === "scrolling_text",
+    ).length,
+    3,
+  );
+  assert.ok(next.pages.some((page) => page.slug === "locations"));
+  assert.ok(next.pages.some((page) => page.slug === "menu"));
+});
+test("switching modes restores an editorial homepage and keeps ordering contracts", () => {
+  const original = state();
+  const single = applyRestaurantTheme(original, RESTAURANT_THEMES[0], {
+    ...options,
+    orderingOnly: true,
+  });
+  assert.equal(record(single.config.nav_layout).site_mode, "single_order");
+  const multi = applyRestaurantTheme(single, RESTAURANT_THEMES[0], {
+    ...options,
+    compose: true,
+  });
+  assert.equal(record(multi.config.nav_layout).site_mode, "multi_page");
+  assert.equal(multi.pages.find((page) => page.is_homepage)?.id, 1);
+  assert.deepEqual(
+    multi.pages.find((page) => page.id === 2)?.settings,
+    original.pages[1].settings,
+  );
+  assert.deepEqual(
+    applyRestaurantTheme(multi, RESTAURANT_THEMES[0], {
+      ...options,
+      compose: true,
+    }),
+    multi,
+  );
+});
+
+test("theme footer is shared and retired blocks are retained outside the visible composition", () => {
+  const before = state();
+  before.sections.push({
+    ...before.sections[0],
+    id: 88,
+    section_type: "promo_banner",
+  });
+  const next = applyRestaurantTheme(before, RESTAURANT_THEMES[0], {
+    ...options,
+    compose: true,
+  });
+  const footer = next.sections.find(
+    (section) => section.section_type === "footer",
+  )!;
+  assert.equal(footer.page, "_site");
+  assert.equal(footer.page_id, undefined);
+  assert.equal(
+    next.sections.find((section) => section.id === 88)?.is_visible,
+    false,
+  );
+  assert.deepEqual(
+    next.sections.find((section) => section.id === 88)?.content,
+    before.sections[1].content,
   );
 });
