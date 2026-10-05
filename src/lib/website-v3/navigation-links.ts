@@ -1,5 +1,5 @@
 import type { DraftStatePayload } from "./types";
-/** Keeps explicit navigation targets attached when a page slug is edited. */
+/** Keeps navigation, section actions and footer links attached when a page slug is edited. */
 export function retargetNavigationPage(
   state: DraftStatePayload,
   previous: string,
@@ -7,12 +7,26 @@ export function retargetNavigationPage(
 ): DraftStatePayload {
   if (previous === next) return state;
   const layout = state.config.nav_layout;
-  if (!layout || typeof layout !== "object") return state;
-  const record = layout as Record<string, unknown>;
+  const record = layout && typeof layout === "object" ? layout as Record<string, unknown> : {};
+  const retargetHref = (value: unknown) => {
+    if (typeof value !== "string") return value;
+    const [path] = value.split(/[?#]/);
+    return path === `/${previous}` ? `/${next}${value.slice(path.length)}` : value;
+  };
+  const retargetContent = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(retargetContent);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+      key, ["cta_link", "link", "url"].includes(key) ? retargetHref(entry) : retargetContent(entry),
+    ]));
+  };
   return {
     ...state,
+    sections: state.sections.map(section => ({ ...section, content: retargetContent(section.content) as typeof section.content })),
     config: {
       ...state.config,
+      ...(state.config.navbar_cta && typeof state.config.navbar_cta === "object"
+        ? { navbar_cta: retargetContent(state.config.navbar_cta) } : {}),
       nav_layout: {
         ...record,
         ...(Array.isArray(record.links)
@@ -20,7 +34,7 @@ export function retargetNavigationPage(
               links: (record.links as Record<string, unknown>[]).map((link) =>
                 link.page_slug === previous
                   ? { ...link, page_slug: next }
-                  : link,
+                  : retargetContent(link),
               ),
             }
           : {}),

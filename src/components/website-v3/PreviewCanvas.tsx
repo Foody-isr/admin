@@ -40,6 +40,7 @@ export function PreviewCanvas({
   onEditRejected,
   onClearSelection,
   previewOnly = false,
+  thumbnail = false,
   device,
   surface,
   revision,
@@ -63,6 +64,7 @@ export function PreviewCanvas({
   onClearSelection: () => void;
   onEditRejected?: () => void;
   previewOnly?: boolean;
+  thumbnail?: boolean;
   device: PreviewDevice;
   /** Owned by the builder so the inspector can scope its fields to the surface
    *  on screen. Already clamped: only order pages ever receive "checkout". */
@@ -355,6 +357,8 @@ export function PreviewCanvas({
       key={source}
       ref={frameRef}
       src={source}
+      loading={thumbnail ? "lazy" : "eager"}
+      tabIndex={thumbnail ? -1 : undefined}
       title={
         surface === "checkout"
           ? "Aperçu du checkout"
@@ -365,6 +369,8 @@ export function PreviewCanvas({
       className="h-full w-full bg-white"
     />
   );
+
+  if (thumbnail) return previewIframe;
 
   return (
     <div

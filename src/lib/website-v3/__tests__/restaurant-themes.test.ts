@@ -5,8 +5,11 @@ import {
   RESTAURANT_THEMES,
   record,
 } from "../restaurant-themes";
+import { DEFAULT_THEME_COPY } from "../restaurant-theme-blueprints";
+import { publicAddressForPage } from "../url-model";
 import { normalizeDraftState } from "../state";
 import { recordDraftEdit, travelDraftHistory } from "../history";
+import { retargetNavigationPage } from "../navigation-links";
 const state = () =>
   normalizeDraftState({
     config: {
@@ -65,6 +68,18 @@ const options = {
   cta: "Order",
   createId: () => `section-${++id}`,
 };
+test("renaming a theme page keeps its header, body and footer destinations connected", () => {
+  const draft = applyRestaurantTheme(state(), RESTAURANT_THEMES[0], { ...options, compose: true });
+  const changed = retargetNavigationPage(draft, "about", "our-story");
+  assert.equal(record(record(changed.config.nav_layout).theme_pages).about, "our-story");
+  const links = changed.sections.flatMap(section => [
+    section.content.cta_link,
+    ...(Array.isArray(section.content.links) ? section.content.links.map(link => link.url) : []),
+  ]).filter(Boolean);
+  assert.ok(links.includes("/our-story"));
+  assert.ok(!links.includes("/about"));
+  assert.ok(draft.sections.some(section => section.content.cta_link === "/about"));
+});
 test("style preview preserves the original draft, page overrides and commerce contracts", () => {
   const before = state(),
     copy = structuredClone(before),
@@ -109,7 +124,7 @@ test("compositions reuse existing sections and stay idempotent", () => {
     assert.deepEqual(next, again);
     assert.equal(
       next.sections.find((s) => s.id === 8)?.content.headline,
-      "Original",
+      DEFAULT_THEME_COPY.headline,
     );
     assert.equal(
       next.sections.filter(
@@ -131,7 +146,7 @@ test("ordering themes move the homepage without deleting editorial pages or menu
     });
   assert.equal(next.pages.length, 2);
   assert.equal(next.pages.find((p) => p.is_homepage)?.id, 2);
-  assert.deepEqual(next.sections, before.sections);
+  assert.deepEqual(next.sections.filter(section => section.page !== "_site"), before.sections);
   assert.deepEqual(next.pages[1].settings, before.pages[1].settings);
 });
 test("switching back to a theme restores its retired sections without duplicating content", () => {
@@ -222,7 +237,7 @@ test("composing a theme reuses the shared footer and keeps photo text readable",
   });
   assert.equal(
     split.sections.find((section) => section.id === 8)?.settings.headline_color,
-    undefined,
+    "#ffffff",
   );
 });
 
@@ -274,6 +289,17 @@ test("switching modes restores an editorial homepage and keeps ordering contract
   );
 });
 
+test("switching through single-page mode reuses a content homepage and renamed theme pages", () => {
+  const initial = state();
+  initial.pages[0] = { ...initial.pages[0], type: "content", slug: "welcome", settings: {} };
+  const composed = applyRestaurantTheme(initial, RESTAURANT_THEMES[0], { ...options, compose: true });
+  const single = applyRestaurantTheme(composed, RESTAURANT_THEMES[0], { ...options, orderingOnly: true });
+  const restored = applyRestaurantTheme(single, RESTAURANT_THEMES[0], { ...options, compose: true });
+  assert.equal(restored.pages.find(page => page.is_homepage)?.id, 1);
+  assert.equal(restored.pages.length, composed.pages.length);
+  assert.deepEqual(record(restored.config.nav_layout).theme_pages, record(composed.config.nav_layout).theme_pages);
+});
+
 test("theme footer is shared and retired blocks are retained outside the visible composition", () => {
   const before = state();
   before.sections.push({
@@ -298,4 +324,68 @@ test("theme footer is shared and retired blocks are retained outside the visible
     next.sections.find((section) => section.id === 88)?.content,
     before.sections[1].content,
   );
+});
+
+
+test("a complete theme resets the hidden legacy hero and header rather than saving an empty banner", () => {
+  const before = state();
+  before.sections[0].content = { headline: "blalbla", subheadline: "blablabla", image_url: "", cta_link: "" };
+  before.sections[0].settings = { show_image_url: false, show_cta_text: false, headline_uppercase: true, headline_size: "sm", image_only: true, bg_image: "/old.jpg" };
+  before.sections[0].is_visible = false;
+  before.pages[0].appearance_overrides = { navigation_mode: "hidden", navbar_cta: { enabled: false }, footer_mode: "hidden" };
+  before.config.navbar_cta = { enabled: false, link: "/deleted-page", transparent: { bg: "red" } };
+  before.config.nav_layout = { content: { desktop: "hidden" }, links: [{ id: "old", label: "Gone", page_slug: "deleted-page" }] };
+  for (const theme of RESTAURANT_THEMES) {
+    const next = applyRestaurantTheme(before, theme, { ...options, compose: true, image: "" });
+    const hero = next.sections.find(section => section.id === 8)!;
+    assert.equal(hero.is_visible, true);
+    assert.equal(hero.settings.show_image_url, true);
+    assert.equal(hero.settings.show_cta_text, true);
+    assert.equal(hero.settings.headline_uppercase, undefined);
+    assert.equal(hero.settings.image_only, undefined);
+    assert.equal(hero.settings.bg_image, undefined);
+    assert.ok(String(hero.content.image_url).startsWith("https://"));
+    assert.equal(hero.content.cta_link, "/order");
+    assert.equal(hero.content.headline, DEFAULT_THEME_COPY.headline);
+    assert.equal(next.pages[0].appearance_overrides.navigation_mode, "inherit");
+    assert.equal(next.pages[0].appearance_overrides.navbar_cta, undefined);
+    assert.equal(next.pages[0].appearance_overrides.footer_mode, "inherit");
+    assert.equal(record(next.config.navbar_cta).enabled, true);
+    assert.equal(record(next.config.navbar_cta).link, "/order");
+    assert.equal(record(next.config.navbar_cta).transparent, undefined);
+    assert.deepEqual(record(next.config.nav_layout).content, { desktop: "full", mobile: "compact" });
+  }
+});
+
+test("switching complete themes produces only the new navigation, resolves reserved slugs and survives save/reload", () => {
+  let draft = state();
+  for (const theme of [...RESTAURANT_THEMES, RESTAURANT_THEMES[0]]) {
+    draft = applyRestaurantTheme(draft, theme, { ...options, compose: true });
+    const nav = record(draft.config.nav_layout).links as { page_slug: string; label: string }[];
+    const roles = record(record(draft.config.nav_layout).theme_pages);
+    assert.deepEqual(nav.map(link => link.page_slug), [draft.pages.find(page => page.is_homepage)!.slug, ...theme.pages.map(role => roles[role])]);
+    for (const link of nav) assert.ok(draft.pages.some(page => page.slug === link.page_slug));
+    const addresses = new Set(draft.pages.map(publicAddressForPage));
+    for (const section of draft.sections.filter(s => s.is_visible)) {
+      if (section.content.cta_link) assert.ok(addresses.has(String(section.content.cta_link)), String(section.content.cta_link));
+      for (const link of (section.content.links || []) as { url: string }[]) assert.ok(addresses.has(link.url), link.url);
+    }
+    const reloaded = normalizeDraftState(JSON.parse(JSON.stringify(draft)));
+    assert.deepEqual(normalizeDraftState(applyRestaurantTheme(reloaded, theme, { ...options, compose: true })), reloaded);
+    draft = reloaded;
+  }
+});
+
+test("single-page preview restores a visible cover and theme CTA without modifying restaurant menu bindings", () => {
+  const before = applyRestaurantTheme(state(), RESTAURANT_THEMES[1], { ...options, compose: true });
+  before.pages[1].appearance_overrides = { navigation_mode: "hidden", navbar_cta: { enabled: false }, footer_mode: "hidden" };
+  const next = applyRestaurantTheme(before, RESTAURANT_THEMES[0], { ...options, orderingOnly: true, image: "" });
+  const order = next.pages.find(page => page.is_homepage)!;
+  assert.equal(order.id, 2);
+  assert.deepEqual(order.settings, { menu_ids: [17] });
+  assert.ok(order.appearance_overrides.cover_url);
+  assert.equal(order.appearance_overrides.navbar_cta, undefined);
+  assert.equal(record(next.config.navbar_cta).link, "/");
+  assert.deepEqual(next.sections.find(section => section.page === "_site")?.content.links, [{ label: "Order", url: "/" }]);
+  assert.deepEqual(next.deleted_page_ids, []);
 });

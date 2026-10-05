@@ -228,6 +228,7 @@ function DesktopWebsiteV3Builder({
   const [themePreview, setThemePreview] = useState<DraftStatePayload | null>(
     null,
   );
+  const [themePreviewPageKey, setThemePreviewPageKey] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<LoadedBuilder | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -447,6 +448,7 @@ function DesktopWebsiteV3Builder({
       if (serialized === themePreviewRef.current) return;
       themePreviewRef.current = serialized;
       setThemePreview(draft);
+      setThemePreviewPageKey(null);
       bumpPreview(false);
     },
     [bumpPreview],
@@ -466,6 +468,7 @@ function DesktopWebsiteV3Builder({
   // preview and the inspector and no non-order page can resolve to "checkout".
   const previewPage =
     pageCandidate?.page ??
+    themePreview?.pages.find((page) => pageKey(page) === themePreviewPageKey) ??
     themePreview?.pages.find((page) => page.is_homepage) ??
     activePage;
   // Hover and selection messages must not resend the entire restaurant draft.
@@ -1177,7 +1180,14 @@ function DesktopWebsiteV3Builder({
   };
 
   const selectPage = (key: string) => {
-    if (busyRef.current || themePreview) return;
+    if (busyRef.current) return;
+    if (themePreview) {
+      if (themePreview.pages.some(page => pageKey(page) === key)) {
+        setThemePreviewPageKey(key);
+        bumpPreview(false);
+      }
+      return;
+    }
     setSectionCandidate(null);
     setPageCandidate(null);
     setHoveredSectionKey(null);
@@ -1359,11 +1369,14 @@ function DesktopWebsiteV3Builder({
               <SiteDesign
                 state={state}
                 catalog={loaded.catalog}
+                previewContext={{ webOrigin, restaurantSlug: loaded.restaurant.slug || String(restaurantId), restaurantId }}
                 restaurantName={loaded.restaurant.name}
                 description={loaded.restaurant.description || ""}
                 image={String(loaded.restaurant.cover_url || "")}
                 onChange={setLocalState}
                 onPreview={previewTheme}
+                previewPageKey={themePreviewPageKey}
+                onSelectPreviewPage={selectPage}
                 onApplied={(next) => {
                   const home = next.pages.find((page) => page.is_homepage);
                   if (home) setSelection({ kind: "page", key: pageKey(home) });

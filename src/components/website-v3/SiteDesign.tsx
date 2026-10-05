@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowLeft, ChevronRight, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { loadWebsiteFont } from "@/lib/website-fonts";
 import type { ThemeCatalog } from "@/lib/api";
+import { PreviewCanvas } from "./PreviewCanvas";
+import type { ApplyRestaurantThemeOptions } from "@/lib/website-v3/restaurant-themes";
+import { pageKey } from "@/lib/website-v3/types";
 import type { DraftStatePayload } from "@/lib/website-v3/types";
 import {
   RESTAURANT_THEMES,
@@ -20,6 +23,7 @@ type Screen =
 /** Global site design with non-destructive theme previews and an explicit apply action. */
 export function SiteDesign({
   state,
+  previewContext,
   catalog,
   restaurantName,
   description,
@@ -27,9 +31,12 @@ export function SiteDesign({
   onChange,
   onPreview,
   onApplied,
+  onSelectPreviewPage,
+  previewPageKey,
   onEditShared,
 }: {
   state: DraftStatePayload;
+  previewContext: { webOrigin: string; restaurantSlug: string; restaurantId: number };
   catalog: ThemeCatalog;
   restaurantName: string;
   description: string;
@@ -38,6 +45,8 @@ export function SiteDesign({
   onPreview: (state: DraftStatePayload | null) => void;
   onEditShared: () => void;
   onApplied: (state: DraftStatePayload) => void;
+  onSelectPreviewPage: (key: string) => void;
+  previewPageKey?: string | null;
 }) {
   const { t } = useI18n();
   const [screen, setScreen] = useState<Screen>("root");
@@ -45,6 +54,7 @@ export function SiteDesign({
   const [allPages, setAllPages] = useState(false);
   const [compose, setCompose] = useState(false);
   const [ordering, setOrdering] = useState(false);
+  const [applied, setApplied] = useState(false);
   const hasOrderingPage = state.pages.some((page) => page.type === "order");
   const palette = record(state.config.custom_palette);
   const currentTheme = catalog.themes.find(
@@ -78,61 +88,42 @@ export function SiteDesign({
     }
   }, [screen]);
   useEffect(() => () => onPreview(null), [onPreview]);
-  useEffect(() => {
-    if (!candidate) {
-      onPreview(null);
-      return;
-    }
-    onPreview(
-      applyRestaurantTheme(state, candidate, {
-        allPages,
-        compose,
-        orderingOnly: ordering,
-        title: restaurantName,
-        description,
-        image,
-        cta: t("editorOrderNow"),
-        createId: () => `section-${crypto.randomUUID()}`,
-      }),
-    );
-  }, [
-    candidate,
-    state,
-    allPages,
-    compose,
-    ordering,
-    restaurantName,
-    description,
-    image,
-    onPreview,
-    t,
-  ]);
+  const themeOptions = useMemo<ApplyRestaurantThemeOptions>(() => ({
+    allPages, compose, orderingOnly: ordering,
+    title: restaurantName, description, image, cta: t("editorOrderNow"),
+    copy: {
+      home: t("editorTemplateHome"), about: t("editorTemplateAbout"),
+      locations: t("editorLocationHours"), contact: t("editorTemplateContact"),
+      menu: t("editorTemplateMenu"), catering: t("editorThemeCatering"), events: t("editorEvents"),
+      story: t("editorThemeStory"), headline: t("editorThemeHeadline"),
+      welcome: t("editorWelcome"), discover: t("editorDiscover"), fresh: t("editorThemeFresh"),
+      starters: t("editorThemeStarters"), mains: t("editorThemeMains"), drinks: t("editorThemeDrinks"),
+      send: t("editorThemeSend"), name: t("editorThemeName"), email: t("editorThemeEmail"), message: t("editorThemeMessage"),
+    },
+    createId: () => `section-${crypto.randomUUID()}`,
+  }), [allPages, compose, ordering, restaurantName, description, image, t]);
+  const candidateDraft = useMemo(() => candidate ? applyRestaurantTheme(state, candidate, themeOptions) : null, [candidate, state, themeOptions]);
+  useEffect(() => onPreview(candidateDraft), [candidateDraft, onPreview]);
   const patch = (value: Record<string, unknown>) =>
     onChange({ ...state, config: { ...state.config, ...value } });
   const patchSite = (value: Record<string, unknown>) =>
     patch({ typography: { ...typography, site: { ...site, ...value } } });
   const previewTheme = (theme: RestaurantTheme, withLayout = false) => {
+    setApplied(false);
+    if (!withLayout) setOrdering(false);
     setCompose(withLayout);
     if (withLayout) setAllPages(true);
     setCandidate(theme);
     setScreen("detail");
   };
   const apply = () => {
-    if (!candidate) return;
-    const next = applyRestaurantTheme(state, candidate, {
-      allPages,
-      compose,
-      orderingOnly: ordering,
-      title: restaurantName,
-      description,
-      image,
-      cta: t("editorOrderNow"),
-      createId: () => `section-${crypto.randomUUID()}`,
-    });
-    onChange(next);
-    onApplied(next);
+    if (!candidateDraft) return;
+    // Persist exactly what was previewed, including temporary IDs and link targets.
+    onChange(candidateDraft);
+    onApplied(candidateDraft);
     onPreview(null);
     setCandidate(null);
+    setApplied(true);
     setScreen("root");
   };
   const back = () => {
@@ -175,6 +166,7 @@ export function SiteDesign({
       )}
       {screen === "root" && (
         <div className="sqe-panel-body">
+          {applied && <p role="status">{t("editorThemeReady")}</p>}
           <section>
             <h3>{t("editorStyles")}</h3>
             <div className="sqe-style-card">
@@ -445,7 +437,7 @@ export function SiteDesign({
               ).map((theme) => (
                 <article className="sqe-theme-card" key={theme.id}>
                   <div className="sqe-theme-art">
-                    <ThemeThumbnail theme={theme} ordering={ordering} />
+                    <ThemeThumbnail theme={theme} state={state} options={themeOptions} context={previewContext} />
                   </div>
                   <footer>
                     <strong>{theme.name}</strong>
@@ -465,16 +457,17 @@ export function SiteDesign({
       {screen === "detail" && candidate && (
         <div className="sqe-panel-body">
           <h3>{candidate.name}</h3>
-          <p>{t("editorThemePreserve")}</p>
-          <label className="sqe-field">
+          <p>{t(compose || ordering ? "editorThemePreserve" : "editorStylesHint")}</p>
+          <p role="status">{t("editorThemePreviewHint")}</p>
+          {!compose && !ordering && <label className="sqe-field">
             <input
               type="checkbox"
               checked={allPages}
               onChange={(e) => setAllPages(e.target.checked)}
             />{" "}
             {t("editorThemeScope")}
-          </label>
-          {allPages && <p>{t("editorThemeScopeHint")}</p>}
+          </label>}
+          {!compose && !ordering && allPages && <p>{t("editorThemeScopeHint")}</p>}
           {!ordering && (
             <label className="sqe-field">
               <span>{t("editorLayout")}</span>
@@ -487,8 +480,20 @@ export function SiteDesign({
               </select>
             </label>
           )}
+          {candidateDraft && compose && !ordering && (
+            <label className="sqe-field">
+              <span>{t("editorPages")}</span>
+              <select aria-label={t("editorPages")}
+                value={previewPageKey || pageKey(candidateDraft.pages.find(page => page.is_homepage)!)}
+                onChange={event => onSelectPreviewPage(event.target.value)}>
+                {candidateDraft.pages.filter(page => page.nav_visible || page.is_homepage).map(page => (
+                  <option key={pageKey(page)} value={pageKey(page)}>{page.title}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <button className="sqe-button sqe-button--primary" onClick={apply}>
-            {t("editorUseTheme")}
+            {t(compose || ordering ? "editorUseTheme" : "editorApplyStyle")}
           </button>
           <div className="sqe-style-grid" style={{ marginTop: 32 }}>
             {RESTAURANT_THEMES.filter(
@@ -516,32 +521,40 @@ export function SiteDesign({
   );
 }
 
-function ThemeThumbnail({
-  theme,
-  ordering = false,
-}: {
+const noop = () => undefined;
+
+/** Gallery cards use the same storefront renderer and draft recipe as the full preview. */
+function ThemeThumbnail({ theme, state, options, context }: {
   theme: RestaurantTheme;
-  ordering?: boolean;
+  state: DraftStatePayload;
+  options: ApplyRestaurantThemeOptions;
+  context: { webOrigin: string; restaurantSlug: string; restaurantId: number };
 }) {
-  const base = "https://www.weebly.com/app/website/static/thumbnails/themes/";
-  const image = `${ordering ? "OO_" : ""}${theme.thumbnail}`;
+  const root = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(360);
+  const [visible, setVisible] = useState(false);
+  const draft = useMemo(() => applyRestaurantTheme(state, theme, { ...options, compose: true, allPages: true }), [state, theme, options]);
+  useEffect(() => {
+    if (!root.current) return;
+    const resize = new ResizeObserver(entries => setWidth(entries[0].contentRect.width));
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setVisible(true); observer.disconnect(); }
+    });
+    resize.observe(root.current);
+    observer.observe(root.current);
+    return () => { resize.disconnect(); observer.disconnect(); };
+  }, []);
+  const home = draft.pages.find(page => page.is_homepage);
   return (
-    <div className="sqe-theme-reference">
-      {/* The gallery shows the reference composition; Preview uses the restaurant's actual content. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="sqe-theme-reference-desktop"
-        src={`${base}${image}_Desktop_en-GB.jpg`}
-        alt={theme.name}
-        loading="lazy"
-      />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="sqe-theme-reference-mobile"
-        src={`${base}${image}_Mobile_en-GB.jpg`}
-        alt=""
-        loading="lazy"
-      />
+    <div ref={root} className="sqe-theme-reference" role="img" aria-label={theme.name}
+      style={{width: "100%", height: width * .72, aspectRatio: "auto", overflow: "hidden", background: theme.bg}}>
+      {visible && home && <div aria-hidden="true" style={{position: "absolute", width: 1200, height: 864, transform: `scale(${width / 1200})`, transformOrigin: "top left", pointerEvents: "none"}}>
+        <PreviewCanvas {...context} state={draft} activePage={home}
+          device="desktop" surface="page" revision={1} contentRevision={1} thumbnail previewOnly
+          onSurfaceChange={noop} onAcknowledged={noop} onSelectSection={noop} onNavigatePage={noop}
+          onAddSection={noop} onMoveSection={noop} onToggleSection={noop} onDeleteSection={noop}
+          onHoverSection={noop} onEditElement={noop} onClearSelection={noop} />
+      </div>}
     </div>
   );
 }
