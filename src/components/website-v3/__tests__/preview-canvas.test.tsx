@@ -62,46 +62,20 @@ test("preview iframe uses one stable landing bootstrap route for every draft pag
 });
 
 test("content pages expose the same section library through the sidebar", () => {
-  const types = componentGroupsForPage("content", []).flatMap((group) =>
+  const types = componentGroupsForPage("content").flatMap((group) =>
     group.items.map((item) => item.type),
   );
-  for (const type of ["hero_banner", "gallery", "text_and_image"])
+  for (const type of ["text", "gallery", "text_and_image", "video", "forms", "location_hours"])
     assert.ok(types.includes(type));
   assert.ok(!types.includes("order_discovery"));
 });
 
-test("discovery advertising is available once and only on order pages", () => {
-  const availableForOrder = componentGroupsForPage("order", []);
-  const availableForLanding = componentGroupsForPage("landing", []);
-  const availableForCatering = componentGroupsForPage("catering", []);
-  const existing: DraftSectionPayload = {
-    tmp_id: "discovery-test",
-    section_type: "order_discovery",
-    page: "commander",
-    page_tmp_id: "order-page",
-    sort_order: 0,
-    is_visible: true,
-    layout: "default",
-    content: {},
-    settings: {},
-  };
-
-  assert.ok(
-    availableForOrder.some((group) =>
-      group.items.some((item) => item.type === "order_discovery"),
-    ),
-  );
-  assert.ok(
-    availableForLanding.every((group) =>
-      group.items.every((item) => item.type !== "order_discovery"),
-    ),
-  );
-  assert.equal(availableForCatering.length, 0);
-  assert.ok(
-    componentGroupsForPage("order", [existing]).every((group) =>
-      group.items.every((item) => item.type !== "order_discovery"),
-    ),
-  );
+test("all page types expose Square primitives and never retired Foody blocks", () => {
+  for(const page of ["order","landing","catering","content"] as const) {
+    const types=componentGroupsForPage(page).flatMap(group=>group.items.map(item=>item.type));
+    assert.equal(types.length,19);
+    for(const retired of ["order_discovery","picnic_basket","promo_banner","feature_cards","hero_banner","footer"]) assert.ok(!types.includes(retired));
+  }
 });
 
 test("the page surface keeps the order preview on the landing bootstrap", () => {

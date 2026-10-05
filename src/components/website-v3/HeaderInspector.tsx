@@ -1,12 +1,13 @@
 "use client";
 
+import { NavigationLinksEditor } from "./NavigationLinksEditor";
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import {
-  pageKey,
   type DraftConfigPayload,
   type DraftPagePayload,
+  type DraftSectionPayload,
   type StatePath,
 } from "@/lib/website-v3/types";
 import {
@@ -24,14 +25,15 @@ type HeaderPanel = "logo" | "navigation" | "button" | "appearance";
 export function HeaderInspector({
   config,
   pages,
+  sections,
   restaurantLogoUrl,
   onChange,
-  onPageVisibilityChange,
   onRestaurantLogoUpload,
   onRestaurantLogoRemove,
 }: {
   config: DraftConfigPayload;
   pages: DraftPagePayload[];
+  sections: DraftSectionPayload[];
   restaurantLogoUrl?: string;
   onChange: (path: StatePath, value: unknown) => void;
   onPageVisibilityChange: (key: string, visible: boolean) => void;
@@ -124,21 +126,14 @@ export function HeaderInspector({
                     checked={config.navbar_show_links !== false}
                     onChange={(value) => onChange(["navbar_show_links"], value)}
                   />
-                  <p className="sqe-help">{t("editorNavigationPages")}</p>
-                  {pages
-                    .slice()
-                    .sort((a, b) => a.sort_order - b.sort_order)
-                    .map((page) => (
-                      <ToggleField
-                        key={pageKey(page)}
-                        fieldId={`site.navigation-page.${pageKey(page)}`}
-                        label={page.title}
-                        checked={page.nav_visible}
-                        onChange={(visible) =>
-                          onPageVisibilityChange(pageKey(page), visible)
-                        }
-                      />
-                    ))}
+                  <NavigationLinksEditor
+                    pages={pages}
+                    sections={sections}
+                    value={layout.links}
+                    onChange={(links) =>
+                      onChange(["nav_layout"], { ...layout, links })
+                    }
+                  />
                 </>
               )}
               {key === "button" && (

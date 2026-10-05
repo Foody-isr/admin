@@ -212,6 +212,7 @@ export function Inspector({
       {selection.kind === "site" && selection.region === "header" ? (
         <HeaderInspector
           config={state.config}
+          sections={state.sections}
           pages={state.pages.filter(
             (candidate) => !isTechnicalSitePage(candidate),
           )}

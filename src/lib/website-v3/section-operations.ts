@@ -47,6 +47,7 @@ export function duplicateSection(
   const copy: DraftSectionPayload = JSON.parse(JSON.stringify(source));
   delete copy.id;
   copy.tmp_id = newKey;
+  copy.settings = { ...copy.settings, anchor: `section-${newKey}` };
   copy.page = page.slug;
   copy.page_id = page.id;
   copy.page_tmp_id = page.tmp_id;

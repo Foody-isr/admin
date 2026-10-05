@@ -94,15 +94,13 @@ export function reconcileLegacyWebsiteDraft(
           .sort(compareLegacyOrderPages)[0]
       : undefined;
   const technicalPageIDs = new Set(
-    technicalPages.flatMap((page) => page.id === undefined ? [] : [page.id]),
+    technicalPages.flatMap((page) => (page.id === undefined ? [] : [page.id])),
   );
   const technicalPageTmpIDs = new Set(
-    technicalPages.flatMap((page) => page.tmp_id ? [page.tmp_id] : []),
+    technicalPages.flatMap((page) => (page.tmp_id ? [page.tmp_id] : [])),
   );
   const technicalPageSlugs = new Set(
-    technicalPages
-      .map((page) => normalizeSlug(page.slug))
-      .filter(Boolean),
+    technicalPages.map((page) => normalizeSlug(page.slug)).filter(Boolean),
   );
   const keptPages = sourcePages
     .filter((page) => !isTechnicalSitePage(page))
@@ -191,7 +189,8 @@ export function reconcileLegacyWebsiteDraft(
   const sections = state.sections.map((section) => {
     if (
       section.page === "_site" ||
-      (section.page_id !== undefined && technicalPageIDs.has(section.page_id)) ||
+      (section.page_id !== undefined &&
+        technicalPageIDs.has(section.page_id)) ||
       (section.page_tmp_id !== undefined &&
         technicalPageTmpIDs.has(section.page_tmp_id)) ||
       technicalPageSlugs.has(normalizeSlug(section.page))
@@ -214,8 +213,7 @@ export function reconcileLegacyWebsiteDraft(
       pages.find(
         (candidate) =>
           candidate.slug === section.page ||
-          (replacementSlug !== undefined &&
-            candidate.slug === replacementSlug),
+          (replacementSlug !== undefined && candidate.slug === replacementSlug),
       );
     const replacement =
       page?.slug ??
@@ -311,7 +309,9 @@ export function removePage(
   state: DraftStatePayload,
   targetKey: string,
 ): DraftStatePayload {
-  const page = state.pages.find((candidate) => pageKey(candidate) === targetKey);
+  const page = state.pages.find(
+    (candidate) => pageKey(candidate) === targetKey,
+  );
   if (!page) return state;
 
   const removedSections = state.sections.filter((section) =>
@@ -344,7 +344,9 @@ export function duplicatePage(
   targetKey: string,
   createId: () => string,
 ): { state: DraftStatePayload; page: DraftPagePayload } | null {
-  const page = state.pages.find((candidate) => pageKey(candidate) === targetKey);
+  const page = state.pages.find(
+    (candidate) => pageKey(candidate) === targetKey,
+  );
   if (!page || page.type === "landing") return null;
   const tmpId = `page-${createId()}`;
   const clone = normalizePage({
@@ -389,14 +391,13 @@ export function movePage(
   const pages = [...state.pages].sort((a, b) => a.sort_order - b.sort_order);
   const currentIndex = pages.findIndex((page) => pageKey(page) === targetKey);
   const nextIndex = currentIndex + direction;
-  if (
-    currentIndex < 0 ||
-    nextIndex < 0 ||
-    nextIndex >= pages.length
-  ) {
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= pages.length) {
     return state;
   }
-  [pages[currentIndex], pages[nextIndex]] = [pages[nextIndex], pages[currentIndex]];
+  [pages[currentIndex], pages[nextIndex]] = [
+    pages[nextIndex],
+    pages[currentIndex],
+  ];
   return { ...state, pages: reindexPages(pages) };
 }
 
@@ -414,7 +415,9 @@ export function makeDefaultPage(
     pages: state.pages.map((page) => ({
       ...page,
       is_default:
-        page.type === target.type ? pageKey(page) === targetKey : page.is_default,
+        page.type === target.type
+          ? pageKey(page) === targetKey
+          : page.is_default,
     })) as DraftPagePayload[],
   };
 }
@@ -440,7 +443,8 @@ export function pageAddressIsEditable(
 ): boolean {
   if (page.type === "landing") return false;
   return !(
-    page.is_default && (page.type === "order" || page.type === "catering")
+    page.is_default &&
+    (page.type === "order" || page.type === "catering")
   );
 }
 
@@ -456,9 +460,7 @@ export function nextSlugForPageTitle({
   addressIsEditable: boolean;
   title: string;
 }): string {
-  return slugEdited || !addressIsEditable
-    ? currentSlug
-    : normalizeSlug(title);
+  return slugEdited || !addressIsEditable ? currentSlug : normalizeSlug(title);
 }
 
 /** Applies one builder page edit together with its slug and legacy-section rules. */
@@ -504,7 +506,10 @@ export function updateWebsitePageAtPath(
 /** Returns publish-blocking field errors keyed to the field registry. */
 export function validateDraftForPublish(
   state: DraftStatePayload,
-  references?: { menuIds: ReadonlySet<number>; serviceIds: ReadonlySet<number> },
+  references?: {
+    menuIds: ReadonlySet<number>;
+    serviceIds: ReadonlySet<number>;
+  },
 ): FieldError[] {
   const errors: FieldError[] = [];
   const slugs = new Map<string, string>();
@@ -581,7 +586,8 @@ export function validateDraftForPublish(
     ) {
       errors.push({
         fieldId: "page.is_default",
-        message: "Seules les pages commande et traiteur peuvent être principales.",
+        message:
+          "Seules les pages commande et traiteur peuvent être principales.",
         pageKey: key,
         tab: "settings",
       });
@@ -602,7 +608,38 @@ export function validateDraftForPublish(
   });
 
   state.sections.forEach((section) => {
-    const valid = state.pages.some((page) => sectionBelongsToPage(section, page));
+    if (
+      section.is_visible &&
+      ["forms", "newsletter"].includes(section.section_type)
+    ) {
+      const fields = Array.isArray(section.content.fields)
+        ? section.content.fields
+        : [];
+      const ids = new Set(fields.map((field) => field.id));
+      if (
+        !fields.length ||
+        fields.length > 30 ||
+        ids.size !== fields.length ||
+        fields.some(
+          (field) =>
+            !field.id ||
+            !String(field.label || "").trim() ||
+            !["text", "email", "tel", "textarea", "date", "number"].includes(
+              field.type,
+            ),
+        )
+      ) {
+        errors.push({
+          fieldId: "section.content.fields",
+          message: "Ajoutez des champs nommés valides à ce formulaire.",
+          sectionKey: sectionKey(section),
+          tab: "content",
+        });
+      }
+    }
+    const valid = state.pages.some((page) =>
+      sectionBelongsToPage(section, page),
+    );
     if (!valid) {
       errors.push({
         fieldId: "section.page_id",
@@ -681,9 +718,7 @@ export function canDeletePage(
   if (target.is_homepage) return false;
   if (!target.is_default) return true;
   return state.pages.some(
-    (page) =>
-      pageKey(page) !== targetKey &&
-      page.type === target.type,
+    (page) => pageKey(page) !== targetKey && page.type === target.type,
   );
 }
 
@@ -691,18 +726,15 @@ function normalizePage(value: unknown): DraftPagePayload {
   const page = isRecord(value) ? value : {};
   const legacySettings = isRecord(page.settings) ? page.settings : {};
   const legacyCommerce =
-    legacySettings.commerce === "classic" ||
-    legacySettings.commerce === "order"
+    legacySettings.commerce === "classic" || legacySettings.commerce === "order"
       ? "order"
       : legacySettings.commerce === "catering"
         ? "catering"
         : null;
   const type: WebsitePageType =
-    page.type === "landing" ||
-    page.type === "order" ||
-    page.type === "catering"
+    page.type === "landing" || page.type === "order" || page.type === "catering"
       ? page.type
-      : legacyCommerce ?? "content";
+      : (legacyCommerce ?? "content");
   const base = {
     id: positiveInteger(page.id),
     tmp_id: typeof page.tmp_id === "string" ? page.tmp_id : undefined,
@@ -793,9 +825,7 @@ function normalizeSection(value: unknown): DraftSectionPayload {
     page: typeof section.page === "string" ? section.page : "",
     page_id: positiveInteger(section.page_id),
     page_tmp_id:
-      typeof section.page_tmp_id === "string"
-        ? section.page_tmp_id
-        : undefined,
+      typeof section.page_tmp_id === "string" ? section.page_tmp_id : undefined,
     sort_order: Number.isInteger(section.sort_order)
       ? Number(section.sort_order)
       : 0,

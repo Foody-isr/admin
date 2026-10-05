@@ -22,13 +22,14 @@ import {
   VideoUploadField,
   heroImageReplacement,
 } from "./SectionContentEditors";
-import { getDefaultContent } from "@/components/website/SectionEditors";
+import { squareDefaultContent as getDefaultContent } from "@/lib/website-v3/square-components";
 
 const labels: Record<string, string> = {
   headline: "editorHeadline",
   subheadline: "editorText",
   title: "editorHeadline",
   body: "editorText",
+  subtitle: "editorField_subtitle",
   text: "editorText",
   custom_text: "editorText",
   cta_text: "editorButton",
