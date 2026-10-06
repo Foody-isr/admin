@@ -374,6 +374,7 @@ test("builder exposes system links without inventing rail pages", () => {
       LocaleProvider,
       null,
       React.createElement(SiteInspector, {
+      sections: [],
         tab: "settings",
         config: { show_orders_link: true, stories_enabled: true },
         restaurantId: 24,

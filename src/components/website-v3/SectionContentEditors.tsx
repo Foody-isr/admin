@@ -8,11 +8,11 @@ import {
 import {
   AboutBlocksEditor,
   ActionButtonsEditor,
-  MenuHighlightsEditor,
   PicnicBasketEditor,
 } from "@/components/website/SectionEditors";
 import { uploadSectionImage, uploadSectionVideo } from "@/lib/api";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
+import { FeaturedItemsEditor } from "./FeaturedItemsEditor";
 import { InspectorField, ToggleField, controlClass } from "./controls";
 
 type SectionContentEditorsProps = {
@@ -106,12 +106,10 @@ export function SectionContentEditors({
     case "featured_menu":
     case "menu_highlights":
       return (
-        <MenuHighlightsEditor
+        <FeaturedItemsEditor
           restaurantId={restaurantId}
-          content={section.content}
-          settings={section.settings}
-          updateContent={updateContent}
-          updateSettings={updateSettings}
+          section={section}
+          onChange={onChange}
         />
       );
     case "picnic_basket":

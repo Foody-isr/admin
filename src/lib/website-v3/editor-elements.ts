@@ -4,6 +4,8 @@ export const EDITOR_ELEMENTS: Record<string, readonly string[]> = {
   text_and_image: ["title", "body", "image_url", "cta_text"],
   text: ["title", "subtitle", "body", "cta_text"],
   button: ["cta_text"],
+  menu_highlights: ["title", "subtitle", "cta_text"],
+  featured_menu: ["title", "subtitle", "cta_text"],
   scrolling_text: ["text"],
   donation: ["title", "body", "cta_text", "image_url"],
   promo_banner: ["title", "body", "image_url"],

@@ -23,7 +23,7 @@ import {
 } from "./controls";
 import { SectionContentEditors } from "./SectionContentEditors";
 import { FeatureCardsAppearanceEditor } from "./FeatureCardsAppearanceEditor";
-import { MenuHighlightsAppearanceEditor } from "./MenuHighlightsAppearanceEditor";
+import { FeaturedItemsEditor } from "./FeaturedItemsEditor";
 import { OrderDiscoveryAppearanceEditor } from "./OrderDiscoveryAppearanceEditor";
 
 export function SectionInspector({
@@ -50,6 +50,17 @@ export function SectionInspector({
   const placementGroupId = placementGroupIsAvailable
     ? configuredPlacementGroupId
     : "";
+  if (
+    section.section_type === "menu_highlights" ||
+    section.section_type === "featured_menu"
+  )
+    return (
+      <FeaturedItemsEditor
+        restaurantId={restaurantId}
+        section={section}
+        onChange={onChange}
+      />
+    );
   if (tab === "content") {
     return (
       <InspectorGroup
@@ -81,9 +92,7 @@ export function SectionInspector({
           >
             <span>{t("editorLayout")}</span>
             <div className="sqe-layout-choices">
-              {(
-                squareLayouts(section.section_type)
-              ).map((layout) => {
+              {squareLayouts(section.section_type).map((layout) => {
                 const Icon =
                   layout.value === "split"
                     ? Columns2
@@ -280,12 +289,6 @@ export function SectionInspector({
             </>
           ) : null}
         </InspectorGroup>
-        {section.section_type === "menu_highlights" ? (
-          <MenuHighlightsAppearanceEditor
-            value={section.settings}
-            onChange={onChange}
-          />
-        ) : null}
         {section.section_type === "feature_cards" ? (
           <FeatureCardsAppearanceEditor
             value={section.settings}

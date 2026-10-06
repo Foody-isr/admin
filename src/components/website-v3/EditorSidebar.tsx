@@ -805,7 +805,7 @@ export function EditorSidebar({
                 ))}
               </div>
             )}
-          {selectedSection && !sectionContentOpen && (
+          {selectedSection && !["menu_highlights", "featured_menu"].includes(selectedSection.section_type) && !sectionContentOpen && (
             <>
               <section className="sqe-section-content">
                 <h3>{t("editorContent")}</h3>
@@ -848,7 +848,7 @@ export function EditorSidebar({
           <div
             className="sqe-inspector"
             hidden={Boolean(
-              selectedSection && !sectionContentOpen && !customizeOpen,
+              selectedSection && !["menu_highlights", "featured_menu"].includes(selectedSection.section_type) && !sectionContentOpen && !customizeOpen,
             )}
           >
             {selectedSection && activeField ? (

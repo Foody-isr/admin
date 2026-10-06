@@ -146,6 +146,8 @@ export function applySitePalette(state: DraftStatePayload, palette: SitePalette)
   const brandColors = [previous.accent, state.config.brand_color, previousStyle?.accent]
     .filter((value): value is string => typeof value === "string" && !!value).map(hex);
   const recolor = (value: unknown, path = ""): unknown => {
+    // Header colors are either live tokens (empty) or explicit custom overrides.
+    if (path === ".nav_layout.header") return value;
     if (Array.isArray(value)) return value.map((item) => recolor(item, path));
     if (!value || typeof value !== "object") return value;
     const object = value as Record<string, unknown>;

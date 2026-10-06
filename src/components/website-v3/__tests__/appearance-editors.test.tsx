@@ -78,7 +78,7 @@ test("page navigation CTA starts inherited and reveals sparse state controls", (
   );
 });
 
-test("site and page navigation editors expose the slim links-without-logo mode", () => {
+test("site settings delegate to Header while unmigrated page navigation remains compatible", () => {
   const page: DraftPagePayload = {
     tmp_id: "landing-page",
     type: "landing",
@@ -94,6 +94,7 @@ test("site and page navigation editors expose the slim links-without-logo mode",
   };
   const siteMarkup = render(
     React.createElement(SiteInspector, {
+      sections: [],
       tab: "settings",
       config: {},
       restaurantId: 24,
@@ -128,12 +129,11 @@ test("site and page navigation editors expose the slim links-without-logo mode",
     }),
   );
 
-  assert.equal(siteMarkup.match(/<option value="slim">/g)?.length, 4);
+  assert.doesNotMatch(siteMarkup, /<option value="slim">/);
   assert.equal(pageMarkup.match(/<option value="slim">/g)?.length, 2);
-  assert.equal(siteMarkup.match(/<option value="compact_no_logo">/g)?.length, 4);
+  assert.doesNotMatch(siteMarkup, /site.navbar/);
   assert.equal(pageMarkup.match(/<option value="compact_no_logo">/g)?.length, 2);
-  assert.match(siteMarkup, /Fine · liens visibles sans logo/);
-  assert.match(siteMarkup, /Compacte · flottante avec logo/);
+  assert.match(siteMarkup, /Modifier l’en-tête/);
   assert.match(pageMarkup, /Position du logo/);
 });
 

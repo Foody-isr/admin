@@ -1,4 +1,5 @@
 "use client";
+import { HEADER_ELEMENTS, type HeaderElement } from "@/lib/website-v3/header";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
@@ -59,7 +60,7 @@ export function PreviewCanvas({
   activeField?: string;
   activeRegion?: "header" | "footer" | "order-banner" | "order-items" | "order-fulfillment";
   orderDialog?: "fulfillment" | "item";
-  onSelectRegion?: (region: "header" | "footer" | "order-banner" | "order-items" | "order-fulfillment") => void;
+  onSelectRegion?: (region: "header" | "footer" | "order-banner" | "order-items" | "order-fulfillment", element?: HeaderElement) => void;
   hoveredSectionKey?: string | null;
   onHoverSection: (key: string | null) => void;
   onEditElement: (key: string, field: string, value: string) => void;
@@ -225,7 +226,7 @@ export function PreviewCanvas({
           return;
         if (event.data.region === "header" || event.data.region === "footer" ||
           (latestRef.current.activePage.type === "order" && ["order-banner", "order-items", "order-fulfillment"].includes(event.data.region)))
-          onSelectRegion?.(event.data.region);
+          onSelectRegion?.(event.data.region, event.data.region === "header" && HEADER_ELEMENTS.includes(event.data.element) ? event.data.element : undefined);
         return;
       }
       if (

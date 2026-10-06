@@ -41,7 +41,7 @@ export function restaurantThemeSection(
   let content = squareDefaultContent(type);
   let layout = "default";
   const settings: Record<string, unknown> = {
-    ...squareDefaultSettings(), theme_layout: theme.id,
+    ...squareDefaultSettings(type), theme_layout: theme.id,
   };
   if (type === "hero_banner") {
     layout = role === "home" ? theme.hero : "split";

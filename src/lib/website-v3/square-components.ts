@@ -40,8 +40,11 @@ export const SQUARE_COMPONENT_GROUPS = [
         title: "Upcoming events",
         cards: [],
       }),
-      component("featured_menu", "editorFeaturedMenu", ["list", "grid"], {
-        title: "Our menu",
+      component("featured_menu", "editorFeaturedMenu", ["list"], {
+        title: "Featured Menu Items",
+        subtitle:
+          "Try one of our signature selections and see what everyone’s talking about",
+        cta_text: "Explore our menu",
         item_ids: [],
       }),
     ],
@@ -213,8 +216,31 @@ export function squareDefaultContent(
 }
 
 /** Defaults belong to the editor catalogue, independently of the retired builder. */
-export function squareDefaultSettings(): Record<string, unknown> {
-  return { color_style: "site", padding: "normal", text_alignment: "center" };
+export function squareDefaultSettings(type?: string): Record<string, unknown> {
+  return {
+    color_style: "site",
+    padding: "normal",
+    text_alignment: "center",
+    ...(type === "featured_menu"
+      ? {
+          columns: 2,
+          show_images: false,
+          show_descriptions: true,
+          show_cta_text: true,
+          show_buttons: false,
+        }
+      : type === "menu_highlights"
+        ? {
+            columns: 3,
+            image_size: "L",
+            column_spacing: 2,
+            show_descriptions: false,
+            show_images: true,
+            show_buttons: true,
+            show_cta_text: false,
+          }
+        : {}),
+  };
 }
 
 /** Available layouts for fixed site regions and insertable sections. */

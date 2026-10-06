@@ -96,6 +96,19 @@ if (process.env.FOODY_THEME_REGRESSION === "1") {
   draft.pages[0].appearance_overrides = { navbar_cta: { enabled: false }, navigation_mode: "hidden", footer_mode: "hidden" };
   draft.config.nav_layout = { content: { desktop: "hidden" }, links: [{ id: "old", label: "Old theme", page_slug: "missing" }] };
 }
+const featuredRegression = process.env.FOODY_FEATURED_REGRESSION === "1";
+const featuredItems = Array.from({length: 6}, (_, index) => ({
+  id: index + 1, category_id: 1, name: ["Double Espresso", "Tall Cold Brew", "Cappuccino", "Drip Coffee", "Croissant", "Apple cake"][index],
+  description: "Prepared fresh in our kitchen.", price: 5 + index, is_active: true,
+  image_url: "", item_type: "regular", availability_state: index === 5 ? "sold_out" : "available",
+  ...(index === 0 ? {option_sets: [{id: 1, name: "Size", is_active: true, options: [{id: 11, name: "Small", price: 5, is_active: true}, {id: 12, name: "Large", price: 9, is_active: true}]}]} : {}),
+}));
+if (featuredRegression) {
+  draft.sections = [
+    {...section(6, "menu_highlights", {title: "Featured Items", item_ids: [1,2,3,4,5,6]}, "carousel"), settings: {color_style: "site", auto_scroll: true, full_width: true, column_spacing: 5, image_size: "L"}},
+    {...section(7, "featured_menu", {title: "Featured Menu Items", subtitle: "Try one of our signature selections", item_ids: [1,2,3,4], cta_text: "Explore our menu"}, "list"), settings: {color_style: "site"}},
+  ];
+}
 let published = structuredClone(draft),
   dirty = false;
 const response = () => ({
@@ -114,6 +127,11 @@ const restaurant = () => ({
   cover_url: process.env.FOODY_THEME_REGRESSION === "1" ? "" : image,
   default_locale: "en",
   catering_enabled: false,
+  ...(featuredRegression ? { opening_hours_config: Object.fromEntries(
+    ["dine_in", "pickup", "delivery"].map((service) => [service, Object.fromEntries(
+      ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, {closed: false, open: "00:00", close: "00:00"}]),
+    )]),
+  ) } : {}),
   website_config: published.config,
   website_sections: published.sections,
 });
@@ -201,9 +219,12 @@ http
       result = page
         ? { json: { page } }
         : { status: 404, json: { error: "Page not found" } };
-    } else if (path === "/api/v1/public/menu")
+    } else if (featuredRegression && /^\/api\/v1\/menu\/?$/.test(path))
+      result = {json: {menus: [{id: 1, restaurant_id: 1, name: "Menu", is_active: true, web_enabled: true, groups: [{id:1, web_enabled:true, is_hidden:false, items:featuredItems}]}]}};
+    else if (path === "/api/v1/public/menu")
       result = {
         json: {
+          ...(featuredRegression ? {popular_item_ids: [4,2,1,3,5,6]} : {}),
           menus: [
             {
               id: 1,
@@ -212,8 +233,7 @@ http
                 {
                   id: 1,
                   name: "Kitchen",
-                  items: base.response("/api/v1/menu/items", "GET", {}, 1).json
-                    .items,
+                  items: featuredRegression ? featuredItems : base.response("/api/v1/menu/items", "GET", {}, 1).json.items,
                 },
               ],
             },
