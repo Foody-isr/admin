@@ -29,3 +29,18 @@ test('série dashboard requests filter fulfillment dates while charting creation
   assert.equal(url.searchParams.get('from'), '2026-09-11');
   assert.equal(url.searchParams.get('to'), '2026-09-11');
 });
+
+test('home volume requests explicit days and restaurant without inheriting performance filters', async (t) => {
+  const { getDayComparison } = await import('@/lib/api');
+  const originalFetch = globalThis.fetch;
+  const requests: string[] = [];
+  globalThis.fetch = async (input) => {
+    requests.push(String(input));
+    return new Response(JSON.stringify({ current: {}, previous: {}, hourly: [] }), { status: 200 });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  await getDayComparison(42, '2026-10-06', '2026-09-29');
+  const url = new URL(requests[0]);
+  assert.equal(url.pathname, '/api/v1/analytics/comparison');
+  assert.deepEqual(Object.fromEntries(url.searchParams), { restaurant_id: '42', date: '2026-10-06', compare: '2026-09-29' });
+});
