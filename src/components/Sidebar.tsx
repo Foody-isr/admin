@@ -20,6 +20,7 @@ import {
   BarChart3,
   Settings,
   Globe,
+  Grid2X2Plus,
   UserCog,
   Building2,
   X,
@@ -68,6 +69,8 @@ interface NavItem {
   clickHref?: string;
   /** Hide this entry when the sidebar is shown as the mobile drawer (<lg). */
   desktopOnly?: boolean;
+  /** Start a distinct sales-channel section before this destination. */
+  section?: 'channels';
 }
 
 interface SidebarProps {
@@ -157,23 +160,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       ],
     },
     {
-      href: `${base}/website-v3`,
-      labelKey: 'online',
-      icon: Globe,
-      perm: ['settings.edit'],
-      // The group is visible on mobile so an admin can reach Stories (connect
-      // Instagram) from a phone. The website builder itself stays desktop-only.
-      subItems: [
-        {
-          href: `${base}/website-v3`,
-          labelKey: 'websiteBuilderV3',
-          badgeLabelKey: 'betaLabel',
-          desktopOnly: true,
-        },
-        { href: `${base}/reels`, labelKey: 'reels' },
-      ],
-    },
-    {
       // Everything aimed at the customer lives here: who they are, and what we
       // offer them. Promotions keep their /marketing/* route, whose permission
       // gate is keyed on that path segment.
@@ -230,6 +216,23 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       labelKey: 'settings',
       icon: Settings,
       subGroups: settingsGroups,
+    },
+    {
+      href: `${base}/website-v3`,
+      labelKey: 'foodyOnline',
+      icon: Globe,
+      section: 'channels',
+      perm: ['settings.edit'],
+      // Keep Stories accessible on mobile; the website builder is desktop-only.
+      subItems: [
+        {
+          href: `${base}/website-v3`,
+          labelKey: 'websiteBuilderV3',
+          badgeLabelKey: 'betaLabel',
+          desktopOnly: true,
+        },
+        { href: `${base}/reels`, labelKey: 'reels' },
+      ],
     },
   ];
   const courierNav: NavItem[] = [
@@ -328,6 +331,17 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
             return (
               <div key={item.labelKey} className={item.desktopOnly ? 'max-lg:hidden' : undefined}>
+                {item.section === 'channels' && (
+                  <>
+                    <hr className="mx-2 my-4 border-0 border-t border-[var(--line)]" />
+                    {!collapsed && (
+                      <h2 className="flex min-h-[38px] items-center gap-2 px-3 py-2 text-sm font-semibold leading-5 text-[var(--fg)]">
+                        <Grid2X2Plus aria-hidden className="size-5 shrink-0" />
+                        {t('channels')}
+                      </h2>
+                    )}
+                  </>
+                )}
                 {/* Top-level row */}
                 {children ? (
                   // Expanding a section keeps the current workspace visible.
