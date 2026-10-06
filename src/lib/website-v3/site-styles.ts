@@ -122,11 +122,64 @@ export function defaultThemeStyle(theme: RestaurantTheme): SiteStyle {
   };
 }
 
+type SitePalette = Pick<SiteStyle, "mode" | "bg" | "surface" | "ink" | "accent">;
+const paletteTokens = ["accent", "ink", "surface", "bg"] as const;
+const colorKey = /color$|^(bg|ink|accent|surface|background|background_end|custom_bg|custom_text|inset_bg|inset_ink)$/;
+const hex = (value: unknown) => {
+  const color = String(value ?? "").toLowerCase();
+  return /^#[a-f0-9]{3}$/.test(color)
+    ? `#${color.slice(1).split("").map((c) => c + c).join("")}` : color;
+};
+const buttonInk = (accent: string) => {
+  const rgb = hex(accent).slice(1);
+  const brightness = [0, 2, 4].reduce((sum, offset, index) =>
+    sum + parseInt(rgb.slice(offset, offset + 2), 16) * [0.299, 0.587, 0.114][index], 0);
+  return brightness > 160 ? "#111111" : "#ffffff";
+};
+
+/** Updates inherited palette colors throughout the site, preserving custom colors and all composition. */
+export function applySitePalette(state: DraftStatePayload, palette: SitePalette): DraftStatePayload {
+  const previous = record(state.config.custom_palette);
+  const site = record(record(state.config.typography).site);
+  // Older versions changed only custom_palette, leaving the selected style's button color behind.
+  const previousStyle = SITE_STYLES.find((style) => style.id === site.style);
+  const brandColors = [previous.accent, state.config.brand_color, previousStyle?.accent]
+    .filter((value): value is string => typeof value === "string" && !!value).map(hex);
+  const recolor = (value: unknown, path = ""): unknown => {
+    if (Array.isArray(value)) return value.map((item) => recolor(item, path));
+    if (!value || typeof value !== "object") return value;
+    const object = value as Record<string, unknown>;
+    const next = Object.fromEntries(Object.entries(object).map(([key, item]) => {
+      if (item && typeof item === "object") return [key, recolor(item, `${path}.${key}`)];
+      if (!colorKey.test(key) || typeof item !== "string") return [key, item];
+      const brandOwned = /cta|button|accent/.test(`${path}.${key}`);
+      if (brandOwned && brandColors.includes(hex(item))) return [key, palette.accent];
+      const preferred = /text|ink/.test(key) ? "ink" : /bg|background/.test(key) ? "bg" : "accent";
+      const tokens = [preferred, ...paletteTokens.filter((token) => token !== preferred)] as (typeof paletteTokens[number])[];
+      const token = tokens.find((token) => previous[token] && hex(previous[token]) === hex(item));
+      return [key, token ? palette[token] : item];
+    }));
+    // Keep inherited filled CTA text readable when the brand changes from dark to light.
+    if (/cta|button/.test(path) && brandColors.includes(hex(object.bg)) && object.variant !== "outline") {
+      if (!object.text_color || ["#fff", "#ffffff", "#111111", "#000000"].includes(String(object.text_color).toLowerCase()))
+        next.text_color = buttonInk(palette.accent);
+    }
+    return next;
+  };
+  return {
+    ...state,
+    config: { ...recolor(state.config) as Record<string, unknown>, theme_id: "custom", brand_color: null, custom_palette: palette },
+    pages: state.pages.map((page) => ({ ...page, appearance_overrides: recolor(page.appearance_overrides) as Record<string, unknown> })),
+    sections: state.sections.map((section) => ({ ...section, settings: recolor(section.settings) as Record<string, unknown> })),
+  };
+}
+
 /** Applies a remix while preserving every page, section, content value and navigation destination. */
 export function applySiteStyle(
   state: DraftStatePayload,
   style: SiteStyle,
 ): DraftStatePayload {
+  state = applySitePalette(state, style);
   const palette = record(state.config.custom_palette);
   const remap = (value: unknown): unknown => {
     for (const token of ["bg", "surface", "ink", "accent"] as const) {
@@ -211,10 +264,8 @@ export function applySiteStyle(
       },
       hero_name_font: style.heading,
       navbar_font: style.body,
-      navbar_color: String(remap(state.config.navbar_color) ?? style.bg),
-      navbar_text_color: String(
-        remap(state.config.navbar_text_color) ?? style.ink,
-      ),
+      navbar_color: style.id === "original-joy-bakery" ? style.accent : style.bg,
+      navbar_text_color: style.id === "original-joy-bakery" ? "#ffffff" : style.ink,
       navbar_overlay_text_color: String(
         remap(state.config.navbar_overlay_text_color) ?? style.ink,
       ),

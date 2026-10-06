@@ -97,7 +97,7 @@ export function sectionsForPage(
   page: DraftPagePayload,
 ): DraftSectionPayload[] {
   return state.sections
-    .filter((section) => sectionBelongs(section, page))
+    .filter((section) => !section.settings.theme_retired && sectionBelongs(section, page))
     .sort((a, b) => a.sort_order - b.sort_order);
 }
 
@@ -113,4 +113,9 @@ export function sectionBelongs(
     );
   }
   return section.page === page.slug;
+}
+
+/** Shared chrome and the primary banner are hidden rather than deleted. */
+export function canDeleteSection(section: DraftSectionPayload): boolean {
+  return section.section_type !== "footer" && section.section_type !== "hero_banner";
 }

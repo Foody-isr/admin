@@ -6,7 +6,7 @@ import {
   RESTAURANT_THEMES,
   record,
 } from "../restaurant-themes";
-import { applySiteStyle, SITE_STYLES } from "../site-styles";
+import { applySitePalette, applySiteStyle, SITE_STYLES } from "../site-styles";
 
 test("every Aa remix preserves a theme's complete composition and commerce bindings", () => {
   let id = 0;
@@ -164,4 +164,35 @@ test("Aa remixes recolor filled buttons even when the old ink and accent were id
     record(record(lightButton.config.navbar_cta).solid).text_color,
     "#111111",
   );
+});
+
+
+test("brand edits repair inherited CTA colors on every page without replacing custom colors or composition", () => {
+  const before = normalizeDraftState({
+    config: {
+      typography: { site: { style: "ochre", headingFont: "Dela Gothic One" } },
+      custom_palette: { mode: "light", bg: "#f3f2ef", surface: "#ffffff", ink: "#171717", accent: "#de5428" },
+      navbar_cta: { link: "/order", solid: { bg: "#956600", text_color: "#ffffff" } },
+    },
+    pages: [{ id: 1, type: "landing", slug: "home", appearance_overrides: {
+      navbar_cta: { solid: { bg: "#de5428", text_color: "#ffffff" } },
+      section_colors: { hero: { accent: "#DE5428" } },
+      website_order: { background: "#123456" },
+    } }],
+    sections: [{ id: 1, page_id: 1, section_type: "text_and_image", layout: "split", content: { title: "Keep me" },
+      settings: { cta_bg_color: "#de5428", custom_bg: "#de5428", custom_text: "#123456" } }],
+  });
+  const snapshot = structuredClone(before);
+  const next = applySitePalette(before, { mode: "light", bg: "#f3f2ef", surface: "#ffffff", ink: "#171717", accent: "#ffeeaa" });
+  assert.deepEqual(before, snapshot);
+  assert.equal(record(record(next.config.navbar_cta).solid).bg, "#ffeeaa");
+  assert.equal(record(record(next.config.navbar_cta).solid).text_color, "#111111");
+  assert.equal(record(record(next.pages[0].appearance_overrides.navbar_cta).solid).bg, "#ffeeaa");
+  assert.equal(record(record(next.pages[0].appearance_overrides.section_colors).hero).accent, "#ffeeaa");
+  assert.equal(record(next.pages[0].appearance_overrides.website_order).background, "#123456");
+  assert.equal(next.sections[0].settings.custom_bg, "#ffeeaa");
+  assert.equal(next.sections[0].settings.custom_text, "#123456");
+  assert.deepEqual(next.sections[0].content, before.sections[0].content);
+  assert.equal(next.sections[0].layout, "split");
+  assert.deepEqual(next.config.typography, before.config.typography);
 });

@@ -830,7 +830,9 @@ function normalizeSection(value: unknown): DraftSectionPayload {
       ? Number(section.sort_order)
       : 0,
     is_visible:
-      typeof section.is_visible === "boolean" ? section.is_visible : true,
+      isRecord(section.settings) && section.settings.theme_retired === true
+        ? false
+        : typeof section.is_visible === "boolean" ? section.is_visible : true,
     layout: typeof section.layout === "string" ? section.layout : "default",
     content: isRecord(section.content) ? { ...section.content } : {},
     settings: isRecord(section.settings) ? { ...section.settings } : {},

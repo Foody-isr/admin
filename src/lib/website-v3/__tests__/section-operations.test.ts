@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  canDeleteSection,
   duplicateSection,
   insertSection,
   reorderSection,
@@ -92,4 +93,19 @@ test("dragging cannot move a section between pages or move the footer into conte
     ),
     [2, 1, 3],
   );
+});
+
+
+test("retired theme blocks stay out of outlines and insertion/reorder operations", () => {
+  const retired = { ...section(5), settings: { theme_retired: true } };
+  const draft = { ...state, sections: [...state.sections, retired] };
+  assert.deepEqual(sectionsForPage(draft, page).map((s) => s.id), [1, 2, 3]);
+  assert.equal(sectionsForPage(insertSection(draft, page, section(6)), page).length, 4);
+  assert.strictEqual(reorderSection(draft, page, "5", "1"), draft);
+});
+
+test("ordinary sections are removable while shared footer and main banner are hideable only", () => {
+  assert.equal(canDeleteSection(section(1)), true);
+  assert.equal(canDeleteSection(section(2, "hero_banner")), false);
+  assert.equal(canDeleteSection(section(3, "footer")), false);
 });

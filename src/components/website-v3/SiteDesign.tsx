@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { loadWebsiteFont } from "@/lib/website-fonts";
 import type { ThemeCatalog } from "@/lib/api";
 import { PreviewCanvas } from "./PreviewCanvas";
-import { SITE_STYLES, applySiteStyle, defaultThemeStyle, type SiteStyle } from "@/lib/website-v3/site-styles";
+import { SITE_STYLES, applySitePalette, applySiteStyle, defaultThemeStyle, type SiteStyle } from "@/lib/website-v3/site-styles";
 import type { ApplyRestaurantThemeOptions } from "@/lib/website-v3/restaurant-themes";
 import { pageKey } from "@/lib/website-v3/types";
 import type { DraftStatePayload } from "@/lib/website-v3/types";
@@ -276,31 +276,11 @@ export function SiteDesign({
               ["ink", "editorText", ink],
             ] as const
           ).map(([key, label, value]) => (
-            <div key={key}>
-              <label htmlFor={`site-${key}`}>{t(label)}</label>
-              <div className="sqe-color-field">
-                <input
-                  id={`site-${key}`}
-                  aria-label={t(label)}
-                  type="color"
-                  value={value}
-                  onChange={(e) =>
-                    patch({
-                      theme_id: "custom",
-                      custom_palette: {
-                        mode: palette.mode ?? currentTheme?.mode ?? "light",
-                        bg,
-                        surface,
-                        ink,
-                        accent,
-                        [key]: e.target.value,
-                      },
-                    })
-                  }
-                />
-                <span>{value.toUpperCase()}</span>
-              </div>
-            </div>
+            <SiteColorField key={key} id={`site-${key}`} label={t(label)} value={value}
+              onChange={(color) => onChange(applySitePalette(state, {
+                mode: (palette.mode ?? currentTheme?.mode) === "dark" ? "dark" : "light",
+                bg, surface, ink, accent, [key]: color,
+              }))} />
           ))}
         </div>
       )}
@@ -522,4 +502,24 @@ function ThemeThumbnail({ theme, state, options, context }: {
       </div>}
     </div>
   );
+}
+
+function SiteColorField({ id, label, value, onChange }: {
+  id: string; label: string; value: string; onChange: (value: string) => void;
+}) {
+  const [input, setInput] = useState(value);
+  useEffect(() => setInput(value), [value]);
+  const commit = () => {
+    if (/^#[0-9a-f]{6}$/i.test(input)) onChange(input);
+    else setInput(value);
+  };
+  return <div>
+    <label htmlFor={id}>{label}</label>
+    <div className="sqe-color-field">
+      <input type="color" aria-label={`${label} — palette`} value={value} onChange={(event) => onChange(event.target.value)} />
+      <input id={id} type="text" value={input} spellCheck={false} maxLength={7}
+        onChange={(event) => setInput(event.target.value)} onBlur={commit}
+        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commit(); } }} />
+    </div>
+  </div>;
 }

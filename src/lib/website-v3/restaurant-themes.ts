@@ -245,10 +245,10 @@ export function applyRestaurantTheme(
         ...typography,
         site: { headingFont: theme.heading, bodyFont: theme.body, buttonShape: theme.shape, template: theme.id },
       },
-      navbar_color: theme.bg,
-      navbar_text_color: theme.ink,
+      navbar_color: theme.id === "joy-bakery" ? theme.accent : theme.bg,
+      navbar_text_color: theme.id === "joy-bakery" ? "#ffffff" : theme.ink,
       navbar_style: "solid",
-      navbar_logo_position: theme.id === "youngs-place" ? "center" : "left",
+      navbar_logo_position: ["youngs-place", "joy-bakery"].includes(theme.id) ? "center" : "left",
       navbar_font: theme.body,
       navbar_type: { weight: 700, size: 14 },
       navbar_link_style: "text",
@@ -273,7 +273,7 @@ export function applyRestaurantTheme(
     logo_size: 40,
     nav_layout: {
       content: { desktop: "full", mobile: "compact" },
-      shopping: { desktop: "compact", mobile: "compact" },
+      shopping: { desktop: "full", mobile: "compact" },
       site_mode: options.orderingOnly ? "single_order" : "multi_page",
       theme_pages: record(record(state.config.nav_layout).theme_pages),
     },
@@ -281,12 +281,12 @@ export function applyRestaurantTheme(
       enabled: Boolean(order), text: options.cta,
       link: order ? (options.orderingOnly ? "/" : order.is_default ? "/order" : `/${order.slug}`) : "",
       shape: theme.shape, size: "md",
-      variant: theme.id === "mediterranean" ? "outline" : "filled",
+      variant: ["mediterranean", "joy-bakery"].includes(theme.id) ? "outline" : "filled",
       solid: {
-        variant: theme.id === "mediterranean" ? "outline" : "filled",
-        bg: theme.id === "mediterranean" ? "transparent" : theme.accent,
-        text_color: theme.id === "mediterranean" ? theme.ink : theme.mode === "dark" ? theme.bg : "#ffffff",
-        border_color: theme.id === "mediterranean" ? theme.ink : "transparent",
+        variant: ["mediterranean", "joy-bakery"].includes(theme.id) ? "outline" : "filled",
+        bg: ["mediterranean", "joy-bakery"].includes(theme.id) ? "transparent" : theme.accent,
+        text_color: theme.id === "joy-bakery" ? "#ffffff" : theme.id === "mediterranean" ? theme.ink : theme.mode === "dark" ? theme.bg : "#ffffff",
+        border_color: theme.id === "joy-bakery" ? "#ffffff" : theme.id === "mediterranean" ? theme.ink : "transparent",
       },
     },
   };
@@ -305,7 +305,7 @@ export function applyRestaurantTheme(
         ...page, nav_visible: pageKey(page) === pageKey(order),
         ...(pageKey(page) === pageKey(order) ? { appearance_overrides: {
           ...completePageAppearance(page.appearance_overrides),
-          cover_url: options.image || restaurantThemeMedia(theme).hero,
+          cover_url: restaurantThemeMedia(theme).hero || options.image,
           hero_cover_layout: "card", layout_default: "compact", layout_default_mobile: "compact",
           category_navigation: { mode: "sidebar", side: "start" },
           navigation_mode: "inherit", navigation_mode_mobile: "inherit", footer_mode: "inherit",
@@ -358,6 +358,14 @@ export function applyRestaurantTheme(
         nav_visible: true, sort_order: targets.indexOf(target),
         appearance_overrides: { ...completePageAppearance(page.appearance_overrides),
           navigation_mode: "inherit", navigation_mode_mobile: "inherit", footer_mode: "inherit" },
+      } : page.type === "order" ? {
+        ...page, nav_visible: false,
+        appearance_overrides: {
+          ...completePageAppearance(page.appearance_overrides),
+          cover_url: restaurantThemeMedia(theme).hero || options.image,
+          navigation_mode: "inherit", navigation_mode_mobile: "inherit", footer_mode: "inherit",
+          website_order: { show_banner: true, show_fulfillment: true, prompt_on_entry: true, modal_cover: true, modal_logo: true },
+        },
       } : { ...page, nav_visible: false };
     }),
   };
