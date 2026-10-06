@@ -24,6 +24,7 @@ import {
   SQUARE_COMPONENTS,
   squareLayouts,
 } from "@/lib/website-v3/square-components";
+import { canDeleteSection, sectionsForPage } from "@/lib/website-v3/section-operations";
 import { isTechnicalSitePage } from "@/lib/website-v3/state";
 import {
   pageKey,
@@ -148,16 +149,7 @@ export function EditorSidebar({
   const orderRegion = selection.kind === "page" ? selection.region : undefined;
   const activeKey = pageKey(activePage);
   useEffect(() => { if (orderRegion) setPanel("inspector"); }, [orderRegion]);
-  const sections = state.sections
-    .filter((s) => !s.settings.theme_retired)
-    .filter((s) =>
-      s.page_id !== undefined
-        ? s.page_id === activePage.id
-        : s.page_tmp_id
-          ? s.page_tmp_id === activePage.tmp_id
-          : s.page === activePage.slug,
-    )
-    .sort((a, b) => a.sort_order - b.sort_order);
+  const sections = sectionsForPage(state, activePage);
   const groups = componentGroupsForPage(activePage.type);
   const lastSectionKey = useRef<string | null>(null);
   useEffect(() => {
@@ -192,6 +184,7 @@ export function EditorSidebar({
           text_and_image: "editorTextImage",
           testimonials: "editorTestimonials",
           menu_highlights: "editorFeaturedItems",
+          order_discovery: "editorFeaturedItems",
         } as Record<string, string>
       )[section.section_type] ??
         SQUARE_COMPONENTS[section.section_type]?.label ??
@@ -381,15 +374,7 @@ export function EditorSidebar({
                       selectedSection.is_visible ? "editorHide" : "editorShow",
                     )}
                   </button>
-                  <button
-                    onClick={() => {
-                      onDeleteSection(sectionKey(selectedSection));
-                      setSectionMenu(false);
-                      done();
-                    }}
-                  >
-                    {t("editorDelete")}
-                  </button>
+
                 </div>
               </>
             )}
@@ -558,14 +543,14 @@ export function EditorSidebar({
                         )}{" "}
                         {t(s.is_visible ? "editorHide" : "editorShow")}
                       </button>
-                      <button
+                      {canDeleteSection(s) && <button
                         onClick={() => {
                           onDeleteSection(sectionKey(s));
                           setRowMenu(null);
                         }}
                       >
                         {t("editorDelete")}
-                      </button>
+                      </button>}
                     </div>
                   </>
                 )}
@@ -890,6 +875,14 @@ export function EditorSidebar({
               inspector
             )}
           </div>
+          {selectedSection && canDeleteSection(selectedSection) && (
+            <div className="sqe-panel-body sqe-section-delete">
+              <button className="sqe-button sqe-button-secondary" disabled={busy}
+                onClick={() => onDeleteSection(sectionKey(selectedSection))}>
+                {t("editorDeleteSection")}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

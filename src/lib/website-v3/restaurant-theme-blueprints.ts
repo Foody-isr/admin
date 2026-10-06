@@ -37,7 +37,7 @@ export function restaurantThemeSection(
 ) {
   const { copy, links } = context;
   const assets = restaurantThemeMedia(theme);
-  const photo = context.image || assets.images[occurrence % Math.max(1, assets.images.length)] || assets.hero;
+  const photo = assets.images[occurrence % Math.max(1, assets.images.length)] || assets.hero || context.image;
   let content = squareDefaultContent(type);
   let layout = "default";
   const settings: Record<string, unknown> = {
@@ -48,7 +48,7 @@ export function restaurantThemeSection(
     content = {
       headline: role === "home" ? copy.headline : (copy[role as keyof ThemeCopy] || context.title),
       subheadline: context.description || (role === "home" ? "" : copy.welcome),
-      image_url: context.image || assets.hero,
+      image_url: assets.hero || context.image,
       cta_text: context.cta, cta_link: links.order || links.menu || links.home,
     };
     Object.assign(settings, {
@@ -109,6 +109,8 @@ export function restaurantThemeSection(
       label: key === "order" ? context.cta : copy[key as keyof ThemeCopy] || key, url,
     })) };
   }
+  if (theme.id === "joy-bakery" && type === "hero_banner")
+    Object.assign(settings, { bg_overlay: false, headline_color: theme.ink, subheadline_color: theme.ink });
   if (theme.id === "joy-bakery" && ["testimonials", "location_hours", "footer"].includes(type))
     Object.assign(settings, { color_style: "custom", custom_bg: theme.accent, custom_text: theme.bg });
   return { content, layout, settings };

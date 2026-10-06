@@ -72,6 +72,7 @@ import type {
 import { pageKey, sectionKey } from "@/lib/website-v3/types";
 import {
   sectionsForPage,
+  canDeleteSection,
   sectionBelongs,
   insertSection,
   duplicateSection,
@@ -92,6 +93,7 @@ import { BuilderShell } from "./BuilderShell";
 import { Inspector, type InspectorTab } from "./Inspector";
 import { MobileUnavailable } from "./MobileUnavailable";
 import { PageDialog } from "./PageDialog";
+import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { type RailSelection } from "./PageRail";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { BranchWebsitePresence } from "./BranchWebsitePresence";
@@ -249,6 +251,7 @@ function DesktopWebsiteV3Builder({
   const [serverErrors, setServerErrors] = useState<FieldError[]>([]);
   const [busy, setBusy] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingDeleteSection, setPendingDeleteSection] = useState<string | null>(null);
   const [settingsPageKey, setSettingsPageKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [previewRevision, setPreviewRevision] = useState(0);
@@ -984,18 +987,10 @@ function DesktopWebsiteV3Builder({
     });
   };
 
-  const deleteSection = (key: string) => {
-    if (
-      !state ||
-      busyRef.current ||
-      !window.confirm("Supprimer cette section ?")
-    ) {
-      return;
-    }
-    const target = state.sections.find(
-      (section) => sectionKey(section) === key,
-    );
-    if (!target) return;
+  const confirmDeleteSection = (key: string) => {
+    if (!state || busyRef.current) return;
+    const target = state.sections.find((section) => sectionKey(section) === key);
+    if (!target || !canDeleteSection(target)) return;
     const next: DraftStatePayload = {
       ...state,
       sections: state.sections.filter((section) => sectionKey(section) !== key),
@@ -1350,7 +1345,7 @@ function DesktopWebsiteV3Builder({
               if (section)
                 updateSection(key, ["is_visible"], !section.is_visible);
             }}
-            onDeleteSection={deleteSection}
+            onDeleteSection={setPendingDeleteSection}
             alerts={
               <>
                 {globalError && (
@@ -1495,7 +1490,7 @@ function DesktopWebsiteV3Builder({
                 updateSection(key, ["is_visible"], !section.is_visible);
               }
             }}
-            onDeleteSection={deleteSection}
+            onDeleteSection={setPendingDeleteSection}
           />
         }
       />
@@ -1531,6 +1526,18 @@ function DesktopWebsiteV3Builder({
             }}
           />
         )}
+      <AlertDialog open={pendingDeleteSection !== null} onOpenChange={(open) => { if (!open) setPendingDeleteSection(null); }}>
+        <AlertDialogContent>
+          <AlertDialogTitle>{t("editorDeleteSectionConfirm")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("editorDeleteSectionUndo")}</AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction disabled={busy} onClick={() => { if (pendingDeleteSection) confirmDeleteSection(pendingDeleteSection); }}>
+              {t("editorDelete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <PageDialog
         open={dialogOpen && !busy}
         pages={state.pages}

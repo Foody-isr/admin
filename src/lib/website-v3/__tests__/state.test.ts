@@ -755,3 +755,13 @@ test("legacy builder reconciliation repairs all static route collisions uniquely
   );
   assert.deepEqual(validateDraftForPublish(result.state), []);
 });
+
+
+test("normalization repairs old published retired blocks marked visible", () => {
+  const state = normalizeDraftState({ config: {}, pages: [], sections: [
+    { id: 1, section_type: "text", is_visible: true, settings: { theme_retired: true } },
+    { id: 2, section_type: "text", is_visible: true, settings: {} },
+  ] });
+  assert.equal(state.sections[0].is_visible, false);
+  assert.equal(state.sections[1].is_visible, true);
+});

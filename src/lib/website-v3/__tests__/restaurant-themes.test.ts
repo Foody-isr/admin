@@ -149,6 +149,16 @@ test("ordering themes move the homepage without deleting editorial pages or menu
   assert.deepEqual(next.sections.filter(section => section.page !== "_site"), before.sections);
   assert.deepEqual(next.pages[1].settings, before.pages[1].settings);
 });
+test("complete theme application styles the order page while keeping its menu and checkout settings", () => {
+  const theme = RESTAURANT_THEMES.find((entry) => entry.id === "joy-bakery")!;
+  const next = applyRestaurantTheme(state(), theme, { ...options, compose: true });
+  const order = next.pages.find((page) => page.type === "order")!;
+  assert.deepEqual(order.settings, { menu_ids: [17] });
+  assert.deepEqual(record(order.appearance_overrides).checkout, { show_notes: true });
+  assert.equal(record(order.appearance_overrides.website_order).prompt_on_entry, true);
+  assert.equal(record(order.appearance_overrides.website_order).modal_cover, true);
+  assert.ok(order.appearance_overrides.cover_url);
+});
 test("switching back to a theme restores its retired sections without duplicating content", () => {
   const mediterranean = applyRestaurantTheme(state(), RESTAURANT_THEMES[0], {
     ...options,
@@ -388,4 +398,14 @@ test("single-page preview restores a visible cover and theme CTA without modifyi
   assert.equal(record(next.config.navbar_cta).link, "/");
   assert.deepEqual(next.sections.find(section => section.page === "_site")?.content.links, [{ label: "Order", url: "/" }]);
   assert.deepEqual(next.deleted_page_ids, []);
+});
+
+
+test("full theme application uses reference media even when the restaurant already has a cover", () => {
+  for (const theme of RESTAURANT_THEMES) {
+    const next = applyRestaurantTheme(state(), theme, { ...options, compose: true, image: "/existing-restaurant-cover.jpg" });
+    const hero = next.sections.find((section) => section.section_type === "hero_banner" && !section.settings.theme_retired)!;
+    assert.ok(String(hero.content.image_url).startsWith("https://"));
+    assert.notEqual(hero.content.image_url, "/existing-restaurant-cover.jpg");
+  }
 });
