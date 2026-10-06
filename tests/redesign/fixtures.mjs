@@ -223,6 +223,10 @@ export function createFixture({ empty = false, denied = false, fail = false, per
     if(/^\/api\/v1\/restaurants\/[12]$/.test(p)) return {json:{restaurant:{...restaurant,id:Number(p.split('/').pop()),name:p.endsWith('/2')?'Jardin Foody':restaurant.name}}};
     if(p.endsWith('/settings')) return {json:{settings}};
     if(p==='/api/v1/display-preferences') return {json:preferences};
+    if(p==='/api/v1/analytics/comparison') {
+      const day=(date,previous=false)=>({date,gross_sales:empty?0:previous?6200:6840,net_sales:empty?0:previous?6200:6840,transactions:empty?0:previous?76:84,avg_sale:81.43,items_sold:empty?0:162,tips:0,discounts:0,labor_percent:0});
+      return {json:{current:day(q.get('date')),previous:day(q.get('compare'),true),hourly:Array.from({length:24},(_,hour)=>({hour,current_count:empty||hour<11||hour>19?0:hour-7,previous_count:empty||hour<11||hour>19?0:hour-9,current_amt:empty||hour<11||hour>19?0:(hour-7)*80,previous_amt:empty||hour<11||hour>19?0:(hour-9)*80}))}};
+    }
     if(p==='/api/v1/analytics/period') return {json:{current:summary,previous:empty?null:{...summary,total_revenue:6200,total_orders:76,avg_ticket:81.58,items_sold:146}}};
     if(p==='/api/v1/analytics/top-sellers') return {json:{top_items:items.map((i,n)=>({item_id:i.id,name:i.name,quantity:35-n*8,revenue:(35-n*8)*i.price}))}};
     if(p==='/api/v1/analytics/daily') return {json:{days:empty?[]:Array.from({length:7},(_,i)=>({date:new Date(now.getTime()-(6-i)*86400000).toISOString().slice(0,10),gross_sales:[4100,5400,3900,6200,7800,6050,6840][i],transactions:60+i*4,avg_sale:81,items_sold:120}))}};

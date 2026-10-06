@@ -2,53 +2,24 @@
 
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
+import { ordersPaymentAttentionPath } from '@/lib/orders/routes';
 
-interface DashboardSidebarProps {
-  restaurantId: number;
-  todayRevenue: number;
-}
-
-export default function DashboardSidebar({ restaurantId, todayRevenue }: DashboardSidebarProps) {
+/** Financial summary and permission-aware shortcuts use existing Foody destinations. */
+export default function DashboardSidebar({ restaurantId, revenue, today }: { restaurantId: number; revenue: string; today: string }) {
   const { t } = useI18n();
-
-  const quickActions = [
-    { labelKey: 'acceptPayment', href: `/${restaurantId}/orders` },
-    { labelKey: 'editMenuAction', href: `/${restaurantId}/menu/menus` },
-    { labelKey: 'addItemAction', href: `/${restaurantId}/menu/items` },
-  ];
-
-  return (
-    <aside className="space-y-6">
-      {/* Money / Balance */}
-      <div className="card">
-        <h3 className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-3">
-          {t('money')}
-        </h3>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-fg-secondary">{t('balance')}</span>
-          <span className="text-sm font-semibold text-fg-primary">
-            {`\u20AA${todayRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          </span>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="card">
-        <h3 className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-3">
-          {t('quickActions')}
-        </h3>
-        <div className="space-y-1">
-          {quickActions.map((action) => (
-            <Link
-              key={action.labelKey}
-              href={action.href}
-              className="block py-2 text-sm text-fg-primary hover:text-brand-500 transition-colors"
-            >
-              {t(action.labelKey)}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </aside>
-  );
+  const { hasPermission, hasAnyPermission } = usePermissions();
+  const actions = [
+    { label: 'acceptPayment', href: ordersPaymentAttentionPath(restaurantId, { from: today, to: today, dateField: 'created' }), allowed: hasAnyPermission('orders.view', 'orders.manage') },
+    { label: 'editMenuAction', href: `/${restaurantId}/menu/menus`, allowed: hasPermission('menu.edit') },
+    { label: 'addItemAction', href: `/${restaurantId}/menu/items/new`, allowed: hasPermission('menu.edit') },
+  ].filter((action) => action.allowed);
+  return <aside className="dashboard-side-column">
+    <section className="dashboard-card dashboard-money"><h2>{t('money')}</h2>
+      <div><strong>{t('dashboardTodaySales')}</strong><span>{revenue}</span></div>
+    </section>
+    {actions.length > 0 && <section className="dashboard-card dashboard-quick-actions"><h2>{t('quickActions')}</h2>
+      {actions.map((action) => <Link key={action.label} href={action.href}>{t(action.label)}</Link>)}
+    </section>}
+  </aside>;
 }

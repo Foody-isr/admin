@@ -105,7 +105,7 @@ test('stories duplicate authorization callbacks cannot create two connections', 
 });
 
 test('stories cancellation and leaving ignore late authorization callbacks', async ({ page }) => {
-  const state = await install(page, { connected: false }); await page.goto('/1/reels'); await connect(page).click(); await page.getByRole('button', { name: 'Annuler', exact: true }).click(); await auth(page); expect(state.writes).toHaveLength(0); await connect(page).click(); await page.getByRole('link', { name: 'Tableau de bord', exact: true }).click(); await expect(page).toHaveURL(/\/1\/dashboard$/); await auth(page); expect(state.writes).toHaveLength(0);
+  const state = await install(page, { connected: false }); await page.goto('/1/reels'); await connect(page).click(); await page.getByRole('button', { name: 'Annuler', exact: true }).click(); await auth(page); expect(state.writes).toHaveLength(0); await connect(page).click(); await page.getByRole('link', { name: 'Accueil', exact: true }).click(); await expect(page).toHaveURL(/\/1\/dashboard$/); await auth(page); expect(state.writes).toHaveLength(0);
 });
 
 test('stories authorization can recover a token from the existing Facebook session', async ({ page }) => {

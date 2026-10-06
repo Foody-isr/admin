@@ -1,81 +1,31 @@
 'use client';
 
+interface ChartDatum { label: string; current: number; previous: number }
 interface HourlyChartProps {
-  data: { hour: number; current: number; previous: number }[];
-  height?: number;
-  labelCurrent?: string;
-  labelPrevious?: string;
+  data: ChartDatum[];
+  emptyLabel: string;
+  unavailable?: boolean;
+  ariaLabel: string;
+  formatValue?: (value: number) => string;
 }
 
-const HOUR_LABELS = [
-  '12am', '', '', '3am', '', '', '6am', '', '', '9', '', '',
-  '12pm', '', '', '3pm', '', '', '6pm', '', '', '9pm', '', '',
-];
-
-export default function HourlyChart({
-  data,
-  height = 120,
-  labelCurrent,
-  labelPrevious,
-}: HourlyChartProps) {
-  const maxVal = Math.max(...data.map((d) => Math.max(d.current, d.previous)), 1);
-
-  return (
-    <div>
-      {/* Legend */}
-      {(labelCurrent || labelPrevious) && (
-        <div className="flex items-center gap-4 mb-3 text-xs text-fg-secondary">
-          {labelCurrent && (
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-brand-500 inline-block" />
-              {labelCurrent}
-            </span>
-          )}
-          {labelPrevious && (
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: 'var(--divider)' }} />
-              {labelPrevious}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Chart */}
-      <div dir="ltr" className="flex items-end gap-[2px]" style={{ height }}>
-        {data.map((d) => {
-          const curH = (d.current / maxVal) * 100;
-          const prevH = (d.previous / maxVal) * 100;
-          return (
-            <div key={d.hour} className="flex-1 relative flex items-end justify-center gap-[1px]" style={{ height: '100%' }}>
-              <div
-                className="w-full rounded-t-sm"
-                style={{
-                  height: `${prevH}%`,
-                  minHeight: d.previous > 0 ? 2 : 0,
-                  background: 'var(--divider)',
-                }}
-              />
-              <div
-                className="w-full rounded-t-sm"
-                style={{
-                  height: `${curH}%`,
-                  minHeight: d.current > 0 ? 2 : 0,
-                  background: 'var(--sidebar-active)',
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* X-axis labels */}
-      <div dir="ltr" className="flex mt-1.5">
-        {data.map((d) => (
-          <div key={d.hour} className="flex-1 text-center text-[10px] text-fg-secondary">
-            {HOUR_LABELS[d.hour] || ''}
-          </div>
-        ))}
-      </div>
+/** Paired bars retain the time grid in empty states and expose exact values on focus. */
+export default function HourlyChart({ data, emptyLabel, unavailable = false, ariaLabel, formatValue = String }: HourlyChartProps) {
+  const max = Math.max(1, ...data.flatMap((row) => [Math.abs(row.current), Math.abs(row.previous)]));
+  const empty = !data.some((row) => row.current !== 0 || row.previous !== 0);
+  const stride = Math.max(1, Math.ceil((data.length - 1) / 8));
+  return <div className="dashboard-chart" aria-label={ariaLabel}>
+    <div className="dashboard-chart-plot" dir="ltr">
+      <div className="dashboard-chart-grid" aria-hidden="true"><i /><i /><i /></div>
+      {empty || unavailable ? <div className="dashboard-chart-empty"><span>{emptyLabel}</span></div> : <div className="dashboard-chart-bars">
+        {data.map((row, index) => <div className="dashboard-chart-bar" key={index} tabIndex={0} aria-label={`${row.label}: ${formatValue(row.current)} / ${formatValue(row.previous)}`}>
+          <div className="dashboard-chart-tooltip">{row.label}<br /><strong>{formatValue(row.current)}</strong> / {formatValue(row.previous)}</div>
+          <i className="dashboard-chart-previous" style={{ height: `${Math.abs(row.previous) / max * 100}%` }} />
+          <i className="dashboard-chart-current" style={{ height: `${Math.abs(row.current) / max * 100}%` }} />
+        </div>)}
+      </div>}
     </div>
-  );
+    <div className="dashboard-chart-axis" dir="ltr">{data.map((row, index) => index % stride === 0 || index === data.length - 1
+      ? <span key={index} style={{ left: `${index / Math.max(1, data.length - 1) * 100}%` }}>{row.label}</span> : null)}</div>
+  </div>;
 }

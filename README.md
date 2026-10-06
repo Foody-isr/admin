@@ -68,10 +68,9 @@ Restaurant owners and managers use this portal to:
 
 ### Dashboard (`/[restaurantId]/dashboard`)
 
-Today's snapshot at a glance:
-- **Revenue today** and **Orders today** — KPI cards
-- **Top Sellers** — top 5 selling items by revenue today
-- **Recent Orders** — last 10 orders with status badge, type, and amount
+Home uses a two-column dashboard with an assistant prompt, today's hourly order volume compared with the same day last week, and a performance card with date and comparison controls. Date presets and the order/fulfillment date basis keep their existing per-user and restaurant persistence. The order-volume chart remains on today when the performance period changes.
+
+The right rail shows actual sales today and permitted shortcuts to unpaid orders, menu editing and item creation. It does not represent sales as a bank balance. The Additions control explains the restaurant's configured revenue scope and links to its settings. Empty and unavailable data are distinct; an unavailable comparison never displays fabricated growth.
 
 ### Orders (`/[restaurantId]/orders`)
 

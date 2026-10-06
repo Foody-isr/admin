@@ -20,7 +20,6 @@ import {
   BarChart3,
   Settings,
   Globe,
-  Grid2X2Plus,
   UserCog,
   Building2,
   X,
@@ -111,7 +110,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   }
 
   const allNav: NavItem[] = [
-    { href: `${base}/dashboard`, labelKey: 'dashboard', icon: Home },
+    { href: `${base}/dashboard`, labelKey: 'dashboardHome', icon: Home },
     {
       href: `${base}/menu`,
       labelKey: 'menu',
@@ -332,15 +331,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             return (
               <div key={item.labelKey} className={item.desktopOnly ? 'max-lg:hidden' : undefined}>
                 {item.section === 'channels' && (
-                  <>
-                    <hr className="mx-2 my-4 border-0 border-t border-[var(--line)]" />
-                    {!collapsed && (
-                      <h2 className="flex min-h-[38px] items-center gap-2 px-3 py-2 text-sm font-semibold leading-5 text-[var(--fg)]">
-                        <Grid2X2Plus aria-hidden className="size-5 shrink-0" />
-                        {t('channels')}
-                      </h2>
-                    )}
-                  </>
+                  <hr className="mx-2 my-4 border-0 border-t border-[var(--line)]" />
                 )}
                 {/* Top-level row */}
                 {children ? (

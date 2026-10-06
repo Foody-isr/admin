@@ -1,123 +1,31 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import {
-  getPeriodSummary,
-  getTopSellers,
-  getDailySeries,
-  getBreakdown,
-  getRestaurant,
-  getDisplayPreferences,
-  updateDisplayPreferences,
-  listOrders,
-  type BreakdownRow,
-  type PeriodComparison,
-  type DaySummary,
-  type TopSeller,
-  type Order,
-  type DashboardRevenueMode,
-  type DateBasis,
-} from '@/lib/api';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { getPeriodSummary, getDailySeries, getDayComparison, getRestaurant, getDisplayPreferences, updateDisplayPreferences,
+  type PeriodComparison, type DaySummary, type ComparisonResult, type DashboardRevenueMode, type DateBasis } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
+import { useAuth } from '@/lib/auth-context';
+import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { type DateRange, type DateRangeChangeOptions } from '@/components/DateRangePicker';
 import { previousBlock, seriesInRange, useOrderSeries } from '@/lib/series';
-import {
-  clampWeekStartDay,
-  getEffectiveWorkdays,
-  getWeekStart,
-  addDays,
-  isoDate,
-  type WeekStartDay,
-} from '@/lib/weeks';
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle,
-  ChevronDown,
-  DollarSign,
-  Edit,
-  Package,
-  Plus,
-  RefreshCw,
-} from 'lucide-react';
-import {
-  Button,
-  Menu,
-  MenuContent,
-  MenuItem,
-  MenuTrigger,
-  PageHead,
-  Section,
-} from '@/components/ds';
-import { InfoTip } from '@/components/help/InfoTip';
-import { comparableDelta } from '@/lib/dashboard-comparison';
-import { DEFAULT_CURRENCY } from '@/lib/currency';
-import { useAuth } from '@/lib/auth-context';
-import {
-  orderDetailPath,
-  ordersListPath,
-  ordersPaymentAttentionPath,
-  PAYMENT_ATTENTION_FILTER,
-} from '@/lib/orders/routes';
-import { dashboardLiveOrderScope } from '@/lib/dashboard-live-order-scope';
-import {
-  failedRestaurantState,
-  loadingRestaurantState,
-  readyRestaurantState,
-  RestaurantRequestGuard,
-  stateForRestaurant,
-  type RestaurantLoadState,
-} from '@/lib/restaurant-request-state';
-
-type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
-
-const LIVE_ORDER_STATUSES = [
-  'pending_review',
-  'accepted',
-  'in_kitchen',
-  'ready',
-  'ready_for_pickup',
-  'ready_for_delivery',
-  'out_for_delivery',
-].join(',');
-
-interface LiveSummary {
-  active: number;
-  pendingReview: number;
-  ready: number;
-  payments?: number;
-  oldestCreatedAt?: string;
-}
-
-interface ChannelDatum {
-  key: string;
-  label: string;
-  orders: number;
-  revenue: number;
-  color: string;
-}
+import { clampWeekStartDay, getEffectiveWorkdays, getWeekStart, addDays, isoDate, type WeekStartDay } from '@/lib/weeks';
+import { Menu, MenuTrigger, MenuContent, MenuItem } from '@/components/ds';
+import { Check, RefreshCw } from 'lucide-react';
+import { failedRestaurantState, loadingRestaurantState, readyRestaurantState, RestaurantRequestGuard,
+  stateForRestaurant, type RestaurantLoadState } from '@/lib/restaurant-request-state';
+import AiPromptBar from './AiPromptBar';
+import OrderVolumeChart from './OrderVolumeChart';
+import PerformanceSection from './PerformanceSection';
+import DashboardSidebar from './DashboardSidebar';
+import './dashboard.css';
 
 interface DashboardData {
   period: PeriodComparison | null;
-  topSellers: TopSeller[];
-  series: DaySummary[];
-  previousSeries: DaySummary[];
-  channelRows: BreakdownRow[];
-  recentOrders: Order[];
-  liveSummary: LiveSummary | null;
-}
-
-function emptyDashboardData(): DashboardData {
-  return {
-    period: null,
-    topSellers: [],
-    series: [],
-    previousSeries: [],
-    channelRows: [],
-    recentOrders: [],
-    liveSummary: null,
-  };
+  series: DaySummary[] | null;
+  previousSeries: DaySummary[] | null;
+  volume: ComparisonResult | null;
 }
 
 // The dashboard period is remembered per user and restaurant. Rolling presets
@@ -202,996 +110,144 @@ const DATE_LOCALES: Record<'en' | 'he' | 'fr', string> = {
   fr: 'fr-FR',
 };
 
-const ORDER_TYPE_KEY: Record<string, 'dineIn' | 'pickup' | 'delivery'> = {
-  dine_in: 'dineIn',
-  pickup: 'pickup',
-  delivery: 'delivery',
-};
-
-// The restaurant's own currency, not the app's: a Paris restaurant's dashboard
-// reads in euros. Callers hold the ISO code from `useCurrency()`.
-function fmtMoney(n: number, locale = 'fr-FR', digits = 0, currency = DEFAULT_CURRENCY) {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    currencyDisplay: 'narrowSymbol',
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(n);
-}
-
-function fmtPercentDelta(n: number, locale = 'fr-FR') {
-  return new Intl.NumberFormat(locale, {
-    style: 'percent',
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-    signDisplay: 'exceptZero',
-  }).format(n / 100);
-}
-
-// Per-metric accessor into a day of the series — keeps the chart, sparklines and
-// KPI cards reading from the same source.
-function seriesValue(metric: MetricKey, d: DaySummary): number {
-  switch (metric) {
-    case 'orders':
-      return d.transactions;
-    case 'avgTicket':
-      return d.avg_sale;
-    case 'itemsSold':
-      return d.items_sold;
-    default:
-      return d.gross_sales;
-  }
-}
-
-function formatMetric(metric: MetricKey, n: number, locale: string, currency: string): string {
-  switch (metric) {
-    case 'revenue':
-      return fmtMoney(n, locale, 0, currency);
-    case 'avgTicket':
-      return fmtMoney(n, locale, 1, currency);
-    default:
-      return String(Math.round(n));
-  }
-}
-
-function relTime(iso: string): string {
-  const sec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
-  if (sec < 60) return `${sec}s`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h`;
-  return `${Math.floor(hr / 24)}d`;
-}
-
-function paymentColor(status: string): string {
-  switch (status) {
-    case 'paid':
-      return 'var(--success-500)';
-    case 'pending':
-      return 'var(--warning-500)';
-    case 'refunded':
-      return 'var(--info-500)';
-    default:
-      return 'var(--danger-500)';
-  }
-}
-
-
+/** Restaurant home with independent live volume and selectable performance periods. */
 export default function DashboardPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const router = useRouter();
   const { t, locale } = useI18n();
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
   const { code: currency } = useCurrency();
+  const money = (value: number) => new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).format(value);
   const dateLocale = DATE_LOCALES[locale];
-
-  const requestGuardRef = useRef(new RestaurantRequestGuard());
-  requestGuardRef.current.enterRestaurant(rid);
-  const [dashboardState, setDashboardState] = useState<RestaurantLoadState<DashboardData>>(
-    () => loadingRestaurantState(rid),
-  );
-  const visibleDashboardState = stateForRestaurant(dashboardState, rid);
-  const dashboardData = visibleDashboardState.data ?? emptyDashboardData();
-  const loading = visibleDashboardState.status === 'loading';
-  const loadFailed = visibleDashboardState.status === 'error';
-  const {
-    period,
-    topSellers,
-    series,
-    previousSeries,
-    channelRows,
-    recentOrders,
-    liveSummary,
-  } = dashboardData;
-
-  // First day of week + workdays drive the picker (same config as the orders list).
+  const guardRef = useRef(new RestaurantRequestGuard());
+  guardRef.current.enterRestaurant(rid);
+  const [state, setState] = useState<RestaurantLoadState<DashboardData>>(() => loadingRestaurantState(rid));
+  const visible = stateForRestaurant(state, rid);
+  const { period, series, previousSeries, volume } = visible.data ?? { period: null, series: [], previousSeries: [], volume: null };
   const [wsd, setWsd] = useState<WeekStartDay>(1);
   const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
-  // The selected window. `ready` gates the first fetch until the restaurant's
-  // week config is loaded and the persisted selection is hydrated (rolling
-  // presets re-resolved against today), so we load once with the right window.
   const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('today', 1));
-  // Order date and série date deliberately share `dateRange`; série mode picks
-  // a fixed fulfilment day from the same calendar instead of using separate
-  // hidden picker state.
   const [basis, setBasis] = useState<DateBasis>('created');
   const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
   const [revenueMode, setRevenueMode] = useState<DashboardRevenueMode>('paid_only');
   const [ready, setReady] = useState(false);
+  const [compareWeek, setCompareWeek] = useState(false);
   const rangeKey = useMemo(() => rangeStorageKey(user?.id, rid), [user?.id, rid]);
   const serieMode = basis === 'serie';
   const serieList = useOrderSeries(rid);
-  const previousSerieRange = useMemo(() => {
-    if (!serieMode) return undefined;
-    return previousBlock(serieList, {
-      from: isoDate(dateRange.from),
-      to: isoDate(dateRange.to),
-    }) ?? undefined;
-  }, [serieMode, serieList, dateRange]);
-  const selectedSerieCount = useMemo(() => {
-    if (!serieMode) return 0;
-    return seriesInRange(serieList, {
-      from: isoDate(dateRange.from),
-      to: isoDate(dateRange.to),
-    }).length;
-  }, [serieMode, serieList, dateRange]);
-  // The main chart tracks gross revenue; KPI cards are presentational.
-  const metric: MetricKey = 'revenue';
+  const today = isoDate(startOfToday());
+  const lastWeek = isoDate(addDays(startOfToday(), -7));
+  const previousSerieRange = useMemo(() => serieMode ? previousBlock(serieList, {
+    from: isoDate(dateRange.from), to: isoDate(dateRange.to),
+  }) ?? undefined : undefined, [serieMode, serieList, dateRange]);
+  const previousRange = useMemo(() => {
+    if (serieMode) return previousSerieRange;
+    const offset = compareWeek && daysInclusive(dateRange) === 1 ? 7 : daysInclusive(dateRange);
+    return { from: isoDate(addDays(dateRange.from, -offset)), to: isoDate(addDays(dateRange.to, -offset)) };
+  }, [serieMode, previousSerieRange, compareWeek, dateRange]);
 
   useEffect(() => {
-    if (!rid) return;
     let active = true;
     setReady(false);
-    Promise.allSettled([getRestaurant(rid), getDisplayPreferences(rid)])
-      .then(([restaurantResult, preferenceResult]) => {
-        if (!active) return;
-        let weekStart: WeekStartDay = 1;
-        if (restaurantResult.status === 'fulfilled') {
-          weekStart = clampWeekStartDay(restaurantResult.value.week_start_day);
-          setWsd(weekStart);
-          setWorkdays(getEffectiveWorkdays(restaurantResult.value));
-          setRevenueMode(restaurantResult.value.dashboard_revenue_mode ?? 'paid_only');
-        }
-        const stored = readStoredSel(rangeKey);
-        if (stored) setDateRange(resolveStored(stored, weekStart));
-        if (preferenceResult.status === 'fulfilled') {
-          setBasis(preferenceResult.value.dashboard_date_basis);
-          setPreferenceSaveFailed(false);
-        } else {
-          setPreferenceSaveFailed(true);
-        }
-      })
-      .finally(() => {
-        if (active) setReady(true);
-      });
+    Promise.allSettled([getRestaurant(rid), getDisplayPreferences(rid)]).then(([restaurant, prefs]) => {
+      if (!active) return;
+      const weekStart = restaurant.status === 'fulfilled' ? clampWeekStartDay(restaurant.value.week_start_day) : 1;
+      setWsd(weekStart);
+      if (restaurant.status === 'fulfilled') {
+        setWorkdays(getEffectiveWorkdays(restaurant.value));
+        setRevenueMode(restaurant.value.dashboard_revenue_mode ?? 'paid_only');
+      }
+      const stored = readStoredSel(rangeKey);
+      setDateRange(stored ? resolveStored(stored, weekStart) : resolvePreset('today', weekStart));
+      if (prefs.status === 'fulfilled') setBasis(prefs.value.dashboard_date_basis);
+      setPreferenceSaveFailed(prefs.status === 'rejected');
+      setReady(true);
+    });
     return () => { active = false; };
   }, [rid, rangeKey]);
 
   const load = useCallback(() => {
-    const guard = requestGuardRef.current;
+    const guard = guardRef.current;
     const token = guard.begin(rid);
-    setDashboardState(loadingRestaurantState(rid));
-    // The same inclusive calendar window drives every endpoint for both date
-    // bases. In série mode it filters orders by scheduled_for; the daily chart
-    // then groups those matching orders by created_at so it shows when customers
-    // actually placed them rather than one bar on the fulfillment Friday.
+    // Keep the previous frame visible during a refresh, but never across restaurants.
+    setState((old) => ({ ...loadingRestaurantState<DashboardData>(rid), data: stateForRestaurant(old, rid).data }));
     const scope = { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
-    const liveOrderScope = dashboardLiveOrderScope(scope, basis);
     const days = daysInclusive(dateRange);
-    const previousEnd = isoDate(addDays(dateRange.from, -1));
     Promise.allSettled([
-      getPeriodSummary(rid, scope, basis, previousSerieRange),
-      getTopSellers(rid, scope, basis),
+      getPeriodSummary(rid, scope, basis, previousRange),
       getDailySeries(rid, days, scope.to, basis, serieMode ? scope : undefined),
-      serieMode
-        ? previousSerieRange
-          ? getDailySeries(rid, days, previousSerieRange.to, basis, previousSerieRange)
-          : Promise.resolve([] as DaySummary[])
-        : getDailySeries(rid, days, previousEnd, basis),
-      getBreakdown(rid, { dimension: 'order_type', scope, basis }),
-      listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
-      listOrders(rid, { ...liveOrderScope, status: LIVE_ORDER_STATUSES, limit: 1, sort_by: 'created_at', sort_dir: 'asc' }),
-      listOrders(rid, { ...liveOrderScope, status: 'pending_review', limit: 1 }),
-      listOrders(rid, { ...liveOrderScope, status: 'ready,ready_for_pickup,ready_for_delivery', limit: 1 }),
-      listOrders(rid, {
-        ...liveOrderScope,
-        status: LIVE_ORDER_STATUSES,
-        payment_status: PAYMENT_ATTENTION_FILTER,
-        limit: 1,
-      }),
-    ])
-      .then(([per, top, daily, previousDaily, breakdown, orders, active, review, readyOrders, payments]) => {
-        // A basis and range can now be changed within the same open popover.
-        // Ignore a slower response for an earlier selection.
-        if (!guard.isCurrent(token)) return;
-        let nextLiveSummary: LiveSummary | null = null;
-        if (active.status === 'fulfilled' && review.status === 'fulfilled' && readyOrders.status === 'fulfilled') {
-          nextLiveSummary = {
-            active: active.value.total,
-            payments: payments.status === 'fulfilled' ? payments.value.total : undefined,
-            pendingReview: review.value.total,
-            ready: readyOrders.value.total,
-            oldestCreatedAt: active.value.orders[0]?.created_at,
-          };
-        }
-        const nextData: DashboardData = {
-          period: per.status === 'fulfilled' ? per.value : null,
-          topSellers: top.status === 'fulfilled' ? top.value ?? [] : [],
-          series: daily.status === 'fulfilled' ? daily.value ?? [] : [],
-          previousSeries: previousDaily.status === 'fulfilled' ? previousDaily.value ?? [] : [],
-          channelRows: breakdown.status === 'fulfilled' ? breakdown.value.rows : [],
-          recentOrders: orders.status === 'fulfilled' ? orders.value.orders ?? [] : [],
-          liveSummary: nextLiveSummary,
-        };
-        const failed = [
-          per,
-          top,
-          daily,
-          previousDaily,
-          breakdown,
-          orders,
-          active,
-          review,
-          readyOrders,
-          payments,
-        ].some((result) => result.status === 'rejected');
-        setDashboardState(
-          failed
-            ? failedRestaurantState(rid, nextData)
-            : readyRestaurantState(rid, nextData),
-        );
-      });
-  }, [rid, dateRange, basis, serieMode, previousSerieRange]);
-
-  useEffect(() => () => requestGuardRef.current.invalidate(), []);
-
-  // Switch the date basis and persist it; the load effect refetches on change.
-  const onChangeBasis = useCallback((b: DateBasis) => {
-    setBasis(b);
-    setPreferenceSaveFailed(false);
-    void updateDisplayPreferences(rid, { dashboard_date_basis: b })
-      .catch(() => setPreferenceSaveFailed(true));
-  }, [rid]);
-
-  useEffect(() => {
-    if (ready) load();
-  }, [load, ready]);
-
-  // Persist the picked window; rolling presets store a re-resolving key.
-  const onPickRange = useCallback((range: DateRange, options?: DateRangeChangeOptions) => {
-    setDateRange(range);
-    writeStoredSel(rangeKey, options?.literal
-      ? { from: isoDate(range.from), to: isoDate(range.to) }
-      : classifySelection(range, wsd));
-  }, [rangeKey, wsd]);
-
-  const current = period?.current;
-  const previous = period?.previous;
-
-  const singleDay = sameYMD(dateRange.from, dateRange.to);
-  const chartCapped = !serieMode && daysInclusive(dateRange) > 90;
-
-  const showDelta = !serieMode || previousSerieRange !== undefined;
-  const vsLabel = serieMode
-    ? selectedSerieCount > 1
-      ? t('vsPreviousSeries').replace('{n}', String(selectedSerieCount))
-      : t('vsPreviousSerie')
-    : singleDay
-      ? t('vsYesterday')
-      : t('vsPreviousPeriod');
-
-  // The operations CTA follows the same priority as OperationsBar. When
-  // payments are the surfaced action, preserve the dashboard's exact scope so
-  // the destination list explains (and matches) the count the user clicked.
-  const operationsOrdersPath = liveSummary
-    && liveSummary.pendingReview === 0
-    && (liveSummary.payments ?? 0) > 0
-    ? ordersPaymentAttentionPath(rid, {
-      from: isoDate(dateRange.from),
-      to: isoDate(dateRange.to),
-      dateField: basis,
-    })
-    : ordersListPath(rid);
-
-  // Human label for the active window. `end` is exclusive (next midnight), so the
-  // multi-day form shows the inclusive last day.
-  const periodRangeLabel = useMemo(() => {
-    if (!current) return '';
-    const fmtLong = (iso: string, weekday = false) => new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale, {
-      ...(weekday ? { weekday: 'long' as const } : {}),
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-    const startD = new Date(`${current.start}T00:00:00`);
-    const lastDay = new Date(`${current.end}T00:00:00`);
-    lastDay.setDate(lastDay.getDate() - 1);
-    if (sameYMD(startD, lastDay)) return fmtLong(current.start, true);
-    return `${fmtLong(current.start)} – ${fmtLong(isoDate(lastDay))}`;
-  }, [current, dateLocale]);
-
-  // KPI definitions, driven by the period totals. Presentational only.
-  const revenueModeHint = t(`${revenueMode}DashboardHint`);
-  const metrics: { key: MetricKey; label: string; value: string; delta: number | null; hint?: string; accent: string }[] = [
-    {
-      key: 'revenue',
-      label: t('grossRevenue'),
-      value: fmtMoney(current?.total_revenue ?? 0, dateLocale, 0, currency),
-      delta: comparableDelta(current?.total_revenue, previous?.total_revenue),
-      accent: 'var(--brand-500)',
-      hint: revenueModeHint,
-    },
-    {
-      key: 'orders',
-      label: t('orders'),
-      value: String(current?.total_orders ?? 0),
-      delta: comparableDelta(current?.total_orders, previous?.total_orders),
-      accent: 'var(--cat-4)',
-      hint: revenueModeHint,
-    },
-    {
-      key: 'avgTicket',
-      label: t('avgTicket'),
-      value: fmtMoney(current?.avg_ticket ?? 0, dateLocale, 1, currency),
-      delta: comparableDelta(current?.avg_ticket, previous?.avg_ticket),
-      accent: 'var(--cat-5)',
-    },
-    {
-      key: 'itemsSold',
-      label: t('itemsSold'),
-      value: String(current?.items_sold ?? 0),
-      delta: comparableDelta(current?.items_sold, previous?.items_sold),
-      accent: 'var(--success-500)',
-    },
-  ];
-
-  // Bars for the selected metric over the active window.
-  const chartData = useMemo(() => {
-    const n = series.length;
-    const everyN = n > 10 ? Math.ceil(n / 7) : 1;
-    return series.map((d, i) => {
-      const date = new Date(`${d.date}T00:00:00`);
-      const showLabel = i === n - 1 || i % everyN === 0;
-      const label =
-        n > 10
-          ? showLabel
-            ? date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })
-            : ''
-          : date.toLocaleDateString(dateLocale, { weekday: 'short' });
-      return {
-        day: label,
-        label: date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' }),
-        value: seriesValue(metric, d),
-        isLast: i === n - 1,
+      previousRange ? getDailySeries(rid, days, previousRange.to, basis, serieMode ? previousRange : undefined) : Promise.resolve([] as DaySummary[]),
+      getDayComparison(rid, today, lastWeek),
+    ]).then(([per, daily, prior, orders]) => {
+      if (!guard.isCurrent(token)) return;
+      const data: DashboardData = {
+        period: per.status === 'fulfilled' ? per.value : null,
+        series: daily.status === 'fulfilled' ? daily.value : null,
+        previousSeries: prior.status === 'fulfilled' ? prior.value : null,
+        volume: orders.status === 'fulfilled' ? orders.value : null,
       };
+      setState([per, daily, prior, orders].some((r) => r.status === 'rejected')
+        ? failedRestaurantState(rid, data) : readyRestaurantState(rid, data));
     });
-  }, [series, metric, dateLocale]);
+  }, [rid, dateRange, basis, previousRange, serieMode, today, lastWeek]);
+  useEffect(() => { if (ready) load(); }, [ready, load]);
+  useEffect(() => () => guardRef.current.invalidate(), []);
 
-  const previousChartData = previousSeries.map((day, index) => ({
-    day: '',
-    value: seriesValue(metric, day),
-    isLast: index === previousSeries.length - 1,
-  }));
-
-  const channelData = useMemo<ChannelDatum[]>(() => {
-    const labels: Record<string, string> = {
-      delivery: t('delivery'),
-      pickup: t('pickup'),
-      dine_in: t('dineIn'),
-      unknown: t('breakdownUnknown'),
-    };
-    const colors: Record<string, string> = {
-      delivery: 'var(--brand-500)',
-      pickup: 'var(--info-500)',
-      dine_in: 'var(--success-500)',
-      unknown: 'var(--fg-subtle)',
-    };
-    return channelRows
-      .filter((row) => row.revenue > 0 || row.orders > 0)
-      .sort((a, b) => b.revenue - a.revenue)
-      .map((row) => ({
-        key: row.key,
-        label: labels[row.key] ?? row.label ?? row.key,
-        orders: row.orders,
-        revenue: row.revenue,
-        color: colors[row.key] ?? 'var(--fg-subtle)',
-      }));
-  }, [channelRows, t]);
-
-  const periodContext = (serieMode ? t('dashboardSerieContext') : t('dashboardOrderContext'))
-    .replace('{range}', periodRangeLabel);
-
-  if (loading && !period) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <PageHead
-        title={t('dashboardHome') || 'Dashboard'}
-        desc={periodContext}
-        className="mb-[var(--s-4)]"
-        actions={
-          <>
-            <DashboardActionsMenu restaurantId={rid} onNavigate={router.push} t={t} />
-            <DateRangePicker
-              value={dateRange}
-              onChange={onPickRange}
-              weekStartDay={wsd}
-              workdays={workdays}
-              restaurantId={rid}
-              align="right"
-              basis={basis}
-              onBasisChange={onChangeBasis}
-              series={serieList}
-            />
-            <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
-              <RefreshCw />
-            </Button>
-            {preferenceSaveFailed && (
-              <span className="text-fs-xs text-[var(--warning-600)]" role="status">
-                {t('displayPreferenceSaveFailed')}
-              </span>
-            )}
-          </>
-        }
-      />
-
-      {loadFailed && (
-        <div
-          className="mb-[var(--s-4)] flex items-center justify-between gap-3 rounded-lg border border-[var(--danger-500)] bg-[var(--danger-50)] px-4 py-3"
-          role="alert"
-        >
-          <span className="text-fs-sm text-[var(--danger-500)]">{t('couldNotLoad')}</span>
-          <Button variant="secondary" size="sm" onClick={load}>{t('retry')}</Button>
-        </div>
-      )}
-
-      <OperationsBar
-        summary={liveSummary}
-        onOpenOrders={() => router.push(operationsOrdersPath)}
-        t={t}
-      />
-
-      <div className="grid grid-cols-1 items-start gap-[var(--s-4)] xl:grid-cols-[minmax(0,1fr)_340px]">
-        <PerformanceOverview
-          title={t('performance')}
-          chartNote={chartCapped ? t('dashChartLast90') : undefined}
-          metrics={metrics}
-          revenue={current?.total_revenue ?? 0}
-          locale={dateLocale}
-          showDelta={showDelta}
-          comparisonLabel={vsLabel}
-          chart={(
-            <MetricChart
-              data={chartData}
-              previousData={previousChartData}
-              currentLabel={t('dashboardCurrentPeriod')}
-              previousLabel={t('dashboardPreviousPeriod')}
-              averageLabel={t('dashboardAverage')}
-              peakLabel={t('dashboardPeak')}
-              fmt={(n) => formatMetric(metric, n, dateLocale, currency)}
-              emptyLabel={t('noSalesIn7Days')}
-            />
-          )}
-          channels={(
-            <ChannelMix
-              data={channelData}
-              locale={dateLocale}
-              title={t('salesChannels')}
-              emptyLabel={t('noData')}
-              ordersLabel={t('orders')}
-            />
-          )}
-        />
-
-        <div className="flex min-w-0 flex-col gap-[var(--s-4)]">
-          <Section
-            title={t('recentOrders')}
-            className="mb-0 overflow-hidden shadow-none [&>div:first-child]:px-[var(--s-4)] [&>div:first-child]:pb-[var(--s-2)] [&>div:first-child]:pt-[var(--s-3)] [&>div:last-child]:px-[var(--s-4)] [&>div:last-child]:pb-[var(--s-3)]"
-            aside={
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push(`/${rid}/orders/all`)}
-                className="text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
-              >
-                {t('seeAll')}
-                <ArrowRight />
-              </Button>
-            }
-          >
-            {recentOrders.length === 0 ? (
-              <p className="py-6 text-center text-fs-sm text-[var(--fg-subtle)]">{t('noOrdersYet')}</p>
-            ) : (
-              <div className="-mx-[var(--s-4)] -mb-[var(--s-3)]">
-                {recentOrders.map((o) => (
-                  <button
-                    key={o.id}
-                    type="button"
-                    onClick={() => router.push(orderDetailPath(rid, o.id))}
-                    className="group flex w-full items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] text-start transition-colors first:border-t-0 hover:bg-[var(--surface-2)]"
-                  >
-                    <div
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: paymentColor(o.payment_status) }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-fs-sm font-medium leading-snug text-[var(--fg)]">
-                        {o.customer_name?.trim() || `#${o.id}`}
-                      </div>
-                      <div className="truncate text-fs-xs leading-snug text-[var(--fg-muted)]">
-                        {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')} · {fmtMoney(o.total_amount, dateLocale, 0, currency)}
-                      </div>
-                    </div>
-                    <span className="shrink-0 text-fs-xs text-[var(--fg-subtle)]">
-                      {relTime(o.created_at)}
-                    </span>
-                    <ArrowRight className="h-3.5 w-3.5 -translate-x-1 text-[var(--fg-subtle)] opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          <TopSellersPanel
-            sellers={topSellers}
-            locale={dateLocale}
-            title={t('bestSellingItems')}
-            salesLabel={t('sales')}
-            emptyLabel={t('noSalesYet')}
-            seeAllLabel={t('seeAll')}
-            onSeeAll={() => router.push(`/${rid}/analytics/items`)}
-          />
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ─── Helper components ──────────────────────────────────────────────────────
-
-interface DashboardMetric {
-  key: MetricKey;
-  label: string;
-  value: string;
-  delta: number | null;
-  hint?: string;
-  accent: string;
-}
-
-function FormattedMoney({
-  amount,
-  locale,
-  digits = 0,
-  className,
-}: {
-  amount: number;
-  locale: string;
-  digits?: number;
-  className?: string;
-}) {
-  const { code: currency } = useCurrency();
-  const parts = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    currencyDisplay: 'narrowSymbol',
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).formatToParts(amount);
-
-  return (
-    <div className={`whitespace-nowrap tabular-nums ${className ?? ''}`} aria-label={fmtMoney(amount, locale, digits, currency)}>
-      {parts.map((part, index) => {
-        if (part.type === 'literal') return null;
-        if (part.type === 'currency') {
-          return (
-            <span key={`${part.type}-${index}`} className="mx-[0.14em] inline-block text-[0.58em] font-semibold leading-none tracking-normal">
-              {part.value}
-            </span>
-          );
-        }
-        return <span key={`${part.type}-${index}`}>{part.value}</span>;
-      })}
-    </div>
-  );
-}
-
-// Label with an optional ⓘ tooltip — shared by the compact (mobile) and full
-// (desktop) KPI renders so the caveat markup lives in one place.
-function kpiLabel(label: string, hint?: string) {
-  if (!hint) return label;
-  return (
-    <span className="inline-flex items-center gap-1">
-      {label}
-      <InfoTip text={hint} />
-    </span>
-  );
-}
-
-function DashboardActionsMenu({
-  restaurantId,
-  onNavigate,
-  t,
-}: {
-  restaurantId: number;
-  onNavigate: (href: string) => void;
-  t: (key: string) => string;
-}) {
-  const actions = [
-    { icon: DollarSign, label: t('acceptPayment'), href: `/${restaurantId}/orders/all` },
-    { icon: Edit, label: t('editMenuAction'), href: `/${restaurantId}/menu/menus` },
-    { icon: Plus, label: t('addItemAction'), href: `/${restaurantId}/menu/items/new` },
-    { icon: Package, label: t('receiveDelivery'), href: `/${restaurantId}/kitchen/stock` },
-  ];
-  return (
-    <Menu>
-      <MenuTrigger asChild>
-        <Button variant="secondary" size="md">
-          {t('actions')}
-          <ChevronDown className="w-3.5 h-3.5" />
-        </Button>
-      </MenuTrigger>
-      <MenuContent align="end" className="min-w-[220px]">
-        {actions.map(({ icon: Icon, label, href }) => (
-          <MenuItem key={href} onSelect={() => onNavigate(href)}>
-            <Icon className="w-4 h-4" />
-            {label}
-          </MenuItem>
-        ))}
+  const onChangeBasis = (next: DateBasis) => {
+    setBasis(next);
+    setPreferenceSaveFailed(false);
+    void updateDisplayPreferences(rid, { dashboard_date_basis: next }).catch(() => setPreferenceSaveFailed(true));
+  };
+  const onPickRange = (range: DateRange, options?: DateRangeChangeOptions) => {
+    setDateRange(range);
+    writeStoredSel(rangeKey, options?.literal ? { from: isoDate(range.from), to: isoDate(range.to) } : classifySelection(range, wsd));
+  };
+  const singleDay = sameYMD(dateRange.from, dateRange.to);
+  const selectedSerieCount = seriesInRange(serieList, { from: isoDate(dateRange.from), to: isoDate(dateRange.to) }).length;
+  const comparisonLabel = serieMode
+    ? selectedSerieCount > 1 ? t('vsPreviousSeries').replace('{n}', String(selectedSerieCount)) : t('vsPreviousSerie')
+    : singleDay ? t(compareWeek ? 'dashboardSameDayLastWeek' : 'previousDay') : t('vsPreviousPeriod');
+  const shortDate = (date: Date) => date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' });
+  const modeLabel = t(`dashboardMode_${revenueMode}`);
+  const filterControls = <>
+    <DateRangePicker value={dateRange} onChange={onPickRange} weekStartDay={wsd} workdays={workdays} restaurantId={rid}
+      basis={basis} onBasisChange={onChangeBasis} series={serieList} triggerClassName="dashboard-filter"
+      triggerContent={<><span>{serieMode ? t('dateBasisSerieShort') : t('date')}</span><strong>{shortDate(dateRange.from)}{!singleDay && ` – ${shortDate(dateRange.to)}`}</strong></>} />
+    <Menu><MenuTrigger asChild><button type="button" className="dashboard-filter" aria-label={`${t('comparison')}: ${comparisonLabel}`}><span>vs</span><strong>{comparisonLabel}</strong></button></MenuTrigger>
+      <MenuContent align="start">
+        <MenuItem disabled={serieMode} onSelect={() => setCompareWeek(false)}>{!compareWeek && <Check size={16} />}{t(singleDay ? 'previousDay' : 'vsPreviousPeriod')}</MenuItem>
+        {!serieMode && singleDay && <MenuItem onSelect={() => setCompareWeek(true)}>{compareWeek && <Check size={16} />}{t('dashboardSameDayLastWeek')}</MenuItem>}
+        {serieMode && <MenuItem disabled>{comparisonLabel}</MenuItem>}
       </MenuContent>
     </Menu>
-  );
-}
+    <Menu><MenuTrigger asChild><button type="button" className="dashboard-filter"><span>{t('dashboardChecks')}</span><strong>{modeLabel}</strong></button></MenuTrigger>
+      <MenuContent align="start" className="max-w-[300px]">
+        <p className="px-3 py-2 text-sm text-[var(--fg-muted)]">{t(`${revenueMode}DashboardHint`)}</p>
+        {hasPermission('settings.edit') && <MenuItem asChild><Link href={`/${rid}/settings`}>{t('dashboardRevenueCalculation')}</Link></MenuItem>}
+      </MenuContent>
+    </Menu>
+  </>;
 
-function OperationsBar({
-  summary,
-  onOpenOrders,
-  t,
-}: {
-  summary: LiveSummary | null;
-  onOpenOrders: () => void;
-  t: (key: string) => string;
-}) {
-  const unavailable = summary === null;
-  const hasUrgency = !unavailable && (summary.pendingReview > 0 || (summary.payments ?? 0) > 0 || summary.ready > 0);
-  let message = t('dashboardNoUrgent');
-  let action = t('viewOrders');
-  if (unavailable) message = t('dashboardNowUnavailable');
-  else if (summary.pendingReview > 0) {
-    message = t('dashboardUrgentReview').replace('{count}', String(summary.pendingReview));
-    action = t('dashboardActionReview');
-  } else if ((summary.payments ?? 0) > 0) {
-    message = t(summary.payments === 1 ? 'dashboardUrgentPayment' : 'dashboardUrgentPayments')
-      .replace('{count}', String(summary.payments));
-    action = t('dashboardActionCollect');
-  } else if (summary.ready > 0) {
-    message = t('dashboardUrgentReady').replace('{count}', String(summary.ready));
-    action = t('dashboardActionReady');
-  } else if (summary.active > 0) {
-    message = t('dashboardNowActive').replace('{count}', String(summary.active));
-  }
-
-  const stats = [
-    { value: unavailable ? '—' : summary.active, label: t('dashboardActiveOrders') },
-    { value: unavailable ? '—' : summary.pendingReview, label: t('dashboardNeedsReview'), attention: !unavailable && summary.pendingReview > 0 },
-    { value: unavailable ? '—' : summary.ready, label: t('dashboardReadyOrders') },
-    { value: unavailable || summary.payments == null ? '—' : summary.payments, label: t('dashboardPendingPayments'), attention: !unavailable && (summary.payments ?? 0) > 0 },
-  ];
-
-  return (
-    <section className="mb-[var(--s-6)] rounded-r-lg bg-[var(--summary-bg)] px-[var(--s-4)] py-[var(--s-4)] md:px-[var(--s-5)]">
-      <div className="grid grid-cols-1 items-center gap-[var(--s-5)] 2xl:grid-cols-[minmax(240px,1fr)_minmax(440px,auto)_auto] xl:gap-[var(--s-4)]">
-        <div className="flex items-center gap-[var(--s-3)] min-w-0">
-          <div
-            className="h-10 w-10 rounded-full grid place-items-center shrink-0"
-            style={{
-              color: unavailable ? 'var(--fg-muted)' : hasUrgency ? 'var(--warning-500)' : 'var(--success-500)',
-              background: unavailable ? 'var(--surface-3)' : hasUrgency ? 'var(--warning-50)' : 'var(--success-50)',
-            }}
-          >
-            {unavailable || hasUrgency ? <AlertTriangle className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
-          </div>
-          <div className="min-w-0">
-            <div className="text-fs-xs font-semibold text-[var(--fg-subtle)]">{t('dashboardNow')}</div>
-            <p className="mt-0.5 text-fs-md font-semibold leading-snug text-[var(--fg)]">{message}</p>
-            {!unavailable && summary.oldestCreatedAt && summary.active > 0 && (
-              <p className="mt-1 text-fs-xs leading-snug text-[var(--fg-muted)]">
-                {t('dashboardOldestOrder').replace('{age}', relTime(summary.oldestCreatedAt))}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="grid min-w-0 grid-cols-2 divide-x divide-[var(--line)] sm:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.label} className="min-w-0 px-[var(--s-4)] first:ps-0 xl:first:ps-[var(--s-4)]">
-              <div className={`text-[22px] font-semibold leading-none tabular-nums ${stat.attention ? 'text-[var(--warning-500)]' : 'text-[var(--fg)]'}`}>{stat.value}</div>
-              <div className="mt-1 text-[13px] leading-snug text-[var(--fg-muted)]">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-
-        <Button variant={hasUrgency ? 'primary' : 'secondary'} size="md" onClick={onOpenOrders} className="justify-center whitespace-nowrap">
-          {action}
-          <ArrowRight className="w-4 h-4" />
-        </Button>
+  return <div className="dashboard-home" aria-busy={visible.status === 'loading'}>
+    <h1>{t('dashboardHome')}</h1>
+    {(visible.status === 'error' || preferenceSaveFailed) && <div className="dashboard-error" role="alert">
+      <span>{preferenceSaveFailed ? t('displayPreferenceSaveFailed') : t('couldNotLoad')}</span>
+      <button type="button" onClick={() => { if (preferenceSaveFailed) onChangeBasis(basis); load(); }}>{t('retry')}</button>
+    </div>}
+    <div className="dashboard-grid">
+      <div className="dashboard-main-column">
+        <AiPromptBar />
+        <OrderVolumeChart hourly={volume?.hourly ?? null} currentLabel={t('today')}
+          previousLabel={new Date(`${lastWeek}T00:00:00`).toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          loading={visible.status === 'loading'} />
+        <PerformanceSection period={period} series={series} previousSeries={previousSeries} controls={filterControls}
+          comparisonLabel={comparisonLabel} comparable={!serieMode || !!previousSerieRange}
+          chartNote={daysInclusive(dateRange) > 90 ? t('dashChartLast90') : undefined}
+          loading={visible.status === 'loading'} />
+        <button type="button" className="dashboard-refresh" onClick={load} disabled={visible.status === 'loading'}><RefreshCw size={16} />{t('refresh')}</button>
       </div>
-    </section>
-  );
-}
-
-function PerformanceOverview({
-  title,
-  chartNote,
-  metrics,
-  revenue,
-  locale,
-  showDelta,
-  comparisonLabel,
-  chart,
-  channels,
-}: {
-  title: string;
-  chartNote?: string;
-  metrics: DashboardMetric[];
-  revenue: number;
-  locale: string;
-  showDelta: boolean;
-  comparisonLabel: string;
-  chart?: React.ReactNode;
-  channels: React.ReactNode;
-}) {
-  const primary = metrics[0];
-  const primaryUp = (primary.delta ?? 0) > 0;
-  return (
-    <section className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
-      <div>
-        <header className="flex flex-wrap items-start justify-between gap-[var(--s-4)] px-[var(--s-5)] pt-[var(--s-4)] md:px-[var(--s-6)]">
-          <h2 className="text-fs-xl font-semibold text-[var(--fg)]">{title}</h2>
-          {chartNote && <span className="text-fs-xs text-[var(--fg-subtle)]">{chartNote}</span>}
-        </header>
-
-        <div className="grid grid-cols-1 items-end gap-[var(--s-6)] px-[var(--s-5)] pb-[var(--s-5)] pt-[var(--s-4)] md:px-[var(--s-6)] xl:grid-cols-[minmax(180px,0.68fr)_minmax(330px,1.32fr)] xl:gap-[var(--s-4)]">
-          <div className="min-w-0 xl:pe-[var(--s-1)]">
-            <div className="text-fs-sm font-medium text-[var(--fg-muted)]">{primary.label}</div>
-            <FormattedMoney
-              amount={revenue}
-              locale={locale}
-              className="mt-[var(--s-2)] text-[clamp(2.25rem,3vw,3rem)] font-semibold leading-[1.15] tracking-[-0.04em] text-[var(--fg)]"
-            />
-            {showDelta && primary.delta !== null && (
-              <div className="mt-[var(--s-3)] flex flex-wrap items-center gap-[var(--s-2)] text-fs-xs">
-                <span
-                  className={`rounded-full px-2.5 py-1 font-semibold tabular-nums ${primary.delta === 0 ? 'text-[var(--fg-muted)] bg-[var(--surface-2)]' : primaryUp ? 'text-[var(--success-500)] bg-[var(--success-50)]' : 'text-[var(--danger-500)] bg-[var(--danger-50)]'}`}
-                >
-                  {primary.delta === 0 ? '—' : primaryUp ? '↑' : '↓'} {fmtPercentDelta(primary.delta, locale)}
-                </span>
-                <span className="text-[var(--fg-muted)]">{comparisonLabel}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-[var(--s-3)] border-t border-[var(--line-strong)] pt-[var(--s-5)] sm:grid-cols-3 xl:border-s xl:border-t-0 xl:ps-[var(--s-4)] xl:pt-0">
-            {metrics.slice(1).map((metric) => {
-              const up = (metric.delta ?? 0) > 0;
-              return (
-                <div key={metric.key} className="min-w-0 pt-[var(--s-3)]">
-                  <div className="text-[13px] leading-snug text-[var(--fg-muted)]">{kpiLabel(metric.label, metric.hint)}</div>
-                  <div className="mt-1.5 whitespace-nowrap text-[clamp(1.2rem,1.5vw,1.375rem)] font-semibold leading-none tabular-nums text-[var(--fg)]">{metric.value}</div>
-                  {showDelta && metric.delta !== null && (
-                    <div className={`mt-1.5 text-[12px] font-semibold tabular-nums ${metric.delta === 0 ? 'text-[var(--fg-muted)]' : up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}>
-                      {metric.delta === 0 ? '—' : up ? '↑' : '↓'} {fmtPercentDelta(metric.delta, locale)}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {chart && (
-        <div className="border-t border-[var(--line)] bg-[color:color-mix(in_oklab,var(--surface-2)_48%,var(--surface))] px-[var(--s-5)] py-[var(--s-4)] md:px-[var(--s-6)]">
-          {chart}
-        </div>
-      )}
-      <div className="border-t border-[var(--line)] px-[var(--s-5)] py-[var(--s-4)] md:px-[var(--s-6)]">
-        {channels}
-      </div>
-    </section>
-  );
-}
-
-function MetricChart({
-  data,
-  previousData,
-  currentLabel,
-  previousLabel,
-  averageLabel,
-  peakLabel,
-  fmt,
-  emptyLabel,
-}: {
-  data: { day: string; label: string; value: number; isLast: boolean }[];
-  previousData: { day: string; value: number; isLast: boolean }[];
-  currentLabel: string;
-  previousLabel: string;
-  averageLabel: string;
-  peakLabel: string;
-  fmt: (n: number) => string;
-  emptyLabel: string;
-}) {
-  const anyData = data.some((d) => d.value > 0);
-  if (!anyData) {
-    return (
-      <div
-        className="flex items-center justify-center text-fs-sm text-[var(--fg-subtle)]"
-        style={{ height: 150 }}
-      >
-        {emptyLabel}
-      </div>
-    );
-  }
-  const hasPrevious = previousData.some((d) => d.value > 0);
-  const max = Math.max(1, ...data.map((d) => d.value), ...previousData.map((d) => d.value));
-  const average = data.reduce((sum, d) => sum + d.value, 0) / data.length;
-  const peak = data.reduce((highest, datum) => datum.value > highest.value ? datum : highest, data[0]);
-
-  return (
-    <div>
-      <div className="mb-[var(--s-3)] flex flex-wrap items-center gap-[var(--s-4)] text-[11px] text-[var(--fg-muted)]">
-        <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--brand-500)]" />{currentLabel}</span>
-        {hasPrevious && <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-[var(--line-strong)]" />{previousLabel}</span>}
-        <span className="ml-auto tabular-nums">{averageLabel} · {fmt(average)}</span>
-        <span className="tabular-nums">{peakLabel} · {peak.label} · {fmt(peak.value)}</span>
-      </div>
-      <div className="relative h-[150px]">
-        <div className="absolute inset-x-0 border-t border-dashed border-[var(--line-strong)] z-[1]" style={{ bottom: `${(average / max) * 100}%` }} />
-        <div className="absolute inset-0 flex items-end justify-between gap-[var(--s-2)]">
-          {data.map((d, i) => {
-            const prior = previousData[i]?.value ?? 0;
-            return (
-              <div
-                key={`${d.day}-${i}`}
-                className="group relative flex-1 flex flex-col items-center gap-[var(--s-2)] h-full min-w-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)]"
-                tabIndex={0}
-                aria-label={`${d.label}: ${fmt(d.value)}`}
-              >
-                <div className="pointer-events-none absolute z-10 top-1 left-1/2 -translate-x-1/2 rounded-r-sm bg-[var(--fg)] text-[var(--surface)] px-2 py-1 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity shadow-2">
-                  <span>{d.label}</span> · <strong>{fmt(d.value)}</strong>{hasPrevious ? ` · ${fmt(prior)}` : ''}
-                </div>
-                <div className="flex items-end h-full w-full justify-center gap-[2px]">
-                  {hasPrevious && (
-                    <div className="w-full max-w-[11px] rounded-t-[2px] bg-[var(--line-strong)] opacity-75" style={{ height: `${Math.max(1, (prior / max) * 100)}%` }} />
-                  )}
-                  <div
-                    className="w-full max-w-[16px] rounded-t-[3px] bg-[var(--brand-500)]"
-                    style={{ height: `${Math.max(1, (d.value / max) * 100)}%`, opacity: d.isLast ? 1 : 0.82 }}
-                    title={fmt(d.value)}
-                  />
-                </div>
-                <span className="text-[10px] text-[var(--fg-muted)] whitespace-nowrap min-h-[14px]">{d.day}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <DashboardSidebar restaurantId={rid} revenue={volume ? money(volume.current.gross_sales) : '—'} today={today} />
     </div>
-  );
-}
-
-function ChannelMix({
-  data,
-  locale,
-  title,
-  emptyLabel,
-  ordersLabel,
-}: {
-  data: ChannelDatum[];
-  locale: string;
-  title: string;
-  emptyLabel: string;
-  ordersLabel: string;
-}) {
-  const { code: currency } = useCurrency();
-  const total = data.reduce((sum, row) => sum + row.revenue, 0);
-  return (
-    <div>
-      <div className="mb-[var(--s-2)] flex items-center justify-between gap-[var(--s-3)]">
-        <h3 className="text-fs-sm font-semibold text-[var(--fg)]">{title}</h3>
-        {total > 0 && <span className="text-fs-xs tabular-nums text-[var(--fg-muted)]">{fmtMoney(total, locale, 0, currency)}</span>}
-      </div>
-      {data.length === 0 || total <= 0 ? (
-        <p className="text-fs-sm text-[var(--fg-subtle)] py-3">{emptyLabel}</p>
-      ) : (
-        <>
-          <div className="flex h-1.5 overflow-hidden rounded-full bg-[var(--surface-3)]" aria-hidden="true">
-            {data.map((row) => (
-              <span key={row.key} style={{ width: `${(row.revenue / total) * 100}%`, background: row.color }} />
-            ))}
-          </div>
-          <div className="mt-[var(--s-2)] grid grid-cols-1 gap-[var(--s-3)] sm:grid-cols-3">
-            {data.map((row) => (
-              <div key={row.key} className="min-w-0">
-                <div className="flex items-center gap-1.5 text-[11px] text-[var(--fg-muted)]">
-                  <span className="w-2 h-2 rounded-[2px] shrink-0" style={{ background: row.color }} />
-                  <span className="truncate">{row.label}</span>
-                  <span className="ml-auto tabular-nums">{Math.round((row.revenue / total) * 100)}%</span>
-                </div>
-                <div className="text-fs-sm font-medium tabular-nums text-[var(--fg)] mt-1">{fmtMoney(row.revenue, locale, 0, currency)}</div>
-                <div className="text-[10px] text-[var(--fg-subtle)]">{row.orders} {ordersLabel.toLocaleLowerCase(locale)}</div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function TopSellersPanel({
-  sellers,
-  locale,
-  title,
-  salesLabel,
-  emptyLabel,
-  seeAllLabel,
-  onSeeAll,
-}: {
-  sellers: TopSeller[];
-  locale: string;
-  title: string;
-  salesLabel: string;
-  emptyLabel: string;
-  seeAllLabel: string;
-  onSeeAll: () => void;
-}) {
-  const { code: currency } = useCurrency();
-  const visible = sellers.slice(0, 5);
-  const maxRevenue = Math.max(0, ...visible.map((seller) => seller.revenue));
-  return (
-    <Section
-      title={title}
-      className="mb-0 overflow-hidden shadow-none [&>div:first-child]:px-[var(--s-4)] [&>div:first-child]:pb-[var(--s-2)] [&>div:first-child]:pt-[var(--s-3)] [&>div:last-child]:px-[var(--s-4)] [&>div:last-child]:pb-[var(--s-3)]"
-      aside={(
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onSeeAll}
-          className="text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
-        >
-          {seeAllLabel}
-          <ArrowRight />
-        </Button>
-      )}
-    >
-      {visible.length === 0 ? (
-        <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{emptyLabel}</p>
-      ) : (
-        <div className="-mx-[var(--s-4)] -mb-[var(--s-3)]">
-          {visible.map((seller, index) => (
-            <div key={seller.name} className="flex items-center gap-[var(--s-2)] border-t border-[var(--line)] px-[var(--s-4)] py-[6px] first:border-t-0">
-              <div className="grid h-7 w-7 shrink-0 place-items-center rounded-r-sm bg-[var(--surface-3)] text-[10px] font-bold text-[var(--fg-muted)]">{index + 1}</div>
-              <div className="flex-1 min-w-0">
-                <div className="truncate text-fs-sm font-medium leading-snug text-[var(--fg)]">{seller.name}</div>
-                <div className="text-fs-xs leading-snug text-[var(--fg-muted)]">{seller.quantity} {salesLabel}</div>
-              </div>
-              <div className="hidden h-1 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-2)] min-[1700px]:block">
-                <div className="h-full bg-[var(--brand-500)]" style={{ width: `${maxRevenue > 0 ? (seller.revenue / maxRevenue) * 100 : 0}%` }} />
-              </div>
-              <div className="min-w-[82px] text-right text-fs-xs font-semibold tabular-nums text-[var(--fg)]">{fmtMoney(seller.revenue, locale, 2, currency)}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Section>
-  );
+  </div>;
 }

@@ -31,6 +31,9 @@ export interface DateRangeChangeOptions {
 }
 
 interface DateRangePickerProps {
+  /** Optional compact trigger for embedded dashboard filters. */
+  triggerContent?: React.ReactNode;
+  triggerClassName?: string;
   value: DateRange;
   onChange: (range: DateRange, options?: DateRangeChangeOptions) => void;
   /** First day of the week (0=Sun … 6=Sat). Drives "This/Last week" presets
@@ -229,6 +232,8 @@ export default function DateRangePicker({
   workdays,
   restaurantId,
   align = 'left',
+  triggerContent,
+  triggerClassName,
   basis,
   onBasisChange,
   series = [],
@@ -507,17 +512,17 @@ export default function DateRangePicker({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={hasBasisControl
+        className={triggerClassName ?? (hasBasisControl
           ? cn(buttonVariants({ variant: 'secondary', size: 'md' }), 'max-w-[310px]')
-          : 'flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary hover:text-fg-primary transition-colors'}
+          : 'flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary hover:text-fg-primary transition-colors')}
         style={hasBasisControl ? undefined : { border: '1px solid var(--divider)' }}
       >
-        {hasBasisControl ? (
+        {triggerContent ?? (hasBasisControl ? (
           <>
             <span className="min-w-0 truncate">{triggerLabel}</span>
             <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-[var(--fg-muted)]" />
           </>
-        ) : triggerLabel}
+        ) : triggerLabel)}
       </button>
 
       {/* Dropdown */}
