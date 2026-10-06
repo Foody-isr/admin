@@ -1,244 +1,579 @@
 "use client";
-
-import { NavigationLinksEditor } from "./NavigationLinksEditor";
-import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, ArrowLeft, Link as LinkIcon, Star } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import {
-  type DraftConfigPayload,
-  type DraftPagePayload,
-  type DraftSectionPayload,
-  type StatePath,
+  HEADER_LAYOUTS,
+  HEADER_COLOR_STYLES,
+  headerFromLegacy,
+  type HeaderElement,
+  type HeaderTarget,
+  type WebsiteHeader,
+} from "@/lib/website-v3/header";
+import type {
+  DraftConfigPayload,
+  DraftPagePayload,
+  DraftSectionPayload,
 } from "@/lib/website-v3/types";
-import {
-  ColorField,
-  InspectorField,
-  ToggleField,
-  controlClass,
-} from "./controls";
-import { NavigationCtaEditor } from "./NavigationCtaEditor";
-import { RestaurantLogoUploader } from "./SiteInspector";
+import { InspectorField, ToggleField, controlClass } from "./controls";
+import { HeaderMedia } from "./HeaderMedia";
+import { HeaderLinksEditor, HeaderTargetDialog } from "./HeaderLinkEditor";
+import { headerCopy } from "./header-copy";
 
-type HeaderPanel = "logo" | "navigation" | "button" | "appearance";
-
-/** Edits the shared header without mixing footer or whole-site settings into its panel. */
+/** Edits the versioned Header component using the same controls as the public renderer. */
 export function HeaderInspector({
   config,
   pages,
   sections,
+  restaurantId,
   restaurantLogoUrl,
   onChange,
-  onRestaurantLogoUpload,
-  onRestaurantLogoRemove,
+  activeElement,
 }: {
   config: DraftConfigPayload;
   pages: DraftPagePayload[];
   sections: DraftSectionPayload[];
+  restaurantId: number;
   restaurantLogoUrl?: string;
-  onChange: (path: StatePath, value: unknown) => void;
-  onPageVisibilityChange: (key: string, visible: boolean) => void;
-  onRestaurantLogoUpload: (file: File) => Promise<void>;
-  onRestaurantLogoRemove: () => Promise<void>;
+  onChange: (path: readonly (string | number)[], value: unknown) => void;
+  activeElement?: HeaderElement;
 }) {
-  const { t } = useI18n();
-  const [panel, setPanel] = useState<HeaderPanel | null>(null);
-  const layout = record(config.nav_layout);
-  const content = record(layout.content);
-  const logo = Object.hasOwn(config, "restaurant_logo_url")
-    ? text(config.restaurant_logo_url)
-    : restaurantLogoUrl;
-  const labels = {
-    logo: "editorLogo",
-    navigation: "editorHeaderNavigation",
-    button: "editorButton",
-    appearance: "editorLayoutColor",
-  } as const;
+  const { locale } = useI18n(),
+    c = headerCopy(locale);
+  const root = useRef<HTMLDivElement>(null);
+  const [links, setLinks] = useState(false),
+    [customize, setCustomize] = useState(true),
+    [open, setOpen] = useState<Record<string, boolean>>({ layout: true }),
+    [editing, setEditing] = useState<"logo" | "button" | null>(null);
+  const nav =
+    config.nav_layout && typeof config.nav_layout === "object"
+      ? (config.nav_layout as Record<string, unknown>)
+      : {};
+  const header = headerFromLegacy(
+    config,
+    pages,
+    typeof config.restaurant_logo_url === "string"
+      ? config.restaurant_logo_url
+      : restaurantLogoUrl,
+  );
+  const set = <K extends keyof WebsiteHeader>(
+    key: K,
+    value: WebsiteHeader[K],
+  ) =>
+    onChange(["nav_layout"], { ...nav, header: { ...header, [key]: value } });
+  const patch = <
+    K extends
+      | "background"
+      | "logo"
+      | "navigation"
+      | "button"
+      | "icons"
+      | "fulfillment",
+  >(
+    key: K,
+    value: Partial<WebsiteHeader[K]>,
+  ) => set(key, { ...header[key], ...value });
+  useEffect(() => {
+    if (!activeElement) return;
+    setLinks(false);
+    setCustomize(true);
+    setOpen((v) => ({ ...v, [activeElement]: true }));
+    requestAnimationFrame(() =>
+      root.current
+        ?.querySelector(`[data-header-panel="${activeElement}"]`)
+        ?.scrollIntoView({ block: "start", behavior: "smooth" }),
+    );
+  }, [activeElement]);
+  const accordion = (
+    key: string,
+    title: string,
+    children: ReactNode,
+    toggle?: ReactNode,
+  ) => (
+    <section className="sqh-accordion" data-header-panel={key}>
+      <div className="sqh-accordion-heading">
+        <button
+          aria-expanded={Boolean(open[key])}
+          onClick={() => setOpen({ ...open, [key]: !open[key] })}
+        >
+          {title}
+          <ChevronDown
+            size={16}
+            style={{ transform: open[key] ? "rotate(180deg)" : undefined }}
+          />
+        </button>
+        {toggle}
+      </div>
+      {open[key] && <div className="sqh-accordion-body">{children}</div>}
+    </section>
+  );
+  const check = (
+    label: string,
+    checked: boolean,
+    change: (v: boolean) => void,
+  ) => (
+    <label className="sqh-check">
+      {label}
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => change(e.target.checked)}
+      />
+    </label>
+  );
+  const color = (
+    label: string,
+    value: string,
+    change: (v: string) => void,
+    fallback = "#111111",
+  ) => (
+    <div className="sqh-color">
+      <label>
+        <span>{label}</span>
+        <input
+          aria-label={label}
+          type="color"
+          value={value || fallback}
+          onChange={(e) => change(e.target.value)}
+        />
+      </label>
+      {value && <button onClick={() => change("")}>{c.reset}</button>}
+    </div>
+  );
+  const targetLabel = (target: HeaderTarget) =>
+    target.kind === "page"
+      ? (pages.find((p) => p.slug === target.value)?.title ?? c.page)
+      : c[target.kind];
+  const linkRow = (key: "logo" | "button") => (
+    <button className="sqh-target" onClick={() => setEditing(key)}>
+      <LinkIcon size={18} />
+      <span>
+        <small>{c.link}</small>
+        {targetLabel(header[key].link)}
+      </span>
+      <u>{c.edit}</u>
+    </button>
+  );
+  const toggle = (
+    key: "navigation" | "button" | "fulfillment",
+    label: string,
+  ) => (
+    <ToggleField
+      fieldId={`header.${key}.enabled`}
+      label={label}
+      checked={header[key].enabled}
+      onChange={(v) => patch(key, { enabled: v })}
+    />
+  );
+  if (links)
+    return (
+      <div className="sqh-editor">
+        <button className="sqh-back" onClick={() => setLinks(false)}>
+          <ArrowLeft size={20} />
+          {c.editLinks}
+        </button>
+        <HeaderLinksEditor
+          copy={c}
+          pages={pages}
+          sections={sections}
+          value={header.navigation.links}
+          onChange={(value) => patch("navigation", { links: value })}
+        />
+      </div>
+    );
   return (
-    <div className="sqe-header-inspector">
-      {(["navigation", "appearance", "logo", "button"] as const).map((key) => (
-        <div key={key} className="sqe-header-group">
-          <button
-            className="sqe-header-group-trigger"
-            aria-expanded={panel === key}
-            onClick={() => setPanel(panel === key ? null : key)}
-          >
-            <span>{t(labels[key])}</span>
-            {panel === key ? (
-              <ChevronDown size={18} />
-            ) : (
-              <ChevronRight size={18} />
-            )}
-          </button>
-          {panel === key && (
-            <div className="sqe-panel-body space-y-4">
-              {key === "logo" && (
-                <>
-                  <RestaurantLogoUploader
-                    currentUrl={logo}
-                    onUpload={onRestaurantLogoUpload}
-                    onRemove={onRestaurantLogoRemove}
+    <div className="sqh-editor" ref={root}>
+      <section className="sqh-navigation">
+        <h3>{toggle("navigation", c.navigation)}</h3>
+        {header.navigation.enabled && (
+          <>
+            <div className="sqh-radio-stack">
+              {(["dropdown", "mega"] as const).map((mode) => (
+                <label key={mode}>
+                  <span>
+                    {c[mode]}
+                    <small>
+                      {mode === "dropdown" ? c.dropdownHelp : c.megaHelp}
+                    </small>
+                  </span>
+                  <input
+                    type="radio"
+                    name="header-navigation"
+                    checked={header.navigation.mode === mode}
+                    onChange={() => patch("navigation", { mode })}
                   />
-                  <InspectorField label={t("editorLogoPosition")}>
-                    <div className="sqe-segmented">
-                      {(["left", "center", "right"] as const).map(
-                        (position) => (
-                          <button
-                            key={position}
-                            aria-pressed={
-                              (config.navbar_logo_position || "left") ===
-                              position
-                            }
-                            onClick={() =>
-                              onChange(["navbar_logo_position"], position)
-                            }
-                          >
-                            {t(`editorAlign_${position}`)}
-                          </button>
-                        ),
-                      )}
-                    </div>
-                  </InspectorField>
-                  <InspectorField label={t("editorLogoSize")}>
-                    <input
-                      type="range"
-                      min={28}
-                      max={72}
-                      value={Number(config.logo_size) || 48}
-                      onChange={(event) =>
-                        onChange(["logo_size"], Number(event.target.value))
+                </label>
+              ))}
+            </div>
+            <button
+              className="sqe-button sqe-button-secondary w-full"
+              onClick={() => setLinks(true)}
+            >
+              {c.editLinks}
+            </button>
+          </>
+        )}
+      </section>
+      <div className="sqh-divider" />
+      <button
+        className="sqh-customize"
+        aria-expanded={customize}
+        onClick={() => setCustomize(!customize)}
+      >
+        {c.customize}
+        <ChevronDown
+          size={19}
+          style={{ transform: customize ? "rotate(180deg)" : undefined }}
+        />
+      </button>
+      {customize && (
+        <>
+          {accordion(
+            "layout",
+            c.layoutColor,
+            <>
+              <HeaderGroup label={c.layout}>
+                <div className="sqh-layouts">
+                  {HEADER_LAYOUTS.map((layout) => (
+                    <button
+                      key={layout}
+                      aria-label={c[layout]}
+                      aria-pressed={header.layout === layout}
+                      onClick={() => set("layout", layout)}
+                    >
+                      <span
+                        className={`sqh-layout sqh-layout--${layout}`}
+                        aria-hidden="true"
+                      >
+                        <i />
+                        <b />
+                        <em />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </HeaderGroup>
+              <div className="sqh-tip">
+                <Star size={19} />
+                <span>
+                  {c.tip}
+                  <button
+                    onClick={() => {
+                      patch("background", { mode: "image" });
+                      setOpen({ ...open, background: true });
+                    }}
+                  >
+                    {c.addBackground}
+                  </button>
+                </span>
+              </div>
+              <HeaderGroup label={c.scroll}>
+                <div className="sqh-radio-stack">
+                  {(["sticky", "reveal", "none"] as const).map((scroll) => (
+                    <label key={scroll}>
+                      <span>{c[scroll]}</span>
+                      <input
+                        type="radio"
+                        name="header-scroll"
+                        checked={header.scroll === scroll}
+                        onChange={() => set("scroll", scroll)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </HeaderGroup>
+              <HeaderGroup label={c.colorStyle}>
+                <div className="sqh-colors">
+                  {HEADER_COLOR_STYLES.map((style) => (
+                    <button
+                      key={style}
+                      aria-label={`${c.colorStyle} ${style === "default" ? c.default : style}`}
+                      aria-pressed={header.color_style === style}
+                      className={`sqh-swatch sqh-swatch--${style}`}
+                      style={
+                        {
+                          "--sqh-brand": String(
+                            config.brand_color || "#111111",
+                          ),
+                          "--sqh-surface": String(
+                            (
+                              config.custom_palette as
+                                | Record<string, unknown>
+                                | undefined
+                            )?.bg || "#f5f5f5",
+                          ),
+                        } as React.CSSProperties
                       }
-                      aria-label={t("editorLogoSize")}
+                      onClick={() => set("color_style", style)}
+                    >
+                      {style === "default" ? c.default : "Aa"}
+                    </button>
+                  ))}
+                </div>
+              </HeaderGroup>
+            </>,
+          )}
+          {accordion(
+            "background",
+            c.background,
+            <>
+              <select
+                aria-label={c.background}
+                className={controlClass}
+                value={header.background.mode}
+                onChange={(e) =>
+                  patch("background", {
+                    mode: e.target.value as WebsiteHeader["background"]["mode"],
+                  })
+                }
+              >
+                {(
+                  [
+                    "transparent",
+                    "style",
+                    "color",
+                    "gradient",
+                    "image",
+                  ] as const
+                ).map((mode) => (
+                  <option key={mode} value={mode}>
+                    {c[mode]}
+                  </option>
+                ))}
+              </select>
+              {["color", "gradient"].includes(header.background.mode) &&
+                color(
+                  c.color,
+                  header.background.color,
+                  (value) => patch("background", { color: value }),
+                  "#ffffff",
+                )}
+              {header.background.mode === "gradient" && (
+                <>
+                  {color(
+                    c.endColor,
+                    header.background.end,
+                    (value) => patch("background", { end: value }),
+                    "#ffffff",
+                  )}
+                  <InspectorField label={c.angle}>
+                    <input
+                      aria-label={c.angle}
+                      type="range"
+                      min={0}
+                      max={360}
+                      value={header.background.angle}
+                      onChange={(e) =>
+                        patch("background", { angle: Number(e.target.value) })
+                      }
                     />
                   </InspectorField>
-                  <ToggleField
-                    fieldId="site.hide_navbar_name"
-                    label={t("editorShowName")}
-                    checked={!config.hide_navbar_name}
-                    onChange={(value) => onChange(["hide_navbar_name"], !value)}
-                  />
                 </>
               )}
-              {key === "navigation" && (
+              {header.background.mode === "image" && (
                 <>
-                  <ToggleField
-                    fieldId="site.navbar_show_links"
-                    label={t("editorHeaderNavigation")}
-                    checked={config.navbar_show_links !== false}
-                    onChange={(value) => onChange(["navbar_show_links"], value)}
+                  <HeaderMedia
+                    restaurantId={restaurantId}
+                    value={header.background.image}
+                    onChange={(image) => patch("background", { image })}
+                    copy={c}
                   />
-                  <NavigationLinksEditor
-                    pages={pages}
-                    sections={sections}
-                    value={layout.links}
-                    onChange={(links) =>
-                      onChange(["nav_layout"], { ...layout, links })
+                  <InspectorField label={c.overlay}>
+                    <input
+                      aria-label={c.overlay}
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={header.background.overlay}
+                      onChange={(e) =>
+                        patch("background", { overlay: Number(e.target.value) })
+                      }
+                    />
+                  </InspectorField>
+                </>
+              )}
+            </>,
+          )}
+          <div className="sqh-divider" />
+          <h3 className="sqh-content-title">{c.content}</h3>
+          {accordion(
+            "logo",
+            c.logo,
+            <>
+              <InspectorField label={c.type}>
+                <select
+                  className={controlClass}
+                  value={header.logo.type}
+                  onChange={(e) =>
+                    patch("logo", { type: e.target.value as "text" | "image" })
+                  }
+                >
+                  <option value="text">{c.text}</option>
+                  <option value="image">{c.image}</option>
+                </select>
+              </InspectorField>
+              {header.logo.type === "image" ? (
+                <HeaderMedia
+                  restaurantId={restaurantId}
+                  value={header.logo.image}
+                  onChange={(image) => patch("logo", { image })}
+                  copy={c}
+                />
+              ) : (
+                <InspectorField label={c.logoText}>
+                  <input
+                    className={controlClass}
+                    value={header.logo.text}
+                    maxLength={200}
+                    onChange={(e) => patch("logo", { text: e.target.value })}
+                  />
+                </InspectorField>
+              )}
+              <InspectorField label={c.size}>
+                <div className="sqh-range">
+                  <input
+                    aria-label={c.size}
+                    type="range"
+                    min={24}
+                    max={160}
+                    value={header.logo.size}
+                    onChange={(e) =>
+                      patch("logo", { size: Number(e.target.value) })
                     }
                   />
-                </>
+                  <output>{header.logo.size}</output>
+                </div>
+              </InspectorField>
+              {linkRow("logo")}
+              <p>{c.logoHelp}</p>
+              {check(
+                c.customBackground,
+                header.logo.custom_background,
+                (value) => patch("logo", { custom_background: value }),
               )}
-              {key === "button" && (
-                <NavigationCtaEditor
-                  value={record(config.navbar_cta)}
-                  allowInherit={false}
-                  onChange={(value) => onChange(["navbar_cta"], value ?? {})}
-                />
-              )}
-              {key === "appearance" && (
-                <>
-                  {(["desktop", "mobile"] as const).map((device) => (
-                    <InspectorField
-                      key={device}
-                      label={t(
-                        device === "desktop" ? "editorDesktop" : "editorMobile",
-                      )}
-                    >
-                      <select
-                        className={controlClass}
-                        value={
-                          text(content[device]) ||
-                          (device === "desktop" ? "full" : "compact")
-                        }
-                        onChange={(event) =>
-                          onChange(["nav_layout"], {
-                            ...layout,
-                            content: {
-                              ...content,
-                              [device]: event.target.value,
-                            },
-                          })
-                        }
-                      >
-                        {(
-                          [
-                            "full",
-                            "slim",
-                            "compact",
-                            "compact_no_logo",
-                            "hidden",
-                          ] as const
-                        ).map((mode) => (
-                          <option key={mode} value={mode}>
-                            {t(`editorNavMode_${mode}`)}
-                          </option>
-                        ))}
-                      </select>
-                    </InspectorField>
-                  ))}
-                  <InspectorField label={t("editorBackground")}>
-                    <select
-                      className={controlClass}
-                      value={text(config.navbar_style) || "solid"}
-                      onChange={(event) =>
-                        onChange(["navbar_style"], event.target.value)
-                      }
-                    >
-                      <option value="solid">{t("editorSolid")}</option>
-                      <option value="transparent">
-                        {t("editorTransparent")}
-                      </option>
-                      <option value="overlay">{t("editorOverlay")}</option>
-                    </select>
-                  </InspectorField>
-                  <ColorField
-                    fieldId="site.navbar_color"
-                    label={t("editorBackground")}
-                    value={text(config.navbar_color)}
-                    fallback="#ffffff"
-                    onChange={(value) => onChange(["navbar_color"], value)}
-                  />
-                  <ColorField
-                    fieldId="site.navbar_text_color"
-                    label={t("editorText")}
-                    value={text(config.navbar_text_color)}
-                    fallback="#111111"
-                    onChange={(value) => onChange(["navbar_text_color"], value)}
-                  />
-                  {config.navbar_style !== "solid" && (
-                    <ColorField
-                      fieldId="site.navbar_overlay_text_color"
-                      label={t("editorOverlayText")}
-                      value={text(config.navbar_overlay_text_color)}
-                      fallback="#ffffff"
-                      onChange={(value) =>
-                        onChange(["navbar_overlay_text_color"], value)
-                      }
-                    />
-                  )}
-                </>
-              )}
-            </div>
+              {header.logo.custom_background &&
+                color(
+                  c.background,
+                  header.logo.background,
+                  (value) => patch("logo", { background: value }),
+                  "#ffffff",
+                )}
+            </>,
           )}
-        </div>
-      ))}
+          {accordion(
+            "navigation",
+            c.navigation,
+            <>
+              {check(c.caps, header.navigation.uppercase, (value) =>
+                patch("navigation", { uppercase: value }),
+              )}
+              {color(c.textColor, header.navigation.color, (value) =>
+                patch("navigation", { color: value }),
+              )}
+            </>,
+          )}
+          {accordion(
+            "button",
+            c.button,
+            <>
+              {toggle("button", c.button)}
+              <InspectorField label={c.buttonText}>
+                <input
+                  className={controlClass}
+                  maxLength={200}
+                  value={header.button.text}
+                  placeholder={c.order}
+                  onChange={(e) => patch("button", { text: e.target.value })}
+                />
+              </InspectorField>
+              {linkRow("button")}
+              <InspectorField label={c.style}>
+                <select
+                  className={controlClass}
+                  value={header.button.style}
+                  onChange={(e) =>
+                    patch("button", {
+                      style: e.target.value as "filled" | "outline",
+                    })
+                  }
+                >
+                  <option value="filled">{c.filled}</option>
+                  <option value="outline">{c.outline}</option>
+                </select>
+              </InspectorField>
+              {color(
+                c.color,
+                header.button.color,
+                (value) => patch("button", { color: value }),
+                String((config.custom_palette as Record<string, unknown> | undefined)?.accent || config.brand_color || "#111111"),
+              )}
+              <button
+                className="sqe-button sqe-button-secondary w-full"
+                onClick={() => patch("button", { style: "filled", color: "" })}
+              >
+                {c.reset}
+              </button>
+            </>,
+          )}
+          {accordion(
+            "icons",
+            c.icons,
+            <>
+              {color(c.color, header.icons.color, (value) =>
+                patch("icons", { color: value }),
+              )}
+              {check(c.cart, header.icons.cart, (value) =>
+                patch("icons", { cart: value }),
+              )}
+              {check(c.search, header.icons.search, (value) =>
+                patch("icons", { search: value }),
+              )}
+            </>,
+          )}
+          {accordion(
+            "fulfillment",
+            c.fulfillment,
+            <>
+              {toggle("fulfillment", c.fulfillment)}
+              <p>{c.fulfillmentHelp}</p>
+              {color(
+                c.background,
+                header.fulfillment.background,
+                (value) => patch("fulfillment", { background: value }),
+                "#f5f5f5",
+              )}
+            </>,
+          )}
+        </>
+      )}
+      {editing && (
+        <HeaderTargetDialog
+          copy={c}
+          pages={pages}
+          sections={sections}
+          value={header[editing].link}
+          onClose={() => setEditing(null)}
+          onSave={(link) => {
+            patch(editing, { link });
+            setEditing(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-function text(value: unknown): string {
-  return typeof value === "string" ? value : "";
+function HeaderGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <fieldset className="sqh-control-group">
+      <legend>{label}</legend>
+      {children}
+    </fieldset>
+  );
 }

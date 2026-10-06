@@ -612,6 +612,8 @@ export interface MenuItem {
   /** Combo-level toggle: allow guests to order several of this combo at once.
    *  null/undefined = default (allowed = true); false = single combo only. */
   combo_allow_quantity?: boolean | null;
+  /** Component reserved for combos; excluded from standalone website selections. */
+  combo_only?: boolean;
   item_type: ItemType;
   sort_order: number;
   rotation_group?: string;
@@ -1218,6 +1220,7 @@ export type CompactNavigationStyle = {
   button_background_color?: string;
 };
 export type NavLayout = {
+  header?: import("./website-v3/header").WebsiteHeader;
   content: NavLayoutSide;
   shopping: NavLayoutSide;
   compact_navigation?: CompactNavigationStyle;

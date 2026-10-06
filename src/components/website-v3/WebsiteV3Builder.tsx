@@ -3,6 +3,7 @@
 import {
   retargetNavigationPage,
   addNavigationPage,
+  removeNavigationPage,
 } from "@/lib/website-v3/navigation-links";
 import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
 
@@ -697,11 +698,11 @@ function DesktopWebsiteV3Builder({
       slugManuallyEdited: slugManualRef.current.has(key),
     });
     const updated = next.pages.find((page) => pageKey(page) === key);
-    setLocalState(
-      previous && updated
-        ? retargetNavigationPage(next, previous.slug, updated.slug)
-        : next,
-    );
+    let linked = previous && updated ? retargetNavigationPage(next, previous.slug, updated.slug) : next;
+    if (previous && updated && previous.nav_visible !== updated.nav_visible) {
+      linked = updated.nav_visible ? addNavigationPage(linked, updated) : removeNavigationPage(linked, updated.slug);
+    }
+    setLocalState(linked);
   };
 
   const replacePage = (key: string, replacement: DraftPagePayload) => {
@@ -807,7 +808,7 @@ function DesktopWebsiteV3Builder({
       if (!replacement) return;
       next = makeDefaultPage(next, pageKey(replacement));
     }
-    next = removePage(next, key);
+    next = removeNavigationPage(removePage(next, key), target.slug);
     setLocalState(next);
     const fallback = [...next.pages].sort(
       (a, b) => a.sort_order - b.sort_order,
@@ -870,7 +871,7 @@ function DesktopWebsiteV3Builder({
       is_visible: true,
       layout: "default",
       settings: {
-        ...getDefaultSettings(),
+        ...getDefaultSettings(type),
         anchor: `section-${crypto.randomUUID()}`,
       },
       content: {
@@ -921,7 +922,7 @@ function DesktopWebsiteV3Builder({
             layout,
             content: getDefaultContent(type, layout),
             settings: {
-              ...getDefaultSettings(),
+              ...getDefaultSettings(type),
               anchor: `section-${crypto.randomUUID()}`,
             },
           }
@@ -944,7 +945,7 @@ function DesktopWebsiteV3Builder({
             is_visible: true,
             content: getDefaultContent(type, layout),
             settings: {
-              ...getDefaultSettings(),
+              ...getDefaultSettings(type),
               anchor: `section-${crypto.randomUUID()}`,
             },
           }),
@@ -1442,7 +1443,7 @@ function DesktopWebsiteV3Builder({
               selection.kind === "site" || selection.kind === "page" ? selection.region : undefined
             }
             orderDialog={selection.kind === "page" && selection.region === "order-fulfillment" ? "fulfillment" : selection.kind === "page" && selection.region === "order-items" && previewOrderItem ? "item" : undefined}
-            onSelectRegion={(region) => {
+            onSelectRegion={(region, headerElement) => {
               if (region === "order-items" || region === "order-banner" || region === "order-fulfillment") {
                 setSelection({kind: "page", key: pageKey(activePage), region});
                 return;
@@ -1451,6 +1452,7 @@ function DesktopWebsiteV3Builder({
                 kind: "site",
                 pageKey: pageKey(activePage),
                 region,
+                headerElement,
               });
               setTab("content");
             }}

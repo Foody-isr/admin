@@ -8,12 +8,10 @@ import {
   updateInstagramStoriesWithRefresh,
 } from "@/lib/social-navigation";
 import {
-  pageKey,
   type DraftConfigPayload,
   type DraftPagePayload,
   type DraftSectionPayload,
 } from "@/lib/website-v3/types";
-import { normalizeNavbarStyle } from "@/lib/website-v3/state";
 import {
   ColorField,
   InspectorField,
@@ -22,7 +20,7 @@ import {
   controlClass,
 } from "./controls";
 import { FooterEditor } from "./FooterEditor";
-import { NavigationCtaEditor } from "./NavigationCtaEditor";
+import { HeaderInspector } from "./HeaderInspector";
 
 export function SiteInspector({
   tab,
@@ -30,9 +28,9 @@ export function SiteInspector({
   restaurantId,
   restaurantLogoUrl,
   pages,
+  sections,
   footer,
   onChange,
-  onPageVisibilityChange,
   onFooterChange,
   onStoriesNavigationAvailabilityChange,
   onRestaurantLogoUpload,
@@ -43,6 +41,7 @@ export function SiteInspector({
   restaurantId: number;
   restaurantLogoUrl?: string;
   pages: DraftPagePayload[];
+  sections: DraftSectionPayload[];
   footer: DraftSectionPayload | null;
   onChange: (path: readonly (string | number)[], value: unknown) => void;
   onPageVisibilityChange: (key: string, visible: boolean) => void;
@@ -66,7 +65,7 @@ export function SiteInspector({
   )
     ? string(config.restaurant_logo_url)
     : restaurantLogoUrl;
-  const navbarStyle = normalizeNavbarStyle(config.navbar_style);
+  const [editingHeader, setEditingHeader] = useState(false);
   const shareImageUrl = string(config.share_image_url);
   const shareImageMode =
     string(config.share_image_mode) === "cover" ? "cover" : "logo";
@@ -221,52 +220,7 @@ export function SiteInspector({
     );
   }
 
-  const navLayout = Object.fromEntries(
-    Object.entries(record(config.nav_layout)).filter(
-      ([key]) => key !== "bottom_navigation",
-    ),
-  );
-  const contentNavConfig = record(navLayout.content);
-  const contentNav = {
-    desktop: string(contentNavConfig.desktop) || "full",
-    mobile: string(contentNavConfig.mobile) || "compact",
-  };
-  const shoppingNavConfig = record(navLayout.shopping);
-  const shoppingNav = {
-    desktop: string(shoppingNavConfig.desktop) || "compact",
-    mobile: string(shoppingNavConfig.mobile) || "compact",
-  };
-  const compactNavigation = record(navLayout.compact_navigation);
-  const navigationModes = [
-    contentNav.desktop,
-    contentNav.mobile,
-    shoppingNav.desktop,
-    shoppingNav.mobile,
-  ];
-  const hasLogoNavigation = navigationModes.some(
-    (mode) => mode === "full" || mode === "compact",
-  );
-  const hasLinkNavigation = navigationModes.some(
-    (mode) => mode === "full" || mode === "slim",
-  );
-  const updateNavigationExtension = (key: "compact_navigation", patch: Record<string, unknown>) =>
-    onChange([], { ...config, nav_layout: { ...navLayout, [key]: { ...record(navLayout[key]), ...patch } } });
-  const updateNavSide = (
-    side: "content" | "shopping",
-    patch: Record<string, unknown>,
-    legacyPatch: Record<string, unknown> = {},
-  ) =>
-    onChange([], {
-      ...config,
-      ...legacyPatch,
-      nav_layout: {
-        ...navLayout,
-        [side]: {
-          ...(side === "content" ? contentNav : shoppingNav),
-          ...patch,
-        },
-      },
-    });
+  if (editingHeader) return <><button className="sqe-button sqe-button-secondary m-4" onClick={() => setEditingHeader(false)}>Retour aux réglages du site</button><HeaderInspector config={config} pages={pages} sections={sections} restaurantId={restaurantId} restaurantLogoUrl={restaurantLogoUrl} onChange={onChange}/></>;
   return (
     <>
       <InspectorGroup
@@ -277,53 +231,6 @@ export function SiteInspector({
           currentUrl={effectiveRestaurantLogoUrl}
           onUpload={onRestaurantLogoUpload}
           onRemove={onRestaurantLogoRemove}
-        />
-        {hasLogoNavigation ? <><InspectorField label="Position du logo dans la barre">
-          <select
-            data-field-id="site.navbar_logo_position"
-            value={string(config.navbar_logo_position) || "left"}
-            onChange={(event) =>
-              onChange(["navbar_logo_position"], event.target.value)
-            }
-            className={controlClass}
-          >
-            <option value="left">Gauche</option>
-            <option value="center">Centre</option>
-            <option value="right">Droite</option>
-          </select>
-        </InspectorField>
-        <ToggleField
-          fieldId="site.hide_navbar_name"
-          label="Masquer le nom du restaurant"
-          checked={boolean(config.hide_navbar_name, false)}
-          onChange={(value) => onChange(["hide_navbar_name"], value)}
-        />
-        <SectionImageUploader
-          restaurantId={restaurantId}
-          currentUrl={string(config.navbar_scrolled_logo_url)}
-          onUploaded={(url) => onChange(["navbar_scrolled_logo_url"], url)}
-          onRemove={() => onChange(["navbar_scrolled_logo_url"], "")}
-          label="Logo alternatif sur fond clair"
-        />
-        <input
-          type="url"
-          data-field-id="site.navbar_scrolled_logo_url"
-          value={string(config.navbar_scrolled_logo_url)}
-          onChange={(event) =>
-            onChange(["navbar_scrolled_logo_url"], event.target.value)
-          }
-          className={controlClass}
-          placeholder="Ou collez l’URL du logo alternatif"
-        />
-        </> : null}
-        <RangeField
-          fieldId="site.logo_size"
-          label="Taille du logo dans les barres"
-          value={number(config.logo_size, 48)}
-          min={28}
-          max={72}
-          suffix="px"
-          onChange={(value) => onChange(["logo_size"], value)}
         />
         <RangeField
           fieldId="site.hero_logo_size"
@@ -407,160 +314,8 @@ export function SiteInspector({
         ) : null}
       </InspectorGroup>
 
-      <InspectorGroup
-        title="Navigation"
-        description="Composez une navigation lisible pour les pages contenu et commerce."
-      >
-        {hasLinkNavigation ? <><InspectorField label="Style">
-          <select
-            data-field-id="site.navbar_style"
-            value={navbarStyle}
-            onChange={(event) => onChange(["navbar_style"], event.target.value)}
-            className={controlClass}
-          >
-            <option value="solid">Pleine</option>
-            <option value="transparent">Toujours transparente</option>
-            <option value="overlay">
-              Transparente puis colorée au survol
-            </option>
-          </select>
-        </InspectorField>
-        <ColorField
-          fieldId="site.navbar_color"
-          label={
-            navbarStyle === "overlay"
-              ? "Fond au survol"
-              : "Couleur de fond"
-          }
-          value={string(config.navbar_color)}
-          fallback="#ffffff"
-          onChange={(value) => onChange(["navbar_color"], value)}
-        />
-        <ColorField
-          fieldId="site.navbar_overlay_text_color"
-          label="Texte au repos"
-          value={string(config.navbar_overlay_text_color)}
-          fallback="#ffffff"
-          onChange={(value) =>
-            onChange(["navbar_overlay_text_color"], value)
-          }
-        />
-        <ColorField
-          fieldId="site.navbar_text_color"
-          label={
-            navbarStyle === "overlay" ? "Texte au survol" : "Texte"
-          }
-          value={string(config.navbar_text_color)}
-          fallback="#111111"
-          onChange={(value) => onChange(["navbar_text_color"], value)}
-        />
-        </> : null}
-        <div className="space-y-2">
-          {pages
-            .slice()
-            .sort((left, right) => left.sort_order - right.sort_order)
-            .map((page) => (
-              <ToggleField
-                key={pageKey(page)}
-                fieldId={`site.navigation-page.${pageKey(page)}`}
-                label={page.title}
-                description={`/${page.slug} · ${page.type}`}
-                checked={page.nav_visible}
-                onChange={(visible) =>
-                  onPageVisibilityChange(pageKey(page), visible)
-                }
-              />
-            ))}
-        </div>
-        <InspectorField label="Pages contenu · ordinateur">
-          <select
-            value={string(contentNav.desktop) || "full"}
-            onChange={(event) =>
-              updateNavSide("content", { desktop: event.target.value })
-            }
-            className={controlClass}
-          >
-            <option value="full">Complète · liens visibles</option>
-            <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · flottante avec logo</option>
-            <option value="compact_no_logo">Compacte · flottante sans logo</option>
-            <option value="hidden">Masquée</option>
-          </select>
-        </InspectorField>
-        <InspectorField label="Pages contenu · mobile">
-          <select
-            data-field-id="site.navbar_hamburger"
-            value={string(contentNav.mobile) || "compact"}
-            onChange={(event) =>
-              updateNavSide(
-                "content",
-                { mobile: event.target.value },
-                {
-                  navbar_hamburger:
-                    event.target.value === "compact" || event.target.value === "compact_no_logo" ? "mobile" : "off",
-                },
-              )
-            }
-            className={controlClass}
-          >
-            <option value="full">Complète</option>
-            <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · avec logo</option>
-            <option value="compact_no_logo">Compacte · sans logo</option>
-            <option value="hidden">Masquée</option>
-          </select>
-        </InspectorField>
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
-          Les pages de commande utilisent désormais une navigation dédiée et
-          identique pour tous les restaurants&nbsp;: contrôles compacts sur
-          ordinateur et mobile, puis barre des catégories au défilement. Les
-          réglages ci-dessous concernent le traiteur et les autres pages boutique.
-        </div>
-        <InspectorField label="Traiteur et pages boutique · ordinateur">
-          <select
-            value={string(shoppingNav.desktop) || "compact"}
-            onChange={(event) =>
-              updateNavSide("shopping", { desktop: event.target.value })
-            }
-            className={controlClass}
-          >
-            <option value="full">Complète · liens visibles</option>
-            <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · flottante avec logo</option>
-            <option value="compact_no_logo">Compacte · flottante sans logo</option>
-            <option value="hidden">Masquée</option>
-          </select>
-        </InspectorField>
-        <InspectorField label="Traiteur et pages boutique · mobile">
-          <select
-            value={string(shoppingNav.mobile) || "compact"}
-            onChange={(event) =>
-              updateNavSide("shopping", { mobile: event.target.value })
-            }
-            className={controlClass}
-          >
-            <option value="full">Complète</option>
-            <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · avec logo</option>
-            <option value="compact_no_logo">Compacte · sans logo</option>
-            <option value="hidden">Masquée</option>
-          </select>
-        </InspectorField>
-        <div className="space-y-3 border-t border-slate-100 pt-4">
-          <p className="text-xs font-semibold text-slate-700">Navigation compacte · ordinateur</p>
-          <p className="text-[11px] leading-4 text-slate-500">Ces couleurs s’appliquent aussi au bouton menu des pages de commande.</p>
-          <InspectorField label="Position du menu hamburger"><select className={controlClass} value={string(compactNavigation.hamburger_position) || "left"} onChange={(event) => updateNavigationExtension("compact_navigation", { hamburger_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
-          <InspectorField label="Position des actions"><select className={controlClass} value={string(compactNavigation.actions_position) || "right"} onChange={(event) => updateNavigationExtension("compact_navigation", { actions_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
-          <ColorField fieldId="site.compact-navigation.icon" label="Couleur des icônes" value={string(compactNavigation.icon_color)} fallback="#111111" onChange={(value) => updateNavigationExtension("compact_navigation", { icon_color: value })} />
-          <ColorField fieldId="site.compact-navigation.button-background" label="Fond des boutons" value={string(compactNavigation.button_background_color)} fallback="#ffffff" onChange={(value) => updateNavigationExtension("compact_navigation", { button_background_color: value })} />
-        </div>
-        <div className="border-t border-slate-100 pt-4">
-          <NavigationCtaEditor
-            value={record(config.navbar_cta)}
-            allowInherit={false}
-            onChange={(value) => onChange(["navbar_cta"], value ?? {})}
-          />
-        </div>
+      <InspectorGroup title="En-tête" description="Personnalisez le logo, les liens, les boutons et la disposition de l’en-tête.">
+        <button className="sqe-button sqe-button-secondary w-full" onClick={() => setEditingHeader(true)}>Modifier l’en-tête</button>
       </InspectorGroup>
 
       <InspectorGroup

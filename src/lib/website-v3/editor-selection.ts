@@ -1,3 +1,4 @@
+import type { HeaderElement } from "./header";
 import {
   pageKey,
   type DraftStatePayload,
@@ -7,7 +8,7 @@ import {
 export type OrderEditorRegion = "order-banner" | "order-items" | "order-fulfillment";
 
 export type RailSelection =
-  | { kind: "site"; pageKey?: string; region?: "header" | "footer" }
+  | { kind: "site"; pageKey?: string; region?: "header" | "footer"; headerElement?: HeaderElement }
   | { kind: "page"; key: string; region?: OrderEditorRegion }
   | { kind: "section"; pageKey: string; sectionKey: string; field?: string };
 

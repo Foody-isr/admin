@@ -3,6 +3,7 @@ import type {
   DraftSectionPayload,
   DraftAppearanceOverrides,
 } from "./types";
+import { headerFromLegacy } from "./header";
 import { sectionBelongs } from "./section-operations";
 import { publicAddressForPage } from "./url-model";
 import { DEFAULT_THEME_COPY, restaurantThemeMedia, restaurantThemeSection, type ThemeCopy } from "./restaurant-theme-blueprints";
@@ -293,6 +294,7 @@ export function applyRestaurantTheme(
   if (options.orderingOnly) {
     if (!order) return state;
     next = makeHomepagePage(next, pageKey(order));
+    next = applyThemeHeader({...next, config:{...next.config, nav_layout:{...record(next.config.nav_layout),links:[]}}}, theme);
     next = composeThemeFooter(next, order, theme, options, {
       ...options, copy, links: { home: "/", order: "/" },
     });
@@ -370,6 +372,7 @@ export function applyRestaurantTheme(
     }),
   };
 
+  next = applyThemeHeader(next, theme);
   next = composeThemeFooter(next, home, theme, options, context);
   for (const { page, role, types } of targets) {
     const existing = next.sections.filter(section => sectionBelongs(section, page));
@@ -400,6 +403,15 @@ export function applyRestaurantTheme(
     ] };
   }
   return next;
+}
+
+function applyThemeHeader(state: DraftStatePayload, theme: RestaurantTheme): DraftStatePayload {
+  const nav = record(state.config.nav_layout);
+  const previous = record(record(nav.header).logo);
+  const header = headerFromLegacy({...state.config,nav_layout:{...nav,header:undefined}}, state.pages, String(state.config.restaurant_logo_url ?? previous.image ?? ""));
+  header.layout = theme.id === "joy-bakery" ? "center" : theme.id === "youngs-place" ? "stacked" : "left";
+  header.color_style = theme.id === "joy-bakery" ? "accent" : "default";
+  return {...state, config: {...state.config, nav_layout: {...record(state.config.nav_layout), header}}};
 }
 
 function composeThemeFooter(

@@ -211,18 +211,13 @@ export function Inspector({
 
       {selection.kind === "site" && selection.region === "header" ? (
         <HeaderInspector
+          activeElement={selection.headerElement}
           config={state.config}
           sections={state.sections}
-          pages={state.pages.filter(
-            (candidate) => !isTechnicalSitePage(candidate),
-          )}
+          pages={state.pages.filter(candidate => !isTechnicalSitePage(candidate))}
+          restaurantId={restaurantId}
           restaurantLogoUrl={restaurantLogoUrl}
           onChange={onConfigChange}
-          onPageVisibilityChange={(key, visible) =>
-            onPageChange(key, ["nav_visible"], visible)
-          }
-          onRestaurantLogoUpload={onRestaurantLogoUpload}
-          onRestaurantLogoRemove={onRestaurantLogoRemove}
         />
       ) : selection.kind === "site" && selection.region === "footer" ? (
         footer ? (
@@ -238,6 +233,7 @@ export function Inspector({
         )
       ) : selection.kind === "site" ? (
         <SiteInspector
+          sections={state.sections}
           tab={tab}
           config={state.config}
           restaurantId={restaurantId}
