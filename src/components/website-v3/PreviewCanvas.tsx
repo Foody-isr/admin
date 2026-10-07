@@ -58,9 +58,9 @@ export function PreviewCanvas({
   activePage: DraftPagePayload;
   activeSectionKey?: string;
   activeField?: string;
-  activeRegion?: "header" | "footer" | "order-banner" | "order-items" | "order-fulfillment";
+  activeRegion?: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment";
   orderDialog?: "fulfillment" | "item";
-  onSelectRegion?: (region: "header" | "footer" | "order-banner" | "order-items" | "order-fulfillment", element?: HeaderElement) => void;
+  onSelectRegion?: (region: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment", element?: HeaderElement) => void;
   hoveredSectionKey?: string | null;
   onHoverSection: (key: string | null) => void;
   onEditElement: (key: string, field: string, value: string) => void;
@@ -224,7 +224,7 @@ export function PreviewCanvas({
       ) {
         if (event.data.activePageKey !== pageKey(latestRef.current.activePage))
           return;
-        if (event.data.region === "header" || event.data.region === "footer" ||
+        if (event.data.region === "header" || event.data.region === "footer" || event.data.region === "footer-branding" ||
           (latestRef.current.activePage.type === "order" && ["order-banner", "order-items", "order-fulfillment"].includes(event.data.region)))
           onSelectRegion?.(event.data.region, event.data.region === "header" && HEADER_ELEMENTS.includes(event.data.element) ? event.data.element : undefined);
         return;
@@ -259,7 +259,7 @@ export function PreviewCanvas({
         if (!section) {
           if (
             event.data.type === "foody.website-v3.hover-section" &&
-            (id === "site:header" || id === "site:footer" ||
+            (id === "site:header" || id === "site:footer" || id === "site:footer-branding" ||
               (latest.activePage.type === "order" && ["site:order-banner", "site:order-items", "site:order-fulfillment"].includes(id)))
           )
             onHoverSection(id);

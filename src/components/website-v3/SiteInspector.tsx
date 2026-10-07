@@ -186,6 +186,9 @@ export function SiteInspector({
         {footer ? (
           <FooterEditor
             footer={footer}
+            restaurantId={restaurantId}
+            pages={pages}
+            sections={sections}
             tab="content"
             onChange={onFooterChange}
           />
@@ -210,6 +213,9 @@ export function SiteInspector({
         {footer ? (
           <FooterEditor
             footer={footer}
+            restaurantId={restaurantId}
+            pages={pages}
+            sections={sections}
             tab="appearance"
             onChange={onFooterChange}
           />

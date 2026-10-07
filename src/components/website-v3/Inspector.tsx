@@ -26,6 +26,7 @@ import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
 import { sectionBelongs } from "@/lib/website-v3/section-operations";
 import { SectionInspector } from "./SectionInspector";
 import { HeaderInspector } from "./HeaderInspector";
+import { FooterBrandingEditor } from "./FooterBrandingEditor";
 import { FooterEditor } from "./FooterEditor";
 import { SiteInspector } from "./SiteInspector";
 
@@ -219,10 +220,15 @@ export function Inspector({
           restaurantLogoUrl={restaurantLogoUrl}
           onChange={onConfigChange}
         />
-      ) : selection.kind === "site" && selection.region === "footer" ? (
+      ) : selection.kind === "site" && selection.region === "footer-branding" ? (
+        <FooterBrandingEditor config={state.config} onChange={onConfigChange}/>
+      ) : (selection.kind === "site" && selection.region === "footer") || section?.section_type === "footer" ? (
         footer ? (
           <FooterEditor
             footer={footer}
+            restaurantId={restaurantId}
+            pages={state.pages.filter(candidate => !isTechnicalSitePage(candidate))}
+            sections={state.sections}
             tab={tab === "appearance" ? "appearance" : "content"}
             onChange={(path, value) =>
               onSectionChange(stableSectionKey(footer), path, value)
