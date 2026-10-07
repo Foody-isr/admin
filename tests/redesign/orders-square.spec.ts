@@ -12,6 +12,8 @@ async function install(page: Page, locale = 'fr', permissions?: string[]) {
     localStorage.setItem('foody-admin-locale', locale);
     localStorage.setItem('foody_admin_theme', locale === 'he' ? 'dark' : 'light');
   }, { locale });
+  // API routes below always fulfill locally, including when testing an optimized build.
+  await page.route('**/*', route => ['localhost', '127.0.0.1', 'square-fonts-production-f.squarecdn.com'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   await page.route('**/api/v1/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -19,7 +21,6 @@ async function install(page: Page, locale = 'fr', permissions?: string[]) {
     const result = fixture.response(request.url(), request.method(), request.postDataJSON() ?? {}, Number(request.headers()['x-restaurant-id']) || 1);
     await route.fulfill({ status: result.status ?? 200, json: result.json ?? {} });
   });
-  await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   return { fixture, queries };
 }
 
@@ -32,6 +33,18 @@ test('Square order scopes, quick filters and row details retain restaurant conte
   await expect(tabs.getByRole('tab', { name: 'Actives', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('columnheader', { name: 'Source', exact: true })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Articles', exact: true })).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.getByRole('columnheader', { name: 'N°', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: 'Action suivante', exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-list-toolbar]').getByRole('button', { name: /État|Tous les filtres/ })).toHaveCount(0);
+  const measurements = await page.locator('tbody tr').first().evaluate(row => {
+    const cell = row.querySelector('td')!;
+    const header = document.querySelector('thead th')!;
+    const title = document.querySelector('h1')!;
+    return { height: row.getBoundingClientRect().height, marker: getComputedStyle(cell, '::before').content, headerWeight: getComputedStyle(header).fontWeight, titleSize: getComputedStyle(title).fontSize, fontLoaded: document.fonts.check('500 14px "Orders Sans"') };
+  });
+  expect(measurements).toEqual({ height: 70, marker: 'none', headerWeight: '500', titleSize: '25px', fontLoaded: true });
+  expect(await page.locator('tbody tr').evaluateAll(rows => rows.map(row => row.getBoundingClientRect().height))).toEqual(Array(8).fill(70));
   await page.screenshot({ path: info.outputPath('orders-square-fr.png'), fullPage: true });
   await tabs.getByRole('tab', { name: 'Planifiées', exact: true }).click();
   await expect.poll(() => queries.at(-1)?.searchParams.get('is_scheduled')).toBe('true');
@@ -44,8 +57,13 @@ test('Square order scopes, quick filters and row details retain restaurant conte
   await tools.getByRole('searchbox').fill('Client');
   await tools.getByRole('button', { name: 'Rechercher', exact: true }).click();
   await expect.poll(() => queries.at(-1)?.searchParams.get('q')).toBe('Client');
+  await tools.getByRole('button', { name: 'Tout effacer', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.has('payment_status')).toBe(false);
+  await expect.poll(() => queries.at(-1)?.searchParams.has('q')).toBe(false);
+  await expect(tabs.getByRole('tab', { name: 'Tous', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(tools.getByRole('searchbox')).toHaveValue('');
   expect(queries.every(url => url.searchParams.get('restaurant_id') === '2')).toBe(true);
-  await expect(page.locator('tbody tr')).toHaveCount(0);
+  await expect(page.locator('tbody tr').first()).toBeVisible();
   await tools.getByRole('searchbox').fill('Équipe');
   await tools.getByRole('button', { name: 'Rechercher', exact: true }).click();
   await page.locator('tbody tr').first().press('Enter');

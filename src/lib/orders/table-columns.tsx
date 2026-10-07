@@ -1,23 +1,15 @@
 'use client';
 
 import React, { type ReactNode } from 'react';
-import { CalendarClockIcon, CheckCircle2Icon } from 'lucide-react';
 import { Badge } from '@/components/ds';
 import { CashTag } from '@/components/orders/CashTag';
 import {
-  STATUS_TONE,
-  PAYMENT_TONE,
   displayedPaymentStatus,
   localizePaymentStatus,
   localizeStatus,
   localizeOrderType,
   localizeSource,
 } from '@/lib/orders/status-presentation';
-import {
-  formatScheduledDateShort,
-  relativeTimestampDayLabel,
-} from '@/lib/orders/order-time';
-import { getOrderTiming, isOperationalOrder } from '@/lib/orders/operations-board';
 import type { Order, OrdersTableConfig } from '@/lib/api';
 import type { MoneyFormatter } from '@/lib/currency';
 import {
@@ -48,7 +40,7 @@ export interface OrderColumn extends ColumnSpec {
   /** Eligible to be the card heading when the table collapses to cards on
    *  mobile: rendered larger and without a leading label. */
   mobilePrimary?: boolean;
-  render: (order: Order, t: Translate, money: MoneyFormatter) => ReactNode;
+  render: (order: Order, t: Translate, money: MoneyFormatter, locale?: string) => ReactNode;
 }
 
 /**
@@ -62,25 +54,13 @@ export interface OrderColumn extends ColumnSpec {
  */
 export const ORDER_COLUMNS: OrderColumn[] = [
   {
-    key: 'order_no',
-    labelKey: 'orderNoColumn',
-    defaultVisible: true,
-    cellClassName: 'text-fg-secondary tabular-nums',
-    render: (order) => <>#{order.id}</>,
-  },
-  {
     key: 'customer',
     labelKey: 'name',
     defaultVisible: true,
     mobilePrimary: true,
     render: (order, t) => (
-      <span className="flex min-w-0 flex-col md:max-w-[220px]">
-        <span className="truncate font-semibold text-fg-primary">
-          {order.customer_name || t('guestCustomer')}
-        </span>
-        {order.customer_phone && <span className="mt-0.5 truncate text-fs-xs font-normal text-[var(--fg-subtle)]">
-          {order.customer_phone}
-        </span>}
+      <span title={order.customer_name || t('guestCustomer')} className="block w-[184px] max-w-full truncate font-medium">
+        {order.customer_name || t('guestCustomer')}
       </span>
     ),
   },
@@ -88,25 +68,26 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     key: 'source',
     labelKey: 'source',
     defaultVisible: true,
-    cellClassName: 'text-fg-secondary md:min-w-[110px]',
+    cellClassName: 'md:min-w-[120px]',
     render: (order, t) => localizeSource(order.order_source, t),
   },
   {
     key: 'type',
     labelKey: 'type',
     defaultVisible: true,
-    cellClassName: 'text-fg-secondary md:min-w-[110px]',
+    cellClassName: 'md:min-w-[120px]',
     render: (order, t) => localizeOrderType(order.order_type, t),
   },
   {
     key: 'items',
     labelKey: 'items',
     defaultVisible: true,
+    cellClassName: 'md:min-w-[172px]',
     render: (order) => (
       <span role="group" className="flex items-center gap-2" aria-label={(order.items ?? []).map(item => `${item.quantity} × ${item.name}`).join(', ')}>
         {(order.items ?? []).slice(0, 2).map(item => (
           <span key={item.id} title={`${item.quantity} × ${item.name}`}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-2)] text-sm font-semibold text-[var(--fg-muted)]" aria-hidden="true">
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--line)] text-sm font-medium text-[var(--fg-muted)]" aria-hidden="true">
             {Array.from(item.name).slice(0, 2).join('')}
           </span>
         ))}
@@ -118,54 +99,25 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     key: 'created_at',
     labelKey: 'orderDate',
     defaultVisible: true,
-    cellClassName: 'text-fg-secondary',
-    render: (order, t) => {
-      const date = new Date(order.created_at);
-      const relative = relativeTimestampDayLabel(order.created_at, t);
-      return (
-        <div className="flex items-baseline gap-1.5 md:flex-col md:items-stretch md:gap-0">
-          <span className="tabular-nums">
-            {relative ?? date.toLocaleDateString([], { day: '2-digit', month: 'short' })}
-          </span>
-          <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
-            {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        </div>
-      );
-    },
+    cellClassName: 'md:min-w-[200px]',
+    render: (order, _t, _money, locale) => (
+      <span className="whitespace-nowrap">{new Date(order.created_at).toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+    ),
   },
   {
     key: 'date',
     labelKey: 'dateBasisSerieOption',
     defaultVisible: true,
-    cellClassName: 'text-fg-secondary',
-    render: (order, t) => {
+    cellClassName: 'md:min-w-[200px]',
+    render: (order, _t, _money, locale) => {
       const scheduled = !!order.is_scheduled && !!order.scheduled_for;
       const date = scheduled ? order.scheduled_for! : order.created_at;
-      const relative = scheduled ? null : relativeTimestampDayLabel(date, t);
       const window = scheduled && order.scheduled_pickup_window_start && order.scheduled_pickup_window_end
         ? `${order.scheduled_pickup_window_start}–${order.scheduled_pickup_window_end}`
         : null;
-      const secondary = scheduled
-        ? window
-        : new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      return (
-        <div className="flex items-center gap-2">
-          {scheduled && <CalendarClockIcon className="size-3.5 shrink-0 text-[var(--info-500)]" />}
-          <div className="flex items-baseline gap-1.5 md:flex-col md:items-stretch md:gap-0">
-            <span className="tabular-nums">
-              {scheduled
-                ? formatScheduledDateShort(date)
-                : relative ?? new Date(date).toLocaleDateString([], { day: '2-digit', month: 'short' })}
-            </span>
-            {secondary && (
-              <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
-                {secondary}
-              </span>
-            )}
-          </div>
-        </div>
-      );
+      return <span className="whitespace-nowrap">{window
+        ? `${new Date(date).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}, ${window}`
+        : new Date(date).toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>;
     },
   },
   {
@@ -173,34 +125,11 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     labelKey: 'status',
     defaultVisible: true,
     render: (order, t) => {
-      const timing = getOrderTiming(order);
-      const showTiming = isOperationalOrder(order) && !timing.scheduledForFuture;
       return (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
-            {localizeStatus(order.status, t)}
-          </Badge>
-          {order.external_metadata?.stock_oversold === true && (
-            <Badge tone="warning" dot>
-              {t('stockOversoldBadge')}
-            </Badge>
-          )}
-          {showTiming && (
-            <span
-              className={`text-fs-xs tabular-nums ${
-                timing.overdue
-                  ? 'font-semibold text-[var(--danger-500)]'
-                  : timing.approaching
-                    ? 'font-medium text-[var(--warning-600)]'
-                    : 'text-[var(--fg-subtle)]'
-              }`}
-            >
-              {timing.overdue && timing.threshold !== null
-                ? t('ordersOverdueBy').replace('{n}', String(timing.overdueBy))
-                : t('ordersInStageFor').replace('{n}', String(timing.minutes))}
-            </span>
-          )}
-        </div>
+        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          {localizeStatus(order.status, t)}
+          {order.external_metadata?.stock_oversold === true && <Badge tone="warning" dot>{t('stockOversoldBadge')}</Badge>}
+        </span>
       );
     },
   },
@@ -213,17 +142,8 @@ export const ORDER_COLUMNS: OrderColumn[] = [
       const balanceDue = order.balance_due ?? 0;
       return (
         <div className="flex flex-col items-start gap-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {paymentStatus === 'paid' ? (
-              <span className="inline-flex items-center gap-1.5 text-fs-sm text-[var(--fg-muted)]">
-                <CheckCircle2Icon className="size-4 text-[var(--success-500)]" />
-                {t('paid')}
-              </span>
-            ) : (
-              <Badge tone={PAYMENT_TONE[paymentStatus] ?? 'neutral'} dot>
-                {localizePaymentStatus(paymentStatus, t)}
-              </Badge>
-            )}
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <span>{localizePaymentStatus(paymentStatus, t)}</span>
             <CashTag order={order} />
           </div>
           {paymentStatus === 'partially_paid' && balanceDue > 0.01 && (
@@ -244,6 +164,13 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     render: (order, _t, money) => (
       <>{money(order.total_amount ?? 0, { decimals: 0, grouped: true }).replace(/,/g, '\u202f')}</>
     ),
+  },
+  {
+    key: 'order_no',
+    labelKey: 'orderNoColumn',
+    defaultVisible: false,
+    cellClassName: 'text-fg-secondary tabular-nums',
+    render: (order) => <>#{order.id}</>,
   },
   // Delivery columns. Hidden by default: a restaurant that does not deliver
   // would otherwise inherit four permanently empty columns.

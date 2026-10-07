@@ -14,6 +14,8 @@ async function install(page: Page, options: { locale?: string; theme?: string; p
     localStorage.setItem('foody-admin-locale',locale);
     localStorage.setItem('foody_admin_theme',theme);
   }, { locale:options.locale ?? 'fr', theme:options.theme ?? 'light' });
+  // API routes below always fulfill locally, including when testing an optimized build.
+  await page.route('**/*', route => ['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   await page.route('**/api/v1/**', async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -22,7 +24,6 @@ async function install(page: Page, options: { locale?: string; theme?: string; p
     const result = fixture.response(request.url(), request.method(), request.postDataJSON() ?? {}, Number(request.headers()['x-restaurant-id']) || 1);
     await route.fulfill({ status:result.status ?? 200, json:result.json ?? {} });
   });
-  await page.route('**/*', route => ['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   return fixture;
 }
 
@@ -155,24 +156,19 @@ for (const path of ['kitchen/stock', 'kitchen/prep', 'menu/menus', 'staff', 'set
   });
 }
 
-test('order payment and status filters apply once and closing discards the draft', async ({ page }) => {
+test('order quick filters reset without changing the selected lifecycle tab', async ({ page }) => {
   const fixture = await install(page);
   const queries: URL[] = [];
   page.on('request', request => { const url = new URL(request.url()); if (url.pathname === '/api/v1/orders') queries.push(url); });
   await page.goto('/1/orders/all');
-  await expect(page.locator('[data-list-toolbar]')).toBeVisible();
-  await page.getByRole('button', { name:'Tous les filtres', exact:true }).click();
-  const drawer = page.getByRole('dialog');
-  await drawer.getByRole('button', { name:/Statut de paiement/ }).click();
-  await drawer.getByRole('radio', { name:'Payé', exact:true }).check();
-  await page.keyboard.press('Escape');
-  expect(queries.at(-1)?.searchParams.get('payment_status')).not.toBe('paid');
-  await page.getByRole('button', { name:'Tous les filtres', exact:true }).click();
-  await drawer.getByRole('button', { name:/Statut de paiement/ }).click();
-  await expect(drawer.getByRole('radio', { name:'Payé', exact:true })).not.toBeChecked();
-  await drawer.getByRole('radio', { name:'Payé', exact:true }).check();
-  await drawer.getByRole('button', { name:'Appliquer', exact:true }).click();
+  await page.getByRole('tab', { name: 'Planifiées', exact: true }).click();
+  const tools = page.locator('[data-list-toolbar]');
+  await tools.getByRole('button', { name: /Statut de paiement/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Payé', exact: true }).click();
   await expect.poll(() => queries.at(-1)?.searchParams.get('payment_status')).toBe('paid');
+  await tools.getByRole('button', { name: 'Tout effacer', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.has('payment_status')).toBe(false);
+  await expect.poll(() => queries.at(-1)?.searchParams.get('is_scheduled')).toBe('true');
   expect(fixture.writes).toEqual([]);
 });
 
