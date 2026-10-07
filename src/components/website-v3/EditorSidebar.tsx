@@ -1,4 +1,5 @@
 "use client";
+import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -762,7 +763,7 @@ export function EditorSidebar({
                               onPreviewSection(item.type, layout.value);
                             }}
                           >
-                            <span
+                            {item.type === "text_and_image" ? <EditorialLayoutPreview layout={layout.value} /> : <span
                               aria-hidden="true"
                               className={`sqe-layout-mini sqe-layout-mini--${layout.value}`}
                             >
@@ -770,7 +771,7 @@ export function EditorSidebar({
                               <i />
                               <i />
                               <b />
-                            </span>
+                            </span>}
                             <span>{t(layout.labelKey)}</span>
                           </button>
                         ))}
@@ -865,6 +866,7 @@ export function EditorSidebar({
             ) : selectedSection &&
               sectionContentOpen &&
               tab === "content" &&
+              selectedSection.section_type !== "text_and_image" &&
               EDITOR_ELEMENTS[selectedSection.section_type] ? (
               <SectionElements
                 section={selectedSection}

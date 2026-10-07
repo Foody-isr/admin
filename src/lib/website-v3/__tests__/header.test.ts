@@ -153,3 +153,15 @@ test("page changes keep nested Header targets and newly added pages connected", 
     1,
   );
 });
+
+test("fulfillment retires saved color overrides while preserving visibility and Header styles", () => {
+  for (const enabled of [true, false]) {
+    const header = normalizeWebsiteHeader({
+      color_style: "style-4",
+      fulfillment: { enabled, background: "#ff0000" },
+    });
+    assert.deepEqual(header.fulfillment, { enabled, background: "" });
+    assert.equal(header.color_style, "style-4");
+    assert.deepEqual(normalizeWebsiteHeader(header), header);
+  }
+});

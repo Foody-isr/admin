@@ -510,12 +510,6 @@ export function HeaderInspector({
             <>
               {toggle("fulfillment", c.fulfillment)}
               <p>{c.fulfillmentHelp}</p>
-              {color(
-                c.background,
-                header.fulfillment.background,
-                (value) => patch("fulfillment", { background: value }),
-                "#f5f5f5",
-              )}
             </>,
           )}
         </>

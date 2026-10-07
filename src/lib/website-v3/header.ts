@@ -196,7 +196,8 @@ export function normalizeWebsiteHeader(value: unknown): WebsiteHeader {
     },
     fulfillment: {
       enabled: bool(fulfillment.enabled, false),
-      background: color(fulfillment.background),
+      // Keep the legacy wire field empty: fulfillment inherits the Header style.
+      background: "",
     },
   };
 }

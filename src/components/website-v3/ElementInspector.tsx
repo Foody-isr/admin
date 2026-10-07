@@ -71,7 +71,7 @@ export function SectionElements({
               section.settings[`show_${field}`] !== false &&
               Boolean(
                 section.content[field] ||
-                  (field === "image_url" && section.content.video_url),
+                (field === "image_url" && section.content.video_url),
               )
             }
             onChange={(event) => {
@@ -122,7 +122,8 @@ export function ElementInspector({
     `${field === "cta_text" ? "cta" : field}_${suffix}`;
   const set = (suffix: string, value: unknown) =>
     onChange(["settings", setting(suffix)], value);
-  const heading = field === "headline" || field === "title";
+  const scrolling = section.section_type === "scrolling_text";
+  const heading = field === "headline" || field === "title" || scrolling;
   const bold =
     section.settings[setting("weight")] === "bold" ||
     (!section.settings[setting("weight")] && heading);
@@ -166,7 +167,14 @@ export function ElementInspector({
       <InspectorField label={t("editorTextStyle")}>
         <select
           className={controlClass}
-          value={String(section.settings[setting("size")] ?? "md")}
+          value={String(
+            section.settings[setting("size")] ??
+              (scrolling
+                ? section.settings.theme_layout === "youngs-place"
+                  ? "xl"
+                  : "sm"
+                : "md"),
+          )}
           onChange={(event) => set("size", event.target.value)}
         >
           {(heading ? ["sm", "md", "lg", "xl"] : ["sm", "md", "lg"]).map(
@@ -178,6 +186,18 @@ export function ElementInspector({
           )}
         </select>
       </InspectorField>
+      {scrolling && (
+        <InspectorField label={t("editorFonts")}>
+          <select
+            className={controlClass}
+            value={String(section.settings.text_font_role ?? "heading")}
+            onChange={(event) => set("font_role", event.target.value)}
+          >
+            <option value="heading">{t("editorHeadline")}</option>
+            <option value="body">{t("editorText")}</option>
+          </select>
+        </InspectorField>
+      )}
       <div
         className="sqe-element-format"
         role="group"
@@ -210,7 +230,12 @@ export function ElementInspector({
       <ToggleField
         fieldId={`section.settings.${setting("uppercase")}`}
         label={t("editorAllCaps")}
-        checked={section.settings[setting("uppercase")] === true}
+        checked={
+          section.settings[setting("uppercase")] === true ||
+          (scrolling &&
+            section.settings[setting("uppercase")] == null &&
+            section.settings.theme_layout === "youngs-place")
+        }
         onChange={(value) => set("uppercase", value)}
       />
       {field === "cta_text" && (
