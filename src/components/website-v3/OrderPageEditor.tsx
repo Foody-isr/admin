@@ -1,5 +1,7 @@
 "use client";
 import { ColorStylePicker } from "./ColorStylePicker";
+import { OrderColorField } from "./OrderColorField";
+import { previousOrderPresentation } from "@/lib/website-v3/order-design";
 
 import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -31,6 +33,35 @@ export function OrderPageEditor({
   const value = record(page.appearance_overrides.website_order);
   const set = (key: string, next: unknown) =>
     onChange(["appearance_overrides", "website_order", key], next);
+  const color = (key: string, label: string) => (
+    <OrderColorField
+      key={key}
+      fieldId={`page.appearance_overrides.website_order.${key}`}
+      label={t(label)}
+      value={value[key]}
+      onChange={(next) => set(key, next)}
+    />
+  );
+  const sectionColors = record(page.appearance_overrides.section_colors);
+  const categoryColors = {
+    ...record(sectionColors.categoryBar),
+    ...record(sectionColors.categoryBarSticky),
+  };
+  const categoryColor = (key: string, label: string) => (
+    <OrderColorField
+      key={key}
+      fieldId={`page.appearance_overrides.section_colors.categoryBar.${key}`}
+      label={t(label)}
+      value={categoryColors[key]}
+      onChange={(next) => {
+        const { categoryBarSticky: _legacy, ...rest } = sectionColors;
+        onChange(["appearance_overrides", "section_colors"], {
+          ...rest,
+          categoryBar: { ...categoryColors, [key]: next },
+        });
+      }}
+    />
+  );
   const toggle = (key: string, label: string, fallback = true) => (
     <label className="sqe-order-toggle" key={key}>
       <span>{t(label)}</span>
@@ -72,6 +103,7 @@ export function OrderPageEditor({
           value={String(value[`${prefix}_style`] ?? fallback)}
           onChange={(event) => set(`${prefix}_style`, event.target.value)}
         >
+          <option value="inherit">{t("editorOrderInherited")}</option>
           {[1, 2, 3, 4].map((level) => (
             <option key={`title-${level}`} value={`title-${level}`}>
               {t("editorField_title")} {level}
@@ -84,12 +116,31 @@ export function OrderPageEditor({
           ))}
         </select>
       </label>
-      {select(`${prefix}_alignment`, "editorAlignment", "start", [
-        ["start", "editorAlign_left"],
-        ["center", "editorAlign_center"],
-        ["end", "editorAlign_right"],
-      ])}
-      {toggle(`${prefix}_caps`, "editorOrderAllCaps", false)}
+      {!(
+        prefix === "category_title" && value[`${prefix}_style`] === "inherit"
+      ) && (
+        <>
+          {select(`${prefix}_alignment`, "editorAlignment", "start", [
+            ["start", "editorAlign_left"],
+            ["center", "editorAlign_center"],
+            ["end", "editorAlign_right"],
+          ])}
+          {toggle(`${prefix}_caps`, "editorOrderAllCaps", false)}
+        </>
+      )}
+      {value[`${prefix}_style`] !== "inherit" &&
+        select(
+          `${prefix}_weight`,
+          "editorOrderTextWeight",
+          String(value[`${prefix}_style`] ?? fallback).startsWith("title")
+            ? "semibold"
+            : "regular",
+          [
+            ["regular", "editorOrderWeightRegular"],
+            ["semibold", "editorOrderWeightSemibold"],
+            ["bold", "editorOrderWeightBold"],
+          ],
+        )}
     </>
   );
   if (region === "order-banner")
@@ -116,7 +167,13 @@ export function OrderPageEditor({
   if (region === "order-fulfillment")
     return (
       <div className="sqe-panel-body sqe-order-settings">
-        {sharedHeader ? <button className="sqe-button" onClick={onEditHeader}>{t("editorHeader")}</button> : toggle("show_fulfillment", "editorOrderShowService")}
+        {sharedHeader ? (
+          <button className="sqe-button" onClick={onEditHeader}>
+            {t("editorHeader")}
+          </button>
+        ) : (
+          toggle("show_fulfillment", "editorOrderShowService")
+        )}
         {toggle("prompt_on_entry", "editorOrderPrompt")}
         {toggle("modal_cover", "editorOrderModalCover")}
         {toggle("modal_logo", "editorLogo")}
@@ -136,6 +193,19 @@ export function OrderPageEditor({
         >
           {t("editorViewItems")}
         </a>
+        <button
+          type="button"
+          className="sqe-button sqe-button--outline"
+          onClick={() =>
+            onChange(
+              ["appearance_overrides", "website_order"],
+              previousOrderPresentation(value),
+            )
+          }
+        >
+          {t("editorOrderUseExistingStyle")}
+        </button>
+        <p>{t("editorOrderUseExistingStyleHint")}</p>
       </div>
       <div className="sqe-order-customize">
         <h3>{t("editorCustomize")}</h3>
@@ -164,7 +234,14 @@ export function OrderPageEditor({
             ["3", "3"],
             ["4", "4"],
           ])}
-          <ColorStylePicker value={String(value.color_style ?? "default")} onChange={id => set("color_style", id)} />
+          {select("content_width", "editorOrderContentWidth", "standard", [
+            ["standard", "editorOrderWidthStandard"],
+            ["wide", "editorOrderWidthWide"],
+          ])}
+          <ColorStylePicker
+            value={String(value.color_style ?? "default")}
+            onChange={(id) => set("color_style", id)}
+          />
           {select("background_kind", "editorBackground", "style", [
             ["style", "editorOrderColorStyle"],
             ["color", "editorOrderCustomColor"],
@@ -208,8 +285,27 @@ export function OrderPageEditor({
           {toggle("show_categories", "editorCategoryMenu")}
           {typography("category", "paragraph-3")}
           {toggle("category_background", "editorBackground", false)}
+          {select("category_shape", "editorShape", "plain", [
+            ["plain", "editorNone"],
+            ["rounded", "editorShapeRound"],
+            ["pill", "editorOrderShapePill"],
+          ])}
+          {toggle("sticky_categories", "editorOrderStickyCategories", false)}
+          {categoryColor("bg", "websiteV3CategoryBarBackground")}
+          {categoryColor("text", "websiteV3CategoryBarText")}
+          {categoryColor("pillBg", "editorOrderPillBackground")}
+          {categoryColor("activeBg", "websiteV3CategoryBarActiveBackground")}
+          {categoryColor("activeText", "websiteV3CategoryBarActiveText")}
         </details>
         {toggle("show_search", "editorOrderSearch")}
+        {value.show_search !== false && (
+          <details>
+            <summary>{t("editorOrderSearchColors")}</summary>
+            {categoryColor("searchBg", "websiteV3CategoryBarSearchBackground")}
+            {categoryColor("searchText", "websiteV3CategoryBarSearchText")}
+          </details>
+        )}
+        {toggle("show_availability_filter", "editorOrderAvailabilityFilter")}
         {toggle("show_category_titles", "editorCategoryTitles")}
         {value.show_category_titles !== false && (
           <details>
@@ -219,12 +315,20 @@ export function OrderPageEditor({
         )}
         <details>
           <summary>{t("editorItemCards")}</summary>
+          {select("card_style", "editorOrderCardStyle", "plain", [
+            ["plain", "editorOrderCardPlain"],
+            ["filled", "editorOrderCardFilled"],
+          ])}
+          {color("card_background", "editorBackground")}
           {select("card_border", "editorBorder", "none", [
             ["none", "editorNone"],
             ["line", "editorOrderBorderLine"],
           ])}
+          {value.card_border === "line" &&
+            color("card_border_color", "editorOrderBorderColor")}
           {select("card_radius", "editorShape", "square", [
             ["square", "editorShapeSquare"],
+            ["soft", "editorOrderShapeSoft"],
             ["rounded", "editorShapeRound"],
           ])}
         </details>
@@ -240,19 +344,37 @@ export function OrderPageEditor({
             ["cover", "editorImageFill"],
             ["contain", "editorImageContain"],
           ])}
+          {select("image_radius", "editorShape", "square", [
+            ["square", "editorShapeSquare"],
+            ["soft", "editorOrderShapeSoft"],
+            ["rounded", "editorShapeRound"],
+          ])}
+          {select("item_action", "editorOrderAddButton", "none", [
+            ["none", "editorOrderWholeCard"],
+            ["cutout", "editorOrderCutout"],
+          ])}
         </details>
         <details>
           <summary>{t("editorItemTitles")}</summary>
           {toggle("show_item_titles", "editorItemTitles")}
           {typography("item_title", "paragraph-2")}
+          {color("card_title_color", "editorText")}
         </details>
         <details>
           <summary>{t("editorItemPrices")}</summary>
           {toggle("show_prices", "editorItemPrices")}
+          {select("price_display", "editorOrderPriceDisplay", "range", [
+            ["range", "editorOrderPriceRange"],
+            ["starting", "editorOrderPriceStarting"],
+          ])}
           {typography("item_price", "paragraph-3")}
+          {color("card_price_color", "editorText")}
         </details>
         {toggle("show_badges", "editorBadges")}
         {toggle("show_descriptions", "editorItemDescriptions", false)}
+        {value.show_descriptions === true &&
+          color("card_description_color", "editorOrderDescriptionColor")}
+        {toggle("show_portions", "editorOrderPortions")}
         <details onToggle={(event) => onPreviewItem(event.currentTarget.open)}>
           <summary>{t("editorItemView")}</summary>
           <p>{t("editorItemViewHint")}</p>

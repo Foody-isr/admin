@@ -1,8 +1,12 @@
 // Isolated, synthetic API for exercising the editor against the real storefront.
 // Run with node; it never proxies requests or uses external credentials.
 import http from "node:http";
+import { readFileSync } from "node:fs";
 import { createFixture } from "./fixtures.mjs";
 const base = createFixture();
+const menuAppearance = process.env.FOODY_MENU_APPEARANCE === "1"
+  ? JSON.parse(readFileSync(new URL("./fixtures/mamie-menu-appearance.json", import.meta.url), "utf8"))
+  : null;
 const date = "2026-10-04T12:00:00Z";
 const image = "http://localhost:3003/images/login/cafe-israel.webp";
 const page = (id, type, slug, title, settings = {}) => ({
@@ -109,6 +113,13 @@ if (featuredRegression) {
     {...section(7, "featured_menu", {title: "Featured Menu Items", subtitle: "Try one of our signature selections", item_ids: [1,2,3,4], cta_text: "Explore our menu"}, "list"), settings: {color_style: "site"}},
   ];
 }
+if (menuAppearance) {
+  draft.config = { ...draft.config, ...menuAppearance.config, navbar_color: "#6e1f13", navbar_text_color: "#ffffff" };
+  draft.pages[1].appearance_overrides = { ...menuAppearance.order_appearance, foody_renderer_version: 1, website_order: {
+    show_banner: false, show_fulfillment: false, prompt_on_entry: false,
+  }};
+  draft.sections = [];
+}
 let published = structuredClone(draft),
   dirty = false;
 const response = () => ({
@@ -127,6 +138,7 @@ const restaurant = () => ({
   cover_url: process.env.FOODY_THEME_REGRESSION === "1" ? "" : image,
   default_locale: "en",
   catering_enabled: false,
+  ...(menuAppearance ? {name: "MAMIE — aperçu local"} : {}),
   ...(featuredRegression ? { opening_hours_config: Object.fromEntries(
     ["dine_in", "pickup", "delivery"].map((service) => [service, Object.fromEntries(
       ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, {closed: false, open: "00:00", close: "00:00"}]),
@@ -225,7 +237,7 @@ http
       result = {
         json: {
           ...(featuredRegression ? {popular_item_ids: [4,2,1,3,5,6]} : {}),
-          menus: [
+          menus: menuAppearance?.menus ?? [
             {
               id: 1,
               name: "Our menu",

@@ -31,6 +31,24 @@ function render(element: React.ReactElement): string {
   );
 }
 
+test("order menu exposes bounded colors and independent card/image shapes in its Square panels", () => {
+  const markup = render(React.createElement(OrderPageEditor, {
+    restaurantId: 24,
+    page: { type: "order", slug: "order", title: "Order", sort_order: 0,
+      nav_visible: true, is_homepage: false, is_default: true, seo: {}, settings: { menu_ids: [1] },
+      appearance_overrides: { website_order: { card_style: "filled", card_radius: "soft", image_radius: "rounded", show_descriptions: true } } },
+    region: "order-items", onChange: () => undefined, onPreviewItem: () => undefined,
+  }));
+  for (const key of ["card_background", "card_title_color", "card_description_color", "card_price_color"])
+    assert.ok(markup.includes(`page.appearance_overrides.website_order.${key}`));
+  for (const key of ["bg", "text", "pillBg", "activeBg", "activeText", "searchBg", "searchText"])
+    assert.ok(markup.includes(`page.appearance_overrides.section_colors.categoryBar.${key}`));
+  assert.match(markup, /value="soft" selected=""/);
+  assert.match(markup, /value="rounded" selected=""/);
+  assert.match(markup, /Use the previous menu layout/);
+  assert.doesNotMatch(markup, /categoryBarSticky\./);
+});
+
 test("category headings have a visible toggle; menu headings follow the number of menus", () => {
   const markup = render(React.createElement(OrderPageEditor, {
     restaurantId: 24,

@@ -1,0 +1,886 @@
+{
+  "config": {
+    "theme_id": "custom",
+    "custom_palette": {
+      "bg": "#de5328",
+      "ink": "#ffffff",
+      "mode": "dark",
+      "accent": "#e7cb5e",
+      "surface": "#6D1F13"
+    },
+    "typography": {
+      "roles": {
+        "itemName": {
+          "font": "Montserrat"
+        },
+        "itemPrice": {
+          "font": "Montserrat"
+        },
+        "categoryTitle": {
+          "font": "Eros Condensed",
+          "weight": 400,
+          "sizeMult": 3,
+          "transform": "uppercase"
+        },
+        "itemDescription": {
+          "font": "Montserrat"
+        }
+      },
+      "extraFonts": [
+        {
+          "faces": [
+            {
+              "url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/restaurants/5/fonts/b87a0df2-0ea6-4ec3-af96-9894cda1fb6a.otf",
+              "style": "normal",
+              "format": "opentype",
+              "weight": 400
+            },
+            {
+              "url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/restaurants/5/fonts/d76dadc6-afed-47c1-816a-64447bc02f97.otf",
+              "style": "normal",
+              "format": "opentype",
+              "weight": 300
+            }
+          ],
+          "family": "Eros Condensed",
+          "weights": [
+            300,
+            400
+          ],
+          "category": "custom",
+          "supportsHebrew": false
+        }
+      ]
+    },
+    "category_banner_style": "text-block",
+    "pairing_id": "modern-sans",
+    "brand_color": "#f57c19"
+  },
+  "menus": [
+    {
+      "id": 1,
+      "name": "SHABBAT",
+      "groups": [
+        {
+          "id": 12,
+          "name": "Salades",
+          "banner_design": {
+            "title": {
+              "font": "",
+              "size": 2.5,
+              "text": "SALADES",
+              "align": "center",
+              "color": "#f97315"
+            },
+            "bgColor": "#d3b8a7",
+            "stickers": [
+              {
+                "id": "x7k00s0",
+                "xPct": 22,
+                "yPct": 40.1,
+                "imageUrl": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-groups/5/225de374-f32a-4f75-a059-64d526f4497d.png",
+                "widthPct": 21,
+                "rotationDeg": -45
+              }
+            ]
+          },
+          "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-groups/5/de05af52-66fb-4ce4-bb41-114dd4c3fadc.png",
+          "translations": {
+            "name": {
+              "en": "Salads",
+              "he": "סלטים"
+            }
+          },
+          "items": [
+            {
+              "id": 78,
+              "name": "L'OR ROUGE",
+              "description": "salade cuite",
+              "price": 35,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/7beda914-d884-4497-aaa4-55c3591c241d.jpg",
+              "portion": "250g",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {
+                "description": {
+                  "en": "Cooked salad",
+                  "he": "סלט מבושל"
+                },
+                "name": {
+                  "en": "RED GOLD",
+                  "he": "זהב אדום"
+                },
+                "portion": {
+                  "en": "250 g",
+                  "he": "250 גרם"
+                }
+              },
+              "option_sets": [
+                {
+                  "id": 5,
+                  "restaurant_id": 5,
+                  "name": "Tailles Salade",
+                  "sort_order": 0,
+                  "translations": {
+                    "name": {
+                      "en": "Salad sizes",
+                      "he": "גדלי סלט"
+                    }
+                  },
+                  "created_at": "2026-04-04T22:35:57.882244Z",
+                  "options": [
+                    {
+                      "id": 7,
+                      "option_set_id": 5,
+                      "name": "250g",
+                      "price": 35,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 0,
+                      "translations": {
+                        "name": {
+                          "en": "250 g",
+                          "he": "250 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.882665Z",
+                      "is_combo_only": false,
+                      "availability_state": "available"
+                    },
+                    {
+                      "id": 8,
+                      "option_set_id": 5,
+                      "name": "500g",
+                      "price": 70,
+                      "online_price": 70,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 1,
+                      "translations": {
+                        "name": {
+                          "en": "500g",
+                          "he": "500 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.883208Z",
+                      "is_combo_only": false,
+                      "availability_state": "available"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 1498,
+              "name": "MAKBOUBA",
+              "description": "mijoté de poivrons et tomates fraîches ",
+              "price": 35,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/64f975c6-486f-4129-9166-1478986c3eda.JPG",
+              "portion": "250g",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {
+                "description": {
+                  "en": "Fresh bell pepper and tomato stew ",
+                  "he": "פלפל חריף טרי ותבשיל עגבניות "
+                },
+                "portion": {
+                  "en": "250 g",
+                  "he": "250 גרם"
+                }
+              },
+              "option_sets": [
+                {
+                  "id": 50,
+                  "restaurant_id": 5,
+                  "name": "Options",
+                  "sort_order": 0,
+                  "translations": {
+                    "name": {
+                      "en": "Options",
+                      "he": "אופציות"
+                    }
+                  },
+                  "created_at": "2026-08-21T07:27:15.058654Z",
+                  "options": [
+                    {
+                      "id": 118,
+                      "option_set_id": 50,
+                      "name": "250g",
+                      "price": 35,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 0,
+                      "translations": {
+                        "name": {
+                          "en": "250 g",
+                          "he": "250 גרם"
+                        }
+                      },
+                      "created_at": "2026-08-21T07:27:15.078262Z",
+                      "is_combo_only": false
+                    },
+                    {
+                      "id": 119,
+                      "option_set_id": 50,
+                      "name": "500g",
+                      "price": 70,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 1,
+                      "translations": {
+                        "name": {
+                          "en": "500g",
+                          "he": "500 גרם"
+                        }
+                      },
+                      "created_at": "2026-08-21T07:27:15.15328Z",
+                      "is_combo_only": false
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 938,
+              "name": "AUBERGINE",
+              "description": "confites à la tomate",
+              "price": 35,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/23304967-0dd3-4302-a9a1-ef12c2ac1194.jpg",
+              "portion": "250g",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {
+                "description": {
+                  "en": "Tomato confit",
+                  "he": "קונפי עגבניות"
+                },
+                "name": {
+                  "en": "EGGPLANT",
+                  "he": "חציל"
+                },
+                "portion": {
+                  "en": "250 g",
+                  "he": "250 גרם"
+                }
+              },
+              "option_sets": [
+                {
+                  "id": 5,
+                  "restaurant_id": 5,
+                  "name": "Tailles Salade",
+                  "sort_order": 0,
+                  "translations": {
+                    "name": {
+                      "en": "Salad sizes",
+                      "he": "גדלי סלט"
+                    }
+                  },
+                  "created_at": "2026-04-04T22:35:57.882244Z",
+                  "options": [
+                    {
+                      "id": 7,
+                      "option_set_id": 5,
+                      "name": "250g",
+                      "price": 35,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 0,
+                      "translations": {
+                        "name": {
+                          "en": "250 g",
+                          "he": "250 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.882665Z",
+                      "is_combo_only": false,
+                      "availability_state": "available"
+                    },
+                    {
+                      "id": 8,
+                      "option_set_id": 5,
+                      "name": "500g",
+                      "price": 70,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 1,
+                      "translations": {
+                        "name": {
+                          "en": "500g",
+                          "he": "500 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.883208Z",
+                      "is_combo_only": false,
+                      "availability_state": "available"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 79,
+              "name": "SALADE D'OEUF",
+              "description": "oignon vert",
+              "price": 35,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/46503d55-6604-424e-b8c2-d079a489ff2c.jpg",
+              "portion": "250g",
+              "is_active": true,
+              "availability_state": "low",
+              "buildable_count": 1,
+              "translations": {
+                "description": {
+                  "en": "green onion",
+                  "he": "בצל ירוק"
+                },
+                "name": {
+                  "en": "EGG SALAD",
+                  "he": "סלט ביצים"
+                },
+                "portion": {
+                  "en": "250 g",
+                  "he": "250 גרם"
+                }
+              },
+              "option_sets": [
+                {
+                  "id": 5,
+                  "restaurant_id": 5,
+                  "name": "Tailles Salade",
+                  "sort_order": 0,
+                  "translations": {
+                    "name": {
+                      "en": "Salad sizes",
+                      "he": "גדלי סלט"
+                    }
+                  },
+                  "created_at": "2026-04-04T22:35:57.882244Z",
+                  "options": [
+                    {
+                      "id": 7,
+                      "option_set_id": 5,
+                      "name": "250g",
+                      "price": 35,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 0,
+                      "translations": {
+                        "name": {
+                          "en": "250 g",
+                          "he": "250 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.882665Z",
+                      "is_combo_only": false,
+                      "availability_state": "available"
+                    },
+                    {
+                      "id": 8,
+                      "option_set_id": 5,
+                      "name": "500g",
+                      "price": 70,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 1,
+                      "translations": {
+                        "name": {
+                          "en": "500g",
+                          "he": "500 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.883208Z",
+                      "is_combo_only": false,
+                      "availability_state": "sold_out"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 4088,
+              "name": "PIMENTS FRITS",
+              "description": "huile d'olive",
+              "price": 30,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/075b07e8-060f-44f3-8d6f-6f598d6a34f1.jpeg",
+              "portion": "250g",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {},
+              "option_sets": [
+                {
+                  "id": 50,
+                  "restaurant_id": 5,
+                  "name": "Options",
+                  "sort_order": 0,
+                  "translations": {
+                    "name": {
+                      "en": "Options",
+                      "he": "אופציות"
+                    }
+                  },
+                  "created_at": "2026-08-21T07:27:15.058654Z",
+                  "options": [
+                    {
+                      "id": 118,
+                      "option_set_id": 50,
+                      "name": "250g",
+                      "price": 30,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 0,
+                      "translations": {
+                        "name": {
+                          "en": "250 g",
+                          "he": "250 גרם"
+                        }
+                      },
+                      "created_at": "2026-08-21T07:27:15.078262Z",
+                      "is_combo_only": false
+                    },
+                    {
+                      "id": 119,
+                      "option_set_id": 50,
+                      "name": "500g",
+                      "price": 60,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 1,
+                      "translations": {
+                        "name": {
+                          "en": "500g",
+                          "he": "500 גרם"
+                        }
+                      },
+                      "created_at": "2026-08-21T07:27:15.15328Z",
+                      "is_combo_only": false
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 1497,
+              "name": "HOUMOUS",
+              "description": "pois chiche, zaatar",
+              "price": 30,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/2af072e7-045a-468e-b9e7-4c9230c0b20b.JPG",
+              "portion": "250g",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {
+                "description": {
+                  "en": "chickpeas, olive oil ",
+                  "he": "גרגירי חומוס, שמן זית "
+                },
+                "name": {
+                  "en": "HUMMUS",
+                  "he": "חומוס"
+                },
+                "portion": {
+                  "en": "250 g",
+                  "he": "250 גרם"
+                }
+              },
+              "option_sets": [
+                {
+                  "id": 50,
+                  "restaurant_id": 5,
+                  "name": "Options",
+                  "sort_order": 0,
+                  "translations": {
+                    "name": {
+                      "en": "Options",
+                      "he": "אופציות"
+                    }
+                  },
+                  "created_at": "2026-08-21T07:27:15.058654Z",
+                  "options": [
+                    {
+                      "id": 118,
+                      "option_set_id": 50,
+                      "name": "250g",
+                      "price": 30,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 0,
+                      "translations": {
+                        "name": {
+                          "en": "250 g",
+                          "he": "250 גרם"
+                        }
+                      },
+                      "created_at": "2026-08-21T07:27:15.078262Z",
+                      "is_combo_only": false
+                    },
+                    {
+                      "id": 119,
+                      "option_set_id": 50,
+                      "name": "500g",
+                      "price": 60,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 1,
+                      "translations": {
+                        "name": {
+                          "en": "500g",
+                          "he": "500 גרם"
+                        }
+                      },
+                      "created_at": "2026-08-21T07:27:15.15328Z",
+                      "is_combo_only": false
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 80,
+              "name": "BABAGANOUSH",
+              "description": "aubergine, ail, épices, citron",
+              "price": 30,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/97138fc9-f184-4465-ab8a-c300ccf2f0eb.jpeg",
+              "portion": "250g",
+              "is_active": true,
+              "availability_state": "low",
+              "buildable_count": 4,
+              "translations": {
+                "description": {
+                  "en": "eggplant, mayonnaise",
+                  "he": "חצילים, מיונז"
+                },
+                "name": {
+                  "en": "CAVIAR",
+                  "he": "קוויאר"
+                },
+                "portion": {
+                  "en": "250 g",
+                  "he": "250 גרם"
+                }
+              },
+              "option_sets": [
+                {
+                  "id": 5,
+                  "restaurant_id": 5,
+                  "name": "Tailles Salade",
+                  "sort_order": 0,
+                  "translations": {
+                    "name": {
+                      "en": "Salad sizes",
+                      "he": "גדלי סלט"
+                    }
+                  },
+                  "created_at": "2026-04-04T22:35:57.882244Z",
+                  "options": [
+                    {
+                      "id": 7,
+                      "option_set_id": 5,
+                      "name": "250g",
+                      "price": 30,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 0,
+                      "translations": {
+                        "name": {
+                          "en": "250 g",
+                          "he": "250 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.882665Z",
+                      "is_combo_only": false,
+                      "availability_state": "available"
+                    },
+                    {
+                      "id": 8,
+                      "option_set_id": 5,
+                      "name": "500g",
+                      "price": 60,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 1,
+                      "translations": {
+                        "name": {
+                          "en": "500g",
+                          "he": "500 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.883208Z",
+                      "is_combo_only": false,
+                      "availability_state": "available"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 83,
+              "name": "POMME DE TERRE",
+              "description": "rôtie, thon",
+              "price": 30,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/dcd8a39f-04ad-4ae9-8ee1-8104ae6cf71a.png",
+              "portion": "250g",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {
+                "description": {
+                  "en": "tuna",
+                  "he": "טונה"
+                },
+                "name": {
+                  "en": "POTATO",
+                  "he": "תפוח אדמה"
+                },
+                "portion": {
+                  "en": "250 g",
+                  "he": "250 גרם"
+                }
+              },
+              "option_sets": [
+                {
+                  "id": 5,
+                  "restaurant_id": 5,
+                  "name": "Tailles Salade",
+                  "sort_order": 0,
+                  "translations": {
+                    "name": {
+                      "en": "Salad sizes",
+                      "he": "גדלי סלט"
+                    }
+                  },
+                  "created_at": "2026-04-04T22:35:57.882244Z",
+                  "options": [
+                    {
+                      "id": 7,
+                      "option_set_id": 5,
+                      "name": "250g",
+                      "price": 30,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 0,
+                      "translations": {
+                        "name": {
+                          "en": "250 g",
+                          "he": "250 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.882665Z",
+                      "is_combo_only": false
+                    },
+                    {
+                      "id": 8,
+                      "option_set_id": 5,
+                      "name": "500g",
+                      "price": 60,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 1,
+                      "translations": {
+                        "name": {
+                          "en": "500g",
+                          "he": "500 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.883208Z",
+                      "is_combo_only": false
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 939,
+              "name": "ARTICHAUT",
+              "description": "barigoule",
+              "price": 30,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/94b6b7b2-8106-4aa0-880e-7426de3ffcfe.jpg",
+              "portion": "250g",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {
+                "description": {
+                  "en": "Barigoule",
+                  "he": "בריגול"
+                },
+                "name": {
+                  "en": "ARTICHOKE",
+                  "he": "ארטישוק"
+                },
+                "portion": {
+                  "en": "250 g",
+                  "he": "250 גרם"
+                }
+              },
+              "option_sets": [
+                {
+                  "id": 5,
+                  "restaurant_id": 5,
+                  "name": "Tailles Salade",
+                  "sort_order": 0,
+                  "translations": {
+                    "name": {
+                      "en": "Salad sizes",
+                      "he": "גדלי סלט"
+                    }
+                  },
+                  "created_at": "2026-04-04T22:35:57.882244Z",
+                  "options": [
+                    {
+                      "id": 7,
+                      "option_set_id": 5,
+                      "name": "250g",
+                      "price": 30,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 0,
+                      "translations": {
+                        "name": {
+                          "en": "250 g",
+                          "he": "250 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.882665Z",
+                      "is_combo_only": false
+                    },
+                    {
+                      "id": 8,
+                      "option_set_id": 5,
+                      "name": "500g",
+                      "price": 60,
+                      "sku": "",
+                      "portion": "",
+                      "is_active": true,
+                      "sort_order": 1,
+                      "translations": {
+                        "name": {
+                          "en": "500g",
+                          "he": "500 גרם"
+                        }
+                      },
+                      "created_at": "2026-04-04T22:35:57.883208Z",
+                      "is_combo_only": false
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 20,
+          "name": "Poissons",
+          "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-groups/5/a3e6c389-872b-4753-a69a-30cd04db100c.png",
+          "translations": {
+            "name": {
+              "en": "pisces",
+              "he": "מזל דגים"
+            }
+          },
+          "items": [
+            {
+              "id": 309,
+              "name": "BOULETTES DE POISSON",
+              "description": "Sauce tomate safrané, poivrons",
+              "price": 70,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/fbee9249-1bb6-4187-8141-afd27724509e.jpeg",
+              "portion": "par personne",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {
+                "description": {
+                  "en": "Saffron tomato sauce, bell peppers",
+                  "he": "רוטב עגבניות זעפרן, פלפלים"
+                },
+                "name": {
+                  "en": "FISH BALLS",
+                  "he": "כדורי דגים"
+                },
+                "portion": {
+                  "en": "capita",
+                  "he": "לנפש"
+                }
+              }
+            },
+            {
+              "id": 209,
+              "name": "HARAYMÉ",
+              "description": "Saumon, sauce tomate épicée, coriandre\n",
+              "price": 70,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/20987d02-d485-4f82-8895-cf082786de01.jpeg",
+              "portion": "par personne",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {
+                "name": {
+                  "en": "HARAYME",
+                  "he": "חריימה"
+                },
+                "portion": {
+                  "en": "capita",
+                  "he": "לנפש"
+                }
+              }
+            },
+            {
+              "id": 310,
+              "name": "CATALANE",
+              "description": "Saumon, pickles, câpres, aromates",
+              "price": 70,
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/5/c67bc35f-c1c4-408a-8f10-d20a7a4b2da9.png",
+              "portion": "par personne",
+              "is_active": true,
+              "availability_state": "available",
+              "translations": {
+                "description": {
+                  "en": "Saffron tomato sauce, bell peppers",
+                  "he": "רוטב עגבניות זעפרן, פלפלים"
+                },
+                "name": {
+                  "en": "FISH BALLS",
+                  "he": "כדורי דגים"
+                },
+                "portion": {
+                  "en": "capita",
+                  "he": "לנפש"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "order_appearance": {
+    "custom_palette": {
+      "bg": "#DE5428",
+      "ink": "#ffffff",
+      "mode": "dark",
+      "accent": "#E8CB5E",
+      "surface": "#6E1F13",
+      "menuText": "#ffffff",
+      "categoryInk": "#ffffff"
+    },
+    "section_colors": {
+      "categoryBar": {
+        "bg": "#6d1f13",
+        "text": "#ffffff",
+        "accent": "#ffffff"
+      }
+    }
+  }
+}
