@@ -1,5 +1,6 @@
 "use client";
 
+import { TextImageContentEditor } from "./TextImageContentEditor";
 import { useRef, useState } from "react";
 import {
   SquareContentEditor,
@@ -144,6 +145,7 @@ export function SectionContentEditors({
         />
       );
     case "text_and_image":
+      return <TextImageContentEditor section={section} restaurantId={restaurantId} onChange={onChange} />;
     case "promo_banner":
       return (
         <>

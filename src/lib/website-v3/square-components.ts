@@ -65,7 +65,20 @@ export const SQUARE_COMPONENT_GROUPS = [
       component(
         "text_and_image",
         "editorTextImage",
-        ["default", "image_left"],
+        [
+          "image_left",
+          "default",
+          "columns",
+          "columns_title_top",
+          "columns_centered",
+          "highlight",
+          "image_above",
+          "full_width",
+          "split_right",
+          "split_left",
+          "background",
+          "overlap",
+        ],
         {
           title: "Our story",
           body: "Share your story with your customers.",
@@ -220,7 +233,16 @@ export function squareDefaultSettings(type?: string): Record<string, unknown> {
   return {
     color_style: "site",
     padding: "normal",
-    text_alignment: "center",
+    text_alignment: type === "text_and_image" ? "left" : "center",
+    ...(type === "scrolling_text"
+      ? {
+          text_size: "xl",
+          text_weight: "bold",
+          text_uppercase: true,
+          text_font_role: "heading",
+          padding: "compact",
+        }
+      : {}),
     ...(type === "featured_menu"
       ? {
           columns: 2,
@@ -252,5 +274,13 @@ export function squareLayouts(type: string) {
       : type === "footer"
         ? ["columns", "centered", "minimal"]
         : ["default"]);
-  return values.map((value) => ({ value, labelKey: `editorLayout_${value}` }));
+  return values.map((value) => ({
+    value,
+    labelKey:
+      type === "scrolling_text"
+        ? "editorLayout_marquee"
+        : type === "text_and_image" && ["columns", "full_width"].includes(value)
+          ? `editorTextImageLayout_${value}`
+          : `editorLayout_${value}`,
+  }));
 }

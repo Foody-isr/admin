@@ -4,6 +4,8 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DraftSectionPayload } from "@/lib/website-v3/types";
 import { heroImageReplacement } from "../SectionContentEditors";
+import { ElementInspector } from "../ElementInspector";
+import { squareDefaultSettings } from "@/lib/website-v3/square-components";
 import { SectionInspector } from "../SectionInspector";
 import { LocaleProvider } from "@/lib/i18n";
 
@@ -241,3 +243,79 @@ function renderSection(
     </LocaleProvider>,
   );
 }
+
+test("text and image exposes the twelve Square layouts and reproducible full-width media controls", () => {
+  const markup = renderSection(
+    {
+      section_type: "text_and_image",
+      layout: "full_width",
+      settings: { image_fit: "contain", height: "tall" },
+    },
+    "appearance",
+  );
+  assert.equal(
+    (markup.match(/data-field-id="section.layout"/g) || []).length,
+    12,
+  );
+  assert.match(markup, /Full-width image above text/);
+  assert.match(markup, /Image fit/);
+  assert.match(markup, /Fit entire image/);
+  assert.match(markup, /Image only/);
+  assert.match(markup, /Section spacing/);
+  const content = renderSection({
+    section_type: "text_and_image",
+    content: {
+      title: "Kitchen",
+      groups: [
+        { title: "Terrace", image_url: "https://cdn.example.com/terrace.jpg" },
+      ],
+    },
+  });
+  assert.match(content, /Kitchen/);
+  assert.match(content, /Terrace/);
+  assert.match(content, /Add group/);
+});
+
+test("scrolling text has motion controls and a correct layout name", () => {
+  const markup = renderSection(
+    {
+      section_type: "scrolling_text",
+      content: { text: "Saucy", speed: "fast" },
+    },
+    "appearance",
+  );
+  assert.match(markup, /Scrolling text/);
+  assert.doesNotMatch(markup, /Image à droite/);
+  assert.match(markup, /Scrolling speed/);
+  assert.match(markup, /Scrolling direction/);
+});
+
+test("new scrolling sections expose the same large display typography as the theme", () => {
+  const defaults = squareDefaultSettings("scrolling_text");
+  assert.equal(defaults.text_size, "xl");
+  assert.equal(defaults.text_font_role, "heading");
+  const section = {
+    tmp_id: "scrolling",
+    section_type: "scrolling_text",
+    page: "home",
+    page_tmp_id: "page-test",
+    sort_order: 0,
+    is_visible: true,
+    layout: "default",
+    content: { text: "Saucy" },
+    settings: defaults,
+  } satisfies DraftSectionPayload;
+  const markup = renderToStaticMarkup(
+    <LocaleProvider>
+      <ElementInspector
+        restaurantId={1}
+        section={section}
+        field="text"
+        onChange={() => undefined}
+      />
+    </LocaleProvider>,
+  );
+  assert.match(markup, /value="xl" selected/);
+  assert.match(markup, /value="heading" selected/);
+  assert.match(markup, /aria-pressed="true"/);
+});

@@ -415,6 +415,7 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.insert_after_items": 9,
   "section.settings.bg_image": "http://localhost:3000/logo-icon.svg",
   "section.settings.bg_overlay": true,
+  "section.settings.image_only": true,
 };
 
 function editorFor(
@@ -951,6 +952,7 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   orderSection("section.settings.insert_after_items", ["settings", "insert_after_items"], "order_discovery", "value"),
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
+  section("section.settings.image_only", ["settings", "image_only"], "text_and_image", "visible"),
   action("section.create", "section", ["sections"]),
   action("section.delete", "section", ["deleted_section_ids"]),
 ] as const;

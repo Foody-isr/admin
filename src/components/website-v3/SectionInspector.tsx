@@ -1,4 +1,6 @@
 "use client";
+import { EditorialAppearanceFields } from "./EditorialAppearanceFields";
+import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
 import { ColorStylePicker } from "./ColorStylePicker";
 
 import { useI18n } from "@/lib/i18n";
@@ -22,7 +24,10 @@ import {
   ToggleField,
   controlClass,
 } from "./controls";
-import { SectionContentEditors } from "./SectionContentEditors";
+import {
+  ImageUploadField,
+  SectionContentEditors,
+} from "./SectionContentEditors";
 import { FeatureCardsAppearanceEditor } from "./FeatureCardsAppearanceEditor";
 import { FeaturedItemsEditor } from "./FeaturedItemsEditor";
 import { OrderDiscoveryAppearanceEditor } from "./OrderDiscoveryAppearanceEditor";
@@ -69,7 +74,11 @@ export function SectionInspector({
           section.section_type === "order_discovery"
             ? "Découverte & publicité"
             : meta?.label
-              ? humanize(section.section_type)
+              ? ["text_and_image", "scrolling_text"].includes(
+                  section.section_type,
+                )
+                ? t(meta.label)
+                : humanize(section.section_type)
               : "Section"
         }
       >
@@ -112,13 +121,32 @@ export function SectionInspector({
                     data-field-id="section.layout"
                     aria-label={t(layout.labelKey)}
                     aria-pressed={
-                      section.layout === layout.value ||
+                      (section.settings.image_only &&
+                      section.section_type === "text_and_image"
+                        ? layout.value === "full_width"
+                        : section.layout === layout.value) ||
                       (section.layout === "default" &&
                         layout.value === "centered")
                     }
-                    onClick={() => onChange(["layout"], layout.value)}
+                    onClick={() =>
+                      section.section_type === "text_and_image"
+                        ? onChange([], {
+                            ...section,
+                            layout: layout.value,
+                            settings: {
+                              ...section.settings,
+                              image_only: false,
+                            },
+                          })
+                        : onChange(["layout"], layout.value)
+                    }
                   >
-                    {section.section_type === "hero_banner" ? (
+                    {section.section_type === "text_and_image" ? (
+                      <>
+                        <EditorialLayoutPreview layout={layout.value} />
+                        <span>{t(layout.labelKey)}</span>
+                      </>
+                    ) : section.section_type === "hero_banner" ? (
                       <span
                         aria-hidden="true"
                         className={`sqe-layout-mini sqe-layout-mini--${layout.value}`}
@@ -212,7 +240,19 @@ export function SectionInspector({
                   </div>
                 </>
               )}
-              <ColorStylePicker custom value={String(section.settings.color_style ?? "default")} onChange={id => onChange(["settings", "color_style"], id)} />
+              {["text_and_image", "scrolling_text"].includes(
+                section.section_type,
+              ) && (
+                <EditorialAppearanceFields
+                  section={section}
+                  onChange={onChange}
+                />
+              )}
+              <ColorStylePicker
+                custom
+                value={String(section.settings.color_style ?? "default")}
+                onChange={(id) => onChange(["settings", "color_style"], id)}
+              />
               {section.settings.color_style === "custom" &&
               section.section_type !== "menu_highlights" ? (
                 <>
@@ -236,18 +276,30 @@ export function SectionInspector({
                   />
                 </>
               ) : null}
-              <InspectorField label="Image de fond">
-                <input
-                  type="url"
-                  data-field-id="section.settings.bg_image"
-                  value={string(section.settings.bg_image)}
-                  onChange={(event) =>
-                    onChange(["settings", "bg_image"], event.target.value)
-                  }
-                  className={controlClass}
-                  placeholder="https://..."
+              {["text_and_image", "scrolling_text"].includes(
+                section.section_type,
+              ) ? (
+                <ImageUploadField
+                  restaurantId={restaurantId}
+                  label={t("editorBackgroundMedia")}
+                  currentUrl={string(section.settings.bg_image)}
+                  onUploaded={(url) => onChange(["settings", "bg_image"], url)}
+                  onRemove={() => onChange(["settings", "bg_image"], "")}
                 />
-              </InspectorField>
+              ) : (
+                <InspectorField label="Image de fond">
+                  <input
+                    type="url"
+                    data-field-id="section.settings.bg_image"
+                    value={string(section.settings.bg_image)}
+                    onChange={(event) =>
+                      onChange(["settings", "bg_image"], event.target.value)
+                    }
+                    className={controlClass}
+                    placeholder="https://..."
+                  />
+                </InspectorField>
+              )}
               <ToggleField
                 fieldId="section.settings.bg_overlay"
                 label="Voile sur l’image"
