@@ -2305,6 +2305,8 @@ const translations: Record<Locale, Record<string, string>> = {
 
     // ── Orders ──
     allOrders: 'All orders',
+    ordersTabActive: 'Active',
+    ordersTabScheduled: 'Scheduled',
     ordersLiveQueues: 'Live order queues',
     globalSearch: 'Search Foody…',
     globalSearchPlaceholder: "Items, orders, customers, stock…",
@@ -2323,7 +2325,7 @@ const translations: Record<Locale, Record<string, string>> = {
     ordersQueueReadyDesc: 'Orders ready for pickup, service, or delivery.',
     ordersQueueDelivery: 'Out for delivery',
     ordersQueueDeliveryDesc: 'Orders already handed to a courier.',
-    ordersUpdatedAt: 'updated at {time}',
+    ordersUpdatedAt: 'Last updated: {time}',
     ordersOnline: 'Online orders',
     ordersPausedShort: 'Paused',
     ordersAccepting: 'Accepting',
@@ -9617,6 +9619,8 @@ const translations: Record<Locale, Record<string, string>> = {
 
     // ── Orders ──
     allOrders: 'כל ההזמנות',
+    ordersTabActive: 'פעילות',
+    ordersTabScheduled: 'מתוזמנות',
     ordersLiveQueues: 'תורי הזמנות פעילות',
     globalSearch: 'חיפוש ב-Foody…',
     globalSearchPlaceholder: "פריטים, הזמנות, לקוחות, מלאי…",
@@ -16900,6 +16904,8 @@ const translations: Record<Locale, Record<string, string>> = {
 
     // ── Orders ──
     allOrders: 'Toutes les commandes',
+    ordersTabActive: 'Actives',
+    ordersTabScheduled: 'Planifiées',
     ordersLiveQueues: 'Files de commandes en cours',
     globalSearch: 'Rechercher dans Foody…',
     globalSearchPlaceholder: "Articles, commandes, clients, stock…",
@@ -16918,7 +16924,7 @@ const translations: Record<Locale, Record<string, string>> = {
     ordersQueueReadyDesc: 'Commandes prêtes à retirer, à servir ou à livrer.',
     ordersQueueDelivery: 'En livraison',
     ordersQueueDeliveryDesc: 'Commandes déjà remises à un livreur.',
-    ordersUpdatedAt: 'mise à jour à {time}',
+    ordersUpdatedAt: 'Dernière mise à jour : {time}',
     ordersOnline: 'Commandes en ligne',
     ordersPausedShort: 'En pause',
     ordersAccepting: 'Ouvertes',

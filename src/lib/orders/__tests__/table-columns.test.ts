@@ -43,3 +43,17 @@ test('order-date column always follows created_at, independently of the serie da
   assert.notEqual(mondayOrderDate, wednesdayOrderDate);
   assert.equal(mondaySerieDate, wednesdaySerieDate);
 });
+
+test('item previews expose full quantities and names and summarize additional lines', () => {
+  const items = ORDER_COLUMNS.find(column => column.key === 'items')!;
+  const order = { items: [
+    { id: 1, name: 'Sandwich', quantity: 2 },
+    { id: 2, name: 'Salade', quantity: 1 },
+    { id: 3, name: 'Dessert', quantity: 3 },
+    { id: 4, name: 'Boisson', quantity: 1 },
+  ] } as Order;
+  const markup = renderToStaticMarkup(items.render(order, t, money));
+  assert.match(markup, /aria-label="2 × Sandwich, 1 × Salade, 3 × Dessert, 1 × Boisson"/);
+  assert.match(markup, />\+2<\/span>/);
+  assert.doesNotThrow(() => items.render({} as Order, t, money));
+});
