@@ -5,21 +5,16 @@
 // payment route ("checkout"). They are different foodyweb routes that consume
 // different CSS variables, so most settings apply to exactly one of them:
 //
-//   checkout_text_colors  → app/order/checkout/page.tsx only  (the only
-//                           surface="checkout" call site in foodyweb)
-//   cart_text_colors      → CartDrawer, mounted by OrderExperience
+//   Cart and checkout inherit the shared theme, fonts and button shape.
+//   Historical cart/checkout color overrides round-trip but are no longer edited.
 //   section_colors.categoryBar* → CategoryTabs
 //   cover / hero_*        → RestaurantHero, imported only by OrderExperience
 //   navbar / footer       → SiteNavbar / SiteFooter, neither of which the
 //                           checkout route mounts (it has its own header)
 //
-// Before this table the rule lived as ~6 scattered `page.type === "order"`
-// ternaries in PageInspector and the surface was a useState local to
-// PreviewCanvas, so the inspector could not see it at all — the checkout
-// surface showed the cart, category-bar and cover groups, and the page surface
-// showed the checkout colours. Keeping the rule as DATA is what makes it
-// reviewable and testable: `visibleInspectorGroups` is the whole spec, and
-// __tests__/inspector-scope.test.ts asserts it directly.
+// The scope table keeps menu-only controls away from the system checkout.
+// Checkout form settings remain configurable; appearance belongs to the shared
+// website design and the handoff leads the editor back to that owner.
 
 import type { WebsitePageType } from "./types";
 
@@ -38,10 +33,6 @@ export type InspectorGroupId =
   | "page.typography"
   | "page.quick_colors"
   | "page.fonts"
-  | "checkout.text_colors"
-  | "cart.text"
-  | "cart.surfaces"
-  | "cart.buttons"
   | "page.category_bar"
   | "page.cover"
   | "page.order_type_selector"
@@ -89,10 +80,6 @@ export const INSPECTOR_GROUP_SCOPES: readonly InspectorGroupScope[] = [
   { id: "page.typography", tabs: ["appearance"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
   { id: "page.quick_colors", tabs: ["appearance"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
   { id: "page.fonts", tabs: ["appearance"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "checkout.text_colors", tabs: ["appearance"], pageTypes: ["order"], surfaces: CHECKOUT_ONLY },
-  { id: "cart.text", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
-  { id: "cart.surfaces", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
-  { id: "cart.buttons", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
   { id: "page.category_bar", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
   // Catering uses the same page-local cover asset and focal point as order,
   // but renders it in its editorial left panel rather than RestaurantHero.

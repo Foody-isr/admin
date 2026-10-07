@@ -141,7 +141,7 @@ test("the checkout surface offers no cart, category bar, cover or mode selector"
   assert.doesNotMatch(markup, /Catalogue et séparateurs/);
   assert.doesNotMatch(markup, /Visuels par catégorie/);
   // What it does own.
-  assert.match(markup, /checkout_text_colors\.heading/);
+  assert.doesNotMatch(markup, /checkout_text_colors/);
 });
 
 test("the catering builder delegates offer visibility to the catering catalog", () => {
@@ -176,12 +176,11 @@ test("the catering cover has its own visible upload control", () => {
   assert.doesNotMatch(markup, /order-cover\.jpg/);
 });
 
-test("the page surface offers no checkout colours but keeps the cart", () => {
+test("cart and checkout inherit the theme instead of exposing independent colours", () => {
   const markup = renderInspector("order", "appearance", "page");
 
   assert.doesNotMatch(markup, /checkout_text_colors/);
-  assert.match(markup, /cart_text_colors\.heading/);
-  assert.match(markup, /cart_text_colors\.surface/);
+  assert.doesNotMatch(markup, /cart_text_colors/);
   assert.match(markup, /section_colors\.categoryBar\.bg/);
   assert.match(markup, /Couverture/);
 });
@@ -216,7 +215,7 @@ test("every checkout tab offers a one-click way back to the page", () => {
 test("the handoff says the page settings also apply to the checkout", () => {
   const markup = renderInspector("order", "appearance", "checkout");
 
-  assert.match(markup, /apply to the checkout too/);
+  assert.match(markup, /cart and checkout automatically inherit the shared theme/);
   assert.doesNotMatch(markup, /do not apply to the checkout/);
 });
 
