@@ -1,4 +1,5 @@
 "use client";
+import { ColorStylePicker } from "./ColorStylePicker";
 
 import { useI18n } from "@/lib/i18n";
 import {
@@ -211,34 +212,7 @@ export function SectionInspector({
                   </div>
                 </>
               )}
-              <div
-                className="sqe-choice-field"
-                role="group"
-                aria-label={t("editorColorStyle")}
-              >
-                <span>{t("editorColorStyle")}</span>
-                <div className="sqe-color-styles">
-                  {(["site", "light", "dark", "custom"] as const).map(
-                    (value) => (
-                      <button
-                        type="button"
-                        key={value}
-                        data-field-id="section.settings.color_style"
-                        aria-label={t(`editorColor_${value}`)}
-                        aria-pressed={
-                          (section.settings.color_style || "light") === value
-                        }
-                        className={`sqe-color-style sqe-color-style--${value}`}
-                        onClick={() =>
-                          onChange(["settings", "color_style"], value)
-                        }
-                      >
-                        Aa
-                      </button>
-                    ),
-                  )}
-                </div>
-              </div>
+              <ColorStylePicker custom value={String(section.settings.color_style ?? "default")} onChange={id => onChange(["settings", "color_style"], id)} />
               {section.settings.color_style === "custom" &&
               section.section_type !== "menu_highlights" ? (
                 <>

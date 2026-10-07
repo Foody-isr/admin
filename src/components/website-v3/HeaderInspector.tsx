@@ -1,10 +1,10 @@
 "use client";
+import { ColorStylePicker } from "./ColorStylePicker";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ArrowLeft, Link as LinkIcon, Star } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import {
   HEADER_LAYOUTS,
-  HEADER_COLOR_STYLES,
   headerFromLegacy,
   type HeaderElement,
   type HeaderTarget,
@@ -283,33 +283,7 @@ export function HeaderInspector({
                 </div>
               </HeaderGroup>
               <HeaderGroup label={c.colorStyle}>
-                <div className="sqh-colors">
-                  {HEADER_COLOR_STYLES.map((style) => (
-                    <button
-                      key={style}
-                      aria-label={`${c.colorStyle} ${style === "default" ? c.default : style}`}
-                      aria-pressed={header.color_style === style}
-                      className={`sqh-swatch sqh-swatch--${style}`}
-                      style={
-                        {
-                          "--sqh-brand": String(
-                            config.brand_color || "#111111",
-                          ),
-                          "--sqh-surface": String(
-                            (
-                              config.custom_palette as
-                                | Record<string, unknown>
-                                | undefined
-                            )?.bg || "#f5f5f5",
-                          ),
-                        } as React.CSSProperties
-                      }
-                      onClick={() => set("color_style", style)}
-                    >
-                      {style === "default" ? c.default : "Aa"}
-                    </button>
-                  ))}
-                </div>
+                <ColorStylePicker value={header.color_style} onChange={id => set("color_style", id as WebsiteHeader["color_style"])} />
               </HeaderGroup>
             </>,
           )}

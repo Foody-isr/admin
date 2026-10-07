@@ -3,7 +3,7 @@ export type WebsiteHeader = {
   version: 1;
   layout: "left" | "center" | "right" | "stacked" | "compact" | "centered";
   scroll: "sticky" | "reveal" | "none";
-  color_style: "default" | "light" | "dark" | "accent" | "surface" | "soft";
+  color_style: "default" | "light" | "dark" | "accent" | "surface" | "soft" | "style-1" | "style-2" | "style-3" | "style-4" | "style-5" | "style-6";
   background: {
     mode: "transparent" | "style" | "color" | "gradient" | "image";
     color: string;
@@ -65,6 +65,7 @@ export const HEADER_COLOR_STYLES = [
   "accent",
   "surface",
   "soft",
+  "style-1", "style-2", "style-3", "style-4", "style-5", "style-6",
 ] as const;
 export const HEADER_ELEMENTS = [
   "logo",

@@ -1,3 +1,4 @@
+import { normalizeSiteColors } from "./site-colors";
 import type { DraftStatePayload } from "./types";
 import { record, type RestaurantTheme } from "./restaurant-themes";
 
@@ -170,7 +171,7 @@ export function applySitePalette(state: DraftStatePayload, palette: SitePalette)
   };
   return {
     ...state,
-    config: { ...recolor(state.config) as Record<string, unknown>, theme_id: "custom", brand_color: null, custom_palette: palette },
+    config: { ...recolor(state.config) as Record<string, unknown>, theme_id: "custom", brand_color: null, custom_palette: { ...previous, ...palette } },
     pages: state.pages.map((page) => ({ ...page, appearance_overrides: recolor(page.appearance_overrides) as Record<string, unknown> })),
     sections: state.sections.map((section) => ({ ...section, settings: recolor(section.settings) as Record<string, unknown> })),
   };
@@ -258,6 +259,8 @@ export function applySiteStyle(
       theme_id: "custom",
       brand_color: null,
       custom_palette: {
+        secondary_colors: [style.surface, style.ink],
+        color_styles: normalizeSiteColors(style),
         mode: style.mode,
         bg: style.bg,
         surface: style.surface,
@@ -296,6 +299,10 @@ export function applySiteStyle(
     })),
     sections: state.sections.map((section) => {
       const settings = recolor(section.settings);
+      // A new preset resets authored color overrides; content, media and layout stay intact.
+      for (const key of Object.keys(settings))
+        if (/color$|^(custom_bg|custom_text|custom_muted|custom_accent|custom_divider|card_bg|card_text|card_muted|background|background_end)$/.test(key) && key !== "bg_overlay_color") delete settings[key];
+      if (settings.color_style === "custom") settings.color_style = "default";
       for (const key of Object.keys(settings))
         if (/_font$/.test(key)) delete settings[key];
       return { ...section, settings };

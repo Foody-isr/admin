@@ -1,4 +1,5 @@
 "use client";
+import { ColorStylePicker } from "./ColorStylePicker";
 
 import { useI18n } from "@/lib/i18n";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
@@ -105,20 +106,8 @@ export function FooterEditor({
           <option value="minimal">{t("websiteV3FooterLayoutMinimal")}</option>
         </select>
       </InspectorField>
-      <InspectorField label={t("websiteV3FooterColorStyle")}>
-        <select
-          data-field-id="site.footer.settings.color_style"
-          value={string(footer.settings.color_style) || "light"}
-          onChange={(event) =>
-            onChange(["settings", "color_style"], event.target.value)
-          }
-          className={controlClass}
-        >
-          <option value="light">{t("websiteV3FooterColorLight")}</option>
-          <option value="dark">{t("websiteV3FooterColorDark")}</option>
-          <option value="custom">{t("websiteV3FooterColorCustom")}</option>
-        </select>
-      </InspectorField>
+      <ColorStylePicker fieldId="site.footer.settings.color_style" custom value={String(footer.settings.color_style ?? "default")} onChange={id => onChange(["settings", "color_style"], id)} />
+      <details open={footer.settings.color_style === "custom"}><summary>{t("websiteV3FooterColorCustom")}</summary>
       {(
         [
           ["custom_bg", "websiteV3FooterBackground", "#111827"],
@@ -137,6 +126,7 @@ export function FooterEditor({
           onChange={(next) => onChange(["settings", key], next)}
         />
       ))}
+      </details>
     </InspectorGroup>
   );
 }

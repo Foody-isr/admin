@@ -20,6 +20,7 @@ import { MenuHighlightsAppearanceEditor } from "../MenuHighlightsAppearanceEdito
 import { NavigationCtaEditor } from "../NavigationCtaEditor";
 import { PageInspector } from "../PageInspector";
 import { SiteInspector } from "../SiteInspector";
+import { OrderPageEditor } from "../OrderPageEditor";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -28,6 +29,23 @@ function render(element: React.ReactElement): string {
     React.createElement(LocaleProvider, null, element),
   );
 }
+
+test("category headings have a visible toggle; menu headings follow the number of menus", () => {
+  const markup = render(React.createElement(OrderPageEditor, {
+    restaurantId: 24,
+    page: { type: "order", slug: "order", title: "Order", sort_order: 0,
+      nav_visible: true, is_homepage: false, is_default: true, seo: {}, settings: { menu_ids: [1] },
+      appearance_overrides: { website_order: {
+      show_category_titles: true,
+    } } },
+    region: "order-items",
+    onChange: () => undefined,
+    onPreviewItem: () => undefined,
+  }));
+  assert.doesNotMatch(markup, /Menu titles/);
+  assert.match(markup, /Category titles<\/span><input[^>]*role="switch"[^>]*checked/);
+  assert.match(markup, /Category title style/);
+});
 
 test("global navigation CTA exposes content and both surface states", () => {
   const markup = render(

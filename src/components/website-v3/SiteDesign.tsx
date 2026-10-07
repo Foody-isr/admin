@@ -6,8 +6,9 @@ import { ArrowLeft, ChevronRight, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { loadWebsiteFont } from "@/lib/website-fonts";
 import type { ThemeCatalog } from "@/lib/api";
+import { SiteColorsEditor } from "./SiteColorsEditor";
 import { PreviewCanvas } from "./PreviewCanvas";
-import { SITE_STYLES, applySitePalette, applySiteStyle, defaultThemeStyle, type SiteStyle } from "@/lib/website-v3/site-styles";
+import { SITE_STYLES, applySiteStyle, defaultThemeStyle, type SiteStyle } from "@/lib/website-v3/site-styles";
 import type { ApplyRestaurantThemeOptions } from "@/lib/website-v3/restaurant-themes";
 import { pageKey } from "@/lib/website-v3/types";
 import type { DraftStatePayload } from "@/lib/website-v3/types";
@@ -24,6 +25,7 @@ type Screen =
 /** Global site design with non-destructive theme previews and an explicit apply action. */
 export function SiteDesign({
   state,
+  initialScreen = "root",
   previewContext,
   catalog,
   restaurantName,
@@ -37,6 +39,7 @@ export function SiteDesign({
   onEditShared,
 }: {
   state: DraftStatePayload;
+  initialScreen?: "root" | "colors";
   previewContext: { webOrigin: string; restaurantSlug: string; restaurantId: number };
   catalog: ThemeCatalog;
   restaurantName: string;
@@ -50,7 +53,7 @@ export function SiteDesign({
   previewPageKey?: string | null;
 }) {
   const { t } = useI18n();
-  const [screen, setScreen] = useState<Screen>("root");
+  const [screen, setScreen] = useState<Screen>(initialScreen);
   const [candidate, setCandidate] = useState<RestaurantTheme | null>(null);
   const [styleCandidate, setStyleCandidate] = useState<SiteStyle | null>(null);
   const allPages = true;
@@ -233,7 +236,7 @@ export function SiteDesign({
           >
             {t("editorColors")}
             <span className="sqe-design-swatches">
-              {[accent, bg, ink].map((color, index) => (
+              {[accent, ...(Array.isArray(palette.secondary_colors) ? palette.secondary_colors.slice(0, 2).map(String) : [bg, ink])].map((color, index) => (
                 <i key={index} style={{ background: color }} />
               ))}
             </span>
@@ -265,25 +268,7 @@ export function SiteDesign({
           </section>
         </div>
       )}
-      {screen === "colors" && (
-        <div className="sqe-panel-body">
-          <h3>{t("editorColors")}</h3>
-          {(
-            [
-              ["accent", "editorMainColor", accent],
-              ["bg", "editorBackground", bg],
-              ["surface", "editorSurface", surface],
-              ["ink", "editorText", ink],
-            ] as const
-          ).map(([key, label, value]) => (
-            <SiteColorField key={key} id={`site-${key}`} label={t(label)} value={value}
-              onChange={(color) => onChange(applySitePalette(state, {
-                mode: (palette.mode ?? currentTheme?.mode) === "dark" ? "dark" : "light",
-                bg, surface, ink, accent, [key]: color,
-              }))} />
-          ))}
-        </div>
-      )}
+      {screen === "colors" && <SiteColorsEditor palette={{mode: currentTheme?.mode || "light", bg, ink, accent, surface, ...palette}} onChange={next => patch({theme_id: "custom", brand_color: null, custom_palette: next})} />}
       {screen === "fonts" && (
         <div className="sqe-panel-body">
           <h3>{t("editorFonts")}</h3>
@@ -502,24 +487,4 @@ function ThemeThumbnail({ theme, state, options, context }: {
       </div>}
     </div>
   );
-}
-
-function SiteColorField({ id, label, value, onChange }: {
-  id: string; label: string; value: string; onChange: (value: string) => void;
-}) {
-  const [input, setInput] = useState(value);
-  useEffect(() => setInput(value), [value]);
-  const commit = () => {
-    if (/^#[0-9a-f]{6}$/i.test(input)) onChange(input);
-    else setInput(value);
-  };
-  return <div>
-    <label htmlFor={id}>{label}</label>
-    <div className="sqe-color-field">
-      <input type="color" aria-label={`${label} — palette`} value={value} onChange={(event) => onChange(event.target.value)} />
-      <input id={id} type="text" value={input} spellCheck={false} maxLength={7}
-        onChange={(event) => setInput(event.target.value)} onBlur={commit}
-        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commit(); } }} />
-    </div>
-  </div>;
 }
