@@ -432,6 +432,7 @@ function postCheckoutLatest(
     {
       type: "foody-checkout-preview",
       checkoutConfig: latest.state.config.checkout_config ?? null,
+      siteConfig: latest.state.config,
       appearanceOverrides: latest.activePage.appearance_overrides,
       revision: latest.revision,
       contentRevision: latest.contentRevision,

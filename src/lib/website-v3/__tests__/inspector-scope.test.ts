@@ -26,18 +26,18 @@ const TABS: readonly InspectorTab[] = ["content", "appearance", "settings"];
 // of which the /order/checkout route renders — while the page surface showed
 // the checkout text colours, which it does not render either.
 
-test("the checkout surface of an order page owns only checkout appearance", () => {
+test("checkout appearance directs the editor to the shared theme", () => {
   assert.deepEqual(
     visibleInspectorGroups({
       pageType: "order",
       tab: "appearance",
       surface: "checkout",
     }),
-    ["checkout.text_colors", "page.handoff"],
+    ["page.handoff"],
   );
 });
 
-test("the page surface of an order page keeps the cart and drops the checkout", () => {
+test("the order page exposes shared appearance without independent cart colours", () => {
   const groups = visibleInspectorGroups({
     pageType: "order",
     tab: "appearance",
@@ -49,16 +49,12 @@ test("the page surface of an order page keeps the cart and drops the checkout", 
     "page.typography",
     "page.quick_colors",
     "page.fonts",
-    "cart.text",
-    "cart.surfaces",
-    "cart.buttons",
     "page.category_bar",
     "page.cover",
     "page.order_type_selector",
     "page.catalog",
     "page.category_visuals",
   ]);
-  assert.equal(groups.includes("checkout.text_colors"), false);
   assert.equal(groups.includes("page.handoff"), false);
 });
 
@@ -188,7 +184,6 @@ test("no non-order page can render a checkout-only group", () => {
           tab,
           surface: effectiveSurface(pageType, surface),
         });
-        assert.equal(groups.includes("checkout.text_colors"), false);
         assert.equal(groups.includes("checkout.form"), false);
         assert.equal(groups.includes("page.handoff"), false);
       }

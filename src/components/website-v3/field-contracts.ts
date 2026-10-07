@@ -241,29 +241,6 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.typography.roles.itemName.color": "#1e293b",
   "page.appearance_overrides.typography.roles.itemPrice.color": "#b45309",
   "page.appearance_overrides.typography.roles.itemDescription.color": "#64748b",
-  "page.appearance_overrides.checkout_text_colors.heading": "#0f172a",
-  "page.appearance_overrides.checkout_text_colors.primary": "#1e293b",
-  "page.appearance_overrides.checkout_text_colors.secondary": "#64748b",
-  "page.appearance_overrides.checkout_text_colors.input": "#111827",
-  "page.appearance_overrides.checkout_text_colors.price": "#92400e",
-  "page.appearance_overrides.checkout_text_colors.button": "#ffffff",
-  "page.appearance_overrides.cart_text_colors.heading": "#0f172a",
-  "page.appearance_overrides.cart_text_colors.primary": "#1e293b",
-  "page.appearance_overrides.cart_text_colors.secondary": "#64748b",
-  "page.appearance_overrides.cart_text_colors.price": "#92400e",
-  "page.appearance_overrides.cart_text_colors.button": "#ffffff",
-  "page.appearance_overrides.cart_text_colors.buttonBg": "#1d4ed8",
-  "page.appearance_overrides.cart_text_colors.closeBg": "#e2e8f0",
-  "page.appearance_overrides.cart_text_colors.closeText": "#0f172a",
-  "page.appearance_overrides.cart_text_colors.surface": "#fffbeb",
-  "page.appearance_overrides.cart_text_colors.surfaceMuted": "#fef3c7",
-  "page.appearance_overrides.cart_text_colors.divider": "#fcd34d",
-  "page.appearance_overrides.cart_text_colors.accent": "#7c3aed",
-  "page.appearance_overrides.cart_text_colors.overlay": "#1e1b4b",
-  "page.appearance_overrides.cart_text_colors.stepperBg": "#ede9fe",
-  "page.appearance_overrides.cart_text_colors.stepperText": "#6d28d9",
-  "page.appearance_overrides.cart_text_colors.stepperBorder": "#c4b5fd",
-  "page.appearance_overrides.cart_text_colors.remove": "#b91c1c",
   "site.nav_layout": `{"logo":"left","links":"center","cta":"right"}`,
   "site.compact-navigation.icon": "#111827",
   "site.compact-navigation.button-background": "#ffffff",
@@ -525,15 +502,7 @@ function editorFor(
       publicSlug: orderPage ? "brunch-order" : cateringPage ? "office-catering" :
         defaultPage ? "dinner-order" :
         id === "page.slug" ? String(FIELD_TEST_VALUES[id]) : "about",
-      // The checkout text colours only render on the order page's checkout
-      // surface, so a driver must switch surface before locating them.
-      surface: chainSelector
-        ? "branches"
-        : id.startsWith(
-        "page.appearance_overrides.checkout_text_colors.",
-      )
-        ? "checkout"
-        : "page",
+      surface: chainSelector ? "branches" : "page",
       commit: "change",
       prerequisite: pageCtaState
         ? { id: "page.appearance_overrides.navbar_cta", value: true }
@@ -848,44 +817,6 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
     page(
       `page.appearance_overrides.typography.roles.${role}.color`,
       ["appearance_overrides", "typography", "roles", role, "color"],
-      "order",
-      "color",
-      ["order"],
-    ),
-  ),
-  ...(["heading", "primary", "secondary", "input", "price", "button"] as const).map((role) =>
-    page(
-      `page.appearance_overrides.checkout_text_colors.${role}`,
-      ["appearance_overrides", "checkout_text_colors", role],
-      "order",
-      "color",
-      ["order"],
-    ),
-  ),
-  // Cart drawer roles: text, surfaces, then the buttons the drawer owns. No
-  // "input": the cart has no fields.
-  ...([
-    "heading",
-    "primary",
-    "secondary",
-    "price",
-    "surface",
-    "surfaceMuted",
-    "divider",
-    "accent",
-    "overlay",
-    "button",
-    "buttonBg",
-    "closeBg",
-    "closeText",
-    "stepperBg",
-    "stepperText",
-    "stepperBorder",
-    "remove",
-  ] as const).map((role) =>
-    page(
-      `page.appearance_overrides.cart_text_colors.${role}`,
-      ["appearance_overrides", "cart_text_colors", role],
       "order",
       "color",
       ["order"],

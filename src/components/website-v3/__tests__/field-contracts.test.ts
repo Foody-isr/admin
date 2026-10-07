@@ -137,10 +137,6 @@ test("every contract is reachable on the page type and surface it declares", () 
  *  whose visibility this change moved need an entry; anything else is skipped
  *  rather than guessed. */
 function groupForField(id: string): InspectorGroupId | null {
-  if (id.startsWith("page.appearance_overrides.checkout_text_colors."))
-    return "checkout.text_colors";
-  if (id.startsWith("page.appearance_overrides.cart_text_colors."))
-    return "cart.text";
   if (id.startsWith("page.appearance_overrides.section_colors.categoryBar"))
     return "page.category_bar";
   if (id.startsWith("page.appearance_overrides.order_type_selector."))

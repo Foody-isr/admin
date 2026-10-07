@@ -1401,7 +1401,7 @@ const translations: Record<Locale, Record<string, string>> = {
       'The fields asked of the customer, SMS verification and the confirmation screen. These settings are shared by every order page on the site, not just this one.',
     websiteV3HandoffTitle: 'Page settings',
     websiteV3HandoffAppearance:
-      'The theme, typography and base colours belong to the page. They apply to the checkout too, but are set on the Page surface.',
+      'The cart and checkout automatically inherit the shared theme, colours, fonts and button shape. Their layout is managed by Foody. Edit the design on the Page surface.',
     websiteV3HandoffContent:
       'The checkout has no content of its own: it shows this page’s cart. The title and sections are set on the Page surface.',
     websiteV3HandoffSettings:
@@ -8686,7 +8686,7 @@ const translations: Record<Locale, Record<string, string>> = {
       'השדות שהלקוח ממלא, אימות ב‑SMS ומסך האישור. ההגדרות האלה משותפות לכל דפי ההזמנה באתר, לא רק לדף הזה.',
     websiteV3HandoffTitle: 'הגדרות הדף',
     websiteV3HandoffAppearance:
-      'ערכת הנושא, הטיפוגרפיה וצבעי הבסיס שייכים לדף. הם חלים גם על דף התשלום, אבל נקבעים במשטח הדף.',
+      'הסל והתשלום יורשים את העיצוב המשותף, הצבעים, הגופנים וצורת הכפתורים. הפריסה מנוהלת על ידי Foody. ניתן לערוך את העיצוב בתצוגת הדף.',
     websiteV3HandoffContent:
       'לדף התשלום אין תוכן משלו: הוא מציג את העגלה של הדף הזה. הכותרת והמקטעים נקבעים במשטח הדף.',
     websiteV3HandoffSettings:
@@ -15970,7 +15970,7 @@ const translations: Record<Locale, Record<string, string>> = {
       'Les champs demandés au client, la vérification par SMS et l’écran de confirmation. Ces réglages sont partagés par toutes les pages commande du site, pas seulement celle-ci.',
     websiteV3HandoffTitle: 'Réglages de la page',
     websiteV3HandoffAppearance:
-      'Le thème, la typographie et les couleurs de base appartiennent à la page. Ils s’appliquent aussi au checkout, mais se règlent sur la surface Page.',
+      'Le panier et le checkout héritent automatiquement du thème partagé, des couleurs, des polices et de la forme des boutons. Leur mise en page est gérée par Foody. Modifiez le design sur la surface Page.',
     websiteV3HandoffContent:
       'Le checkout n’a pas de contenu propre : il reprend le panier de cette page. Le titre et les sections se règlent sur la surface Page.',
     websiteV3HandoffSettings:
