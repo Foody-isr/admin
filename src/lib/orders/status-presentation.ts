@@ -11,6 +11,15 @@
 
 import type { Order } from '@/lib/api';
 
+/** Shared list/detail workflow badge palette from the Square reference. */
+export const ORDER_STATUS_BADGE_TONE: Partial<Record<Order['status'], 'new' | 'progress'>> = {
+  pending_review: 'new',
+  scheduled: 'new',
+  accepted: 'progress',
+  in_kitchen: 'progress',
+  out_for_delivery: 'progress',
+};
+
 export type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand';
 
 /**

@@ -149,7 +149,7 @@ export function TicketItems({
           {categoryGroups.map((group) => (
             <Fragment key={group.key}>
               <HairlineRule
-                label={group.label}
+                label={isLoneSection && group.key === '__other__' ? t('items') : group.label}
                 count={isLoneSection ? summary : group.items.length}
               />
               {group.items.map((item, i) => (

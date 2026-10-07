@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { TICKET_RULE_ROW } from './layout';
+import styles from '../order-detail.module.css';
 
 /**
  * A category heading on the ticket: label, rule, count.
@@ -27,19 +27,10 @@ export function HairlineRule({
   className?: string;
 }) {
   return (
-    <div className={cn(TICKET_RULE_ROW, className)}>
-      <span className="text-fs-xs leading-4 font-semibold text-[var(--fg-subtle)] whitespace-nowrap">
+    <div className={cn(styles.itemHeading, className)}>
+      <span className="text-[18px] leading-[26px] font-semibold">
         {label}
       </span>
-      {/*
-        --line on --surface is nearly invisible in the dark theme (#2d2a26 on
-        #1a1917), so the rule steps up to --line-strong there. This is the one
-        place the two themes genuinely need different tokens.
-      */}
-      <span
-        aria-hidden
-        className="flex-1 h-px bg-[var(--line)] dark:bg-[var(--line-strong)]"
-      />
       {count != null && (
         <span className="text-fs-xs leading-4 tabular-nums text-[var(--fg-subtle)] shrink-0">{count}</span>
       )}

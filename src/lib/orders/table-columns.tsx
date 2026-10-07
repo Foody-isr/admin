@@ -5,6 +5,7 @@ import { Badge } from '@/components/ds';
 import { CashTag } from '@/components/orders/CashTag';
 import {
   displayedPaymentStatus,
+  ORDER_STATUS_BADGE_TONE,
   localizePaymentStatus,
   localizeStatus,
   localizeOrderType,
@@ -23,15 +24,6 @@ import {
 export { hasCustomLayout } from '@/lib/orders/column-layout';
 
 type Translate = (key: string) => string;
-
-// Table badges group the workflow stages using the Square reference palette.
-const TABLE_STATUS_TONE: Partial<Record<Order['status'], 'new' | 'progress'>> = {
-  pending_review: 'new',
-  scheduled: 'new',
-  accepted: 'progress',
-  in_kitchen: 'progress',
-  out_for_delivery: 'progress',
-};
 
 export interface OrderColumn extends ColumnSpec {
   /** Stable identifier persisted in the restaurant's saved layout. Never reuse
@@ -136,7 +128,7 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     render: (order, t) => {
       return (
         <span className="inline-flex items-center gap-2 whitespace-nowrap">
-          <Badge className="orders-status-badge" data-status-tone={TABLE_STATUS_TONE[order.status] ?? 'neutral'}>{localizeStatus(order.status, t)}</Badge>
+          <Badge className="orders-status-badge" data-status-tone={ORDER_STATUS_BADGE_TONE[order.status] ?? 'neutral'}>{localizeStatus(order.status, t)}</Badge>
           {order.external_metadata?.stock_oversold === true && <Badge tone="warning" dot>{t('stockOversoldBadge')}</Badge>}
         </span>
       );

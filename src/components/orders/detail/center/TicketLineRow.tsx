@@ -7,6 +7,7 @@ import type { OrderItem } from '@/lib/api';
 import { formatGrams, formatPricePerKg, weightDrift } from '@/lib/orders/format-weight';
 import { useCurrency } from '@/lib/i18n';
 import { Money } from '../primitives/Money';
+import styles from '../order-detail.module.css';
 
 /**
  * The ticket grid. One template, reused by every row of a line.
@@ -21,7 +22,7 @@ import { Money } from '../primitives/Money';
  * same vertical axis as the line total above it, with no alignment to maintain.
  */
 export const TICKET_GRID =
-  'grid grid-cols-[28px_minmax(0,1fr)_92px] gap-x-[var(--s-3)] items-baseline';
+  'order-detail-ticket-grid grid grid-cols-[40px_minmax(0,1fr)_auto] gap-x-3 items-start';
 
 /**
  * Variant chip text: the variant name plus the snapshotted portion, deduped.
@@ -163,23 +164,15 @@ export function TicketLineRow({
 
   return (
     <div
-      className={`${TICKET_GRID} py-[6px] ${
+      className={`${styles.itemRow} ${TICKET_GRID} py-[6px] ${
         showRule ? 'border-t border-[color-mix(in_oklab,var(--line)_55%,transparent)]' : ''
       }`}
     >
-      {/* The quantity lives in the margin. A single unit stays quiet; two or
-          more is operationally significant, so it takes full weight. */}
-      <span
-        className={`num text-fs-sm text-end ${
-          item.quantity > 1 ? 'font-semibold text-[var(--fg)]' : 'text-[var(--fg-subtle)]'
-        }`}
-      >
-        {item.quantity}×
-      </span>
+      <span aria-hidden className={styles.itemThumbnail}>{item.name.trim().slice(0, 2)}</span>
 
       <span className="min-w-0 flex items-center gap-2 flex-wrap">
-        <span className="text-[15px] leading-[21px] font-semibold tracking-[-0.006em] text-[var(--fg)]">
-          {item.name}
+        <span className="text-[14px] leading-[22px] font-semibold text-[var(--fg)]">
+          {item.name}<span className={styles.itemQuantity}> × {item.quantity}</span>
         </span>
         {variantText && (
           <span
@@ -195,7 +188,7 @@ export function TicketLineRow({
         {showUnpaidChip && <Badge tone="warning">{t('notPaidChip')}</Badge>}
       </span>
 
-      <Money value={item.price * item.quantity} className="text-[15px] leading-[21px] font-medium text-end text-[var(--fg)]" />
+      <Money value={item.price * item.quantity} className="text-[14px] leading-[22px] font-normal text-end text-[var(--fg)]" />
 
       <ModifierRows item={item} />
       <WeightRow item={item} />

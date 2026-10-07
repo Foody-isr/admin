@@ -5,6 +5,7 @@ import { EditIcon } from 'lucide-react';
 import { Badge } from '@/components/ds';
 import type { OrderItem } from '@/lib/api';
 import { Money } from '../primitives/Money';
+import styles from '../order-detail.module.css';
 import { TICKET_GRID, variantChipText } from './TicketLineRow';
 
 /**
@@ -44,16 +45,16 @@ export function TicketComboBlock({
 
   return (
     <div
-      className={`py-[6px] ${
+      className={`${styles.itemRow} py-[6px] ${
         showRule ? 'border-t border-[color-mix(in_oklab,var(--line)_55%,transparent)]' : ''
       }`}
     >
       <div className={TICKET_GRID}>
-        <span className="num text-fs-sm text-end text-[var(--fg-subtle)]">1×</span>
+        <span aria-hidden className={styles.itemThumbnail}>{comboName.trim().slice(0, 2)}</span>
 
         <span className="min-w-0 flex items-center gap-2 flex-wrap">
-          <span className="text-[15px] leading-[21px] font-semibold tracking-[-0.006em] text-[var(--fg)]">
-            {comboName}
+          <span className="text-[14px] leading-[22px] font-semibold text-[var(--fg)]">
+            {comboName}<span className={styles.itemQuantity}> × 1</span>
           </span>
           <span
             className="inline-flex items-center px-1.5 py-0.5 rounded-full text-fs-micro font-semibold"
@@ -67,11 +68,11 @@ export function TicketComboBlock({
           {showUnpaidChip && <Badge tone="warning">{t('notPaidChip')}</Badge>}
         </span>
 
-        <Money value={comboTotal} className="text-[15px] leading-[21px] font-medium text-end text-[var(--fg)]" />
+        <Money value={comboTotal} className="text-[14px] leading-[22px] font-normal text-end text-[var(--fg)]" />
       </div>
 
       {/* Picks — indented into the name column, against a guide rail. */}
-      <div className="ms-[calc(28px+var(--s-3))] ps-[var(--s-3)] border-s border-[var(--line)] mt-[var(--s-1)]">
+      <div className="ms-[52px] ps-[var(--s-3)] border-s border-[var(--line)] mt-[var(--s-1)]">
         <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-x-[var(--s-3)] items-baseline">
           {comboItems.map((ci) => {
             const delta = ci.price * ci.quantity;
@@ -116,7 +117,7 @@ export function TicketComboBlock({
         </div>
       </div>
 
-      <div className="ms-[calc(28px+var(--s-3))] mt-[var(--s-1)] text-fs-xs text-[var(--fg-subtle)]">
+      <div className="ms-[52px] mt-[var(--s-1)] text-fs-xs text-[var(--fg-subtle)]">
         <span className="num">{totalPicks}</span> {picksLabel}
       </div>
     </div>

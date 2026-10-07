@@ -2,31 +2,20 @@
 
 import type { ReactNode } from 'react';
 import { EditIcon, ScaleIcon, CreditCardIcon, CheckCircle2Icon, MessageCircleIcon } from 'lucide-react';
-import { Button } from '@/components/ds';
+import { Button, MenuItem, MenuLabel, MenuSeparator } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
 import type { OrderCapabilities, PrimaryAction } from '@/lib/orders/order-actions';
-import { SendToCustomerMenu } from './menus/SendToCustomerMenu';
+import { SendToCustomerItems } from './menus/SendToCustomerMenu';
+import styles from './order-detail.module.css';
 
-/**
- * The command bar.
- *
- * Start cluster: quiet utilities that are always available (edit, actions, send).
- * End cluster: contextual secondary actions and ONE dominant primary — the
- * order's next step. Record-level corrections and destructive actions stay
- * grouped in the labelled Actions menu. That single-primary rule is the whole point of the bar:
- * whatever else is on screen, there is exactly one obvious thing to do next.
- *
- * Mobile stacks the end cluster with the primary on top (col-reverse) and every
- * button full-width, so labels never truncate.
- */
 export interface CommandBarProps {
   order: Order;
   caps: OrderCapabilities;
   canManage: boolean;
   isLoading: boolean;
   onEdit: () => void;
-  actions: ReactNode;
+  actions: (utilities: ReactNode) => ReactNode;
   onSendConfirmation: () => void;
   onSendDeliveryReminder?: () => void;
   onConfirmWeights?: () => void;
@@ -35,6 +24,7 @@ export interface CommandBarProps {
   onPrimary: (action: PrimaryAction) => void;
 }
 
+/** Toolbar action group, preserving Foody capability gates and callbacks. */
 export function CommandBar({
   order, caps, canManage, isLoading,
   onEdit, actions, onSendConfirmation, onSendDeliveryReminder, onConfirmWeights, onTakePayment, onCloseOrder,
@@ -53,101 +43,23 @@ export function CommandBar({
     markDelivered: t('markDelivered'),
   };
 
-  return (
-    <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:items-center md:justify-between md:gap-[var(--s-3)]">
-      {/* Start — quiet utilities */}
-      <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-        {canManage && caps.canEditOrder && (
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={onEdit}
-            className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
-          >
-            <EditIcon /> {t('edit') || 'Modifier'}
-          </Button>
-        )}
-        {actions}
-        <SendToCustomerMenu order={order} onSendConfirmation={onSendConfirmation} />
-      </div>
-
-      {/* End — contextual secondary · single primary */}
-      <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:flex-nowrap md:items-center">
-        {canManage && onSendDeliveryReminder && (
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={onSendDeliveryReminder}
-            disabled={isLoading}
-            className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
-            style={{
-              color: 'var(--brand-ink)',
-              borderColor: 'color-mix(in oklab, var(--brand-500) 45%, var(--line-strong))',
-              background: 'color-mix(in oklab, var(--brand-500) 8%, transparent)',
-            }}
-          >
-            <MessageCircleIcon /> {t('sendDeliveryReminder') || 'Envoyer les infos de livraison'}
-          </Button>
-        )}
-
-        {canManage && caps.canConfirmWeights && onConfirmWeights && (
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={onConfirmWeights}
-            disabled={isLoading}
-            style={{
-              color: 'var(--brand-ink)',
-              borderColor: 'color-mix(in oklab, var(--brand-500) 45%, var(--line-strong))',
-            }}
-            className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
-          >
-            <ScaleIcon /> {t('confirmWeights') || 'Confirm weights'}
-          </Button>
-        )}
-
-        {canManage && caps.canTakePayment && (
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={onTakePayment}
-            disabled={isLoading}
-            style={{
-              // --success-600 does not exist in globals.css; the previous code
-              // asked for it and the declaration was silently dropped.
-              color: 'var(--success-500)',
-              borderColor: 'color-mix(in oklab, var(--success-500) 45%, var(--line-strong))',
-            }}
-            className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
-          >
-            <CreditCardIcon /> {t('takePayment')}
-          </Button>
-        )}
-
-        {canManage && caps.canCloseOrder && (
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={onCloseOrder}
-            disabled={isLoading}
-            className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
-          >
-            <CheckCircle2Icon /> {t('closeOrder')}
-          </Button>
-        )}
-
-        {canManage && caps.primary && (
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => onPrimary(caps.primary!)}
-            disabled={isLoading}
-            className="h-11 w-full md:w-auto md:flex-none justify-center font-semibold"
-          >
-            {PRIMARY_LABEL[caps.primary]}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
+  const utilities = <>
+    {canManage && caps.canEditOrder && <MenuItem onSelect={onEdit}><EditIcon />{t('edit')}</MenuItem>}
+    {canManage && onSendDeliveryReminder && <MenuItem disabled={isLoading} onSelect={onSendDeliveryReminder}><MessageCircleIcon />{t('sendDeliveryReminder')}</MenuItem>}
+    {canManage && caps.canConfirmWeights && onConfirmWeights && <MenuItem disabled={isLoading} onSelect={onConfirmWeights}><ScaleIcon />{t('confirmWeights')}</MenuItem>}
+    {canManage && caps.canTakePayment && <MenuItem disabled={isLoading} onSelect={onTakePayment}><CreditCardIcon />{t('takePayment')}</MenuItem>}
+    {canManage && caps.canCloseOrder && <MenuItem disabled={isLoading} onSelect={onCloseOrder}><CheckCircle2Icon />{t('closeOrder')}</MenuItem>}
+    <MenuSeparator />
+    <MenuLabel>{t('sendToCustomer')}</MenuLabel>
+    <SendToCustomerItems order={order} onSendConfirmation={onSendConfirmation} />
+  </>;
+  return <>
+    {actions(utilities)}
+    {canManage && caps.primary && (
+      <Button variant="primary" size="md" className={styles.primaryButton}
+        onClick={() => onPrimary(caps.primary!)} disabled={isLoading}>
+        {PRIMARY_LABEL[caps.primary]}
+      </Button>
+    )}
+  </>;
 }

@@ -38,7 +38,7 @@ export function ContextBlock({
   className?: string;
 }) {
   return (
-    <section className={cn(CONTEXT_BLOCK_SHELL, className)}>
+    <section className={cn('order-detail-context-block', CONTEXT_BLOCK_SHELL, className)}>
       {(label || aside) && (
         <div className="flex items-baseline justify-between gap-[var(--s-3)] mb-[var(--s-2)]">
           {label && <span className={CONTEXT_BLOCK_EYEBROW}>{label}</span>}
@@ -61,7 +61,7 @@ export function ContextRow({
   className?: string;
 }) {
   return (
-    <div className={cn('flex items-start justify-between gap-[var(--s-3)] text-fs-sm leading-5', className)}>
+    <div className={cn('order-detail-fact flex items-start justify-between gap-[var(--s-3)] text-fs-sm leading-5', className)}>
       <span className="text-[var(--fg-subtle)] shrink-0">{label}</span>
       <span className="text-end break-words min-w-0">{children}</span>
     </div>

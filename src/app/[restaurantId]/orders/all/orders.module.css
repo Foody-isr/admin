@@ -1,7 +1,3 @@
-/* Square's public font distribution, scoped to the orders workspace. */
-@font-face { font-family: 'Orders Sans'; src: url('https://square-fonts-production-f.squarecdn.com/v1.11.0/cash-sans/CashSans-Regular.woff2') format('woff2'); font-style: normal; font-weight: 400; font-display: swap; }
-@font-face { font-family: 'Orders Sans'; src: url('https://square-fonts-production-f.squarecdn.com/v1.11.0/cash-sans/CashSans-Medium.woff2') format('woff2'); font-style: normal; font-weight: 500 600; font-display: swap; }
-@font-face { font-family: 'Orders Sans'; src: url('https://square-fonts-production-f.squarecdn.com/v1.11.0/cash-sans/CashSans-Semibold.woff2') format('woff2'); font-style: normal; font-weight: 700; font-display: swap; }
 .workspace { --orders-fg: #1a1a1a; --orders-muted: #666; --orders-line: #f0f0f0; --orders-border: #d9d9d9; --orders-button: #f0f0f0; font-family: 'Orders Sans', var(--font-sans); color: var(--orders-fg); font-feature-settings: normal; }
 :global(.dark) .workspace, :global([data-theme='dark']) .workspace { --orders-fg: var(--fg); --orders-muted: var(--fg-muted); --orders-line: var(--line); --orders-border: var(--line-strong); --orders-button: var(--surface-2); }
 .workspace button, .workspace input { font-family: inherit; }

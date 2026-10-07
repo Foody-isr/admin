@@ -1,0 +1,68 @@
+.overlay { position: fixed; inset: 0; z-index: 50; background: transparent; }
+.drawer { --fg: #1a1a1a; --fg-muted: #666; --fg-subtle: #666; --line: #f0f0f0; --line-strong: #d9d9d9; --surface: #fff; --surface-2: #f0f0f0; position: fixed; z-index: 50; inset-block: 0; inset-inline-end: 0; width: min(444px, 100vw); display: flex; flex-direction: column; min-height: 0; background: var(--surface); color: var(--fg); font-family: 'Orders Sans', var(--font-sans); font-size: 14px; line-height: 22px; font-variant-numeric: normal; box-shadow: -4px 0 16px #00000012; outline: none; padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom); }
+:global([dir='rtl']) .drawer { box-shadow: 4px 0 16px #00000012; }
+:global(.dark) .drawer, :global([data-theme='dark']) .drawer { --fg: #f4f4f4; --fg-muted: #aaa; --fg-subtle: #aaa; --line: #303030; --line-strong: #505050; --surface: #191919; --surface-2: #303030; }
+.drawer button, .drawer a { font-family: inherit; }
+.toolbar { flex-shrink: 0; padding: 24px 32px; background: var(--surface); }
+.toolbarActions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.toolbarEnd { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.drawer .iconButton { width: 48px; height: 48px; flex: 0 0 48px; padding: 0; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--fg); }
+.drawer .iconButton svg { width: 20px; height: 20px; }
+.drawer .iconButton:hover { background: var(--line-strong); }
+.drawer .primaryButton { min-height: 48px; height: auto; padding: 12px 20px; max-width: 180px; border: 0; border-radius: 999px; background: #111; color: #fff; font-size: 14px; font-weight: 500; line-height: 20px; text-align: center; white-space: normal; }
+:global(.dark) .drawer .primaryButton { background: #f4f4f4; color: #111; }
+.document { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 24px 32px 40px; }
+.summary { margin-bottom: 32px; }
+.summary h2 { margin: 0; font-size: 25px; font-weight: 700; line-height: 32px; overflow-wrap: anywhere; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.statusBadge, .paymentBadge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--fg-muted); font-size: 12px; line-height: 16px; font-weight: 500; }
+.statusBadge[data-status-tone='new'] { background: #e5efff; color: #006aff; }
+.statusBadge[data-status-tone='progress'] { background: #fff2e5; color: #a45c1a; }
+:global(.dark) .statusBadge[data-status-tone='new'] { background: #20304a; color: #91b8ff; }
+:global(.dark) .statusBadge[data-status-tone='progress'] { background: #4c3020; color: #f3b77c; }
+.statusDot { width: 6px; height: 6px; background: currentColor; border-radius: 50%; }
+.orderReference { margin-top: 12px; color: var(--fg-muted); font-size: 12px; line-height: 18px; }
+.document h3 { margin: 0 0 16px; font-size: 18px; line-height: 26px; font-weight: 600; letter-spacing: normal; }
+.details { margin-bottom: 40px; }
+.facts > :global(.order-detail-fact) { min-height: 47px; padding: 12px 8px; border-bottom: 1px solid var(--line); align-items: flex-start; font-size: 14px; line-height: 22px; gap: 20px; }
+.facts > :global(.order-detail-fact) > span:first-child { font-weight: 500; color: var(--fg); flex-shrink: 1; }
+.facts > :global(.order-detail-fact) > span:last-child { max-width: 66%; overflow-wrap: anywhere; }
+.factLink { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.details :global(.order-detail-context-block) { margin-top: 24px; padding-top: 0; border: 0; }
+.details :global(.order-detail-context-block) > div:first-child > span { color: var(--fg); font-size: 18px; line-height: 26px; }
+.details :global(.order-detail-context-block) > div:first-child > span svg { display: none; }
+.items { margin-bottom: 32px; }
+.itemHeading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 24px; margin-bottom: 12px; }
+.itemHeading:first-child { margin-top: 0; }
+.itemRow { padding-block: 16px; min-height: 72px; }
+.itemThumbnail { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 4px; background: var(--surface-2); color: var(--fg-muted); font-size: 14px; font-weight: 500; grid-row: span 1; }
+.itemQuantity { color: var(--fg-muted); font-weight: 400; white-space: nowrap; }
+.money { margin-top: 8px; }
+.money :global(.order-detail-money-body) > div:first-child { gap: 16px 12px; padding-inline: 8px; font-size: 14px; line-height: 22px; }
+.money :global(.order-detail-money-body) > div:first-child > span { color: var(--fg); }
+.money h3 { margin-top: 24px; margin-bottom: 0; }
+.paymentHead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 8px 16px; border-bottom: 1px solid var(--line); }
+.paymentMethod { min-width: 0; font-weight: 500; }
+.paymentMethod .cashMethod { padding: 0; border: 0; background: transparent; color: var(--fg); font-size: 14px; font-weight: 500; white-space: normal; }
+.paymentAmount { display: flex; flex-shrink: 0; flex-direction: column; align-items: flex-end; gap: 2px; }
+.paymentAmount > span:last-child { color: var(--fg-muted); font-size: 12px; line-height: 18px; font-weight: 500; }
+.notes, .activity { margin-top: 32px; }
+.activity > div { font-size: 14px; line-height: 22px; gap: 20px; }
+@media (max-width: 443px) {
+  .toolbar { padding: 16px; }
+  .document { padding: 24px 20px 32px; }
+  .toolbarActions { gap: 8px; }
+  .toolbarEnd { gap: 6px; }
+  .drawer .iconButton { height: 40px; width: 40px; flex-basis: 40px; }
+  .drawer .primaryButton { min-height: 40px; padding: 10px 12px; max-width: 180px; font-size: 13px; }
+  .facts > :global(.order-detail-fact) { padding-inline: 0; gap: 12px; }
+}
+.timeline { list-style: none; margin: 0; padding: 0; font-family: 'Orders Sans', var(--font-sans); }
+.timelineEvent { position: relative; display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 20px; padding-bottom: 16px; font-size: 14px; line-height: 22px; }
+.timelineEvent:not(:last-child)::after { content: ''; position: absolute; inset-inline-start: 9px; top: 24px; bottom: 4px; width: 1px; background: currentColor; }
+.timelineEvent > svg { width: 20px; height: 20px; margin-top: 1px; }
+.timelineEvent time { display: block; margin-top: 2px; font-size: 12px; line-height: 18px; color: var(--fg-muted); }
+
+.workflow { margin-top: 16px; font-size: 14px; }
+.workflow summary { width: fit-content; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; font-weight: 500; }
+.workflow[open] summary { margin-bottom: 20px; }

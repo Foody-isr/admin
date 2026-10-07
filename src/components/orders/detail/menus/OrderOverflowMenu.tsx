@@ -4,10 +4,12 @@
 // lives in the command bar so these options are discoverable without competing
 // with the order's primary workflow action.
 //
+import type { ReactNode } from 'react';
+import styles from '../order-detail.module.css';
 import {
   MoreHorizontalIcon, RotateCcwIcon, BanknoteIcon, CreditCardIcon,
   ClipboardListIcon, XIcon, Trash2Icon, HistoryIcon, FileTextIcon,
-  AlertTriangleIcon, ChevronDownIcon,
+  AlertTriangleIcon,
 } from 'lucide-react';
 import {
   Button,
@@ -20,13 +22,15 @@ import {
 } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 
+/** Single toolbar menu for utilities, references and permitted management actions. */
 export function OrderOverflowMenu({
   activityCount, activityPending, activityFailed, onViewActivity,
   invoiceCount, onViewInvoice,
   canCorrect, canCorrectPayment, canCorrectPaymentMethod, canReactivate, canForceProduction, forceProductionActive,
   forceProductionRevives, canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
-  onReactivate, onToggleForceProduction, onCancel, onDelete, disabled,
+  onReactivate, onToggleForceProduction, onCancel, onDelete, disabled, children,
 }: {
+  children?: ReactNode;
   activityCount?: number;
   activityPending?: boolean;
   activityFailed?: boolean;
@@ -71,13 +75,15 @@ export function OrderOverflowMenu({
           variant="secondary"
           size="md"
           disabled={disabled}
-          className="h-11 flex-1 md:flex-none justify-center font-semibold"
+          className={styles.iconButton}
+          aria-label={t('actions')} title={t('actions')}
         >
-          <MoreHorizontalIcon /> {t('actions') || 'Actions'}
-          <ChevronDownIcon className="w-3.5 h-3.5" />
+          <MoreHorizontalIcon />
         </Button>
       </MenuTrigger>
-      <MenuContent side="top" align="start" className="order-detail-menu">
+      <MenuContent side="bottom" align="end" className="order-detail-menu max-h-[calc(100dvh-100px)] overflow-y-auto">
+        {children}
+        {children && <MenuSeparator />}
         {hasReferences && <MenuLabel>{t('details')}</MenuLabel>}
         {onViewActivity && (
           <MenuItem onSelect={onViewActivity}>
