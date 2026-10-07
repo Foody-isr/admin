@@ -325,7 +325,7 @@ function isTask4Field(id: string): boolean {
   return (
     id.startsWith("site.navbar_cta") ||
     id.startsWith("page.appearance_overrides.navbar_cta") ||
-    id.startsWith("site.footer") ||
+    id.startsWith("site.footer.") ||
     id.startsWith("page.appearance_overrides.section_colors.categoryBar") ||
     [
       "section.settings.custom_bg",

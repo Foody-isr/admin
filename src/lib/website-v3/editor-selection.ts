@@ -8,7 +8,7 @@ import {
 export type OrderEditorRegion = "order-banner" | "order-items" | "order-fulfillment";
 
 export type RailSelection =
-  | { kind: "site"; pageKey?: string; region?: "header" | "footer"; headerElement?: HeaderElement }
+  | { kind: "site"; pageKey?: string; region?: "header" | "footer" | "footer-branding"; headerElement?: HeaderElement }
   | { kind: "page"; key: string; region?: OrderEditorRegion }
   | { kind: "section"; pageKey: string; sectionKey: string; field?: string };
 

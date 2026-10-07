@@ -100,7 +100,7 @@ export function EditorSidebar({
   design: (onEditShared: () => void, initialScreen?: "root" | "colors") => ReactNode;
   alerts: ReactNode;
   onTabChange: (tab: InspectorTab) => void;
-  onSelectSite: (region?: "header" | "footer") => void;
+  onSelectSite: (region?: "header" | "footer" | "footer-branding") => void;
   onSelectPage: (key: string) => void;
   onSelectSection: (key: string, field?: string) => void;
   hoveredSectionKey: string | null;
@@ -193,7 +193,7 @@ export function EditorSidebar({
         SQUARE_COMPONENTS[section.section_type]?.label ??
         section.section_type,
     );
-  const editSite = (region?: "header" | "footer") => {
+  const editSite = (region?: "header" | "footer" | "footer-branding") => {
     onSelectSite(region);
     onTabChange("settings");
     setPanel("inspector");
@@ -324,6 +324,8 @@ export function EditorSidebar({
                   ? t(
                       selection.region === "header"
                         ? "editorHeader"
+                        : selection.region === "footer-branding"
+                          ? "editorFooterBranding"
                         : selection.region === "footer"
                           ? "editorFooter"
                           : "editorSettings",
@@ -570,20 +572,17 @@ export function EditorSidebar({
           >
             <button
               onClick={() => {
-                const footer = sections.find(
-                  (s) => s.section_type === "footer",
-                );
-                if (footer) chooseSection(sectionKey(footer));
-                else {
-                  onSelectSite("footer");
-                  onTabChange("content");
-                  setPanel("inspector");
-                }
+                onSelectSite("footer");
+                onTabChange("content");
+                setPanel("inspector");
               }}
             >
               <PanelTop size={20} />
               {t("editorFooter")}
             </button>
+          </div>
+          <div className="sqe-section-row" data-hovered={hoveredSectionKey === "site:footer-branding" || undefined} onMouseEnter={() => onHoverSection("site:footer-branding")} onMouseLeave={() => onHoverSection(null)}>
+            <button onClick={() => editSite("footer-branding")}><PanelTop size={20}/>{t("editorFooterBranding")}</button>
           </div>
           {groups.length > 0 && (
             <button
