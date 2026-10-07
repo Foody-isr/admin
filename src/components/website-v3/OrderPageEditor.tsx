@@ -1,4 +1,5 @@
 "use client";
+import { ColorStylePicker } from "./ColorStylePicker";
 
 import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -163,32 +164,7 @@ export function OrderPageEditor({
             ["3", "3"],
             ["4", "4"],
           ])}
-          <label>{t("editorColorStyle")}</label>
-          <div className="sqe-order-colors">
-            {["default", "light", "dark", "accent", "surface", "soft"].map(
-              (style, index) => (
-                <button
-                  key={style}
-                  aria-label={t(`editorOrderColor_${style}`)}
-                  aria-pressed={(value.color_style ?? "default") === style}
-                  onClick={() => set("color_style", style)}
-                  style={{
-                    background: [
-                      "#fff",
-                      "#fff",
-                      "#111",
-                      "#111",
-                      "#eee",
-                      "#ddd",
-                    ][index],
-                    color: index === 2 || index === 3 ? "#fff" : "#111",
-                  }}
-                >
-                  {style === "default" ? t("editorOrderColor_default") : "Aa"}
-                </button>
-              ),
-            )}
-          </div>
+          <ColorStylePicker value={String(value.color_style ?? "default")} onChange={id => set("color_style", id)} />
           {select("background_kind", "editorBackground", "style", [
             ["style", "editorOrderColorStyle"],
             ["color", "editorOrderCustomColor"],
@@ -234,11 +210,13 @@ export function OrderPageEditor({
           {toggle("category_background", "editorBackground", false)}
         </details>
         {toggle("show_search", "editorOrderSearch")}
-        <details>
-          <summary>{t("editorCategoryTitles")}</summary>
-          {toggle("show_category_titles", "editorCategoryTitles")}
-          {typography("category_title", "title-3")}
-        </details>
+        {toggle("show_category_titles", "editorCategoryTitles")}
+        {value.show_category_titles !== false && (
+          <details>
+            <summary>{t("editorCategoryTitleStyle")}</summary>
+            {typography("category_title", "title-3")}
+          </details>
+        )}
         <details>
           <summary>{t("editorItemCards")}</summary>
           {select("card_border", "editorBorder", "none", [

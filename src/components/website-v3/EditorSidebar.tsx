@@ -96,7 +96,7 @@ export function EditorSidebar({
   inspector: ReactNode;
   orderEditor?: (region: OrderEditorRegion) => ReactNode;
   onSelectOrderRegion?: (region: OrderEditorRegion) => void;
-  design: (onEditShared: () => void) => ReactNode;
+  design: (onEditShared: () => void, initialScreen?: "root" | "colors") => ReactNode;
   alerts: ReactNode;
   onTabChange: (tab: InspectorTab) => void;
   onSelectSite: (region?: "header" | "footer") => void;
@@ -127,6 +127,8 @@ export function EditorSidebar({
   onDeleteSection: (key: string) => void;
 }) {
   const { t } = useI18n();
+  const [designScreen, setDesignScreen] = useState<"root" | "colors">("root");
+  useEffect(() => { const open = () => {setDesignScreen("colors"); setPanel("design");}; window.addEventListener("foody-edit-color-styles", open); return () => window.removeEventListener("foody-edit-color-styles", open); }, []);
   const [panel, setPanel] = useState<Panel>("outline");
   const [sectionContentOpen, setSectionContentOpen] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(true);
@@ -223,7 +225,7 @@ export function EditorSidebar({
           </a>
           <button
             className="sqe-button sqe-design-button"
-            onClick={() => setPanel("design")}
+            onClick={() => {setDesignScreen("root"); setPanel("design");}}
           >
             {t("editorDesign")}
           </button>
@@ -781,7 +783,7 @@ export function EditorSidebar({
           ))}
         </div>
       )}
-      {panel === "design" && design(() => editSite())}
+      {panel === "design" && design(() => editSite(), designScreen)}
       {panel === "inspector" && orderRegion && orderEditor ? orderEditor(orderRegion) : panel === "inspector" && (
         <>
           {!selectedSection &&

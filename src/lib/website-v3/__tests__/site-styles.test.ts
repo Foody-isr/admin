@@ -196,3 +196,15 @@ test("brand edits repair inherited CTA colors on every page without replacing cu
   assert.equal(next.sections[0].layout, "split");
   assert.deepEqual(next.config.typography, before.config.typography);
 });
+
+
+test("a site preset resets shared styles and section color overrides while retaining authored content", () => {
+ const state = normalizeDraftState({config: {custom_palette: {bg: "#fff", color_styles: {default: "style-2"}}}, pages: [{id: 1, type: "landing", title: "Home", slug: "home", is_homepage: true}], sections: [{id: 1, page: "home", page_id: 1, section_type: "text", content: {headline: "Keep this"}, settings: {color_style: "custom", custom_bg: "#ff0000", headline_color: "#0000ff", bg_image: "/keep.jpg"}}]});
+ const next = applySiteStyle(state, SITE_STYLES[0]);
+ assert.equal(record(record(next.config.custom_palette).color_styles).default, "style-1");
+ assert.equal(next.sections[0].settings.color_style, "default");
+ assert.equal(next.sections[0].settings.custom_bg, undefined);
+ assert.equal(next.sections[0].settings.headline_color, undefined);
+ assert.equal(next.sections[0].settings.bg_image, "/keep.jpg");
+ assert.deepEqual(next.sections[0].content, state.sections[0].content);
+});

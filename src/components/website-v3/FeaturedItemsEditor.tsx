@@ -1,4 +1,5 @@
 "use client";
+import { ColorStylePicker } from "./ColorStylePicker";
 
 import { useEffect, useState } from "react";
 import {
@@ -373,34 +374,7 @@ export function FeaturedItemsEditor({
                 )}
               </>
             )}
-            <div className="sqe-choice-field">
-              <span>{t("editorColorStyle")}</span>
-              <div className="sqe-color-styles">
-                {["site", "light", "dark", "brand", "custom"].map((value) => (
-                  <button
-                    key={value}
-                    aria-label={t(
-                      value === "brand"
-                        ? "featuredBrandColor"
-                        : `editorColor_${value}`,
-                    )}
-                    aria-pressed={(settings.color_style ?? "site") === value}
-                    className={`sqe-color-style sqe-color-style--${value}`}
-                    onClick={() =>
-                      onChange(["settings"], {
-                        ...settings,
-                        color_style: value,
-                        ...(value === "custom"
-                          ? {}
-                          : { custom_bg: "", custom_text: "" }),
-                      })
-                    }
-                  >
-                    Aa
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ColorStylePicker custom value={String(settings.color_style ?? "default")} onChange={id => onChange(["settings"], {...settings, color_style: id, custom_bg: "", custom_text: ""})} />
             {settings.color_style === "custom" && (
               <>
                 <ColorField

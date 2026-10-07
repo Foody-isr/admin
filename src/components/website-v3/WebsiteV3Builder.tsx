@@ -84,6 +84,7 @@ import { normalizeSlug } from "@/lib/website-v3/state";
 import { PageSettingsDialog } from "./PageSettingsDialog";
 import { OrderPageEditor } from "./OrderPageEditor";
 import { EditorSidebar } from "./EditorSidebar";
+import { SiteColorContext } from "./ColorStylePicker";
 import { SiteDesign } from "./SiteDesign";
 import {
   recordDraftEdit,
@@ -1259,8 +1260,13 @@ function DesktopWebsiteV3Builder({
         ? "stale"
         : "syncing";
 
+  const colorTheme = loaded.catalog.themes.find(theme => theme.id === state.config.theme_id);
+  const colorConfig = {...state.config, custom_palette: state.config.custom_palette || {
+    bg: colorTheme?.preview.swatches[0], surface: colorTheme?.preview.swatches[1],
+    accent: state.config.brand_color || colorTheme?.preview.swatches[2], ink: colorTheme?.preview.swatches[3],
+  }};
   return (
-    <>
+    <SiteColorContext.Provider value={colorConfig}>
       <BuilderShell
         status={saveStatus}
         previewStatus={previewStatus}
@@ -1366,8 +1372,9 @@ function DesktopWebsiteV3Builder({
                 )}
               </>
             }
-            design={(onEditShared) => (
+            design={(onEditShared, initialScreen) => (
               <SiteDesign
+                initialScreen={initialScreen}
                 state={state}
                 catalog={loaded.catalog}
                 previewContext={{ webOrigin, restaurantSlug: loaded.restaurant.slug || String(restaurantId), restaurantId }}
@@ -1548,7 +1555,7 @@ function DesktopWebsiteV3Builder({
         onClose={() => setDialogOpen(false)}
         onCreate={createPage}
       />
-    </>
+    </SiteColorContext.Provider>
   );
 }
 
