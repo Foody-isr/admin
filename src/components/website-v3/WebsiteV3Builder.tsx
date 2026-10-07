@@ -1388,7 +1388,7 @@ function DesktopWebsiteV3Builder({
                 onEditShared={onEditShared}
               />
             )}
-            orderEditor={region => <OrderPageEditor restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
+            orderEditor={region => <OrderPageEditor sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => { setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: "fulfillment"}); setTab("content"); }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
             onSelectOrderRegion={region => setSelection({kind: "page", key: pageKey(activePage), region})}
             inspector={
               <Inspector

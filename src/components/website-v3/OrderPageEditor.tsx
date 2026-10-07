@@ -14,12 +14,16 @@ export function OrderPageEditor({
   region,
   onChange,
   onPreviewItem,
+  sharedHeader = false,
+  onEditHeader,
 }: {
   restaurantId: number;
   page: DraftPagePayload;
   region: OrderEditorRegion;
   onChange: (path: StatePath, value: unknown) => void;
   onPreviewItem: (open: boolean) => void;
+  sharedHeader?: boolean;
+  onEditHeader?: () => void;
 }) {
   const { t } = useI18n();
   useEffect(() => () => onPreviewItem(false), [onPreviewItem]);
@@ -111,7 +115,7 @@ export function OrderPageEditor({
   if (region === "order-fulfillment")
     return (
       <div className="sqe-panel-body sqe-order-settings">
-        {toggle("show_fulfillment", "editorOrderShowService")}
+        {sharedHeader ? <button className="sqe-button" onClick={onEditHeader}>{t("editorHeader")}</button> : toggle("show_fulfillment", "editorOrderShowService")}
         {toggle("prompt_on_entry", "editorOrderPrompt")}
         {toggle("modal_cover", "editorOrderModalCover")}
         {toggle("modal_logo", "editorLogo")}
