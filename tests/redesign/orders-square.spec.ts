@@ -92,7 +92,7 @@ for (const locale of ['fr', 'he']) test(`orders tabs support keyboard and mobile
 test('Square payment cells have two lines and workflow badges use the reference palette', async ({ page }, info) => {
   const { fixture } = await install(page);
   fixture.orders[3].status = 'delivered';
-  fixture.orders[1].balance_due = 20;
+  Object.assign(fixture.orders[1], { balance_due: 20 });
   await page.route('**/api/v1/restaurants/1', async route => {
     const { restaurant } = fixture.response(route.request().url()).json as { restaurant: Record<string, unknown> };
     await route.fulfill({ json: { restaurant: { ...restaurant, orders_table_config: {
