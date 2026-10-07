@@ -42,8 +42,7 @@ export interface OrderColumn extends ColumnSpec {
   cellClassName?: string;
   /**
    * Whether the column is shown to a restaurant that has not customised its
-   * table. Every column added after launch ships `false`, so no restaurant's
-   * table changes shape under them when we release a new one.
+   * table. Optional delivery fields remain hidden until explicitly enabled.
    */
   defaultVisible: boolean;
   /** Eligible to be the card heading when the table collapses to cards on
@@ -75,23 +74,45 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     defaultVisible: true,
     mobilePrimary: true,
     render: (order, t) => (
-      <span className="flex min-w-0 flex-col">
+      <span className="flex min-w-0 flex-col md:max-w-[220px]">
         <span className="truncate font-semibold text-fg-primary">
           {order.customer_name || t('guestCustomer')}
         </span>
-        <span className="mt-0.5 truncate text-fs-xs font-normal text-[var(--fg-subtle)]">
-          {localizeSource(order.order_source, t)}
-          {order.customer_phone ? ` · ${order.customer_phone}` : ''}
-        </span>
+        {order.customer_phone && <span className="mt-0.5 truncate text-fs-xs font-normal text-[var(--fg-subtle)]">
+          {order.customer_phone}
+        </span>}
       </span>
     ),
+  },
+  {
+    key: 'source',
+    labelKey: 'source',
+    defaultVisible: true,
+    cellClassName: 'text-fg-secondary md:min-w-[110px]',
+    render: (order, t) => localizeSource(order.order_source, t),
   },
   {
     key: 'type',
     labelKey: 'type',
     defaultVisible: true,
-    cellClassName: 'text-fg-secondary',
+    cellClassName: 'text-fg-secondary md:min-w-[110px]',
     render: (order, t) => localizeOrderType(order.order_type, t),
+  },
+  {
+    key: 'items',
+    labelKey: 'items',
+    defaultVisible: true,
+    render: (order) => (
+      <span role="group" className="flex items-center gap-2" aria-label={(order.items ?? []).map(item => `${item.quantity} × ${item.name}`).join(', ')}>
+        {(order.items ?? []).slice(0, 2).map(item => (
+          <span key={item.id} title={`${item.quantity} × ${item.name}`}
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-2)] text-sm font-semibold text-[var(--fg-muted)]" aria-hidden="true">
+            {Array.from(item.name).slice(0, 2).join('')}
+          </span>
+        ))}
+        {(order.items?.length ?? 0) > 2 && <span aria-hidden="true" className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--line-strong)] text-sm font-medium text-[var(--fg)]">+{order.items.length - 2}</span>}
+      </span>
+    ),
   },
   {
     key: 'created_at',

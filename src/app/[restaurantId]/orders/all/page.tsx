@@ -32,11 +32,11 @@ import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import { useOrderSeries } from '@/lib/series';
 import {
   PauseIcon, PlayIcon,
-  ListFilterIcon, ClipboardListIcon,
+  ListFilterIcon, ClipboardListIcon, SearchIcon,
 } from 'lucide-react';
 import { Button, ConfirmDialog } from '@/components/ds';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
-import { ListToolbar, ListPagination } from '@/components/data-table';
+import { ListPagination } from '@/components/data-table';
 import { ListFilterButton, ListChoiceFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
@@ -55,6 +55,7 @@ import {
   OPERATIONS_QUEUES,
   type OperationsQueueKey,
 } from '@/lib/orders/operations-board';
+import styles from './orders.module.css';
 import { defaultOrdersTabForBasis } from '@/lib/orders/orders-list-preferences';
 import {
   PAYMENT_ATTENTION_FILTER,
@@ -93,15 +94,15 @@ interface Tab {
 // still-in-progress statuses so completed/cancelled scheduled orders live in
 // the Terminées / Annulées tabs, not here.
 const TABS: Tab[] = [
-  { key: 'active', labelKey: 'active', statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery', active: true },
+  { key: 'all', labelKey: 'all' },
+  { key: 'active', labelKey: 'ordersTabActive', statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery', active: true },
   { key: 'review', labelKey: 'ordersQueueReview', statuses: 'pending_review', active: true },
   { key: 'kitchen', labelKey: 'ordersQueueKitchen', statuses: 'accepted,in_kitchen', active: true },
   { key: 'ready', labelKey: 'ordersQueueReady', statuses: 'ready,ready_for_pickup,ready_for_delivery', active: true },
   { key: 'delivery', labelKey: 'ordersQueueDelivery', statuses: 'out_for_delivery', active: true },
-  { key: 'scheduled', labelKey: 'scheduled', isScheduled: true, statuses: 'scheduled,pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery' },
+  { key: 'scheduled', labelKey: 'ordersTabScheduled', isScheduled: true, statuses: 'scheduled,pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery' },
   { key: 'completed', labelKey: 'completed', statuses: 'served,received,picked_up,delivered' },
   { key: 'canceled', labelKey: 'canceled', statuses: 'rejected,cancelled' },
-  { key: 'all', labelKey: 'all', active: undefined },
 ];
 
 
@@ -134,7 +135,7 @@ function primaryActionLabel(action: PrimaryAction, order: Order, t: (key: string
 
 export default function OrdersPage() {
   const { money } = useCurrency();
-  const { t } = useI18n();
+  const { t, locale, direction } = useI18n();
   const { hasAnyPermission, isOwner, roleName } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
   // Manual status correction is a management action — owner or manager only,
@@ -822,21 +823,57 @@ export default function OrdersPage() {
   return (
     <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
       <div className="min-w-0 space-y-[var(--s-3)] md:space-y-[var(--s-4)]">
-        <h1 className="sr-only">{t('orders')}</h1>
-        <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
-          filters={<>
-            <ListChoiceFilter label={t('type')} options={typeOptions} value={typeFilter} onChange={value => { setTypeFilter(value); setPage(0); }} />
-            <ListChoiceFilter label={t('listState')} options={statusOptions} value={activeTab} onChange={switchTab} />
-            <ListFilterButton label={t('allFilters')} icon={<ListFilterIcon />} onClick={openListFilters} />
-          </>}
-          primaryAction={canManage && <Button asChild><Link href={`/${rid}/orders/new`}>{t('newOrder')}</Link></Button>}
-          actions={<ActionsDropdown actions={[
-            { label: t('refresh'), onClick: () => void fetchOrders() },
-            { label: t(soundOn ? 'muteSound' : 'unmuteSound'), onClick: () => setSoundOn(toggleSound()) },
-            ...(canManage ? [{ label: t(paused ? 'resumeOrders' : 'pauseOrders'), disabled: pauseSaving, onClick: () => { if (paused) void togglePause(false); else setPauseConfirmationOpen(true); } }] : []),
-            { label: t('ordersResetFilters'), onClick: resetFilters },
-          ]} />}
-        />
+        <header className={styles.header}>
+          <h1>{t('allOrders')}</h1>
+          <div className={styles.commands}>
+            <ActionsDropdown actions={[
+              { label: t('refresh'), onClick: () => void fetchOrders() },
+              { label: t(soundOn ? 'muteSound' : 'unmuteSound'), onClick: () => setSoundOn(toggleSound()) },
+              ...(canManage ? [{ label: t(paused ? 'resumeOrders' : 'pauseOrders'), disabled: pauseSaving, onClick: () => { if (paused) void togglePause(false); else setPauseConfirmationOpen(true); } }] : []),
+              { label: t('ordersResetFilters'), onClick: resetFilters },
+            ]} />
+            {canManage && <Button asChild><Link href={`/${rid}/orders/new`}>{t('newOrder')}</Link></Button>}
+          </div>
+        </header>
+        <div className={styles.tabs} role="tablist" aria-label={t('listState')}>
+          {TABS.filter(tab => ['all', 'active', 'scheduled', 'completed', 'canceled'].includes(tab.key)).map(tab => (
+            <button key={tab.key} type="button" role="tab" id={`orders-tab-${tab.key}`}
+              aria-controls="orders-results"
+              aria-selected={activeTab === tab.key || (tab.key === 'active' && ['review', 'kitchen', 'ready', 'delivery'].includes(activeTab))}
+              tabIndex={activeTab === tab.key || (tab.key === 'active' && ['review', 'kitchen', 'ready', 'delivery'].includes(activeTab)) ? 0 : -1}
+              onClick={() => switchTab(tab.key)}
+              onKeyDown={event => {
+                const tabs = Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+                const index = tabs.indexOf(event.currentTarget);
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+                  : event.key === 'ArrowRight' ? (index + (direction === 'rtl' ? -1 : 1) + tabs.length) % tabs.length
+                  : event.key === 'ArrowLeft' ? (index + (direction === 'rtl' ? 1 : -1) + tabs.length) % tabs.length : null;
+                if (next !== null) { event.preventDefault(); tabs[next].focus(); tabs[next].click(); }
+              }}>
+              {t(tab.labelKey)}
+            </button>
+          ))}
+        </div>
+        <section data-list-toolbar aria-label={t('listTools')} className={styles.filters}>
+          <form className={styles.search} onSubmit={event => { event.preventDefault(); setSearchSubmitted(search.trim()); setPage(0); }}>
+            <div className="list-search">
+              <SearchIcon aria-hidden className="pointer-events-none absolute start-5 top-1/2 size-5 -translate-y-1/2" />
+              <input type="search" dir="auto" className="list-search-input" aria-label={t('search')} placeholder={t('search')} value={search} onChange={event => setSearch(event.target.value)} />
+            </div>
+            <Button type="submit" variant="ghost" className={styles.searchButton}>{t('search')}</Button>
+          </form>
+          <DateRangePicker value={dateRange} onChange={range => { setDateRange(range); setPage(0); }}
+            triggerClassName="list-filter-button" weekStartDay={weekStartDay} workdays={workdays}
+            restaurantId={rid} basis={dateField} onBasisChange={changeDateField} series={serieList} />
+          <ListChoiceFilter label={t('type')} options={typeOptions} value={typeFilter} onChange={value => { setTypeFilter(value); setPage(0); }} />
+          <ListChoiceFilter label={t('paymentStatus')} options={[{ value: '', label: t('all') }, ...paymentOptions]} value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(0); }} />
+          <ListChoiceFilter label={t('listState')} options={statusOptions} value={activeTab} onChange={switchTab} />
+          <ListFilterButton label={t('allFilters')} icon={<ListFilterIcon />} onClick={openListFilters} />
+        </section>
+        <div className={styles.listMeta}>
+          <p aria-live="polite">{lastUpdated && t('ordersUpdatedAt').replace('{time}', lastUpdated.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }))}</p>
+          <span>{t('total')}: {total}</span>
+        </div>
         <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters}
           customFilters={[{ id: 'period', label: t('date'), summary: `${isoDate(draftRange.from)} – ${isoDate(draftRange.to)}`, onReset: () => { setDraftRange(defaultDateRange()); setDraftBasis(defaultDateField); }, content: <DateRangePicker value={draftRange} onChange={setDraftRange} weekStartDay={weekStartDay} workdays={workdays} restaurantId={rid} basis={draftBasis} onBasisChange={setDraftBasis} series={serieList} /> }]}
           onApply={values => {
@@ -879,6 +916,7 @@ export default function OrdersPage() {
           </div>
         )}
 
+        <section id="orders-results" role="tabpanel" aria-labelledby={`orders-tab-${['review', 'kitchen', 'ready', 'delivery'].includes(activeTab) ? 'active' : activeTab}`}>
         {/* Table */}
         {loading ? (
           <OrdersTableSkeleton
@@ -909,7 +947,7 @@ export default function OrdersPage() {
         ) : (
           <>
             <DataTable
-              className="list-table operational-table orders-operational-table"
+              className={`list-table operational-table orders-operational-table ${styles.table}`}
               data-density="compact"
             >
               <DataTableHead className="sticky top-0 z-[2]">
@@ -1017,11 +1055,10 @@ export default function OrdersPage() {
             </DataTable>
 
             <ListPagination page={page + 1} totalPages={Math.max(1, totalPages)} pageSize={PAGE_SIZE} onPageChange={value => setPage(value - 1)} />
-            {lastUpdated && <p className="mt-3 text-xs text-[var(--fg-muted)]">{t('ordersUpdatedAt').replace('{time}', lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</p>}
           </>
         )}
+        </section>
       </div>
-
       {/* Clicking a row opens the complete order directly. */}
       {detailId != null && detailLoadFailed && !detailOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[3px]" role="dialog" aria-modal="true">

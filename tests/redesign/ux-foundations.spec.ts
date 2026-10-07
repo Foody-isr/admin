@@ -131,7 +131,7 @@ for (const variant of [{ locale:'fr', theme:'light', width:375 }, { locale:'he',
   });
 }
 
-for (const path of ['kitchen/stock', 'kitchen/prep', 'menu/menus', 'staff', 'orders/all', 'settings/devices', 'marketing/discounts', 'kitchen/supplies', 'kitchen/suppliers?tab=suppliers', 'kitchen/suppliers?tab=orders', 'settings/team', 'menu/modifiers']) {
+for (const path of ['kitchen/stock', 'kitchen/prep', 'menu/menus', 'staff', 'settings/devices', 'marketing/discounts', 'kitchen/supplies', 'kitchen/suppliers?tab=suppliers', 'kitchen/suppliers?tab=orders', 'settings/team', 'menu/modifiers']) {
   test(`shared reference toolbar: ${path}`, async ({ page }, info) => {
     const fixture = await install(page);
     const errors: string[] = [];

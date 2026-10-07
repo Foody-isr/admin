@@ -1,0 +1,35 @@
+/* Square orders reference: quiet header, underlined scopes and open table. */
+.header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 4px 0 8px; }
+.header h1 { font-size: clamp(24px, 2.4vw, 32px); font-weight: 700; line-height: 1.25; letter-spacing: -.025em; }
+.commands { display: flex; align-items: center; gap: 12px; }
+.commands > button, .commands > a { min-height: 48px; padding-inline: 22px; font-size: 16px; }
+.commands > button { background: var(--surface-2); border: 0; }
+.tabs { display: flex; gap: 24px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.tabs > button { position: relative; flex-shrink: 0; padding: 14px 0; font-size: 18px; font-weight: 600; color: var(--fg-muted); }
+.tabs > button[aria-selected='true'] { color: var(--fg); }
+.tabs > button[aria-selected='true']::after { position: absolute; content: ''; inset-inline: 0; bottom: 0; height: 3px; border-radius: 2px; background: var(--fg); }
+.tabs > button:focus-visible { outline: 2px solid var(--fg); outline-offset: -3px; border-radius: 4px; }
+.filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding-block: 4px 8px; }
+.search { display: flex; align-items: center; gap: 12px; }
+.search :global(.list-search) { width: 260px; }
+.searchButton { min-height: 48px; padding-inline: 24px; background: var(--surface-2); color: var(--fg); font-size: 16px; font-weight: 600; }
+.listMeta { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 36px; color: var(--fg-muted); font-size: 14px; }
+@media (min-width: 768px) {
+  .table > table > thead > tr { height: 68px; }
+  .table > table > thead > tr > th { padding-block: 20px; white-space: nowrap; }
+  .table > table > tbody > tr > td { padding-block: 18px; }
+  .table > table > tbody > tr { height: 76px; }
+}
+@media (max-width: 767px) {
+  .header { gap: 16px; }
+  .commands { width: 100%; justify-content: space-between; }
+  .commands > button, .commands > a { padding-inline: 16px; font-size: 14px; }
+  .tabs { gap: 20px; }
+  .tabs > button { font-size: 16px; }
+  .filters { gap: 8px; }
+  .search { width: 100%; gap: 8px; }
+  .search :global(.list-search) { width: auto; flex: 1; min-width: 0; }
+  .searchButton { padding-inline: 16px; font-size: 14px; }
+  .filters :global(.list-filter-button) { max-width: 100%; font-size: 14px; padding-inline: 12px; }
+  .listMeta { align-items: flex-start; font-size: 12px; }
+}
