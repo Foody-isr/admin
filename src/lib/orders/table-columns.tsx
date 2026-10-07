@@ -24,6 +24,15 @@ export { hasCustomLayout } from '@/lib/orders/column-layout';
 
 type Translate = (key: string) => string;
 
+// Table badges group the workflow stages using the Square reference palette.
+const TABLE_STATUS_TONE: Partial<Record<Order['status'], 'new' | 'progress'>> = {
+  pending_review: 'new',
+  scheduled: 'new',
+  accepted: 'progress',
+  in_kitchen: 'progress',
+  out_for_delivery: 'progress',
+};
+
 export interface OrderColumn extends ColumnSpec {
   /** Stable identifier persisted in the restaurant's saved layout. Never reuse
    *  a key for different content: a saved layout would silently apply to it. */
@@ -127,7 +136,7 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     render: (order, t) => {
       return (
         <span className="inline-flex items-center gap-2 whitespace-nowrap">
-          {localizeStatus(order.status, t)}
+          <Badge className="orders-status-badge" data-status-tone={TABLE_STATUS_TONE[order.status] ?? 'neutral'}>{localizeStatus(order.status, t)}</Badge>
           {order.external_metadata?.stock_oversold === true && <Badge tone="warning" dot>{t('stockOversoldBadge')}</Badge>}
         </span>
       );
@@ -135,21 +144,22 @@ export const ORDER_COLUMNS: OrderColumn[] = [
   },
   {
     key: 'payment',
-    labelKey: 'payment',
+    labelKey: 'paymentStatus',
     defaultVisible: true,
     render: (order, t, money) => {
       const paymentStatus = displayedPaymentStatus(order);
       const balanceDue = order.balance_due ?? 0;
       return (
-        <div className="flex flex-col items-start gap-1">
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
+        <div className="orders-payment-cell" title={paymentStatus === 'partially_paid' && balanceDue > 0.01
+          ? t('balanceRemainingShort').replace('{amount}', money(balanceDue))
+          : undefined}>
+          <span className="orders-payment-amount">{money(order.total_amount ?? 0)}</span>
+          <span className="orders-payment-status">
             <span>{localizePaymentStatus(paymentStatus, t)}</span>
-            <CashTag order={order} />
-          </div>
+            <CashTag order={order} className="orders-cash-tag" />
+          </span>
           {paymentStatus === 'partially_paid' && balanceDue > 0.01 && (
-            <span className="text-fs-xs font-medium text-[var(--warning-600)] tabular-nums">
-              {t('balanceRemainingShort').replace('{amount}', money(balanceDue))}
-            </span>
+            <span className="sr-only">{t('balanceRemainingShort').replace('{amount}', money(balanceDue))}</span>
           )}
         </div>
       );

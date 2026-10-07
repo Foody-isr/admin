@@ -896,7 +896,7 @@ export default function OrdersPage() {
                     align={col.align}
                     className="bg-[var(--surface)] px-3 py-3 normal-case tracking-normal"
                   >
-                    {t(col.labelKey)}
+                    <span className={col.key === 'payment' ? styles.paymentHeading : undefined}>{t(col.labelKey)}</span>
                   </DataTableHeadCell>
                 ))}
                 <DataTableHeadCell align="right" className="w-12 px-2 !py-1.5">{hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}</DataTableHeadCell>

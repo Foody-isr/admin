@@ -88,3 +88,39 @@ for (const locale of ['fr', 'he']) test(`orders tabs support keyboard and mobile
   await page.screenshot({ path: info.outputPath(`orders-square-${locale}-mobile.png`), fullPage: true });
   expect(fixture.writes).toEqual([]);
 });
+
+test('Square payment cells have two lines and workflow badges use the reference palette', async ({ page }, info) => {
+  const { fixture } = await install(page);
+  fixture.orders[3].status = 'delivered';
+  fixture.orders[1].balance_due = 20;
+  await page.route('**/api/v1/restaurants/1', async route => {
+    const { restaurant } = fixture.response(route.request().url()).json as { restaurant: Record<string, unknown> };
+    await route.fulfill({ json: { restaurant: { ...restaurant, orders_table_config: {
+      order: ['customer', 'created_at', 'payment', 'status'],
+      visible: { customer: true, created_at: true, payment: true, status: true, source: false, type: false, items: false, date: false, total: false },
+    } } } });
+  });
+  await page.goto('/1/orders/all');
+  await page.getByRole('tab', { name: 'Tous', exact: true }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(8);
+  await page.evaluate(() => document.fonts.ready);
+  const dateHeader = page.getByRole('columnheader', { name: 'Date de commande', exact: true });
+  expect(await dateHeader.evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
+  const row = page.locator('tbody tr').first();
+  await expect(row.locator('.orders-payment-amount')).toHaveText('₪80.00');
+  await expect(row.locator('.orders-payment-status')).toContainText('Non payé');
+  await expect(row.locator('.orders-payment-status')).toContainText('Espèces');
+  const amount = (await row.locator('.orders-payment-amount').boundingBox())!;
+  const paymentStatus = (await row.locator('.orders-payment-status').boundingBox())!;
+  expect(paymentStatus.y).toBeGreaterThanOrEqual(amount.y + amount.height);
+  const centers = await page.locator('.orders-payment-amount').evaluateAll(elements => elements.map(element => { const rect = element.getBoundingClientRect(); return rect.x + rect.width / 2; }));
+  expect(Math.max(...centers) - Math.min(...centers)).toBeLessThan(1);
+  for (const [index, background, color] of [[0, 'rgb(255, 242, 229)', 'rgb(164, 92, 26)'], [1, 'rgb(229, 239, 255)', 'rgb(0, 106, 255)'], [2, 'rgb(240, 240, 240)', 'rgb(102, 102, 102)'], [3, 'rgb(240, 240, 240)', 'rgb(102, 102, 102)']] as const) {
+    const badge = page.locator('tbody tr').nth(index).locator('.orders-status-badge');
+    expect(await badge.evaluate(element => ({ background: getComputedStyle(element).backgroundColor, color: getComputedStyle(element).color, radius: getComputedStyle(element).borderRadius }))).toEqual({ background, color, radius: '999px' });
+  }
+  await expect(page.locator('tbody tr').nth(1).locator('.orders-payment-status')).toContainText('Partiellement payé');
+  expect(await page.locator('tbody tr').evaluateAll(rows => rows.map(row => row.getBoundingClientRect().height))).toEqual(Array(8).fill(70));
+  await page.screenshot({ path: info.outputPath('orders-square-payment-status-fr.png'), fullPage: true });
+  expect(fixture.writes).toEqual([]);
+});

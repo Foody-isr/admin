@@ -35,7 +35,6 @@
   :global([data-workspace-shell]) :global(#workspace-content):has(.workspace) { padding-top: 32px; }
   .table > table > thead > tr { height: 69px; border-color: #959595; }
   .table > table > thead > tr > th { padding: 12px 8px; font-weight: 500; font-size: 14px; line-height: 22px; color: var(--orders-fg); white-space: nowrap; }
-  .table > table > thead > tr > th[data-column='created_at'] { background: var(--orders-button); }
   .table > table > tbody > tr { height: 70px; border-bottom: 1px solid var(--orders-line); }
   .table > table > tbody > tr:hover { background: var(--orders-button); }
   .table > table > tbody > tr > td { padding: 12px 8px; color: var(--orders-fg); font-weight: 400; }
@@ -56,3 +55,17 @@
   .clearFilters { padding-inline: 8px; font-size: 14px; }
   .listMeta { align-items: flex-start; font-size: 12px; }
 }
+
+/* Payment and workflow cells share Square's compact two-line and pill treatments. */
+.table :global(.orders-payment-cell) { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; min-width: 140px; }
+.table :global(.orders-payment-amount) { color: var(--orders-fg, var(--fg)); font-size: 14px; line-height: 22px; font-weight: 400; white-space: nowrap; }
+.table :global(.orders-payment-status) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: var(--orders-muted, var(--fg-muted)); font-size: 12px; line-height: 18px; font-weight: 500; white-space: nowrap; }
+.table :global(.orders-payment-status) :global(.orders-cash-tag) { min-height: 18px; padding: 0 4px; font-size: 11px; line-height: 16px; }
+.table :global(.orders-status-badge) { min-height: 22px; padding: 3px 8px; border-radius: 999px; font-size: 12px; line-height: 16px; font-weight: 500; background: #f0f0f0; color: #666; }
+.table :global(.orders-status-badge)[data-status-tone='new'] { background: #e5efff; color: #006aff; }
+.table :global(.orders-status-badge)[data-status-tone='progress'] { background: #fff2e5; color: #a45c1a; }
+:global(.dark) .table :global(.orders-status-badge), :global([data-theme='dark']) .table :global(.orders-status-badge) { background: var(--surface-2); color: var(--fg-muted); }
+:global(.dark) .table :global(.orders-status-badge)[data-status-tone='new'], :global([data-theme='dark']) .table :global(.orders-status-badge)[data-status-tone='new'] { background: #20304a; color: #91b8ff; }
+:global(.dark) .table :global(.orders-status-badge)[data-status-tone='progress'], :global([data-theme='dark']) .table :global(.orders-status-badge)[data-status-tone='progress'] { background: #4c3020; color: #f3b77c; }
+
+.paymentHeading { display: block; max-width: 100px; margin-inline: auto; text-align: center; white-space: normal; }
