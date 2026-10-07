@@ -155,24 +155,19 @@ for (const path of ['kitchen/stock', 'kitchen/prep', 'menu/menus', 'staff', 'set
   });
 }
 
-test('order payment and status filters apply once and closing discards the draft', async ({ page }) => {
+test('order quick filters reset without changing the selected lifecycle tab', async ({ page }) => {
   const fixture = await install(page);
   const queries: URL[] = [];
   page.on('request', request => { const url = new URL(request.url()); if (url.pathname === '/api/v1/orders') queries.push(url); });
   await page.goto('/1/orders/all');
-  await expect(page.locator('[data-list-toolbar]')).toBeVisible();
-  await page.getByRole('button', { name:'Tous les filtres', exact:true }).click();
-  const drawer = page.getByRole('dialog');
-  await drawer.getByRole('button', { name:/Statut de paiement/ }).click();
-  await drawer.getByRole('radio', { name:'Payé', exact:true }).check();
-  await page.keyboard.press('Escape');
-  expect(queries.at(-1)?.searchParams.get('payment_status')).not.toBe('paid');
-  await page.getByRole('button', { name:'Tous les filtres', exact:true }).click();
-  await drawer.getByRole('button', { name:/Statut de paiement/ }).click();
-  await expect(drawer.getByRole('radio', { name:'Payé', exact:true })).not.toBeChecked();
-  await drawer.getByRole('radio', { name:'Payé', exact:true }).check();
-  await drawer.getByRole('button', { name:'Appliquer', exact:true }).click();
+  await page.getByRole('tab', { name: 'Planifiées', exact: true }).click();
+  const tools = page.locator('[data-list-toolbar]');
+  await tools.getByRole('button', { name: /Statut de paiement/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Payé', exact: true }).click();
   await expect.poll(() => queries.at(-1)?.searchParams.get('payment_status')).toBe('paid');
+  await tools.getByRole('button', { name: 'Tout effacer', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.has('payment_status')).toBe(false);
+  await expect.poll(() => queries.at(-1)?.searchParams.get('is_scheduled')).toBe('true');
   expect(fixture.writes).toEqual([]);
 });
 

@@ -32,12 +32,12 @@ import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import { useOrderSeries } from '@/lib/series';
 import {
   PauseIcon, PlayIcon,
-  ListFilterIcon, ClipboardListIcon, SearchIcon,
+  ClipboardListIcon, SearchIcon,
 } from 'lucide-react';
 import { Button, ConfirmDialog } from '@/components/ds';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import { ListPagination } from '@/components/data-table';
-import { ListFilterButton, ListChoiceFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
+import { ListChoiceFilter } from '@/components/data-table/ListFilters';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
@@ -49,9 +49,7 @@ import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
 import { OrderColumnPicker } from '@/components/orders/OrderColumnPicker';
 import { useOrdersTableConfig } from '@/lib/orders/useOrdersTableConfig';
 import { Skeleton } from '@/components/ui/skeleton';
-import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
 import {
-  getOrderTiming,
   OPERATIONS_QUEUES,
   type OperationsQueueKey,
 } from '@/lib/orders/operations-board';
@@ -118,19 +116,6 @@ function defaultDateRange(): { from: Date; to: Date } {
   return { from, to };
 }
 
-function primaryActionLabel(action: PrimaryAction, order: Order, t: (key: string) => string): string {
-  if (action === 'markReady' && order.order_type === 'delivery') return t('markReadyForDelivery');
-  const keys: Record<PrimaryAction, string> = {
-    accept: 'accept',
-    sendToKitchen: 'sendToKitchen',
-    markReady: 'markReady',
-    markServed: 'markServed',
-    markOutForDelivery: 'markOutForDelivery',
-    markDelivered: 'markDelivered',
-  };
-  return t(keys[action]);
-}
-
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
@@ -171,9 +156,6 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [searchSubmitted, setSearchSubmitted] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [filterView, setFilterView] = useState<string | null>(null);
-  const [draftRange, setDraftRange] = useState<DateRange>(defaultDateRange);
-  const [draftBasis, setDraftBasis] = useState<DateBasis>('created');
   const [paymentFilter, setPaymentFilter] = useState(
     paymentAttentionScope ? PAYMENT_ATTENTION_FILTER : '',
   );
@@ -191,7 +173,6 @@ export default function OrdersPage() {
   const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
   const serieList = useOrderSeries(rid);
   const [page, setPage] = useState(0);
-  const [, setClockTick] = useState(0);
 
   const orders = rawOrders;
   const setOrders = setRawOrders;
@@ -378,13 +359,6 @@ export default function OrdersPage() {
   };
 
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
-
-  // Stage-age labels update even when the restaurant is quiet and no websocket
-  // event causes a render.
-  useEffect(() => {
-    const timer = window.setInterval(() => setClockTick((tick) => tick + 1), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   // Search as staff type, with enough delay to avoid sending a request per
   // keystroke. Enter still submits immediately below.
@@ -753,29 +727,6 @@ export default function OrdersPage() {
     closeOrderDetail();
   };
 
-  const runPrimaryAction = (order: Order, action: PrimaryAction) => {
-    switch (action) {
-      case 'accept':
-        void handleAccept(order.id);
-        break;
-      case 'sendToKitchen':
-        void handleSendToKitchen(order.id);
-        break;
-      case 'markReady':
-        void handleMarkReady(order.id);
-        break;
-      case 'markServed':
-        void handleMarkServed(order.id);
-        break;
-      case 'markOutForDelivery':
-        void handleOutForDelivery(order.id);
-        break;
-      case 'markDelivered':
-        void handleMarkDelivered(order.id);
-        break;
-    }
-  };
-
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const today = isoDate(new Date());
   const hasDateFilter =
@@ -792,7 +743,6 @@ export default function OrdersPage() {
     setPaymentFilter('');
     setDateRange(defaultDateRange());
     setDateField(defaultDateField);
-    setActiveTab(defaultOrdersTabForBasis(defaultDateField));
     setPage(0);
     router.replace(ordersListPath(rid));
   };
@@ -809,20 +759,12 @@ export default function OrdersPage() {
   }, [rid, closeOrderDetail]);
 
   const typeOptions = [{ value: '', label: t('all') }, { value: 'dine_in', label: t('dineIn') }, { value: 'pickup', label: t('pickup') }, { value: 'delivery', label: t('delivery') }];
-  const statusOptions = TABS.map(tab => ({ value: tab.key, label: t(tab.key === 'all' ? 'allOrders' : tab.labelKey) }));
   const paymentOptions = [{ value: PAYMENT_ATTENTION_FILTER, label: t('ordersPaymentsToProcess') }, { value: 'paid', label: t('paid') }, { value: 'partially_paid', label: t('partiallyPaid') }, { value: 'pending', label: t('pending') }, { value: 'unpaid', label: t('unpaid') }, { value: 'refunded', label: t('refunded') }];
-  const listFilters = [
-    { id: 'type', label: t('type'), single: true, options: typeOptions.filter(option => option.value), selected: new Set(typeFilter ? [typeFilter] : []) },
-    { id: 'status', label: t('listState'), single: true, options: statusOptions, selected: new Set([activeTab]) },
-    { id: 'payment', label: t('paymentStatus'), single: true, options: paymentOptions, selected: new Set(paymentFilter ? [paymentFilter] : []) },
-  ];
-  const openListFilters = () => { setDraftRange(dateRange); setDraftBasis(dateField); setFilterView('index'); };
-
   // ─── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
-      <div className="min-w-0 space-y-[var(--s-3)] md:space-y-[var(--s-4)]">
+    <div className={`${styles.workspace} min-h-[calc(100dvh-var(--topbar-total-h)-64px)]`}>
+      <div className="min-w-0">
         <header className={styles.header}>
           <h1>{t('allOrders')}</h1>
           <div className={styles.commands}>
@@ -863,24 +805,20 @@ export default function OrdersPage() {
             <Button type="submit" variant="ghost" className={styles.searchButton}>{t('search')}</Button>
           </form>
           <DateRangePicker value={dateRange} onChange={range => { setDateRange(range); setPage(0); }}
-            triggerClassName="list-filter-button" weekStartDay={weekStartDay} workdays={workdays}
+            triggerClassName={`list-filter-button ${styles.dateFilter}`}
+            triggerContent={<span dir="ltr" title={t(dateField === 'created' ? 'orderDate' : 'dateBasisSerieOption')}>{[dateRange.from, dateRange.to].map(date => `${date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })} ${date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`).join(' - ')}</span>}
+            weekStartDay={weekStartDay} workdays={workdays}
             restaurantId={rid} basis={dateField} onBasisChange={changeDateField} series={serieList} />
           <ListChoiceFilter label={t('type')} options={typeOptions} value={typeFilter} onChange={value => { setTypeFilter(value); setPage(0); }} />
-          <ListChoiceFilter label={t('paymentStatus')} options={[{ value: '', label: t('all') }, ...paymentOptions]} value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(0); }} />
-          <ListChoiceFilter label={t('listState')} options={statusOptions} value={activeTab} onChange={switchTab} />
-          <ListFilterButton label={t('allFilters')} icon={<ListFilterIcon />} onClick={openListFilters} />
+          <div className={styles.secondaryFilters}>
+            <ListChoiceFilter label={t('paymentStatus')} options={[{ value: '', label: t('all') }, ...paymentOptions]} value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(0); }} />
+            <button type="button" className={styles.clearFilters} onClick={resetFilters}>{t('clearAll')}</button>
+          </div>
         </section>
         <div className={styles.listMeta}>
           <p aria-live="polite">{lastUpdated && t('ordersUpdatedAt').replace('{time}', lastUpdated.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }))}</p>
           <span>{t('total')}: {total}</span>
         </div>
-        <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters}
-          customFilters={[{ id: 'period', label: t('date'), summary: `${isoDate(draftRange.from)} – ${isoDate(draftRange.to)}`, onReset: () => { setDraftRange(defaultDateRange()); setDraftBasis(defaultDateField); }, content: <DateRangePicker value={draftRange} onChange={setDraftRange} weekStartDay={weekStartDay} workdays={workdays} restaurantId={rid} basis={draftBasis} onBasisChange={setDraftBasis} series={serieList} /> }]}
-          onApply={values => {
-            setTypeFilter(Array.from(values.type)[0] ?? ''); setPaymentFilter(Array.from(values.payment)[0] ?? ''); setDateRange(draftRange);
-            if (draftBasis !== dateField) changeDateField(draftBasis);
-            switchTab(Array.from(values.status)[0] ?? 'all');
-          }} />
         {wsStatus !== 'connected' && <p role="status" className="text-sm text-[var(--fg-muted)]">{t(wsStatus === 'connecting' ? 'connecting' : 'offline')}</p>}
         {preferenceSaveFailed && <p role="status" className="text-sm text-[var(--warning-600)]">{t('displayPreferenceSaveFailed')}</p>}
 
@@ -920,7 +858,7 @@ export default function OrdersPage() {
         {/* Table */}
         {loading ? (
           <OrdersTableSkeleton
-            columns={columns.visible.length + (canManage ? 1 : 0)}
+            columns={columns.visible.length + 1}
             label={t('loading')}
           />
         ) : orders.length === 0 ? (
@@ -954,26 +892,17 @@ export default function OrdersPage() {
                 {columns.visible.map((col) => (
                   <DataTableHeadCell
                     key={col.key}
+                    data-column={col.key}
                     align={col.align}
                     className="bg-[var(--surface)] px-3 py-3 normal-case tracking-normal"
                   >
                     {t(col.labelKey)}
                   </DataTableHeadCell>
                 ))}
-                {canManage && (
-                  <DataTableHeadCell
-                    align="right"
-                    className="sticky end-0 min-w-[150px] bg-[var(--surface)] px-3 py-3 normal-case tracking-normal"
-                  >
-                    {t('ordersNextAction')}
-                  </DataTableHeadCell>
-                )}
                 <DataTableHeadCell align="right" className="w-12 px-2 !py-1.5">{hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}</DataTableHeadCell>
               </DataTableHead>
               <DataTableBody>
                 {orders.map((order, index) => {
-                  const timing = getOrderTiming(order);
-                  const capabilities = deriveOrderCapabilities(order, { canManage });
                   return (
                     <DataTableRow
                       key={order.id}
@@ -991,62 +920,19 @@ export default function OrdersPage() {
                       }}
                       className="group cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--brand-500)]"
                     >
-                      {columns.visible.map((col, columnIndex) => (
+                      {columns.visible.map((col) => (
                         <DataTableCell
                           key={col.key}
                           align={col.align}
-                          className={`${col.cellClassName ?? ''} px-3 py-2 ${
-                            columnIndex === 0 && timing.overdue
-                              ? 'relative before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--danger-500)]'
-                              : ''
-                          }`}
+                          className={`${col.cellClassName ?? ''} px-2 py-3`}
                           mobilePrimary={col.isMobilePrimary}
                           mobileLabel={col.isMobilePrimary ? undefined : t(col.labelKey)}
                           data-mobile-role={col.isMobilePrimary ? 'primary' : 'detail'}
                           data-mobile-column={col.key}
                         >
-                          {col.render(order, t, money)}
+                          {col.render(order, t, money, locale)}
                         </DataTableCell>
                       ))}
-                      {canManage && (
-                        <DataTableCell
-                          align="right"
-                          mobileLabel={t('ordersNextAction')}
-                          data-mobile-role="primary-action"
-                          className="bg-[var(--surface)] px-3 py-2 group-hover:bg-[var(--surface-2)] md:sticky md:end-0"
-                        >
-                          {capabilities.primary ? (
-                            <Button
-                              variant={capabilities.primary === 'accept' ? 'primary' : 'secondary'}
-                              size="sm"
-                              disabled={actionLoading === order.id}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                if (capabilities.primary === 'accept') {
-                                  openOrder(order.id);
-                                } else {
-                                  runPrimaryAction(order, capabilities.primary!);
-                                }
-                              }}
-                            >
-                              {capabilities.primary === 'accept'
-                                ? t('ordersReview')
-                                : primaryActionLabel(capabilities.primary, order, t)}
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openOrder(order.id);
-                              }}
-                            >
-                              {t('ordersView')}
-                            </Button>
-                          )}
-                        </DataTableCell>
-                      )}
                       <DataTableCell />
                     </DataTableRow>
                   );
@@ -1239,7 +1125,7 @@ function OrdersTableSkeleton({
   label: string;
 }) {
   return (
-    <DataTable aria-busy="true" aria-label={label} data-density="compact">
+    <DataTable className={`list-table operational-table orders-operational-table ${styles.table}`} aria-busy="true" aria-label={label} data-density="compact">
       <DataTableHead>
         {Array.from({ length: columns }).map((_, index) => (
           <DataTableHeadCell key={index} className="px-3 py-2">
@@ -1261,5 +1147,3 @@ function OrdersTableSkeleton({
     </DataTable>
   );
 }
-
-// ─── Filter Dropdown ─────────────────────────────────────────────────────────

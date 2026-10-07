@@ -57,3 +57,17 @@ test('item previews expose full quantities and names and summarize additional li
   assert.match(markup, />\+2<\/span>/);
   assert.doesNotThrow(() => items.render({} as Order, t, money));
 });
+
+
+test('default layout starts with the customer and keeps order numbers optional', () => {
+  assert.equal(ORDER_COLUMNS.filter(column => column.defaultVisible)[0].key, 'customer');
+  assert.equal(ORDER_COLUMNS.find(column => column.key === 'order_no')!.defaultVisible, false);
+});
+
+test('dates use the selected locale and retain scheduled pickup windows on one line', () => {
+  const date = ORDER_COLUMNS.find(column => column.key === 'date')!;
+  const order = { ...orderWithDates('2026-09-07T08:15:00Z'), scheduled_pickup_window_start: '08:00', scheduled_pickup_window_end: '15:00' } as Order;
+  const markup = renderToStaticMarkup(date.render(order, t, money, 'fr'));
+  assert.match(markup, /11 sept. 2026, 08:00–15:00/);
+  assert.match(markup, /whitespace-nowrap/);
+});
