@@ -1133,10 +1133,11 @@
 .sqh-layout--center i { inset-inline-start:40%; }
 .sqh-layout--center b { inset-inline-start:8%; }
 .sqh-layout--right b { inset-inline-start:auto; inset-inline-end:22%; }
-.sqh-layout--stacked i,.sqh-layout--centered i { inset-inline-start:40%; }
-.sqh-layout--stacked b,.sqh-layout--centered b { inset-inline-start:40%; top:13px; }
+.sqh-layout--stacked i { inset-inline-start:40%; }
+.sqh-layout--stacked b { inset-inline-start:40%; top:13px; }
 .sqh-layout--compact i { width:6px; height:6px; border-radius:50%; }
 .sqh-layout--compact b { inset-inline-start:22%; }
+.sqh-layout--centered b { inset-inline-start:8%; }
 .sqh-layout--centered i { width:6px; height:6px; inset-inline-start:47%; border-radius:50%; }
 .sqh-tip { display:flex; gap:10px; padding:20px 16px; border-radius:14px; background:#ededed; line-height:1.6; }
 .sqh-tip svg { flex-shrink:0; margin-top:4px; }
