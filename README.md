@@ -125,6 +125,20 @@ The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementa
 
 Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
 
+The order page's **Item list** panels provide bounded category bar/pill colors,
+card colors and three shapes, independent image shapes, and inherited site
+typography. **Use the previous menu layout** restores the historical three-column
+menu presentation in the draft, retaining the site's palette, fonts and commerce
+settings. Publication remains a separate action.
+
+For a local Mamie menu appearance check, run
+`FOODY_MENU_APPEARANCE=1 node tests/redesign/website-editor-server.mjs`, then run
+the admin with `NEXT_PUBLIC_API_URL=http://127.0.0.1:18081` and the guest web with
+`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081`. Open `/1/website-v3` in the
+admin and `/r/atelier-foody/order?lang=fr` in the guest web. The fixture contains
+public menu photos, copy and appearance only; draft/publication writes stay in
+the local server's memory. It does not proxy production requests.
+
 ### Billing (`/[restaurantId]/billing`)
 
 Self-service subscription management:
