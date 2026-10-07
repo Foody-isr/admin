@@ -31,7 +31,7 @@ function render(element: React.ReactElement): string {
   );
 }
 
-test("order menu exposes bounded colors and independent card/image shapes in its Square panels", () => {
+test("order menu reuses shared styles instead of competing local colors and retains independent shapes", () => {
   const markup = render(React.createElement(OrderPageEditor, {
     restaurantId: 24,
     page: { type: "order", slug: "order", title: "Order", sort_order: 0,
@@ -39,10 +39,12 @@ test("order menu exposes bounded colors and independent card/image shapes in its
       appearance_overrides: { website_order: { card_style: "filled", card_radius: "soft", image_radius: "rounded", show_descriptions: true } } },
     region: "order-items", onChange: () => undefined, onPreviewItem: () => undefined,
   }));
-  for (const key of ["card_background", "card_title_color", "card_description_color", "card_price_color"])
+  for (const key of ["card_color_style", "category_color_style"])
     assert.ok(markup.includes(`page.appearance_overrides.website_order.${key}`));
-  for (const key of ["bg", "text", "pillBg", "activeBg", "activeText", "searchBg", "searchText"])
-    assert.ok(markup.includes(`page.appearance_overrides.section_colors.categoryBar.${key}`));
+  assert.doesNotMatch(markup, /website_order\.card_(background|title_color|price_color|description_color)/);
+  assert.doesNotMatch(markup, /section_colors\.categoryBar/);
+  assert.match(markup, /Item list style/);
+  assert.match(markup, /Style accent/);
   assert.match(markup, /value="soft" selected=""/);
   assert.match(markup, /value="rounded" selected=""/);
   assert.match(markup, /Use the previous menu layout/);
@@ -375,8 +377,7 @@ test("order page appearance renders one normal category palette owner", () => {
     },
     settings: { menu_ids: [] },
   };
-  const markup = render(
-    React.createElement(PageInspector, {
+  const element = React.createElement(PageInspector, {
       page,
       tab: "appearance",
       surface: "page" as const,
@@ -393,14 +394,21 @@ test("order page appearance renders one normal category palette owner", () => {
       onReplace: () => undefined,
       onMakeDefault: () => undefined,
       onMakeHomepage: () => undefined,
-    }),
-  );
+    });
+  const markup = render(element);
 
   assert.match(
     markup,
     /page\.appearance_overrides\.section_colors\.categoryBar\.bg/,
   );
   assert.doesNotMatch(markup, /data-section-color-key="categoryBar"/);
+  const sharedMarkup = render(React.cloneElement(element, {
+    config: { custom_palette: { color_styles: { version: 1 } } },
+  }));
+  assert.doesNotMatch(sharedMarkup, /page\.appearance_overrides\.section_colors\.categoryBar\.bg/);
+  assert.match(sharedMarkup, /Edit color styles/);
+  assert.match(sharedMarkup, /Bar, text, active pills and search use this shared style/);
+
 });
 
 function renderTask4Editors(): string {

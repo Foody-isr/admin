@@ -17,8 +17,10 @@ export function ColorStylePicker({
   onChange,
   custom = false,
   fieldId,
+  defaultLabel,
 }: {
   fieldId?: string;
+  defaultLabel?: string;
   value?: string;
   onChange: (id: string) => void;
   custom?: boolean;
@@ -45,7 +47,7 @@ export function ColorStylePicker({
           aria-pressed={selected === "default" || selected === "site"}
           onClick={() => onChange("default")}
         >
-          {t("editorOrderColor_default")}
+          {defaultLabel ?? t("editorOrderColor_default")}
         </button>
         {colors.styles.map((style, i) => (
           <button

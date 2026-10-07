@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { previousOrderPresentation } from "../order-design";
+import { selectOrderColorStyle, previousOrderPresentation } from "../order-design";
 import { normalizeDraftState, updateWebsitePageAtPath } from "../state";
 
 test("restoring the previous presentation preserves commerce and authored colors in the draft only", () => {
@@ -41,4 +41,23 @@ test("restoring the previous presentation preserves commerce and authored colors
   assert.equal(design.image_radius, "rounded");
   assert.equal(design.category_title_style, "inherit");
   assert.deepEqual(previousOrderPresentation(design), design);
+});
+
+
+test("selecting a shared style removes the competing background without changing layout or child references", () => {
+  const value = {
+    color_style: "default",
+    background_kind: "color",
+    background: "#de5228",
+    card_color_style: "style-4",
+    category_color_style: "style-5",
+    columns: 3,
+  };
+  const before = structuredClone(value);
+  assert.deepEqual(selectOrderColorStyle(value, "style-5"), {
+    ...value,
+    color_style: "style-5",
+    background_kind: "style",
+  });
+  assert.deepEqual(value, before);
 });
