@@ -23,3 +23,11 @@ export function previousOrderPresentation(
     item_price_style: "inherit",
   };
 }
+
+/** Selecting a shared menu style restores its background; child style references remain explicit. */
+export function selectOrderColorStyle(
+  value: Record<string, unknown>,
+  id: string,
+): Record<string, unknown> {
+  return { ...value, color_style: id, background_kind: "style" };
+}

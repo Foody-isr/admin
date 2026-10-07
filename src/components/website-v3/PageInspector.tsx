@@ -37,6 +37,7 @@ import type {
   WebsitePageType,
 } from "@/lib/website-v3/types";
 import { ColorField, InspectorField, InspectorGroup, ToggleField, controlClass } from "./controls";
+import { openSiteColors } from "./ColorStylePicker";
 import { CategoryBarStateEditor } from "./CategoryBarStateEditor";
 import { CategoryNavigationEditor } from "./CategoryNavigationEditor";
 import { CheckoutSettingsEditor } from "./CheckoutSettingsEditor";
@@ -312,7 +313,14 @@ export function PageInspector({
                 )
               }
             />
-            <CategoryBarStateEditor
+            {page.type === "order" && record(config.custom_palette).color_styles ? (
+              <>
+                <p>{t("editorOrderCategoryColorsHint")}</p>
+                <button type="button" className="sqe-button" onClick={openSiteColors}>
+                  {t("editorEditColorStyles")}
+                </button>
+              </>
+            ) : <CategoryBarStateEditor
               value={record(appearance.section_colors)}
               onChange={(value) =>
                 onChange(
@@ -320,7 +328,7 @@ export function PageInspector({
                   value,
                 )
               }
-            />
+            />}
           </InspectorGroup>
         ) : null}
         <CommerceAppearance

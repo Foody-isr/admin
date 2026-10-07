@@ -1,7 +1,9 @@
 "use client";
 import { ColorStylePicker } from "./ColorStylePicker";
-import { OrderColorField } from "./OrderColorField";
-import { previousOrderPresentation } from "@/lib/website-v3/order-design";
+import {
+  selectOrderColorStyle,
+  previousOrderPresentation,
+} from "@/lib/website-v3/order-design";
 
 import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -33,33 +35,12 @@ export function OrderPageEditor({
   const value = record(page.appearance_overrides.website_order);
   const set = (key: string, next: unknown) =>
     onChange(["appearance_overrides", "website_order", key], next);
-  const color = (key: string, label: string) => (
-    <OrderColorField
-      key={key}
+  const childColors = (key: string) => (
+    <ColorStylePicker
       fieldId={`page.appearance_overrides.website_order.${key}`}
-      label={t(label)}
-      value={value[key]}
-      onChange={(next) => set(key, next)}
-    />
-  );
-  const sectionColors = record(page.appearance_overrides.section_colors);
-  const categoryColors = {
-    ...record(sectionColors.categoryBar),
-    ...record(sectionColors.categoryBarSticky),
-  };
-  const categoryColor = (key: string, label: string) => (
-    <OrderColorField
-      key={key}
-      fieldId={`page.appearance_overrides.section_colors.categoryBar.${key}`}
-      label={t(label)}
-      value={categoryColors[key]}
-      onChange={(next) => {
-        const { categoryBarSticky: _legacy, ...rest } = sectionColors;
-        onChange(["appearance_overrides", "section_colors"], {
-          ...rest,
-          categoryBar: { ...categoryColors, [key]: next },
-        });
-      }}
+      value={String(value[key] ?? "default")}
+      defaultLabel={t("editorOrderInheritMenuColors")}
+      onChange={(id) => set(key, id)}
     />
   );
   const toggle = (key: string, label: string, fallback = true) => (
@@ -240,7 +221,12 @@ export function OrderPageEditor({
           ])}
           <ColorStylePicker
             value={String(value.color_style ?? "default")}
-            onChange={(id) => set("color_style", id)}
+            onChange={(id) =>
+              onChange(
+                ["appearance_overrides", "website_order"],
+                selectOrderColorStyle(value, id),
+              )
+            }
           />
           {select("background_kind", "editorBackground", "style", [
             ["style", "editorOrderColorStyle"],
@@ -248,6 +234,19 @@ export function OrderPageEditor({
             ["gradient", "editorOrderGradient"],
             ["image", "editorField_image_url"],
           ])}
+          {typeof value.background_kind === "string" &&
+            value.background_kind !== "style" && (
+              <p role="note">
+                {t("editorOrderBackgroundOverrideHint")}{" "}
+                <button
+                  type="button"
+                  className="sqe-button"
+                  onClick={() => set("background_kind", "style")}
+                >
+                  {t("editorOrderUseStyleBackground")}
+                </button>
+              </p>
+            )}
           {(value.background_kind === "color" ||
             value.background_kind === "gradient") && (
             <label className="sqe-field">
@@ -291,20 +290,10 @@ export function OrderPageEditor({
             ["pill", "editorOrderShapePill"],
           ])}
           {toggle("sticky_categories", "editorOrderStickyCategories", false)}
-          {categoryColor("bg", "websiteV3CategoryBarBackground")}
-          {categoryColor("text", "websiteV3CategoryBarText")}
-          {categoryColor("pillBg", "editorOrderPillBackground")}
-          {categoryColor("activeBg", "websiteV3CategoryBarActiveBackground")}
-          {categoryColor("activeText", "websiteV3CategoryBarActiveText")}
+          {childColors("category_color_style")}
+          <p>{t("editorOrderCategoryColorsHint")}</p>
         </details>
         {toggle("show_search", "editorOrderSearch")}
-        {value.show_search !== false && (
-          <details>
-            <summary>{t("editorOrderSearchColors")}</summary>
-            {categoryColor("searchBg", "websiteV3CategoryBarSearchBackground")}
-            {categoryColor("searchText", "websiteV3CategoryBarSearchText")}
-          </details>
-        )}
         {toggle("show_availability_filter", "editorOrderAvailabilityFilter")}
         {toggle("show_category_titles", "editorCategoryTitles")}
         {value.show_category_titles !== false && (
@@ -319,13 +308,12 @@ export function OrderPageEditor({
             ["plain", "editorOrderCardPlain"],
             ["filled", "editorOrderCardFilled"],
           ])}
-          {color("card_background", "editorBackground")}
+          {childColors("card_color_style")}
+          <p>{t("editorOrderCardColorsHint")}</p>
           {select("card_border", "editorBorder", "none", [
             ["none", "editorNone"],
             ["line", "editorOrderBorderLine"],
           ])}
-          {value.card_border === "line" &&
-            color("card_border_color", "editorOrderBorderColor")}
           {select("card_radius", "editorShape", "square", [
             ["square", "editorShapeSquare"],
             ["soft", "editorOrderShapeSoft"],
@@ -358,7 +346,6 @@ export function OrderPageEditor({
           <summary>{t("editorItemTitles")}</summary>
           {toggle("show_item_titles", "editorItemTitles")}
           {typography("item_title", "paragraph-2")}
-          {color("card_title_color", "editorText")}
         </details>
         <details>
           <summary>{t("editorItemPrices")}</summary>
@@ -368,12 +355,13 @@ export function OrderPageEditor({
             ["starting", "editorOrderPriceStarting"],
           ])}
           {typography("item_price", "paragraph-3")}
-          {color("card_price_color", "editorText")}
+          {select("price_color_role", "editorOrderPriceColor", "title", [
+            ["title", "editorColorTitle"],
+            ["accent", "editorOrderStyleAccent"],
+          ])}
         </details>
         {toggle("show_badges", "editorBadges")}
         {toggle("show_descriptions", "editorItemDescriptions", false)}
-        {value.show_descriptions === true &&
-          color("card_description_color", "editorOrderDescriptionColor")}
         {toggle("show_portions", "editorOrderPortions")}
         <details onToggle={(event) => onPreviewItem(event.currentTarget.open)}>
           <summary>{t("editorItemView")}</summary>
