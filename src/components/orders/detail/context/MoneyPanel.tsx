@@ -1,33 +1,28 @@
 'use client';
 
-// The money column: the ledger, the payment state, and every warning that says
-// the two disagree. Moved verbatim from OrderDetailDrawer.tsx (809-1076).
+// Receipt totals, settlement details and warnings use Foody's existing calculations.
 //
 // One change on the way over: the pay-link and balance-link state moved in here
 // with the JSX that uses it. Both are derived from the order alone and were
 // eight useState hooks sitting in a component that never read them, so the
 // modal is that much thinner and nothing else can touch them.
 //
-// The amount leads like the top of a receipt, while the ledger and exceptional
-// payment states stay directly underneath. It also surfaces hold_amount /
-// captured_amount, which the payload carries and nothing else renders.
-
 import { useEffect, useState } from 'react';
 import {
-  AlertTriangleIcon, CheckIcon, CopyIcon, LinkIcon, MessageCircleIcon, ReceiptTextIcon, RotateCcwIcon,
+  AlertTriangleIcon, CheckIcon, CopyIcon, LinkIcon, MessageCircleIcon, RotateCcwIcon,
 } from 'lucide-react';
-import { Badge, Button } from '@/components/ds';
+import { Button } from '@/components/ds';
 import { Money } from '../primitives/Money';
+import styles from '../order-detail.module.css';
 import { CashTag } from '@/components/orders/CashTag';
 import { initOrderPaymentLink, collectOrderBalance, type Order } from '@/lib/api';
 import { formatMoney } from '@/lib/format-money';
 import { useCurrency } from '@/lib/i18n';
 import {
-  PAYMENT_TONE,
   displayedPaymentStatus as getDisplayedPaymentStatus,
   localizePaymentStatus,
 } from '@/lib/orders/status-presentation';
-import { paymentReference } from '@/lib/orders/payment';
+import { localizePaymentMethod, paymentReference, settledPaymentMethod } from '@/lib/orders/payment';
 
 // Order.external_metadata keys the server writes when a paid order is edited
 // after payment. Must stay in sync with foodyserver internal/common/models.go
@@ -160,33 +155,10 @@ export function MoneyPanel({
   return (
     <section
       aria-labelledby={`order-${order.id}-payment-summary`}
-      className="mt-[var(--s-3)] border-t border-[var(--line-strong)] pt-[var(--s-4)]"
+      className={styles.money}
     >
-      <div className="order-detail-money-head pb-[var(--s-3)]">
-        <div className="flex items-start justify-between gap-[var(--s-4)]">
-          <div className="min-w-0">
-            <span
-              id={`order-${order.id}-payment-summary`}
-              className="inline-flex items-center gap-1.5 text-fs-micro font-semibold uppercase tracking-[0.1em] text-[var(--fg-muted)]"
-            >
-              <ReceiptTextIcon className="size-3.5" />
-              {t('total') || 'Total'}
-            </span>
-            <div className="mt-1">
-              <Money
-                value={totalsLine}
-                className="text-[28px] leading-[32px] font-bold tracking-[-0.02em]"
-              />
-            </div>
-          </div>
-          <Badge tone={PAYMENT_TONE[displayedPaymentStatus] ?? 'neutral'} dot className="mt-0.5">
-            {localizePaymentStatus(displayedPaymentStatus, t)}
-          </Badge>
-        </div>
-        <CashTag order={order} variant="full" className="mt-[var(--s-2)] bg-[var(--surface)]" />
-      </div>
 
-      <div className="order-detail-money-body flex flex-col gap-[var(--s-2)] border-t border-[var(--line)] pt-[var(--s-3)] text-fs-sm">
+      <div className="order-detail-money-body flex flex-col gap-4 text-fs-sm">
           {/*
             The ledger. A two-column baseline grid rather than a stack of
             flex rows, so every figure lands on one axis and the decimal
@@ -244,6 +216,22 @@ export function MoneyPanel({
               </>
             )}
 
+            <span className="border-t border-[var(--line)] pt-4 font-semibold">{t('total')}</span>
+            <Money value={totalsLine} className="border-t border-[var(--line)] pt-4 text-end" />
+
+          </div>
+
+          <h3 id={`order-${order.id}-payment-summary`}>{t('permDomain_payments')}</h3>
+          <div className={styles.paymentHead}>
+            <div className={styles.paymentMethod}>
+              {settledPaymentMethod(order).toLowerCase() === 'cash' ? (
+                <CashTag order={order} variant="full" className={styles.cashMethod} />
+              ) : localizePaymentMethod(settledPaymentMethod(order) === 'card' ? 'credit_card' : settledPaymentMethod(order), t)}
+            </div>
+            <div className={styles.paymentAmount}>
+              <Money value={totalsLine} />
+              <span>{localizePaymentStatus(displayedPaymentStatus, t)}</span>
+            </div>
           </div>
 
           {/* Reference for a payment taken outside Foody (card slip, provider

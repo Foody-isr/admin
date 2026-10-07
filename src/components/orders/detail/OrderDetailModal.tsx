@@ -1,25 +1,11 @@
 'use client';
 
-// The canonical order-detail view: a full-screen takeover with two columns.
-//
-// Replaces the 1060px right-side drawer, which put money, customer, delivery,
-// invoice, notes and activity as six independent blocks in one 340px column
-// and left the item list competing with all of it. The current layout splits
-// the order along the questions staff actually ask:
-//
-//   ribbon  — where is this order in its life
-//   ticket  — what was ordered
-//   context — money, who ordered, and where it goes
-//   references — activity in the head menu, notes docked below the ticket
-//
-// Purely presentational, exactly as before: every mutation is delegated to the
-// on* callback props the host supplies.
+// Canonical order detail drawer. Mutations remain delegated to host callbacks.
 
 import { useEffect, useState } from 'react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { groupOrder } from '@/lib/orders/group-order';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
-import { statusStageKind } from '@/lib/orders/workflow-stepper';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import { WhatsAppDeliveryReminderDialog } from '@/components/orders/WhatsAppDeliveryReminderDialog';
 import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
@@ -27,10 +13,12 @@ import { isDeliveryReminderDue } from '@/lib/orders/delivery-reminder';
 import { pickWorkflow, useOrderWorkflows } from '@/lib/orders/use-order-workflows';
 
 import { OrderDetailShell } from './OrderDetailShell';
-import { OrderDetailHead } from './OrderDetailHead';
+import { OrderDetailHead, OrderDetailSummary, OrderDetailLoadingHead } from './OrderDetailHead';
 import { CommandBar } from './CommandBar';
 import { OrderOverflowMenu } from './menus/OrderOverflowMenu';
 import { WorkflowStepper } from './spine/WorkflowStepper';
+import styles from './order-detail.module.css';
+import { ActivityTimeline } from './spine/ActivityTimeline';
 import { ScheduledBanner } from './spine/ScheduledCallout';
 import { CancellationCallout } from './spine/CancellationCallout';
 import { useOrderAudit } from '@/lib/orders/use-order-audit';
@@ -129,7 +117,7 @@ export function OrderDetailModal({
         open={isLoading}
         onOpenChange={(v) => { if (!v) onClose(); }}
         title={t('loading')}
-        head={<div className="h-[60px]" />}
+        head={<OrderDetailLoadingHead />}
         loading
         center={null}
         context={null}
@@ -157,17 +145,6 @@ export function OrderDetailModal({
     !caps.isCancelled &&
     !caps.isTerminal;
 
-  // The head's tone follows where the order sits in the pipeline, via the same
-  // status→kind mapping the stepper uses, so the dot and the rail can never
-  // disagree. Scheduled is informational blue, live work is orange, and a
-  // terminal order is green in both the head and the progression rail.
-  const stageKind = statusStageKind(order.status);
-  const tone: 'warning' | 'success' | 'info' | 'danger' =
-    caps.isCancelled ? 'danger'
-    : caps.isScheduled ? 'info'
-    : stageKind === 'completed' ? 'success'
-    : 'warning';
-
   // Category groups, combo groups and reconciled totals all come from the
   // shared groupOrder() — the same math the WhatsApp recap uses, so customer
   // communication and this operational view agree about what was ordered.
@@ -184,10 +161,6 @@ export function OrderDetailModal({
     uncategorized: t('uncategorized') || 'Autres',
     comboFallback: t('comboMenuFallback') || 'Combo Menu',
   });
-
-  const customerInitials = order.customer_name
-    ? order.customer_name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
-    : 'C';
 
   const PRIMARY_HANDLER: Record<PrimaryAction, () => void> = {
     accept: () => { void onAccept(); },
@@ -232,88 +205,14 @@ export function OrderDetailModal({
         open
         onOpenChange={(v) => { if (!v) onClose(); }}
         title={t('orderNumber').replace('{id}', String(order.id))}
-        head={
-          <OrderDetailHead
-            order={order}
-            tone={tone}
-            displayedLineCount={displayedLineCount}
-            totalUnits={totalUnits}
-            total={totalsLine}
-          />
-        }
-        ribbon={<WorkflowStepper order={order} t={t} />}
-        center={
-          <>
-            {/* Alerts head the ticket, and TicketItems opens with its own
-                settlement banners, so the whole alarm stack stays contiguous. */}
-            {caps.isScheduled && order.scheduled_for && (
-              <div className="mb-[var(--s-3)]">
-                <ScheduledBanner
-                  iso={order.scheduled_for}
-                  windowStart={order.scheduled_pickup_window_start}
-                  windowEnd={order.scheduled_pickup_window_end}
-                  orderType={order.order_type}
-                  t={t}
-                />
-              </div>
-            )}
-            {caps.isCancelled && (
-              <div className="mb-[var(--s-3)]">
-                <CancellationCallout order={order} t={t} />
-              </div>
-            )}
-            <TicketItems
-            order={order}
-            categoryGroups={categoryGroups}
-            comboGroups={comboGroups}
-            displayedLineCount={displayedLineCount}
-            totalUnits={totalUnits}
-              onConfirmWeights={caps.canConfirmWeights ? onConfirmWeights : undefined}
-              t={t}
-            />
-          </>
-        }
-        context={
-          <div className="order-detail-context-stack flex flex-col">
-            {/* The rail itself is the surface. Customer and delivery are
-                sections, not cards inside a card. */}
-            <div className="order-detail-service">
-              <CustomerPanel
-                order={order}
-                canManage={canManage}
-                onEditCustomer={onEditCustomer}
-                customFields={customFields.customer}
-                customerInitials={customerInitials}
-                t={t}
-              />
-              <DeliveryPanel order={order} customFields={customFields.address} t={t} />
-            </div>
-            <MoneyPanel
-              order={order}
-              isCancelled={caps.isCancelled}
-              subtotal={subtotal}
-              discountAmount={discountAmount}
-              deliveryFee={deliveryFee}
-              totalsLine={totalsLine}
-              t={t}
-            />
-          </div>
-        }
-        notesDock={
-          <OrderNotesDock
-            notes={notes}
-            onOpen={() => setReferenceView('notes')}
-            t={t}
-          />
-        }
-        footer={
+        head={<OrderDetailHead order={order}>
           <CommandBar
             order={order}
             caps={caps}
             canManage={canManage}
             isLoading={isLoading}
             onEdit={onEdit}
-            actions={(
+            actions={(utilities) => (
               <OrderOverflowMenu
                 activityCount={activityEvents.length}
                 activityPending={audit.status === 'loading'}
@@ -338,7 +237,7 @@ export function OrderDetailModal({
                 onCancel={onReject}
                 onDelete={onDelete}
                 disabled={isLoading}
-              />
+              >{utilities}</OrderOverflowMenu>
             )}
             onSendConfirmation={() => setRecapOpen(true)}
             onSendDeliveryReminder={showDeliveryReminder ? () => setDeliveryReminderOpen(true) : undefined}
@@ -347,7 +246,78 @@ export function OrderDetailModal({
             onCloseOrder={onCloseOrder}
             onPrimary={(action) => { void handlePrimary(action); }}
           />
+        </OrderDetailHead>}
+        summary={<OrderDetailSummary order={order} isCancelled={caps.isCancelled} />}
+        center={
+          <>
+            {/* Alerts head the ticket, and TicketItems opens with its own
+                settlement banners, so the whole alarm stack stays contiguous. */}
+            {caps.isScheduled && order.scheduled_for && (
+              <div className="mb-[var(--s-3)]">
+                <ScheduledBanner
+                  iso={order.scheduled_for}
+                  windowStart={order.scheduled_pickup_window_start}
+                  windowEnd={order.scheduled_pickup_window_end}
+                  orderType={order.order_type}
+                  t={t}
+                />
+              </div>
+            )}
+            {caps.isCancelled && (
+              <div className="mb-[var(--s-3)]">
+                <CancellationCallout order={order} t={t} />
+              </div>
+            )}
+            <TicketItems
+              order={order}
+              categoryGroups={categoryGroups}
+              comboGroups={comboGroups}
+              displayedLineCount={displayedLineCount}
+              totalUnits={totalUnits}
+              onConfirmWeights={caps.canConfirmWeights ? onConfirmWeights : undefined}
+              t={t}
+            />
+          </>
         }
+        context={
+          <div className="order-detail-context-stack flex flex-col">
+            <div className="order-detail-service">
+              <CustomerPanel
+                order={order}
+                canManage={canManage}
+                onEditCustomer={onEditCustomer}
+                customFields={customFields.customer}
+                t={t}
+              />
+              <DeliveryPanel order={order} customFields={customFields.address} t={t} />
+              <details className={styles.workflow}>
+                <summary>{t('status')}</summary>
+                <WorkflowStepper order={order} t={t} />
+              </details>
+            </div>
+
+          </div>
+        }
+        payment={
+            <MoneyPanel
+              order={order}
+              isCancelled={caps.isCancelled}
+              subtotal={subtotal}
+              discountAmount={discountAmount}
+              deliveryFee={deliveryFee}
+              totalsLine={totalsLine}
+              t={t}
+            />
+        }
+        activity={<><h3>{t('activity')}</h3><ActivityTimeline events={activityEvents} auditFailed={audit.status === 'error'} t={t} /></>}
+        notesDock={
+          <OrderNotesDock
+            notes={notes}
+            onOpen={() => setReferenceView('notes')}
+            t={t}
+          />
+        }
+
       />
 
       <OrderReferenceDrawer

@@ -1,42 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Check, Share2, X } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
-import { localizeStatus, localizeOrderType } from '@/lib/orders/status-presentation';
+import { ORDER_STATUS_BADGE_TONE, displayedPaymentStatus as getDisplayedPaymentStatus, localizePaymentStatus, localizeStatus } from '@/lib/orders/status-presentation';
 import { getOrderTiming, isOperationalOrder } from '@/lib/orders/operations-board';
 import { orderDetailUrl } from '@/lib/orders/routes';
-import { Money } from './primitives/Money';
+import styles from './order-detail.module.css';
 
-/**
- * The takeover's head: close, order number, and the one-line answer to "what is
- * this order and where is it".
- *
- * The order number uses the same compact sans-serif as the rest of this
- * operational surface. Weight and tabular figures provide hierarchy without
- * introducing an editorial display face into a screen staff scan at speed.
- *
- * No primary action here: the order's next step lives in the command bar at the
- * bottom, and a competing top-right CTA would split the answer to "what do I do
- * now" across two corners.
- */
-export function OrderDetailHead({
-  order,
-  tone,
-  displayedLineCount,
-  totalUnits,
-  total,
-}: {
-  order: Order;
-  /** Semantic tone for the status word and dot. */
-  tone: 'warning' | 'success' | 'info' | 'danger';
-  displayedLineCount: number;
-  totalUnits: number;
-  total: number;
-}) {
+/** Fixed drawer toolbar. Sharing retains Foody's canonical order link. */
+export function OrderDetailHead({ order, children }: { order: Order; children: ReactNode }) {
   const { t } = useI18n();
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -67,88 +43,50 @@ export function OrderDetailHead({
     }
   };
 
-  const isTerminal = ['served', 'received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
-  const isScheduled = order.status === 'scheduled';
-  const timing = getOrderTiming(order);
-  const showTiming = isOperationalOrder(order) && !timing.scheduledForFuture;
-
   return (
-    <div className="h-[64px] px-[var(--s-3)] md:px-[var(--s-4)] flex items-center gap-[var(--s-3)]">
+    <div className={styles.toolbarActions}>
       <Dialog.Close asChild>
-        <Button variant="ghost" size="md" icon aria-label={t('close') || 'Fermer'}>
+        <Button variant="ghost" size="md" icon className={styles.iconButton} aria-label={t('close')}>
           <X />
         </Button>
       </Dialog.Close>
-
-      {/* Stacked on a phone: side by side, the meta line loses everything after
-          the status to truncation ("Prête à livrer" became "P."). */}
-      <div className="flex items-center gap-[var(--s-4)] min-w-0 flex-1">
-        <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-[var(--s-3)] min-w-0">
-          <span className="text-[24px] leading-[30px] font-bold tracking-[-0.02em] tabular-nums whitespace-nowrap">
-            {t('orderNumber').replace('{id}', String(order.id))}
-          </span>
-
-          <span className="flex items-center gap-1.5 min-w-0 text-fs-xs text-[var(--fg-muted)]">
-            <span
-              className="relative inline-block w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ background: `var(--${tone}-500)` }}
-            />
-            <span
-              className="text-fs-sm font-semibold tracking-[-0.005em] truncate"
-              style={{ color: `var(--${tone}-500)` }}
-            >
-              {localizeStatus(order.status, t)}
-            </span>
-
-            {!isScheduled && !isTerminal && showTiming && (
-              <>
-                <span className="opacity-40">·</span>
-                <span className="num shrink-0">
-                  {timing.minutes} {t('minShort') || 'min'}
-                </span>
-              </>
-            )}
-
-            <span className="opacity-40">·</span>
-            <span className="shrink-0">{localizeOrderType(order.order_type, t)}</span>
-
-            {order.table_number && (
-              <>
-                <span className="opacity-40">·</span>
-                <span className="shrink-0">Table {order.table_number}</span>
-              </>
-            )}
-          </span>
-        </div>
-
-        <div className="ms-auto flex items-center gap-[var(--s-3)] shrink-0">
-          <div className="hidden lg:flex items-center gap-[var(--s-3)] text-fs-xs text-[var(--fg-muted)]">
-            <span>
-              <span className="font-semibold text-[var(--fg)] tabular-nums">{displayedLineCount}</span>{' '}
-              {displayedLineCount === 1 ? t('item') : t('items')}
-              <span className="mx-1.5 opacity-40">·</span>
-              <span className="font-semibold text-[var(--fg)] tabular-nums">{totalUnits}</span>{' '}
-              {totalUnits === 1 ? t('unit') : t('units')}
-            </span>
-            <span aria-hidden className="h-5 w-px bg-[var(--line)]" />
-            <Money value={total} className="text-fs-lg font-semibold text-[var(--fg)]" />
-          </div>
-        </div>
+      <div className={styles.toolbarEnd}>
+        <Button variant="ghost" size="md" icon className={styles.iconButton}
+          onClick={() => { void shareOrder(); }}
+          aria-label={linkCopied ? t('linkCopied') : t('shareOrder')}
+          title={linkCopied ? t('linkCopied') : t('shareOrder')}>
+          {linkCopied ? <Check /> : <Share2 />}
+        </Button>
+        {children}
       </div>
-
-      <Button
-        variant="ghost"
-        size="md"
-        className="shrink-0 px-2 md:px-[var(--s-4)]"
-        onClick={() => { void shareOrder(); }}
-        aria-label={linkCopied ? t('linkCopied') : t('shareOrder')}
-        title={linkCopied ? t('linkCopied') : t('shareOrder')}
-      >
-        {linkCopied ? <Check /> : <Share2 />}
-        <span className="hidden md:inline">
-          {linkCopied ? t('linkCopied') : t('shareOrder')}
-        </span>
-      </Button>
     </div>
   );
+}
+
+/** Customer title and compact workflow/payment badges, matching the order list. */
+export function OrderDetailSummary({ order, isCancelled }: { order: Order; isCancelled: boolean }) {
+  const { t } = useI18n();
+  const timing = getOrderTiming(order);
+  const showTiming = isOperationalOrder(order) && !timing.scheduledForFuture;
+  return (
+    <section className={styles.summary}>
+      <h2>{order.customer_name || t('guestCustomer')}</h2>
+      <div className={styles.badges}>
+        <span className={styles.statusBadge} data-status-tone={ORDER_STATUS_BADGE_TONE[order.status] ?? 'neutral'}>
+          <span aria-hidden className={styles.statusDot} />{localizeStatus(order.status, t)}
+        </span>
+        <span className={styles.paymentBadge}>{localizePaymentStatus(getDisplayedPaymentStatus(order, isCancelled), t)}</span>
+      </div>
+      <p className={styles.orderReference}>
+        {t('orderNumber').replace('{id}', String(order.id))}
+        {showTiming && <> · {timing.minutes} {t('minShort')}</>}
+      </p>
+    </section>
+  );
+}
+
+/** Close remains available while the order is still loading. */
+export function OrderDetailLoadingHead() {
+  const { t } = useI18n();
+  return <Dialog.Close asChild><Button variant="ghost" size="md" icon className={styles.iconButton} aria-label={t('close')}><X /></Button></Dialog.Close>;
 }
