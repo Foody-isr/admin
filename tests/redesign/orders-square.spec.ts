@@ -12,6 +12,8 @@ async function install(page: Page, locale = 'fr', permissions?: string[]) {
     localStorage.setItem('foody-admin-locale', locale);
     localStorage.setItem('foody_admin_theme', locale === 'he' ? 'dark' : 'light');
   }, { locale });
+  // API routes below always fulfill locally, including when testing an optimized build.
+  await page.route('**/*', route => ['localhost', '127.0.0.1', 'square-fonts-production-f.squarecdn.com'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   await page.route('**/api/v1/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -19,7 +21,6 @@ async function install(page: Page, locale = 'fr', permissions?: string[]) {
     const result = fixture.response(request.url(), request.method(), request.postDataJSON() ?? {}, Number(request.headers()['x-restaurant-id']) || 1);
     await route.fulfill({ status: result.status ?? 200, json: result.json ?? {} });
   });
-  await page.route('**/*', route => ['localhost', '127.0.0.1', 'square-fonts-production-f.squarecdn.com'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   return { fixture, queries };
 }
 

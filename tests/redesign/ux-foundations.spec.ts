@@ -14,6 +14,8 @@ async function install(page: Page, options: { locale?: string; theme?: string; p
     localStorage.setItem('foody-admin-locale',locale);
     localStorage.setItem('foody_admin_theme',theme);
   }, { locale:options.locale ?? 'fr', theme:options.theme ?? 'light' });
+  // API routes below always fulfill locally, including when testing an optimized build.
+  await page.route('**/*', route => ['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   await page.route('**/api/v1/**', async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -22,7 +24,6 @@ async function install(page: Page, options: { locale?: string; theme?: string; p
     const result = fixture.response(request.url(), request.method(), request.postDataJSON() ?? {}, Number(request.headers()['x-restaurant-id']) || 1);
     await route.fulfill({ status:result.status ?? 200, json:result.json ?? {} });
   });
-  await page.route('**/*', route => ['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   return fixture;
 }
 
