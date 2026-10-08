@@ -742,3 +742,102 @@
   font-size: 16px;
   background: transparent;
 }
+
+.item-section-outline {
+  position: sticky;
+  top: 24px;
+  margin-top: 24px;
+  padding: 12px;
+  max-height: calc(100dvh - 144px);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.item-section-outline[hidden] {
+  display: none;
+}
+.item-section-outline p {
+  color: var(--fg-muted);
+  font-size: 14px;
+  padding: 8px 12px 12px;
+}
+.item-section-outline button {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: start;
+  font-size: 14px;
+}
+.item-section-outline button:hover {
+  background: var(--surface-2);
+}
+.item-section-outline button[aria-current] {
+  background: var(--surface-2);
+  font-weight: 500;
+}
+.item-unsaved-dialog {
+  position: fixed;
+  z-index: 60;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(480px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 32px;
+  border-radius: 20px;
+}
+.item-unsaved-dialog h2 {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.3;
+  margin-bottom: 24px;
+}
+.item-unsaved-dialog p {
+  font-size: 16px;
+  line-height: 24px;
+}
+.item-unsaved-dialog .item-unsaved-hint {
+  color: var(--fg-muted);
+  font-size: 14px;
+  margin-top: 12px;
+}
+.item-unsaved-dialog .item-unsaved-error {
+  color: #b42318;
+  margin-top: 16px;
+}
+.item-unsaved-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 40px;
+}
+.item-editor .item-unsaved-actions button {
+  min-height: 48px;
+  font-size: 16px;
+}
+.item-unsaved-resume {
+  display: block;
+  margin: 16px auto 0;
+  color: var(--fg-muted);
+  text-decoration: underline;
+  font-size: 14px;
+  min-height: 32px;
+}
+@media (max-width: 1023px) {
+  .item-section-outline {
+    display: none;
+  }
+}
+@media (max-width: 639px) {
+  .item-unsaved-dialog {
+    padding: 24px;
+  }
+}
+
+.item-unsaved-actions button:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 3px;
+}

@@ -26,13 +26,15 @@ import MenuItemDistribution from '@/components/menu-item/MenuItemDistribution';
 import MenuItemPhoto from '@/components/menu-item/MenuItemPhoto';
 import MenuItemEditorForm from '@/components/menu-item/MenuItemEditorForm';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
+import ItemUnsavedDialog from '@/components/menu-item/ItemUnsavedDialog';
+import { useItemLeaveGuard } from '@/components/menu-item/useItemLeaveGuard';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
 import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
 import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
 import { computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
-import { Button, ConfirmDialog, FullScreenEditor } from '@/components/ds';
+import { Button, FullScreenEditor } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import VariantsEditor, {
@@ -65,7 +67,6 @@ function NewItemEditor() {
   const [loadError, setLoadError] = useState('');
   const [draftStorageError, setDraftStorageError] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [leave, setLeave] = useState(false);
   const [createdId, setCreatedId] = useState<number | null>(null);
   const progress = useRef({ id: 0, imageUrl: '', imageSaved: false, groups: new Set<number>(), modifiers: new Set<number>(), variants: false });
   const busy = useRef(false);
@@ -286,7 +287,7 @@ function NewItemEditor() {
         completed.variants = true;
       }
       clearItemDraft(rid);
-      router.push(continueTo ? `/${rid}/menu/items/${progress.current.id}?tab=${continueTo}` : `/${rid}/menu/items`);
+      leaveGuard.finish(continueTo ? `/${rid}/menu/items/${progress.current.id}?tab=${continueTo}` : `/${rid}/menu/items`);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : t('libraryOperationFailed'));
     } finally {
@@ -349,9 +350,11 @@ function NewItemEditor() {
     setImagePreview(URL.createObjectURL(file));
   };
 
-  const hasDraft = isMeaningfulDraft(draftSnapshot) || !!pendingImage || !!aiContext || pricingMode !== 'standard' || !allowNotes || !comboAllowQuantity || JSON.stringify(customerFacts) !== JSON.stringify(normalizeMenuItemCustomerFacts());
-  const goBack = () => { if (busy.current) return; if (hasDraft) setLeave(true); else router.push(`/${rid}/menu/items`); };
-  useEffect(() => { const warn = (event: BeforeUnloadEvent) => { if (hasDraft) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn); }, [hasDraft]);
+  const initialCategory = useRef<number | null>(null);
+  useEffect(() => { if (!loading && !loadError && initialCategory.current === null) initialCategory.current = categoryId; }, [loading, loadError, categoryId]);
+  const hasDraft = (initialCategory.current !== null && initialCategory.current !== categoryId) || isMeaningfulDraft(draftSnapshot) || !!pendingImage || !!aiContext || pricingMode !== 'standard' || !allowNotes || !comboAllowQuantity || JSON.stringify(customerFacts) !== JSON.stringify(normalizeMenuItemCustomerFacts());
+  const leaveGuard = useItemLeaveGuard(() => hasDraft, () => busy.current);
+  const goBack = () => leaveGuard.request(`/${rid}/menu/items`);
 
 
 
@@ -415,7 +418,7 @@ function NewItemEditor() {
         saveDisabled={!canEdit || !name.trim() || !priceOk}
         sidebar={rail}
         initialSection={initialSection}
-        dirty={isMeaningfulDraft(draftSnapshot) || !!pendingImage}
+        dirty={hasDraft}
       >
         <div className="flex min-w-0 flex-col ">
           {draftStorageError && (
@@ -714,19 +717,18 @@ function NewItemEditor() {
           )}
         </Modal>
       )}
-      <ConfirmDialog
-        open={leave}
-        onOpenChange={setLeave}
-        title={t('itemLeaveEditor')}
-        description={
-          createdId ? t('itemCreationPartialLeave') : t('itemDraftLeaveHint')
-        }
-        confirmLabel={t('close')}
-        cancelLabel={t('cancel')}
-        onConfirm={() => {
-          if (createdId) clearItemDraft(rid);
-          router.push(`/${rid}/menu/items`);
+      <ItemUnsavedDialog
+        open={leaveGuard.open}
+        onCancel={leaveGuard.cancel}
+        onDiscard={() => {
+          if (!clearItemDraft(rid)) { setSaveError(t('itemDraftStorageUnavailable')); return; }
+          leaveGuard.finish(`/${rid}/menu/items`);
         }}
+        onSave={() => void handleSave()}
+        saving={saving}
+        saveDisabled={!canEdit || !name.trim() || !priceOk}
+        hint={createdId ? t('itemCreationPartialLeave') : !name.trim() || !priceOk ? t('itemSaveRequiredFields') : undefined}
+        error={saveError}
       />
 
       {/* ── Type-switch confirmation modal ─────────────────────── */}

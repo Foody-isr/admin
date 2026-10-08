@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
 import './item-editor.css';
+import ItemSectionOutline from './ItemSectionOutline';
 
 interface Props {
   title: string;
@@ -40,6 +41,7 @@ export default function MenuItemShell({
   const focus = useDialogReturnFocus();
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [sidebarCards, setSidebarCards] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!scrollRoot) return;
     const update = () => setScrolled(scrollRoot.scrollTop > 56);
@@ -156,7 +158,13 @@ export default function MenuItemShell({
             <div className="item-editor-layout">
               <h1 className="item-editor-title">{title}</h1>
               <main className="min-w-0">{children}</main>
-              <aside className="item-editor-sidebar">{sidebar}</aside>
+              <aside className="item-editor-sidebar">
+                <div ref={setSidebarCards}>{sidebar}</div>
+                <ItemSectionOutline
+                  scrollRoot={scrollRoot}
+                  cards={sidebarCards}
+                />
+              </aside>
             </div>
           </div>
         </Dialog.Content>

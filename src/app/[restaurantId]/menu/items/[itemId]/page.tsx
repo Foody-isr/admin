@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
   detachModifierSetFromItem, setModifierSetItemOverrides,
@@ -37,6 +37,8 @@ import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-it
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 import ItemAvailabilityPanel, { ItemAvailabilityPanelHandle } from '@/components/menu-item/ItemAvailabilityPanel';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
+import ItemUnsavedDialog from '@/components/menu-item/ItemUnsavedDialog';
+import { useItemLeaveGuard } from '@/components/menu-item/useItemLeaveGuard';
 import type { SimulatorReceipt } from '@/components/menu-item/WhatIfSimulator';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
@@ -72,7 +74,6 @@ function EditItemEditor() {
   const { restaurantId, itemId } = useParams();
   const rid = Number(restaurantId);
   const iid = Number(itemId);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
@@ -105,7 +106,6 @@ function EditItemEditor() {
 
   const initialTab = remapLegacyTab(searchParams.get('tab')) ?? 'details';
 
-  const [leaveTarget, setLeaveTarget] = useState<string | null>(null);
   const [simulationState, setSimulationState] = useState({dirty:false, busy:false});
   const [recipeDirty, setRecipeDirty] = useState(false);
   const [availabilityDirty, setAvailabilityDirty] = useState(false);
@@ -242,13 +242,9 @@ function EditItemEditor() {
     (initialSnapshot.current !== null && initialSnapshot.current !== formSnapshot)
     || recipeRef.current?.isDirty() || availabilityRef.current?.isDirty()
   )), [canEdit, formSnapshot, simulationState.dirty]);
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges() || simulationState.busy || saveLock.current || modifierLock.current || imageLock.current) { event.preventDefault(); event.returnValue = ''; }
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [hasUnsavedChanges, simulationState.busy]);
+  const leaveGuard = useItemLeaveGuard(() => !!hasUnsavedChanges(), () =>
+    simulationState.busy || saveLock.current || modifierLock.current || imageLock.current,
+  );
 
   const loadData = useCallback(async () => {
     const guard = requestGuard.current;
@@ -537,7 +533,7 @@ function EditItemEditor() {
       for (const groupId of removedGroups) {
         await removeItemFromGroup(rid, groupId, iid);
       }
-      router.push(backTarget);
+      leaveGuard.finish(backTarget);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : t('saveFailed'));
     } finally {
@@ -593,11 +589,7 @@ function EditItemEditor() {
     setRemovalSaved(false); setModifierError(''); setModifierRemoval({kind,id});
   };
 
-  const navigateAway = (target: string) => {
-    if (simulationState.busy || saveLock.current || modifierLock.current || imageLock.current) return;
-    if (hasUnsavedChanges()) setLeaveTarget(target);
-    else router.push(target);
-  };
+  const navigateAway = leaveGuard.request;
   const goBack = () => navigateAway(backTarget);
 
   const activeCategoryName = useMemo(
@@ -664,7 +656,7 @@ function EditItemEditor() {
       setSelectedGroupIds={setSelectedGroupIds}
       isActive={isActive}
       setIsActive={setIsActive}
-      disabled={saving || imageBusy || modifierBusy}
+      disabled={loading || saving || imageBusy || modifierBusy}
     />
   );
 
@@ -734,36 +726,9 @@ function EditItemEditor() {
             </p>
           )}
           <fieldset
-            disabled={saving || imageBusy || modifierBusy}
+            disabled={loading || saving || imageBusy || modifierBusy}
             className="min-w-0"
-            onClickCapture={(event) => {
-              const link = (
-                event.target as HTMLElement
-              ).closest<HTMLAnchorElement>('a[href]');
-              if (
-                !link ||
-                link.target === '_blank' ||
-                event.metaKey ||
-                event.ctrlKey ||
-                event.shiftKey ||
-                event.altKey
-              )
-                return;
-              if (
-                link.pathname === window.location.pathname &&
-                link.search === window.location.search &&
-                link.hash
-              )
-                return;
-              if (
-                link.origin === window.location.origin &&
-                hasUnsavedChanges()
-              ) {
-                event.preventDefault();
-                event.stopPropagation();
-                navigateAway(link.pathname + link.search + link.hash);
-              }
-            }}
+
           >
             <MenuItemEditorForm
               name={name}
@@ -1016,19 +981,15 @@ function EditItemEditor() {
         </div>
       </MenuItemShell>
 
-      <ConfirmDialog
-        open={leaveTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setLeaveTarget(null);
-        }}
-        title={t('discardUnsavedChanges')}
-        description={t('itemExistingLeaveHint')}
-        confirmLabel={t('discardChanges')}
-        cancelLabel={t('cancel')}
-        danger
-        onConfirm={() => {
-          if (leaveTarget) router.push(leaveTarget);
-        }}
+      <ItemUnsavedDialog
+        open={leaveGuard.open}
+        onCancel={leaveGuard.cancel}
+        onDiscard={() => leaveGuard.finish(backTarget)}
+        onSave={handleSave}
+        saving={saving}
+        saveDisabled={!canEdit || !name.trim() || !priceOk || simulationState.dirty}
+        hint={simulationState.dirty ? t('simulatorFinishHint') : !name.trim() || !priceOk ? t('itemSaveRequiredFields') : undefined}
+        error={saveError}
       />
 
       {modifierModalOpen && (
