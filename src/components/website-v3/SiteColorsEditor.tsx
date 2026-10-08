@@ -314,6 +314,7 @@ export function SiteColorsEditor({
   const partLabels: Record<ColorUsagePart, string> = {
     header: t("editorHeaderAndNavigation"), info: t("editorRestaurantInformationBar"),
     menu: t("editorItemList"), sections: t("editorColorUsageSections"),
+    cart: t("editorJourneyCart"), checkout: t("editorJourneyCheckout"), confirmation: t("editorJourneyConfirmation"),
   };
   return (
     <div className="sqe-panel-body sqe-site-colors">

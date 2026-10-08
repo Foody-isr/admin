@@ -36,6 +36,7 @@ export function PreviewCanvas({
   activeRegion,
   orderDialog,
   onSelectRegion,
+  onOpenOrderJourney,
   hoveredSectionKey,
   onHoverSection,
   onEditElement,
@@ -45,6 +46,8 @@ export function PreviewCanvas({
   thumbnail = false,
   device,
   surface,
+  journeyScreen = "checkout",
+  journeyOrderType = "delivery",
   revision,
   contentRevision,
   onAcknowledged,
@@ -60,6 +63,7 @@ export function PreviewCanvas({
   activeField?: string;
   activeRegion?: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment";
   orderDialog?: "fulfillment" | "item";
+  onOpenOrderJourney?: () => void;
   onSelectRegion?: (region: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment", element?: HeaderElement) => void;
   hoveredSectionKey?: string | null;
   onHoverSection: (key: string | null) => void;
@@ -72,6 +76,8 @@ export function PreviewCanvas({
   /** Owned by the builder so the inspector can scope its fields to the surface
    *  on screen. Already clamped: only order pages ever receive "checkout". */
   surface: InspectorSurface;
+  journeyScreen?: "cart" | "checkout" | "confirmation";
+  journeyOrderType?: "delivery" | "pickup";
   showBranchSelector?: boolean;
   onSurfaceChange: (surface: InspectorSurface) => void;
   revision: number;
@@ -144,9 +150,9 @@ export function PreviewCanvas({
   )}`;
   const source =
     surface === "checkout"
-      ? `${targetOrigin}/order/checkout?restaurantId=${encodeURIComponent(
+      ? `${targetOrigin}/order/${journeyScreen === "confirmation" ? "confirmation/preview" : journeyScreen}?restaurantId=${encodeURIComponent(
           restaurantSlug || String(restaurantId),
-        )}&orderType=delivery&preview=1&pageSlug=${encodeURIComponent(activePage.slug)}`
+        )}&orderType=${journeyOrderType}&preview=1&pageSlug=${encodeURIComponent(activePage.slug)}`
       : surface === "branches"
         ? `${targetOrigin}${restaurantPath}/order?preview=1`
         : `${targetOrigin}${restaurantPath}?preview=1`;
@@ -167,6 +173,10 @@ export function PreviewCanvas({
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== targetOrigin) return;
       if (event.source !== frameRef.current?.contentWindow) return;
+      if (!previewOnly && event.data?.type === "foody.website-v3.open-order-journey") {
+        if (latestRef.current.activePage.type === "order" && event.data.activePageKey === pageKey(latestRef.current.activePage)) onOpenOrderJourney?.();
+        return;
+      }
       if (event.data?.type === "foody-checkout-preview-ready") {
         readyRef.current = true;
         postCheckoutLatest(
@@ -306,6 +316,7 @@ export function PreviewCanvas({
     onNavigatePage,
     onSelectSection,
     onSelectRegion,
+    onOpenOrderJourney,
     onHoverSection,
     onEditElement,
     onEditRejected,
@@ -370,7 +381,7 @@ export function PreviewCanvas({
       tabIndex={thumbnail ? -1 : undefined}
       title={
         surface === "checkout"
-          ? "Aperçu du checkout"
+          ? journeyScreen === "cart" ? "Aperçu du panier" : journeyScreen === "confirmation" ? "Aperçu de la confirmation" : "Aperçu du checkout"
           : surface === "branches"
             ? "Aperçu du choix de succursale"
             : `Aperçu de ${activePage.title}`

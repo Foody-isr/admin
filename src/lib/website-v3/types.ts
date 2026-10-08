@@ -1,4 +1,5 @@
 import type { OrderHeaderPresentation } from "./header";
+import type { OrderJourneyColors } from "./order-journey";
 
 export type WebsitePageType = "landing" | "content" | "order" | "catering";
 export type PreviewDevice = "desktop" | "mobile";
@@ -70,6 +71,7 @@ export type CateringPageOverride = {
 };
 
 export type DraftAppearanceOverrides = {
+  order_journey?: OrderJourneyColors;
   order_header?: OrderHeaderPresentation | null;
   website_order?: Record<string, unknown>;
   foody_renderer_version?: number;

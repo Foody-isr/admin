@@ -21,6 +21,7 @@ import { MenuHighlightsAppearanceEditor } from "../MenuHighlightsAppearanceEdito
 import { NavigationCtaEditor } from "../NavigationCtaEditor";
 import { PageInspector } from "../PageInspector";
 import { SiteInspector } from "../SiteInspector";
+import { OrderJourneyEditor } from "../OrderJourneyEditor";
 import { OrderPageEditor } from "../OrderPageEditor";
 import { HeaderInspector } from "../HeaderInspector";
 import { normalizeWebsiteHeader } from "@/lib/website-v3/header";
@@ -557,4 +558,18 @@ test("Restaurant is a layout in the shared header editor with no local color con
   assert.match(markup, /Restaurant information/);
   assert.doesNotMatch(markup, /Dropdown|Mega menu|Header scroll settings/);
   assert.doesNotMatch(markup, /type="color"/);
+});
+
+
+test("journey colours reuse six global styles and an explicit menu-inheritance choice", () => {
+  const noop = () => undefined;
+  const markup = render(<OrderJourneyEditor restaurantId={24} colorStyle="style-2"
+    colors={{cart: "style-5"}} onColorsChange={noop} screen="cart" onScreenChange={noop}
+    orderType="pickup" onOrderTypeChange={noop} value={null} onChange={noop}
+    placesAvailable={false} onEditCartButton={noop} />);
+  assert.match(markup, /Same as menu/);
+  assert.match(markup, /aria-label="Color style 5" aria-pressed="true"/);
+  assert.equal((markup.match(/aria-label="Color style [1-6]"/g) ?? []).length, 6);
+  assert.doesNotMatch(markup, /type="color"/);
+  assert.match(markup, /Edit site buttons/);
 });

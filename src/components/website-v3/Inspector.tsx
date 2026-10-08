@@ -52,6 +52,7 @@ export function Inspector({
   errors,
   onTabChange,
   onSurfaceChange,
+  onOpenOrderJourney,
   onConfigChange,
   onOrderHeaderChange,
   onPageChange,
@@ -80,6 +81,7 @@ export function Inspector({
   errors: FieldError[];
   onTabChange: (tab: InspectorTab) => void;
   onSurfaceChange: (surface: InspectorSurface) => void;
+  onOpenOrderJourney?: () => void;
   onConfigChange: (path: StatePath, value: unknown) => void;
   onOrderHeaderChange: (key: string, header: OrderHeaderPresentation | null, shared: WebsiteHeader) => void;
   onPageChange: (key: string, path: StatePath, value: unknown) => void;
@@ -216,6 +218,7 @@ export function Inspector({
 
       {selection.kind === "site" && selection.region === "header" ? (
         <HeaderInspector
+          onOpenOrderJourney={onOpenOrderJourney}
           page={page}
           onOrderHeaderChange={page ? (header, shared) => onOrderHeaderChange(pageKey(page), header, shared) : undefined}
           activeElement={selection.headerElement}
