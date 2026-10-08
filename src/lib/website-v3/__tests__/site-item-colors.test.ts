@@ -44,7 +44,7 @@ test("item details inherit cards and site buttons while authored roles remain in
   };
   const colors = resolveSiteItemColors(edited);
   assert.equal(colors.price, "#ffcc00");
-  assert.equal(colors.options_text, "#111111");
+  assert.equal(colors.options_text, "#ffffff");
   assert.equal(colors.selection_text, "#ffffff");
   assert.equal(colors.button_text, "#ffffff");
   assert.deepEqual(style.menu, normalizeSiteColors(palette).styles[1].menu);

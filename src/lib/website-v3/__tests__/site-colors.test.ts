@@ -3,7 +3,6 @@ import { test } from "node:test";
 import {
   normalizeSiteColors,
   resolveSiteColorStyle,
-  colorContrast,
   siteColorVariables,
   siteHex,
 } from "../site-colors";
@@ -33,7 +32,7 @@ test("six stable styles inherit the default and reject CSS expressions", () => {
     colors.styles[1].solid_button,
   );
 });
-test("background edits repair unreadable title, paragraph and outline colors", () => {
+test("authored colors survive background edits and repeated normalization even with no contrast", () => {
   const colors = normalizeSiteColors(palette);
   const edited = normalizeSiteColors({
     ...palette,
@@ -48,10 +47,12 @@ test("background edits repair unreadable title, paragraph and outline colors", (
       })),
     },
   });
-  for (const s of edited.styles)
-    for (const role of ["title", "paragraph", "outline_button"] as const)
-      assert.ok(colorContrast(s[role], s.background) >= 3);
-  assert.equal(colorContrast("#000000", "#ffffff"), 21);
+  for (const s of edited.styles) {
+    assert.equal(s.title, "#000000");
+    assert.equal(s.paragraph, "#111111");
+    assert.equal(s.outline_button, "#000000");
+    assert.equal(siteColorVariables(s)["--site-title"], "#000000");
+  }
   assert.deepEqual(
     normalizeSiteColors({ ...palette, color_styles: edited }),
     edited,

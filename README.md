@@ -145,16 +145,15 @@ in the item-list panels, whose color shortcuts open the assigned global style.
 
 **Header → Layout → Restaurant** adds a cover, a logo in a white frame,
 the restaurant name and a hamburger using the existing navigation links.
-The information bar exposes status, delivery minimum and social-link switches,
-plus one of the six global styles. The restaurant settings automatically choose
-one presentation: read-only information when no choice is available, or the
-service controls when customers can choose a mode or time. These are exclusive.
-A batch date always stays read-only even if pickup/delivery can be selected. The
-**Information and ordering** panel owns the bar’s color style; fact visibility
-controls appear only for the information presentation. It never stores local color overrides or
-fulfillment rules. The order page delegates its banner to this layout to avoid
-duplicate covers. Delivery/pickup availability and batch calendars remain owned
-by restaurant settings, throughout the menu, cart and checkout.
+**Information and ordering → Layout** offers two exclusive presentations:
+**Modern** (service blocks) and **Classic** (status, delivery minimum and social
+links). Both use the same global style selector. The selected layout is saved
+in `header.restaurant.info_layout` and does not change ordering permissions.
+A batch date stays read-only in Modern; Classic stays available even when the
+restaurant allows choices. Older saved headers keep their previous presentation
+until a layout is selected. The order page delegates its banner to this layout
+to avoid duplicate covers. Delivery/pickup availability and batch calendars remain
+owned by restaurant settings throughout menu, cart and checkout.
 Deploy the API support for `nav_layout.header.layout = "restaurant"` and its
 optional `restaurant` settings before deploying the editor.
 
@@ -481,3 +480,9 @@ couleurs** opens the shared style's item-detail roles, grouped into content,
 options and action bar (`custom_palette.color_styles.styles[].item_detail`).
 Resetting a role restores its automatic color; changing it affects every sheet
 using that style. Opening these global controls keeps the item preview visible.
+
+Website V3 accepts every valid hex color without contrast restrictions or warnings.
+Authored title, paragraph and outline colors are preserved during normalization,
+saving and rendering. Menu and item-detail inheritance passes those colors through
+without correcting them against a new background. Defaults are generated only
+for unset values; changing the header layout does not change its color style.

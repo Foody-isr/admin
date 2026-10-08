@@ -231,3 +231,18 @@ test("converting an order page retires its header override without losing other 
   assert.equal(convertPageType(page, "order").appearance_overrides.order_header?.layout, "restaurant");
   assert.equal(page.appearance_overrides.order_header?.layout, "restaurant");
 });
+
+
+test("the chosen information layout stays independent of ordering permissions", async () => {
+  const { restaurantInfoLayout } = await import("../header");
+  for (const layout of ["modern", "classic"] as const) {
+    const header = normalizeWebsiteHeader({restaurant: {info_layout: layout}});
+    for (const canChoose of [true, false]) {
+      assert.equal(restaurantInfoLayout(header.restaurant, canChoose), layout);
+      assert.equal(restaurantInfoLayout(normalizeWebsiteHeader(JSON.parse(JSON.stringify(header))).restaurant, canChoose), layout);
+    }
+  }
+  const legacy = normalizeWebsiteHeader({restaurant: {info_layout: "invalid"}});
+  assert.equal(restaurantInfoLayout(legacy.restaurant, true), "modern");
+  assert.equal(restaurantInfoLayout(legacy.restaurant, false), "classic");
+});

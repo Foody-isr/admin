@@ -41,6 +41,7 @@ export type WebsiteHeader = {
     height: "small" | "medium" | "large";
     show_name: boolean;
     info_enabled: boolean;
+    info_layout?: "modern" | "classic";
     info_color_style: "default" | "style-1" | "style-2" | "style-3" | "style-4" | "style-5" | "style-6";
     show_status: boolean;
     show_minimum: boolean;
@@ -210,6 +211,8 @@ export function normalizeWebsiteHeader(value: unknown): WebsiteHeader {
       height: choice(restaurant.height, ["small", "medium", "large"] as const, "medium"),
       show_name: bool(restaurant.show_name, true),
       info_enabled: bool(restaurant.info_enabled, true),
+      ...(["modern", "classic"].includes(restaurant.info_layout as string)
+        ? {info_layout: restaurant.info_layout as "modern" | "classic"} : {}),
       info_color_style: choice(restaurant.info_color_style, ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"] as const, "default"),
       show_status: bool(restaurant.show_status, true),
       show_minimum: bool(restaurant.show_minimum, true),
@@ -319,4 +322,9 @@ export function resolvePageHeader(
     color_style: presentation.color_style, background: presentation.background,
     restaurant: presentation.restaurant,
     logo: { ...shared.logo, size: presentation.logo.size } };
+}
+
+/** Retains the previous display for unsaved layouts; explicit choices never depend on ordering rules. */
+export function restaurantInfoLayout(settings: WebsiteHeader["restaurant"], canChoose: boolean): "modern" | "classic" {
+  return settings.info_layout ?? (canChoose ? "modern" : "classic");
 }

@@ -47,16 +47,16 @@ test("one global style represents Mamie's independent menu surfaces without reco
   );
 });
 
-test("automatic roles follow the correct surfaces and price follows the item title, not buttons", () => {
+test("inherited foregrounds stay authored when menu surfaces change", () => {
   const style = {
     ...base,
     menu: { card_background: "#6d1f13", bar_background: "#6d1f13" },
   };
   const first = resolveSiteMenuColors(style);
-  assert.equal(first.card_title, "#ffffff");
+  assert.equal(first.card_title, base.title);
   assert.equal(first.card_price, first.card_title);
-  assert.equal(first.category_text, "#ffffff");
-  assert.equal(first.card_description, "#ffffff");
+  assert.equal(first.category_text, base.paragraph);
+  assert.equal(first.card_description, base.paragraph);
   const second = resolveSiteMenuColors({
     ...style,
     solid_button: "#ccaa00",

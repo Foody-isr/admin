@@ -64,7 +64,7 @@ export function siteHex(value: unknown, fallback = "#000000"): string {
       : value
   ).toLowerCase();
 }
-/** Computes relative luminance contrast for the editor's color choices. */
+/** Computes contrast only to seed defaults for colors the owner has not chosen. */
 export function colorContrast(a: string, b: string): number {
   const luminance = (color: string) => {
     const hex = siteHex(color).slice(1);
@@ -89,12 +89,6 @@ export function siteContrastInk(background: string): string {
     colorContrast(background, "#ffffff")
     ? "#111111"
     : "#ffffff";
-}
-/** Preserves a readable authored foreground; repairs low contrast after background changes. */
-export function readableSiteColor(color: string, background: string): string {
-  return colorContrast(color, background) >= 3
-    ? color
-    : siteContrastInk(background);
 }
 /** Seeds six styles from the current theme, without changing legacy sites until they opt in. */
 export function normalizeSiteColors(value: unknown): SiteColors {
@@ -123,23 +117,21 @@ export function normalizeSiteColors(value: unknown): SiteColors {
     styles: SITE_COLOR_IDS.map((id, i) => {
       const s = record(authored.find((v) => record(v).id === id));
       const background = siteHex(s.background, backgrounds[i]);
+      const defaultInk = colorContrast(ink, background) >= 3 ? ink : siteContrastInk(background);
       const menu = normalizeSiteMenuColors(s.menu);
       const item = normalizeSiteItemColors(s.item_detail);
       return {
         id,
         background,
-        title: readableSiteColor(siteHex(s.title, ink), background),
-        paragraph: readableSiteColor(siteHex(s.paragraph, ink), background),
+        title: siteHex(s.title, defaultInk),
+        paragraph: siteHex(s.paragraph, defaultInk),
         solid_button: siteHex(
           s.solid_button,
           colorContrast(main, background) >= 3
             ? main
             : siteContrastInk(background),
         ),
-        outline_button: readableSiteColor(
-          siteHex(s.outline_button, ink),
-          background,
-        ),
+        outline_button: siteHex(s.outline_button, defaultInk),
         ...(Object.keys(menu).length ? { menu } : {}),
         ...(Object.keys(item).length ? { item_detail: item } : {}),
       };
@@ -161,11 +153,11 @@ export function resolveSiteItemColors(style: SiteColorStyle): SiteItemColors {
   const item = normalizeSiteItemColors(style.item_detail);
   const menu = resolveSiteMenuColors(style);
   const background = item.background ?? (menu.card_background === "transparent" ? menu.background : menu.card_background);
-  const title = item.title ?? readableSiteColor(menu.card_title, background);
-  const description = item.description ?? readableSiteColor(menu.card_description, background);
+  const title = item.title ?? menu.card_title;
+  const description = item.description ?? menu.card_description;
   const options = item.options_background ?? background;
-  const optionsText = item.options_text ?? readableSiteColor(title, options);
-  const accent = item.selection_accent ?? readableSiteColor(menu.card_price, options);
+  const optionsText = item.options_text ?? title;
+  const accent = item.selection_accent ?? menu.card_price;
   const mix = (a: string, b: string, ratio: number) => "#" + [1, 3, 5].map(offset =>
     Math.round(parseInt(a.slice(offset, offset + 2), 16) * ratio + parseInt(b.slice(offset, offset + 2), 16) * (1 - ratio)).toString(16).padStart(2, "0")
   ).join("");
@@ -173,10 +165,10 @@ export function resolveSiteItemColors(style: SiteColorStyle): SiteItemColors {
   const button = item.button_background ?? style.solid_button;
   return {
     background, title, description,
-    price: item.price ?? readableSiteColor(menu.card_price, background),
+    price: item.price ?? menu.card_price,
     options_background: options, options_text: optionsText,
     selection_background: selection,
-    selection_text: item.selection_text ?? readableSiteColor(optionsText, selection),
+    selection_text: item.selection_text ?? optionsText,
     selection_accent: accent,
     footer_background: item.footer_background ?? background,
     button_background: button,
@@ -207,7 +199,7 @@ export function normalizeSiteMenuColors(
   );
 }
 
-/** Resolves automatic menu colors against the surface on which each role is actually painted. */
+/** Inherits authored menu colors exactly, without contrast-based replacements. */
 export function resolveSiteMenuColors(style: SiteColorStyle): SiteMenuColors {
   const menu = normalizeSiteMenuColors(style.menu);
   const background = menu.background ?? style.background;
@@ -215,15 +207,14 @@ export function resolveSiteMenuColors(style: SiteColorStyle): SiteMenuColors {
   const pill = menu.pill_background ?? "transparent";
   const active = menu.active_background ?? style.solid_button;
   const card = menu.card_background ?? background;
-  const cardSurface = card === "transparent" ? background : card;
-  const title = menu.card_title ?? readableSiteColor(style.title, cardSurface);
+  const title = menu.card_title ?? style.title;
   return {
     background,
-    heading: menu.heading ?? readableSiteColor(style.title, background),
+    heading: menu.heading ?? style.title,
     bar_background: bar,
     category_text:
       menu.category_text ??
-      readableSiteColor(style.paragraph, pill === "transparent" ? bar : pill),
+      style.paragraph,
     pill_background: pill,
     active_background: active,
     active_text:
@@ -233,9 +224,9 @@ export function resolveSiteMenuColors(style: SiteColorStyle): SiteMenuColors {
     card_title: title,
     card_price: menu.card_price ?? title,
     card_description:
-      menu.card_description ?? readableSiteColor(style.paragraph, cardSurface),
+      menu.card_description ?? style.paragraph,
     card_border:
-      menu.card_border ?? readableSiteColor(style.outline_button, cardSurface),
+      menu.card_border ?? style.outline_button,
   };
 }
 
