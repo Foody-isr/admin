@@ -65,6 +65,7 @@ const sections = [
 test('editing uses one scroll area; shortcuts preserve drafts and every section stays mounted', async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1440, height: 812 });
   const fixture = await install(page);
   await page.goto('/1/menu/items/1');
   await expect(page.locator('#menu-item-name')).toHaveValue(
@@ -79,6 +80,10 @@ test('editing uses one scroll area; shortcuts preserve drafts and every section 
     .getByRole('button', { name: 'Recipe and cost', exact: true })
     .click();
   await expect(page.locator('#item-recipe-title')).toBeFocused();
+  await expect(
+    page.getByRole('button', { name: 'Save', exact: true }),
+  ).toBeInViewport();
+  expect(await page.getByRole('dialog').evaluate((el) => el.scrollTop)).toBe(0);
   await expect(
     nav.getByRole('button', { name: 'Recipe and cost', exact: true }),
   ).toHaveAttribute('aria-current', 'location');
@@ -155,6 +160,10 @@ test('creation saves customer facts and continues directly into recipe configura
       .getByRole('button', { name: /Always available/ }),
   ).toBeVisible();
   await expect(page.locator('#item-recipe-title')).toBeInViewport();
+  await expect(
+    page.getByRole('button', { name: 'Save', exact: true }),
+  ).toBeInViewport();
+  expect(await page.getByRole('dialog').evaluate((el) => el.scrollTop)).toBe(0);
   expect(fixture.items[3]).toMatchObject({
     name: 'New dish',
     price: 30,
