@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { getPeriodSummary, getDailySeries, getDayComparison, getRestaurant, getDisplayPreferences, updateDisplayPreferences,
-  type PeriodComparison, type DaySummary, type ComparisonResult, type DashboardRevenueMode, type DateBasis } from '@/lib/api';
+import { getPeriodSummary, getDailySeries, getDayComparison, getRestaurant, getDisplayPreferences, updateDisplayPreferences, listOrders,
+  type PeriodComparison, type DaySummary, type ComparisonResult, type DashboardRevenueMode, type DateBasis, type ListOrdersResult } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
@@ -12,10 +12,12 @@ import DateRangePicker, { type DateRange, type DateRangeChangeOptions } from '@/
 import { previousBlock, seriesInRange, useOrderSeries } from '@/lib/series';
 import { clampWeekStartDay, getEffectiveWorkdays, getWeekStart, addDays, isoDate, type WeekStartDay } from '@/lib/weeks';
 import { Menu, MenuTrigger, MenuContent, MenuItem } from '@/components/ds';
-import { Check, RefreshCw } from 'lucide-react';
+import { Check, ChevronDown, RefreshCw } from 'lucide-react';
 import { failedRestaurantState, loadingRestaurantState, readyRestaurantState, RestaurantRequestGuard,
   stateForRestaurant, type RestaurantLoadState } from '@/lib/restaurant-request-state';
-import AiPromptBar from './AiPromptBar';
+import { dashboardLiveOrderScope } from '@/lib/dashboard-live-order-scope';
+import { PAYMENT_ATTENTION_FILTER } from '@/lib/orders/routes';
+import OperationalSummary from './OperationalSummary';
 import OrderVolumeChart from './OrderVolumeChart';
 import PerformanceSection from './PerformanceSection';
 import DashboardSidebar from './DashboardSidebar';
@@ -26,6 +28,10 @@ interface DashboardData {
   series: DaySummary[] | null;
   previousSeries: DaySummary[] | null;
   volume: ComparisonResult | null;
+  review: ListOrdersResult | null;
+  readyOrders: ListOrdersResult | null;
+  payments: ListOrdersResult | null;
+  recent: ListOrdersResult | null;
 }
 
 // The dashboard period is remembered per user and restaurant. Rolling presets
@@ -110,13 +116,14 @@ const DATE_LOCALES: Record<'en' | 'he' | 'fr', string> = {
   fr: 'fr-FR',
 };
 
-/** Restaurant home with independent live volume and selectable performance periods. */
+/** Restaurant home prioritizes the selected service and its operational work. */
 export default function DashboardPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t, locale } = useI18n();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
+  const canViewOrders = hasAnyPermission('orders.view', 'orders.manage');
   const { code: currency } = useCurrency();
   const money = (value: number) => new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).format(value);
   const dateLocale = DATE_LOCALES[locale];
@@ -124,7 +131,9 @@ export default function DashboardPage() {
   guardRef.current.enterRestaurant(rid);
   const [state, setState] = useState<RestaurantLoadState<DashboardData>>(() => loadingRestaurantState(rid));
   const visible = stateForRestaurant(state, rid);
-  const { period, series, previousSeries, volume } = visible.data ?? { period: null, series: [], previousSeries: [], volume: null };
+  const { period, series, previousSeries, volume, review, readyOrders, payments, recent } = visible.data ?? {
+    period: null, series: null, previousSeries: null, volume: null, review: null, readyOrders: null, payments: null, recent: null,
+  };
   const [wsd, setWsd] = useState<WeekStartDay>(1);
   const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('today', 1));
@@ -173,24 +182,34 @@ export default function DashboardPage() {
     // Keep the previous frame visible during a refresh, but never across restaurants.
     setState((old) => ({ ...loadingRestaurantState<DashboardData>(rid), data: stateForRestaurant(old, rid).data }));
     const scope = { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
+    const orderScope = dashboardLiveOrderScope(scope, basis);
+    const activeStatuses = 'scheduled,pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery';
     const days = daysInclusive(dateRange);
     Promise.allSettled([
       getPeriodSummary(rid, scope, basis, previousRange),
       getDailySeries(rid, days, scope.to, basis, serieMode ? scope : undefined),
       previousRange ? getDailySeries(rid, days, previousRange.to, basis, serieMode ? previousRange : undefined) : Promise.resolve([] as DaySummary[]),
-      getDayComparison(rid, today, lastWeek),
-    ]).then(([per, daily, prior, orders]) => {
+      !serieMode ? getDayComparison(rid, today, lastWeek) : Promise.resolve(null),
+      canViewOrders ? listOrders(rid, { ...orderScope, status: 'pending_review', limit: 1 }) : Promise.resolve(null),
+      canViewOrders ? listOrders(rid, { ...orderScope, status: 'ready,ready_for_pickup,ready_for_delivery', limit: 1 }) : Promise.resolve(null),
+      canViewOrders ? listOrders(rid, { ...orderScope, status: activeStatuses, payment_status: PAYMENT_ATTENTION_FILTER, limit: 1 }) : Promise.resolve(null),
+      canViewOrders ? listOrders(rid, { ...orderScope, limit: 5, sort_by: 'created_at', sort_dir: 'desc' }) : Promise.resolve(null),
+    ]).then(([per, daily, prior, orders, pending, readyList, unpaid, latest]) => {
       if (!guard.isCurrent(token)) return;
       const data: DashboardData = {
         period: per.status === 'fulfilled' ? per.value : null,
         series: daily.status === 'fulfilled' ? daily.value : null,
         previousSeries: prior.status === 'fulfilled' ? prior.value : null,
         volume: orders.status === 'fulfilled' ? orders.value : null,
+        review: pending.status === 'fulfilled' ? pending.value : null,
+        readyOrders: readyList.status === 'fulfilled' ? readyList.value : null,
+        payments: unpaid.status === 'fulfilled' ? unpaid.value : null,
+        recent: latest.status === 'fulfilled' ? latest.value : null,
       };
-      setState([per, daily, prior, orders].some((r) => r.status === 'rejected')
+      setState([per, daily, prior, orders, pending, readyList, unpaid, latest].some((r) => r.status === 'rejected')
         ? failedRestaurantState(rid, data) : readyRestaurantState(rid, data));
     });
-  }, [rid, dateRange, basis, previousRange, serieMode, today, lastWeek]);
+  }, [rid, dateRange, basis, previousRange, serieMode, today, lastWeek, canViewOrders]);
   useEffect(() => { if (ready) load(); }, [ready, load]);
   useEffect(() => () => guardRef.current.invalidate(), []);
 
@@ -204,24 +223,26 @@ export default function DashboardPage() {
     writeStoredSel(rangeKey, options?.literal ? { from: isoDate(range.from), to: isoDate(range.to) } : classifySelection(range, wsd));
   };
   const singleDay = sameYMD(dateRange.from, dateRange.to);
+  const upcomingSerie = serieMode && isoDate(dateRange.to) >= today;
   const selectedSerieCount = seriesInRange(serieList, { from: isoDate(dateRange.from), to: isoDate(dateRange.to) }).length;
   const comparisonLabel = serieMode
     ? selectedSerieCount > 1 ? t('vsPreviousSeries').replace('{n}', String(selectedSerieCount)) : t('vsPreviousSerie')
     : singleDay ? t(compareWeek ? 'dashboardSameDayLastWeek' : 'previousDay') : t('vsPreviousPeriod');
   const shortDate = (date: Date) => date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' });
   const modeLabel = t(`dashboardMode_${revenueMode}`);
-  const filterControls = <>
+  const dateControl =
     <DateRangePicker value={dateRange} onChange={onPickRange} weekStartDay={wsd} workdays={workdays} restaurantId={rid}
       basis={basis} onBasisChange={onChangeBasis} series={serieList} triggerClassName="dashboard-filter"
-      triggerContent={<><span>{serieMode ? t('dateBasisSerieShort') : t('date')}</span><strong>{shortDate(dateRange.from)}{!singleDay && ` – ${shortDate(dateRange.to)}`}</strong></>} />
-    <Menu><MenuTrigger asChild><button type="button" className="dashboard-filter" aria-label={`${t('comparison')}: ${comparisonLabel}`}><span>vs</span><strong>{comparisonLabel}</strong></button></MenuTrigger>
+      triggerContent={<><span>{serieMode ? t('dateBasisSerieShort') : t('date')}</span><strong>{shortDate(dateRange.from)}{!singleDay && ` – ${shortDate(dateRange.to)}`}</strong><ChevronDown size={16} /></>} />;
+  const filterControls = <>
+    {!upcomingSerie && <Menu><MenuTrigger asChild><button type="button" className="dashboard-filter" aria-label={`${t('comparison')}: ${comparisonLabel}`}><strong>{comparisonLabel}</strong><ChevronDown size={14} /></button></MenuTrigger>
       <MenuContent align="start">
         <MenuItem disabled={serieMode} onSelect={() => setCompareWeek(false)}>{!compareWeek && <Check size={16} />}{t(singleDay ? 'previousDay' : 'vsPreviousPeriod')}</MenuItem>
         {!serieMode && singleDay && <MenuItem onSelect={() => setCompareWeek(true)}>{compareWeek && <Check size={16} />}{t('dashboardSameDayLastWeek')}</MenuItem>}
         {serieMode && <MenuItem disabled>{comparisonLabel}</MenuItem>}
       </MenuContent>
-    </Menu>
-    <Menu><MenuTrigger asChild><button type="button" className="dashboard-filter"><span>{t('dashboardChecks')}</span><strong>{modeLabel}</strong></button></MenuTrigger>
+    </Menu>}
+    <Menu><MenuTrigger asChild><button type="button" className="dashboard-filter"><span>{t('dashboardRevenueMode')}</span><strong>{modeLabel}</strong><ChevronDown size={14} /></button></MenuTrigger>
       <MenuContent align="start" className="max-w-[300px]">
         <p className="px-3 py-2 text-sm text-[var(--fg-muted)]">{t(`${revenueMode}DashboardHint`)}</p>
         {hasPermission('settings.edit') && <MenuItem asChild><Link href={`/${rid}/settings`}>{t('dashboardRevenueCalculation')}</Link></MenuItem>}
@@ -230,24 +251,31 @@ export default function DashboardPage() {
   </>;
 
   return <div className="dashboard-home" aria-busy={visible.status === 'loading'}>
-    <h1>{t('dashboardHome')}</h1>
+    <header className="dashboard-header">
+      <div><h1>{t('dashboardHome')}</h1><p>{t(serieMode ? 'dashboardSerieContext' : 'dashboardOrderContext').replace('{range}',
+        `${dateRange.from.toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long' })}${!singleDay ? ` – ${dateRange.to.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' })}` : ''}`)}</p></div>
+      <div className="dashboard-header-actions">{dateControl}<button type="button" className="dashboard-refresh" onClick={load} disabled={visible.status === 'loading'} aria-label={t('refresh')}><RefreshCw size={18} /></button></div>
+    </header>
     {(visible.status === 'error' || preferenceSaveFailed) && <div className="dashboard-error" role="alert">
       <span>{preferenceSaveFailed ? t('displayPreferenceSaveFailed') : t('couldNotLoad')}</span>
       <button type="button" onClick={() => { if (preferenceSaveFailed) onChangeBasis(basis); load(); }}>{t('retry')}</button>
     </div>}
+    {canViewOrders && <OperationalSummary restaurantId={rid} review={review} readyOrders={readyOrders} payments={payments}
+      scope={{ from: isoDate(dateRange.from), to: isoDate(dateRange.to), dateField: basis }} loading={visible.status === 'loading'} />}
     <div className="dashboard-grid">
       <div className="dashboard-main-column">
-        <AiPromptBar />
-        <OrderVolumeChart hourly={volume?.hourly ?? null} currentLabel={t('today')}
-          previousLabel={new Date(`${lastWeek}T00:00:00`).toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          loading={visible.status === 'loading'} />
         <PerformanceSection period={period} series={series} previousSeries={previousSeries} controls={filterControls}
-          comparisonLabel={comparisonLabel} comparable={!serieMode || !!previousSerieRange}
-          chartNote={daysInclusive(dateRange) > 90 ? t('dashChartLast90') : undefined}
+          comparisonLabel={comparisonLabel} comparable={!upcomingSerie && (!serieMode || !!previousSerieRange)} serieMode={serieMode}
+          serieDate={isoDate(dateRange.to)} previousSerieDate={previousSerieRange?.to}
+          comparisonNote={upcomingSerie ? t('dashboardOpenSerieComparison') : undefined}
+          chartNote={!serieMode && daysInclusive(dateRange) > 90 ? t('dashChartLast90') : undefined}
           loading={visible.status === 'loading'} />
-        <button type="button" className="dashboard-refresh" onClick={load} disabled={visible.status === 'loading'}><RefreshCw size={16} />{t('refresh')}</button>
+        {!serieMode && <OrderVolumeChart hourly={volume?.hourly ?? null} currentLabel={t('today')}
+          previousLabel={new Date(`${lastWeek}T00:00:00`).toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          loading={visible.status === 'loading'} />}
       </div>
-      <DashboardSidebar restaurantId={rid} revenue={volume ? money(volume.current.gross_sales) : '—'} today={today} />
+      <DashboardSidebar restaurantId={rid} revenue={volume ? money(volume.current.gross_sales) : '—'} serieMode={serieMode}
+        scope={{ from: isoDate(dateRange.from), to: isoDate(dateRange.to), dateField: basis }} recent={recent} loading={visible.status === 'loading'} />
     </div>
   </div>;
 }

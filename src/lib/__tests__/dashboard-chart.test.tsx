@@ -32,3 +32,21 @@ test('unavailable data is explicitly represented instead of showing stale totals
   assert.ok(html.includes('Unable to load'));
   assert.ok(!html.includes('12:00: 10'));
 });
+
+test('an open service hides previous bars and values instead of comparing with a finished service', () => {
+  const html = renderToStaticMarkup(React.createElement(HourlyChart, {
+    ...base, showComparison: false, data: [{ label: 'Monday', current: 80, previous: 100 }],
+  }));
+  assert.ok(html.includes('Monday: 80'));
+  assert.ok(!html.includes(' / 100'));
+  assert.ok(!html.includes('dashboard-chart-previous'));
+  assert.ok(html.includes('height:100%'));
+});
+
+test('hidden previous activity cannot turn an empty current service into a populated chart', () => {
+  const html = renderToStaticMarkup(React.createElement(HourlyChart, {
+    ...base, showComparison: false, data: [{ label: 'Monday', current: 0, previous: 100 }],
+  }));
+  assert.ok(html.includes('No activity'));
+  assert.ok(!html.includes('dashboard-chart-bar"'));
+});

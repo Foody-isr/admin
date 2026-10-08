@@ -21,7 +21,10 @@ export default function OrderVolumeChart({ hourly, currentLabel, previousLabel, 
   const data = Array.from({ length: end - start + 1 }, (_, i) => {
     const hour = start + i;
     const row = hourly?.find((item) => item.hour === hour);
+    const time = (minute: number) => new Date(2000, 0, 1, hour, minute).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+    const timeRange = `${time(0)} – ${time(59)}`;
     return { label: new Date(2000, 0, 1, hour).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' }),
+      currentPeriodLabel: `${currentLabel}, ${timeRange}`, previousPeriodLabel: `${previousLabel}, ${timeRange}`,
       current: row?.current_count ?? 0, previous: row?.previous_count ?? 0 };
   });
   return <section className="dashboard-card dashboard-volume">
@@ -34,6 +37,7 @@ export default function OrderVolumeChart({ hourly, currentLabel, previousLabel, 
       {hasAnyPermission('orders.view', 'orders.manage') && <Link href={`/${restaurantId}/orders/all`} className="dashboard-text-link">{t('viewOrders')}</Link>}
     </div>
     <HourlyChart data={data} ariaLabel={t('orderVolume')} unavailable={!hourly}
+      metricLabel={t('newOrders')} direction={locale === 'he' ? 'rtl' : 'ltr'} formatValue={value => new Intl.NumberFormat(locale).format(value)}
       emptyLabel={!hourly ? t(loading ? 'loading' : 'couldNotLoad') : t('noActivityYet')} />
   </section>;
 }

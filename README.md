@@ -68,9 +68,13 @@ Restaurant owners and managers use this portal to:
 
 ### Dashboard (`/[restaurantId]/dashboard`)
 
-Home uses a two-column dashboard with an assistant prompt, today's hourly order volume compared with the same day last week, and a performance card with date and comparison controls. Date presets and the order/fulfillment date basis keep their existing per-user and restaurant persistence. The order-volume chart remains on today when the performance period changes.
+Home prioritizes the selected service or order-date period. A compact contextual notice highlights the next action, such as a payment that needs attention, with a direct shortcut. Order totals appear once in the performance summary. Date presets and the order/fulfillment date basis retain their per-user and restaurant persistence.
 
-The right rail shows actual sales today and permitted shortcuts to unpaid orders, menu editing and item creation. It does not represent sales as a bank balance. The Additions control explains the restaurant's configured revenue scope and links to its settings. Empty and unavailable data are distinct; an unavailable comparison never displays fabricated growth.
+In série mode, the main chart shows when the selected service's orders were placed. Upcoming and same-day services hide comparisons with completed services; historical service charts align comparison days relative to the service date. In order-date mode, today's hourly volume remains independent of the selected performance period. The right rail provides permitted shortcuts and the five most recent orders for the selection. Production links carry the selected single-service date, and payment attention retains the date basis, including preorders awaiting acceptance.
+
+The revenue-scope control explains which orders contribute to performance and links to the restaurant settings. Empty and unavailable data remain distinct; missing comparisons produce no N/A badges or fabricated growth.
+
+To preview the service dashboard with synthetic preorders, run `node tests/redesign/dashboard-preview-server.mjs`, then `NEXT_PUBLIC_API_URL=http://127.0.0.1:18080 npx next dev --port 3103`. Open `http://localhost:3103/1/dashboard`. If sign-in is required, the local fixture accepts `demo@foody.test` / `demo-local`. This API keeps all data in memory and never proxies a real service. Dashboard browser checks run with `npx playwright test -c playwright.redesign.config.ts tests/redesign/dashboard-service.spec.ts`.
 
 ### Orders (`/[restaurantId]/orders`)
 

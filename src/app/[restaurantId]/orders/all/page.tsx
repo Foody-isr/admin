@@ -395,6 +395,10 @@ export default function OrdersPage() {
     }
     if (tab.statuses) params.status = tab.statuses;
     else if (tab.active) params.active = true;
+    // Dashboard payment attention also includes preorders before acceptance.
+    if (activeTab === 'active' && paymentFilter === PAYMENT_ATTENTION_FILTER) {
+      params.status = `scheduled,${tab.statuses}`;
+    }
     if (tab.isScheduled) params.is_scheduled = true;
     if (searchSubmitted) params.q = searchSubmitted;
     if (typeFilter) params.type = typeFilter;
