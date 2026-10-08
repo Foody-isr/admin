@@ -5,6 +5,7 @@ import { ChevronDown, ArrowLeft, Link as LinkIcon, Star } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import {
   HEADER_LAYOUTS,
+  restaurantInfoLayout,
   headerFromLegacy,
   orderHeaderPresentation,
   resolvePageHeader,
@@ -21,7 +22,6 @@ import { InspectorField, ToggleField, controlClass } from "./controls";
 import { HeaderMedia } from "./HeaderMedia";
 import { HeaderLinksEditor, HeaderTargetDialog } from "./HeaderLinkEditor";
 import { headerCopy } from "./header-copy";
-import { colorContrast, normalizeSiteColors } from "@/lib/website-v3/site-colors";
 
 /** Edits the versioned Header component using the same controls as the public renderer. */
 export function HeaderInspector({
@@ -56,7 +56,7 @@ export function HeaderInspector({
   const root = useRef<HTMLDivElement>(null);
   const [links, setLinks] = useState(false),
     [customize, setCustomize] = useState(true),
-    [open, setOpen] = useState<Record<string, boolean>>({ layout: true }),
+    [open, setOpen] = useState<Record<string, boolean>>(() => ({ layout: true, ...(activeElement ? {[activeElement]: true} : {}) })),
     [editing, setEditing] = useState<"logo" | "button" | null>(null);
   const nav =
     config.nav_layout && typeof config.nav_layout === "object"
@@ -76,6 +76,7 @@ export function HeaderInspector({
     : onChange(["nav_layout"], { ...nav, header: value });
   const presentationKeys = ["layout", "scroll", "color_style", "background", "restaurant"];
   const restaurantLayout = header.layout === "restaurant";
+  const infoLayout = restaurantInfoLayout(header.restaurant, orderChoicesAvailable);
   const set = <K extends keyof WebsiteHeader>(
     key: K,
     value: WebsiteHeader[K],
@@ -273,7 +274,7 @@ export function HeaderInspector({
                       aria-label={c[layout]}
                       aria-pressed={header.layout === layout}
                       onClick={() => layout === "restaurant" ? saveHeader({
-                        ...header, layout, color_style: header.color_style === "default" ? normalizeSiteColors(config.custom_palette).styles.reduce((best, style) => colorContrast(style.background, "#ffffff") > colorContrast(best.background, "#ffffff") ? style : best).id : header.color_style,
+                        ...header, layout,
                         background: {...header.background, mode: "image"},
                         logo: {...header.logo, type: header.logo.image || restaurantLogoUrl ? "image" : header.logo.type, size: 140},
                         icons: {...header.icons, cart: false, search: false},
@@ -410,10 +411,19 @@ export function HeaderInspector({
             </>,
           )}
           {restaurantLayout && accordion("restaurant", c.restaurantInfo, <>
+            <HeaderGroup label={c.layout}>
+              <div className="sqh-layouts sqh-info-layouts">
+                {(["modern", "classic"] as const).map(layout => <button key={layout} type="button"
+                  aria-pressed={infoLayout === layout} onClick={() => patch("restaurant", {info_layout: layout})}>
+                  <span aria-hidden="true" className={`sqh-info-preview sqh-info-preview--${layout}`}><i /><b /><em /></span>
+                  <span className="sqh-info-label">{c[layout]}</span>
+                </button>)}
+              </div>
+            </HeaderGroup>
             <HeaderGroup label={c.colorStyle}><ColorStylePicker value={header.restaurant.info_color_style} onChange={value => patch("restaurant", {info_color_style: value as WebsiteHeader["restaurant"]["info_color_style"]})}/></HeaderGroup>
             <p>{c.restaurantColorHint}</p>
-            {!orderChoicesAvailable && check(c.showInfo, header.restaurant.info_enabled, value => patch("restaurant", {info_enabled: value}))}
-            {!orderChoicesAvailable && header.restaurant.info_enabled && <>
+            {check(c.showInfo, header.restaurant.info_enabled, value => patch("restaurant", {info_enabled: value}))}
+            {infoLayout === "classic" && header.restaurant.info_enabled && <>
               {check(c.showStatus, header.restaurant.show_status, value => patch("restaurant", {show_status: value}))}
               {check(c.showMinimum, header.restaurant.show_minimum, value => patch("restaurant", {show_minimum: value}))}
               {check(c.showSocial, header.restaurant.show_social, value => patch("restaurant", {show_social: value}))}

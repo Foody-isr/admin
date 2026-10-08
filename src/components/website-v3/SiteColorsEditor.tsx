@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import {
   normalizeSiteColors,
-  colorContrast,
   siteHex,
   resolveSiteMenuColors,
   resolveSiteItemColors,
@@ -188,13 +187,6 @@ export function SiteColorsEditor({
     onChange({ ...changed, color_styles: normalizeSiteColors(changed) });
   };
   const setBase = (role: BaseRole, color: string) => {
-    if (
-      ["title", "paragraph", "outline_button"].includes(role) &&
-      colorContrast(color, style.background) < 3
-    ) {
-      setError(true);
-      return;
-    }
     updateStyle({ ...style, [role]: color });
     setError(false);
   };
@@ -212,33 +204,6 @@ export function SiteColorsEditor({
     updateStyle({...style, item_detail: next});
     setError(false);
   };
-  const itemBackground = (role: SiteItemColorRole) => {
-    if (["title", "description", "price"].includes(role)) return item.background;
-    if (role === "options_text") return item.options_background;
-    if (["selection_text", "selection_accent"].includes(role)) return item.selection_background;
-    if (role === "button_text") return item.button_background;
-    return undefined;
-  };
-  const menuBackground = (role: SiteMenuColorRole) => {
-    if (role === "heading") return menu.background;
-    if (role === "category_text")
-      return menu.pill_background === "transparent"
-        ? menu.bar_background
-        : menu.pill_background;
-    if (role === "active_text")
-      return menu.active_background === "transparent"
-        ? menu.bar_background
-        : menu.active_background;
-    if (
-      ["card_title", "card_price", "card_description", "card_border"].includes(
-        role,
-      )
-    )
-      return menu.card_background === "transparent"
-        ? menu.background
-        : menu.card_background;
-    return undefined;
-  };
   const field = (
     key: string,
     label: string,
@@ -248,8 +213,6 @@ export function SiteColorsEditor({
       automatic?: boolean;
       onReset?: () => void;
       transparent?: boolean;
-      background?: string;
-      blockLowContrast?: boolean;
     } = {},
   ) => (
     <div key={key} className="sqe-color-role" data-color-role={key}>
@@ -281,11 +244,6 @@ export function SiteColorsEditor({
                 type="button"
                 key={color}
                 aria-label={color}
-                disabled={Boolean(
-                  options.blockLowContrast &&
-                    options.background &&
-                    colorContrast(color, options.background) < 3,
-                )}
                 style={{ background: color }}
                 onClick={() => onColor(color)}
               />
@@ -308,7 +266,7 @@ export function SiteColorsEditor({
               maxLength={7}
               spellCheck={false}
               onBlur={(event) => {
-                if (/^#[\da-f]{6}$/i.test(event.target.value))
+                if (/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(event.target.value))
                   onColor(event.target.value);
                 else if (event.target.value || value !== "transparent")
                   setError(true);
@@ -327,12 +285,8 @@ export function SiteColorsEditor({
               {t("editorColorResetAutomatic")}
             </button>
           )}
-          {error && <p role="alert">{t("editorColorContrastError")}</p>}
-          {!options.blockLowContrast &&
-            options.background &&
-            colorContrast(value, options.background) < 3 && (
-              <p role="status">{t("editorMenuColorContrastHint")}</p>
-            )}
+          {error && <p role="alert">{t("editorColorFormatError")}</p>}
+
         </div>
       )}
     </div>
@@ -458,12 +412,7 @@ export function SiteColorsEditor({
         {!currentUsage && usage.length > 0 && <><br />{t("editorColorStyleUsedOn")} {usage.map(value => value.title).join(", ")}</>}
       </p>
       {baseRoles.map(([role, label]) =>
-        field(role, t(label), style[role], (color) => setBase(role, color), {
-          background: ["background", "solid_button"].includes(role)
-            ? undefined
-            : style.background,
-          blockLowContrast: !["background", "solid_button"].includes(role),
-        }),
+        field(role, t(label), style[role], (color) => setBase(role, color)),
       )}
       <details
         ref={menuDetails}
@@ -498,7 +447,6 @@ export function SiteColorsEditor({
                   automatic: style.menu?.[role] === undefined,
                   onReset: () => setMenu(role),
                   transparent: menuColorAllowsTransparency(role),
-                  background: menuBackground(role),
                 },
               ),
             )}
@@ -513,7 +461,7 @@ export function SiteColorsEditor({
           <summary>{t(group.label)}</summary>
           {group.roles.map(role => field(`item_detail.${role}`, t(`editorItemColor_${role}`), item[role], color => setItem(role, color), {
             automatic: style.item_detail?.[role] === undefined,
-            onReset: () => setItem(role), background: itemBackground(role),
+            onReset: () => setItem(role),
           }))}
         </details>)}
       </details>

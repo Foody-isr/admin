@@ -33,19 +33,6 @@ function contrastInk(bg: string): string {
   return relativeLuminance(bg) > 0.4 ? '#000000' : '#ffffff';
 }
 
-// WCAG contrast ratio, 1 (identical) → 21 (black on white).
-function contrastRatio(a: string, b: string): number {
-  const la = relativeLuminance(a);
-  const lb = relativeLuminance(b);
-  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
-  return (hi + 0.05) / (lo + 0.05);
-}
-
-// Below this, body text on its background is unreadable. WCAG AA wants 4.5 for
-// small text; we warn at 3 so we only flag genuinely broken pairings (identical
-// colours score 1) rather than nagging about merely low-contrast brand choices.
-const MIN_TEXT_CONTRAST = 3;
-
 type Props = {
   config: WebsiteConfig;
   catalog: ThemeCatalog;
@@ -311,16 +298,6 @@ function SectionColorsEditor({
         // unset one should preview (and, if the OS picker commits on open,
         // save) as a legible ink rather than a blind #ffffff.
         const inkOn = (c?: string) => contrastInk(c && PALETTE_HEX_RE.test(c) ? c : '#ffffff');
-        const clashes = def.fields
-          .filter((f) => f.field !== 'bg')
-          .filter(
-            (f) =>
-              bg &&
-              PALETTE_HEX_RE.test(bg) &&
-              sc[def.key]?.[f.field] &&
-              PALETTE_HEX_RE.test(sc[def.key]![f.field]!) &&
-              contrastRatio(bg, sc[def.key]![f.field]!) < MIN_TEXT_CONTRAST,
-          );
         return (
           <div
             key={def.key}
@@ -347,23 +324,7 @@ function SectionColorsEditor({
                     onChange={(v) => setField(def.key, field, v)}
                   />
                 ))}
-                {clashes.map((f) => (
-                  <div
-                    key={f.field}
-                    className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-2 py-1.5"
-                  >
-                    <span className="text-[11px] leading-snug text-amber-900 flex-1">
-                      « {f.label} » se confond avec le fond : ce texte sera illisible sur le site.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setField(def.key, f.field, inkOn(bg))}
-                      className="text-[11px] font-semibold text-amber-900 underline shrink-0"
-                    >
-                      Corriger
-                    </button>
-                  </div>
-                ))}
+
               </div>
             )}
           </div>

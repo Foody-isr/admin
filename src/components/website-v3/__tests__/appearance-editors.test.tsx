@@ -585,3 +585,16 @@ test("item details edit shared roles in a collapsed global panel", () => {
   assert.match(markup, /Automatic/);
   assert.match(markup, /Options and selection/);
 });
+
+
+test("information layout choices stay visible with either ordering permission state", () => {
+  for (const orderChoicesAvailable of [true, false]) {
+    const config = {nav_layout: {header: normalizeWebsiteHeader({layout: "restaurant", restaurant: {info_layout: "classic"}})}};
+    const markup = render(<HeaderInspector restaurantId={1} config={config} pages={[]} sections={[]}
+      activeElement="restaurant" orderChoicesAvailable={orderChoicesAvailable} onChange={() => undefined} />);
+    assert.match(markup, /Modern/);
+    assert.match(markup, /Classic/);
+    assert.match(markup, /Opening and pre-order status/);
+    assert.doesNotMatch(markup, /automatically shows/);
+  }
+});
