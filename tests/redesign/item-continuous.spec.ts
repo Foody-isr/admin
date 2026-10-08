@@ -328,21 +328,171 @@ test('a temporary type change retains the staged recipe when returning to an art
   });
 });
 
-
-test('variant fields align their values and preserve the 64px field height', async ({ page }) => {
+test('variant fields align their values and preserve the 64px field height', async ({
+  page,
+}) => {
   const fixture = await install(page);
   Object.assign(fixture.optionSets[0], { menu_items: [fixture.items[0]] });
   await page.goto('/1/menu/items/1');
   const row = page.locator('.item-variant-group fieldset').first();
   await row.scrollIntoViewIfNeeded();
-  const geometry = await row.locator('.item-field').evaluateAll(fields => fields.map(field => ({
-    height: field.getBoundingClientRect().height,
-    valueTop: field.querySelector('input, select')!.getBoundingClientRect().top,
-  })));
+  const geometry = await row.locator('.item-field').evaluateAll((fields) =>
+    fields.map((field) => ({
+      height: field.getBoundingClientRect().height,
+      valueTop: field.querySelector('input, select')!.getBoundingClientRect()
+        .top,
+    })),
+  );
   expect(geometry).toHaveLength(4);
   for (const field of geometry) {
     expect(field.height).toBe(64);
-    expect(Math.abs(field.valueTop - geometry[0].valueTop)).toBeLessThanOrEqual(1);
+    expect(Math.abs(field.valueTop - geometry[0].valueTop)).toBeLessThanOrEqual(
+      1,
+    );
   }
-  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeInViewport();
+  await expect(
+    page.getByRole('button', { name: 'Save', exact: true }),
+  ).toBeInViewport();
+});
+
+test('customer notes use a horizontal switch and save their single setting', async ({
+  page,
+}) => {
+  const fixture = await install(page, { locale: 'fr' });
+  await page.goto('/1/menu/items/1');
+  const notes = page.getByRole('switch', {
+    name: 'Autoriser une note du client',
+  });
+  await notes.scrollIntoViewIfNeeded();
+  await expect(notes).toBeChecked();
+  const box = await notes.boundingBox();
+  expect(box!.width).toBeGreaterThan(box!.height * 1.5);
+  await page.getByText('Autoriser une note du client', { exact: true }).click();
+  await expect(notes).not.toBeChecked();
+  expect(fixture.writes).toEqual([]);
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.items[0]).toMatchObject({ allow_notes: false });
+});
+
+test('French variant statuses fit at desktop, tablet and mobile widths', async ({
+  page,
+}) => {
+  const fixture = await install(page, { locale: 'fr' });
+  Object.assign(fixture.optionSets[0], { menu_items: [fixture.items[0]] });
+  await page.goto('/1/menu/items/1');
+  const status = page.locator('.item-variant-status select').first();
+  await status.selectOption('inactive');
+  for (const width of [1440, 1100, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await status.scrollIntoViewIfNeeded();
+    const geometry = await status.evaluate((select: HTMLSelectElement) => {
+      const style = getComputedStyle(select);
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d')!;
+      context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      return {
+        width: select.clientWidth,
+        textWidth: context.measureText(select.selectedOptions[0].text).width,
+        pageWidth: document.documentElement.scrollWidth,
+      };
+    });
+    // Reserve room for the native arrow and a gap after the longest label.
+    expect(geometry.width - geometry.textWidth).toBeGreaterThanOrEqual(24);
+    expect(geometry.pageWidth).toBeLessThanOrEqual(width);
+  }
+});
+
+test('photo preview traps focus, preserves drafts and stages removal until save', async ({
+  page,
+}) => {
+  const fixture = await install(page);
+  fixture.items[0].image_url = '/brand/favicon.svg';
+  await page.goto('/1/menu/items/1');
+  await page.locator('#menu-item-name').fill('Photo draft');
+  const preview = page.getByRole('button', { name: 'Item photo', exact: true });
+  await preview.click();
+  const dialog = page.getByRole('dialog', { name: 'Item photo', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('img')).toHaveCSS('object-fit', 'contain');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(preview).toBeFocused();
+  await expect(page.locator('#menu-item-name')).toHaveValue('Photo draft');
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Change photo', exact: true }).click();
+  const chooser = await chooserPromise;
+  expect(chooser.isMultiple()).toBe(false);
+  await chooser.setFiles([]);
+  await preview.click();
+  await dialog
+    .getByRole('button', { name: 'Remove image', exact: true })
+    .click();
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByRole('button', { name: 'Add photo', exact: true }),
+  ).toBeVisible();
+  expect(fixture.writes).toEqual([]);
+  expect(fixture.items[0].image_url).toBe('/brand/favicon.svg');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.items[0].image_url).toBe('');
+});
+
+test('removing only a photo prompts before discarding the change', async ({
+  page,
+}) => {
+  const fixture = await install(page);
+  fixture.items[0].image_url = '/brand/favicon.svg';
+  await page.goto('/1/menu/items/1');
+  await page.getByRole('button', { name: 'Item photo', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Item photo', exact: true })
+    .getByRole('button', { name: 'Remove image' })
+    .click();
+  await page
+    .locator('.item-editor-header')
+    .getByRole('button', { name: 'Cancel', exact: true })
+    .last()
+    .click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  expect(fixture.writes).toEqual([]);
+  expect(fixture.items[0].image_url).toBe('/brand/favicon.svg');
+});
+
+test('a new item can preview and remove a selected photo before creation', async ({
+  page,
+}) => {
+  const fixture = await install(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/1/menu/items/new');
+  await page.locator('#menu-item-name').fill('New dish without photo');
+  await page
+    .getByRole('textbox', { name: 'Selling price', exact: true })
+    .fill('30');
+  const file = {
+    name: 'preview.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWZkAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  };
+  await page.locator('input[type="file"]').setInputFiles(file);
+  await page.getByRole('button', { name: 'Item photo', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Item photo', exact: true });
+  await expect(dialog).toBeInViewport();
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+    true,
+  );
+  await dialog.getByRole('button', { name: 'Remove image' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Add photo', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('input[type="file"]')).toHaveValue('');
+  expect(fixture.writes).toEqual([]);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.items[3]).toMatchObject({ name: 'New dish without photo' });
+  expect(fixture.items[3].image_url || '').toBe('');
 });

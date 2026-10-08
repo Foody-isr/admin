@@ -491,6 +491,15 @@ function NewItemEditor() {
               photo={
                 <MenuItemPhoto
                   imageUrl={imagePreview || undefined}
+                  onRemove={
+                    canEdit && !saving && !createdId
+                      ? () => {
+                          setPendingImage(null);
+                          setImagePreview('');
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }
+                      : undefined
+                  }
                   name={name}
                   onImageClick={
                     canEdit && !saving && !createdId
