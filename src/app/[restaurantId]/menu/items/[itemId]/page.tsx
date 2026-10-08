@@ -226,6 +226,7 @@ function EditItemEditor() {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
   const [vatRate, setVatRate] = useState(18);
+  const [defaultLeadMinutes, setDefaultLeadMinutes] = useState(0);
   const [defaultStockUnit, setDefaultStockUnit] = useState<'' | 'g' | 'kg'>('');
 
   const recipeRef = useRef<MenuItemTabRecipeHandle>(null);
@@ -269,6 +270,7 @@ function EditItemEditor() {
       if (!foundItem) throw new Error('itemNotFound');
       setVatRate(settings.vat_rate ?? 18);
       setDefaultStockUnit((settings.default_stock_unit as '' | 'g' | 'kg') ?? '');
+      setDefaultLeadMinutes((settings.scheduling_lead_time_minutes ?? 0) > 0 ? settings.scheduling_lead_time_minutes! : (settings.scheduling_min_days_ahead ?? 0) * 1440);
       const defaultLocale = restaurant.default_locale;
       if (defaultLocale === 'en' || defaultLocale === 'he' || defaultLocale === 'fr') {
         setSourceLocale(defaultLocale);
@@ -892,6 +894,7 @@ function EditItemEditor() {
                   itemId={iid}
                   item={item}
                   defaultStockUnit={defaultStockUnit}
+                  defaultLeadMinutes={defaultLeadMinutes}
                 />
               }
               recipeContent={

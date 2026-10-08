@@ -586,6 +586,14 @@ export function normalizeMenuItemCustomerFacts(
   };
 }
 
+/** Conditions for receiving an item on the selected weekdays (0 = Sunday). */
+export interface PreparationRule {
+  days: number[];
+  lead_time_minutes?: number;
+  cutoff_days_before?: number;
+  cutoff_time?: string;
+}
+
 export interface MenuItem {
   id: number;
   category_id: number;
@@ -663,6 +671,8 @@ export interface MenuItem {
    *  restaurant default (Réglages → Commandes). Batch collection dates read it
    *  rounded up to whole days, so 90 minutes still means "not today". */
   preparation_lead_time_minutes?: number | null;
+  /** Null inherits the fixed notice; unlisted weekdays cannot be fulfilled. */
+  preparation_schedule?: PreparationRule[] | null;
   /** Computed (read-only) availability stamped onto staff menu responses. */
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
