@@ -46,6 +46,7 @@ interface RecipeTableProps {
   onUpdate: (id: string, patch: Partial<MenuItemIngredient>) => Promise<void>;
   onDelete: (id: string) => void;
   onAddClick: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 // Internal row shape — one per MenuItemIngredient. Drives cell rendering.
@@ -176,6 +177,7 @@ const RecipeTable = forwardRef<RecipeTableHandle, RecipeTableProps>(function Rec
   onUpdate,
   onDelete,
   onAddClick,
+  onDirtyChange,
 }: RecipeTableProps, ref) {
   const { restaurantId } = useParams();
   const { money } = useCurrency();
@@ -193,6 +195,8 @@ const RecipeTable = forwardRef<RecipeTableHandle, RecipeTableProps>(function Rec
   const queue = useRef<Promise<void>>(Promise.resolve());
   const [writeError, setWriteError] = useState('');
   const [writing, setWriting] = useState(false);
+  const hasDrafts = drafts.current.size > 0;
+  useEffect(() => { onDirtyChange?.(hasDrafts); }, [hasDrafts, onDirtyChange]);
   const updateRows = (next: Row[]) => { rowsCurrent.current = next; setRows(next); };
   useEffect(() => {
     const ids = new Set(initialRows.map(row => row.id));

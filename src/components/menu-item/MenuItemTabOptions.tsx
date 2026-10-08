@@ -83,10 +83,9 @@ export default function MenuItemTabOptions({
 
   return (
     <div className="max-w-4xl">
-      <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+      <section className="min-w-0">
       {/* Section head with 3px brand accent */}
       <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
-        <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
         <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
           {t('modifiers') || 'Modificateurs'}
         </h3>

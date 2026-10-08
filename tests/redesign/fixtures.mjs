@@ -267,8 +267,8 @@ export function createFixture({ empty = false, denied = false, fail = false, per
     if(p==='/api/v1/menu/item-categories') return {json:{categories}};
     if(p==='/api/v1/menu' || p==='/api/v1/menu/menus') return {json:{menus:menus.map(menu=>({...menu,availability_hours:menuHours[menu.id]??[]}))}};
     if(p.endsWith('/website-config')) return {json:{config:{},website_config:{}}};
-    if(/^\/api\/v1\/stock\/menu-items\/[123]\/ingredients$/.test(p)) return {json:{ingredients:empty?[]:recipeByItem[Number(p.split('/')[5])]??[]}};
-    if(/^\/api\/v1\/menu\/items\/[123]\/option-prices$/.test(p)) return {json:{item_options:itemOptionOverrides[Number(p.split('/')[5])]??[]}};
+    if(/^\/api\/v1\/stock\/menu-items\/\d+\/ingredients$/.test(p)) return {json:{ingredients:empty?[]:recipeByItem[Number(p.split('/')[5])]??[]}};
+    if(/^\/api\/v1\/menu\/items\/\d+\/option-prices$/.test(p)) return {json:{item_options:itemOptionOverrides[Number(p.split('/')[5])]??[]}};
     if(p==='/api/v1/ingredient-icons')return {json:{icons:[{id:1,name:'Tomates de saison',category:'Légumes',slug:'tomate',aliases:['tomate','עגבנייה'],image_url:'/brand/favicon.svg',tags:[],created_at:now.toISOString(),updated_at:now.toISOString()}]}};
     if(p==='/api/v1/stock/categories')return {json:{categories:[...stockCategories,...Array.from(new Set(stock.map(item=>item.category))).filter(name=>stockLibrary&&!stockCategories.some(value=>value.name===name)).map(name=>({id:0,name,color:''}))]}};
     if(p==='/api/v1/stock/transactions')return {json:{transactions:stockTransactions.filter(value=>!q.get('stock_item_id')||String(value.stock_item_id)===q.get('stock_item_id'))}};
