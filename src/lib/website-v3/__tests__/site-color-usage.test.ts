@@ -16,7 +16,7 @@ test("usage follows header, restaurant info, explicit menu and inherited default
   const usage = (id: string) => siteColorUsage(state.config, state.pages, [], palette, id);
   assert.deepEqual(usage("style-2").map(value => value.parts), [["header"], ["header"]]);
   assert.deepEqual(usage("style-4").map(value => value.parts), [["info"], ["info"]]);
-  assert.deepEqual(usage("style-3").map(value => value.parts), [["menu", "cart", "checkout", "confirmation"]]);
+  assert.deepEqual(usage("style-3").map(value => value.parts), [["menu", "item", "cart", "checkout", "confirmation"]]);
   assert.deepEqual(usage("style-5"), []);
   state.pages[1].appearance_overrides.order_header = orderHeaderPresentation(normalizeWebsiteHeader({...header, color_style: "default", restaurant: {info_enabled: false}}));
   assert.deepEqual(usage("style-5").map(value => value.parts), [["header"]]);
@@ -44,7 +44,15 @@ test("commerce usage follows each screen assignment and inherited menu style", (
   ], sections: []});
   const palette = {color_styles: normalizeSiteColors({})};
   const usage = (id: string) => siteColorUsage(state.config, state.pages, [], palette, id).flatMap(value => value.parts);
-  assert.deepEqual(usage("style-2"), ["menu", "confirmation"]);
+  assert.deepEqual(usage("style-2"), ["menu", "item", "confirmation"]);
   assert.deepEqual(usage("style-4"), ["cart"]);
   assert.deepEqual(usage("style-5"), ["checkout"]);
+});
+
+
+test("item style usage follows its explicit assignment without changing menu or checkout", () => {
+  const state = normalizeDraftState({config:{},pages:[{id:1,type:"order",slug:"order",appearance_overrides:{website_order:{color_style:"style-2",item_color_style:"style-4"}}}],sections:[]});
+  const palette = {color_styles:normalizeSiteColors({})};
+  assert.deepEqual(siteColorUsage(state.config,state.pages,[],palette,"style-4")[0].parts,["item"]);
+  assert.ok(!siteColorUsage(state.config,state.pages,[],palette,"style-2")[0].parts.includes("item"));
 });

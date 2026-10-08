@@ -24,6 +24,13 @@ export const SITE_MENU_COLOR_ROLES = [
 ] as const;
 export type SiteMenuColorRole = (typeof SITE_MENU_COLOR_ROLES)[number];
 export type SiteMenuColors = Record<SiteMenuColorRole, string>;
+export const SITE_ITEM_COLOR_ROLES = [
+  "background", "title", "description", "price",
+  "options_background", "options_text", "selection_background", "selection_text", "selection_accent",
+  "footer_background", "button_background", "button_text",
+] as const;
+export type SiteItemColorRole = (typeof SITE_ITEM_COLOR_ROLES)[number];
+export type SiteItemColors = Record<SiteItemColorRole, string>;
 export type SiteColorStyle = {
   id: SiteColorId;
   background: string;
@@ -32,6 +39,7 @@ export type SiteColorStyle = {
   solid_button: string;
   outline_button: string;
   menu?: Partial<SiteMenuColors>;
+  item_detail?: Partial<SiteItemColors>;
 };
 export type SiteColors = {
   version: 1;
@@ -116,6 +124,7 @@ export function normalizeSiteColors(value: unknown): SiteColors {
       const s = record(authored.find((v) => record(v).id === id));
       const background = siteHex(s.background, backgrounds[i]);
       const menu = normalizeSiteMenuColors(s.menu);
+      const item = normalizeSiteItemColors(s.item_detail);
       return {
         id,
         background,
@@ -132,8 +141,46 @@ export function normalizeSiteColors(value: unknown): SiteColors {
           background,
         ),
         ...(Object.keys(menu).length ? { menu } : {}),
+        ...(Object.keys(item).length ? { item_detail: item } : {}),
       };
     }),
+  };
+}
+
+/** Keeps item detail roles sparse and rejects CSS expressions at the rendering boundary. */
+export function normalizeSiteItemColors(value: unknown): Partial<SiteItemColors> {
+  const source = record(value);
+  return Object.fromEntries(SITE_ITEM_COLOR_ROLES.flatMap(role => {
+    const color = siteHex(source[role], "");
+    return color ? [[role, color]] : [];
+  }));
+}
+
+/** Inherits card identity and global buttons, with optional detail-only roles in the shared style. */
+export function resolveSiteItemColors(style: SiteColorStyle): SiteItemColors {
+  const item = normalizeSiteItemColors(style.item_detail);
+  const menu = resolveSiteMenuColors(style);
+  const background = item.background ?? (menu.card_background === "transparent" ? menu.background : menu.card_background);
+  const title = item.title ?? readableSiteColor(menu.card_title, background);
+  const description = item.description ?? readableSiteColor(menu.card_description, background);
+  const options = item.options_background ?? background;
+  const optionsText = item.options_text ?? readableSiteColor(title, options);
+  const accent = item.selection_accent ?? readableSiteColor(menu.card_price, options);
+  const mix = (a: string, b: string, ratio: number) => "#" + [1, 3, 5].map(offset =>
+    Math.round(parseInt(a.slice(offset, offset + 2), 16) * ratio + parseInt(b.slice(offset, offset + 2), 16) * (1 - ratio)).toString(16).padStart(2, "0")
+  ).join("");
+  const selection = item.selection_background ?? mix(accent, options, .08);
+  const button = item.button_background ?? style.solid_button;
+  return {
+    background, title, description,
+    price: item.price ?? readableSiteColor(menu.card_price, background),
+    options_background: options, options_text: optionsText,
+    selection_background: selection,
+    selection_text: item.selection_text ?? readableSiteColor(optionsText, selection),
+    selection_accent: accent,
+    footer_background: item.footer_background ?? background,
+    button_background: button,
+    button_text: item.button_text ?? siteContrastInk(button),
   };
 }
 

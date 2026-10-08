@@ -1,6 +1,7 @@
 "use client";
 
 import { pageKey } from "@/lib/website-v3/types";
+import { websiteOrderChoicesAvailable } from "@/lib/website-v3/fulfillment";
 import type { OrderHeaderPresentation, WebsiteHeader } from "@/lib/website-v3/header";
 import { useMemo } from "react";
 import type {
@@ -218,6 +219,7 @@ export function Inspector({
 
       {selection.kind === "site" && selection.region === "header" ? (
         <HeaderInspector
+          orderChoicesAvailable={websiteOrderChoicesAvailable(restaurant, state.config.checkout_config)}
           onOpenOrderJourney={onOpenOrderJourney}
           page={page}
           onOrderHeaderChange={page ? (header, shared) => onOrderHeaderChange(pageKey(page), header, shared) : undefined}
@@ -249,6 +251,7 @@ export function Inspector({
         )
       ) : selection.kind === "site" ? (
         <SiteInspector
+          orderChoicesAvailable={websiteOrderChoicesAvailable(restaurant, state.config.checkout_config)}
           sections={state.sections}
           tab={tab}
           config={state.config}

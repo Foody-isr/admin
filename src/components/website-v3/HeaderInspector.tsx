@@ -36,6 +36,7 @@ export function HeaderInspector({
   page,
   onOrderHeaderChange,
   onOpenOrderJourney,
+  orderChoicesAvailable = false,
 }: {
   config: DraftConfigPayload;
   pages: DraftPagePayload[];
@@ -46,6 +47,7 @@ export function HeaderInspector({
   onChange: (path: readonly (string | number)[], value: unknown) => void;
   activeElement?: HeaderElement;
   onOpenOrderJourney?: () => void;
+  orderChoicesAvailable?: boolean;
   page?: DraftPagePayload | null;
   onOrderHeaderChange?: (header: ReturnType<typeof orderHeaderPresentation> | null, shared: WebsiteHeader) => void;
 }) {
@@ -69,15 +71,18 @@ export function HeaderInspector({
   );
   const customOrderHeader = page?.type === "order" && page.appearance_overrides.order_header?.version === 1;
   const header = resolvePageHeader(sharedHeader, page?.type, page?.appearance_overrides);
-  const saveHeader = (value: WebsiteHeader) => customOrderHeader && onOrderHeaderChange
+  const saveHeader = (value: WebsiteHeader) => page?.type === "order" && onOrderHeaderChange
     ? onOrderHeaderChange(orderHeaderPresentation(value), sharedHeader)
     : onChange(["nav_layout"], { ...nav, header: value });
+  const presentationKeys = ["layout", "scroll", "color_style", "background", "restaurant"];
   const restaurantLayout = header.layout === "restaurant";
   const set = <K extends keyof WebsiteHeader>(
     key: K,
     value: WebsiteHeader[K],
   ) =>
-    saveHeader({ ...header, [key]: value });
+    presentationKeys.includes(key)
+      ? saveHeader({ ...header, [key]: value })
+      : onChange(["nav_layout"], { ...nav, header: { ...sharedHeader, [key]: value } });
   const patch = <
     K extends
       | "background"
@@ -90,7 +95,7 @@ export function HeaderInspector({
   >(
     key: K,
     value: Partial<WebsiteHeader[K]>,
-  ) => set(key, { ...header[key], ...value });
+  ) => set(key, { ...(presentationKeys.includes(key) ? header[key] : sharedHeader[key]), ...value });
   useEffect(() => {
     if (!activeElement) return;
     setLinks(false);
@@ -405,9 +410,10 @@ export function HeaderInspector({
             </>,
           )}
           {restaurantLayout && accordion("restaurant", c.restaurantInfo, <>
-            {check(c.showInfo, header.restaurant.info_enabled, value => patch("restaurant", {info_enabled: value}))}
-            {header.restaurant.info_enabled && <>
-              <HeaderGroup label={c.colorStyle}><ColorStylePicker value={header.restaurant.info_color_style} onChange={value => patch("restaurant", {info_color_style: value as WebsiteHeader["restaurant"]["info_color_style"]})}/></HeaderGroup>
+            <HeaderGroup label={c.colorStyle}><ColorStylePicker value={header.restaurant.info_color_style} onChange={value => patch("restaurant", {info_color_style: value as WebsiteHeader["restaurant"]["info_color_style"]})}/></HeaderGroup>
+            <p>{c.restaurantColorHint}</p>
+            {!orderChoicesAvailable && check(c.showInfo, header.restaurant.info_enabled, value => patch("restaurant", {info_enabled: value}))}
+            {!orderChoicesAvailable && header.restaurant.info_enabled && <>
               {check(c.showStatus, header.restaurant.show_status, value => patch("restaurant", {show_status: value}))}
               {check(c.showMinimum, header.restaurant.show_minimum, value => patch("restaurant", {show_minimum: value}))}
               {check(c.showSocial, header.restaurant.show_social, value => patch("restaurant", {show_social: value}))}
@@ -461,7 +467,7 @@ export function HeaderInspector({
                     max={160}
                     value={header.logo.size}
                     onChange={(e) =>
-                      patch("logo", { size: Number(e.target.value) })
+                      saveHeader({ ...header, logo: { ...header.logo, size: Number(e.target.value) } })
                     }
                   />
                   <output>{header.logo.size}</output>
@@ -556,11 +562,13 @@ export function HeaderInspector({
               )}
             </>,
           )}
-          {!customOrderHeader && accordion(
+          {!restaurantLayout && accordion(
             "fulfillment",
             c.fulfillment,
             <>
-              {toggle("fulfillment", c.fulfillment)}
+              <ColorStylePicker value={header.color_style} onChange={id => set("color_style", id as WebsiteHeader["color_style"])} />
+              <p>{c.fulfillmentColorHint}</p>
+              {!customOrderHeader && toggle("fulfillment", c.fulfillment)}
               <p>{c.fulfillmentHelp}</p><p>{c.rulesHint}</p>
             </>,
           )}

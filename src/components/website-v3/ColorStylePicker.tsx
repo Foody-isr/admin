@@ -10,6 +10,7 @@ export const SiteColorContext = createContext<Record<string, unknown>>({});
 export type SiteColorEditTarget = {
   styleId?: string;
   menuGroup?: "list" | "categories" | "cards";
+  itemDetail?: boolean;
 };
 /** Opens the global style used by the selected component, without changing its assignment. */
 export function openSiteColors(target: SiteColorEditTarget = {}) {
@@ -24,8 +25,10 @@ export function ColorStylePicker({
   defaultLabel,
   menuGroup,
   inheritedStyle,
+  itemDetail,
 }: {
   inheritedStyle?: string;
+  itemDetail?: boolean;
   menuGroup?: SiteColorEditTarget["menuGroup"];
   fieldId?: string;
   defaultLabel?: string;
@@ -41,7 +44,7 @@ export function ColorStylePicker({
     <div className="sqe-shared-colors" data-field-id={fieldId}>
       <div className="sqe-color-heading">
         <span>{t("editorColorStyle")}</span>
-        <button type="button" onClick={() => openSiteColors({ styleId: selected === "default" ? inheritedStyle ?? selected : selected, menuGroup })}>
+        <button type="button" onClick={() => openSiteColors({ styleId: selected === "default" ? inheritedStyle ?? selected : selected, menuGroup, itemDetail })}>
           {t("editorEditColorStyles")}
         </button>
       </div>

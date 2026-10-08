@@ -4,8 +4,9 @@ import http from "node:http";
 import { readFileSync } from "node:fs";
 import { createFixture } from "./fixtures.mjs";
 const base = createFixture();
-const restaurantHeader = process.env.FOODY_RESTAURANT_HEADER === "1";
-const menuAppearance = (process.env.FOODY_MENU_APPEARANCE === "1" || process.env.FOODY_MENU_STYLES === "1")
+const headerChoices = ["1", "batch", "scheduled-pickup"].includes(process.env.FOODY_HEADER_CHOICES);
+const restaurantHeader = process.env.FOODY_RESTAURANT_HEADER === "1" || headerChoices;
+const menuAppearance = (process.env.FOODY_MENU_APPEARANCE === "1" || process.env.FOODY_MENU_STYLES === "1" || restaurantHeader)
   ? JSON.parse(readFileSync(new URL("./fixtures/mamie-menu-appearance.json", import.meta.url), "utf8"))
   : null;
 const date = "2026-10-04T12:00:00Z";
@@ -163,6 +164,14 @@ if (restaurantHeader) {
   // Even saved appearance switches must not restore forbidden choices or a duplicate cover.
   Object.assign(draft.pages[1].appearance_overrides.website_order, {show_banner:true,show_fulfillment:true,prompt_on_entry:true});
 }
+if (headerChoices) {
+  draft.config.checkout_config = {lock_order_type: false};
+  draft.config.nav_layout.header.fulfillment = {enabled: true};
+  draft.config.nav_layout.header.restaurant.info_color_style = "style-6";
+  draft.config.custom_palette.color_styles.styles.push({id:"style-6",background:"#eee9df",title:"#111111",paragraph:"#111111",solid_button:"#111111",outline_button:"#111111"});
+  draft.sections = [section(1, "hero_banner", {headline: "Bienvenue", image_url: image}, "centered")];
+  draft.pages[1].appearance_overrides.website_order.prompt_on_entry = false;
+}
 let published = structuredClone(draft),
   dirty = false;
 const response = () => ({
@@ -188,6 +197,7 @@ const restaurant = () => ({
     logo_url:"https://foody-menu-images.s3.eu-north-1.amazonaws.com/restaurants/5/logo/e4f26758-7ca6-454e-8d9c-ab22cc5ac73a.png",
     cover_url:"https://foody-menu-images.s3.eu-north-1.amazonaws.com/restaurants/5/background/6b7dbb85-ccf7-417c-a09a-ba21150b5474.JPG",
   } : {}),
+  ...(headerChoices ? {name: "Atelier — aperçu local", pickup_enabled: true, delivery_enabled: process.env.FOODY_HEADER_CHOICES !== "scheduled-pickup", scheduling_enabled: true, batch_fulfillment_enabled: process.env.FOODY_HEADER_CHOICES === "batch"} : {}),
   ...(featuredRegression ? { opening_hours_config: Object.fromEntries(
     ["dine_in", "pickup", "delivery"].map((service) => [service, Object.fromEntries(
       ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, {closed: false, open: "00:00", close: "00:00"}]),
@@ -302,7 +312,7 @@ http
         },
       };
     else if (restaurantHeader && path.endsWith("/batch-fulfillment-config"))
-      result = {json:{enabled:true,ordering_open:true,current_batch_open_at:"2026-10-05T12:00:00+03:00",current_batch_cutoff:"2026-10-08T18:00:00+03:00",cutoff_day_name:"Thursday",cutoff_time:"18:00",fulfillment_days:[{date:"2026-10-09",day_name:"Friday",delivery_window:{start:"08:00",end:"15:00"}}],immediate_available:false}};
+      result = {json:{enabled:true,ordering_open:true,current_batch_open_at:"2026-10-05T12:00:00+03:00",current_batch_cutoff:"2026-10-08T18:00:00+03:00",cutoff_day_name:"Thursday",cutoff_time:"18:00",fulfillment_days:[{date:"2026-10-09",day_name:"Friday",delivery_window:{start:"08:00",end:"15:00"},...(headerChoices ? {pickup_window:{start:"10:00",end:"12:00"}} : {})}],immediate_available:false}};
     else if (path === "/api/v1/public/delivery/check")
       result = {json: {resolved: true, deliverable: !new URL(req.url, "http://localhost").searchParams.get("address")?.includes("outside"), delivery_fee: 12}};
     else if (path === "/api/v1/public/themes/catalog")

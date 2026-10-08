@@ -6,6 +6,8 @@ import {
   colorContrast,
   siteHex,
   resolveSiteMenuColors,
+  resolveSiteItemColors,
+  type SiteItemColorRole,
   menuColorAllowsTransparency,
   sectionSiteColorId,
   type SiteColorStyle,
@@ -20,7 +22,7 @@ import type {
 } from "@/lib/website-v3/types";
 import type { SiteColorEditTarget } from "./ColorStylePicker";
 
-type BaseRole = keyof Omit<SiteColorStyle, "id" | "menu">;
+type BaseRole = keyof Omit<SiteColorStyle, "id" | "menu" | "item_detail">;
 const baseRoles: readonly (readonly [BaseRole, string])[] = [
   ["background", "editorBackground"],
   ["title", "editorColorTitle"],
@@ -52,6 +54,12 @@ const menuGroups = [
       "card_border",
     ],
   },
+] as const;
+
+const itemGroups = [
+  {label: "editorContent", roles: ["background", "title", "description", "price"]},
+  {label: "editorItemOptions", roles: ["options_background", "options_text", "selection_background", "selection_text", "selection_accent"]},
+  {label: "editorItemActionBar", roles: ["footer_background", "button_background", "button_text"]},
 ] as const;
 
 /** Edits reusable styles and their optional menu details without changing the site default on selection. */
@@ -88,6 +96,9 @@ export function SiteColorsEditor({
   );
   const style = colors.styles.find((s) => s.id === selectedId)!;
   const menu = resolveSiteMenuColors(style);
+  const item = resolveSiteItemColors(style);
+  const itemDetails = useRef<HTMLDetailsElement>(null);
+  const [itemOpen, setItemOpen] = useState(Boolean(target?.itemDetail));
   const menuDetails = useRef<HTMLDetailsElement>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(Boolean(target?.menuGroup));
@@ -107,6 +118,7 @@ export function SiteColorsEditor({
     if (!target) return;
     setSelectedId(targetId);
     setMenuOpen(Boolean(target.menuGroup));
+    setItemOpen(Boolean(target.itemDetail));
     setMenuGroup(target.menuGroup);
     setEditing(null);
     setError(false);
@@ -116,6 +128,7 @@ export function SiteColorsEditor({
       menuDetails.current
         ?.querySelector(`[data-menu-color-group="${target.menuGroup}"]`)
         ?.scrollIntoView({ block: "nearest" });
+    if (target?.itemDetail) itemDetails.current?.scrollIntoView({block: "nearest"});
   }, [target]);
   const secondary = Array.isArray(palette.secondary_colors)
     ? palette.secondary_colors.map((v) => siteHex(v))
@@ -151,6 +164,7 @@ export function SiteColorsEditor({
           key !== "id" && value === previous ? next : value,
         ]),
       ),
+      ...(s.item_detail ? {item_detail: Object.fromEntries(Object.entries(s.item_detail).map(([key, value]) => [key, value === previous ? next : value]))} : {}),
       ...(s.menu
         ? {
             menu: Object.fromEntries(
@@ -190,6 +204,20 @@ export function SiteColorsEditor({
     else next[role] = color;
     updateStyle({ ...style, menu: next });
     setError(false);
+  };
+  const setItem = (role: SiteItemColorRole, color?: string) => {
+    const next = {...style.item_detail};
+    if (color === undefined) delete next[role];
+    else next[role] = color;
+    updateStyle({...style, item_detail: next});
+    setError(false);
+  };
+  const itemBackground = (role: SiteItemColorRole) => {
+    if (["title", "description", "price"].includes(role)) return item.background;
+    if (role === "options_text") return item.options_background;
+    if (["selection_text", "selection_accent"].includes(role)) return item.selection_background;
+    if (role === "button_text") return item.button_background;
+    return undefined;
   };
   const menuBackground = (role: SiteMenuColorRole) => {
     if (role === "heading") return menu.background;
@@ -313,7 +341,7 @@ export function SiteColorsEditor({
   const currentUsage = usage.find(value => value.key === previewPageKey);
   const partLabels: Record<ColorUsagePart, string> = {
     header: t("editorHeaderAndNavigation"), info: t("editorRestaurantInformationBar"),
-    menu: t("editorItemList"), sections: t("editorColorUsageSections"),
+    item: t("editorItemView"), menu: t("editorItemList"), sections: t("editorColorUsageSections"),
     cart: t("editorJourneyCart"), checkout: t("editorJourneyCheckout"), confirmation: t("editorJourneyConfirmation"),
   };
   return (
@@ -476,6 +504,18 @@ export function SiteColorsEditor({
             )}
           </details>
         ))}
+      </details>
+      <details ref={itemDetails} className="sqe-menu-color-details" open={itemOpen}
+        onToggle={event => setItemOpen(event.currentTarget.open)}>
+        <summary>{t("editorItemView")}</summary>
+        <p>{t("editorItemColorsAutomaticHint")}</p>
+        {itemGroups.map((group, index) => <details key={group.label} open={index === 0 && Boolean(target?.itemDetail)}>
+          <summary>{t(group.label)}</summary>
+          {group.roles.map(role => field(`item_detail.${role}`, t(`editorItemColor_${role}`), item[role], color => setItem(role, color), {
+            automatic: style.item_detail?.[role] === undefined,
+            onReset: () => setItem(role), background: itemBackground(role),
+          }))}
+        </details>)}
       </details>
       <button
         className="sqe-button"
