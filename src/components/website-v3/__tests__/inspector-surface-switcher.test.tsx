@@ -68,6 +68,7 @@ function render(
         onTabChange: () => undefined,
         onSurfaceChange: () => undefined,
         onConfigChange: () => undefined,
+        onOrderHeaderChange: () => undefined,
         onPageChange: () => undefined,
         onPageReplace: () => undefined,
         onSectionChange: () => undefined,

@@ -440,3 +440,14 @@ record is visible under payment terminals and printers. Native printers display
 an integrated connection instead of network connection settings. Receipt profile
 configuration remains attached to the owning POS device. The matching API and
 FoodyPOS versions provide enrollment, native discovery, and local dispatch.
+
+
+Order-page headers inherit `nav_layout.header` by default. The header inspector
+can opt an order page into `appearance_overrides.order_header` (version 1),
+containing only layout, scroll, color style, background, restaurant information
+presentation and `logo_size`. Logo content, navigation and fulfillment remain
+shared. Returning to the site header stores `null`; undo restores the override.
+The first override materializes a legacy shared header in the same draft update.
+Deploy API support before releasing the editor. Global color editing now reports
+the actual uses on the previewed page, including header/navigation and restaurant
+information, without applying a style just by selecting its editor tile.

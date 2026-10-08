@@ -1,3 +1,4 @@
+import { orderHeaderPresentation, resolvePageHeader } from "../header";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -176,4 +177,57 @@ test("Restaurant header round-trips presentation without introducing fulfillment
   assert.deepEqual(normalizeWebsiteHeader(JSON.parse(JSON.stringify(header))), header);
   assert.equal(normalizeWebsiteHeader({restaurant:{height:"999px", info_color_style:"red"}}).restaurant.info_color_style, "default");
   assert.equal(normalizeWebsiteHeader({restaurant:{height:"999px"}}).restaurant.height, "medium");
+});
+
+
+test("order header is opt-in, presentation-only, and follows shared logo and links", () => {
+  const shared = normalizeWebsiteHeader({layout: "center", logo: {image: "/one.png"},
+    navigation: {links: [{id: "home", label: "Home", target: {kind: "home"}}]}});
+  assert.equal(resolvePageHeader(shared, "order", {}), shared);
+  const local = orderHeaderPresentation(normalizeWebsiteHeader({...shared,
+    layout: "restaurant", color_style: "style-2", logo: {...shared.logo, size: 140}}));
+  const appearance = {order_header: JSON.parse(JSON.stringify(local))};
+  assert.equal(resolvePageHeader(shared, "content", appearance), shared);
+  assert.equal(resolvePageHeader(shared, "landing", appearance), shared);
+  const updated = normalizeWebsiteHeader({...shared, logo: {...shared.logo, image: "/two.png"},
+    navigation: {...shared.navigation, links: [{id: "about", label: "About", target: {kind: "page", value: "about"}}]}});
+  const actual = resolvePageHeader(updated, "order", appearance);
+  assert.equal(actual.layout, "restaurant");
+  assert.equal(actual.logo.size, 140);
+  assert.equal(actual.logo.image, "/two.png");
+  assert.deepEqual(actual.navigation, updated.navigation);
+  assert.deepEqual(actual.fulfillment, updated.fulfillment);
+  assert.equal(resolvePageHeader(updated, "order", {order_header: null}), updated);
+  assert.equal(shared.layout, "center");
+  assert.ok(!("navigation" in local));
+  assert.ok(!("logo" in local));
+  assert.ok(!("fulfillment" in local));
+});
+
+test("page overrides cannot replace shared content even with untrusted extra fields", () => {
+  const shared = normalizeWebsiteHeader({layout: "left", logo: {image: "/site.png"}});
+  const actual = resolvePageHeader(shared, "order", {order_header: {
+    ...orderHeaderPresentation(shared), layout: "restaurant",
+    logo: {image: "/other.png"}, navigation: {enabled: false},
+    fulfillment: {enabled: true}, background: {mode: "image", image: "javascript:alert(1)"},
+  }});
+  assert.deepEqual(actual.logo, shared.logo);
+  assert.deepEqual(actual.navigation, shared.navigation);
+  assert.deepEqual(actual.fulfillment, shared.fulfillment);
+  assert.equal(actual.background.image, "");
+});
+
+
+test("converting an order page retires its header override without losing other appearance", async () => {
+  const {normalizeDraftState, convertPageType} = await import("../state");
+  const state = normalizeDraftState({config: {}, pages: [{tmp_id: "one", type: "order", slug: "order", title: "Order",
+    settings: {menu_ids: [1]}, appearance_overrides: {bg: "#112233", order_header: orderHeaderPresentation(normalizeWebsiteHeader({layout: "restaurant"}))}}], sections: []});
+  const page = state.pages[0];
+  for (const type of ["content", "landing", "catering"] as const) {
+    const converted = convertPageType(page, type);
+    assert.equal(converted.appearance_overrides.order_header, undefined);
+    assert.equal(converted.appearance_overrides.bg, "#112233");
+  }
+  assert.equal(convertPageType(page, "order").appearance_overrides.order_header?.layout, "restaurant");
+  assert.equal(page.appearance_overrides.order_header?.layout, "restaurant");
 });

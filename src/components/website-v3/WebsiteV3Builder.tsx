@@ -5,6 +5,7 @@ import {
   addNavigationPage,
   removeNavigationPage,
 } from "@/lib/website-v3/navigation-links";
+import { headerFromLegacy, resolvePageHeader } from "@/lib/website-v3/header";
 import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1396,7 +1397,7 @@ function DesktopWebsiteV3Builder({
                 onEditShared={onEditShared}
               />
             )}
-            orderEditor={region => <OrderPageEditor restaurantHeader={(state.config.nav_layout as {header?: {layout?: string}} | undefined)?.header?.layout === "restaurant"} orderChoicesAvailable={Boolean((loaded.restaurant.pickup_enabled && loaded.restaurant.delivery_enabled) || (loaded.restaurant.scheduling_enabled && !loaded.restaurant.batch_fulfillment_enabled))} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => { setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : "fulfillment"}); setTab("content"); }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
+            orderEditor={region => <OrderPageEditor restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={Boolean((loaded.restaurant.pickup_enabled && loaded.restaurant.delivery_enabled) || (loaded.restaurant.scheduling_enabled && !loaded.restaurant.batch_fulfillment_enabled))} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => { setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : "fulfillment"}); setTab("content"); }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
             onSelectOrderRegion={region => setSelection({kind: "page", key: pageKey(activePage), region})}
             inspector={
               <Inspector
@@ -1416,6 +1417,14 @@ function DesktopWebsiteV3Builder({
                 onTabChange={setTab}
                 onSurfaceChange={changeSurface}
                 onConfigChange={updateConfig}
+                onOrderHeaderChange={(key, header, shared) => {
+                  const next = updateWebsitePageAtPath(state, key, ["appearance_overrides", "order_header"], header);
+                  const nav = state.config.nav_layout as Record<string, unknown> | undefined;
+                  // Materialize a legacy header together with its first page override.
+                  setLocalState(header && !nav?.header ? {
+                    ...next, config: { ...next.config, nav_layout: { ...nav, header: shared } },
+                  } : next);
+                }}
                 onPageChange={updatePage}
                 onPageReplace={replacePage}
                 onSectionChange={updateSection}
