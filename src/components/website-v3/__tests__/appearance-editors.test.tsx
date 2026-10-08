@@ -555,7 +555,7 @@ test("global menu color details stay collapsed in the ordinary site design view"
 test("Restaurant is a layout in the shared header editor with no local color controls", () => {
   const markup = render(React.createElement(HeaderInspector, {restaurantId:1, config:{nav_layout:{header:normalizeWebsiteHeader({layout:"restaurant", background:{mode:"image"}})}}, pages:[], sections:[], onChange:()=>undefined}));
   assert.match(markup, /Restaurant: cover, framed logo and hamburger/);
-  assert.match(markup, /Restaurant information/);
+  assert.match(markup, /Information and ordering/);
   assert.doesNotMatch(markup, /Dropdown|Mega menu|Header scroll settings/);
   assert.doesNotMatch(markup, /type="color"/);
 });
@@ -572,4 +572,16 @@ test("journey colours reuse six global styles and an explicit menu-inheritance c
   assert.equal((markup.match(/aria-label="Color style [1-6]"/g) ?? []).length, 6);
   assert.doesNotMatch(markup, /type="color"/);
   assert.match(markup, /Edit site buttons/);
+});
+test("item details edit shared roles in a collapsed global panel", () => {
+  const markup = render(
+    <SiteColorsEditor palette={{}} target={{styleId: "style-4", itemDetail: true}}
+      onChange={() => assert.fail("opening must not save")} />,
+  );
+  for (const role of ["background", "title", "price", "description", "options_text", "selection_background", "button_background", "button_text"]) {
+    assert.ok(markup.includes(`data-color-role="item_detail.${role}"`));
+  }
+  assert.match(markup, /aria-label="Color style 4" aria-pressed="true"/);
+  assert.match(markup, /Automatic/);
+  assert.match(markup, /Options and selection/);
 });

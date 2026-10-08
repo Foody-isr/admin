@@ -24,7 +24,7 @@ function render(type: "order" | "landing", custom = false) {
 
 test("order header offers one scope selector; regular pages keep the existing inspector", () => {
   assert.match(render("order"), /value="inherit" selected=""/);
-  assert.match(render("order"), /Changes below apply to the shared site header/);
+  assert.match(render("order"), /Customizing its appearance here only changes this order page/);
   assert.doesNotMatch(render("landing"), /Order page header/);
   assert.match(render("landing"), /Also applies to the navigation menu/);
 });
@@ -36,4 +36,5 @@ test("custom order header reuses layouts and styles without offering duplicate n
   assert.match(html, /Restaurant: cover, framed logo and hamburger/);
   assert.doesNotMatch(html, /Edit links/);
   assert.doesNotMatch(html, /data-header-panel="fulfillment"/);
+  assert.match(html, /Information and ordering/);
 });

@@ -819,7 +819,10 @@ export function EditorSidebar({
         </div>
       )}
       {panel === "design" && design(() => editSite(), designScreen, colorTarget)}
-      {panel === "inspector" && orderRegion && orderEditor ? orderEditor(orderRegion) : panel === "inspector" && (
+      {orderRegion && orderEditor &&
+      (panel === "inspector" || (panel === "design" && colorTarget?.itemDetail)) ? (
+        <div hidden={panel !== "inspector"}>{orderEditor(orderRegion)}</div>
+      ) : panel === "inspector" && (
         <>
           {!selectedSection &&
             !(selection.kind === "site" && selection.region === "header") && (

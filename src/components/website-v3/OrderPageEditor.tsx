@@ -3,6 +3,7 @@ import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./Co
 import {
   selectOrderColorStyle,
   previousOrderPresentation,
+  previousItemPresentation,
 } from "@/lib/website-v3/order-design";
 
 import { useEffect } from "react";
@@ -336,6 +337,25 @@ export function OrderPageEditor({
           <a className="sqe-button" href={`/${restaurantId}/menu/items`}>
             {t("editorViewItems")}
           </a>
+          <button type="button" className="sqe-button sqe-button--outline"
+            onClick={() => onChange(["appearance_overrides", "website_order"], previousItemPresentation(value))}>
+            {t("editorItemPreviousLayout")}
+          </button>
+          {select("item_layout", "editorLayout", "standard", [
+            ["standard", "editorItemLayoutStandard"], ["cover", "editorItemLayoutCover"],
+          ])}
+          {select("item_width", "editorItemModalWidth", "standard", [
+            ["compact", "editorItemWidthCompact"], ["standard", "editorItemWidthStandard"], ["wide", "editorItemWidthWide"],
+          ])}
+          {select("item_radius", "editorShape", "soft", [
+            ["square", "editorShapeSquare"], ["soft", "editorOrderShapeSoft"], ["rounded", "editorShapeRound"],
+          ])}
+          <ColorStylePicker itemDetail
+            value={String(value.item_color_style ?? "default")}
+            inheritedStyle={String(value.color_style ?? "default")}
+            defaultLabel={t("editorJourneyInheritMenu")}
+            onChange={id => set("item_color_style", id)} />
+          <p>{t("editorItemColorsHint")}</p>
           {select("item_aspect_ratio", "editorImageRatio", "4/3", [
             ["1/1", "1:1"],
             ["3/2", "3:2"],

@@ -146,7 +146,12 @@ in the item-list panels, whose color shortcuts open the assigned global style.
 **Header → Layout → Restaurant** adds a cover, a logo in a white frame,
 the restaurant name and a hamburger using the existing navigation links.
 The information bar exposes status, delivery minimum and social-link switches,
-plus one of the six global styles. It never stores local color overrides or
+plus one of the six global styles. The restaurant settings automatically choose
+one presentation: read-only information when no choice is available, or the
+service controls when customers can choose a mode or time. These are exclusive.
+A batch date always stays read-only even if pickup/delivery can be selected. The
+**Information and ordering** panel owns the bar’s color style; fact visibility
+controls appear only for the information presentation. It never stores local color overrides or
 fulfillment rules. The order page delegates its banner to this layout to avoid
 duplicate covers. Delivery/pickup availability and batch calendars remain owned
 by restaurant settings, throughout the menu, cart and checkout.
@@ -165,6 +170,11 @@ the local server's memory. It does not proxy production requests. The existing
 Use `FOODY_RESTAURANT_HEADER=1` to include the Restaurant layout with a synthetic
 delivery-only batch calendar. Saved entry prompts cannot restore mode or time
 choices. Test an old pickup/scheduling URL through cart and checkout as well.
+Use `FOODY_HEADER_CHOICES=1` for a shared Restaurant header with pickup, delivery
+and scheduling, to verify the single bar, style changes and independent order
+header edits against the home page.
+Use `FOODY_HEADER_CHOICES=batch` to keep mode selection with an imposed batch
+date, or `FOODY_HEADER_CHOICES=scheduled-pickup` to allow only time selection.
 
 ### Billing (`/[restaurantId]/billing`)
 
@@ -452,12 +462,22 @@ configuration remains attached to the owning POS device. The matching API and
 FoodyPOS versions provide enrollment, native discovery, and local dispatch.
 
 
-Order-page headers inherit `nav_layout.header` by default. The header inspector
-can opt an order page into `appearance_overrides.order_header` (version 1),
+Order-page headers inherit `nav_layout.header` until their first presentation
+edit. The header inspector then writes `appearance_overrides.order_header` (version 1),
 containing only layout, scroll, color style, background, restaurant information
 presentation and `logo_size`. Logo content, navigation and fulfillment remain
-shared. Returning to the site header stores `null`; undo restores the override.
+shared. Presentation edits on the order page never update the site's header.
+Returning to the site header stores `null`; undo restores the override.
 The first override materializes a legacy shared header in the same draft update.
 Deploy API support before releasing the editor. Global color editing now reports
 the actual uses on the previewed page, including header/navigation and restaurant
 information, without applying a style just by selecting its editor tile.
+
+The order inspector's **Fiche article** controls the item-detail layout, bounded
+width and corner presets, image ratio and fit. **Retrouver l’ancienne fiche**
+sets a compact, rounded cover presentation without changing colors or ordering
+rules. Its color style follows the menu by default. **Modifier les styles de
+couleurs** opens the shared style's item-detail roles, grouped into content,
+options and action bar (`custom_palette.color_styles.styles[].item_detail`).
+Resetting a role restores its automatic color; changing it affects every sheet
+using that style. Opening these global controls keeps the item preview visible.

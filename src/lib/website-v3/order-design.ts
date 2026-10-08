@@ -31,3 +31,8 @@ export function selectOrderColorStyle(
 ): Record<string, unknown> {
   return { ...value, color_style: id, background_kind: "style" };
 }
+
+/** Restores the compact photo sheet without changing color assignments or order behavior. */
+export function previousItemPresentation(value: Record<string, unknown>): Record<string, unknown> {
+  return { ...value, item_layout: "cover", item_width: "compact", item_radius: "rounded", item_aspect_ratio: "16/9", item_image_fit: "cover" };
+}

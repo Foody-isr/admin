@@ -9,6 +9,7 @@ import {
 } from "@/lib/website-v3/navigation-links";
 import { headerFromLegacy, resolvePageHeader } from "@/lib/website-v3/header";
 import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
+import { websiteOrderChoicesAvailable } from "@/lib/website-v3/fulfillment";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1425,7 +1426,11 @@ function DesktopWebsiteV3Builder({
               placesAvailable={Boolean(loaded.restaurant.google_places_api_key)}
               onChange={value => updateConfig(["checkout_config"], value)}
               onEditCartButton={() => window.dispatchEvent(new Event("foody-edit-site-buttons"))}
-            /> : <OrderPageEditor restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={Boolean((loaded.restaurant.pickup_enabled && loaded.restaurant.delivery_enabled) || (loaded.restaurant.scheduling_enabled && !loaded.restaurant.batch_fulfillment_enabled))} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => { setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : "fulfillment"}); setTab("content"); }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
+            /> : <OrderPageEditor restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={websiteOrderChoicesAvailable(loaded.restaurant, state.config.checkout_config)} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => {
+              const header = resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides);
+              setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : header.layout === "restaurant" ? "restaurant" : "fulfillment"});
+              setTab("content");
+            }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
             onSelectOrderRegion={region => { setRequestedSurface(region === "order-journey" ? "checkout" : "page"); setSelection({kind: "page", key: pageKey(activePage), region}); }}
             onOpenOrderJourney={openOrderJourney}
             inspector={
