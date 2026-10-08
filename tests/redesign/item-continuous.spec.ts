@@ -327,3 +327,22 @@ test('a temporary type change retains the staged recipe when returning to an art
     item_type: 'food_and_beverage',
   });
 });
+
+
+test('variant fields align their values and preserve the 64px field height', async ({ page }) => {
+  const fixture = await install(page);
+  Object.assign(fixture.optionSets[0], { menu_items: [fixture.items[0]] });
+  await page.goto('/1/menu/items/1');
+  const row = page.locator('.item-variant-group fieldset').first();
+  await row.scrollIntoViewIfNeeded();
+  const geometry = await row.locator('.item-field').evaluateAll(fields => fields.map(field => ({
+    height: field.getBoundingClientRect().height,
+    valueTop: field.querySelector('input, select')!.getBoundingClientRect().top,
+  })));
+  expect(geometry).toHaveLength(4);
+  for (const field of geometry) {
+    expect(field.height).toBe(64);
+    expect(Math.abs(field.valueTop - geometry[0].valueTop)).toBeLessThanOrEqual(1);
+  }
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeInViewport();
+});
