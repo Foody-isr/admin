@@ -1,5 +1,7 @@
 "use client";
 
+import { pageKey } from "@/lib/website-v3/types";
+import type { OrderHeaderPresentation, WebsiteHeader } from "@/lib/website-v3/header";
 import { useMemo } from "react";
 import type {
   CateringService,
@@ -51,6 +53,7 @@ export function Inspector({
   onTabChange,
   onSurfaceChange,
   onConfigChange,
+  onOrderHeaderChange,
   onPageChange,
   onPageReplace,
   onSectionChange,
@@ -78,6 +81,7 @@ export function Inspector({
   onTabChange: (tab: InspectorTab) => void;
   onSurfaceChange: (surface: InspectorSurface) => void;
   onConfigChange: (path: StatePath, value: unknown) => void;
+  onOrderHeaderChange: (key: string, header: OrderHeaderPresentation | null, shared: WebsiteHeader) => void;
   onPageChange: (key: string, path: StatePath, value: unknown) => void;
   onPageReplace: (key: string, page: DraftPagePayload) => void;
   onSectionChange: (key: string, path: StatePath, value: unknown) => void;
@@ -212,6 +216,8 @@ export function Inspector({
 
       {selection.kind === "site" && selection.region === "header" ? (
         <HeaderInspector
+          page={page}
+          onOrderHeaderChange={page ? (header, shared) => onOrderHeaderChange(pageKey(page), header, shared) : undefined}
           activeElement={selection.headerElement}
           config={state.config}
           sections={state.sections}

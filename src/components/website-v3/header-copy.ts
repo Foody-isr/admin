@@ -1,4 +1,10 @@
 const en = {
+  orderHeader: "Order page header",
+  sameAsSite: "Same as site",
+  orderSpecific: "Specific to ordering",
+  sharedHeaderHint: "Changes below apply to the shared site header.",
+  sharedContentHint: "Logo and navigation links stay shared with the site.",
+  navigationColorHint: "Also applies to the navigation menu.",
   restaurant: "Restaurant: cover, framed logo and hamburger",
   restaurantInfo: "Restaurant information",
   restaurantName: "Show restaurant name",
@@ -97,6 +103,12 @@ const en = {
   removeLink: "Remove link",
 };
 const fr: typeof en = {
+  orderHeader: "En-tête de la page de commande",
+  sameAsSite: "Identique au site",
+  orderSpecific: "Spécifique à la commande",
+  sharedHeaderHint: "Les réglages ci-dessous sont communs au site.",
+  sharedContentHint: "Le logo et les liens restent communs au site.",
+  navigationColorHint: "S’applique aussi au menu de navigation.",
   restaurant: "Restaurant : bannière, logo encadré et hamburger",
   restaurantInfo: "Informations du restaurant",
   restaurantName: "Afficher le nom du restaurant",
@@ -196,6 +208,12 @@ const fr: typeof en = {
 };
 const he: typeof en = {
   ...en,
+  orderHeader: "כותרת עמוד ההזמנה",
+  sameAsSite: "זהה לאתר",
+  orderSpecific: "ייחודית להזמנה",
+  sharedHeaderHint: "ההגדרות למטה משותפות לכותרת האתר.",
+  sharedContentHint: "הלוגו וקישורי הניווט נשארים משותפים לאתר.",
+  navigationColorHint: "חל גם על תפריט הניווט.",
   restaurant: "מסעדה: תמונת כיסוי, לוגו ממוסגר ותפריט",
   restaurantInfo: "מידע על המסעדה",
   restaurantName: "הצגת שם המסעדה",

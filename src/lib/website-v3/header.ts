@@ -289,3 +289,34 @@ export function headerFromLegacy(
     },
   });
 }
+
+/** Only presentation is page-owned; logo content, navigation and service rules stay shared. */
+export type OrderHeaderPresentation = Pick<WebsiteHeader,
+  "version" | "layout" | "scroll" | "color_style" | "background" | "restaurant"
+> & { logo_size: number };
+
+/** Captures the current presentation when opting out of the shared site header. */
+export function orderHeaderPresentation(header: WebsiteHeader): OrderHeaderPresentation {
+  const h = normalizeWebsiteHeader(header);
+  return { version: 1, layout: h.layout, scroll: h.scroll, color_style: h.color_style,
+    background: h.background, restaurant: h.restaurant, logo_size: h.logo.size };
+}
+
+/** Resolves the order-only override while always retaining current shared content. */
+export function resolvePageHeader(
+  shared: WebsiteHeader,
+  pageType?: string,
+  appearance?: Record<string, unknown> | null,
+): WebsiteHeader {
+  const local = record(appearance?.order_header);
+  if (pageType !== "order" || local.version !== 1) return shared;
+  const presentation = normalizeWebsiteHeader({ ...shared,
+    layout: local.layout, scroll: local.scroll, color_style: local.color_style,
+    background: local.background, restaurant: local.restaurant,
+    logo: { ...shared.logo, size: local.logo_size },
+  });
+  return { ...shared, layout: presentation.layout, scroll: presentation.scroll,
+    color_style: presentation.color_style, background: presentation.background,
+    restaurant: presentation.restaurant,
+    logo: { ...shared.logo, size: presentation.logo.size } };
+}

@@ -12,7 +12,9 @@ import {
   type SiteColorId,
   type SiteMenuColorRole,
 } from "@/lib/website-v3/site-colors";
+import { siteColorUsage, type ColorUsagePart } from "@/lib/website-v3/site-color-usage";
 import type {
+  DraftConfigPayload,
   DraftPagePayload,
   DraftSectionPayload,
 } from "@/lib/website-v3/types";
@@ -59,12 +61,16 @@ export function SiteColorsEditor({
   target,
   pages = [],
   sections = [],
+  config = {},
+  previewPageKey,
 }: {
   palette: Record<string, unknown>;
   onChange: (palette: Record<string, unknown>) => void;
   target?: SiteColorEditTarget;
   pages?: DraftPagePayload[];
   sections?: DraftSectionPayload[];
+  config?: DraftConfigPayload;
+  previewPageKey?: string | null;
 }) {
   const { t } = useI18n();
   const colors = normalizeSiteColors(palette);
@@ -303,39 +309,12 @@ export function SiteColorsEditor({
       )}
     </div>
   );
-  const usage = Array.from(
-    new Set([
-      ...pages
-        .filter(
-          (page) =>
-            page.type === "order" &&
-            resolveId(
-              String(
-                page.appearance_overrides.website_order?.color_style ??
-                  "default",
-              ),
-            ) === style.id,
-        )
-        .map((page) => page.title),
-      ...sections
-        .filter(
-          (section) =>
-            section.is_visible &&
-            resolveId(String(section.settings.color_style ?? "light")) ===
-              style.id,
-        )
-        .map(
-          (section) =>
-            pages.find((page) =>
-              section.page_id !== undefined
-                ? page.id === section.page_id
-                : section.page_tmp_id
-                  ? page.tmp_id === section.page_tmp_id
-                  : page.slug === section.page,
-            )?.title ?? t("editorSharedSiteSections"),
-        ),
-    ]),
-  );
+  const usage = siteColorUsage(config, pages, sections, {color_styles: colors}, style.id);
+  const currentUsage = usage.find(value => value.key === previewPageKey);
+  const partLabels: Record<ColorUsagePart, string> = {
+    header: t("editorHeaderAndNavigation"), info: t("editorRestaurantInformationBar"),
+    menu: t("editorItemList"), sections: t("editorColorUsageSections"),
+  };
   return (
     <div className="sqe-panel-body sqe-site-colors">
       <h3>{t("editorColors")}</h3>
@@ -443,11 +422,12 @@ export function SiteColorsEditor({
           </button>
         )}
       </div>
-      {!!usage.length && (
-        <p>
-          {t("editorColorStyleUsedOn")} {usage.join(", ")}
-        </p>
-      )}
+      <p aria-live="polite">
+        {currentUsage
+          ? `${t("editorColorStyleUsedBy")} ${currentUsage.parts.map(part => partLabels[part]).join(", ")}`
+          : t("editorColorStyleUnusedHere")}
+        {!currentUsage && usage.length > 0 && <><br />{t("editorColorStyleUsedOn")} {usage.map(value => value.title).join(", ")}</>}
+      </p>
       {baseRoles.map(([role, label]) =>
         field(role, t(label), style[role], (color) => setBase(role, color), {
           background: ["background", "solid_button"].includes(role)

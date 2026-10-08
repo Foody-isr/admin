@@ -475,7 +475,7 @@ export function PageInspector({
         description="La disposition choisit les éléments affichés. Le fond et le comportement règlent uniquement l’apparence de cette page."
       >
         {record(record(config.nav_layout).header).version === 1 ? (
-          <p className="text-sm">L’en-tête est partagé entre les pages. Sélectionnez « En-tête » pour modifier sa disposition et ses liens.</p>
+          <p className="text-sm">{t("editorPageHeaderSettingsHint")}</p>
         ) : page.type === "order" ? (
           <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
             La navigation de commande est standardisée pour rester claire sur

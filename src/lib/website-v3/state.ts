@@ -271,9 +271,12 @@ export function convertPageType(
   page: DraftPagePayload,
   nextType: WebsitePageType,
 ): DraftPagePayload {
+  const appearance = { ...page.appearance_overrides };
+  if (nextType !== "order") delete appearance.order_header;
   const base = {
     ...page,
     type: nextType,
+    appearance_overrides: appearance,
     is_default:
       nextType === "order" || nextType === "catering"
         ? page.type === nextType && page.is_default

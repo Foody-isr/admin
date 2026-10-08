@@ -1,3 +1,5 @@
+import type { OrderHeaderPresentation } from "./header";
+
 export type WebsitePageType = "landing" | "content" | "order" | "catering";
 export type PreviewDevice = "desktop" | "mobile";
 export type StatePath = readonly (string | number)[];
@@ -68,6 +70,7 @@ export type CateringPageOverride = {
 };
 
 export type DraftAppearanceOverrides = {
+  order_header?: OrderHeaderPresentation | null;
   website_order?: Record<string, unknown>;
   foody_renderer_version?: number;
   bg?: string;

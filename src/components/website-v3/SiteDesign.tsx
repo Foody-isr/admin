@@ -63,6 +63,7 @@ export function SiteDesign({
   const [compose, setCompose] = useState(false);
   const [ordering, setOrdering] = useState(false);
   const [applied, setApplied] = useState(false);
+  const colorPreviewPage = state.pages.find(page => page.is_homepage) ?? state.pages[0];
   const hasOrderingPage = state.pages.some((page) => page.type === "order");
   const palette = record(state.config.custom_palette);
   const currentTheme = catalog.themes.find(
@@ -271,7 +272,7 @@ export function SiteDesign({
           </section>
         </div>
       )}
-      {screen === "colors" && <SiteColorsEditor target={colorTarget} pages={state.pages} sections={state.sections} palette={{mode: currentTheme?.mode || "light", bg, ink, accent, surface, ...palette}} onChange={next => patch({theme_id: "custom", brand_color: null, custom_palette: next})} />}
+      {screen === "colors" && <SiteColorsEditor config={state.config} previewPageKey={previewPageKey ?? (colorPreviewPage ? pageKey(colorPreviewPage) : undefined)} target={colorTarget} pages={state.pages} sections={state.sections} palette={{mode: currentTheme?.mode || "light", bg, ink, accent, surface, ...palette}} onChange={next => patch({theme_id: "custom", brand_color: null, custom_palette: next})} />}
       {screen === "fonts" && (
         <div className="sqe-panel-body">
           <h3>{t("editorFonts")}</h3>

@@ -6,6 +6,8 @@ import { useI18n } from "@/lib/i18n";
 import {
   HEADER_LAYOUTS,
   headerFromLegacy,
+  orderHeaderPresentation,
+  resolvePageHeader,
   type HeaderElement,
   type HeaderTarget,
   type WebsiteHeader,
@@ -31,6 +33,8 @@ export function HeaderInspector({
   restaurantCoverUrl,
   onChange,
   activeElement,
+  page,
+  onOrderHeaderChange,
 }: {
   config: DraftConfigPayload;
   pages: DraftPagePayload[];
@@ -40,6 +44,8 @@ export function HeaderInspector({
   restaurantCoverUrl?: string;
   onChange: (path: readonly (string | number)[], value: unknown) => void;
   activeElement?: HeaderElement;
+  page?: DraftPagePayload | null;
+  onOrderHeaderChange?: (header: ReturnType<typeof orderHeaderPresentation> | null, shared: WebsiteHeader) => void;
 }) {
   const { locale } = useI18n(),
     c = headerCopy(locale);
@@ -52,19 +58,24 @@ export function HeaderInspector({
     config.nav_layout && typeof config.nav_layout === "object"
       ? (config.nav_layout as Record<string, unknown>)
       : {};
-  const header = headerFromLegacy(
+  const sharedHeader = headerFromLegacy(
     config,
     pages,
     typeof config.restaurant_logo_url === "string"
       ? config.restaurant_logo_url
       : restaurantLogoUrl,
   );
+  const customOrderHeader = page?.type === "order" && page.appearance_overrides.order_header?.version === 1;
+  const header = resolvePageHeader(sharedHeader, page?.type, page?.appearance_overrides);
+  const saveHeader = (value: WebsiteHeader) => customOrderHeader && onOrderHeaderChange
+    ? onOrderHeaderChange(orderHeaderPresentation(value), sharedHeader)
+    : onChange(["nav_layout"], { ...nav, header: value });
   const restaurantLayout = header.layout === "restaurant";
   const set = <K extends keyof WebsiteHeader>(
     key: K,
     value: WebsiteHeader[K],
   ) =>
-    onChange(["nav_layout"], { ...nav, header: { ...header, [key]: value } });
+    saveHeader({ ...header, [key]: value });
   const patch = <
     K extends
       | "background"
@@ -188,7 +199,17 @@ export function HeaderInspector({
     );
   return (
     <div className="sqh-editor" ref={root}>
-      <section className="sqh-navigation">
+      {page?.type === "order" && onOrderHeaderChange && <section className="sqh-scope">
+        <InspectorField label={c.orderHeader}>
+          <select className={controlClass} aria-label={c.orderHeader} value={customOrderHeader ? "custom" : "inherit"}
+            onChange={e => { setLinks(false); setEditing(null); onOrderHeaderChange(e.target.value === "custom" ? orderHeaderPresentation(sharedHeader) : null, sharedHeader); }}>
+            <option value="inherit">{c.sameAsSite}</option>
+            <option value="custom">{c.orderSpecific}</option>
+          </select>
+        </InspectorField>
+        <p>{customOrderHeader ? c.sharedContentHint : c.sharedHeaderHint}</p>
+      </section>}
+      {!customOrderHeader && <section className="sqh-navigation">
         <h3>{toggle("navigation", c.navigation)}</h3>
         {header.navigation.enabled && (
           <>
@@ -218,8 +239,8 @@ export function HeaderInspector({
             </button>
           </>
         )}
-      </section>
-      <div className="sqh-divider" />
+      </section>}
+      {!customOrderHeader && <div className="sqh-divider" />}
       <button
         className="sqh-customize"
         aria-expanded={customize}
@@ -244,12 +265,12 @@ export function HeaderInspector({
                       key={layout}
                       aria-label={c[layout]}
                       aria-pressed={header.layout === layout}
-                      onClick={() => layout === "restaurant" ? onChange(["nav_layout"], {...nav, header: {
+                      onClick={() => layout === "restaurant" ? saveHeader({
                         ...header, layout, color_style: header.color_style === "default" ? normalizeSiteColors(config.custom_palette).styles.reduce((best, style) => colorContrast(style.background, "#ffffff") > colorContrast(best.background, "#ffffff") ? style : best).id : header.color_style,
                         background: {...header.background, mode: "image"},
                         logo: {...header.logo, type: header.logo.image || restaurantLogoUrl ? "image" : header.logo.type, size: 140},
                         icons: {...header.icons, cart: false, search: false},
-                      }}) : set("layout", layout)}
+                      }) : set("layout", layout)}
                     >
                       <span
                         className={`sqh-layout sqh-layout--${layout}`}
@@ -295,6 +316,7 @@ export function HeaderInspector({
               }
               <HeaderGroup label={c.colorStyle}>
                 <ColorStylePicker value={header.color_style} onChange={id => set("color_style", id as WebsiteHeader["color_style"])} />
+                <p>{c.navigationColorHint}</p>
               </HeaderGroup>
             </>,
           )}
@@ -397,6 +419,7 @@ export function HeaderInspector({
             c.logo,
             <>
               {restaurantLayout && check(c.restaurantName, header.restaurant.show_name, value => patch("restaurant", {show_name: value}))}
+              {!customOrderHeader && <>
               <InspectorField label={c.type}>
                 <select
                   className={controlClass}
@@ -426,6 +449,7 @@ export function HeaderInspector({
                   />
                 </InspectorField>
               )}
+              </>}
               <InspectorField label={c.size}>
                 <div className="sqh-range">
                   <input
@@ -441,6 +465,7 @@ export function HeaderInspector({
                   <output>{header.logo.size}</output>
                 </div>
               </InspectorField>
+              {!customOrderHeader && <>
               {linkRow("logo")}
               <p>{c.logoHelp}</p>
               {!restaurantLayout && check(
@@ -455,9 +480,10 @@ export function HeaderInspector({
                   (value) => patch("logo", { background: value }),
                   "#ffffff",
                 )}
+              </>}
             </>,
           )}
-          {accordion(
+          {!customOrderHeader && accordion(
             "navigation",
             c.navigation,
             <>
@@ -469,7 +495,7 @@ export function HeaderInspector({
               )}
             </>,
           )}
-          {!restaurantLayout && accordion(
+          {!customOrderHeader && !restaurantLayout && accordion(
             "button",
             c.button,
             <>
@@ -512,7 +538,7 @@ export function HeaderInspector({
               </button>
             </>,
           )}
-          {accordion(
+          {!customOrderHeader && accordion(
             "icons",
             c.icons,
             <>
@@ -527,7 +553,7 @@ export function HeaderInspector({
               )}
             </>,
           )}
-          {accordion(
+          {!customOrderHeader && accordion(
             "fulfillment",
             c.fulfillment,
             <>
