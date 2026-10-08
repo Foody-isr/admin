@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronRight, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { loadWebsiteFont } from "@/lib/website-fonts";
 import type { ThemeCatalog } from "@/lib/api";
+import type { SiteColorEditTarget } from "./ColorStylePicker";
 import { SiteColorsEditor } from "./SiteColorsEditor";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { SITE_STYLES, applySiteStyle, defaultThemeStyle, type SiteStyle } from "@/lib/website-v3/site-styles";
@@ -26,6 +27,7 @@ type Screen =
 export function SiteDesign({
   state,
   initialScreen = "root",
+  colorTarget,
   previewContext,
   catalog,
   restaurantName,
@@ -40,6 +42,7 @@ export function SiteDesign({
 }: {
   state: DraftStatePayload;
   initialScreen?: "root" | "colors";
+  colorTarget?: SiteColorEditTarget;
   previewContext: { webOrigin: string; restaurantSlug: string; restaurantId: number };
   catalog: ThemeCatalog;
   restaurantName: string;
@@ -268,7 +271,7 @@ export function SiteDesign({
           </section>
         </div>
       )}
-      {screen === "colors" && <SiteColorsEditor palette={{mode: currentTheme?.mode || "light", bg, ink, accent, surface, ...palette}} onChange={next => patch({theme_id: "custom", brand_color: null, custom_palette: next})} />}
+      {screen === "colors" && <SiteColorsEditor target={colorTarget} pages={state.pages} sections={state.sections} palette={{mode: currentTheme?.mode || "light", bg, ink, accent, surface, ...palette}} onChange={next => patch({theme_id: "custom", brand_color: null, custom_palette: next})} />}
       {screen === "fonts" && (
         <div className="sqe-panel-body">
           <h3>{t("editorFonts")}</h3>

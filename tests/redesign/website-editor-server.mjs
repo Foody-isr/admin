@@ -4,7 +4,8 @@ import http from "node:http";
 import { readFileSync } from "node:fs";
 import { createFixture } from "./fixtures.mjs";
 const base = createFixture();
-const menuAppearance = process.env.FOODY_MENU_APPEARANCE === "1"
+const restaurantHeader = process.env.FOODY_RESTAURANT_HEADER === "1";
+const menuAppearance = (process.env.FOODY_MENU_APPEARANCE === "1" || process.env.FOODY_MENU_STYLES === "1")
   ? JSON.parse(readFileSync(new URL("./fixtures/mamie-menu-appearance.json", import.meta.url), "utf8"))
   : null;
 const date = "2026-10-04T12:00:00Z";
@@ -120,6 +121,48 @@ if (menuAppearance) {
   }};
   draft.sections = [];
 }
+if (process.env.FOODY_MENU_STYLES === "1" || restaurantHeader) {
+  draft.config.custom_palette = {
+    mode: "light", bg: "#ffffff", surface: "#f5f5f5", ink: "#111111", accent: "#de5228",
+    secondary_colors: ["#6d1f13", "#dfc65b", "#cfb4a9", "#ffffff"],
+    color_styles: { version: 1, default: "style-1", styles: [
+      { id: "style-2", background: "#de5228", title: "#111111", paragraph: "#111111",
+        solid_button: "#111111", outline_button: "#111111", menu: {
+          heading: "#ffffff", bar_background: "#6d1f13", category_text: "#ffffff",
+          active_background: "#ffffff", active_text: "#6d1f13",
+          card_background: "#6d1f13", card_title: "#ffffff",
+          card_price: "#dfc65b", card_description: "#cfb4a9",
+        },
+      },
+    ] },
+  };
+  Object.assign(draft.pages[1].appearance_overrides.website_order, {
+    color_style: "style-2", content_width: "wide", layout: "list", columns: 3,
+    card_style: "filled", card_radius: "rounded", image_radius: "rounded",
+    item_action: "cutout", category_shape: "pill", sticky_categories: true,
+    category_title_style: "inherit", show_descriptions: true, show_portions: true,
+    // Obsolete local settings must not compete with the global menu style.
+    background_kind: "color", background: "#ff00ff", card_color_style: "style-5",
+    category_color_style: "style-5", card_background: "#ff00ff",
+  });
+}
+if (restaurantHeader) {
+  draft.config.nav_layout = {header:{version:1, layout:"restaurant", scroll:"none", color_style:"style-5",
+    background:{mode:"image", image:"", overlay:45},
+    logo:{type:"image", image:"", size:140},
+    icons:{cart:false, search:false}, button:{enabled:false},
+    navigation:{enabled:true, mode:"dropdown", links:[{id:"order",label:"Menu",target:{kind:"order",value:""}},{id:"about",label:"À propos",target:{kind:"page",value:"about"}}]},
+    restaurant:{height:"medium",show_name:true,info_enabled:true,info_color_style:"style-3",show_status:true,show_minimum:true,show_social:true},
+  }};
+  draft.config.custom_palette.color_styles.styles.push(
+    {id:"style-3",background:"#de5228",title:"#ffffff",paragraph:"#fff5ec",solid_button:"#6d1f13",outline_button:"#6d1f13"},
+    {id:"style-5",background:"#111111",title:"#ffffff",paragraph:"#ffffff",solid_button:"#de5228",outline_button:"#ffffff"},
+  );
+  draft.config.checkout_config = {lock_order_type:true};
+  draft.config.social_links = {instagram:"https://www.instagram.com/mamietlv/",whatsapp:"https://wa.me/9720534679393"};
+  // Even saved appearance switches must not restore forbidden choices or a duplicate cover.
+  Object.assign(draft.pages[1].appearance_overrides.website_order, {show_banner:true,show_fulfillment:true,prompt_on_entry:true});
+}
 let published = structuredClone(draft),
   dirty = false;
 const response = () => ({
@@ -139,6 +182,12 @@ const restaurant = () => ({
   default_locale: "en",
   catering_enabled: false,
   ...(menuAppearance ? {name: "MAMIE — aperçu local"} : {}),
+  ...(restaurantHeader ? {
+    name:"MAMIE", default_locale:"fr", timezone:"Asia/Jerusalem", pickup_enabled:false, delivery_enabled:true,
+    scheduling_enabled:false, batch_fulfillment_enabled:true, minimum_order_delivery:450,
+    logo_url:"https://foody-menu-images.s3.eu-north-1.amazonaws.com/restaurants/5/logo/e4f26758-7ca6-454e-8d9c-ab22cc5ac73a.png",
+    cover_url:"https://foody-menu-images.s3.eu-north-1.amazonaws.com/restaurants/5/background/6b7dbb85-ccf7-417c-a09a-ba21150b5474.JPG",
+  } : {}),
   ...(featuredRegression ? { opening_hours_config: Object.fromEntries(
     ["dine_in", "pickup", "delivery"].map((service) => [service, Object.fromEntries(
       ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, {closed: false, open: "00:00", close: "00:00"}]),
@@ -252,6 +301,8 @@ http
           ],
         },
       };
+    else if (restaurantHeader && path.endsWith("/batch-fulfillment-config"))
+      result = {json:{enabled:true,ordering_open:true,current_batch_open_at:"2026-10-05T12:00:00+03:00",current_batch_cutoff:"2026-10-08T18:00:00+03:00",cutoff_day_name:"Thursday",cutoff_time:"18:00",fulfillment_days:[{date:"2026-10-09",day_name:"Friday",delivery_window:{start:"08:00",end:"15:00"}}],immediate_available:false}};
     else if (path === "/api/v1/public/delivery/check")
       result = {json: {resolved: true, deliverable: !new URL(req.url, "http://localhost").searchParams.get("address")?.includes("outside"), delivery_fee: 12}};
     else if (path === "/api/v1/public/themes/catalog")

@@ -22,6 +22,10 @@ import { NavigationCtaEditor } from "../NavigationCtaEditor";
 import { PageInspector } from "../PageInspector";
 import { SiteInspector } from "../SiteInspector";
 import { OrderPageEditor } from "../OrderPageEditor";
+import { HeaderInspector } from "../HeaderInspector";
+import { normalizeWebsiteHeader } from "@/lib/website-v3/header";
+import { SiteColorsEditor } from "../SiteColorsEditor";
+import { normalizeSiteColors } from "@/lib/website-v3/site-colors";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -39,12 +43,11 @@ test("order menu reuses shared styles instead of competing local colors and reta
       appearance_overrides: { website_order: { card_style: "filled", card_radius: "soft", image_radius: "rounded", show_descriptions: true } } },
     region: "order-items", onChange: () => undefined, onPreviewItem: () => undefined,
   }));
-  for (const key of ["card_color_style", "category_color_style"])
-    assert.ok(markup.includes(`page.appearance_overrides.website_order.${key}`));
-  assert.doesNotMatch(markup, /website_order\.card_(background|title_color|price_color|description_color)/);
+  assert.doesNotMatch(markup, /website_order\.(card_color_style|category_color_style|card_background|card_title_color|card_price_color|card_description_color)/);
   assert.doesNotMatch(markup, /section_colors\.categoryBar/);
-  assert.match(markup, /Item list style/);
-  assert.match(markup, /Style accent/);
+  assert.match(markup, /One shared style controls the list/);
+  assert.match(markup, /Edit colors in this style/);
+  assert.doesNotMatch(markup, /Style accent/);
   assert.match(markup, /value="soft" selected=""/);
   assert.match(markup, /value="rounded" selected=""/);
   assert.match(markup, /Use the previous menu layout/);
@@ -521,4 +524,37 @@ test("footer branding has separate controls and stores fields in the shared pale
     assert.ok(ids.has(id));
     assert.deepEqual(FIELD_CONTRACTS.find(contract=>contract.id===id)?.statePath, ["config", "custom_palette", "footer_branding", key]);
   }
+});
+
+
+test("global menu color editing targets the requested style without moving the site default", () => {
+  const colors = normalizeSiteColors({});
+  const palette = { color_styles: colors };
+  const before = JSON.stringify(palette);
+  const markup = render(React.createElement(SiteColorsEditor, {
+    palette, target: { styleId: "style-2", menuGroup: "cards" }, onChange: () => assert.fail("selection must not save"),
+  }));
+  assert.equal(JSON.stringify(palette), before);
+  assert.match(markup, /aria-label="Color style 2" aria-pressed="true"/);
+  assert.match(markup, /Use by default/);
+  assert.match(markup, /data-color-role="menu.card_price"/);
+  assert.match(markup, /data-color-role="menu.card_description"/);
+  assert.match(markup, /Automatic/);
+  assert.match(markup, /<details class="sqe-menu-color-details" open=""/);
+});
+
+test("global menu color details stay collapsed in the ordinary site design view", () => {
+  const markup = render(React.createElement(SiteColorsEditor, { palette: {}, onChange: () => undefined }));
+  assert.match(markup, /<details class="sqe-menu-color-details">/);
+  assert.match(markup, /Site default/);
+  assert.doesNotMatch(markup, /Use by default/);
+});
+
+
+test("Restaurant is a layout in the shared header editor with no local color controls", () => {
+  const markup = render(React.createElement(HeaderInspector, {restaurantId:1, config:{nav_layout:{header:normalizeWebsiteHeader({layout:"restaurant", background:{mode:"image"}})}}, pages:[], sections:[], onChange:()=>undefined}));
+  assert.match(markup, /Restaurant: cover, framed logo and hamburger/);
+  assert.match(markup, /Restaurant information/);
+  assert.doesNotMatch(markup, /Dropdown|Mega menu|Header scroll settings/);
+  assert.doesNotMatch(markup, /type="color"/);
 });

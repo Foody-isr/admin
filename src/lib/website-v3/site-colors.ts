@@ -8,6 +8,22 @@ export const SITE_COLOR_IDS = [
   "style-6",
 ] as const;
 export type SiteColorId = (typeof SITE_COLOR_IDS)[number];
+export const SITE_MENU_COLOR_ROLES = [
+  "background",
+  "heading",
+  "bar_background",
+  "category_text",
+  "pill_background",
+  "active_background",
+  "active_text",
+  "card_background",
+  "card_title",
+  "card_price",
+  "card_description",
+  "card_border",
+] as const;
+export type SiteMenuColorRole = (typeof SITE_MENU_COLOR_ROLES)[number];
+export type SiteMenuColors = Record<SiteMenuColorRole, string>;
 export type SiteColorStyle = {
   id: SiteColorId;
   background: string;
@@ -15,6 +31,7 @@ export type SiteColorStyle = {
   paragraph: string;
   solid_button: string;
   outline_button: string;
+  menu?: Partial<SiteMenuColors>;
 };
 export type SiteColors = {
   version: 1;
@@ -98,6 +115,7 @@ export function normalizeSiteColors(value: unknown): SiteColors {
     styles: SITE_COLOR_IDS.map((id, i) => {
       const s = record(authored.find((v) => record(v).id === id));
       const background = siteHex(s.background, backgrounds[i]);
+      const menu = normalizeSiteMenuColors(s.menu);
       return {
         id,
         background,
@@ -113,9 +131,88 @@ export function normalizeSiteColors(value: unknown): SiteColors {
           siteHex(s.outline_button, ink),
           background,
         ),
+        ...(Object.keys(menu).length ? { menu } : {}),
       };
     }),
   };
+}
+
+/** Only surface roles support transparency; text roles always use authored hex colors. */
+export function menuColorAllowsTransparency(role: SiteMenuColorRole): boolean {
+  return ["pill_background", "active_background", "card_background"].includes(
+    role,
+  );
+}
+
+/** Keeps sparse menu overrides so automatic roles continue following their source colors. */
+export function normalizeSiteMenuColors(
+  value: unknown,
+): Partial<SiteMenuColors> {
+  const source = record(value);
+  return Object.fromEntries(
+    SITE_MENU_COLOR_ROLES.flatMap((role) => {
+      const color =
+        source[role] === "transparent" && menuColorAllowsTransparency(role)
+          ? "transparent"
+          : siteHex(source[role], "");
+      return color ? [[role, color]] : [];
+    }),
+  );
+}
+
+/** Resolves automatic menu colors against the surface on which each role is actually painted. */
+export function resolveSiteMenuColors(style: SiteColorStyle): SiteMenuColors {
+  const menu = normalizeSiteMenuColors(style.menu);
+  const background = menu.background ?? style.background;
+  const bar = menu.bar_background ?? background;
+  const pill = menu.pill_background ?? "transparent";
+  const active = menu.active_background ?? style.solid_button;
+  const card = menu.card_background ?? background;
+  const cardSurface = card === "transparent" ? background : card;
+  const title = menu.card_title ?? readableSiteColor(style.title, cardSurface);
+  return {
+    background,
+    heading: menu.heading ?? readableSiteColor(style.title, background),
+    bar_background: bar,
+    category_text:
+      menu.category_text ??
+      readableSiteColor(style.paragraph, pill === "transparent" ? bar : pill),
+    pill_background: pill,
+    active_background: active,
+    active_text:
+      menu.active_text ??
+      siteContrastInk(active === "transparent" ? bar : active),
+    card_background: card,
+    card_title: title,
+    card_price: menu.card_price ?? title,
+    card_description:
+      menu.card_description ?? readableSiteColor(style.paragraph, cardSurface),
+    card_border:
+      menu.card_border ?? readableSiteColor(style.outline_button, cardSurface),
+  };
+}
+
+/** Exposes menu roles separately from generic section, header and checkout colors. */
+export function siteMenuColorVariables(
+  style: SiteColorStyle,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(resolveSiteMenuColors(style)).map(([role, color]) => [
+      `--site-menu-${role.replaceAll("_", "-")}`,
+      color,
+    ]),
+  );
+}
+
+/** Binds every menu element to one shared style, including the live site default. */
+export function siteMenuColorReference(id: string): Record<string, string> {
+  const prefix = /^style-[1-6]$/.test(id) ? `--${id}` : "--site-default";
+  return Object.fromEntries(
+    SITE_MENU_COLOR_ROLES.map((role) => {
+      const suffix = `menu-${role.replaceAll("_", "-")}`;
+      return [`--site-${suffix}`, `var(${prefix}-${suffix})`];
+    }),
+  );
 }
 /** Resolves a stable style reference, or the site's default, only on opted-in sites. */
 export function resolveSiteColorStyle(

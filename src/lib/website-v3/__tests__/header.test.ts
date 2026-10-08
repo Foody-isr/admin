@@ -165,3 +165,15 @@ test("fulfillment retires saved color overrides while preserving visibility and 
     assert.deepEqual(normalizeWebsiteHeader(header), header);
   }
 });
+
+
+test("Restaurant header round-trips presentation without introducing fulfillment rules", () => {
+  const header = normalizeWebsiteHeader({layout:"restaurant", restaurant:{height:"large", show_name:false, info_color_style:"style-2", show_social:false}});
+  assert.equal(header.layout, "restaurant");
+  assert.equal(header.restaurant.height, "large");
+  assert.equal(header.restaurant.show_name, false);
+  assert.equal(header.restaurant.info_color_style, "style-2");
+  assert.deepEqual(normalizeWebsiteHeader(JSON.parse(JSON.stringify(header))), header);
+  assert.equal(normalizeWebsiteHeader({restaurant:{height:"999px", info_color_style:"red"}}).restaurant.info_color_style, "default");
+  assert.equal(normalizeWebsiteHeader({restaurant:{height:"999px"}}).restaurant.height, "medium");
+});

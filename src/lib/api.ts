@@ -110,6 +110,10 @@ export interface Restaurant {
   /** Google Places API key (client-restricted) for address/city autocomplete. Optional. */
   google_places_api_key?: string;
   pickup_enabled: boolean;
+  /** Whether guests may choose a future fulfillment slot. */
+  scheduling_enabled?: boolean;
+  /** Whether fulfillment follows the restaurant's batch calendar. */
+  batch_fulfillment_enabled?: boolean;
   dine_in_enabled: boolean;
   /** No classic menu: customers land on the catering shop and Menu is hidden. */
   catering_only?: boolean;

@@ -1,5 +1,5 @@
 "use client";
-import { ColorStylePicker } from "./ColorStylePicker";
+import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./ColorStylePicker";
 import {
   selectOrderColorStyle,
   previousOrderPresentation,
@@ -20,6 +20,8 @@ export function OrderPageEditor({
   onChange,
   onPreviewItem,
   sharedHeader = false,
+  restaurantHeader = false,
+  orderChoicesAvailable = true,
   onEditHeader,
 }: {
   restaurantId: number;
@@ -28,6 +30,8 @@ export function OrderPageEditor({
   onChange: (path: StatePath, value: unknown) => void;
   onPreviewItem: (open: boolean) => void;
   sharedHeader?: boolean;
+  restaurantHeader?: boolean;
+  orderChoicesAvailable?: boolean;
   onEditHeader?: () => void;
 }) {
   const { t } = useI18n();
@@ -35,13 +39,11 @@ export function OrderPageEditor({
   const value = record(page.appearance_overrides.website_order);
   const set = (key: string, next: unknown) =>
     onChange(["appearance_overrides", "website_order", key], next);
-  const childColors = (key: string) => (
-    <ColorStylePicker
-      fieldId={`page.appearance_overrides.website_order.${key}`}
-      value={String(value[key] ?? "default")}
-      defaultLabel={t("editorOrderInheritMenuColors")}
-      onChange={(id) => set(key, id)}
-    />
+  const editMenuColors = (menuGroup: SiteColorEditTarget["menuGroup"]) => (
+    <button type="button" className="sqe-button sqe-button--outline"
+      onClick={() => openSiteColors({ styleId: String(value.color_style ?? "default"), menuGroup })}>
+      {t("editorEditMenuColors")}
+    </button>
   );
   const toggle = (key: string, label: string, fallback = true) => (
     <label className="sqe-order-toggle" key={key}>
@@ -124,6 +126,7 @@ export function OrderPageEditor({
         )}
     </>
   );
+  if (region === "order-banner" && restaurantHeader) return <div className="sqe-panel-body"><button className="sqe-button" onClick={onEditHeader}>{t("editorHeader")}</button></div>;
   if (region === "order-banner")
     return (
       <div className="sqe-panel-body sqe-order-settings">
@@ -155,9 +158,11 @@ export function OrderPageEditor({
         ) : (
           toggle("show_fulfillment", "editorOrderShowService")
         )}
+        {orderChoicesAvailable && <>
         {toggle("prompt_on_entry", "editorOrderPrompt")}
         {toggle("modal_cover", "editorOrderModalCover")}
         {toggle("modal_logo", "editorLogo")}
+        </>}
         <p>{t("editorOrderServicesHint")}</p>
         <a className="sqe-button" href={`/${restaurantId}/settings`}>
           {t("editorSettings")}
@@ -220,6 +225,7 @@ export function OrderPageEditor({
             ["wide", "editorOrderWidthWide"],
           ])}
           <ColorStylePicker
+            menuGroup="list"
             value={String(value.color_style ?? "default")}
             onChange={(id) =>
               onChange(
@@ -228,46 +234,11 @@ export function OrderPageEditor({
               )
             }
           />
+          <p>{t("editorOneMenuColorStyle")}</p>
           {select("background_kind", "editorBackground", "style", [
             ["style", "editorOrderColorStyle"],
-            ["color", "editorOrderCustomColor"],
-            ["gradient", "editorOrderGradient"],
             ["image", "editorField_image_url"],
           ])}
-          {typeof value.background_kind === "string" &&
-            value.background_kind !== "style" && (
-              <p role="note">
-                {t("editorOrderBackgroundOverrideHint")}{" "}
-                <button
-                  type="button"
-                  className="sqe-button"
-                  onClick={() => set("background_kind", "style")}
-                >
-                  {t("editorOrderUseStyleBackground")}
-                </button>
-              </p>
-            )}
-          {(value.background_kind === "color" ||
-            value.background_kind === "gradient") && (
-            <label className="sqe-field">
-              {t("editorOrderColor")}
-              <input
-                type="color"
-                value={String(value.background ?? "#ffffff")}
-                onChange={(event) => set("background", event.target.value)}
-              />
-            </label>
-          )}
-          {value.background_kind === "gradient" && (
-            <label className="sqe-field">
-              {t("editorOrderGradientEnd")}
-              <input
-                type="color"
-                value={String(value.background_end ?? "#ffffff")}
-                onChange={(event) => set("background_end", event.target.value)}
-              />
-            </label>
-          )}
           {value.background_kind === "image" && (
             <ImageUploadField
               restaurantId={restaurantId}
@@ -283,14 +254,13 @@ export function OrderPageEditor({
           <summary>{t("editorCategoryMenu")}</summary>
           {toggle("show_categories", "editorCategoryMenu")}
           {typography("category", "paragraph-3")}
-          {toggle("category_background", "editorBackground", false)}
           {select("category_shape", "editorShape", "plain", [
             ["plain", "editorNone"],
             ["rounded", "editorShapeRound"],
             ["pill", "editorOrderShapePill"],
           ])}
           {toggle("sticky_categories", "editorOrderStickyCategories", false)}
-          {childColors("category_color_style")}
+          {editMenuColors("categories")}
           <p>{t("editorOrderCategoryColorsHint")}</p>
         </details>
         {toggle("show_search", "editorOrderSearch")}
@@ -304,11 +274,11 @@ export function OrderPageEditor({
         )}
         <details>
           <summary>{t("editorItemCards")}</summary>
-          {select("card_style", "editorOrderCardStyle", "plain", [
-            ["plain", "editorOrderCardPlain"],
-            ["filled", "editorOrderCardFilled"],
+          {select("card_style", "editorCardSpacing", "plain", [
+            ["plain", "editorCardSpacingCompact"],
+            ["filled", "editorCardSpacingComfortable"],
           ])}
-          {childColors("card_color_style")}
+          {editMenuColors("cards")}
           <p>{t("editorOrderCardColorsHint")}</p>
           {select("card_border", "editorBorder", "none", [
             ["none", "editorNone"],
@@ -355,10 +325,7 @@ export function OrderPageEditor({
             ["starting", "editorOrderPriceStarting"],
           ])}
           {typography("item_price", "paragraph-3")}
-          {select("price_color_role", "editorOrderPriceColor", "title", [
-            ["title", "editorColorTitle"],
-            ["accent", "editorOrderStyleAccent"],
-          ])}
+          {editMenuColors("cards")}
         </details>
         {toggle("show_badges", "editorBadges")}
         {toggle("show_descriptions", "editorItemDescriptions", false)}

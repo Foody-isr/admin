@@ -125,19 +125,36 @@ The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementa
 
 Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
 
-The order page's **Item list** panels provide bounded category bar/pill colors,
-card colors and three shapes, independent image shapes, and inherited site
-typography. **Use the previous menu layout** restores the historical three-column
-menu presentation in the draft, retaining the site's palette, fonts and commerce
-settings. Publication remains a separate action.
+The order page's **Item list** selects one global color style for its list,
+category bar, pills and item cards. In **Site design → Colors**, each of the six
+styles has optional menu colors in three collapsed groups. Unset roles remain
+automatic; resetting a role restores live inheritance. Item prices have their
+own color and portions follow it. Editing a style does not select it as the site
+default; **Use by default** is a separate action. Shape, spacing and images remain
+in the item-list panels, whose color shortcuts open the assigned global style.
 
-For a local Mamie menu appearance check, run
-`FOODY_MENU_APPEARANCE=1 node tests/redesign/website-editor-server.mjs`, then run
-the admin with `NEXT_PUBLIC_API_URL=http://127.0.0.1:18081` and the guest web with
+**Header → Layout → Restaurant** adds a cover, a logo in a white frame,
+the restaurant name and a hamburger using the existing navigation links.
+The information bar exposes status, delivery minimum and social-link switches,
+plus one of the six global styles. It never stores local color overrides or
+fulfillment rules. The order page delegates its banner to this layout to avoid
+duplicate covers. Delivery/pickup availability and batch calendars remain owned
+by restaurant settings, throughout the menu, cart and checkout.
+Deploy the API support for `nav_layout.header.layout = "restaurant"` and its
+optional `restaurant` settings before deploying the editor.
+
+For a local Mamie menu color check, run
+`FOODY_MENU_STYLES=1 node tests/redesign/website-editor-server.mjs`, then run
+the admin with `NEXT_PUBLIC_API_URL=http://127.0.0.1:18081`
+and `NEXT_PUBLIC_WEB_URL=http://localhost:3000`, and the guest web with
 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081`. Open `/1/website-v3` in the
 admin and `/r/atelier-foody/order?lang=fr` in the guest web. The fixture contains
 public menu photos, copy and appearance only; draft/publication writes stay in
-the local server's memory. It does not proxy production requests.
+the local server's memory. It does not proxy production requests. The existing
+`FOODY_MENU_APPEARANCE=1` fixture exercises the legacy presentation.
+Use `FOODY_RESTAURANT_HEADER=1` to include the Restaurant layout with a synthetic
+delivery-only batch calendar. Saved entry prompts cannot restore mode or time
+choices. Test an old pickup/scheduling URL through cart and checkout as well.
 
 ### Billing (`/[restaurantId]/billing`)
 
