@@ -101,7 +101,7 @@ Full menu management:
 
 ### Item editor (`/[restaurantId]/menu/items/new`, `/items/[itemId]`)
 
-Creation and editing use one continuous form: identity and photo, pricing and variants, personalizations or combo composition, customer facts, availability, recipe/cost, and assistant context. Desktop shortcuts scroll to sections without hiding fields. Distribution and internal category controls sit alongside the form; on mobile they follow it. The fixed header shows unsaved changes and keeps Save/Cancel reachable.
+Creation and editing use one continuous form: identity and photo, pricing and variants, personalizations or combo composition, customer facts, availability, recipe/cost, and assistant context. The full-page editor uses Cash Sans, inset field labels and a centered two-column layout. Status, internal categories and menu groups have separate cards alongside the form; on mobile they follow it. Translations open beside the item name. The fixed header shows unsaved changes and keeps Save/Cancel reachable, with the title appearing in the header after scrolling.
 
 Existing `?tab=recipe`, `?tab=availability` and legacy links scroll to the corresponding section. New articles expose **Save and configure** for stock and recipe settings that need a saved item. Form fields, variants, recipe instructions and availability commit with Save; existing explicit image, modifier and ingredient operations retain their immediate persistence.
 

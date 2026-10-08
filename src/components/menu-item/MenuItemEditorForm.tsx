@@ -1,8 +1,15 @@
 'use client';
 
-import { RefreshCw, AlertTriangle } from 'lucide-react';
+import {
+  RefreshCw,
+  AlertTriangle,
+  Languages,
+  UtensilsCrossed,
+  ChevronDown,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import * as Popover from '@radix-ui/react-popover';
 import { useParams } from 'next/navigation';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -258,15 +265,19 @@ export default function MenuItemEditorForm({
   const isByWeight = canByWeight && pricingMode === 'by_weight';
 
   return (
-    <div className="space-y-6">
-      <ItemEditorSection id="information" title={t('itemSectionInformation')}>
-        <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_160px]">
-          <div className="space-y-5">
+    <div className="item-editor-form">
+      <ItemEditorSection
+        id="information"
+        title={t('itemSectionInformation')}
+        hideTitle
+      >
+        <div className="item-identity">
+          <div className="item-type-field">
+            <UtensilsCrossed aria-hidden />
             <Field htmlFor="menu-item-type" label={t('itemType')}>
               <select
                 id="menu-item-type"
-                className="input min-w-40"
-                style={{ width: 'fit-content' }}
+                className="input"
                 disabled={!canEdit}
                 value={itemType}
                 onChange={(event) =>
@@ -277,175 +288,315 @@ export default function MenuItemEditorForm({
                 <option value="combo">{t('combo')}</option>
               </select>
             </Field>
-            {/* The language selector changes localized text; operational fields stay shared. */}
-            {i18nEnabled && (
-              <div className="flex items-center gap-[var(--s-3)] flex-wrap">
-                <label className="flex items-center gap-2 text-sm text-[var(--fg-muted)]">
-                  {t('itemContentLanguage')}
-                  <select
-                    className="input w-auto"
-                    value={activeLocale}
-                    onChange={(event) =>
-                      selectLocale(event.target.value as Locale)
-                    }
-                  >
-                    {SUPPORTED_LOCALES.map((loc) => (
-                      <option key={loc} value={loc}>
-                        {t(
-                          loc === 'he'
-                            ? 'languageHebrew'
-                            : loc === 'fr'
-                              ? 'languageFrench'
-                              : 'languageEnglish',
-                        )}
-                        {loc === effectiveSource
-                          ? ` · ${t('languageSourceLabel')}`
-                          : missing[loc]
-                            ? ` · ${t('itemTranslationMissing')}`
-                            : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {canEdit && onRetranslate && (
-                  <button
-                    type="button"
-                    onClick={() => runRetranslate('all')}
-                    disabled={retranslating !== null}
-                    className="inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-xs font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                    title={t('languageRetranslateAll') || 'Re-translate all'}
-                  >
-                    <RefreshCw
-                      className={`w-3 h-3 ${retranslating === 'all' ? 'animate-spin' : ''}`}
-                      aria-hidden
-                    />
-                    <span>
-                      {retranslating === 'all'
-                        ? t('languageRetranslateRunning') || 'Re-translating…'
-                        : t('languageRetranslateAll') || 'Re-translate all'}
-                    </span>
-                  </button>
-                )}
-                <p className="w-full text-xs text-[var(--fg-muted)]">
-                  {t('itemLanguageScopeHint')}
-                </p>
-                {retranslateError && (
-                  <span className="text-fs-xs text-[var(--danger-500)]">
-                    {retranslateError}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Prominent, stateful language banner — sits in the reading path right
+            <ChevronDown className="item-type-chevron" aria-hidden />
+          </div>
+          {/* Prominent, stateful language banner — sits in the reading path right
             above the fields so owners can't miss whether they're editing the
             source or a translation. */}
-            {i18nEnabled && !isSourceTab && (
-              <LocaleEditingBanner
-                active={activeLocale}
-                source={effectiveSource}
-              />
-            )}
+          {i18nEnabled && !isSourceTab && (
+            <LocaleEditingBanner
+              active={activeLocale}
+              source={effectiveSource}
+            />
+          )}
 
-            {/* Source-language mismatch warning — the item text is Hebrew but the
+          {/* Source-language mismatch warning — the item text is Hebrew but the
             restaurant's source language says otherwise, so auto-translations
             are pass-through garbage until the setting is corrected. */}
-            {localeMismatch && (
-              <div
-                className="flex items-center gap-[var(--s-3)] rounded-r-lg border p-[var(--s-3)]"
-                style={{
-                  background:
-                    'color-mix(in oklab, var(--warning-500) 6%, var(--surface))',
-                  borderColor:
-                    'color-mix(in oklab, var(--warning-500) 30%, var(--line))',
-                }}
+          {localeMismatch && (
+            <div
+              className="flex items-center gap-[var(--s-3)] rounded-r-lg border p-[var(--s-3)]"
+              style={{
+                background:
+                  'color-mix(in oklab, var(--warning-500) 6%, var(--surface))',
+                borderColor:
+                  'color-mix(in oklab, var(--warning-500) 30%, var(--line))',
+              }}
+            >
+              <AlertTriangle
+                className="w-4 h-4 shrink-0"
+                style={{ color: 'var(--warning-500)' }}
+                aria-hidden
+              />
+              <span className="flex-1 text-fs-xs text-[var(--fg)]">
+                {(
+                  t('languageMismatchWarning') ||
+                  'This item is written in Hebrew, but your menu source language is set to {lang}. Auto-translations will be wrong until you fix it.'
+                ).replace(
+                  '{lang}',
+                  effectiveSource === 'en'
+                    ? t('languageEnglish') || 'English'
+                    : t('languageFrench') || 'French',
+                )}
+              </span>
+              <Link
+                href={`/${restaurantId}/settings/language`}
+                className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline whitespace-nowrap"
               >
-                <AlertTriangle
-                  className="w-4 h-4 shrink-0"
-                  style={{ color: 'var(--warning-500)' }}
-                  aria-hidden
-                />
-                <span className="flex-1 text-fs-xs text-[var(--fg)]">
-                  {(
-                    t('languageMismatchWarning') ||
-                    'This item is written in Hebrew, but your menu source language is set to {lang}. Auto-translations will be wrong until you fix it.'
-                  ).replace(
-                    '{lang}',
-                    effectiveSource === 'en'
-                      ? t('languageEnglish') || 'English'
-                      : t('languageFrench') || 'French',
-                  )}
-                </span>
-                <Link
-                  href={`/${restaurantId}/settings/language`}
-                  className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline whitespace-nowrap"
-                >
-                  {t('languageMismatchCta') || 'Fix in Language settings'}
-                </Link>
-              </div>
+                {t('languageMismatchCta') || 'Fix in Language settings'}
+              </Link>
+            </div>
+          )}
+
+          {/* Item name in the selected content language. */}
+          <div className="item-name-field">
+            {/* The language selector changes localized text; operational fields stay shared. */}
+            {i18nEnabled && (
+              <Popover.Root>
+                <div className="item-translations">
+                  <Popover.Trigger asChild>
+                    <button type="button" aria-label={t('itemContentLanguage')}>
+                      <Languages size={18} />
+                      <span>{activeLocale.toUpperCase()}</span>
+                      <ChevronDown size={14} />
+                    </button>
+                  </Popover.Trigger>
+                  <Popover.Content
+                    align="end"
+                    sideOffset={8}
+                    className="item-translations-panel"
+                  >
+                    <label className="flex items-center gap-2 text-sm text-[var(--fg-muted)]">
+                      {t('itemContentLanguage')}
+                      <select
+                        className="input w-auto"
+                        value={activeLocale}
+                        onChange={(event) =>
+                          selectLocale(event.target.value as Locale)
+                        }
+                      >
+                        {SUPPORTED_LOCALES.map((loc) => (
+                          <option key={loc} value={loc}>
+                            {t(
+                              loc === 'he'
+                                ? 'languageHebrew'
+                                : loc === 'fr'
+                                  ? 'languageFrench'
+                                  : 'languageEnglish',
+                            )}
+                            {loc === effectiveSource
+                              ? ` · ${t('languageSourceLabel')}`
+                              : missing[loc]
+                                ? ` · ${t('itemTranslationMissing')}`
+                                : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {canEdit && onRetranslate && (
+                      <button
+                        type="button"
+                        onClick={() => runRetranslate('all')}
+                        disabled={retranslating !== null}
+                        className="inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-xs font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        title={
+                          t('languageRetranslateAll') || 'Re-translate all'
+                        }
+                      >
+                        <RefreshCw
+                          className={`w-3 h-3 ${retranslating === 'all' ? 'animate-spin' : ''}`}
+                          aria-hidden
+                        />
+                        <span>
+                          {retranslating === 'all'
+                            ? t('languageRetranslateRunning') ||
+                              'Re-translating…'
+                            : t('languageRetranslateAll') || 'Re-translate all'}
+                        </span>
+                      </button>
+                    )}
+                    <p className="text-sm text-[var(--fg-muted)]">
+                      {t('itemLanguageScopeHint')}
+                    </p>
+                    {retranslateError && (
+                      <span className="text-fs-xs text-[var(--danger-500)]">
+                        {retranslateError}
+                      </span>
+                    )}
+                  </Popover.Content>
+                </div>
+              </Popover.Root>
             )}
 
-            {/* Item name in the selected content language. */}
-            <div className="grid grid-cols-1  gap-[var(--s-4)]">
-              <Field
-                htmlFor="menu-item-name"
-                label={t('itemNameLabel') || "Nom de l'article"}
-              >
-                {isSourceTab ? (
+            <Field
+              className="item-field"
+              htmlFor="menu-item-name"
+              label={t('itemNameLabel') || "Nom de l'article"}
+            >
+              {isSourceTab ? (
+                <Input
+                  disabled={!canEdit}
+                  id="menu-item-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t('nameRequired') || 'Nom *'}
+                />
+              ) : (
+                <>
                   <Input
                     disabled={!canEdit}
                     id="menu-item-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={t('nameRequired') || 'Nom *'}
-                    autoFocus
+                    value={nameTranslation}
+                    onChange={(e) => setTranslatedField('name', e.target.value)}
+                    placeholder={name || t('nameRequired') || 'Nom *'}
                   />
-                ) : (
-                  <>
-                    <Input
-                      disabled={!canEdit}
-                      id="menu-item-name"
-                      value={nameTranslation}
-                      onChange={(e) =>
-                        setTranslatedField('name', e.target.value)
-                      }
-                      placeholder={name || t('nameRequired') || 'Nom *'}
-                    />
-                    <div className="flex items-center justify-between gap-[var(--s-3)] mt-1">
-                      <div className="text-fs-xs text-[var(--fg-subtle)]">
-                        {(t('languageSourceLabel') || 'Source') + ': '}
-                        <span className="font-medium text-[var(--fg-muted)]">
-                          {name || '—'}
-                        </span>
-                      </div>
-                      {canEdit && onRetranslate && (
-                        <button
-                          type="button"
-                          onClick={() => runRetranslate('name')}
-                          disabled={retranslating !== null}
-                          className="inline-flex items-center gap-1 text-fs-xs text-[var(--brand-500)] hover:underline disabled:opacity-60 disabled:cursor-not-allowed disabled:no-underline"
-                        >
-                          <RefreshCw
-                            className={`w-3 h-3 ${retranslating === 'name' ? 'animate-spin' : ''}`}
-                            aria-hidden
-                          />
-                          {retranslating === 'name'
-                            ? t('languageRetranslateRunning') ||
-                              'Re-translating…'
-                            : t('languageRetranslateField') ||
-                              'Re-translate this field'}
-                        </button>
-                      )}
+                  <div className="flex items-center justify-between gap-[var(--s-3)] mt-1">
+                    <div className="text-fs-xs text-[var(--fg-subtle)]">
+                      {(t('languageSourceLabel') || 'Source') + ': '}
+                      <span className="font-medium text-[var(--fg-muted)]">
+                        {name || '—'}
+                      </span>
                     </div>
-                  </>
-                )}
-              </Field>
-            </div>
+                    {canEdit && onRetranslate && (
+                      <button
+                        type="button"
+                        onClick={() => runRetranslate('name')}
+                        disabled={retranslating !== null}
+                        className="inline-flex items-center gap-1 text-fs-xs text-[var(--brand-500)] hover:underline disabled:opacity-60 disabled:cursor-not-allowed disabled:no-underline"
+                      >
+                        <RefreshCw
+                          className={`w-3 h-3 ${retranslating === 'name' ? 'animate-spin' : ''}`}
+                          aria-hidden
+                        />
+                        {retranslating === 'name'
+                          ? t('languageRetranslateRunning') || 'Re-translating…'
+                          : t('languageRetranslateField') ||
+                            'Re-translate this field'}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </Field>
           </div>
-          {photo}
         </div>
+        {/* Pricing mode — Standard vs By weight. Only for regular articles;
+            combos always price by a base amount. Selecting "By weight" swaps
+            the base-price field below for per-kg + estimated-weight inputs. */}
+        {/* Flat price or weight-based pricing. */}
+        <div className="item-primary-price">
+          {isByWeight ? (
+            // By-weight items are priced per kg (not by size), so the standard
+            // base-price field is replaced by a ₪/kg input plus an estimated
+            // weight used to size the card hold before the real weigh-in.
+            <>
+              <Field
+                className="item-field"
+                label={t('pricePerKgLabel') || 'Price per kg'}
+                hint={
+                  t('pricePerKgHint') ||
+                  'Rate charged against the measured weight.'
+                }
+              >
+                {canByWeight && (
+                  <select
+                    className="item-price-mode"
+                    aria-label={t('pricingModeLabel')}
+                    disabled={!canEdit}
+                    value={pricingMode}
+                    onChange={(event) =>
+                      setPricingMode(event.target.value as PricingMode)
+                    }
+                  >
+                    <option value="standard">{t('pricingModeStandard')}</option>
+                    <option value="by_weight">
+                      {t('pricingModeByWeight')}
+                    </option>
+                  </select>
+                )}
+                <div className="relative">
+                  <NumberField
+                    disabled={!canEdit}
+                    aria-label={t('pricePerKgLabel')}
+                    min={0}
+                    value={pricePerKg}
+                    onChange={setPricePerKg}
+                    placeholder="0.00"
+                    className="pe-16 tabular-nums"
+                  />
+                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                    {symbol}/kg
+                  </span>
+                </div>
+              </Field>
+
+              <Field
+                className="item-field"
+                label={t('estimatedWeightLabel') || 'Estimated weight'}
+                hint={
+                  t('estimatedWeightHint') ||
+                  'Used to place the card hold before weighing.'
+                }
+              >
+                <div className="relative">
+                  <NumberField
+                    disabled={!canEdit}
+                    aria-label={t('estimatedWeightLabel')}
+                    min={0}
+                    value={estimatedWeightGrams}
+                    onChange={setEstimatedWeightGrams}
+                    placeholder="0"
+                    className="pe-10 tabular-nums"
+                  />
+                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                    g
+                  </span>
+                </div>
+              </Field>
+            </>
+          ) : (
+            <Field
+              className="item-field"
+              label={priceLabel}
+              hint={isCombo ? t('composeBasePriceHint') : undefined}
+            >
+              {canByWeight && (
+                <select
+                  className="item-price-mode"
+                  aria-label={t('pricingModeLabel')}
+                  disabled={!canEdit}
+                  value={pricingMode}
+                  onChange={(event) =>
+                    setPricingMode(event.target.value as PricingMode)
+                  }
+                >
+                  <option value="standard">{t('pricingModeStandard')}</option>
+                  <option value="by_weight">{t('pricingModeByWeight')}</option>
+                </select>
+              )}
+              {hideBasePrice ? (
+                // Sizes own the price — show a read-only hint pointing at the
+                // size rows below instead of a second editable price field.
+                <div className="item-price-from-variants">
+                  {t('priceFromSizes') ||
+                    'Le prix est défini par les tailles ci-dessous.'}
+                </div>
+              ) : (
+                <div className="relative">
+                  <NumberField
+                    disabled={!canEdit}
+                    aria-label={priceLabel}
+                    min={0}
+                    value={price}
+                    onChange={setPrice}
+                    placeholder="0.00"
+                    className="pe-8 tabular-nums"
+                  />
+                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                    {symbol}
+                  </span>
+                </div>
+              )}
+            </Field>
+          )}
+        </div>
+        <p className="item-vat-note">
+          {t('vat')}: {vatRate}%
+        </p>
+
         {/* Description */}
         <Field
+          className="item-field item-description"
           htmlFor="menu-item-description"
           label={t('description') || 'Description'}
         >
@@ -502,141 +653,16 @@ export default function MenuItemEditorForm({
             </>
           )}
         </Field>
+        {photo}
       </ItemEditorSection>
-      <ItemEditorSection id="pricing" title={t('itemSectionPricing')}>
-        {/* Pricing mode — Standard vs By weight. Only for regular articles;
-            combos always price by a base amount. Selecting "By weight" swaps
-            the base-price field below for per-kg + estimated-weight inputs. */}
-        {canByWeight && (
-          <Field
-            label={t('pricingModeLabel') || 'Pricing'}
-            hint={
-              isByWeight
-                ? t('pricingModeByWeightHint') ||
-                  'Priced per kilogram. The final price is set from the weight measured at fulfillment.'
-                : t('pricingModeStandardHint') ||
-                  'A fixed price (or size options).'
-            }
-          >
-            <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md w-fit">
-              {(['standard', 'by_weight'] as const).map((m) => {
-                const active = pricingMode === m;
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    disabled={!canEdit}
-                    aria-pressed={active}
-                    onClick={() => setPricingMode(m)}
-                    className={`inline-flex items-center h-[30px] px-[var(--s-4)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast disabled:cursor-not-allowed ${
-                      active
-                        ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
-                        : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-                    }`}
-                  >
-                    {m === 'standard'
-                      ? t('pricingModeStandard') || 'Standard'
-                      : t('pricingModeByWeight') || 'By weight'}
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
-        )}
-
-        {/* Flat price or weight-based pricing. */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--s-4)]">
-          {isByWeight ? (
-            // By-weight items are priced per kg (not by size), so the standard
-            // base-price field is replaced by a ₪/kg input plus an estimated
-            // weight used to size the card hold before the real weigh-in.
-            <>
-              <Field
-                label={t('pricePerKgLabel') || 'Price per kg'}
-                hint={
-                  t('pricePerKgHint') ||
-                  'Rate charged against the measured weight.'
-                }
-              >
-                <div className="relative">
-                  <NumberField
-                    disabled={!canEdit}
-                    aria-label={t('pricePerKgLabel')}
-                    min={0}
-                    value={pricePerKg}
-                    onChange={setPricePerKg}
-                    placeholder="0.00"
-                    className="pe-16 tabular-nums"
-                  />
-                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
-                    {symbol}/kg
-                  </span>
-                </div>
-              </Field>
-
-              <Field
-                label={t('estimatedWeightLabel') || 'Estimated weight'}
-                hint={
-                  t('estimatedWeightHint') ||
-                  'Used to place the card hold before weighing.'
-                }
-              >
-                <div className="relative">
-                  <NumberField
-                    disabled={!canEdit}
-                    aria-label={t('estimatedWeightLabel')}
-                    min={0}
-                    value={estimatedWeightGrams}
-                    onChange={setEstimatedWeightGrams}
-                    placeholder="0"
-                    className="pe-10 tabular-nums"
-                  />
-                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
-                    g
-                  </span>
-                </div>
-              </Field>
-            </>
-          ) : (
-            <Field
-              label={priceLabel}
-              hint={isCombo ? t('composeBasePriceHint') : undefined}
-            >
-              {hideBasePrice ? (
-                // Sizes own the price — show a read-only hint pointing at the
-                // size rows below instead of a second editable price field.
-                <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md border border-dashed border-[var(--line-strong)] bg-[var(--surface-2)]/40 text-fs-xs text-[var(--fg-muted)]">
-                  {t('priceFromSizes') ||
-                    'Le prix est défini par les tailles ci-dessous.'}
-                </div>
-              ) : (
-                <div className="relative">
-                  <NumberField
-                    disabled={!canEdit}
-                    aria-label={priceLabel}
-                    min={0}
-                    value={price}
-                    onChange={setPrice}
-                    placeholder="0.00"
-                    className="pe-8 tabular-nums"
-                  />
-                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
-                    {symbol}
-                  </span>
-                </div>
-              )}
-            </Field>
-          )}
-        </div>
-        <p className="text-xs text-[var(--fg-muted)]">
-          {t('vat')}: {vatRate}%
-        </p>
+      <ItemEditorSection id="pricing" title={t('itemSectionPricing')} hideTitle>
         {(!hideBasePrice || isByWeight) && (
           <>
             {/* Portion / serving size — shown under the item title in guest apps.
             Used when the item has no size options; items WITH sizes derive the
             range from the per-size portions in the VariantsEditor below. */}
             <Field
+              className="item-field item-portion"
               label={t('portion') || 'Portion'}
               hint={
                 t('portionHint') ||
@@ -740,6 +766,7 @@ export default function MenuItemEditorForm({
       )}
       <ItemEditorSection
         id="customer-facts"
+        hideTitle
         title={t('itemSectionCustomerFacts')}
       >
         {
@@ -775,6 +802,7 @@ export default function MenuItemEditorForm({
           >
             <Textarea
               disabled={!canEdit}
+              aria-label={t('aiItemContext')}
               value={aiContext || ''}
               onChange={(e) => setAiContext(e.target.value)}
               placeholder={

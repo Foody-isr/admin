@@ -1,16 +1,14 @@
 'use client';
 
-import { useI18n, useCurrency } from '@/lib/i18n';
+import { Search } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Field } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
 import type { Menu, MenuCategory } from '@/lib/api';
 
-/** Restaurant library classification and customer-facing menu distribution. */
+/** Separate status, internal classification and customer-facing menu cards. */
 export default function MenuItemDistribution({
-  name,
-  price,
   categories,
   categoryId,
   setCategoryId,
@@ -20,10 +18,7 @@ export default function MenuItemDistribution({
   isActive,
   setIsActive,
   disabled = false,
-  byWeight = false,
 }: {
-  name: string;
-  price: number;
   categories: MenuCategory[];
   categoryId: number;
   setCategoryId: (id: number) => void;
@@ -33,29 +28,55 @@ export default function MenuItemDistribution({
   isActive: boolean;
   setIsActive: (value: boolean) => void;
   disabled?: boolean;
-  byWeight?: boolean;
 }) {
   const { t } = useI18n();
-  const { symbol } = useCurrency();
   const { hasAnyPermission } = usePermissions();
   const readOnly = disabled || !hasAnyPermission('menu.edit');
   return (
-    <fieldset
-      disabled={readOnly}
-      className="min-w-0 space-y-5 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5"
-    >
-      <h2 className="font-semibold">{t('itemSectionDistribution')}</h2>
-      <label className="flex min-h-11 items-center justify-between gap-3 text-sm font-medium">
-        {t('active')}
-        <Switch
-          checked={isActive}
-          onCheckedChange={setIsActive}
-          disabled={readOnly}
-          aria-label={t('active')}
-        />
-      </label>
-      <Field label={t('menus')} hint={t('cartesPickHint')}>
+    <fieldset disabled={readOnly} className="item-distribution">
+      <section
+        className="item-side-card item-state-card"
+        aria-labelledby="item-state-title"
+      >
+        <h2 id="item-state-title">{t('status')}</h2>
+        <label className="item-state-control">
+          <span>{isActive ? t('active') : t('inactive')}</span>
+          <Switch
+            checked={isActive}
+            onCheckedChange={setIsActive}
+            disabled={readOnly}
+            aria-label={t('active')}
+          />
+        </label>
+      </section>
+      <section className="item-side-card" aria-labelledby="item-category-title">
+        <h2 id="item-category-title">{t('categories')}</h2>
+        <p>{t('itemCategoryPurpose')}</p>
+        <div className="item-category-picker">
+          <Search size={20} aria-hidden />
+          <select
+            id="menu-item-category"
+            aria-label={t('category')}
+            disabled={readOnly}
+            value={categoryId}
+            onChange={(event) => setCategoryId(Number(event.target.value))}
+          >
+            {!categories.some((category) => category.id === categoryId) && (
+              <option value={categoryId}>{t('addToCategories')}</option>
+            )}
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
+      <section className="item-side-card" aria-labelledby="item-menus-title">
+        <h2 id="item-menus-title">{t('menus')}</h2>
+        <p>{t('itemMenusPurpose')}</p>
         <MenuGroupPicker
+          appearance="item-editor"
           disabled={readOnly}
           menus={menus}
           selectedGroupIds={selectedGroupIds}
@@ -64,41 +85,10 @@ export default function MenuItemDistribution({
           emptyLabel={t('noMenusAvailable')}
           noGroupsHint={t('noGroupsInMenu')}
         />
-      </Field>
-      <p className="text-xs leading-relaxed text-[var(--fg-muted)]">
-        {t('itemChannelsInherited')}
-      </p>
-      <Field
-        htmlFor="menu-item-category"
-        label={t('category')}
-        hint={t('itemInternalCategoryHint')}
-      >
-        <select
-          id="menu-item-category"
-          disabled={readOnly}
-          value={categoryId}
-          onChange={(event) => setCategoryId(Number(event.target.value))}
-          className="input text-sm"
-        >
-          {!categories.some((category) => category.id === categoryId) && (
-            <option value={categoryId}>{t('addToCategories')}</option>
-          )}
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <div className="border-t border-[var(--line)] pt-4 text-sm">
-        <p className="break-words font-medium">{name || t('createItem')}</p>
-        <p
-          dir="ltr"
-          className="mt-1 text-start tabular-nums text-[var(--fg-muted)]"
-        >
-          {price.toFixed(2)} {symbol}{byWeight ? '/kg' : ''}
-        </p>
-      </div>
+        {selectedGroupIds.size === 0 && (
+          <p className="item-menu-empty-hint">{t('itemMenuRequiredHint')}</p>
+        )}
+      </section>
     </fieldset>
   );
 }
