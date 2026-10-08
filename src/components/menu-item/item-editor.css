@@ -475,8 +475,7 @@
 .item-editor-section textarea {
   font-size: 16px;
 }
-.item-editor-section
-  .input:not(.item-field input):not(.item-type-field select) {
+.item-editor-section .input {
   min-height: 48px;
   border-color: var(--line);
   border-radius: 8px;
