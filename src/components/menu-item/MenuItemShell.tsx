@@ -58,7 +58,15 @@ export default function MenuItemShell({
     const section = scrollRoot?.querySelector<HTMLElement>(
       `[data-item-section="${id}"]`,
     );
-    section?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    if (section && scrollRoot)
+      scrollRoot.scrollTo({
+        top:
+          scrollRoot.scrollTop +
+          section.getBoundingClientRect().top -
+          scrollRoot.getBoundingClientRect().top -
+          24,
+        behavior: 'auto',
+      });
     section?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
   };
   useEffect(() => {
@@ -96,7 +104,14 @@ export default function MenuItemShell({
         `[data-item-section="${id}"]`,
       );
       if (!section) return false;
-      section.scrollIntoView({ block: 'start' });
+      root.scrollTo({
+        top:
+          root.scrollTop +
+          section.getBoundingClientRect().top -
+          root.getBoundingClientRect().top -
+          24,
+        behavior: 'auto',
+      });
       return true;
     };
     // Availability and recipe data can expand earlier sections after mount.
@@ -138,10 +153,12 @@ export default function MenuItemShell({
           and get inverted by the RTL containing-block rules.
           Entrance animation (fade-in + subtle zoom) matches the Radix-powered
           FullScreenEditor used by Stock / Prep editors. */}
+        {/* Only the body scrolls. Clip also prevents focus/section jumps from
+            scrolling this outer container and displacing the action header. */}
         <Dialog.Content
           {...focus}
           aria-describedby={undefined}
-          className="fixed z-50 inset-0 md:top-[32px] md:bottom-[24px] md:left-[24px] md:right-[24px] pt-safe-t pb-safe-b flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
+          className="fixed z-50 inset-0 md:top-[32px] md:bottom-[24px] md:left-[24px] md:right-[24px] pt-safe-t pb-safe-b flex flex-col overflow-clip bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
         >
           {/* Head — 60px, close-left · centered title · save/cancel right.
             Cancel button hides on mobile (X already cancels). */}
