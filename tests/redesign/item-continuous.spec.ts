@@ -77,7 +77,7 @@ test('full-page editing preserves drafts and fixed actions while scrolling', asy
   await page.locator('#menu-item-name').fill('Salad changed');
   await expect(
     page.getByRole('navigation', { name: 'On this page' }),
-  ).toHaveCount(0);
+  ).toBeHidden();
   await expect(page.locator('.item-side-card')).toHaveCount(3);
   const dialogBox = await page.getByRole('dialog').boundingBox();
   expect(dialogBox).toMatchObject({ x: 0, y: 0, width: 1440, height: 812 });
@@ -127,9 +127,7 @@ test('cancel discards staged stock and form changes', async ({ page }) => {
     .last()
     .click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Discard changes', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(page).toHaveURL('/1/menu/items');
   expect(fixture.writes).toEqual([]);
 });
@@ -495,4 +493,268 @@ test('a new item can preview and remove a selected photo before creation', async
   await expect(page).toHaveURL('/1/menu/items');
   expect(fixture.items[3]).toMatchObject({ name: 'New dish without photo' });
   expect(fixture.items[3].image_url || '').toBe('');
+});
+
+test('outline appears only after the cards and scrolls without losing the draft', async ({
+  page,
+}) => {
+  await install(page);
+  await page.goto('/1/menu/items/1');
+  const outline = page.getByRole('navigation', { name: 'On this page' });
+  await expect(outline).toBeHidden();
+  await page.locator('#menu-item-name').fill('Kept between sections');
+  const scroll = page.locator('[data-item-editor-scroll]');
+  const threshold = await page
+    .locator('.item-editor-sidebar > div')
+    .evaluate(
+      (el) =>
+        el.getBoundingClientRect().bottom -
+        document
+          .querySelector('[data-item-editor-scroll]')!
+          .getBoundingClientRect().top,
+    );
+  await scroll.evaluate((el, top) => {
+    el.scrollTop = top - 5;
+  }, threshold);
+  await expect(outline).toBeHidden();
+  await scroll.evaluate((el, top) => {
+    el.scrollTop = top + 5;
+  }, threshold);
+  await expect(outline).toBeInViewport();
+  await outline
+    .getByRole('button', { name: 'Recipe and cost', exact: true })
+    .click();
+  await expect(page.locator('#item-recipe-title')).toBeInViewport();
+  await expect(
+    outline.getByRole('button', { name: 'Recipe and cost', exact: true }),
+  ).toHaveAttribute('aria-current', 'location');
+  await expect(page.locator('#menu-item-name')).toHaveValue(
+    'Kept between sections',
+  );
+  await outline
+    .getByRole('button', { name: 'Item information', exact: true })
+    .click();
+  await expect(page.locator('#menu-item-name')).toBeInViewport();
+  await expect(outline).toBeHidden();
+  await page.locator('#item-recipe-title').scrollIntoViewIfNeeded();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(outline).toBeHidden();
+});
+
+test('leave dialog saves the current form and keeps it open when persistence fails', async ({
+  page,
+}) => {
+  const fixture = await install(page);
+  await page.goto('/1/menu/items/1');
+  await page.locator('#menu-item-name').fill('Saved from confirmation');
+  await page.locator('.item-editor-close').click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('Some of your changes haven’t been saved');
+  await expect(
+    dialog.getByRole('button', { name: 'Save', exact: true }),
+  ).toBeFocused();
+  let fail = true;
+  await page.route('**/api/v1/menu/items/1?*', (route) =>
+    route.request().method() === 'PUT' && fail
+      ? route.fulfill({ status: 503, json: { error: 'Save unavailable' } })
+      : route.fallback(),
+  );
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Save unavailable');
+  await expect(page.locator('#menu-item-name')).toHaveValue(
+    'Saved from confirmation',
+  );
+  fail = false;
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.items[0].name).toBe('Saved from confirmation');
+});
+
+test('Escape resumes editing and a reverted form closes without prompting', async ({
+  page,
+}) => {
+  const fixture = await install(page);
+  await page.goto('/1/menu/items/1');
+  await page.locator('#menu-item-name').fill('Temporary');
+  await page.locator('.item-editor-close').click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('alertdialog')).toBeHidden();
+  await expect(page.locator('#menu-item-name')).toHaveValue('Temporary');
+  await page.locator('#menu-item-name').fill(fixture.items[0].name);
+  await page.locator('.item-editor-close').click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.writes).toEqual([]);
+});
+
+test('browser back retains the mounted draft until save or discard', async ({
+  page,
+}) => {
+  const fixture = await install(page);
+  await page.goto('/1/menu/items');
+  await page.getByText('Salade méditerranéenne', { exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items/1');
+  await page.locator('#menu-item-name').fill('Browser back draft');
+  await expect(page.locator('.item-editor-unsaved')).toBeVisible();
+  await page.goBack({ timeout: 3000 }).catch(() => undefined);
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await expect(page).toHaveURL('/1/menu/items/1');
+  await page
+    .getByRole('button', { name: 'Continue editing', exact: true })
+    .click();
+  await expect(page.locator('#menu-item-name')).toHaveValue(
+    'Browser back draft',
+  );
+  await page.goBack({ timeout: 3000 }).catch(() => undefined);
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Save', exact: true })
+    .click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.items[0].name).toBe('Browser back draft');
+});
+
+test('internal links preserve the requested destination through the save choice', async ({
+  page,
+}) => {
+  const fixture = await install(page);
+  await page.goto('/1/menu/items/1?tab=availability');
+  await page.locator('#menu-item-name').fill('Saved before settings');
+  await page.getByRole('link', { name: 'Manage rules', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Save', exact: true })
+    .click();
+  await expect(page).toHaveURL('/1/settings/stock/availability');
+  expect(fixture.items[0].name).toBe('Saved before settings');
+});
+
+test('creation can save or explicitly discard the recoverable draft on exit', async ({
+  page,
+}) => {
+  const fixture = await install(page);
+  await page.goto('/1/menu/items/new');
+  await page.locator('#menu-item-name').fill('Created from confirmation');
+  await page.locator('.item-editor-close').click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(
+    dialog.getByRole('button', { name: 'Save', exact: true }),
+  ).toBeDisabled();
+  await expect(dialog).toContainText('Enter a name and a valid price');
+  await dialog
+    .getByRole('button', { name: 'Continue editing', exact: true })
+    .click();
+  await page
+    .getByRole('textbox', { name: 'Selling price', exact: true })
+    .fill('24');
+  await page.locator('.item-editor-close').click();
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.items[3]).toMatchObject({
+    name: 'Created from confirmation',
+    price: 24,
+  });
+  await page.getByRole('button', { name: 'Create item', exact: true }).click();
+  await page.locator('#menu-item-name').fill('Explicitly discarded');
+  await page.locator('.item-editor-close').click();
+  await dialog.getByRole('button', { name: 'Discard', exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(
+    await page.evaluate(() => localStorage.getItem('foody.menu.itemDraft.1')),
+  ).toBeNull();
+  expect(fixture.items).toHaveLength(4);
+});
+
+test('reload warns natively and dismissal retains the form', async ({
+  page,
+}) => {
+  await install(page);
+  await page.goto('/1/menu/items/1');
+  await page.locator('#menu-item-name').fill('Reload draft');
+  const warning = page.waitForEvent('dialog');
+  const reload = page.reload({ timeout: 5000 }).catch(() => undefined);
+  const dialog = await warning;
+  expect(dialog.type()).toBe('beforeunload');
+  await dialog.dismiss();
+  await reload;
+  await expect(page.locator('#menu-item-name')).toHaveValue('Reload draft');
+});
+
+test('browser forward and rapid repeated back keep the draft intact', async ({
+  page,
+}) => {
+  const fixture = await install(page);
+  await page.goto('/1/menu/items');
+  await page.getByText('Salade méditerranéenne', { exact: true }).click();
+  await page.locator('.item-editor-close').click();
+  await expect(page).toHaveURL('/1/menu/items');
+  await page.goBack();
+  await expect(page).toHaveURL('/1/menu/items/1');
+  await page.locator('#menu-item-name').fill('Forward draft');
+  await page.goForward({ timeout: 3000 }).catch(() => undefined);
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Continue editing', exact: true })
+    .click();
+  await page.goBack({ timeout: 3000 }).catch(() => undefined);
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page.goBack({ timeout: 3000 }).catch(() => undefined);
+  await expect(page.locator('#menu-item-name')).toHaveValue('Forward draft');
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Discard', exact: true })
+    .click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.writes).toEqual([]);
+});
+
+test('history fallback still protects editors in browsers without navigation entry indexes', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(window, 'navigation', {
+      value: undefined,
+      configurable: true,
+    }),
+  );
+  const fixture = await install(page);
+  await page.goto('/1/menu/items');
+  await page.getByText('Salade méditerranéenne', { exact: true }).click();
+  await page.locator('#menu-item-name').fill('Legacy draft');
+  await page.goBack({ timeout: 3000 }).catch(() => undefined);
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await expect(page.locator('#menu-item-name')).toHaveValue('Legacy draft');
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Discard', exact: true })
+    .click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.writes).toEqual([]);
+});
+
+test('outline excludes sections hidden by the combo type and stays usable in Hebrew', async ({
+  page,
+}) => {
+  await install(page, { combo: true, locale: 'he' });
+  await page.goto('/1/menu/items/1');
+  await page.locator('#item-availability-title').scrollIntoViewIfNeeded();
+  const outline = page.locator('.item-section-outline');
+  await expect(outline).toBeVisible();
+  const names = await outline.getByRole('button').allTextContents();
+  const visible = await page
+    .locator('[data-item-section]:not([hidden]) > h2')
+    .allTextContents();
+  expect(names).toEqual(visible);
+  expect(await outline.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+    true,
+  );
+  await page.locator('#menu-item-name').fill('טיוטה');
+  await page.locator('.item-editor-close').click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toBeInViewport();
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+    true,
+  );
 });
