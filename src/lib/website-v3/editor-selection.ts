@@ -5,7 +5,7 @@ import {
   type DraftPagePayload,
 } from "./types";
 
-export type OrderEditorRegion = "order-banner" | "order-items" | "order-fulfillment";
+export type OrderEditorRegion = "order-banner" | "order-items" | "order-fulfillment" | "order-journey";
 
 export type RailSelection =
   | { kind: "site"; pageKey?: string; region?: "header" | "footer" | "footer-branding"; headerElement?: HeaderElement }

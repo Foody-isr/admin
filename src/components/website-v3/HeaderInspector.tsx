@@ -35,6 +35,7 @@ export function HeaderInspector({
   activeElement,
   page,
   onOrderHeaderChange,
+  onOpenOrderJourney,
 }: {
   config: DraftConfigPayload;
   pages: DraftPagePayload[];
@@ -44,10 +45,11 @@ export function HeaderInspector({
   restaurantCoverUrl?: string;
   onChange: (path: readonly (string | number)[], value: unknown) => void;
   activeElement?: HeaderElement;
+  onOpenOrderJourney?: () => void;
   page?: DraftPagePayload | null;
   onOrderHeaderChange?: (header: ReturnType<typeof orderHeaderPresentation> | null, shared: WebsiteHeader) => void;
 }) {
-  const { locale } = useI18n(),
+  const { locale, t } = useI18n(),
     c = headerCopy(locale);
   const root = useRef<HTMLDivElement>(null);
   const [links, setLinks] = useState(false),
@@ -548,6 +550,7 @@ export function HeaderInspector({
               {check(c.cart, header.icons.cart, (value) =>
                 patch("icons", { cart: value }),
               )}
+              {onOpenOrderJourney && <button className="sqe-text-button" onClick={onOpenOrderJourney}>{t("editorOrderJourney")}</button>}
               {check(c.search, header.icons.search, (value) =>
                 patch("icons", { search: value }),
               )}

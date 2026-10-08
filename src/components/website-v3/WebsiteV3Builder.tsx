@@ -1,4 +1,6 @@
 "use client";
+import { OrderJourneyEditor, type OrderJourneyScreen } from "./OrderJourneyEditor";
+import type { CheckoutConfig } from "@/lib/api";
 
 import {
   retargetNavigationPage,
@@ -243,6 +245,8 @@ function DesktopWebsiteV3Builder({
   const [selection, setSelection] = useState<RailSelection>({ kind: "site" });
   const [tab, setTab] = useState<InspectorTab>("content");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
+  const [journeyScreen, setJourneyScreen] = useState<OrderJourneyScreen>("cart");
+  const [journeyOrderType, setJourneyOrderType] = useState<"delivery" | "pickup">("delivery");
   /** Which surface of the active page the preview shows. Only order pages have
    *  a checkout, so this is a *request* — `effectiveSurface` clamps it. Owned
    *  here rather than in PreviewCanvas so the inspector can show the settings
@@ -1177,6 +1181,17 @@ function DesktopWebsiteV3Builder({
    *  `src`, which remounts it and replays the ready handshake on its own.
    *  Bumping would move previewRevision and could flip previewStatus and
    *  canPublish for a surface change that published nothing. */
+  const openOrderJourney = (key = activePage ? pageKey(activePage) : "", screen: OrderJourneyScreen = "cart") => {
+    const page = state?.pages.find(candidate => pageKey(candidate) === key);
+    if (busyRef.current || themePreview || page?.type !== "order") return;
+    setSectionCandidate(null);
+    setPageCandidate(null);
+    setHoveredSectionKey(null);
+    setJourneyScreen(screen);
+    setRequestedSurface("checkout");
+    setSelection({ kind: "page", key, region: "order-journey" });
+  };
+
   const changeSurface = (next: InspectorSurface) => {
     if (busyRef.current || next === requestedSurface) return;
     setRequestedSurface(next);
@@ -1194,6 +1209,7 @@ function DesktopWebsiteV3Builder({
     setSectionCandidate(null);
     setPageCandidate(null);
     setHoveredSectionKey(null);
+    setRequestedSurface("page");
     setSelection({ kind: "page", key });
     setTab("content");
     bumpPreview(false);
@@ -1224,6 +1240,7 @@ function DesktopWebsiteV3Builder({
 
   const selectSection = (key: string, field?: string) => {
     if (!activePage || busyRef.current || themePreview) return;
+    setRequestedSurface("page");
     setSelection({
       kind: "section",
       pageKey: pageKey(activePage),
@@ -1310,6 +1327,7 @@ function DesktopWebsiteV3Builder({
             busy={busy}
             onTabChange={setTab}
             onSelectSite={(region) => {
+              setRequestedSurface("page");
               setSelection({
                 kind: "site",
                 pageKey: pageKey(activePage),
@@ -1322,9 +1340,10 @@ function DesktopWebsiteV3Builder({
             hoveredSectionKey={hoveredSectionKey}
             onHoverSection={setHoveredSectionKey}
             onSectionChange={updateSection}
-            onClearSelection={() =>
-              setSelection({ kind: "page", key: pageKey(activePage) })
-            }
+            onClearSelection={() => {
+              setRequestedSurface("page");
+              setSelection({ kind: "page", key: pageKey(activePage) });
+            }}
             onPreviewPage={previewPageTemplate}
             onMakeHomepage={(key) =>
               setLocalState(makeHomepagePage(state, key))
@@ -1397,8 +1416,18 @@ function DesktopWebsiteV3Builder({
                 onEditShared={onEditShared}
               />
             )}
-            orderEditor={region => <OrderPageEditor restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={Boolean((loaded.restaurant.pickup_enabled && loaded.restaurant.delivery_enabled) || (loaded.restaurant.scheduling_enabled && !loaded.restaurant.batch_fulfillment_enabled))} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => { setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : "fulfillment"}); setTab("content"); }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
-            onSelectOrderRegion={region => setSelection({kind: "page", key: pageKey(activePage), region})}
+            orderEditor={region => region === "order-journey" ? <OrderJourneyEditor
+              restaurantId={restaurantId} colorStyle={String((activePage.appearance_overrides.website_order as {color_style?: string} | undefined)?.color_style ?? "default")} screen={journeyScreen} onScreenChange={setJourneyScreen}
+              colors={activePage.appearance_overrides.order_journey}
+              onColorsChange={value => updatePage(pageKey(activePage), ["appearance_overrides", "order_journey"], value)}
+              orderType={journeyOrderType} onOrderTypeChange={setJourneyOrderType}
+              value={state.config.checkout_config as CheckoutConfig | null}
+              placesAvailable={Boolean(loaded.restaurant.google_places_api_key)}
+              onChange={value => updateConfig(["checkout_config"], value)}
+              onEditCartButton={() => window.dispatchEvent(new Event("foody-edit-site-buttons"))}
+            /> : <OrderPageEditor restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={Boolean((loaded.restaurant.pickup_enabled && loaded.restaurant.delivery_enabled) || (loaded.restaurant.scheduling_enabled && !loaded.restaurant.batch_fulfillment_enabled))} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => { setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : "fulfillment"}); setTab("content"); }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
+            onSelectOrderRegion={region => { setRequestedSurface(region === "order-journey" ? "checkout" : "page"); setSelection({kind: "page", key: pageKey(activePage), region}); }}
+            onOpenOrderJourney={openOrderJourney}
             inspector={
               <Inspector
                 restaurantId={restaurantId}
@@ -1416,6 +1445,7 @@ function DesktopWebsiteV3Builder({
                 errors={allErrors}
                 onTabChange={setTab}
                 onSurfaceChange={changeSurface}
+                onOpenOrderJourney={activePage.type === "order" ? () => openOrderJourney() : undefined}
                 onConfigChange={updateConfig}
                 onOrderHeaderChange={(key, header, shared) => {
                   const next = updateWebsitePageAtPath(state, key, ["appearance_overrides", "order_header"], header);
@@ -1445,6 +1475,9 @@ function DesktopWebsiteV3Builder({
         }
         preview={
           <PreviewCanvas
+            onOpenOrderJourney={() => openOrderJourney()}
+            journeyScreen={journeyScreen}
+            journeyOrderType={journeyOrderType}
             webOrigin={webOrigin}
             restaurantSlug={loaded.restaurant.slug}
             restaurantId={restaurantId}
@@ -1457,7 +1490,7 @@ function DesktopWebsiteV3Builder({
               selection.kind === "section" ? selection.field : undefined
             }
             activeRegion={
-              selection.kind === "site" || selection.kind === "page" ? selection.region : undefined
+              selection.kind === "site" ? selection.region : selection.kind === "page" ? selection.region === "order-journey" ? undefined : selection.region : undefined
             }
             orderDialog={selection.kind === "page" && selection.region === "order-fulfillment" ? "fulfillment" : selection.kind === "page" && selection.region === "order-items" && previewOrderItem ? "item" : undefined}
             onSelectRegion={(region, headerElement) => {
@@ -1483,9 +1516,10 @@ function DesktopWebsiteV3Builder({
               setNotice(null);
               updateSection(key, ["content", field], value);
             }}
-            onClearSelection={() =>
-              setSelection({ kind: "page", key: pageKey(activePage) })
-            }
+            onClearSelection={() => {
+              setRequestedSurface("page");
+              setSelection({ kind: "page", key: pageKey(activePage) });
+            }}
             previewOnly={
               previewOnly ||
               Boolean(themePreview || sectionCandidate || pageCandidate)

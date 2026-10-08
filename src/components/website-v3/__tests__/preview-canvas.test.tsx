@@ -139,7 +139,8 @@ test("the page surface keeps the order preview on the landing bootstrap", () => 
 // The one thing that, if it regresses, silently kills the whole feature: the
 // checkout surface must point the iframe at the checkout route, carrying the
 // page slug so foodyweb can resolve that page's appearance overrides.
-test("the checkout surface points the iframe at the checkout route", () => {
+for (const screen of [undefined, "cart", "checkout", "confirmation"] as const) test(`the ${screen ?? "default checkout"} preview carries its page and fulfillment mode`, () => {
+  const orderType = screen ? "pickup" : "delivery";
   Object.assign(globalThis, { React });
   const state = {
     config: {},
@@ -171,6 +172,8 @@ test("the checkout surface points the iframe at the checkout route", () => {
       activePage: state.pages[0],
       device: "desktop",
       surface: "checkout" as const,
+      journeyScreen: screen,
+      journeyOrderType: screen ? "pickup" : undefined,
       onSurfaceChange: () => undefined,
       revision: 2,
       contentRevision: 2,
@@ -187,11 +190,9 @@ test("the checkout surface points the iframe at the checkout route", () => {
     }),
   );
 
-  assert.match(
-    markup,
-    /src="https:\/\/dev-app\.foody-pos\.co\.il\/order\/checkout\?restaurantId=moulin-doree&amp;orderType=delivery&amp;preview=1&amp;pageSlug=commander"/,
-  );
-  assert.match(markup, /title="Aperçu du checkout"/);
+  const path = screen === "confirmation" ? "confirmation/preview" : screen ?? "checkout";
+  assert.ok(markup.includes(`/order/${path}?restaurantId=moulin-doree&amp;orderType=${orderType}&amp;preview=1&amp;pageSlug=commander`));
+  assert.ok(markup.includes(screen === "cart" ? "Aperçu du panier" : screen === "confirmation" ? "Aperçu de la confirmation" : "Aperçu du checkout"));
   assert.doesNotMatch(markup, /Ajouter un composant/);
 });
 

@@ -15,6 +15,7 @@ import {
   PanelTop,
   Plus,
   Search,
+  ShoppingBag,
   Settings,
   Tag,
   Type,
@@ -47,6 +48,7 @@ import { EDITOR_ELEMENTS } from "@/lib/website-v3/editor-elements";
 import type { StatePath } from "@/lib/website-v3/types";
 import { componentGroupsForPage } from "./PreviewCanvas";
 
+import type { OrderJourneyScreen } from "@/lib/website-v3/order-journey";
 import type { OrderEditorRegion } from "@/lib/website-v3/editor-selection";
 
 type Panel =
@@ -63,6 +65,7 @@ export function EditorSidebar({
   inspector,
   orderEditor,
   onSelectOrderRegion,
+  onOpenOrderJourney,
   design,
   alerts,
   onTabChange,
@@ -98,7 +101,8 @@ export function EditorSidebar({
   inspector: ReactNode;
   orderEditor?: (region: OrderEditorRegion) => ReactNode;
   onSelectOrderRegion?: (region: OrderEditorRegion) => void;
-  design: (onEditShared: () => void, initialScreen?: "root" | "colors", colorTarget?: SiteColorEditTarget) => ReactNode;
+  onOpenOrderJourney?: (pageKey: string, screen: OrderJourneyScreen) => void;
+  design: (onEditShared: () => void, initialScreen?: "root" | "colors" | "buttons", colorTarget?: SiteColorEditTarget) => ReactNode;
   alerts: ReactNode;
   onTabChange: (tab: InspectorTab) => void;
   onSelectSite: (region?: "header" | "footer" | "footer-branding") => void;
@@ -129,7 +133,7 @@ export function EditorSidebar({
   onDeleteSection: (key: string) => void;
 }) {
   const { t } = useI18n();
-  const [designScreen, setDesignScreen] = useState<"root" | "colors">("root");
+  const [designScreen, setDesignScreen] = useState<"root" | "colors" | "buttons">("root");
   const [colorTarget, setColorTarget] = useState<SiteColorEditTarget>();
   useEffect(() => {
     const open = (event: Event) => {
@@ -137,8 +141,13 @@ export function EditorSidebar({
       setDesignScreen("colors");
       setPanel("design");
     };
+    const openButtons = () => { setDesignScreen("buttons"); setPanel("design"); };
     window.addEventListener("foody-edit-color-styles", open);
-    return () => window.removeEventListener("foody-edit-color-styles", open);
+    window.addEventListener("foody-edit-site-buttons", openButtons);
+    return () => {
+      window.removeEventListener("foody-edit-color-styles", open);
+      window.removeEventListener("foody-edit-site-buttons", openButtons);
+    };
   }, []);
   const [panel, setPanel] = useState<Panel>("outline");
   const [sectionContentOpen, setSectionContentOpen] = useState(false);
@@ -176,11 +185,12 @@ export function EditorSidebar({
     if (
       !selectedSectionKey &&
       lastSectionKey.current &&
+      !orderRegion &&
       selection.kind === "page"
     )
       setPanel("outline");
     lastSectionKey.current = selectedSectionKey;
-  }, [selectedSectionKey, activeField, selection.kind, onTabChange]);
+  }, [selectedSectionKey, activeField, selection.kind, orderRegion, onTabChange]);
   useEffect(() => {
     if (selection.kind === "site" && selection.region) setPanel("inspector");
   }, [selection]);
@@ -340,7 +350,7 @@ export function EditorSidebar({
                           ? "editorFooter"
                           : "editorSettings",
                     )
-                  : orderRegion ? t(orderRegion === "order-items" ? "editorItemList" : orderRegion === "order-banner" ? "editorMainBanner" : "editorOrderFulfillment") : activePage.title}
+                  : orderRegion ? t(orderRegion === "order-journey" ? "editorOrderJourney" : orderRegion === "order-items" ? "editorItemList" : orderRegion === "order-banner" ? "editorMainBanner" : "editorOrderFulfillment") : activePage.title}
         </h2>
         {panel === "inspector" && selectedSection && (
           <div className="sqe-more">
@@ -442,7 +452,8 @@ export function EditorSidebar({
     .filter(
       (p) =>
         !isTechnicalSitePage(p) &&
-        p.title.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+        (p.title.toLocaleLowerCase().includes(search.toLocaleLowerCase()) ||
+          (p.type === "order" && [t("editorOrderJourney"), t("editorJourneyCart"), t("editorJourneyCheckout"), t("editorJourneyConfirmation")].some(label => label.toLocaleLowerCase().includes(search.toLocaleLowerCase())))),
     )
     .sort((a, b) => a.sort_order - b.sort_order);
   return (
@@ -594,6 +605,11 @@ export function EditorSidebar({
           <div className="sqe-section-row" data-hovered={hoveredSectionKey === "site:footer-branding" || undefined} onMouseEnter={() => onHoverSection("site:footer-branding")} onMouseLeave={() => onHoverSection(null)}>
             <button onClick={() => editSite("footer-branding")}><PanelTop size={20}/>{t("editorFooterBranding")}</button>
           </div>
+          {activePage.type === "order" && <div className="sqe-section-row sqe-journey-entry">
+            <button onClick={() => { onSelectOrderRegion?.("order-journey"); setPanel("inspector"); }}>
+              <ShoppingBag size={20} />{t("editorOrderJourney")}
+            </button>
+          </div>}
           {groups.length > 0 && (
             <button
               className="sqe-add-section"
@@ -631,8 +647,8 @@ export function EditorSidebar({
               {pages
                 .filter((p) => (types as readonly string[]).includes(p.type))
                 .map((p) => (
+                  <div key={pageKey(p)}>
                   <div
-                    key={pageKey(p)}
                     className="sqe-page-item"
                     aria-current={pageKey(p) === activeKey}
                     style={{ position: "relative" }}
@@ -719,6 +735,15 @@ export function EditorSidebar({
                         </div>
                       </>
                     )}
+                  </div>
+                  {p.type === "order" && onOpenOrderJourney && <nav className="sqe-journey-pages" aria-label={`${t("editorOrderJourney")} : ${p.title}`}>
+                    <span>{t("editorOrderJourney")}</span>
+                    {([ ["cart", "editorJourneyCart"], ["checkout", "editorJourneyCheckout"], ["confirmation", "editorJourneyConfirmation"] ] as const).map(([screen, title]) => (
+                      <button key={screen} disabled={busy} onClick={() => { onOpenOrderJourney(pageKey(p), screen); setPanel("inspector"); }}>
+                        {t(title)}
+                      </button>
+                    ))}
+                  </nav>}
                   </div>
                 ))}
               {label === "editorStandardPages" && (

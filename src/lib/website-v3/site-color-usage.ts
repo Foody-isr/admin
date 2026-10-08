@@ -1,9 +1,10 @@
+import { orderJourneyColorStyle } from "./order-journey";
 import { headerFromLegacy, resolvePageHeader } from "./header";
 import { normalizeSiteColors, sectionSiteColorId } from "./site-colors";
 import { sectionBelongs } from "./section-operations";
 import { pageKey, type DraftConfigPayload, type DraftPagePayload, type DraftSectionPayload } from "./types";
 
-export type ColorUsagePart = "header" | "info" | "menu" | "sections";
+export type ColorUsagePart = "header" | "info" | "menu" | "sections" | "cart" | "checkout" | "confirmation";
 
 /** Lists actual style assignments, including shared chrome and order-page overrides. */
 export function siteColorUsage(
@@ -25,6 +26,12 @@ export function siteColorUsage(
     if (matches(header.color_style)) parts.add("header");
     if (header.layout === "restaurant" && header.restaurant.info_enabled && matches(header.restaurant.info_color_style)) parts.add("info");
     if (page.type === "order" && matches(page.appearance_overrides.website_order?.color_style)) parts.add("menu");
+    if (page.type === "order") {
+      for (const screen of ["cart", "checkout", "confirmation"] as const) {
+        if (matches(orderJourneyColorStyle(page.appearance_overrides.order_journey, screen,
+          String(page.appearance_overrides.website_order?.color_style ?? "default")))) parts.add(screen);
+      }
+    }
     if (sections.some(section => section.is_visible &&
       (sectionBelongs(section, page) || section.page === "_site") &&
       matches(section.settings.color_style ?? "light"))) parts.add("sections");

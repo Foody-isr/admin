@@ -41,7 +41,7 @@ export function SiteDesign({
   onEditShared,
 }: {
   state: DraftStatePayload;
-  initialScreen?: "root" | "colors";
+  initialScreen?: "root" | "colors" | "buttons";
   colorTarget?: SiteColorEditTarget;
   previewContext: { webOrigin: string; restaurantSlug: string; restaurantId: number };
   catalog: ThemeCatalog;

@@ -73,6 +73,8 @@ interface CheckoutEditorProps {
   value: CheckoutConfig | null | undefined;
   onChange: (next: CheckoutConfig) => void;
   placesAvailable: boolean;
+  /** The V3 journey panel owns screen navigation and fulfillment rules. */
+  embedded?: boolean;
   subTab: CheckoutSubTab;
   onSubTabChange: (next: CheckoutSubTab) => void;
 }
@@ -88,7 +90,7 @@ interface CheckoutEditorProps {
  * orderType is controlled by the page so the live preview iframe can stay in
  * sync with the sub-tab the owner is editing.
  */
-export default function CheckoutEditor({ value, onChange, placesAvailable, subTab, onSubTabChange }: CheckoutEditorProps) {
+export default function CheckoutEditor({ value, onChange, placesAvailable, subTab, onSubTabChange, embedded = false }: CheckoutEditorProps) {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null);
   const orderType: OrderTypeKey = subTab === 'pickup' ? 'pickup' : 'delivery';
 
@@ -195,6 +197,7 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
 
   return (
     <div className="flex flex-col h-full">
+      {!embedded && <>
       {/* Sub-tabs: Livraison · Retrait · Confirmation */}
       <div className="px-4 pt-4">
         <div className="flex p-1 rounded-xl text-[13px]" style={{ background: 'var(--surface-subtle)' }}>
@@ -230,6 +233,7 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
         </Row>
       </div>
 
+      </>}
       {subTab === 'confirmation' ? (
         <div className="flex-1 overflow-y-auto">
           <ConfirmationEditor

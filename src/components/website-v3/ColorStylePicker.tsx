@@ -23,7 +23,9 @@ export function ColorStylePicker({
   fieldId,
   defaultLabel,
   menuGroup,
+  inheritedStyle,
 }: {
+  inheritedStyle?: string;
   menuGroup?: SiteColorEditTarget["menuGroup"];
   fieldId?: string;
   defaultLabel?: string;
@@ -39,7 +41,7 @@ export function ColorStylePicker({
     <div className="sqe-shared-colors" data-field-id={fieldId}>
       <div className="sqe-color-heading">
         <span>{t("editorColorStyle")}</span>
-        <button type="button" onClick={() => openSiteColors({ styleId: selected, menuGroup })}>
+        <button type="button" onClick={() => openSiteColors({ styleId: selected === "default" ? inheritedStyle ?? selected : selected, menuGroup })}>
           {t("editorEditColorStyles")}
         </button>
       </div>
