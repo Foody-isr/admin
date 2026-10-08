@@ -1200,3 +1200,19 @@
 .sqe-color-role{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:10px 0}.sqe-color-role>button{width:48px;height:48px;border:1px solid #ccc;border-radius:7px}.sqe-color-choice{flex-basis:100%;border:1px solid #ddd;border-radius:10px;padding:14px;margin:12px 0}.sqe-palette-swatches button:disabled{opacity:.2;cursor:not-allowed}.sqe-color-choice [role=alert]{color:#b91c1c}
 
 .sqe-main-swatch input[type=text] {width:110px;min-height:30px;border:0;background:transparent;color:#72777d;font-size:14px;padding:0;border-radius:0}
+
+.sqe-style-editing {position:sticky;top:80px;z-index:2;background:#fff;padding-block:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:12px}
+.sqe-style-editing>span,.sqe-color-auto {color:#686d72;font-size:12px}
+.sqe-color-auto {display:block;margin-top:3px}
+.sqe-color-reset {text-decoration:underline;text-underline-offset:3px;font-size:13px;text-align:start}
+.sqe-menu-color-details {margin:24px 0;border-block:1px solid #e5e5e5;padding-block:18px}
+.sqe-menu-color-details summary {cursor:pointer;font-size:14px;font-weight:600;line-height:1.5}
+.sqe-menu-color-details details {border-top:1px solid #e5e5e5;padding-block:16px;margin-top:12px}
+.sqe-menu-color-details details:last-child {padding-bottom:0}
+.sqe-menu-color-details details .sqe-color-role {margin-top:16px}
+.sqe-color-style-grid small {font-size:10px;line-height:1.2}
+.sqe-transparent-swatch {background-image:conic-gradient(#e5e5e5 25%,#fff 0 50%,#e5e5e5 0 75%,#fff 0);background-size:12px 12px}
+.sqh-layout--restaurant { flex-direction:column; align-items:flex-start; background:linear-gradient(#d7d7d7 70%,#efefef 70%); }
+.sqh-layout--restaurant i { width:8px; height:5px; margin-bottom:8px; }
+.sqh-layout--restaurant b { width:15px; height:15px; border-radius:4px; background:white; }
+.sqh-layout--restaurant em { width:28px; height:5px; margin-top:-10px; margin-inline-start:20px; }

@@ -1372,9 +1372,10 @@ function DesktopWebsiteV3Builder({
                 )}
               </>
             }
-            design={(onEditShared, initialScreen) => (
+            design={(onEditShared, initialScreen, colorTarget) => (
               <SiteDesign
                 initialScreen={initialScreen}
+                colorTarget={colorTarget}
                 state={state}
                 catalog={loaded.catalog}
                 previewContext={{ webOrigin, restaurantSlug: loaded.restaurant.slug || String(restaurantId), restaurantId }}
@@ -1395,7 +1396,7 @@ function DesktopWebsiteV3Builder({
                 onEditShared={onEditShared}
               />
             )}
-            orderEditor={region => <OrderPageEditor sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => { setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: "fulfillment"}); setTab("content"); }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
+            orderEditor={region => <OrderPageEditor restaurantHeader={(state.config.nav_layout as {header?: {layout?: string}} | undefined)?.header?.layout === "restaurant"} orderChoicesAvailable={Boolean((loaded.restaurant.pickup_enabled && loaded.restaurant.delivery_enabled) || (loaded.restaurant.scheduling_enabled && !loaded.restaurant.batch_fulfillment_enabled))} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => { setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : "fulfillment"}); setTab("content"); }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
             onSelectOrderRegion={region => setSelection({kind: "page", key: pageKey(activePage), region})}
             inspector={
               <Inspector

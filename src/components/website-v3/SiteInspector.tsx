@@ -27,6 +27,7 @@ export function SiteInspector({
   config,
   restaurantId,
   restaurantLogoUrl,
+  restaurantCoverUrl,
   pages,
   sections,
   footer,
@@ -40,6 +41,7 @@ export function SiteInspector({
   config: DraftConfigPayload;
   restaurantId: number;
   restaurantLogoUrl?: string;
+  restaurantCoverUrl?: string;
   pages: DraftPagePayload[];
   sections: DraftSectionPayload[];
   footer: DraftSectionPayload | null;
@@ -226,7 +228,7 @@ export function SiteInspector({
     );
   }
 
-  if (editingHeader) return <><button className="sqe-button sqe-button-secondary m-4" onClick={() => setEditingHeader(false)}>Retour aux réglages du site</button><HeaderInspector config={config} pages={pages} sections={sections} restaurantId={restaurantId} restaurantLogoUrl={restaurantLogoUrl} onChange={onChange}/></>;
+  if (editingHeader) return <><button className="sqe-button sqe-button-secondary m-4" onClick={() => setEditingHeader(false)}>Retour aux réglages du site</button><HeaderInspector config={config} pages={pages} sections={sections} restaurantId={restaurantId} restaurantLogoUrl={restaurantLogoUrl} restaurantCoverUrl={restaurantCoverUrl} onChange={onChange}/></>;
   return (
     <>
       <InspectorGroup

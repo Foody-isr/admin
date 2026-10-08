@@ -218,6 +218,7 @@ export function Inspector({
           pages={state.pages.filter(candidate => !isTechnicalSitePage(candidate))}
           restaurantId={restaurantId}
           restaurantLogoUrl={restaurantLogoUrl}
+          restaurantCoverUrl={restaurant.cover_url}
           onChange={onConfigChange}
         />
       ) : selection.kind === "site" && selection.region === "footer-branding" ? (
@@ -244,6 +245,7 @@ export function Inspector({
           config={state.config}
           restaurantId={restaurantId}
           restaurantLogoUrl={restaurantLogoUrl}
+          restaurantCoverUrl={restaurant.cover_url}
           pages={state.pages.filter(
             (candidate) => !isTechnicalSitePage(candidate),
           )}

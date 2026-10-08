@@ -24,7 +24,7 @@ export function previousOrderPresentation(
   };
 }
 
-/** Selecting a shared menu style restores its background; child style references remain explicit. */
+/** Selecting a shared style gives the whole menu one color source and restores its background. */
 export function selectOrderColorStyle(
   value: Record<string, unknown>,
   id: string,

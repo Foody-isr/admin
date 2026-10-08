@@ -1,7 +1,7 @@
 /** Persisted Header component contract. Kept identical in Admin, Web and the server validator. */
 export type WebsiteHeader = {
   version: 1;
-  layout: "left" | "center" | "right" | "stacked" | "compact" | "centered";
+  layout: "left" | "center" | "right" | "stacked" | "compact" | "centered" | "restaurant";
   scroll: "sticky" | "reveal" | "none";
   color_style: "default" | "light" | "dark" | "accent" | "surface" | "soft" | "style-1" | "style-2" | "style-3" | "style-4" | "style-5" | "style-6";
   background: {
@@ -37,6 +37,15 @@ export type WebsiteHeader = {
   };
   icons: { cart: boolean; search: boolean; color: string };
   fulfillment: { enabled: boolean; background: string };
+  restaurant: {
+    height: "small" | "medium" | "large";
+    show_name: boolean;
+    info_enabled: boolean;
+    info_color_style: "default" | "style-1" | "style-2" | "style-3" | "style-4" | "style-5" | "style-6";
+    show_status: boolean;
+    show_minimum: boolean;
+    show_social: boolean;
+  };
 };
 export type HeaderTarget = {
   kind: "home" | "page" | "order" | "url" | "phone" | "email" | "file";
@@ -57,6 +66,7 @@ export const HEADER_LAYOUTS = [
   "stacked",
   "compact",
   "centered",
+  "restaurant",
 ] as const;
 export const HEADER_COLOR_STYLES = [
   "default",
@@ -73,6 +83,7 @@ export const HEADER_ELEMENTS = [
   "button",
   "icons",
   "fulfillment",
+  "restaurant",
 ] as const;
 export type HeaderElement = (typeof HEADER_ELEMENTS)[number];
 
@@ -136,7 +147,8 @@ export function normalizeWebsiteHeader(value: unknown): WebsiteHeader {
     logo = record(v.logo),
     button = record(v.button),
     icons = record(v.icons),
-    fulfillment = record(v.fulfillment);
+    fulfillment = record(v.fulfillment),
+    restaurant = record(v.restaurant);
   const links = (value: unknown, depth = 0): HeaderLink[] =>
     !Array.isArray(value) || depth > 1
       ? []
@@ -193,6 +205,15 @@ export function normalizeWebsiteHeader(value: unknown): WebsiteHeader {
       cart: bool(icons.cart, true),
       search: bool(icons.search, true),
       color: color(icons.color),
+    },
+    restaurant: {
+      height: choice(restaurant.height, ["small", "medium", "large"] as const, "medium"),
+      show_name: bool(restaurant.show_name, true),
+      info_enabled: bool(restaurant.info_enabled, true),
+      info_color_style: choice(restaurant.info_color_style, ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"] as const, "default"),
+      show_status: bool(restaurant.show_status, true),
+      show_minimum: bool(restaurant.show_minimum, true),
+      show_social: bool(restaurant.show_social, true),
     },
     fulfillment: {
       enabled: bool(fulfillment.enabled, false),

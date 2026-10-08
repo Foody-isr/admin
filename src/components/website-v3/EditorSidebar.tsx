@@ -1,4 +1,5 @@
 "use client";
+import type { SiteColorEditTarget } from "./ColorStylePicker";
 import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -97,7 +98,7 @@ export function EditorSidebar({
   inspector: ReactNode;
   orderEditor?: (region: OrderEditorRegion) => ReactNode;
   onSelectOrderRegion?: (region: OrderEditorRegion) => void;
-  design: (onEditShared: () => void, initialScreen?: "root" | "colors") => ReactNode;
+  design: (onEditShared: () => void, initialScreen?: "root" | "colors", colorTarget?: SiteColorEditTarget) => ReactNode;
   alerts: ReactNode;
   onTabChange: (tab: InspectorTab) => void;
   onSelectSite: (region?: "header" | "footer" | "footer-branding") => void;
@@ -129,7 +130,16 @@ export function EditorSidebar({
 }) {
   const { t } = useI18n();
   const [designScreen, setDesignScreen] = useState<"root" | "colors">("root");
-  useEffect(() => { const open = () => {setDesignScreen("colors"); setPanel("design");}; window.addEventListener("foody-edit-color-styles", open); return () => window.removeEventListener("foody-edit-color-styles", open); }, []);
+  const [colorTarget, setColorTarget] = useState<SiteColorEditTarget>();
+  useEffect(() => {
+    const open = (event: Event) => {
+      setColorTarget((event as CustomEvent<SiteColorEditTarget>).detail);
+      setDesignScreen("colors");
+      setPanel("design");
+    };
+    window.addEventListener("foody-edit-color-styles", open);
+    return () => window.removeEventListener("foody-edit-color-styles", open);
+  }, []);
   const [panel, setPanel] = useState<Panel>("outline");
   const [sectionContentOpen, setSectionContentOpen] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(true);
@@ -226,7 +236,7 @@ export function EditorSidebar({
           </a>
           <button
             className="sqe-button sqe-design-button"
-            onClick={() => {setDesignScreen("root"); setPanel("design");}}
+            onClick={() => {setDesignScreen("root"); setColorTarget(undefined); setPanel("design");}}
           >
             {t("editorDesign")}
           </button>
@@ -783,7 +793,7 @@ export function EditorSidebar({
           ))}
         </div>
       )}
-      {panel === "design" && design(() => editSite(), designScreen)}
+      {panel === "design" && design(() => editSite(), designScreen, colorTarget)}
       {panel === "inspector" && orderRegion && orderEditor ? orderEditor(orderRegion) : panel === "inspector" && (
         <>
           {!selectedSection &&

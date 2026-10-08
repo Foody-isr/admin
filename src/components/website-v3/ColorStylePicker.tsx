@@ -7,9 +7,13 @@ import {
 } from "@/lib/website-v3/site-colors";
 
 export const SiteColorContext = createContext<Record<string, unknown>>({});
-/** Opens the shared Colors panel from any component inspector. */
-export function openSiteColors() {
-  window.dispatchEvent(new Event("foody-edit-color-styles"));
+export type SiteColorEditTarget = {
+  styleId?: string;
+  menuGroup?: "list" | "categories" | "cards";
+};
+/** Opens the global style used by the selected component, without changing its assignment. */
+export function openSiteColors(target: SiteColorEditTarget = {}) {
+  window.dispatchEvent(new CustomEvent("foody-edit-color-styles", { detail: target }));
 }
 /** Stable references let each component reuse and inherit the site's six color styles. */
 export function ColorStylePicker({
@@ -18,7 +22,9 @@ export function ColorStylePicker({
   custom = false,
   fieldId,
   defaultLabel,
+  menuGroup,
 }: {
+  menuGroup?: SiteColorEditTarget["menuGroup"];
   fieldId?: string;
   defaultLabel?: string;
   value?: string;
@@ -33,7 +39,7 @@ export function ColorStylePicker({
     <div className="sqe-shared-colors" data-field-id={fieldId}>
       <div className="sqe-color-heading">
         <span>{t("editorColorStyle")}</span>
-        <button type="button" onClick={openSiteColors}>
+        <button type="button" onClick={() => openSiteColors({ styleId: selected, menuGroup })}>
           {t("editorEditColorStyles")}
         </button>
       </div>

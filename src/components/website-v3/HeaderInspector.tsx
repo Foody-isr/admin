@@ -19,6 +19,7 @@ import { InspectorField, ToggleField, controlClass } from "./controls";
 import { HeaderMedia } from "./HeaderMedia";
 import { HeaderLinksEditor, HeaderTargetDialog } from "./HeaderLinkEditor";
 import { headerCopy } from "./header-copy";
+import { colorContrast, normalizeSiteColors } from "@/lib/website-v3/site-colors";
 
 /** Edits the versioned Header component using the same controls as the public renderer. */
 export function HeaderInspector({
@@ -27,6 +28,7 @@ export function HeaderInspector({
   sections,
   restaurantId,
   restaurantLogoUrl,
+  restaurantCoverUrl,
   onChange,
   activeElement,
 }: {
@@ -35,6 +37,7 @@ export function HeaderInspector({
   sections: DraftSectionPayload[];
   restaurantId: number;
   restaurantLogoUrl?: string;
+  restaurantCoverUrl?: string;
   onChange: (path: readonly (string | number)[], value: unknown) => void;
   activeElement?: HeaderElement;
 }) {
@@ -56,6 +59,7 @@ export function HeaderInspector({
       ? config.restaurant_logo_url
       : restaurantLogoUrl,
   );
+  const restaurantLayout = header.layout === "restaurant";
   const set = <K extends keyof WebsiteHeader>(
     key: K,
     value: WebsiteHeader[K],
@@ -68,7 +72,8 @@ export function HeaderInspector({
       | "navigation"
       | "button"
       | "icons"
-      | "fulfillment",
+      | "fulfillment"
+      | "restaurant",
   >(
     key: K,
     value: Partial<WebsiteHeader[K]>,
@@ -187,7 +192,7 @@ export function HeaderInspector({
         <h3>{toggle("navigation", c.navigation)}</h3>
         {header.navigation.enabled && (
           <>
-            <div className="sqh-radio-stack">
+            {!restaurantLayout && <div className="sqh-radio-stack">
               {(["dropdown", "mega"] as const).map((mode) => (
                 <label key={mode}>
                   <span>
@@ -204,7 +209,7 @@ export function HeaderInspector({
                   />
                 </label>
               ))}
-            </div>
+            </div>}
             <button
               className="sqe-button sqe-button-secondary w-full"
               onClick={() => setLinks(true)}
@@ -239,7 +244,12 @@ export function HeaderInspector({
                       key={layout}
                       aria-label={c[layout]}
                       aria-pressed={header.layout === layout}
-                      onClick={() => set("layout", layout)}
+                      onClick={() => layout === "restaurant" ? onChange(["nav_layout"], {...nav, header: {
+                        ...header, layout, color_style: header.color_style === "default" ? normalizeSiteColors(config.custom_palette).styles.reduce((best, style) => colorContrast(style.background, "#ffffff") > colorContrast(best.background, "#ffffff") ? style : best).id : header.color_style,
+                        background: {...header.background, mode: "image"},
+                        logo: {...header.logo, type: header.logo.image || restaurantLogoUrl ? "image" : header.logo.type, size: 140},
+                        icons: {...header.icons, cart: false, search: false},
+                      }}) : set("layout", layout)}
                     >
                       <span
                         className={`sqh-layout sqh-layout--${layout}`}
@@ -267,7 +277,7 @@ export function HeaderInspector({
                   </button>
                 </span>
               </div>
-              <HeaderGroup label={c.scroll}>
+              {!restaurantLayout && <HeaderGroup label={c.scroll}>
                 <div className="sqh-radio-stack">
                   {(["sticky", "reveal", "none"] as const).map((scroll) => (
                     <label key={scroll}>
@@ -282,6 +292,7 @@ export function HeaderInspector({
                   ))}
                 </div>
               </HeaderGroup>
+              }
               <HeaderGroup label={c.colorStyle}>
                 <ColorStylePicker value={header.color_style} onChange={id => set("color_style", id as WebsiteHeader["color_style"])} />
               </HeaderGroup>
@@ -291,6 +302,7 @@ export function HeaderInspector({
             "background",
             c.background,
             <>
+              {restaurantLayout && <InspectorField label={c.height}><select className={controlClass} value={header.restaurant.height} onChange={e => patch("restaurant", {height: e.target.value as WebsiteHeader["restaurant"]["height"]})}>{(["small", "medium", "large"] as const).map(size => <option key={size} value={size}>{c[size]}</option>)}</select></InspectorField>}
               <select
                 aria-label={c.background}
                 className={controlClass}
@@ -309,20 +321,20 @@ export function HeaderInspector({
                     "gradient",
                     "image",
                   ] as const
-                ).map((mode) => (
+                ).filter(mode => !restaurantLayout || mode === "image" || mode === "style").map((mode) => (
                   <option key={mode} value={mode}>
                     {c[mode]}
                   </option>
                 ))}
               </select>
-              {["color", "gradient"].includes(header.background.mode) &&
+              {!restaurantLayout && ["color", "gradient"].includes(header.background.mode) &&
                 color(
                   c.color,
                   header.background.color,
                   (value) => patch("background", { color: value }),
                   "#ffffff",
                 )}
-              {header.background.mode === "gradient" && (
+              {!restaurantLayout && header.background.mode === "gradient" && (
                 <>
                   {color(
                     c.endColor,
@@ -348,8 +360,8 @@ export function HeaderInspector({
                 <>
                   <HeaderMedia
                     restaurantId={restaurantId}
-                    value={header.background.image}
-                    onChange={(image) => patch("background", { image })}
+                    value={header.background.image || (restaurantLayout ? restaurantCoverUrl || "" : "")}
+                    onChange={(image) => patch("background", { image, ...(restaurantLayout && !image ? {mode: "style" as const} : {}) })}
                     copy={c}
                   />
                   <InspectorField label={c.overlay}>
@@ -368,12 +380,23 @@ export function HeaderInspector({
               )}
             </>,
           )}
+          {restaurantLayout && accordion("restaurant", c.restaurantInfo, <>
+            {check(c.showInfo, header.restaurant.info_enabled, value => patch("restaurant", {info_enabled: value}))}
+            {header.restaurant.info_enabled && <>
+              <HeaderGroup label={c.colorStyle}><ColorStylePicker value={header.restaurant.info_color_style} onChange={value => patch("restaurant", {info_color_style: value as WebsiteHeader["restaurant"]["info_color_style"]})}/></HeaderGroup>
+              {check(c.showStatus, header.restaurant.show_status, value => patch("restaurant", {show_status: value}))}
+              {check(c.showMinimum, header.restaurant.show_minimum, value => patch("restaurant", {show_minimum: value}))}
+              {check(c.showSocial, header.restaurant.show_social, value => patch("restaurant", {show_social: value}))}
+            </>}
+            <p>{c.rulesHint}</p><a href={`/${restaurantId}/settings`} className="sqe-button">{c.orderSettings}</a>
+          </>)}
           <div className="sqh-divider" />
           <h3 className="sqh-content-title">{c.content}</h3>
           {accordion(
             "logo",
             c.logo,
             <>
+              {restaurantLayout && check(c.restaurantName, header.restaurant.show_name, value => patch("restaurant", {show_name: value}))}
               <InspectorField label={c.type}>
                 <select
                   className={controlClass}
@@ -389,8 +412,8 @@ export function HeaderInspector({
               {header.logo.type === "image" ? (
                 <HeaderMedia
                   restaurantId={restaurantId}
-                  value={header.logo.image}
-                  onChange={(image) => patch("logo", { image })}
+                  value={header.logo.image || (restaurantLayout ? restaurantLogoUrl || "" : "")}
+                  onChange={(image) => patch("logo", { image, ...(restaurantLayout && !image ? {type: "text" as const} : {}) })}
                   copy={c}
                 />
               ) : (
@@ -420,12 +443,12 @@ export function HeaderInspector({
               </InspectorField>
               {linkRow("logo")}
               <p>{c.logoHelp}</p>
-              {check(
+              {!restaurantLayout && check(
                 c.customBackground,
                 header.logo.custom_background,
                 (value) => patch("logo", { custom_background: value }),
               )}
-              {header.logo.custom_background &&
+              {!restaurantLayout && header.logo.custom_background &&
                 color(
                   c.background,
                   header.logo.background,
@@ -446,7 +469,7 @@ export function HeaderInspector({
               )}
             </>,
           )}
-          {accordion(
+          {!restaurantLayout && accordion(
             "button",
             c.button,
             <>
@@ -493,7 +516,7 @@ export function HeaderInspector({
             "icons",
             c.icons,
             <>
-              {color(c.color, header.icons.color, (value) =>
+              {!restaurantLayout && color(c.color, header.icons.color, (value) =>
                 patch("icons", { color: value }),
               )}
               {check(c.cart, header.icons.cart, (value) =>
@@ -509,7 +532,7 @@ export function HeaderInspector({
             c.fulfillment,
             <>
               {toggle("fulfillment", c.fulfillment)}
-              <p>{c.fulfillmentHelp}</p>
+              <p>{c.fulfillmentHelp}</p><p>{c.rulesHint}</p>
             </>,
           )}
         </>

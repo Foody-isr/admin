@@ -316,7 +316,7 @@ export function PageInspector({
             {page.type === "order" && record(config.custom_palette).color_styles ? (
               <>
                 <p>{t("editorOrderCategoryColorsHint")}</p>
-                <button type="button" className="sqe-button" onClick={openSiteColors}>
+                <button type="button" className="sqe-button" onClick={() => openSiteColors()}>
                   {t("editorEditColorStyles")}
                 </button>
               </>
