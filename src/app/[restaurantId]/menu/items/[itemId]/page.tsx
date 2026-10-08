@@ -23,8 +23,9 @@ import type { Locale } from '@/components/i18n/LocaleTabs';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
-import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
-import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
+import MenuItemDistribution from '@/components/menu-item/MenuItemDistribution';
+import MenuItemPhoto from '@/components/menu-item/MenuItemPhoto';
+import MenuItemEditorForm from '@/components/menu-item/MenuItemEditorForm';
 import MenuItemTabOptions from '@/components/menu-item/MenuItemTabOptions';
 import VariantsEditor, {
   VariantGroupState,
@@ -35,7 +36,6 @@ import VariantsEditor, {
 import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-item/MenuItemTabRecipe';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 import ItemAvailabilityPanel, { ItemAvailabilityPanelHandle } from '@/components/menu-item/ItemAvailabilityPanel';
-import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import type { SimulatorReceipt } from '@/components/menu-item/WhatIfSimulator';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
@@ -44,12 +44,11 @@ import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSaving
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
 import { deriveStepKind } from '@/components/menu-item/combo/types';
 import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
-import { computeComboSavings, computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
-import { Badge, Button, ConfirmDialog } from '@/components/ds';
+import { computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
+import { Button, ConfirmDialog } from '@/components/ds';
 import { keyedRecipeIngredients } from '@/lib/recipe-editor-rows';
+import { changedItemSections } from '@/lib/item-editor-sections';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
-import { Boxes } from 'lucide-react';
-import { computeItemCostSummary } from '@/lib/cost-utils';
 import Modal from '@/components/Modal';
 import AIImageGeneratorModal from '@/components/menu-item/AIImageGeneratorModal';
 
@@ -106,11 +105,11 @@ function EditItemEditor() {
   requestGuard.current.enterRestaurant(rid);
 
   const initialTab = remapLegacyTab(searchParams.get('tab')) ?? 'details';
-  const [activeTab, setActiveTab] = useState<MenuItemSection>(initialTab);
-  const [visitedTabs, setVisitedTabs] = useState(() => new Set<MenuItemSection>([initialTab]));
-  useEffect(() => { setVisitedTabs(previous => previous.has(activeTab) ? previous : new Set([...Array.from(previous), activeTab])); }, [activeTab]);
+
   const [leaveTarget, setLeaveTarget] = useState<string | null>(null);
   const [simulationState, setSimulationState] = useState({dirty:false, busy:false});
+  const [recipeDirty, setRecipeDirty] = useState(false);
+  const [availabilityDirty, setAvailabilityDirty] = useState(false);
 
   // Return address. Pages that open the editor (e.g. a carte detail page)
   // pass ?from=<path> so Back and post-save land where the user came from.
@@ -448,13 +447,6 @@ function EditItemEditor() {
       setPendingType(next);
     } else {
       setItemType(next);
-      // 'recipe' is article-only; 'composition' is combo-only. Bounce to the
-      // shared 'details' (Article) tab when the active one leaves the new set.
-      if (next === 'combo' && activeTab === 'recipe') {
-        setActiveTab('details');
-      } else if (next !== 'combo' && activeTab === 'composition') {
-        setActiveTab('details');
-      }
     }
   };
 
@@ -469,11 +461,6 @@ function EditItemEditor() {
       setComboSteps([]);
     }
     setItemType(pendingType);
-    if (pendingType === 'combo' && activeTab === 'recipe') {
-      setActiveTab('details');
-    } else if (pendingType !== 'combo' && activeTab === 'composition') {
-      setActiveTab('details');
-    }
     setPendingType(null);
   };
 
@@ -614,18 +601,6 @@ function EditItemEditor() {
   };
   const goBack = () => navigateAway(backTarget);
 
-  const costSummary = useMemo(() => {
-    if (!item || ingredients.length === 0) return null;
-    const s = computeItemCostSummary({
-      item,
-      ingredients,
-      overrides: itemOptionOverrides,
-      vatRate,
-      showCostsExVat: true,
-    });
-    return { foodCost: s.foodCost, costPct: s.costPct, margin: s.margin };
-  }, [item, ingredients, itemOptionOverrides, vatRate]);
-
   const activeCategoryName = useMemo(
     () => categories.find((c) => c.id === categoryId)?.name,
     [categories, categoryId],
@@ -634,14 +609,11 @@ function EditItemEditor() {
   // Combo savings for the rail. Mirrors the PricingCard math via the same
   // pure helper, so the two stay in sync. Hooks must run unconditionally —
   // declared here, *above* the loading early return below.
-  const railItemsById = useMemo(() => {
+  const comboItemsById = useMemo(() => {
     const m = new Map<number, MenuItem>();
     for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
     return m;
   }, [categories]);
-  const railComboSummary = itemType === 'combo'
-    ? computeComboSavings(price, comboSteps, railItemsById)
-    : null;
 
   // Render the modal shell immediately — matches the stock-editor UX where
   // the dimmed backdrop + inset container appear in one frame, then the body
@@ -683,51 +655,20 @@ function EditItemEditor() {
     );
   }
 
-  // Tab set adapts to item type, and is intentionally limited to three:
-  //   Articles → Article (identity + price + sizes + modifiers) · Recette
-  //              (recipe + folded-in cost) · Stock & disponibilité.
-  //   Combos   → Article · Composition · Stock & disponibilité.
-  // The cost-over-target warning now rides on the Recette tab (cost lives
-  // there), since the standalone Coût tab was removed.
-  const costWarning = costSummary?.costPct != null && costSummary.costPct > 0.35;
-  const tabs: TabBarItem[] = itemType === 'combo'
-    ? [
-        { id: 'details', label: t('tabArticle') },
-        { id: 'composition', label: t('tabComposition'), count: comboSteps.length },
-        { id: 'availability', label: t('tabStock') },
-      ]
-    : [
-        { id: 'details', label: t('tabArticle') },
-        { id: 'recipe', label: t('tabRecipe'), warning: costWarning },
-        { id: 'availability', label: t('tabStock') },
-      ];
-
-  // Hidden on mobile: tab bar is tight on phones, and the orange brand badge
-  // visually competes with the active-tab pill. The type is already chosen
-  // explicitly via the picker cards in the Details tab.
-  const typeBadgeTrailing = (
-    <Badge tone="brand" className="hidden md:inline-flex h-6 px-2.5 font-semibold tracking-[.04em]">
-      <Boxes className="w-3 h-3" />
-      {itemType === 'combo' ? t('typeBadgeCombo') : t('typeBadgeArticle')}
-    </Badge>
-  );
-
   const rail = (
-    <MenuItemSummaryRail
-      imageUrl={imageUrl}
+    <MenuItemDistribution
       name={name}
-      price={effectivePrice}
-      activeStatus={isActive}
-      availabilityState={item?.availability_state}
-      availabilityBottleneck={item?.availability_bottleneck}
-      categoryName={activeCategoryName}
-      // Hide the food-cost summary for combos — it doesn't apply (a combo's
-      // cost is the sum of its constituent items' costs, not its own recipe).
-      costSummary={itemType === 'combo' ? null : costSummary}
-      comboSummary={railComboSummary}
-      onShowComboSavingsDetail={itemType === 'combo' ? () => setSavingsModalOpen(true) : undefined}
-      onImageClick={canEdit && !imageBusy && !saving && !modifierBusy ? () => fileInputRef.current?.click() : undefined}
-      onAiImageClick={canEdit && !imageBusy && !saving && !modifierBusy ? () => setAiModalOpen(true) : undefined}
+      price={isByWeight ? pricePerKg : effectivePrice}
+      byWeight={isByWeight}
+      categories={categories}
+      categoryId={categoryId}
+      setCategoryId={setCategoryId}
+      menus={menus}
+      selectedGroupIds={selectedGroupIds}
+      setSelectedGroupIds={setSelectedGroupIds}
+      isActive={isActive}
+      setIsActive={setIsActive}
+      disabled={saving || imageBusy || modifierBusy}
     />
   );
 
@@ -763,89 +704,140 @@ function EditItemEditor() {
         onClose={goBack}
         onSave={canEdit ? handleSave : () => {}}
         saving={saving}
-        saveDisabled={!canEdit || simulationState.busy || imageBusy || modifierBusy || loading || !!loadError || !name.trim() || !priceOk}
+        saveDisabled={
+          !canEdit ||
+          simulationState.busy ||
+          imageBusy ||
+          modifierBusy ||
+          loading ||
+          !!loadError ||
+          !name.trim() ||
+          !priceOk
+        }
         sidebar={rail}
+        isCombo={itemType === 'combo'}
+        dirty={!!hasUnsavedChanges() || recipeDirty || availabilityDirty}
+        dirtySections={[
+          ...changedItemSections(
+            JSON.parse(initialSnapshot.current ?? formSnapshot),
+            JSON.parse(formSnapshot),
+          ),
+          ...(recipeDirty || simulationState.dirty ? ['recipe'] : []),
+          ...(availabilityDirty ? ['availability'] : []),
+        ]}
+        initialSection={initialTab}
       >
-        <div className="flex min-w-0 flex-col md:flex-1 md:overflow-hidden bg-[var(--bg)]">
-          {imageBusy && <p role="status" className="p-4 text-sm text-fg-secondary">{t('loading')}</p>}
-          {imageError && <p role="alert" className="p-4 text-sm text-[var(--danger-500)]">{imageError}</p>}
-          {saveError && <p role="alert" className="mx-6 mt-4 p-3 rounded-r-md bg-[var(--danger-50)] text-[var(--danger-500)] text-sm">{saveError}</p>}
-          {/* Tab bar — transparent banner that blends with modal bg,
-              matching the food-cost page layout where tabs sit directly on the page bg */}
-          <div className="px-[var(--s-6)] py-[var(--s-4)] border-b border-[var(--line)] shrink-0">
-            <MenuItemTabBar
-              tabs={tabs}
-              active={activeTab}
-              onChange={setActiveTab}
-              trailing={typeBadgeTrailing}
-            />
-          </div>
-
-          {/* Tab content — same vertical rhythm as food-cost page */}
-          <fieldset disabled={saving || imageBusy || modifierBusy} className="min-w-0 p-4 sm:p-6 md:flex-1 md:overflow-y-auto" onClickCapture={event => {
-            const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href]');
-            if (!link || link.target === '_blank' || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-            if (link.origin === window.location.origin && hasUnsavedChanges()) { event.preventDefault(); event.stopPropagation(); navigateAway(link.pathname + link.search + link.hash); }
-          }}>
-            {/* ── Tab: Article (identity + price + sizes + modifiers) ── */}
-            {activeTab === 'details' && (
-              <div className="space-y-[var(--s-6)]">
-                <MenuItemTabDetails
+        <div className="flex min-w-0 flex-col  bg-[var(--bg)]">
+          {imageBusy && (
+            <p role="status" className="p-4 text-sm text-fg-secondary">
+              {t('loading')}
+            </p>
+          )}
+          {imageError && (
+            <p role="alert" className="p-4 text-sm text-[var(--danger-500)]">
+              {imageError}
+            </p>
+          )}
+          {saveError && (
+            <p
+              role="alert"
+              className="mx-6 mt-4 p-3 rounded-r-md bg-[var(--danger-50)] text-[var(--danger-500)] text-sm"
+            >
+              {saveError}
+            </p>
+          )}
+          <fieldset
+            disabled={saving || imageBusy || modifierBusy}
+            className="min-w-0"
+            onClickCapture={(event) => {
+              const link = (
+                event.target as HTMLElement
+              ).closest<HTMLAnchorElement>('a[href]');
+              if (
+                !link ||
+                link.target === '_blank' ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              )
+                return;
+              if (
+                link.pathname === window.location.pathname &&
+                link.search === window.location.search &&
+                link.hash
+              )
+                return;
+              if (
+                link.origin === window.location.origin &&
+                hasUnsavedChanges()
+              ) {
+                event.preventDefault();
+                event.stopPropagation();
+                navigateAway(link.pathname + link.search + link.hash);
+              }
+            }}
+          >
+            <MenuItemEditorForm
+              name={name}
+              setName={setName}
+              price={price}
+              setPrice={setPrice}
+              pricingMode={pricingMode}
+              setPricingMode={setPricingMode}
+              pricePerKg={pricePerKg}
+              setPricePerKg={setPricePerKg}
+              estimatedWeightGrams={estimatedWeightGrams}
+              setEstimatedWeightGrams={setEstimatedWeightGrams}
+              description={description}
+              setDescription={setDescription}
+              customerFacts={customerFacts}
+              setCustomerFacts={setCustomerFacts}
+              suggestedCustomerIngredients={ingredients
+                .map(
+                  (ingredient) =>
+                    ingredient.stock_item?.name ??
+                    ingredient.prep_item?.name ??
+                    '',
+                )
+                .filter(Boolean)}
+              aiContext={aiContext}
+              setAiContext={setAiContext}
+              portion={portion}
+              setPortion={setPortion}
+              allowNotes={allowNotes}
+              setAllowNotes={setAllowNotes}
+              vatRate={vatRate}
+              itemType={itemType}
+              sourceLocale={sourceLocale}
+              translations={translations}
+              setTranslations={setTranslations}
+              onRetranslate={(fields) => retranslateMenuItem(rid, iid, fields)}
+              onTypeChange={requestTypeChange}
+              // Only hide the base-price field once the first size carries
+              // a real price; otherwise the owner would have nowhere to set
+              // a price (the first size inherits the base when left at 0).
+              hideBasePrice={meaningfulVariants && firstVariantPrice > 0}
+              photo={
+                <MenuItemPhoto
+                  imageUrl={imageUrl || undefined}
                   name={name}
-                  setName={setName}
-                  price={price}
-                  setPrice={setPrice}
-                  pricingMode={pricingMode}
-                  setPricingMode={setPricingMode}
-                  pricePerKg={pricePerKg}
-                  setPricePerKg={setPricePerKg}
-                  estimatedWeightGrams={estimatedWeightGrams}
-                  setEstimatedWeightGrams={setEstimatedWeightGrams}
-                  description={description}
-                  setDescription={setDescription}
-                  customerFacts={customerFacts}
-                  setCustomerFacts={setCustomerFacts}
-                  suggestedCustomerIngredients={ingredients
-                    .map((ingredient) => ingredient.stock_item?.name ?? ingredient.prep_item?.name ?? '')
-                    .filter(Boolean)}
-                  aiContext={aiContext}
-                  setAiContext={setAiContext}
-                  portion={portion}
-                  setPortion={setPortion}
-                  categoryId={categoryId}
-                  setCategoryId={setCategoryId}
-                  isActive={isActive}
-                  setIsActive={setIsActive}
-                  allowNotes={allowNotes}
-                  setAllowNotes={setAllowNotes}
-                  vatRate={vatRate}
-                  categories={categories}
-                  menus={menus}
-                  selectedGroupIds={selectedGroupIds}
-                  setSelectedGroupIds={setSelectedGroupIds}
-                  itemType={itemType}
-                  sourceLocale={sourceLocale}
-                  translations={translations}
-                  setTranslations={setTranslations}
-                  onRetranslate={(fields) => retranslateMenuItem(rid, iid, fields)}
-                  onTypeChange={requestTypeChange}
-                  comboStepsCount={comboSteps.length}
-                  onJumpToComposition={() => setActiveTab('composition')}
-                  // Only hide the base-price field once the first size carries
-                  // a real price; otherwise the owner would have nowhere to set
-                  // a price (the first size inherits the base when left at 0).
-                  hideBasePrice={meaningfulVariants && firstVariantPrice > 0}
+                  onImageClick={
+                    canEdit && !imageBusy && !saving && !modifierBusy
+                      ? () => fileInputRef.current?.click()
+                      : undefined
+                  }
+                  onAiImageClick={
+                    canEdit && !imageBusy && !saving && !modifierBusy
+                      ? () => setAiModalOpen(true)
+                      : undefined
+                  }
                 />
-
-                {/* Sizes / variants — pricing lives here when present, which is
-                    why the base-price field above hides itself (no more "same
-                    price shown twice"). Combos price via the Composition tab.
-                    By-weight items are priced per kg, not by size, so the sizes
-                    editor is hidden for them. */}
-                {itemType !== 'combo' && !isByWeight && (
-                  <section className="max-w-4xl bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+              }
+              pricingContent={
+                itemType !== 'combo' && !isByWeight ? (
+                  <section className="border-t border-[var(--line)] pt-5">
                     <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
-                      <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
                       <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
                         {t('variants') || 'Variantes'}
                       </h3>
@@ -856,143 +848,371 @@ function EditItemEditor() {
                     </p>
                     <VariantsEditor
                       groups={variantGroups}
-                      onChange={(g) => { setVariantGroups(g); setVariantsDirty(true); }}
+                      onChange={(g) => {
+                        setVariantGroups(g);
+                        setVariantsDirty(true);
+                      }}
                       allOptionSets={allOptionSets}
                       itemBasePrice={effectivePrice}
                     />
                   </section>
-                )}
-
-                {/* Modifiers — add-ons (sans coriandre, sauce à part…) */}
-                {itemType !== 'combo' && (
-                  <MenuItemTabOptions
-                    item={item}
-                    attachedModifierSets={item.modifier_sets ?? []}
-                    allModifierSets={allModifierSets}
-                    attachedOptionSets={attachedOptionSets}
-                    itemOptionOverrides={itemOptionOverrides}
-                    onAddModifierSet={canEdit ? () => { setModifierError(''); setModifierQuery(''); setModifierModalOpen(true); } : () => {}}
-                    onDetachModifierSet={canEdit ? id => requestModifierRemoval('set',id) : () => {}}
-                    onSaveModifierSetOverrides={canEdit ? async (setId: number, input: ModifierSetItemOverridesInput) => {
-                      await setModifierSetItemOverrides(rid, setId, iid, input);
-                      await refreshModifiers();
-                    } : undefined}
-                    onDeleteModifier={canEdit ? id => requestModifierRemoval('modifier',id) : () => {}}
-                    // Variants render in their own section just above, so these
-                    // handlers are no-ops kept to satisfy the prop contract.
-                    onAddVariantGroup={() => {}}
-                    onEditVariantGroup={() => {}}
-                    onDeleteVariantGroup={() => {}}
-                    onAddOptionSet={() => {}}
-                    onEditOptionSet={() => {}}
-                    onDetachOptionSet={() => {}}
-                    hideVariantsSection
-                  />
-                )}
-              </div>
-            )}
-
-            {/* ── Tab: Composition (combo only) ─────────────────── */}
-            {activeTab === 'composition' && itemType === 'combo' && (
-              <CompositionTab
-                comboName={name}
-                basePrice={price}
-                onBasePriceChange={setPrice}
-                steps={comboSteps}
-                onStepsChange={setComboSteps}
-                categories={categories}
-                menus={menus}
-                restaurantId={rid}
-                onShowSavingsDetail={() => setSavingsModalOpen(true)}
-                comboAllowQuantity={comboAllowQuantity}
-                onComboAllowQuantityChange={setComboAllowQuantity}
-              />
-            )}
-
-            {/* ── Tab: Recette (recipe + folded-in cost readout) ─── */}
-            {visitedTabs.has('recipe') && (
-              <div hidden={activeTab !== 'recipe' || itemType === 'combo'}>
-              <MenuItemTabRecipe
-                ref={recipeRef}
-                rid={rid}
-                item={item}
-                ingredients={ingredients}
-                stockItems={stockItems}
-                prepItems={prepItems}
-                variants={variantGroups.flatMap((g) =>
-                  g.rows
-                    .filter((r) => r.isActive && r.optionId != null && r.name.trim())
-                    .map((r) => ({ option_id: r.optionId!, name: r.name })),
-                )}
-                onAddIngredient={input => canEditRecipe ? persistIngredients(current => [...current.map(ingredientInput), input]) : Promise.resolve()}
-                onDeleteIngredient={id => { if (canEditRecipe) { setIngredientRemovalError(''); setIngredientRemoval(id); } }}
-                onUpdateIngredient={(id, patch) => canEditRecipe ? persistIngredients(current => keyedRecipeIngredients(current).map(({ingredient,key}) => ingredientInput(key === id ? {...ingredient,...patch} : ingredient))) : Promise.resolve()}
-                onRefreshLists={async () => {
-                  // Re-fetch only the lists the composer searches over —
-                  // cheaper than full loadData() on every inline create.
-                  const [stock, prep] = await Promise.all([
-                    listStockItems(rid),
-                    listPrepItems(rid),
-                  ]);
-                  setStockItems(stock ?? []);
-                  setPrepItems(prep ?? []);
-                }}
-                onImported={async () => {
-                  const [nextIngredients, stock, prep] = await Promise.all([getMenuItemIngredients(rid, iid), listStockItems(rid), listPrepItems(rid)]);
-                  setIngredients(nextIngredients); ingredientsCurrent.current = nextIngredients;
-                  setStockItems(stock); setPrepItems(prep);
-                }}
-              />
-              </div>
-            )}
-
-            {/* Cost is fully derived from the recipe above + price, so it lives
-                here as a readout under the recipe instead of a separate tab. */}
-            {visitedTabs.has('recipe') && item && (
-              <div hidden={activeTab !== 'recipe'} className="mt-[var(--s-6)]">
-                <MenuItemTabCost
-                  rid={rid}
+                ) : undefined
+              }
+              personalizationContent={
+                <MenuItemTabOptions
                   item={item}
-                  ingredients={ingredients}
+                  attachedModifierSets={item.modifier_sets ?? []}
+                  allModifierSets={allModifierSets}
+                  attachedOptionSets={attachedOptionSets}
                   itemOptionOverrides={itemOptionOverrides}
-                  vatRate={vatRate}
-                  price={effectivePrice}
-                  onChangesApplied={refreshCostData}
-                  onSimulationStateChange={setSimulationState}
-                  onNavigate={navigateAway}
-                  collapsible
+                  onAddModifierSet={
+                    canEdit
+                      ? () => {
+                          setModifierError('');
+                          setModifierQuery('');
+                          setModifierModalOpen(true);
+                        }
+                      : () => {}
+                  }
+                  onDetachModifierSet={
+                    canEdit
+                      ? (id) => requestModifierRemoval('set', id)
+                      : () => {}
+                  }
+                  onSaveModifierSetOverrides={
+                    canEdit
+                      ? async (
+                          setId: number,
+                          input: ModifierSetItemOverridesInput,
+                        ) => {
+                          await setModifierSetItemOverrides(
+                            rid,
+                            setId,
+                            iid,
+                            input,
+                          );
+                          await refreshModifiers();
+                        }
+                      : undefined
+                  }
+                  onDeleteModifier={
+                    canEdit
+                      ? (id) => requestModifierRemoval('modifier', id)
+                      : () => {}
+                  }
+                  // Variants render in their own section just above, so these
+                  // handlers are no-ops kept to satisfy the prop contract.
+                  onAddVariantGroup={() => {}}
+                  onEditVariantGroup={() => {}}
+                  onDeleteVariantGroup={() => {}}
+                  onAddOptionSet={() => {}}
+                  onEditOptionSet={() => {}}
+                  onDetachOptionSet={() => {}}
+                  hideVariantsSection
                 />
-              </div>
-            )}
-
-            {/* ── Tab: Stock & disponibilité ───────────────────── */}
-            {visitedTabs.has('availability') && item && (
-              <div hidden={activeTab !== 'availability'}>
-              <ItemAvailabilityPanel
-                ref={availabilityRef}
-                rid={rid}
-                itemId={iid}
-                item={item}
-                defaultStockUnit={defaultStockUnit}
-              />
-              </div>
-            )}
+              }
+              compositionContent={
+                itemType === 'combo' ? (
+                  <CompositionTab
+                    comboName={name}
+                    basePrice={price}
+                    steps={comboSteps}
+                    onStepsChange={setComboSteps}
+                    categories={categories}
+                    menus={menus}
+                    restaurantId={rid}
+                    onShowSavingsDetail={() => setSavingsModalOpen(true)}
+                    comboAllowQuantity={comboAllowQuantity}
+                    onComboAllowQuantityChange={setComboAllowQuantity}
+                  />
+                ) : undefined
+              }
+              availabilityContent={
+                <ItemAvailabilityPanel
+                  ref={availabilityRef}
+                  onDirtyChange={setAvailabilityDirty}
+                  rid={rid}
+                  itemId={iid}
+                  item={item}
+                  defaultStockUnit={defaultStockUnit}
+                />
+              }
+              recipeContent={
+                <>
+                  <MenuItemTabRecipe
+                    ref={recipeRef}
+                    onDirtyChange={setRecipeDirty}
+                    rid={rid}
+                    item={item}
+                    ingredients={ingredients}
+                    stockItems={stockItems}
+                    prepItems={prepItems}
+                    variants={variantGroups.flatMap((g) =>
+                      g.rows
+                        .filter(
+                          (r) =>
+                            r.isActive && r.optionId != null && r.name.trim(),
+                        )
+                        .map((r) => ({ option_id: r.optionId!, name: r.name })),
+                    )}
+                    onAddIngredient={(input) =>
+                      canEditRecipe
+                        ? persistIngredients((current) => [
+                            ...current.map(ingredientInput),
+                            input,
+                          ])
+                        : Promise.resolve()
+                    }
+                    onDeleteIngredient={(id) => {
+                      if (canEditRecipe) {
+                        setIngredientRemovalError('');
+                        setIngredientRemoval(id);
+                      }
+                    }}
+                    onUpdateIngredient={(id, patch) =>
+                      canEditRecipe
+                        ? persistIngredients((current) =>
+                            keyedRecipeIngredients(current).map(
+                              ({ ingredient, key }) =>
+                                ingredientInput(
+                                  key === id
+                                    ? { ...ingredient, ...patch }
+                                    : ingredient,
+                                ),
+                            ),
+                          )
+                        : Promise.resolve()
+                    }
+                    onRefreshLists={async () => {
+                      // Re-fetch only the lists the composer searches over —
+                      // cheaper than full loadData() on every inline create.
+                      const [stock, prep] = await Promise.all([
+                        listStockItems(rid),
+                        listPrepItems(rid),
+                      ]);
+                      setStockItems(stock ?? []);
+                      setPrepItems(prep ?? []);
+                    }}
+                    onImported={async () => {
+                      const [nextIngredients, stock, prep] = await Promise.all([
+                        getMenuItemIngredients(rid, iid),
+                        listStockItems(rid),
+                        listPrepItems(rid),
+                      ]);
+                      setIngredients(nextIngredients);
+                      ingredientsCurrent.current = nextIngredients;
+                      setStockItems(stock);
+                      setPrepItems(prep);
+                    }}
+                  />
+                  <MenuItemTabCost
+                    rid={rid}
+                    item={item}
+                    ingredients={ingredients}
+                    itemOptionOverrides={itemOptionOverrides}
+                    vatRate={vatRate}
+                    price={effectivePrice}
+                    onChangesApplied={refreshCostData}
+                    onSimulationStateChange={setSimulationState}
+                    onNavigate={navigateAway}
+                    collapsible
+                  />
+                </>
+              }
+            />
           </fieldset>
         </div>
       </MenuItemShell>
 
-      <ConfirmDialog open={leaveTarget !== null} onOpenChange={open => { if (!open) setLeaveTarget(null); }} title={t('discardUnsavedChanges')} description={t('itemExistingLeaveHint')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} danger onConfirm={() => { if (leaveTarget) router.push(leaveTarget); }} />
+      <ConfirmDialog
+        open={leaveTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setLeaveTarget(null);
+        }}
+        title={t('discardUnsavedChanges')}
+        description={t('itemExistingLeaveHint')}
+        confirmLabel={t('discardChanges')}
+        cancelLabel={t('cancel')}
+        danger
+        onConfirm={() => {
+          if (leaveTarget) router.push(leaveTarget);
+        }}
+      />
 
-      {modifierModalOpen && <Modal title={t('modifiers')} subtitle={t('itemModifiersImmediate')} initialFocusRef={modifierSearch} onClose={() => { if (!modifierLock.current) setModifierModalOpen(false); }} footer={<Button variant="primary" disabled={modifierBusy} onClick={() => setModifierModalOpen(false)}>{t('done')}</Button>}>
-        <fieldset disabled={modifierBusy} className="min-w-0 space-y-4"><label className="block"><span className="sr-only">{t('search')}</span><input ref={modifierSearch} className="input" value={modifierQuery} onChange={event => setModifierQuery(event.target.value)} placeholder={t('search')} /></label>
-          {allModifierSets.filter(set => set.name.toLocaleLowerCase().includes(modifierQuery.toLocaleLowerCase().trim())).map(set => <label key={set.id} className="flex min-h-16 cursor-pointer items-center gap-3 border-b border-[var(--line)] p-3 text-sm hover:bg-[var(--surface-2)]"><span className="min-w-0 flex-1"><span className="block break-words font-semibold">{set.name}</span><span className="text-xs text-fg-secondary">{set.modifiers?.map(modifier=>modifier.name).join(', ')}</span></span><input type="checkbox" aria-label={set.name} checked={item.modifier_sets?.some(attached => attached.id===set.id) ?? false} onChange={() => void toggleModifierSet(set.id,item.modifier_sets?.some(attached=>attached.id===set.id) ?? false)} className="size-5 shrink-0 accent-[var(--brand-500)]" /></label>)}
-          {!allModifierSets.some(set => set.name.toLocaleLowerCase().includes(modifierQuery.toLocaleLowerCase().trim())) && <p className="py-6 text-center text-sm text-fg-secondary">{t('noResults')}</p>}
-        </fieldset>{modifierError && <p role="alert" className="mt-4 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{modifierError}</p>}
-      </Modal>}
-      {ingredientRemoval !== null && <Modal title={t('itemRemoveIngredient')} onClose={() => { if (!ingredientRemovalLock.current) setIngredientRemoval(null); }} footer={<div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" disabled={ingredientRemovalBusy} onClick={() => setIngredientRemoval(null)}>{t('cancel')}</Button><Button variant="danger" disabled={ingredientRemovalBusy} onClick={() => void removeIngredient()}>{t(ingredientRemovalBusy ? 'saving' : 'remove')}</Button></div>}><p className="text-sm text-fg-secondary">{t('itemRemoveIngredientHint')}</p>{ingredientRemovalError && <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">{ingredientRemovalError}</p>}</Modal>}
-      {modifierRemoval && <Modal title={t(modifierRemoval.kind==='set' ? 'itemDetachModifierSet' : 'deleteThisModifier')} onClose={() => { if (!modifierLock.current) setModifierRemoval(null); }} footer={<div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" disabled={modifierBusy} onClick={() => setModifierRemoval(null)}>{t('cancel')}</Button><Button variant="danger" disabled={modifierBusy} onClick={() => void removeModifier()}>{t(modifierBusy ? 'saving' : modifierRemoval.kind==='set' ? 'detach' : 'delete')}</Button></div>}>
-        <p className="text-sm text-fg-secondary">{t(modifierRemoval.kind==='set' ? 'itemDetachModifierSetHint' : 'itemModifiersImmediate')}</p>{modifierError && <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">{modifierError}</p>}
-      </Modal>}
+      {modifierModalOpen && (
+        <Modal
+          title={t('modifiers')}
+          subtitle={t('itemModifiersImmediate')}
+          initialFocusRef={modifierSearch}
+          onClose={() => {
+            if (!modifierLock.current) setModifierModalOpen(false);
+          }}
+          footer={
+            <Button
+              variant="primary"
+              disabled={modifierBusy}
+              onClick={() => setModifierModalOpen(false)}
+            >
+              {t('done')}
+            </Button>
+          }
+        >
+          <fieldset disabled={modifierBusy} className="min-w-0 space-y-4">
+            <label className="block">
+              <span className="sr-only">{t('search')}</span>
+              <input
+                ref={modifierSearch}
+                className="input"
+                value={modifierQuery}
+                onChange={(event) => setModifierQuery(event.target.value)}
+                placeholder={t('search')}
+              />
+            </label>
+            {allModifierSets
+              .filter((set) =>
+                set.name
+                  .toLocaleLowerCase()
+                  .includes(modifierQuery.toLocaleLowerCase().trim()),
+              )
+              .map((set) => (
+                <label
+                  key={set.id}
+                  className="flex min-h-16 cursor-pointer items-center gap-3 border-b border-[var(--line)] p-3 text-sm hover:bg-[var(--surface-2)]"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words font-semibold">
+                      {set.name}
+                    </span>
+                    <span className="text-xs text-fg-secondary">
+                      {set.modifiers
+                        ?.map((modifier) => modifier.name)
+                        .join(', ')}
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    aria-label={set.name}
+                    checked={
+                      item.modifier_sets?.some(
+                        (attached) => attached.id === set.id,
+                      ) ?? false
+                    }
+                    onChange={() =>
+                      void toggleModifierSet(
+                        set.id,
+                        item.modifier_sets?.some(
+                          (attached) => attached.id === set.id,
+                        ) ?? false,
+                      )
+                    }
+                    className="size-5 shrink-0 accent-[var(--brand-500)]"
+                  />
+                </label>
+              ))}
+            {!allModifierSets.some((set) =>
+              set.name
+                .toLocaleLowerCase()
+                .includes(modifierQuery.toLocaleLowerCase().trim()),
+            ) && (
+              <p className="py-6 text-center text-sm text-fg-secondary">
+                {t('noResults')}
+              </p>
+            )}
+          </fieldset>
+          {modifierError && (
+            <p
+              role="alert"
+              className="mt-4 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]"
+            >
+              {modifierError}
+            </p>
+          )}
+        </Modal>
+      )}
+      {ingredientRemoval !== null && (
+        <Modal
+          title={t('itemRemoveIngredient')}
+          onClose={() => {
+            if (!ingredientRemovalLock.current) setIngredientRemoval(null);
+          }}
+          footer={
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="secondary"
+                disabled={ingredientRemovalBusy}
+                onClick={() => setIngredientRemoval(null)}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={ingredientRemovalBusy}
+                onClick={() => void removeIngredient()}
+              >
+                {t(ingredientRemovalBusy ? 'saving' : 'remove')}
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-sm text-fg-secondary">
+            {t('itemRemoveIngredientHint')}
+          </p>
+          {ingredientRemovalError && (
+            <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">
+              {ingredientRemovalError}
+            </p>
+          )}
+        </Modal>
+      )}
+      {modifierRemoval && (
+        <Modal
+          title={t(
+            modifierRemoval.kind === 'set'
+              ? 'itemDetachModifierSet'
+              : 'deleteThisModifier',
+          )}
+          onClose={() => {
+            if (!modifierLock.current) setModifierRemoval(null);
+          }}
+          footer={
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="secondary"
+                disabled={modifierBusy}
+                onClick={() => setModifierRemoval(null)}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={modifierBusy}
+                onClick={() => void removeModifier()}
+              >
+                {t(
+                  modifierBusy
+                    ? 'saving'
+                    : modifierRemoval.kind === 'set'
+                      ? 'detach'
+                      : 'delete',
+                )}
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-sm text-fg-secondary">
+            {t(
+              modifierRemoval.kind === 'set'
+                ? 'itemDetachModifierSetHint'
+                : 'itemModifiersImmediate',
+            )}
+          </p>
+          {modifierError && (
+            <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">
+              {modifierError}
+            </p>
+          )}
+        </Modal>
+      )}
 
       {/* ── Type-switch confirmation modal ─────────────────────── */}
       {pendingType && (
@@ -1013,7 +1233,7 @@ function EditItemEditor() {
           breakdown={computeComboSavingsBreakdown(
             price,
             comboSteps,
-            railItemsById,
+            comboItemsById,
           )}
           onClose={() => setSavingsModalOpen(false)}
         />

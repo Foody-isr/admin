@@ -31,7 +31,6 @@ import { Switch } from '@/components/ui/switch';
 interface Props {
   comboName: string;
   basePrice: number;
-  onBasePriceChange: (next: number) => void;
   steps: ComboStepDraft[];
   onStepsChange: (next: ComboStepDraft[]) => void;
   categories: MenuCategory[];
@@ -44,7 +43,7 @@ interface Props {
 
 /** Compose explicit or group-based choices while preserving the existing price rules. */
 export default function CompositionTab({
-  comboName, basePrice, onBasePriceChange,
+  comboName, basePrice,
   steps, onStepsChange,
   categories,
   menus,
@@ -202,8 +201,6 @@ export default function CompositionTab({
 
       <PricingCard
         basePrice={basePrice}
-        readOnly={!canEdit}
-        onBasePriceChange={onBasePriceChange}
         steps={steps}
         itemsById={itemsById}
         onShowSavingsDetail={onShowSavingsDetail}

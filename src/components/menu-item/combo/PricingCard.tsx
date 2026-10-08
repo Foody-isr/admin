@@ -10,14 +10,11 @@
 import { Info, AlertTriangle } from 'lucide-react';
 import type { MenuItem } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft } from './types';
 import { computeComboSavings } from './pricing';
 
 interface Props {
   basePrice: number;
-  readOnly?: boolean;
-  onBasePriceChange: (next: number) => void;
   steps: ComboStepDraft[];
   itemsById: Map<number, MenuItem>;
   /** Optional drilldown — when set, the savings cell becomes a button that
@@ -25,11 +22,12 @@ interface Props {
   onShowSavingsDetail?: () => void;
 }
 
+/** Summarizes combo pricing; the continuous pricing section owns the editable base price. */
 export default function PricingCard({
-  basePrice, onBasePriceChange, steps, itemsById,
-  onShowSavingsDetail, readOnly = false,
+  basePrice, steps, itemsById,
+  onShowSavingsDetail,
 }: Props) {
-  const { money, symbol } = useCurrency();
+  const { money } = useCurrency();
   const { t } = useI18n();
   const summary = computeComboSavings(basePrice, steps, itemsById);
 
@@ -67,16 +65,7 @@ export default function PricingCard({
           <span className="text-fs-xs font-semibold uppercase tracking-[.04em] text-[var(--fg-subtle)]">
             {t('composeBasePriceLabel')}
           </span>
-          <div className="flex items-center min-h-11 px-[var(--s-3)] rounded-r-md bg-[var(--surface)] border border-[var(--line-strong)] focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
-            <NumberInput
-              min={0} aria-label={t('composeBasePriceLabel')} disabled={readOnly}
-              value={basePrice}
-              onChange={onBasePriceChange}
-              placeholder="0.00"
-              className="flex-1 min-w-0 bg-transparent border-none outline-none text-fs-sm tabular-nums"
-            />
-            <span className="text-fs-sm text-[var(--fg-muted)]">{symbol}</span>
-          </div>
+          <div className="flex min-h-11 items-center rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] px-3 text-sm font-medium tabular-nums">{money(basePrice)}</div>
         </div>
 
         <div className="flex flex-col gap-1.5">

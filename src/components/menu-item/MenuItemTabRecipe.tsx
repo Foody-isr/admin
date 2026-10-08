@@ -66,12 +66,13 @@ interface Props {
   /** Re-fetch the full item + ingredients after the AI import flow attaches
    *  new ingredients server-side. Triggers a full reload on the parent. */
   onImported?: () => Promise<void> | void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function MenuItemTabRecipe(
   {
     rid, item, ingredients, stockItems, prepItems, variants,
-    onAddIngredient, onDeleteIngredient, onUpdateIngredient, onRefreshLists, onImported,
+    onAddIngredient, onDeleteIngredient, onUpdateIngredient, onRefreshLists, onImported, onDirtyChange,
   }: Props,
   ref,
 ) {
@@ -122,6 +123,8 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
   const [prepTime, setPrepTime] = useState<number>(item.prep_time_mins ?? 0);
   const [notes, setNotes] = useState<string>(item.recipe_notes ?? '');
   const [dirty, setDirty] = useState(false);
+  const [tableDirty, setTableDirty] = useState(false);
+  useEffect(() => { onDirtyChange?.(dirty || tableDirty); }, [dirty, tableDirty, onDirtyChange]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [stepsLoading, setStepsLoading] = useState(true);
   const [stepsError, setStepsError] = useState('');
@@ -183,12 +186,11 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
 
   return (
     <div className="max-w-4xl">
-      <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+      <section className="min-w-0">
       {/* Section head with 3px brand accent + AI import shortcut */}
       <div className="flex flex-wrap items-center justify-between gap-[var(--s-3)] mb-[var(--s-5)]">
         <div className="flex items-center gap-[var(--s-3)]">
-          <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
-          <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabRecipe') || 'Recette'}</h3>
+            <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabRecipe') || 'Recette'}</h3>
         </div>
         {canEdit && (
           <div className="flex flex-wrap items-center justify-end gap-[var(--s-2)]">
@@ -241,6 +243,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
         )}
         {draftError && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{draftError}</p>}
         <RecipeTable
+          onDirtyChange={setTableDirty}
             ref={tableRef}
             item={item}
             ingredients={ingredients}

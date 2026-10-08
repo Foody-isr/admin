@@ -113,6 +113,7 @@ interface Props {
   defaultStockUnit?: StockUnit;
   /** Called after a successful save so the parent can refresh its copy. */
   onSaved?: () => void | Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 // Layout aligned with Article (MenuItemTabDetails) and Composition tabs:
@@ -124,7 +125,7 @@ interface Props {
 //   single radio group makes the rule a sub-option of "Suivre une règle" so
 //   the rule/override layers stop reading as two redundant controls.
 const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(function ItemAvailabilityPanel(
-  { rid, itemId, item, defaultStockUnit = '', onSaved },
+  { rid, itemId, item, defaultStockUnit = '', onSaved, onDirtyChange },
   ref,
 ) {
   const { t } = useI18n();
@@ -132,6 +133,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
   const canEdit = hasAnyPermission('menu.edit');
   // Any user edit on this tab flips this; the parent's Save only commits when dirty.
   const [dirty, setDirty] = useState(false);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
   const [rulesLoading, setRulesLoading] = useState(true);
   const [rulesError, setRulesError] = useState('');
@@ -438,10 +440,6 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
     <div className="max-w-4xl flex flex-col gap-[var(--s-5)]">
       {/* Brand-accent header — matches Composition tab. */}
       <div className="flex flex-col gap-[var(--s-2)]">
-        <div className="flex flex-wrap items-center gap-[var(--s-3)]">
-          <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
-          <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabStock')}</h3>
-        </div>
         <p className="text-fs-sm text-[var(--fg-muted)]">{t('availabilityPanelIntro')}</p>
       </div>
 
