@@ -106,7 +106,9 @@ test('availability edits are staged and saved with the item after visiting anoth
   const fixture = await install(page);
   await page.goto('/1/menu/items/1');
   await page.locator('#menu-item-name').fill('Updated dish');
-  await page.getByRole('button', { name: /Always available/ }).click();
+  await page.getByRole('button', { name: /^Status:/ }).click();
+  await page.getByRole('radio', { name: /Always available/ }).check();
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await page.locator('#menu-item-name').scrollIntoViewIfNeeded();
   expect(fixture.writes).toEqual([]);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -121,7 +123,9 @@ test('cancel discards staged stock and form changes', async ({ page }) => {
   const fixture = await install(page);
   await page.goto('/1/menu/items/1');
   await page.locator('#menu-item-name').fill('Discarded name');
-  await page.getByRole('button', { name: /Always available/ }).click();
+  await page.getByRole('button', { name: /^Status:/ }).click();
+  await page.getByRole('radio', { name: /Always available/ }).check();
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await page
     .getByRole('button', { name: 'Cancel', exact: true })
     .last()
@@ -152,7 +156,7 @@ test('creation saves customer facts and continues directly into recipe configura
   await expect(
     page
       .locator('#item-availability')
-      .getByRole('button', { name: /Always available/ }),
+      .getByRole('button', { name: /^Status:/ }),
   ).toBeVisible();
   await expect(page.locator('#item-recipe-title')).toBeInViewport();
   await expect(
@@ -620,6 +624,7 @@ test('internal links preserve the requested destination through the save choice'
   const fixture = await install(page);
   await page.goto('/1/menu/items/1?tab=availability');
   await page.locator('#menu-item-name').fill('Saved before settings');
+  await page.locator('#item-availability').getByRole('button', { name: 'Actions', exact: true }).click();
   await page.getByRole('link', { name: 'Manage rules', exact: true }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
   await page
