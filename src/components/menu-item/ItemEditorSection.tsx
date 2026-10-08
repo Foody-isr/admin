@@ -6,11 +6,13 @@ export default function ItemEditorSection({
   title,
   children,
   hidden = false,
+  hideTitle = false,
 }: {
   id: string;
   title: string;
   children: React.ReactNode;
   hidden?: boolean;
+  hideTitle?: boolean;
 }) {
   return (
     <section
@@ -18,16 +20,18 @@ export default function ItemEditorSection({
       data-item-section={id}
       hidden={hidden}
       aria-labelledby={`item-${id}-title`}
-      className="scroll-mt-6 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-6"
+      className="item-editor-section scroll-mt-6"
     >
       <h2
         id={`item-${id}-title`}
         tabIndex={-1}
-        className="mb-5 text-fs-lg font-semibold text-[var(--fg)] outline-none"
+        className={
+          hideTitle ? 'sr-only' : 'item-editor-section-title outline-none'
+        }
       >
         {title}
       </h2>
-      <div className="min-w-0 space-y-5">{children}</div>
+      <div className="item-editor-section-body min-w-0">{children}</div>
     </section>
   );
 }

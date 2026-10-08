@@ -188,7 +188,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
     <div className="max-w-4xl">
       <section className="min-w-0">
       {/* Section head with 3px brand accent + AI import shortcut */}
-      <div className="flex flex-wrap items-center justify-between gap-[var(--s-3)] mb-[var(--s-5)]">
+      <div className="item-recipe-header flex flex-wrap items-center justify-between gap-[var(--s-3)] mb-[var(--s-5)]">
         <div className="flex items-center gap-[var(--s-3)]">
             <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabRecipe') || 'Recette'}</h3>
         </div>
@@ -260,7 +260,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
 
       {/* Instructions de préparation — its own collapsible section, collapsed
           by default so the recipe view stays focused on ingredients + cost. */}
-      <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)] mt-[var(--s-5)]">
+      <section className="item-recipe-instructions bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)] mt-[var(--s-5)]">
         {stepsLoading ? <p role="status" className="text-sm text-fg-secondary">{t('loading')}</p> : stepsError ? <div role="alert" className="space-y-3 text-sm"><p className="text-[var(--danger-500)]">{t('itemRecipeLoadRequired')}</p><p className="text-fg-secondary">{t(stepsError)}</p><Button variant="secondary" onClick={() => setStepsAttempt(value => value+1)}>{t('retry')}</Button></div> :
         <RecipeStepsEditor
           steps={steps}

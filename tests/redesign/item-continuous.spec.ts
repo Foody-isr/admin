@@ -62,7 +62,7 @@ const sections = [
   'assistant',
 ];
 
-test('editing uses one scroll area; shortcuts preserve drafts and every section stays mounted', async ({
+test('full-page editing preserves drafts and fixed actions while scrolling', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 812 });
@@ -75,18 +75,18 @@ test('editing uses one scroll area; shortcuts preserve drafts and every section 
   for (const id of sections)
     await expect(page.locator(`#item-${id}`)).toBeVisible();
   await page.locator('#menu-item-name').fill('Salad changed');
-  const nav = page.getByRole('navigation', { name: 'On this page' });
-  await nav
-    .getByRole('button', { name: 'Recipe and cost', exact: true })
-    .click();
-  await expect(page.locator('#item-recipe-title')).toBeFocused();
+  await expect(
+    page.getByRole('navigation', { name: 'On this page' }),
+  ).toHaveCount(0);
+  await expect(page.locator('.item-side-card')).toHaveCount(3);
+  const dialogBox = await page.getByRole('dialog').boundingBox();
+  expect(dialogBox).toMatchObject({ x: 0, y: 0, width: 1440, height: 812 });
+  await expect(page.locator('.item-editor-title')).toBeInViewport();
+  await page.locator('#item-recipe-title').scrollIntoViewIfNeeded();
   await expect(
     page.getByRole('button', { name: 'Save', exact: true }),
   ).toBeInViewport();
   expect(await page.getByRole('dialog').evaluate((el) => el.scrollTop)).toBe(0);
-  await expect(
-    nav.getByRole('button', { name: 'Recipe and cost', exact: true }),
-  ).toHaveAttribute('aria-current', 'location');
   await expect(page.locator('#menu-item-name')).toHaveValue('Salad changed');
   await expect(
     page
@@ -107,10 +107,7 @@ test('availability edits are staged and saved with the item after visiting anoth
   await page.goto('/1/menu/items/1');
   await page.locator('#menu-item-name').fill('Updated dish');
   await page.getByRole('button', { name: /Always available/ }).click();
-  await page
-    .getByRole('navigation', { name: 'On this page' })
-    .getByRole('button', { name: 'Item information', exact: true })
-    .click();
+  await page.locator('#menu-item-name').scrollIntoViewIfNeeded();
   expect(fixture.writes).toEqual([]);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page).toHaveURL('/1/menu/items');
@@ -178,17 +175,31 @@ test('legacy stock links scroll to stock while translations keep shared fields a
   await install(page);
   await page.goto('/1/menu/items/1?tab=availability');
   await expect(page.locator('#item-availability-title')).toBeInViewport();
-  await page.getByLabel('Content language').selectOption('fr');
+  await page
+    .getByRole('button', { name: 'Content language', exact: true })
+    .click();
+  await page
+    .getByRole('combobox', { name: 'Content language' })
+    .selectOption('fr');
   await page.locator('#menu-item-name').fill('Salade traduite');
   await expect(page.locator('#item-pricing')).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Sesame', exact: true }),
   ).toBeVisible();
-  await page.getByLabel('Content language').selectOption('en');
+  await page
+    .getByRole('button', { name: 'Content language', exact: true })
+    .click();
+  await page
+    .getByRole('combobox', { name: 'Content language' })
+    .selectOption('en');
   await expect(page.locator('#menu-item-name')).toHaveValue(
     'Salade méditerranéenne',
   );
-  await page.getByLabel('Content language').selectOption('fr');
+  await page
+    .getByRole('combobox', { name: 'Content language' })
+    .selectOption('fr');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.item-translations-panel')).toHaveCount(0);
   await expect(page.locator('#menu-item-name')).toHaveValue('Salade traduite');
 });
 
@@ -243,10 +254,7 @@ test('recipe instructions remain staged while moving through the page and save w
     .locator('#item-recipe textarea')
     .last()
     .fill('Kitchen note changed');
-  await page
-    .getByRole('navigation', { name: 'On this page' })
-    .getByRole('button', { name: 'Item information', exact: true })
-    .click();
+  await page.locator('#menu-item-name').scrollIntoViewIfNeeded();
   expect(fixture.writes).toEqual([]);
   await page.locator('#menu-item-name').fill('Dish with instructions');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -263,7 +271,9 @@ test('by-weight pricing retains its rate and estimate without presenting size pr
   const fixture = await install(page);
   Object.assign(fixture.optionSets[0], { menu_items: [fixture.items[0]] });
   await page.goto('/1/menu/items/1');
-  await page.getByRole('button', { name: 'By weight', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'Pricing', exact: true })
+    .selectOption('by_weight');
   await page
     .getByRole('textbox', { name: 'Price per kg', exact: true })
     .fill('64');

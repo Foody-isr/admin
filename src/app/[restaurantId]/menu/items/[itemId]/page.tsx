@@ -47,7 +47,6 @@ import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
 import { computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
 import { Button, ConfirmDialog } from '@/components/ds';
 import { keyedRecipeIngredients } from '@/lib/recipe-editor-rows';
-import { changedItemSections } from '@/lib/item-editor-sections';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import Modal from '@/components/Modal';
 import AIImageGeneratorModal from '@/components/menu-item/AIImageGeneratorModal';
@@ -657,9 +656,6 @@ function EditItemEditor() {
 
   const rail = (
     <MenuItemDistribution
-      name={name}
-      price={isByWeight ? pricePerKg : effectivePrice}
-      byWeight={isByWeight}
       categories={categories}
       categoryId={categoryId}
       setCategoryId={setCategoryId}
@@ -715,16 +711,7 @@ function EditItemEditor() {
           !priceOk
         }
         sidebar={rail}
-        isCombo={itemType === 'combo'}
         dirty={!!hasUnsavedChanges() || recipeDirty || availabilityDirty}
-        dirtySections={[
-          ...changedItemSections(
-            JSON.parse(initialSnapshot.current ?? formSnapshot),
-            JSON.parse(formSnapshot),
-          ),
-          ...(recipeDirty || simulationState.dirty ? ['recipe'] : []),
-          ...(availabilityDirty ? ['availability'] : []),
-        ]}
         initialSection={initialTab}
       >
         <div className="flex min-w-0 flex-col  bg-[var(--bg)]">
@@ -836,7 +823,7 @@ function EditItemEditor() {
               }
               pricingContent={
                 itemType !== 'combo' && !isByWeight ? (
-                  <section className="border-t border-[var(--line)] pt-5">
+                  <section>
                     <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
                       <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
                         {t('variants') || 'Variantes'}

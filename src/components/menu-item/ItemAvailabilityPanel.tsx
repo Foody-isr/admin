@@ -449,7 +449,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
 
       {/* Disponibilité — single 3-option control. The rule picker appears
           inline under "Suivre une règle" only; collapses otherwise. */}
-      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] flex flex-col gap-[var(--s-3)]">
+      <section className="item-availability-options rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] flex flex-col gap-[var(--s-3)]">
         <div className="flex items-start justify-between gap-[var(--s-3)] mb-[var(--s-2)]">
           <div className="min-w-0">
             <div className="text-fs-md font-semibold text-[var(--fg)]">
@@ -707,7 +707,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(fun
 
       {/* Preparation promise — separate from sellability. A product may need
           two days to make while a counted finished batch remains sellable now. */}
-      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] flex flex-col gap-[var(--s-4)]">
+      <section className="item-availability-options rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] flex flex-col gap-[var(--s-4)]">
         <div className="flex items-start gap-[var(--s-3)]">
           <div
             className="w-9 h-9 rounded-r-md grid place-items-center shrink-0"

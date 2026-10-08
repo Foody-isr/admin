@@ -34,7 +34,6 @@ import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
 import { computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
 import { Button, ConfirmDialog, FullScreenEditor } from '@/components/ds';
 import Modal from '@/components/Modal';
-import { changedItemSections } from '@/lib/item-editor-sections';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import VariantsEditor, {
   VariantGroupState,
@@ -145,11 +144,6 @@ function NewItemEditor() {
     variantGroups,
     activeTab: initialSection, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity,
   }), [name, price, description, portion, categoryId, isActive, itemType, comboSteps, selectedGroupIds, selectedModifierSetIds, variantGroups, initialSection, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity]);
-
-  const emptySnapshot = useRef<typeof draftSnapshot | null>(null);
-  useEffect(() => {
-    if (!loading && !loadError && emptySnapshot.current === null) emptySnapshot.current = draftSnapshot;
-  }, [draftSnapshot, loading, loadError]);
 
   // First meaningful edit while the banner is up = "starting fresh."
   // Auto-dismiss the banner and turn autosave on so the new typing is captured.
@@ -388,9 +382,6 @@ function NewItemEditor() {
 
   const rail = (
     <MenuItemDistribution
-      name={name}
-      price={isByWeight ? pricePerKg : effectivePrice}
-      byWeight={isByWeight}
       categories={categories}
       categoryId={categoryId}
       setCategoryId={setCategoryId}
@@ -423,16 +414,8 @@ function NewItemEditor() {
         saving={saving}
         saveDisabled={!canEdit || !name.trim() || !priceOk}
         sidebar={rail}
-        isCombo={itemType === 'combo'}
         initialSection={initialSection}
         dirty={isMeaningfulDraft(draftSnapshot) || !!pendingImage}
-        dirtySections={[
-          ...changedItemSections(
-            emptySnapshot.current ?? draftSnapshot,
-            draftSnapshot,
-          ),
-          ...(pendingImage ? ['information'] : []),
-        ]}
       >
         <div className="flex min-w-0 flex-col ">
           {draftStorageError && (

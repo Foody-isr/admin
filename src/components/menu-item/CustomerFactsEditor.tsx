@@ -89,7 +89,7 @@ export default function CustomerFactsEditor({
   };
 
   return (
-    <section className="max-w-4xl overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+    <section className="item-customer-facts max-w-4xl overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
       <div className="flex items-start gap-[var(--s-3)] border-b border-[var(--line)] px-[var(--s-5)] py-[var(--s-4)]">
         <span className="mt-0.5 h-6 w-[3px] shrink-0 rounded-e-md bg-[var(--brand-500)]" />
         <div>
