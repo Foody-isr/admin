@@ -232,7 +232,7 @@ function EditItemEditor() {
   const availabilityRef = useRef<ItemAvailabilityPanelHandle>(null);
 
   const formSnapshot = JSON.stringify({ name, price, pricingMode, pricePerKg, estimatedWeightGrams,
-    description, aiContext, customerFacts, portion, translations, categoryId, isActive, allowNotes,
+    description, imageUrl, aiContext, customerFacts, portion, translations, categoryId, isActive, allowNotes,
     comboAllowQuantity, itemType, comboSteps, variantGroups, groups: Array.from(selectedGroupIds).sort((a,b) => a-b) });
   const initialSnapshot = useRef<string | null>(null);
   useEffect(() => {
@@ -812,6 +812,11 @@ function EditItemEditor() {
                   onImageClick={
                     canEdit && !imageBusy && !saving && !modifierBusy
                       ? () => fileInputRef.current?.click()
+                      : undefined
+                  }
+                  onRemove={
+                    canEdit && !imageBusy && !saving && !modifierBusy
+                      ? () => setImageUrl('')
                       : undefined
                   }
                   onAiImageClick={

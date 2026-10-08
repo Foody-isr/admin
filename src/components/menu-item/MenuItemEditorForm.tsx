@@ -733,32 +733,16 @@ export default function MenuItemEditorForm({
           {/* Per-item "special instructions" (notes) toggle — guest web only.
             Default is on; turn off to hide the note field for this item. */}
           {setAllowNotes && (
-            <Field
-              label={t('itemNotesFieldLabel') || 'Special instructions field'}
-            >
-              <div className="flex items-center gap-[var(--s-2)] h-9">
-                <Switch
-                  checked={allowNotes}
-                  onCheckedChange={(v) => canEdit && setAllowNotes(v)}
-                  disabled={!canEdit}
-                  aria-label={
-                    t('itemNotesFieldLabel') || 'Special instructions field'
-                  }
-                  className="data-[state=unchecked]:bg-input"
-                />
-                <span className="text-fs-sm font-medium text-[var(--fg)]">
-                  {allowNotes
-                    ? t('itemNotesOn') || 'On'
-                    : t('itemNotesOff') || 'Off'}
-                </span>
-              </div>
-              <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
-                {allowNotes
-                  ? t('itemNotesFieldHelpOn') ||
-                    'Guests can add a note to this item'
-                  : t('itemNotesFieldHelpOff') || 'Hidden for this item'}
-              </p>
-            </Field>
+            <label className="item-notes-setting">
+              <span>{t('itemNotesFieldLabel')}</span>
+              <Switch
+                checked={allowNotes}
+                onCheckedChange={(value) => canEdit && setAllowNotes(value)}
+                disabled={!canEdit}
+                aria-label={t('itemNotesFieldLabel')}
+                className="data-[state=unchecked]:bg-input"
+              />
+            </label>
           )}
 
           {personalizationContent}
