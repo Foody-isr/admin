@@ -16,6 +16,7 @@ export type WebsiteV3RuntimeCapabilities = {
   protocol: typeof REQUIRED_PROTOCOL;
   version: number;
   editor_catalog: 2;
+  animated_text: true;
   page_types: string[];
   surfaces: string[];
   publication: {
@@ -56,7 +57,8 @@ function isCompatible(value: unknown): value is WebsiteV3RuntimeCapabilities {
   if (
     value.protocol !== REQUIRED_PROTOCOL ||
     value.version !== REQUIRED_VERSION ||
-    value.editor_catalog !== 2
+    value.editor_catalog !== 2 ||
+    value.animated_text !== true
   ) {
     return false;
   }

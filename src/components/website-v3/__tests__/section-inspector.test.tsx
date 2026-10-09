@@ -319,3 +319,40 @@ test("new scrolling sections expose the same large display typography as the the
   assert.match(markup, /value="heading" selected/);
   assert.match(markup, /aria-pressed="true"/);
 });
+
+test("moving text panels expose stable content fields, including alternating phrases", () => {
+  for (const type of ["scrolling_text", "animated_text"]) {
+    const markup = renderToStaticMarkup(
+      React.createElement(
+        LocaleProvider,
+        null,
+        React.createElement(ElementInspector, {
+          restaurantId: 1,
+          section: {
+            tmp_id: "moving",
+            section_type: type,
+            page: "home",
+            sort_order: 0,
+            is_visible: true,
+            layout: "default",
+            content: {
+              text: "Apparemment, on nous aime",
+              phrases: [{ text: "un peu" }, { text: "passionnément" }],
+            },
+            settings: squareDefaultSettings(type),
+          },
+          field: "text",
+          onChange: () => {},
+        }),
+      ),
+    );
+    assert.match(markup, /<textarea[^>]*data-field-id="section.content.text"/);
+    assert.match(markup, /Apparemment, on nous aime/);
+    if (type === "animated_text") {
+      assert.match(markup, /data-field-id="section.content.phrases"/);
+      assert.match(markup, /un peu\npassionnément/);
+      assert.match(markup, /section.settings.rotating_color/);
+      assert.match(markup, /section.settings.speed/);
+    }
+  }
+});

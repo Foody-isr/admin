@@ -74,7 +74,7 @@ export function SectionInspector({
           section.section_type === "order_discovery"
             ? "Découverte & publicité"
             : meta?.label
-              ? ["text_and_image", "scrolling_text"].includes(
+              ? ["text_and_image", "scrolling_text", "animated_text"].includes(
                   section.section_type,
                 )
                 ? t(meta.label)
@@ -240,7 +240,7 @@ export function SectionInspector({
                   </div>
                 </>
               )}
-              {["text_and_image", "scrolling_text"].includes(
+              {["text_and_image", "scrolling_text", "animated_text"].includes(
                 section.section_type,
               ) && (
                 <EditorialAppearanceFields
@@ -276,7 +276,7 @@ export function SectionInspector({
                   />
                 </>
               ) : null}
-              {["text_and_image", "scrolling_text"].includes(
+              {["text_and_image", "scrolling_text", "animated_text"].includes(
                 section.section_type,
               ) ? (
                 <ImageUploadField

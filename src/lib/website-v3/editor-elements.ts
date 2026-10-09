@@ -7,6 +7,7 @@ export const EDITOR_ELEMENTS: Record<string, readonly string[]> = {
   menu_highlights: ["title", "subtitle", "cta_text"],
   featured_menu: ["title", "subtitle", "cta_text"],
   scrolling_text: ["text"],
+  animated_text: ["text"],
   donation: ["title", "body", "cta_text", "image_url"],
   promo_banner: ["title", "body", "image_url"],
 };

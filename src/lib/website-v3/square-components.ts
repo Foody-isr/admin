@@ -13,7 +13,7 @@ const component = (
   content: Record<string, unknown> = {},
 ): EditorComponent => ({ type, label, layouts, content });
 
-/** Section catalogue observed in Square Online; legacy Foody blocks are never offered for insertion. */
+/** Square-inspired section catalogue, including Foody additions; retired blocks stay unavailable. */
 export const SQUARE_COMPONENT_GROUPS = [
   {
     label: "editorSell",
@@ -58,6 +58,10 @@ export const SQUARE_COMPONENT_GROUPS = [
         body: "Share your story with your customers.",
         cta_text: "Learn more",
         cta_link: "",
+      }),
+      component("animated_text", "editorAnimatedText", ["default"], {
+        text: "Made with",
+        phrases: [{ text: "care" }, { text: "love" }, { text: "passion" }],
       }),
       component("scrolling_text", "editorScrollingText", ["default"], {
         text: "Fresh ingredients • Made with care •",
@@ -234,6 +238,16 @@ export function squareDefaultSettings(type?: string): Record<string, unknown> {
     color_style: "site",
     padding: "normal",
     text_alignment: type === "text_and_image" ? "left" : "center",
+    ...(type === "animated_text"
+      ? {
+          text_size: "md",
+          text_weight: "bold",
+          text_font_role: "heading",
+          padding: "compact",
+          speed: "normal",
+          rotating_color: "#d7807f",
+        }
+      : {}),
     ...(type === "scrolling_text"
       ? {
           text_size: "xl",
@@ -277,10 +291,13 @@ export function squareLayouts(type: string) {
   return values.map((value) => ({
     value,
     labelKey:
-      type === "scrolling_text"
-        ? "editorLayout_marquee"
-        : type === "text_and_image" && ["columns", "full_width"].includes(value)
-          ? `editorTextImageLayout_${value}`
-          : `editorLayout_${value}`,
+      type === "animated_text"
+        ? "editorAnimatedText"
+        : type === "scrolling_text"
+          ? "editorLayout_marquee"
+          : type === "text_and_image" &&
+              ["columns", "full_width"].includes(value)
+            ? `editorTextImageLayout_${value}`
+            : `editorLayout_${value}`,
   }));
 }

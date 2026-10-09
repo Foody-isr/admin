@@ -14,7 +14,7 @@ test("section drafts never share mutable content arrays", () => {
   assert.equal((two.fields as unknown[]).length, 3);
   assert.equal(
     SQUARE_COMPONENT_GROUPS.flatMap((group) => group.items).length,
-    19,
+    20,
   );
 });
 test("reservation presets contain date and guest fields", () => {
@@ -46,7 +46,8 @@ test("renaming a page retargets links without changing their labels or anchors",
     { id: "a", label: "Our story", page_slug: "story", anchor: "history" },
   ]);
   assert.deepEqual(
-    (next.config.nav_layout as { theme_pages: Record<string, string> }).theme_pages,
+    (next.config.nav_layout as { theme_pages: Record<string, string> })
+      .theme_pages,
     { about: "story", catering: "private-events" },
   );
   assert.equal(
@@ -89,5 +90,35 @@ test("adding a page respects its navigation checkbox after links were customized
   assert.deepEqual(
     addNavigationPage(state, { ...page, nav_visible: false }),
     state,
+  );
+});
+
+test("animated text is insertable with independent phrases and survives draft normalization", () => {
+  const one = squareDefaultContent("animated_text");
+  const two = squareDefaultContent("animated_text");
+  (one.phrases as Array<{ text: string }>)[0].text = "un peu";
+  assert.equal((two.phrases as Array<{ text: string }>)[0].text, "care");
+  const state = normalizeDraftState({
+    config: {},
+    pages: [],
+    sections: [
+      {
+        tmp_id: "animated",
+        section_type: "animated_text",
+        page: "home",
+        is_visible: true,
+        sort_order: 0,
+        layout: "default",
+        content: one,
+        settings: { rotating_color: "#d7807f", speed: "fast" },
+      },
+    ],
+  });
+  assert.deepEqual(state.sections[0].content, one);
+  assert.equal(state.sections[0].settings.rotating_color, "#d7807f");
+  assert.ok(
+    SQUARE_COMPONENT_GROUPS.flatMap((group) => group.items).some(
+      (item) => item.type === "animated_text",
+    ),
   );
 });

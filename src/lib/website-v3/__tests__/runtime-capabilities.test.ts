@@ -9,6 +9,7 @@ import type { DraftStatePayload } from "../types";
 const compatible = {
   protocol: "foody.website-v3",
   editor_catalog: 2,
+  animated_text: true,
   version: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
@@ -126,4 +127,15 @@ test("rejects storefronts without the new section catalogue", async () => {
       ),
       /site public n’est pas compatible/,
     );
+});
+
+test("rejects a storefront that cannot render animated text", async () => {
+  for (const animated_text of [undefined, false]) {
+    await assert.rejects(
+      requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+        Response.json({ ...compatible, animated_text }),
+      ),
+      /site public n’est pas compatible/,
+    );
+  }
 });
