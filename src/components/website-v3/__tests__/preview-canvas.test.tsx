@@ -73,7 +73,8 @@ test("content pages expose the same section library through the sidebar", () => 
 test("all page types expose Square primitives and never retired Foody blocks", () => {
   for(const page of ["order","landing","catering","content"] as const) {
     const types=componentGroupsForPage(page).flatMap(group=>group.items.map(item=>item.type));
-    assert.equal(types.length,19);
+    assert.equal(types.length,20);
+    assert.ok(types.includes("animated_text"));
     for(const retired of ["order_discovery","picnic_basket","promo_banner","feature_cards","hero_banner","footer"]) assert.ok(!types.includes(retired));
   }
 });

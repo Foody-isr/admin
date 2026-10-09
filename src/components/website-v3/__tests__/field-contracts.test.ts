@@ -164,6 +164,27 @@ test("navigation text colors have editor-to-renderer contracts", () => {
   ]);
 });
 
+test("animated text contracts target its content controls and persisted phrase list", () => {
+  const contracts = new Map(FIELD_CONTRACTS.map((contract) => [contract.id, contract]));
+  for (const id of [
+    "section.content.phrases",
+    "section.settings.show_text",
+    "section.settings.rotating_color",
+    "section.settings.speed",
+  ]) {
+    const contract = contracts.get(id)!;
+    assert.deepEqual(contract.statePath, id.split(".").slice(1));
+    assert.equal(contract.editor.pageTitle, "Home");
+    assert.equal(contract.editor.sectionLabel, "Animated text");
+    assert.equal(contract.editor.tab, "Contenu");
+  }
+  const phrases = contracts.get("section.content.phrases")!;
+  assert.deepEqual(
+    JSON.parse(phrases.preview.expected),
+    String(phrases.testValue).split("\n").map((text) => ({ text })),
+  );
+});
+
 test("page navigation visuals have editor-to-renderer contracts", () => {
   const contracts = new Map(
     FIELD_CONTRACTS.map((contract) => [contract.id, contract]),
