@@ -88,6 +88,12 @@ export function MotionTextContentFields({
               onChange(["settings", "rotating_color"], value)
             }
           />
+          <InspectorField label={t("editorWordAnimation")}>
+            <select className={controlClass} data-field-id="section.settings.word_animation" value={String(section.settings.word_animation ?? "swirl")} onChange={(event) => onChange(["settings", "word_animation"], event.target.value)}>
+              {["swirl", "fade", "slide", "none"].map((value) => <option key={value} value={value}>{t(`editorMotionStyle_${value}`)}</option>)}
+            </select>
+          </InspectorField>
+          <ToggleField fieldId="section.settings.resize_width" label={t("editorWordResize")} checked={section.settings.resize_width !== false} onChange={(value) => onChange(["settings", "resize_width"], value)} />
           <InspectorField label={t("editorAnimationSpeed")}>
             <select
               className={controlClass}

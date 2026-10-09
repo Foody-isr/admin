@@ -493,3 +493,22 @@ for unset values; changing the header layout does not change its color style.
 The **Scrolling text** panel opens directly on a stable text input; the canvas wraps the complete phrase while editing. **Animated text** adds a fixed prefix and up to 20 rotating phrases (one per line), separate text/phrase colors, typography, speed, spacing and alignment. Preview plays the animation; editing keeps the first phrase still.
 
 The storefront advertises `animated_text: true` in its V3 capabilities. Deploy the API, then Foody Web, then the admin; the editor rejects an older renderer before creating or publishing an unsupported section.
+
+## Per-component website animations
+
+Every section inspector exposes **Animations**, including featured items and
+text element editing. Effects are optional and stored in `settings.motion`.
+The Lovely preset chooses fade for banners, zoom for featured items/gallery/
+animated text, and opposing reveals + image wobble + desktop scroll movement
+for text/image blocks. Users can independently choose entry style, duration,
+delay, replay, image/button hover, scroll direction/amplitude and mobile behavior.
+Animated text offers letter rotation, fade, slide or no rotation and an optional
+fixed width. Testimonials can rotate automatically with configurable timings.
+All controls use the same draft/preview/publication state; no site is automatically
+restyled. Deploy API then the web renderer advertising `component_animations: 1`
+before this editor.
+
+For an isolated browser check, run `FOODY_COMPONENT_MOTION=1 node
+tests/redesign/website-editor-server.mjs` with the local web/admin environment
+variables described above. The fixture includes entry effects, image wobble,
+parallax, variable-width text and two rotating reviews; all writes stay in memory.

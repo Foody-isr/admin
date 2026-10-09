@@ -96,6 +96,18 @@ let draft = {
   deleted_page_ids: [],
   deleted_section_ids: [],
 };
+if (process.env.FOODY_COMPONENT_MOTION === "1") {
+  draft.config.custom_palette.accent = "#d7807f";
+  draft.sections[0].settings.motion = { enabled: true, entrance: "fade", duration_ms: 1250 };
+  draft.sections[2].content.cta_text = "Découvrir la carte";
+  draft.sections[2].content.cta_link = "/order";
+  draft.sections[2].settings.motion = { enabled: true, entrance: "split", duration_ms: 1250, media_hover: "wobble", button_hover: "push", parallax: "up", parallax_amount: 20 };
+  draft.sections[3].layout = "carousel";
+  draft.sections[3].settings = { carousel_autoplay: true, carousel_interval: 5000, carousel_duration: 500 };
+  draft.sections[3].content.reviews.push({ name: "Sam", text: "Un accueil chaleureux et de belles saveurs.", rating: 5 });
+  draft.sections.splice(3, 0, {...section(7, "animated_text", {text: "Apparemment, on nous aime", phrases: [{text:"un peu"},{text:"beaucoup"},{text:"passionnément"}]}), sort_order: 3, settings: {text_size:"md", rotating_color:"#d7807f", motion:{enabled:true, entrance:"zoom", duration_ms:1250}}});
+}
+if (process.env.FOODY_COMPONENT_MOTION === "1") draft.sections.forEach((section, index) => { section.sort_order = index; });
 if (process.env.FOODY_THEME_REGRESSION === "1") {
   draft.sections[0].content = { headline: "blalbla", subheadline: "blablabla", image_url: "", cta_text: "", cta_link: "" };
   draft.sections[0].settings = { show_image_url: false, show_cta_text: false, headline_uppercase: true, headline_size: "sm" };

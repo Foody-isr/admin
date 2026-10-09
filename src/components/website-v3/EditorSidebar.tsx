@@ -1,4 +1,6 @@
 "use client";
+
+import { ComponentAnimationFields } from "./ComponentAnimationFields";
 import type { SiteColorEditTarget } from "./ColorStylePicker";
 import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
 
@@ -917,6 +919,7 @@ export function EditorSidebar({
               inspector
             )}
           </div>
+          {selectedSection && <ComponentAnimationFields section={selectedSection} onChange={(path, value) => onSectionChange(sectionKey(selectedSection), path, value)} />}
           {selectedSection && canDeleteSection(selectedSection) && (
             <div className="sqe-panel-body sqe-section-delete">
               <button className="sqe-button sqe-button-secondary" disabled={busy}
