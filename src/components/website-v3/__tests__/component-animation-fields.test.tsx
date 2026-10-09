@@ -14,7 +14,7 @@ function render(type: string, settings: Record<string, unknown>) {
 test("animation controls map every rendered field to persisted settings", () => {
   for (const type of ["text_and_image", "animated_text", "testimonials", "menu_highlights"]) {
     const html = render(type, {motion:recommendedComponentMotion(type), carousel_autoplay:true});
-    for (const [,id] of html.matchAll(/data-field-id="([^"]+)"/g)) assert.ok(fieldContract(id), id);
+    for (const [,id] of Array.from(html.matchAll(/data-field-id="([^"]+)"/g))) assert.ok(fieldContract(id), id);
     assert.match(html, /section.settings.motion.enabled/);
   }
 });
