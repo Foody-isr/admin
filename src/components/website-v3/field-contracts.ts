@@ -231,6 +231,11 @@ function contract(
 }
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
+  "section.settings.motion.parallax_target": "text",
+  "section.settings.motion.mobile_parallax": "up",
+  "section.settings.motion.mobile_parallax_target": "text",
+  "section.settings.motion.mobile_parallax_amount": 200,
+
   "section.settings.word_animation": "slide",
   "section.settings.resize_width": false,
   "section.settings.carousel_autoplay": true,
@@ -1014,6 +1019,10 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.motion.parallax_amount", ["settings", "motion", "parallax_amount"], "[data-website-section]", "style"),
   section("section.settings.motion.mobile", ["settings", "motion", "mobile"], "[data-website-section]", "style"),
   section("section.settings.motion.parallax_mobile", ["settings", "motion", "parallax_mobile"], "[data-website-section]", "style"),
+  section("section.settings.motion.parallax_target", ["settings", "motion", "parallax_target"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_parallax", ["settings", "motion", "mobile_parallax"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_parallax_target", ["settings", "motion", "mobile_parallax_target"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_parallax_amount", ["settings", "motion", "mobile_parallax_amount"], "[data-website-section]", "style"),
   action("section.create", "section", ["sections"]),
   action("section.delete", "section", ["deleted_section_ids"]),
 ] as const;

@@ -81,7 +81,7 @@ export function ComponentAnimationFields({
     fallback: number,
   ) => (
     <InspectorField
-      label={`${t(`editorMotion_${key}`)} · ${Number(motion[key] ?? fallback)}${key === "parallax_amount" ? " px" : " ms"}`}
+      label={`${t(`editorMotion_${key}`)} · ${Number(motion[key] ?? fallback)}${key.endsWith("parallax_amount") ? " px" : " ms"}`}
     >
       <input
         className="w-full accent-black"
@@ -160,9 +160,10 @@ export function ComponentAnimationFields({
             {hasButtons &&
               select("button_hover", ["none", "push", "grow", "lift"], "none")}
             {select("parallax", ["none", "up", "down"], "none")}
+            {select("parallax_target", ["media", "text", "component"], "media")}
             {motion.parallax &&
               motion.parallax !== "none" &&
-              number("parallax_amount", 10, 80, 5, 20)}
+              number("parallax_amount", 10, 200, 5, 20)}
             <ToggleField
               fieldId="section.settings.motion.mobile"
               label={t("editorMotion_mobile")}
@@ -182,6 +183,27 @@ export function ComponentAnimationFields({
                   checked={motion.parallax_mobile === true}
                   onChange={(value) => update("parallax_mobile", value)}
                 />
+                {motion.parallax_mobile === true && (
+                  <>
+                    {select(
+                      "mobile_parallax",
+                      ["inherit", "none", "up", "down"],
+                      "inherit",
+                    )}
+                    {select(
+                      "mobile_parallax_target",
+                      ["inherit", "media", "text", "component"],
+                      "inherit",
+                    )}
+                    {number(
+                      "mobile_parallax_amount",
+                      10,
+                      200,
+                      5,
+                      Number(motion.parallax_amount ?? 20),
+                    )}
+                  </>
+                )}
               </>
             )}
           </>

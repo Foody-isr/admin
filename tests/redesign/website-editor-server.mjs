@@ -101,7 +101,7 @@ if (process.env.FOODY_COMPONENT_MOTION === "1") {
   draft.sections[0].settings.motion = { enabled: true, entrance: "fade", duration_ms: 1250 };
   draft.sections[2].content.cta_text = "Découvrir la carte";
   draft.sections[2].content.cta_link = "/order";
-  draft.sections[2].settings.motion = { enabled: true, entrance: "split", duration_ms: 1250, media_hover: "wobble", button_hover: "push", parallax: "up", parallax_amount: 20 };
+  draft.sections[2].settings.motion = { enabled: true, entrance: "split", duration_ms: 1250, media_hover: "wobble", button_hover: "push", parallax: "down", parallax_amount: 100, parallax_target: "media", parallax_mobile: true, mobile_parallax: "up", mobile_parallax_target: "text", mobile_parallax_amount: 200 };
   draft.sections[3].layout = "carousel";
   draft.sections[3].settings = { carousel_autoplay: true, carousel_interval: 5000, carousel_duration: 500 };
   draft.sections[3].content.reviews.push({ name: "Sam", text: "Un accueil chaleureux et de belles saveurs.", rating: 5 });
