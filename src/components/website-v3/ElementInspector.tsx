@@ -1,5 +1,6 @@
 "use client";
 
+import { MotionTextContentFields } from "./MotionTextContentFields";
 import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -123,7 +124,9 @@ export function ElementInspector({
   const set = (suffix: string, value: unknown) =>
     onChange(["settings", setting(suffix)], value);
   const scrolling = section.section_type === "scrolling_text";
-  const heading = field === "headline" || field === "title" || scrolling;
+  const animated = section.section_type === "animated_text";
+  const motionText = scrolling || animated;
+  const heading = field === "headline" || field === "title" || motionText;
   const bold =
     section.settings[setting("weight")] === "bold" ||
     (!section.settings[setting("weight")] && heading);
@@ -163,7 +166,11 @@ export function ElementInspector({
   if (!isInlineTextElement(section.section_type, field)) return null;
   return (
     <div className="sqe-panel-body space-y-5">
-      <p className="sqe-element-hint">{t("editorInlineHint")}</p>
+      {motionText ? (
+        <MotionTextContentFields section={section} onChange={onChange} />
+      ) : (
+        <p className="sqe-element-hint">{t("editorInlineHint")}</p>
+      )}
       <InspectorField label={t("editorTextStyle")}>
         <select
           className={controlClass}
@@ -186,7 +193,7 @@ export function ElementInspector({
           )}
         </select>
       </InspectorField>
-      {scrolling && (
+      {motionText && (
         <InspectorField label={t("editorFonts")}>
           <select
             className={controlClass}

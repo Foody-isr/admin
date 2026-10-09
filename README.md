@@ -486,3 +486,10 @@ Authored title, paragraph and outline colors are preserved during normalization,
 saving and rendering. Menu and item-detail inheritance passes those colors through
 without correcting them against a new background. Defaults are generated only
 for unset values; changing the header layout does not change its color style.
+
+
+## Animated website text
+
+The **Scrolling text** panel opens directly on a stable text input; the canvas wraps the complete phrase while editing. **Animated text** adds a fixed prefix and up to 20 rotating phrases (one per line), separate text/phrase colors, typography, speed, spacing and alignment. Preview plays the animation; editing keeps the first phrase still.
+
+The storefront advertises `animated_text: true` in its V3 capabilities. Deploy the API, then Foody Web, then the admin; the editor rejects an older renderer before creating or publishing an unsupported section.

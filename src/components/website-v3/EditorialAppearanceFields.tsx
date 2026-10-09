@@ -13,6 +13,7 @@ export function EditorialAppearanceFields({
 }) {
   const { t } = useI18n();
   const scrolling = section.section_type === "scrolling_text";
+  const animated = section.section_type === "animated_text";
   const select = (
     key: string,
     label: string,
@@ -47,7 +48,7 @@ export function EditorialAppearanceFields({
         "editorSectionSpacing",
         ["none", "compact", "normal", "spacious"],
         "editorSpacing_",
-        scrolling ? "compact" : "normal",
+        scrolling || animated ? "compact" : "normal",
       )}
       {scrolling ? (
         <>
@@ -67,6 +68,14 @@ export function EditorialAppearanceFields({
             "left",
           )}
         </>
+      ) : animated ? (
+        select(
+          "text_alignment",
+          "editorAlignment",
+          ["left", "center", "right"],
+          "editorAlign_",
+          "center",
+        )
       ) : (
         <>
           {select(

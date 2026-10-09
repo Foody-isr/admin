@@ -1,5 +1,6 @@
 "use client";
 
+import { MotionTextContentFields } from "./MotionTextContentFields";
 import { TextImageContentEditor } from "./TextImageContentEditor";
 import { useRef, useState } from "react";
 import {
@@ -173,15 +174,8 @@ export function SectionContentEditors({
         </>
       );
     case "scrolling_text":
-      return (
-        <TextField
-          fieldId="section.content.text"
-          label="Texte défilant"
-          value={text(section.content.text)}
-          onChange={(value) => updateContent("text", value)}
-          multiline
-        />
-      );
+    case "animated_text":
+      return <MotionTextContentFields section={section} onChange={onChange} />;
     case "footer":
       return (
         <TextField

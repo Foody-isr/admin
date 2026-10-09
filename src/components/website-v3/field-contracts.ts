@@ -375,6 +375,10 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.content.show_heading": false,
   "section.content.body": "Connected section body",
   "section.content.text": "Connected scrolling text",
+  "section.content.phrases": "a little\na lot\nwith passion",
+  "section.settings.show_text": false,
+  "section.settings.rotating_color": "#d7807f",
+  "section.settings.speed": "slow",
   "section.content.cta_text": "Connected CTA",
   "section.content.cta_link": "/about",
   "section.content.image_url": "http://localhost:3000/logo-icon.svg",
@@ -519,6 +523,12 @@ function editorFor(
     "section.content.video_url",
   ].includes(id);
   const scrolling = id === "section.content.text";
+  const animated = [
+    "section.content.phrases",
+    "section.settings.show_text",
+    "section.settings.rotating_color",
+    "section.settings.speed",
+  ].includes(id);
   const menuHighlights = [
     "section.settings.card_bg",
     "section.settings.card_text",
@@ -552,20 +562,22 @@ function editorFor(
     id === "section.settings.insert_after_items";
   const appearance =
     id === "section.layout" ||
-    (id.startsWith("section.settings.") && !discoveryPlacement);
+    (id.startsWith("section.settings.") && !discoveryPlacement && !animated);
   return {
     kind: action,
     scope,
     tab: appearance ? "Apparence" : id === "section.is_visible" || id === "section.page_id" ? "Réglages" : "Contenu",
     pageTitle: orderDiscovery
       ? "Dinner Order"
-      : hero || scrolling || menuHighlights || featureCards
+      : hero || scrolling || animated || menuHighlights || featureCards
         ? "Home"
         : "About",
     sectionLabel: hero
       ? "Hero banner"
       : scrolling
         ? "Scrolling text"
+        : animated
+          ? "Animated text"
         : menuHighlights
           ? "Menu highlights"
           : featureCards
@@ -575,7 +587,7 @@ function editorFor(
               : "Text and image",
     publicSlug: orderDiscovery
       ? "dinner-order"
-      : hero || scrolling || menuHighlights || featureCards
+      : hero || scrolling || animated || menuHighlights || featureCards
         ? ""
         : "about",
     commit: "change",
@@ -595,6 +607,9 @@ function serialize(value: TestValue): string {
 }
 
 function expectedFor(id: string, value: TestValue): string {
+  if (id === "section.content.phrases" && typeof value === "string") {
+    return JSON.stringify(value.split("\n").map((text) => ({ text })));
+  }
   if (
     ["site.typography", "site.nav_layout", "site.checkout_config"].includes(id) &&
     typeof value === "string"
@@ -914,6 +929,10 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   orderSection("section.content.show_heading", ["content", "show_heading"], "order_discovery", "visible"),
   section("section.content.body", ["content", "body"], "[data-website-section] p", "text"),
   section("section.content.text", ["content", "text"], "[data-website-section]", "text"),
+  section("section.content.phrases", ["content", "phrases"], "animated_text", "text"),
+  section("section.settings.show_text", ["settings", "show_text"], "animated_text", "visible"),
+  section("section.settings.rotating_color", ["settings", "rotating_color"], "animated_text", "color"),
+  section("section.settings.speed", ["settings", "speed"], "animated_text", "value"),
   section("section.content.cta_text", ["content", "cta_text"], "[data-website-section] a", "text"),
   section("section.content.cta_link", ["content", "cta_link"], "[data-website-section] a", "value"),
   section("section.content.image_url", ["content", "image_url"], "[data-website-section] img", "value"),

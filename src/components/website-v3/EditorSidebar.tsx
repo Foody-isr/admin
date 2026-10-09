@@ -166,6 +166,7 @@ export function EditorSidebar({
   const selectedSectionKey = selectedSection
     ? sectionKey(selectedSection)
     : null;
+  const motionTextSection = selectedSection?.section_type === "scrolling_text" || selectedSection?.section_type === "animated_text";
   const activeField =
     selection.kind === "section" ? selection.field : undefined;
   const orderRegion = selection.kind === "page" ? selection.region : undefined;
@@ -178,8 +179,8 @@ export function EditorSidebar({
     if (selectedSectionKey) {
       setPanel("inspector");
       if (activeField || lastSectionKey.current !== selectedSectionKey) {
-        setSectionContentOpen(Boolean(activeField));
-        onTabChange(activeField ? "content" : "appearance");
+        setSectionContentOpen(Boolean(activeField) || motionTextSection);
+        onTabChange(activeField || motionTextSection ? "content" : "appearance");
       }
     }
     if (
@@ -190,7 +191,7 @@ export function EditorSidebar({
     )
       setPanel("outline");
     lastSectionKey.current = selectedSectionKey;
-  }, [selectedSectionKey, activeField, selection.kind, orderRegion, onTabChange]);
+  }, [selectedSectionKey, activeField, selection.kind, orderRegion, onTabChange, motionTextSection]);
   useEffect(() => {
     if (selection.kind === "site" && selection.region) setPanel("inspector");
   }, [selection]);
@@ -891,11 +892,11 @@ export function EditorSidebar({
               selectedSection && !["menu_highlights", "featured_menu"].includes(selectedSection.section_type) && !sectionContentOpen && !customizeOpen,
             )}
           >
-            {selectedSection && activeField ? (
+            {selectedSection && (activeField || (motionTextSection && sectionContentOpen && tab === "content")) ? (
               <ElementInspector
                 restaurantId={restaurantId}
                 section={selectedSection}
-                field={activeField}
+                field={activeField || "text"}
                 onChange={(path, value) =>
                   onSectionChange(sectionKey(selectedSection), path, value)
                 }
@@ -935,7 +936,7 @@ export function SectionIcon({ type }: { type: string }) {
   const Icon =
     type === "menu_highlights"
       ? Tag
-      : type === "scrolling_text"
+      : (type === "scrolling_text" || type === "animated_text")
         ? Type
         : type === "text_and_image" ||
             type === "gallery" ||
