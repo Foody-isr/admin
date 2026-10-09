@@ -9,7 +9,7 @@ import type { DraftStatePayload } from "../types";
 const compatible = {
   protocol: "foody.website-v3",
   editor_catalog: 2,
-  animated_text: true,
+  animated_text: true, component_animations: 1,
   version: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
@@ -138,4 +138,8 @@ test("rejects a storefront that cannot render animated text", async () => {
       /site public n’est pas compatible/,
     );
   }
+});
+
+test("rejects renderers that cannot show component animations", async () => {
+  await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://app.foody-pos.co.il", async () => Response.json({...compatible, component_animations: undefined})), /site public n’est pas compatible/);
 });

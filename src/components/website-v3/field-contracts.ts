@@ -231,6 +231,29 @@ function contract(
 }
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
+  "section.settings.motion.parallax_target": "text",
+  "section.settings.motion.mobile_parallax": "up",
+  "section.settings.motion.mobile_parallax_target": "text",
+  "section.settings.motion.mobile_parallax_amount": 200,
+
+  "section.settings.word_animation": "slide",
+  "section.settings.resize_width": false,
+  "section.settings.carousel_autoplay": true,
+  "section.settings.carousel_interval": 6000,
+  "section.settings.carousel_duration": 700,
+  "section.settings.motion.enabled": true,
+  "section.settings.motion.entrance": "zoom",
+  "section.settings.motion.mobile_entrance": "from_bottom",
+  "section.settings.motion.duration_ms": 1500,
+  "section.settings.motion.delay_ms": 200,
+  "section.settings.motion.replay": true,
+  "section.settings.motion.media_hover": "wobble",
+  "section.settings.motion.button_hover": "push",
+  "section.settings.motion.parallax": "up",
+  "section.settings.motion.parallax_amount": 30,
+  "section.settings.motion.mobile": false,
+  "section.settings.motion.parallax_mobile": true,
+
   "site.theme_id": "editorial-dark",
   "site.pairing_id": "modern-sans",
   "site.brand_color": "#1a2b3c",
@@ -431,6 +454,9 @@ function editorFor(
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
   const action = isAction ? "action" : "field";
+  if (id.startsWith("section.settings.motion.")) return { kind: action, scope: "section", tab: "Apparence", pageTitle: "About", sectionLabel: "Text and image", publicSlug: "about", commit: "change", prerequisite: id.endsWith(".enabled") ? undefined : { id: "section.settings.motion.enabled", value: true } };
+  if (id.startsWith("section.settings.carousel_")) return { kind: action, scope: "section", tab: "Apparence", pageTitle: "Home", sectionLabel: "Testimonials", publicSlug: "", commit: "change" };
+
   if (id.startsWith("site.footer.")) {
     return {
       kind: action,
@@ -976,6 +1002,27 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
   section("section.settings.image_only", ["settings", "image_only"], "text_and_image", "visible"),
+  section("section.settings.word_animation", ["settings", "word_animation"], "[data-website-section]", "style"),
+  section("section.settings.resize_width", ["settings", "resize_width"], "[data-website-section]", "style"),
+  section("section.settings.carousel_autoplay", ["settings", "carousel_autoplay"], "[data-website-section]", "style"),
+  section("section.settings.carousel_interval", ["settings", "carousel_interval"], "[data-website-section]", "style"),
+  section("section.settings.carousel_duration", ["settings", "carousel_duration"], "[data-website-section]", "style"),
+  section("section.settings.motion.enabled", ["settings", "motion", "enabled"], "[data-website-section]", "style"),
+  section("section.settings.motion.entrance", ["settings", "motion", "entrance"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_entrance", ["settings", "motion", "mobile_entrance"], "[data-website-section]", "style"),
+  section("section.settings.motion.duration_ms", ["settings", "motion", "duration_ms"], "[data-website-section]", "style"),
+  section("section.settings.motion.delay_ms", ["settings", "motion", "delay_ms"], "[data-website-section]", "style"),
+  section("section.settings.motion.replay", ["settings", "motion", "replay"], "[data-website-section]", "style"),
+  section("section.settings.motion.media_hover", ["settings", "motion", "media_hover"], "[data-website-section]", "style"),
+  section("section.settings.motion.button_hover", ["settings", "motion", "button_hover"], "[data-website-section]", "style"),
+  section("section.settings.motion.parallax", ["settings", "motion", "parallax"], "[data-website-section]", "style"),
+  section("section.settings.motion.parallax_amount", ["settings", "motion", "parallax_amount"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile", ["settings", "motion", "mobile"], "[data-website-section]", "style"),
+  section("section.settings.motion.parallax_mobile", ["settings", "motion", "parallax_mobile"], "[data-website-section]", "style"),
+  section("section.settings.motion.parallax_target", ["settings", "motion", "parallax_target"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_parallax", ["settings", "motion", "mobile_parallax"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_parallax_target", ["settings", "motion", "mobile_parallax_target"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_parallax_amount", ["settings", "motion", "mobile_parallax_amount"], "[data-website-section]", "style"),
   action("section.create", "section", ["sections"]),
   action("section.delete", "section", ["deleted_section_ids"]),
 ] as const;
