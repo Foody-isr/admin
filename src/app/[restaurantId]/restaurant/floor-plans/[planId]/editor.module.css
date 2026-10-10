@@ -1,0 +1,45 @@
+.editor { --floor-workspace:#d9d9d9; --floor-paper:#fff; --floor-grid:#eef0f1; --floor-table:#3c444a; --floor-table-border:#30363a; --floor-selected:#101010; position:fixed; inset:0; z-index:50; display:flex; flex-direction:column; padding-block:env(safe-area-inset-top) env(safe-area-inset-bottom); background:var(--bg); color:var(--text-primary); font-family:'Orders Sans',var(--font-sans); }
+:global(.dark) .editor { --floor-workspace:#202024; --floor-paper:#141418; --floor-grid:#25252c; --floor-table:#454d54; --floor-table-border:#69717a; --floor-selected:#0a0a0c; }
+.header { position:relative; display:flex; align-items:center; gap:16px; min-height:72px; padding:12px 16px; border-bottom:1px solid var(--divider); flex-shrink:0; background:var(--bg); }
+.header h1 { position:absolute; left:50%; transform:translateX(-50%); margin:0; font-size:26px; font-weight:700; line-height:1.2; white-space:nowrap; }
+.header button,.paletteFooter button { border-radius:999px; min-height:48px; padding:0 16px; background:var(--surface-subtle); font-size:14px; font-weight:500; }
+.header .close { display:grid; place-items:center; width:48px; padding:0; flex-shrink:0; }
+.headerActions { display:flex; gap:10px; margin-inline-start:auto; position:relative; }
+.headerActions button:disabled { opacity:.35; cursor:default; }
+.headerActions .destructive { color:#d90022; }
+.headerActions .save { background:var(--text-primary); color:var(--bg); }
+.body { display:flex; flex:1; min-height:0; position:relative; overflow:hidden; }
+.stage { background:var(--floor-workspace); display:flex; flex:1; min-width:0; flex-direction:column; align-items:center; justify-content:center; padding:72px 88px; overflow:auto; position:relative; }
+.canvas { position:relative; width:100%; flex-shrink:0; background:var(--floor-paper); background-image:linear-gradient(var(--floor-grid) 1px,transparent 1px),linear-gradient(90deg,var(--floor-grid) 1px,transparent 1px); background-size:var(--grid-step) calc(var(--grid-step) * 1.74); user-select:none; touch-action:none; }
+.properties { position:absolute; inset-inline-start:8px; top:8px; z-index:10; width:84px; padding:18px; display:flex; flex-direction:column; gap:16px; background:var(--bg); border:1px solid var(--text-primary); border-radius:3px; box-shadow:0 1px 3px #0003; text-align:center; font-size:14px; font-weight:500; }
+.properties p { margin:0 0 -8px; }
+.properties label { display:flex; flex-direction:column; align-items:stretch; gap:8px; margin-inline:-2px; }
+.properties input { width:100%; height:32px; border:1px solid var(--divider); background:var(--bg); text-align:center; font-weight:400; border-radius:1px; }
+.shapeButtons { display:flex; flex-direction:column; gap:8px; }
+.shapeButtons button { display:grid; place-items:center; width:48px; height:32px; background:var(--surface-subtle); border:1px solid var(--divider); border-radius:1px; }
+.shapeButtons button[aria-pressed=true] { border-color:var(--text-primary); background:var(--surface-2,var(--surface-subtle)); }
+.removeItem { display:grid; place-items:center; height:32px; background:var(--surface-subtle); border:1px solid var(--divider); color:var(--text-secondary); }
+.colors { display:flex; flex-wrap:wrap; gap:4px; }
+.colors button { width:18px; height:18px; border:1px solid #999; }
+.palette { width:240px; flex-shrink:0; display:flex; flex-direction:column; border-inline-start:1px solid var(--divider); background:var(--bg); }
+.planIdentity { padding:28px 24px; border-bottom:1px solid var(--divider); }
+.planIdentity h2 { color:#006aff; margin:0; font-size:18px; font-weight:500; overflow-wrap:anywhere; }
+.paletteContent { flex:1; overflow:auto; padding:24px; }
+.section { margin-bottom:28px; }
+.section h3 { font-size:14px; font-weight:500; text-decoration:underline; margin:0 0 18px; overflow-wrap:anywhere; }
+.tableGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.tableGrid button { aspect-ratio:1; width:100%; background:var(--floor-table); border:1px solid var(--floor-table-border); border-radius:1px; color:white; font-size:14px; line-height:1.1; padding:3px; overflow-wrap:anywhere; font-weight:500; cursor:grab; }
+.tableGrid button:disabled { cursor:default; background:var(--surface-subtle); color:var(--text-secondary); border:1px solid var(--divider); }
+.addTable { display:flex; align-items:center; gap:4px; font-size:12px; margin-top:10px; padding-block:4px; color:var(--text-secondary); }
+.paletteFooter { padding:24px; border-top:1px solid var(--divider); display:flex; flex-direction:column; gap:8px; }
+.paletteFooter button { width:100%; padding:12px; font-size:14px; }
+.landmarks summary { cursor:pointer; font-size:14px; padding-block:12px; }
+.landmarks div { display:flex; gap:6px; flex-wrap:wrap; }
+.landmarks button { padding:6px; color:#333; border-radius:3px; font-size:12px; }
+.rotateHandle { position:absolute; top:-22px; right:-22px; width:24px; height:24px; display:grid; place-items:center; color:var(--text-primary); cursor:grab; touch-action:none; }
+.table { touch-action:none; }
+.error { background:var(--bg); color:#d90022; padding:10px 24px; font-size:14px; }
+.error button { text-decoration:underline; margin-inline-start:16px; }
+.editor button:focus-visible,.editor input:focus-visible { outline:2px solid #006aff; outline-offset:3px; }
+@media (max-width:1250px) { .header h1 { position:static; transform:none; font-size:22px; } .stage { padding:64px 64px 64px 96px; } }
+@media (max-width:767px) { .header { flex-wrap:wrap; gap:8px; padding:8px 12px; } .header h1 { font-size:18px; flex:1; white-space:normal; } .header .close { width:40px; min-height:40px; } .headerActions { width:100%; justify-content:flex-end; gap:6px; } .headerActions button { min-height:40px; padding:0 12px; font-size:13px; } .body { flex-direction:column; overflow:auto; } .stage { flex:none; min-height:360px; padding:56px 16px 24px 96px; overflow:auto; } .canvas { min-width:540px; align-self:flex-start; } .properties { position:fixed; top:132px; max-height:calc(100dvh - 150px); overflow:auto; gap:12px; padding:12px; width:72px; } .palette { width:100%; min-height:300px; border-inline-start:0; border-top:1px solid var(--divider); } .planIdentity { padding:16px; } .paletteContent { overflow:visible; padding:16px 16px 16px 96px; } .tableGrid { grid-template-columns:repeat(3,minmax(0,64px)); } .paletteFooter { padding:16px 16px 16px 96px; } }
