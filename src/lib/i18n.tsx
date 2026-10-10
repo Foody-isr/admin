@@ -6018,6 +6018,7 @@ const translations: Record<Locale, Record<string, string>> = {
     minutes: 'minutes',
 
     // ── Floor Plans ──
+    floorEditorTables: 'Tables',
     floorEditorUndo: 'Undo',
     floorEditorRedo: 'Redo',
     floorEditorProperties: 'Selected table',
@@ -13643,6 +13644,7 @@ const translations: Record<Locale, Record<string, string>> = {
     minutes: 'דקות',
 
     // ── Floor Plans ──
+    floorEditorTables: 'שולחנות',
     floorEditorUndo: 'בטל',
     floorEditorRedo: 'בצע שוב',
     floorEditorProperties: 'שולחן נבחר',
@@ -21272,6 +21274,7 @@ const translations: Record<Locale, Record<string, string>> = {
     minutes: 'minutes',
 
     // ── Floor Plans ──
+    floorEditorTables: 'Tables',
     floorEditorUndo: 'Annuler',
     floorEditorRedo: 'Rétablir',
     floorEditorProperties: 'Table sélectionnée',
