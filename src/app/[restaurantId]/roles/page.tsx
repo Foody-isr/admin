@@ -4,8 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
   ShieldCheck,
-  Check,
-  Minus,
   Trash2,
   AlertCircle,
   Lock,
@@ -62,39 +60,6 @@ const DOMAIN_ICONS: Record<string, LucideIcon> = {
 
 function domainIcon(domain: string): LucideIcon {
   return DOMAIN_ICONS[domain.toLowerCase().replace(/[^a-z0-9]+/g, '')] ?? KeyRound;
-}
-
-/** Brand-styled tri-state checkbox (visual only; pair with an sr-only input). */
-function PermCheck({
-  checked,
-  indeterminate,
-  disabled,
-  className,
-}: {
-  checked: boolean;
-  indeterminate?: boolean;
-  disabled?: boolean;
-  className?: string;
-}) {
-  const on = checked || indeterminate;
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        'grid place-items-center w-[18px] h-[18px] rounded-[6px] border shrink-0 transition-all duration-150',
-        on ? 'bg-[var(--action)] border-[var(--action)] text-[var(--action-fg)]' : 'bg-[var(--surface)] border-[var(--line-strong)]',
-        !disabled && !on && 'group-hover/r:border-brand-400 group-hover/d:border-brand-400',
-        disabled && 'opacity-40',
-        className,
-      )}
-    >
-      {indeterminate ? (
-        <Minus className="w-3 h-3" strokeWidth={3.5} />
-      ) : checked ? (
-        <Check className="w-3 h-3" strokeWidth={3.5} />
-      ) : null}
-    </span>
-  );
 }
 
 export default function RolesPage() {
@@ -431,25 +396,19 @@ export default function RolesPage() {
                     >
                       {/* Domain header — toggles the whole group */}
                       <label
-                        className={cn(
+                        className={[cn(
                           'group/d flex items-center gap-2.5 px-3 py-2.5 border-b transition-colors',
                           canManage ? 'cursor-pointer hover:bg-[var(--surface-2)]' : 'cursor-default',
-                        )}
+                        ), "selection-row"].filter(Boolean).join(" ")}
                         style={{ borderColor: 'var(--line)' }}
                       >
                         <input
                           type="checkbox"
-                          className="sr-only peer"
+                          className="peer"
                           checked={allSelected}
                           ref={element => { if (element) element.indeterminate = someSelected && !allSelected; }}
                           onChange={() => toggleDomain(group)}
                           disabled={!canManage || saving}
-                        />
-                        <PermCheck
-                          checked={allSelected}
-                          indeterminate={someSelected && !allSelected}
-                          disabled={!canManage || saving}
-                          className="peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1 peer-focus-visible:ring-brand-500/50"
                         />
                         <span className="grid place-items-center w-7 h-7 rounded-lg bg-[var(--brand-soft)] text-[var(--brand-ink)] shrink-0">
                           <Icon className="w-4 h-4" />
@@ -478,23 +437,18 @@ export default function RolesPage() {
                           return (
                             <label
                               key={perm.key}
-                              className={cn(
+                              className={[cn(
                                 'group/r flex items-start gap-2.5 min-h-11 rounded-r-md px-2 py-2.5 transition-colors',
                                 canManage ? 'cursor-pointer' : 'cursor-default',
                                 sel ? 'bg-[var(--brand-soft)]' : canManage && 'hover:bg-[var(--surface-2)]',
-                              )}
+                              ), "selection-row"].filter(Boolean).join(" ")}
                             >
                               <input
                                 type="checkbox"
-                                className="sr-only peer"
+                                className="peer"
                                 checked={sel}
                                 onChange={() => togglePerm(perm.key)}
                                 disabled={!canManage || saving}
-                              />
-                              <PermCheck
-                                checked={sel}
-                                disabled={!canManage || saving}
-                                className="mt-0.5 peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1 peer-focus-visible:ring-brand-500/50"
                               />
                               <span className="min-w-0">
                                 <span className="block text-sm font-medium leading-tight" style={{ color: 'var(--text-primary)' }}>

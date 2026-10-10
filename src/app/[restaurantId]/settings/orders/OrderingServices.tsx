@@ -47,7 +47,7 @@ export default function OrderingServices({ rid, draft, patch, strict, batch, cus
   } });
   return <>
     <Section title={t('orderModesTitle')} desc={t('intakeServicesDesc')}>
-      <div className="grid gap-3 md:grid-cols-3">{channels.map(channel => <ServiceToggle key={channel} label={label(channel)}
+      <div className="choice-group">{channels.map(channel => <ServiceToggle key={channel} label={label(channel)}
         sub={t(channel === 'dine_in' ? 'dineInServiceDesc' : channel === 'pickup' ? 'pickupServiceDesc' : 'deliveryServiceDesc')}
         checked={draft[`${channel}_enabled`]} disabled={disabled} onChange={value => patch({ [`${channel}_enabled`]: value })} />)}</div>
       {strict && <p className="mt-4 text-sm leading-6 text-[var(--fg-muted)]">{t('intakeDineInIndependent')} <Link href={`/${rid}/settings/orders/availability`} className="underline">{t('intakeDineInSettings')}</Link></p>}
@@ -62,7 +62,7 @@ export default function OrderingServices({ rid, draft, patch, strict, batch, cus
           const value = weekly[day];
           return <fieldset key={day} disabled={disabled} className="grid gap-3 py-3 sm:grid-cols-[minmax(8rem,1fr)_2fr]" aria-label={`${label(effectiveTab)} · ${t(day)}`}>
             <legend className="sr-only">{label(effectiveTab)} · {t(day)}</legend>
-            <div><p className="text-sm font-semibold">{t(day)}</p><label className="mt-2 flex min-h-9 items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-[var(--action)]" checked={value.closed} onChange={event => editDay(day, { closed: event.target.checked })} />{t('closedLabel')}</label></div>
+            <div><p className="text-sm font-semibold">{t(day)}</p><label className="mt-2 flex min-h-9 items-center gap-2 text-sm selection-row"><input type="checkbox" className="size-4 accent-[var(--action)]" checked={value.closed} onChange={event => editDay(day, { closed: event.target.checked })} />{t('closedLabel')}</label></div>
             {!value.closed && (!customSlots || effectiveTab === 'dine_in') && <div className="grid grid-cols-2 gap-3">{(['open', 'close'] as const).map(field => {
               const id = `intake-${effectiveTab}-${day}-${field}`;
               return <Field key={field} label={t(field === 'open' ? 'availabilityFrom' : 'availabilityUntil')}><Input id={id} type="time" dir="ltr" value={value[field]} aria-invalid={invalid === id || undefined} aria-describedby={invalid === id ? 'preorder-validation' : undefined} onChange={event => editDay(day, { [field]: event.target.value })} className="min-w-0" /></Field>;

@@ -136,7 +136,7 @@ export function HeaderInspector({
     checked: boolean,
     change: (v: boolean) => void,
   ) => (
-    <label className="sqh-check">
+    <label className="sqh-check selection-row">
       {label}
       <input
         type="checkbox"
@@ -223,7 +223,7 @@ export function HeaderInspector({
           <>
             {!restaurantLayout && <div className="sqh-radio-stack">
               {(["dropdown", "mega"] as const).map((mode) => (
-                <label key={mode}>
+                <label key={mode} className="selection-row">
                   <span>
                     {c[mode]}
                     <small>
@@ -309,7 +309,7 @@ export function HeaderInspector({
               {!restaurantLayout && <HeaderGroup label={c.scroll}>
                 <div className="sqh-radio-stack">
                   {(["sticky", "reveal", "none"] as const).map((scroll) => (
-                    <label key={scroll}>
+                    <label key={scroll} className="selection-row">
                       <span>{c[scroll]}</span>
                       <input
                         type="radio"

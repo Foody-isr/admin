@@ -1,7 +1,8 @@
 'use client';
 
+import { SelectionIndicator } from '@/components/ds/Selection';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button, ConfirmDialog, Drawer, Field, Input } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { useI18n } from '@/lib/i18n';
@@ -38,8 +39,8 @@ export default function CategoryDrawer({open,onClose,categories,currentCategory,
     try{await onSelect(name);}catch(cause){setError(cause instanceof Error?cause.message:t('saveFailed'));}
     finally{lock.current=false;setSelecting(false);}
   };
-  const row=(name:string,count:number,active:boolean,onClick:()=>void,onEdit?:()=>void)=><div key={name} className={`flex items-center gap-2 rounded-r-md border ${active?'border-[var(--brand-ink)] bg-[var(--brand-soft)]':'border-[var(--line)] bg-[var(--surface)]'}`}>
-    <button type="button" aria-pressed={active} disabled={busy} onClick={onClick} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 p-4 text-start disabled:opacity-50"><span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold">{name}</span><span className="mt-1 block text-xs text-fg-secondary"><bdi>{count}</bdi> {t(count===1?'item':'articlesUnit')}</span></span>{active&&<Check aria-hidden className="size-5 shrink-0 text-[var(--brand-ink)]"/>}</button>
+  const row=(name:string,count:number,active:boolean,onClick:()=>void,onEdit?:()=>void)=><div key={name} className="flex items-center gap-2 border-b border-[var(--line)]">
+    <button type="button" aria-pressed={active} disabled={busy} onClick={onClick} className="selection-button"><span className="choice-copy"><span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold">{name}</span><span className="mt-1 block text-xs text-fg-secondary"><bdi>{count}</bdi> {t(count===1?'item':'articlesUnit')}</span></span></span><SelectionIndicator checked={active} /></button>
     {onEdit&&<Button type="button" size="lg" variant="ghost" icon className="me-2" disabled={busy} aria-label={`${t('edit')} — ${name}`} onClick={onEdit}><Pencil/></Button>}
   </div>;
   return <>

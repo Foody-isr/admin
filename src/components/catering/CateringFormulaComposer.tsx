@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { SelectionIndicator } from '@/components/ds/Selection';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronRight, ChevronUp, FolderPlus, ListChecks, Maximize2, Minimize2, PackageCheck, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
@@ -389,7 +390,7 @@ export default function CateringFormulaComposer({
                   <input type="number" min={1} aria-label={t('catering_choice_max')} className="h-8 w-16 rounded-md border border-[var(--divider)] bg-[var(--surface)] px-2 text-center" value={active.max_selections} onChange={(event) => setMaximum(Number(event.target.value))} />
                   <span>{t('catering_choice_among').replace('{n}', String(active.items.length))}</span>
                 </div>
-                <label className="mt-2 flex items-center gap-2 text-xs text-fg-secondary"><input type="checkbox" checked={active.max_per_item === 0} onChange={(event) => updateActive({ max_per_item: event.target.checked ? 0 : 1 })} />{t('catering_choice_allow_repeats')}</label>
+                <label className="mt-2 flex items-center gap-2 text-xs text-fg-secondary selection-row"><input type="checkbox" checked={active.max_per_item === 0} onChange={(event) => updateActive({ max_per_item: event.target.checked ? 0 : 1 })} />{t('catering_choice_allow_repeats')}</label>
               </div>
               <div className="p-4">
                 <div className="flex flex-wrap items-end justify-between gap-3">
@@ -535,7 +536,7 @@ function LibraryCategory({ category, items, visibleItems, expanded, selectedIds,
     </div>
     {expanded && <div className="border-t border-[var(--divider)] p-1.5">{visibleItems.map((item) => {
       const selected = selectedIds.has(item.id);
-      return <button key={item.id} type="button" disabled={!item.is_active} aria-pressed={selected} onClick={() => onToggleItem(item.id)} className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-start transition disabled:opacity-40 ${selected ? 'bg-brand-500/10 text-brand-700' : 'hover:bg-[var(--surface-subtle)]'}`}>{item.image_url ? <img src={item.image_url} alt="" className="h-8 w-8 rounded-md object-cover" /> : <span className="h-8 w-8 rounded-md bg-[var(--surface-subtle)]" />}<span className="min-w-0 flex-1 truncate text-sm">{item.name}</span><span className={`grid h-6 w-6 place-items-center rounded-full border ${selected ? 'border-brand-500 bg-brand-500 text-white' : 'border-[var(--divider)] text-fg-tertiary'}`}>{selected ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}</span></button>;
+      return <button key={item.id} type="button" disabled={!item.is_active} aria-pressed={selected} onClick={() => onToggleItem(item.id)} className="selection-button"><span className="choice-copy">{item.image_url ? <img src={item.image_url} alt="" className="h-8 w-8 rounded-md object-cover" /> : <span className="h-8 w-8 rounded-md bg-[var(--surface-subtle)]" />}<span className="min-w-0 flex-1 truncate text-sm">{item.name}</span></span><SelectionIndicator checked={selected} multiple /></button>;
     })}</div>}
   </section>;
 }

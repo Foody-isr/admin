@@ -1,5 +1,6 @@
 'use client';
 
+import { BooleanInput } from '@/components/ds/Selection';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Info } from 'lucide-react';
@@ -94,7 +95,7 @@ function TableStatusWorkspace({ rid }: { rid: number }) {
         {invalidColor && <p id="table-color-error" role="alert" className="mt-2 text-sm text-[var(--danger-500)]">{t('tableSettingsInvalidColor')}</p>}
       </Section>
       <Section title={t('tableStatusColorIndicators')}>
-        <label className="flex items-start gap-4"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t('tableStatusColorIndicatorsDesc')}</span><span className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t('tableSettingsClockHint')}</span></span><input role="switch" type="checkbox" aria-label={t('tableStatusColorIndicators')} checked={on} disabled={!canEdit || saving} onChange={event => patch({ floor_plan_color_indicators: event.target.checked })} className="mt-1 size-5 shrink-0 accent-[var(--action)]" /></label>
+        <label className="flex items-start gap-4"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t('tableStatusColorIndicatorsDesc')}</span><span className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t('tableSettingsClockHint')}</span></span><BooleanInput aria-label={t('tableStatusColorIndicators')} checked={on} disabled={!canEdit || saving} onChange={event => patch({ floor_plan_color_indicators: event.target.checked })} /></label>
         {on ? <div className="mt-5 grid gap-4 sm:grid-cols-2 border-s-2 border-[var(--line)] ps-4">
           <Field label={t('tableStatusYellowAfter')} hint={t('minutes')}><NumberField required integer min={Math.min(1, baseline?.table_yellow_after_minutes ?? 1)} max={Math.max(240, baseline?.table_yellow_after_minutes ?? 240)} value={draft.table_yellow_after_minutes} format={String} readOnly={!canEdit || saving} onChange={table_yellow_after_minutes => patch({ table_yellow_after_minutes })} dir="ltr" aria-label={t('tableStatusYellowAfter')} /></Field>
           <Field label={t('tableStatusRedAfter')} hint={t('minutes')}><NumberField required integer min={Math.min(1, baseline?.table_red_after_minutes ?? 1)} max={Math.max(480, baseline?.table_red_after_minutes ?? 480)} value={draft.table_red_after_minutes} format={String} readOnly={!canEdit || saving} onChange={table_red_after_minutes => patch({ table_red_after_minutes })} dir="ltr" aria-label={t('tableStatusRedAfter')} /></Field>

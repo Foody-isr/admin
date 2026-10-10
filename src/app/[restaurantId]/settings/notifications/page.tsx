@@ -1,5 +1,6 @@
 'use client';
 
+import { BooleanInput } from '@/components/ds/Selection';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Bell, BellOff, CreditCard, Monitor, PackageX, ShoppingCart, Smartphone, Trash2, XCircle } from 'lucide-react';
@@ -210,7 +211,7 @@ function NotificationsWorkspace({ rid }: { rid: number }) {
             <label className="flex items-start gap-3" htmlFor={`push-${key}`}>
               <Icon aria-hidden="true" className="mt-1 size-4 shrink-0 text-[var(--fg-muted)]" />
               <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t(title)}</span><span id={`push-${key}-hint`} className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t(desc)}</span></span>
-              <input id={`push-${key}`} role="switch" type="checkbox" aria-label={t(title)} aria-describedby={`push-${key}-hint`} checked={prefs[key]} disabled={!canEdit || blocked} onChange={event => togglePreference(key, event.target.checked)} className="mt-1 size-5 shrink-0 cursor-pointer accent-[var(--action)] disabled:cursor-default" />
+              <BooleanInput id={`push-${key}`} aria-label={t(title)} aria-describedby={`push-${key}-hint`} checked={prefs[key]} disabled={!canEdit || blocked} onChange={event => togglePreference(key, event.target.checked)} />
             </label>
           </li>)}
         </ul>)}

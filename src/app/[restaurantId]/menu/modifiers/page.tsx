@@ -226,7 +226,7 @@ function CreateModifierModal({ restaurantId, categories, onClose, onSaved }: {
           <label htmlFor="modifier-group" className="mb-2 block text-sm font-medium">{t('categoryGroupName')}</label>
           <input id="modifier-group" className="input" placeholder={t('categoryGroupPlaceholder')} value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
-        <label className="flex min-h-11 items-center gap-3 cursor-pointer">
+        <label className="flex min-h-11 items-center gap-3 cursor-pointer selection-row">
           <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="size-4 rounded" />
           <span className="text-sm font-medium text-fg-secondary">{t('requiredModifier')}</span>
         </label>

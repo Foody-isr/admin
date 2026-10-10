@@ -91,7 +91,7 @@ test('saving the ordering policy preserves an unfinished reopening draft', async
   await page.goto('/1/settings/orders');
   await draftMode(page).selectOption('time');
   await reopen(page).fill('2026-10-06T12:00');
-  await page.getByRole('button', { name: /^Précommandes uniquement/ }).click();
+  await page.getByRole('radio', { name: /^Précommandes uniquement/ }).click();
   await page.getByRole('button', { name: 'Enregistrer les modifications', exact: true }).click();
   await expect.poll(() => state.writes.length).toBe(1);
   expect(state.writes[0].body).toEqual({ preorders_only: true });

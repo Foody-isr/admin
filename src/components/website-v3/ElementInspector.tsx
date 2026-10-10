@@ -1,5 +1,6 @@
 "use client";
 
+import { BooleanInput } from '@/components/ds/Selection';
 import { MotionTextContentFields } from "./MotionTextContentFields";
 import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -64,9 +65,7 @@ export function SectionElements({
             {editorElementLabel(field, t)}
             <ChevronRight size={18} />
           </button>
-          <input
-            type="checkbox"
-            role="switch"
+          <BooleanInput
             aria-label={editorElementLabel(field, t)}
             checked={
               section.settings[`show_${field}`] !== false &&

@@ -1,5 +1,6 @@
 'use client';
 
+import { Switch } from '@/components/ui/switch';
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { PreparationRule, ImmediateSaleMode } from '@/lib/api';
@@ -125,14 +126,9 @@ export function ItemPreparationDialog({
               : t('itemPrepImmediate')}
           </p>
         </div>
-        <button
-          id="item-prep-inherit"
-          type="button"
-          className="item-settings-switch"
-          role="switch"
-          aria-checked={inherited}
+        <Switch id="item-prep-inherit"
           aria-label={t('itemPrepUseDefault')}
-          onClick={() => {
+          onCheckedChange={() => {
             if (inherited)
               setDraft({
                 ...draft,
@@ -144,10 +140,7 @@ export function ItemPreparationDialog({
               setPreviousSchedule(draft.schedule);
               setDraft({ ...draft, leadMinutes: null, schedule: null });
             }
-          }}
-        >
-          <span />
-        </button>
+          }} checked={inherited} />
       </div>
       {!inherited && (
         <div className="item-settings-stack">

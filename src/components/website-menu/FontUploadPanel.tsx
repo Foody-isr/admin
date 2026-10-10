@@ -161,11 +161,11 @@ export function FontUploadPanel({ onUpload, onDone, onCancel, existing }: Props)
 
       {!existing && (
         <>
-          <label className="flex items-center gap-2 text-[11px] text-fg-secondary cursor-pointer">
+          <label className="flex items-center gap-2 text-[11px] text-fg-secondary cursor-pointer selection-row">
             <input type="checkbox" checked={hebrew} onChange={(e) => setHebrew(e.target.checked)} />
             Cette police contient l&apos;hébreu
           </label>
-          <label className="flex items-start gap-2 text-[11px] text-fg-secondary cursor-pointer">
+          <label className="flex items-start gap-2 text-[11px] text-fg-secondary cursor-pointer selection-row">
             <input type="checkbox" checked={licensed} onChange={(e) => setLicensed(e.target.checked)} className="mt-0.5" />
             J&apos;ai le droit d&apos;utiliser cette police sur ce site.
           </label>

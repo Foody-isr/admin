@@ -14,6 +14,7 @@
 // Only one step is "open" at a time — CompositionTab owns activeStepKey and
 // passes isActive down. Active === open === target of catalog actions.
 
+import { SelectionIndicator } from '@/components/ds/Selection';
 import { Check, ChevronDown, ListChecks, Loader2, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuItem } from '@/lib/api';
@@ -525,14 +526,10 @@ function SourceSeg({ active, onClick, label }: { active: boolean; onClick: () =>
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`min-h-11 px-3 rounded-r-xs text-fs-xs font-medium transition-colors ${
-        active
-          ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1 border border-[var(--line-strong)]'
-          : 'bg-transparent text-[var(--fg-muted)] border border-transparent hover:text-[var(--fg)]'
-      }`}
-    >
+      className="selection-button"
+    ><span className="choice-copy">
       {label}
-    </button>
+    </span><SelectionIndicator checked={active} /></button>
   );
 }
 

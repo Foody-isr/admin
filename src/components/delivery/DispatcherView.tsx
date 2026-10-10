@@ -1,5 +1,6 @@
 'use client';
 
+import { ChoiceRow } from '@/components/ds/Selection';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
@@ -1088,23 +1089,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
               ] as const).map(([mode, Icon, labelKey, hintKey]) => {
                 const active = distributionMode === mode;
                 return (
-                  <button
-                    key={mode}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => setDistributionMode(mode)}
-                    className={`relative min-h-[116px] rounded-r-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:shadow-ring ${
-                      active
-                        ? 'border-[var(--brand-500)] bg-[var(--brand-50)] text-[var(--fg)]'
-                        : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line-strong)]'
-                    }`}
-                  >
-                    {active && <CheckIcon className="absolute end-3 top-3 h-4 w-4 text-[var(--brand-500)]" />}
-                    <Icon className="mb-3 h-5 w-5 text-[var(--brand-500)]" />
-                    <span className="block text-fs-sm font-semibold">{t(labelKey)}</span>
-                    <span className="mt-1 block text-fs-xs leading-snug text-[var(--fg-subtle)]">{t(hintKey)}</span>
-                  </button>
+                  <ChoiceRow type="radio" name="delivery-distribution" key={mode} checked={active}
+                    onChange={() => setDistributionMode(mode)} description={t(hintKey)}
+                    label={<span className="flex items-center gap-3"><Icon className="h-5 w-5 shrink-0" aria-hidden /><span>{t(labelKey)}</span></span>} />
                 );
               })}
             </div>

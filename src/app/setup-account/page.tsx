@@ -481,7 +481,7 @@ function SetupAccountContent() {
                   { value: 'macos', title: 'macos', description: 'desktopApp', Icon: Monitor },
                   { value: 'both', title: 'both', description: 'multiStation', Icon: LayoutGrid },
                 ] as const).map(({ value, title, description, Icon }) => (
-                  <label key={value} className={`flex min-h-20 cursor-pointer items-center gap-4 rounded-r-lg border p-4 ${posPlatform === value ? 'border-[var(--brand-ink)] bg-[var(--brand-soft)]' : 'border-[var(--line-strong)] hover:bg-[var(--surface-2)]'}`}>
+                  <label key={value} className={[`flex min-h-20 cursor-pointer items-center gap-4 rounded-r-lg border p-4 ${posPlatform === value ? 'border-[var(--brand-ink)] bg-[var(--brand-soft)]' : 'border-[var(--line-strong)] hover:bg-[var(--surface-2)]'}`, "selection-row"].filter(Boolean).join(" ")}>
                     <input type="radio" name="pos-platform" value={value} checked={posPlatform === value} onChange={() => setPosPlatform(value)} className="size-4 shrink-0 accent-[var(--action)]" />
                     <Icon aria-hidden className="size-6 shrink-0 text-[var(--brand-ink)]" />
                     <span><span className="block text-sm font-semibold">{t(title)}</span><span className="block text-xs text-fg-secondary">{t(description)}</span></span>

@@ -461,7 +461,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
                     >
                       <div role="radiogroup" aria-label={t('itemStockStatus')}>
                         {modes.map((mode) => (
-                          <label key={mode.value} className="item-stock-choice">
+                          <label key={mode.value} className="item-stock-choice selection-row">
                             <input
                               type="radio"
                               name="availability-status"

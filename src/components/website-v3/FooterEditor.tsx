@@ -1,4 +1,5 @@
 "use client";
+import { BooleanInput } from '@/components/ds/Selection';
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -118,10 +119,7 @@ export function FooterEditor({
           <ChevronDown size={16} />
         </button>
         {visibility && (
-          <input
-            type="checkbox"
-            role="switch"
-            className="sqe-switch"
+          <BooleanInput
             aria-label={label}
             data-field-id={`site.footer.content.${visibility}`}
             checked={
@@ -509,7 +507,7 @@ export function FooterEditor({
         <>
           <p className="text-sm text-slate-500">{c.paymentHelp}</p>
           {["Visa", "Mastercard", "Amex"].map((value) => (
-            <label key={value} className="sqh-check">
+            <label key={value} className="sqh-check selection-row">
               {value}
               <input
                 type="checkbox"

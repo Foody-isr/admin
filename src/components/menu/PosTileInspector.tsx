@@ -1,8 +1,8 @@
 'use client';
 
+import { SelectionIndicator } from '@/components/ds/Selection';
 import * as React from 'react';
 import {
-  Check,
   ChevronRight,
   Image as ImageIcon,
   Palette,
@@ -120,15 +120,10 @@ export function PosTileInspector({
               type="button"
               aria-pressed={tile.size === opt.key}
               onClick={() => onSizeChange(opt.key)}
-              className={cn(
-                'min-h-11 rounded-r-md py-[var(--s-2)] text-fs-sm font-medium transition-colors',
-                tile.size === opt.key
-                  ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
-                  : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-              )}
-            >
+              className="selection-button"
+            ><span className="choice-copy">
               {t(opt.label)}
-            </button>
+            </span><SelectionIndicator checked={tile.size === opt.key} /></button>
           ))}
         </div>
       </section>
@@ -143,30 +138,20 @@ export function PosTileInspector({
             type="button"
             aria-pressed={tile.bg_type === 'image'}
             onClick={() => onBgTypeChange('image')}
-            className={cn(
-              'flex items-center justify-center min-h-11 gap-[var(--s-2)] rounded-r-md py-[var(--s-2)] text-fs-sm font-medium transition-colors',
-              tile.bg_type === 'image'
-                ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
-                : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-            )}
-          >
+            className="selection-button"
+          ><span className="choice-copy">
             <ImageIcon className="w-4 h-4" />
             {t('image')}
-          </button>
+          </span><SelectionIndicator checked={tile.bg_type === 'image'} /></button>
           <button
             type="button"
             aria-pressed={tile.bg_type === 'color'}
             onClick={() => onBgTypeChange('color')}
-            className={cn(
-              'flex items-center justify-center min-h-11 gap-[var(--s-2)] rounded-r-md py-[var(--s-2)] text-fs-sm font-medium transition-colors',
-              tile.bg_type === 'color'
-                ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
-                : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-            )}
-          >
+            className="selection-button"
+          ><span className="choice-copy">
             <Palette className="w-4 h-4" />
             {t('posSortColor')}
-          </button>
+          </span><SelectionIndicator checked={tile.bg_type === 'color'} /></button>
         </div>
 
         {tile.bg_type === 'color' ? (
@@ -274,13 +259,8 @@ function LinkedImagePick({
       type="button"
       onClick={onPick}
       aria-pressed={selected}
-      className={cn(
-        'w-full min-h-11 flex items-center gap-[var(--s-3)] rounded-md p-[var(--s-2)] text-start transition-colors',
-        selected
-          ? 'bg-[color-mix(in_oklab,var(--brand-500)_12%,transparent)] ring-1 ring-[var(--brand-500)]'
-          : 'bg-[var(--surface-subtle)] hover:bg-[var(--surface-hover)]',
-      )}
-    >
+      className="selection-button"
+    ><span className="choice-copy">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={url}
@@ -288,9 +268,7 @@ function LinkedImagePick({
         className="w-10 h-10 rounded object-cover shrink-0 bg-[var(--surface)]"
       />
       <span className="flex-1 text-fs-sm text-[var(--fg)]">{label}</span>
-      {selected && (
-        <Check className="w-4 h-4 text-[var(--brand-500)] shrink-0" />
-      )}
-    </button>
+
+    </span><SelectionIndicator checked={selected} /></button>
   );
 }

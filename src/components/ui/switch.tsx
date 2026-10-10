@@ -2,30 +2,23 @@
 
 import * as React from "react";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
-
+import { BooleanIndicator } from "@/components/ds/Selection";
 import { cn } from "@/lib/utils";
 
-function Switch({
-  className,
-  ...props
-}: React.ComponentProps<typeof SwitchPrimitive.Root>) {
-  return (
-    <SwitchPrimitive.Root
-      data-slot="switch"
-      className={cn(
-        "peer data-[state=checked]:bg-primary data-[state=unchecked]:bg-switch-background focus-visible:border-ring focus-visible:ring-ring/50 dark:data-[state=unchecked]:bg-input/80 inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent transition-all outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
-        className,
-      )}
-      {...props}
-    >
-      <SwitchPrimitive.Thumb
-        data-slot="switch-thumb"
-        className={cn(
-          "bg-card dark:data-[state=unchecked]:bg-card-foreground dark:data-[state=checked]:bg-primary-foreground pointer-events-none block size-4 rounded-full ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0",
-        )}
-      />
-    </SwitchPrimitive.Root>
-  );
+/** Accessible yes/no switch with explicit pointer choices and native keyboard toggling. */
+function Switch({ className, checked, defaultChecked = false, onCheckedChange, onClick, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
+  const [internal, setInternal] = React.useState(defaultChecked);
+  const value = checked ?? internal;
+  return <SwitchPrimitive.Root {...props} data-slot="switch" checked={value}
+    className={cn("boolean-switch", className)}
+    onCheckedChange={next => { setInternal(next); onCheckedChange?.(next); }}
+    onClick={event => {
+      onClick?.(event);
+      const segment = (event.target as HTMLElement).closest<HTMLElement>('[data-value]');
+      if (segment?.dataset.value === String(value)) event.preventDefault();
+    }}>
+    <BooleanIndicator checked={value} />
+  </SwitchPrimitive.Root>;
 }
 
 export { Switch };

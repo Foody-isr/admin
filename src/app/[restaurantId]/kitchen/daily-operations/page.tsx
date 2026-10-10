@@ -2108,7 +2108,7 @@ function SalesImportModal({
                     preview.report_date,
                   )}
                 </p>
-                <label>
+                <label className="selection-row">
                   <input
                     type="checkbox"
                     checked={allowDateMismatch}

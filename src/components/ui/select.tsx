@@ -3,7 +3,6 @@
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import {
-  CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
 } from "lucide-react";
@@ -116,12 +115,8 @@ function SelectItem({
       )}
       {...props}
     >
-      <span className="absolute end-2 flex size-3.5 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
-        </SelectPrimitive.ItemIndicator>
-      </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      <span aria-hidden="true" className="select-option-indicator" />
     </SelectPrimitive.Item>
   );
 }

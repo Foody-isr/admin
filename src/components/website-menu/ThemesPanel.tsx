@@ -304,7 +304,7 @@ function SectionColorsEditor({
             data-section-color-key={def.key}
             className="border-t border-[var(--divider)] pt-3 first:border-t-0 first:pt-0"
           >
-            <label className="flex items-center justify-between gap-2 cursor-pointer">
+            <label className="flex items-center justify-between gap-2 cursor-pointer selection-row">
               <span className="text-[11px] font-medium text-fg-primary">{def.label}</span>
               <input
                 type="checkbox"

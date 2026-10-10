@@ -1,13 +1,18 @@
+import { LocaleProvider } from '@/lib/i18n';
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { OrderPageInfoEditor } from "../OrderPageInfoEditor";
 
+function renderWithLocale(element: React.ReactElement) {
+  return renderToStaticMarkup(<LocaleProvider>{element}</LocaleProvider>);
+}
+
 test("legacy partial order info falls back to complete bar defaults", () => {
   Object.assign(globalThis, { React });
 
-  const markup = renderToStaticMarkup(
+  const markup = renderWithLocale(
     React.createElement(OrderPageInfoEditor, {
       value: {
         modal: ["about"],
@@ -27,7 +32,7 @@ test("legacy partial order info falls back to complete bar defaults", () => {
 test("page discovery controls expose responsive presentation and published pages", () => {
   Object.assign(globalThis, { React });
 
-  const markup = renderToStaticMarkup(
+  const markup = renderWithLocale(
     React.createElement(OrderPageInfoEditor, {
       value: {
         bar: { pickup: ["more"], delivery: ["more"], dine_in: ["more"] },
@@ -67,7 +72,7 @@ test("page discovery controls expose responsive presentation and published pages
 test("page discovery appearance round-trips selected values", () => {
   Object.assign(globalThis, { React });
 
-  const markup = renderToStaticMarkup(
+  const markup = renderWithLocale(
     React.createElement(OrderPageInfoEditor, {
       value: {
         bar: { pickup: ["more"], delivery: ["more"], dine_in: ["more"] },

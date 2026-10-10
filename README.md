@@ -10,6 +10,22 @@ Self-service web portal for restaurant owners and managers. Used to manage day-t
 | **Development** | `dev-admin.foody-pos.co.il` | `dev-api.foody-pos.co.il` | `develop` |
 | **Local** | `localhost:3003` | `localhost:8080` | any branch |
 
+## Selection controls
+
+Admin selections follow the Square reference: white option rows with separators,
+a trailing filled radio for one choice, and a trailing checkbox for multiple
+choices. Use `ChoiceRow` from `components/ds/Selection` with a shared native radio
+`name` for exclusive groups. Existing labelled rows use `selection-row`; compact
+table selection keeps its column placement and shares the same checkbox styling.
+Use `Switch` from `components/ui/switch` for explicit localized yes/no segments,
+or `BooleanInput` when retaining native input events and form submission. Clicking
+the active segment is a no-op; Space still toggles the accessible switch. Native
+and Radix controls preserve disabled, indeterminate, focus, dark and RTL states.
+Long searchable pickers retain their search and keyboard behavior.
+
+The dev-only `/design-system` page includes interactive examples. Browser checks:
+`npx playwright test -c playwright.redesign.config.ts tests/redesign/selection-controls.spec.ts`.
+
 ## Quick Start
 
 ```bash

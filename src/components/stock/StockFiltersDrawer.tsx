@@ -1,7 +1,8 @@
 'use client';
 
+import { SelectionIndicator } from '@/components/ds/Selection';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronRight, ArrowLeft } from 'lucide-react';
+import { ChevronRight, ArrowLeft } from 'lucide-react';
 import { Button, Drawer, Input } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 
@@ -44,9 +45,9 @@ export default function StockFiltersDrawer({open,initialView,onClose,categories,
         <Input type="search" ref={searchInput} className="min-h-11" aria-label={t(view==='category'?'searchCategory':'searchStatus')} placeholder={t(view==='category'?'searchCategory':'searchStatus')} value={search} onChange={event=>setSearch(event.target.value)}/>
         {options.length===0 ? <p role="status" className="py-8 text-center text-sm text-fg-secondary">{t('noResults')}</p> : <div className="space-y-2">{options.map(option=>{
           const active=selected.has(option.value);
-          return <button type="button" key={option.value} aria-pressed={active} onClick={()=>toggle(option.value)} className={`flex min-h-12 w-full items-center gap-3 rounded-r-md border px-4 py-3 text-start text-sm ${active?'border-[var(--brand-ink)] bg-[var(--brand-soft)]':'border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--surface-2)]'}`}>
-            {option.color && <span aria-hidden className="size-2 shrink-0 rounded-full" style={{background:option.color}}/>}<span className="min-w-0 flex-1 break-words">{option.label}</span>{active&&<Check aria-hidden className="size-5 shrink-0 text-[var(--brand-ink)]"/>}
-          </button>;
+          return <button type="button" key={option.value} aria-pressed={active} onClick={()=>toggle(option.value)} className="selection-button"><span className="choice-copy">
+            {option.color && <span aria-hidden className="size-2 shrink-0 rounded-full" style={{background:option.color}}/>}<span className="min-w-0 flex-1 break-words">{option.label}</span>
+          </span><SelectionIndicator checked={active} multiple /></button>;
         })}</div>}
       </>}
     </div>

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Chip, Drawer, Field, Input, Textarea } from '@/components/ds';
 import { useI18n, useCurrency } from '@/lib/i18n';
+import { Switch } from '@/components/ui/switch';
+import { SelectionIndicator } from '@/components/ds/Selection';
 import { cn } from '@/lib/utils';
 import {
   ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon, TagIcon, XIcon,
@@ -106,44 +108,11 @@ function OptionTile({
   label: string;
   hint?: string;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'flex flex-1 flex-col items-start gap-1 rounded-md border p-[var(--s-3)] text-start transition-colors',
-        active
-          ? 'border-[var(--brand-ink)] bg-[var(--brand-soft)] text-[var(--brand-ink)]'
-          : 'border-[var(--line-strong)] bg-[var(--surface)] hover:border-[var(--fg-subtle)]',
-      )}
-    >
-      <span className={cn('[&_svg]:size-5', active ? 'text-[var(--brand-ink)]' : 'text-[var(--fg-muted)]')}>
-        {icon}
-      </span>
-      <span className="text-fs-sm font-medium">{label}</span>
-      {hint && <span className="text-fs-xs text-[var(--fg-muted)]">{hint}</span>}
-    </button>
-  );
-}
-
-// Compact segmented button for the "déjà encaissé ?" yes/no toggle.
-function ToggleButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'min-h-9 rounded-md px-[var(--s-3)] py-1 text-fs-sm font-medium transition-colors',
-        active
-          ? 'bg-[var(--brand-soft)] text-[var(--brand-ink)]'
-          : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-      )}
-    >
-      {label}
-    </button>
-  );
+  return <button type="button" onClick={onClick} aria-pressed={active} className="selection-button">
+    <span className="shrink-0 [&_svg]:size-5">{icon}</span>
+    <span className="choice-copy"><span className="choice-title">{label}</span>{hint && <span className="choice-description">{hint}</span>}</span>
+    <SelectionIndicator checked={active} />
+  </button>;
 }
 
 export function NewOrderCheckoutDrawer({
@@ -594,10 +563,7 @@ export function NewOrderCheckoutDrawer({
           {payMethod !== 'link' && (
             <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] py-2">
               <span className="text-fs-sm font-medium text-[var(--fg)]">{t('payAlreadyCollected')}</span>
-              <div className="inline-flex rounded-md border border-[var(--line-strong)] bg-[var(--surface-2)] p-0.5">
-                <ToggleButton active={collected} onClick={() => setCollected(true)} label={t('yes')} />
-                <ToggleButton active={!collected} onClick={() => setCollected(false)} label={t('no')} />
-              </div>
+              <Switch checked={collected} onCheckedChange={setCollected} aria-label={t('payAlreadyCollected')} />
             </div>
           )}
         </div>

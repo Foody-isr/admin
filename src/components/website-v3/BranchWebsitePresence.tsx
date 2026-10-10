@@ -187,7 +187,7 @@ export function BranchWebsitePresence({
                 <span className="mb-1.5 block text-sm font-medium text-fg-secondary">{t("chain_short_description")}</span>
                 <textarea className="input min-h-28 resize-y" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
               </label>
-              <label className="md:col-span-2 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
+              <label className="md:col-span-2 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface-2)] p-4 selection-row">
                 <span><span className="block font-semibold text-fg-primary">{t("branch_presence_visible")}</span><span className="mt-1 block text-xs text-fg-tertiary">{t("branch_presence_visible_hint")}</span></span>
                 <input type="checkbox" className="h-5 w-5 accent-[var(--brand-500)]" checked={form.visible} onChange={(event) => setForm({ ...form, visible: event.target.checked })} />
               </label>

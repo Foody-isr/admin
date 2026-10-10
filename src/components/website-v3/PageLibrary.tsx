@@ -106,7 +106,7 @@ export function PageLibrary({
               }}
             />
           </label>
-          <label className="sqe-page-navigation">
+          <label className="sqe-page-navigation selection-row">
             <input
               type="checkbox"
               checked={navigation}

@@ -613,7 +613,7 @@ export default function DeliveryToursPage() {
           </div>
           <p className="text-xs text-[var(--fg-subtle)]">{t('zoneFeeMinHint')}</p>
 
-          <label className="text-sm flex items-center gap-2">
+          <label className="text-sm flex items-center gap-2 selection-row">
             <input type="checkbox" checked={draft.requirePrepayment}
               onChange={(e) => setDraft({ ...draft, requirePrepayment: e.target.checked })} />
             {t('tourPrepayment')}

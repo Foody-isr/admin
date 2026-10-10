@@ -218,7 +218,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
           context on what's already in the recipe while choosing what to add. */}
       <div className="mb-[var(--s-6)] flex flex-col gap-[var(--s-4)]">
         {hasVariants && (
-          <label className="inline-flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)] cursor-pointer select-none w-fit">
+          <label className="inline-flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)] cursor-pointer select-none w-fit selection-row">
             <input
               type="checkbox"
               checked={perSize}

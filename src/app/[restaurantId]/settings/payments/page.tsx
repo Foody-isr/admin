@@ -1,5 +1,6 @@
 'use client';
 
+import { BooleanInput } from '@/components/ds/Selection';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -95,7 +96,7 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
         <div className="max-w-xs"><Field label={t('paymentDefaultVat')}><NumberField required min={Math.min(0, baseline?.vat_rate ?? 0)} max={Math.max(100, baseline?.vat_rate ?? 100)} value={draft.vat_rate} format={String} readOnly={!canEdit || saving} onChange={vat_rate => patch({ vat_rate })} dir="ltr" /></Field></div>
       </Section>
       <Section title={t('paymentTipsTitle')}>
-        <label className="flex items-start gap-4"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t('enableTips')}</span><span id="payment-tips-hint" className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t('enableTipsDesc')}</span></span><input role="switch" type="checkbox" aria-label={t('enableTips')} aria-describedby="payment-tips-hint" checked={draft.tips_enabled} disabled={!canEdit || saving} onChange={event => patch({ tips_enabled: event.target.checked })} className="mt-1 size-5 shrink-0 accent-[var(--action)]" /></label>
+        <label className="flex items-start gap-4"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t('enableTips')}</span><span id="payment-tips-hint" className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t('enableTipsDesc')}</span></span><BooleanInput aria-label={t('enableTips')} aria-describedby="payment-tips-hint" checked={draft.tips_enabled} disabled={!canEdit || saving} onChange={event => patch({ tips_enabled: event.target.checked })} /></label>
         <p className="mt-5 text-sm leading-6 text-[var(--fg-muted)]">{t('paymentTipsFixed')}</p>
       </Section>
       <Section title={t('weightHoldBufferTitle')}>

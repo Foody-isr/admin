@@ -37,7 +37,7 @@ const save = (page: Page) => page.getByRole('button', { name: 'Enregistrer les m
 const lead = (page: Page) => page.locator('#preorder-lead');
 const notice = (page: Page) => page.locator('form > div [role=status]');
 const preview = (page: Page) => page.getByRole('region', { name: 'Aperçu des prochaines commandes', exact: true });
-const mode = (page: Page, name: string) => name === 'Dès que possible' ? page.getByRole('button', { name: /^Commandes immédiates/ }) : page.getByRole('group', { name: 'Organisation des précommandes', exact: true }).getByRole('button', { name: new RegExp(`^${name}`) });
+const mode = (page: Page, name: string) => name === 'Dès que possible' ? page.getByRole('radio', { name: /^Commandes immédiates/ }) : page.getByRole('radiogroup', { name: 'Organisation des précommandes', exact: true }).getByRole('radio', { name: new RegExp(`^${name}`) });
 const openBatch = async (page: Page) => { await mode(page, 'Lot hebdomadaire').click(); };
 const guarded = (page: Page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
 
@@ -55,7 +55,7 @@ test('preorders preserves the legacy effective delay until it is explicitly chan
 
 test('preorders mode change only writes exclusive flags and can retain drafts in inactive settings', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/orders/preorders'); await mode(page,'Dès que possible').click(); await save(page).click(); await expect(notice(page)).toContainText('Enregistré'); expect(state.writes[0].body).toEqual({ scheduling_enabled: false, batch_fulfillment_enabled: false });
-  await expect(lead(page)).toHaveCount(0); await page.getByRole('button', { name: /^Les deux/ }).click(); await lead(page).fill('91'); await mode(page,'Lot hebdomadaire').click(); await save(page).click(); await expect(notice(page)).toContainText('Enregistré'); expect(state.writes[1].body).toEqual({ scheduling_enabled: false, batch_fulfillment_enabled: true, scheduling_lead_time_minutes: 91, scheduling_min_days_ahead: 1 });
+  await expect(lead(page)).toHaveCount(0); await page.getByRole('radio', { name: /^Les deux/ }).click(); await lead(page).fill('91'); await mode(page,'Lot hebdomadaire').click(); await save(page).click(); await expect(notice(page)).toContainText('Enregistré'); expect(state.writes[1].body).toEqual({ scheduling_enabled: false, batch_fulfillment_enabled: true, scheduling_lead_time_minutes: 91, scheduling_min_days_ahead: 1 });
 });
 
 test('preorders inherited opening follows cutoff in the preview without pinning an opening', async ({ page }) => {
@@ -88,7 +88,7 @@ test('preorders distinguishes failed loading and failed serialized saving, retai
 });
 
 test('preorders validates precise delays and duration without discarding hidden drafts', async ({ page }) => {
-  const state = await install(page); await page.goto('/1/settings/orders/preorders'); for (const value of ['','-1','1.5']) { await lead(page).fill(value); await save(page).click(); await expect(lead(page)).toHaveAttribute('aria-invalid','true'); } await lead(page).fill('90'); await page.locator('#preorder-duration').fill('7'); await mode(page,'Lot hebdomadaire').click(); await save(page).click(); await expect(page.locator('#preorder-duration')).toBeFocused(); await expect(mode(page,'Lot hebdomadaire')).toHaveAttribute('aria-pressed','true'); expect(state.writes).toHaveLength(0);
+  const state = await install(page); await page.goto('/1/settings/orders/preorders'); for (const value of ['','-1','1.5']) { await lead(page).fill(value); await save(page).click(); await expect(lead(page)).toHaveAttribute('aria-invalid','true'); } await lead(page).fill('90'); await page.locator('#preorder-duration').fill('7'); await mode(page,'Lot hebdomadaire').click(); await save(page).click(); await expect(page.locator('#preorder-duration')).toBeFocused(); await expect(mode(page,'Lot hebdomadaire')).toBeChecked(); expect(state.writes).toHaveLength(0);
 });
 
 test('preorders guards reset and navigation while retaining the draft on locale change', async ({ page }) => {
@@ -111,7 +111,7 @@ test('preorders keeps historical values on an unrelated change and never clears 
 test('strict weekly ordering hides irrelevant hours, retains them and saves services with the policy', async ({ page }, info) => {
   const state = await install(page, { batch: true });
   await page.goto('/1/settings/orders');
-  await page.getByRole('button', { name: /^Précommandes uniquement/ }).click();
+  await page.getByRole('radio', { name: /^Précommandes uniquement/ }).click();
   await expect(page.locator('#intake-pickup-sunday-open')).toHaveCount(0);
   await expect(page.getByRole('switch', { name: 'Sur place', exact: true })).toHaveCount(0);
   await expect(page.locator('#preorder-cutoff-time')).toBeVisible();
@@ -127,16 +127,16 @@ test('strict weekly ordering hides irrelevant hours, retains them and saves serv
   await expect.poll(async () => (await page.locator('main[data-workspace-shell]').boundingBox())?.x).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('strict-weekly-mobile.png'), fullPage: true });
-  await page.getByRole('button', { name: /^Les deux/ }).click();
+  await page.getByRole('radio', { name: /^Les deux/ }).click();
   await expect(page.locator('#intake-pickup-sunday-open')).toBeVisible();
-  await page.getByRole('button', { name: /^Commandes immédiates/ }).click();
+  await page.getByRole('radio', { name: /^Commandes immédiates/ }).click();
   await expect(page.locator('#preorder-cutoff-time')).toHaveCount(0);
 });
 
 test('strict slot ordering keeps receiving hours and preserves drafts across mode switches', async ({ page }) => {
   const state = await install(page);
   await page.goto('/1/settings/orders');
-  await page.getByRole('button', { name: /^Précommandes uniquement/ }).click();
+  await page.getByRole('radio', { name: /^Précommandes uniquement/ }).click();
   await page.getByRole('button', { name: 'Utiliser les horaires par service', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Horaires de retrait et livraison', exact: true })).toBeVisible();
   await page.locator('#intake-pickup-sunday-open').fill('11:00');

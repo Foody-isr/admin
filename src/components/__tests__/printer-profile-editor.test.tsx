@@ -1,3 +1,4 @@
+import { LocaleProvider } from '@/lib/i18n';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Printer } from 'lucide-react';
@@ -7,8 +8,12 @@ import { PrinterProfileJobSection } from '@/app/[restaurantId]/settings/printers
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
+function renderWithLocale(element: React.ReactElement) {
+  return renderToStaticMarkup(<LocaleProvider>{element}</LocaleProvider>);
+}
+
 test('printer job options render only while their type is active', () => {
-  const activeMarkup = renderToStaticMarkup(
+  const activeMarkup = renderWithLocale(
     <PrinterProfileJobSection
       type="receipts"
       title="Receipts"
@@ -25,7 +30,7 @@ test('printer job options render only while their type is active', () => {
   assert.match(activeMarkup, /aria-expanded="true"/);
   assert.match(activeMarkup, /Receipt settings/);
 
-  const inactiveMarkup = renderToStaticMarkup(
+  const inactiveMarkup = renderWithLocale(
     <PrinterProfileJobSection
       type="receipts"
       title="Receipts"

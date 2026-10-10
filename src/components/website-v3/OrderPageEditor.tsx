@@ -1,4 +1,5 @@
 "use client";
+import { BooleanInput } from '@/components/ds/Selection';
 import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./ColorStylePicker";
 import {
   selectOrderColorStyle,
@@ -49,9 +50,7 @@ export function OrderPageEditor({
   const toggle = (key: string, label: string, fallback = true) => (
     <label className="sqe-order-toggle" key={key}>
       <span>{t(label)}</span>
-      <input
-        type="checkbox"
-        role="switch"
+      <BooleanInput
         checked={
           typeof value[key] === "boolean" ? (value[key] as boolean) : fallback
         }

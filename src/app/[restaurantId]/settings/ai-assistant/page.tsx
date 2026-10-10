@@ -1,5 +1,6 @@
 'use client';
 
+import { BooleanInput } from '@/components/ds/Selection';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
@@ -88,7 +89,7 @@ function AssistantWorkspace({ rid }: { rid: number }) {
   };
   const toggle = (key: 'ai_assistant_enabled' | 'ai_assistant_upsell' | 'ai_assistant_auto_order', title: string, hint: string) => draft && <label className="flex min-h-11 items-start gap-4 py-2">
     <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t(title)}</span><span id={`${key}-hint`} className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t(hint)}</span></span>
-    <input role="switch" type="checkbox" className="mt-1 size-5 shrink-0 accent-[var(--action)]" aria-label={t(title)} aria-describedby={`${key}-hint`} checked={draft[key]} disabled={!canEdit || saving || (key !== 'ai_assistant_enabled' && !draft.ai_assistant_enabled)} onChange={event => patch({ [key]: event.target.checked })} />
+    <BooleanInput aria-label={t(title)} aria-describedby={`${key}-hint`} checked={draft[key]} disabled={!canEdit || saving || (key !== 'ai_assistant_enabled' && !draft.ai_assistant_enabled)} onChange={event => patch({ [key]: event.target.checked })} />
   </label>;
   const textField = (field: typeof TEXT_FIELDS[number]) => draft && <Field key={field.key} label={t(field.label)} hint={<span id={`${field.key}-hint`}>{t(field.hint)}</span>}>
     <Textarea aria-label={t(field.label)} aria-describedby={`${field.key}-hint`} dir="auto" rows={field.rows} readOnly={!canEdit || saving || !draft.ai_assistant_enabled} value={draft[field.key]} maxLength={Math.max(field.max, baseline?.[field.key].length ?? 0)} onChange={event => patch({ [field.key]: event.target.value })} placeholder={t(field.placeholder)} />

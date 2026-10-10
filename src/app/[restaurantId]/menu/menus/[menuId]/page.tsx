@@ -659,7 +659,7 @@ function MenuDetailContent() {
         </div>
         {isExpanded && <div id={`carte-group-${group.id}`}>
           {canEdit && <div className="flex flex-wrap items-center gap-2 border-b border-[var(--line)] px-4 py-2">
-            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" aria-label={`${t('selectAll')} · ${group.name}`} checked={allSelected} disabled={pending || !items.length} ref={element => { if (element) element.indeterminate = selected.size > 0 && !allSelected; }} onChange={() => toggleSelectAllInGroup(group.id, items.map(item => item.id))} className="size-5 accent-[var(--brand-500)]" />{t('selectAll')}</label>
+            <label className="flex min-h-11 items-center gap-2 text-sm selection-row"><input type="checkbox" aria-label={`${t('selectAll')} · ${group.name}`} checked={allSelected} disabled={pending || !items.length} ref={element => { if (element) element.indeterminate = selected.size > 0 && !allSelected; }} onChange={() => toggleSelectAllInGroup(group.id, items.map(item => item.id))} className="size-5 accent-[var(--brand-500)]" />{t('selectAll')}</label>
             {selected.size > 0 && <><span className="text-sm text-fg-secondary">{t('nSelected').replace('{n}', String(selected.size))}</span>
               <Button size="sm" variant="ghost" disabled={pending} onClick={() => clearGroupSelection(group.id)}>{t('cancel')}</Button>
               <Button size="sm" variant="secondary" disabled={pending} onClick={() => { replacementProgress.current = { removed: new Set(), added: new Set() }; setReplaceModalSourceGroupId(group.id); }}>{t('replace')}</Button>
