@@ -1,8 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { createFixture } from './fixtures.mjs';
 
 async function install(page: Page, { dark = false, locale = 'fr', legacyApi = false } = {}) {
-  const fixture = createFixture();
   const tables = Array.from({length:9}, (_,i) => ({id:i+1, name:`Table ${i+1}`, code:`t-${i+1}`, section_id:1, restaurant_id:1}));
   const plan = { id:16, restaurant_id:1, name:'Salle 2', layout_geometry_version:legacyApi ? undefined : 2,
     placements:tables.slice(0,8).map((table,i) => ({id:i+1,floor_plan_id:16,table_id:table.id,table,x:1+i%4*7.2,y:1+Math.floor(i/4)*13,width:6.25,height:10.875,shape:'square',rotation:0,geometry_version:2})), decorations:[] };
@@ -24,8 +22,10 @@ async function install(page: Page, { dark = false, locale = 'fr', legacyApi = fa
     }
     if (path.endsWith('/floor-plans/16')) return route.fulfill({json:{floor_plan:plan}});
     if (path.endsWith('/sections')) return route.fulfill({json:{sections:[{id:1,restaurant_id:1,name:'Salle à manger',tables}]}});
-    const response=fixture.response(req.url(),req.method(),req.postDataJSON()??{},1);
-    return route.fulfill({status:response.status??200,json:response.json??{}});
+    if (path.endsWith('/users/me')) return route.fulfill({json:{permissions:['*'],role_name:'Owner',user:{id:1,full_name:'Équipe démo',role:'owner'}}});
+    if (path.endsWith('/restaurants/1')) return route.fulfill({json:{restaurant:{id:1,name:'Atelier Foody',currency:'ILS',timezone:'Asia/Jerusalem',service_mode:'table',dine_in_enabled:true,is_active:true}}});
+    if (path.endsWith('/floor-plans')) return route.fulfill({json:{floor_plans:[plan]}});
+    return route.fulfill({json:{settings:{},tables,sections:[],notifications:[],unread_count:0}});
   });
   await page.route('**/*', route => ['localhost','127.0.0.1','square-fonts-production-f.squarecdn.com'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   await page.goto('/1/restaurant/floor-plans/16');
