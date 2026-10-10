@@ -38,3 +38,7 @@ test('integrated team settings follow staff permissions without opening general 
   assert.equal(requiredPermissionsForPath('/2/settings').includes('staff.view'), false);
   assert.equal(requiredPermissionsForPath('/2/roles').includes('staff.view'), false);
 });
+
+test('Stories requires settings read or edit access, not general table access', () => {
+  assert.deepEqual(requiredPermissionsForPath('/25/settings/stories'), ['settings.view', 'settings.edit']);
+});

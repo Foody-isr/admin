@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SectionImageUploader } from "@/components/website/SectionEditors";
+import { SectionImageUploader } from "./SupportingContentEditors";
 import { useI18n } from "@/lib/i18n";
 import type {
   ChainOrderEntryLocaleCopy,
@@ -9,7 +9,6 @@ import type {
   DraftAppearanceOverrides,
   StatePath,
 } from "@/lib/website-v3/types";
-import type { InspectorTab } from "@/lib/website-v3/inspector-scope";
 import {
   ColorField,
   InspectorField,
@@ -38,13 +37,12 @@ const COPY_FIELDS: Array<{
   { key: "orderHere", label: "chain_selector_cta" },
 ];
 
+/** Edits branch-selector copy, appearance and behavior in one panel. */
 export function ChainOrderEntryEditor({
-  tab,
   restaurantId,
   appearance,
   onChange,
 }: {
-  tab: InspectorTab;
   restaurantId: number;
   appearance: DraftAppearanceOverrides;
   onChange: (path: StatePath, value: unknown) => void;
@@ -67,8 +65,8 @@ export function ChainOrderEntryEditor({
       },
     });
 
-  if (tab === "content") {
-    return (
+  return (
+    <>
       <InspectorGroup
         groupId="chain.selector.content"
         title={t("chain_selector_content_title")}
@@ -118,11 +116,7 @@ export function ChainOrderEntryEditor({
           </InspectorField>
         ))}
       </InspectorGroup>
-    );
-  }
 
-  if (tab === "appearance") {
-    return (
       <InspectorGroup
         groupId="chain.selector.appearance"
         title={t("chain_selector_appearance_title")}
@@ -228,10 +222,7 @@ export function ChainOrderEntryEditor({
           />
         </InspectorField>
       </InspectorGroup>
-    );
-  }
 
-  return (
     <InspectorGroup
       groupId="chain.selector.settings"
       title={t("chain_selector_settings_title")}
@@ -262,6 +253,7 @@ export function ChainOrderEntryEditor({
         onChange={(value) => updateSelector({ show_branch_numbers: value })}
       />
     </InspectorGroup>
+    </>
   );
 }
 

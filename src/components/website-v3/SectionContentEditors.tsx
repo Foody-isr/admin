@@ -11,7 +11,7 @@ import {
   AboutBlocksEditor,
   ActionButtonsEditor,
   PicnicBasketEditor,
-} from "@/components/website/SectionEditors";
+} from "./SupportingContentEditors";
 import { uploadSectionImage, uploadSectionVideo } from "@/lib/api";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import { FeaturedItemsEditor } from "./FeaturedItemsEditor";

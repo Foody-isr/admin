@@ -38,8 +38,8 @@ import {
   type DraftSectionPayload,
   type DraftStatePayload,
 } from "@/lib/website-v3/types";
-import type { RailSelection } from "./PageRail";
-import type { InspectorTab } from "./Inspector";
+import type { RailSelection } from "@/lib/website-v3/editor-selection";
+import type { SectionPanel } from "./SectionInspector";
 import { PageLibrary, type PageTemplate } from "./PageLibrary";
 import {
   ElementInspector,
@@ -62,7 +62,7 @@ export function EditorSidebar({
   state,
   activePage,
   selection,
-  tab,
+  sectionPanel,
   busy,
   inspector,
   orderEditor,
@@ -70,7 +70,7 @@ export function EditorSidebar({
   onOpenOrderJourney,
   design,
   alerts,
-  onTabChange,
+  onSectionPanelChange,
   hoveredSectionKey,
   onHoverSection,
   onSectionChange,
@@ -98,7 +98,7 @@ export function EditorSidebar({
   state: DraftStatePayload;
   activePage: DraftPagePayload;
   selection: RailSelection;
-  tab: InspectorTab;
+  sectionPanel: SectionPanel;
   busy: boolean;
   inspector: ReactNode;
   orderEditor?: (region: OrderEditorRegion) => ReactNode;
@@ -106,7 +106,7 @@ export function EditorSidebar({
   onOpenOrderJourney?: (pageKey: string, screen: OrderJourneyScreen) => void;
   design: (onEditShared: () => void, initialScreen?: "root" | "colors" | "buttons", colorTarget?: SiteColorEditTarget) => ReactNode;
   alerts: ReactNode;
-  onTabChange: (tab: InspectorTab) => void;
+  onSectionPanelChange: (sectionPanel: SectionPanel) => void;
   onSelectSite: (region?: "header" | "footer" | "footer-branding") => void;
   onSelectPage: (key: string) => void;
   onSelectSection: (key: string, field?: string) => void;
@@ -182,7 +182,7 @@ export function EditorSidebar({
       setPanel("inspector");
       if (activeField || lastSectionKey.current !== selectedSectionKey) {
         setSectionContentOpen(Boolean(activeField) || motionTextSection);
-        onTabChange(activeField || motionTextSection ? "content" : "appearance");
+        onSectionPanelChange(activeField || motionTextSection ? "content" : "appearance");
       }
     }
     if (
@@ -193,7 +193,7 @@ export function EditorSidebar({
     )
       setPanel("outline");
     lastSectionKey.current = selectedSectionKey;
-  }, [selectedSectionKey, activeField, selection.kind, orderRegion, onTabChange, motionTextSection]);
+  }, [selectedSectionKey, activeField, selection.kind, orderRegion, onSectionPanelChange, motionTextSection]);
   useEffect(() => {
     if (selection.kind === "site" && selection.region) setPanel("inspector");
   }, [selection]);
@@ -218,7 +218,7 @@ export function EditorSidebar({
     );
   const editSite = (region?: "header" | "footer" | "footer-branding") => {
     onSelectSite(region);
-    onTabChange("settings");
+    onSectionPanelChange("settings");
     setPanel("inspector");
   };
   const editPage = () => onPageSettings(activeKey);
@@ -232,7 +232,7 @@ export function EditorSidebar({
   };
   const chooseSection = (key: string) => {
     onSelectSection(key);
-    onTabChange("appearance");
+    onSectionPanelChange("appearance");
     setSectionContentOpen(false);
     setPanel("inspector");
   };
@@ -351,7 +351,7 @@ export function EditorSidebar({
                           ? "editorFooterBranding"
                         : selection.region === "footer"
                           ? "editorFooter"
-                          : "editorSettings",
+                          : "editorSiteSettings",
                     )
                   : orderRegion ? t(orderRegion === "order-journey" ? "editorOrderJourney" : orderRegion === "order-items" ? "editorItemList" : orderRegion === "order-banner" ? "editorMainBanner" : "editorOrderFulfillment") : activePage.title}
         </h2>
@@ -375,7 +375,7 @@ export function EditorSidebar({
                 <div className="sqe-menu">
                   <button
                     onClick={() => {
-                      onTabChange("settings");
+                      onSectionPanelChange("settings");
                       setSectionContentOpen(true);
                       setSectionMenu(false);
                     }}
@@ -429,10 +429,10 @@ export function EditorSidebar({
               if (activeField && selectedSection) {
                 onSelectSection(sectionKey(selectedSection));
                 setSectionContentOpen(true);
-                onTabChange("content");
+                onSectionPanelChange("content");
               } else if (sectionContentOpen && selectedSection) {
                 setSectionContentOpen(false);
-                onTabChange("appearance");
+                onSectionPanelChange("appearance");
               } else done();
             }}
           >
@@ -461,6 +461,7 @@ export function EditorSidebar({
     .sort((a, b) => a.sort_order - b.sort_order);
   return (
     <div
+      data-section-panel={panel === "inspector" && selectedSection ? sectionPanel : undefined}
       aria-busy={busy}
       style={busy ? { pointerEvents: "none", opacity: 0.6 } : undefined}
     >
@@ -597,7 +598,7 @@ export function EditorSidebar({
             <button
               onClick={() => {
                 onSelectSite("footer");
-                onTabChange("content");
+                onSectionPanelChange("content");
                 setPanel("inspector");
               }}
             >
@@ -827,27 +828,6 @@ export function EditorSidebar({
         <div hidden={panel !== "inspector"}>{orderEditor(orderRegion)}</div>
       ) : panel === "inspector" && (
         <>
-          {!selectedSection &&
-            !(selection.kind === "site" && selection.region === "header") && (
-              <div className="sqe-tabs" role="tablist">
-                {(
-                  [
-                    ["content", "editorContent"],
-                    ["appearance", "editorCustomize"],
-                    ["settings", "editorSettings"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    role="tab"
-                    aria-selected={tab === value}
-                    key={value}
-                    onClick={() => onTabChange(value)}
-                  >
-                    {t(label)}
-                  </button>
-                ))}
-              </div>
-            )}
           {selectedSection && !["menu_highlights", "featured_menu"].includes(selectedSection.section_type) && !sectionContentOpen && (
             <>
               <section className="sqe-section-content">
@@ -856,7 +836,7 @@ export function EditorSidebar({
                   className="sqe-content-edit"
                   onClick={() => {
                     setSectionContentOpen(true);
-                    onTabChange("content");
+                    onSectionPanelChange("content");
                   }}
                 >
                   {typeof selectedSection.content.image_url === "string" &&
@@ -894,7 +874,7 @@ export function EditorSidebar({
               selectedSection && !["menu_highlights", "featured_menu"].includes(selectedSection.section_type) && !sectionContentOpen && !customizeOpen,
             )}
           >
-            {selectedSection && (activeField || (motionTextSection && sectionContentOpen && tab === "content")) ? (
+            {selectedSection && (activeField || (motionTextSection && sectionContentOpen && sectionPanel === "content")) ? (
               <ElementInspector
                 restaurantId={restaurantId}
                 section={selectedSection}
@@ -905,7 +885,7 @@ export function EditorSidebar({
               />
             ) : selectedSection &&
               sectionContentOpen &&
-              tab === "content" &&
+              sectionPanel === "content" &&
               selectedSection.section_type !== "text_and_image" &&
               EDITOR_ELEMENTS[selectedSection.section_type] ? (
               <SectionElements

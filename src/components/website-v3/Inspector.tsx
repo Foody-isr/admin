@@ -21,30 +21,26 @@ import { useI18n } from "@/lib/i18n";
 import { isTechnicalSitePage } from "@/lib/website-v3/state";
 import type {
   InspectorSurface,
-  InspectorTab,
 } from "@/lib/website-v3/inspector-scope";
 import { PageInspector } from "./PageInspector";
-import type { RailSelection } from "./PageRail";
+import type { RailSelection } from "@/lib/website-v3/editor-selection";
 import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
 import { resolveSiteFooter } from "@/lib/website-v3/footer";
-import { SectionInspector } from "./SectionInspector";
+import { SectionInspector, type SectionPanel } from "./SectionInspector";
 import { HeaderInspector } from "./HeaderInspector";
 import { FooterBrandingEditor } from "./FooterBrandingEditor";
 import { FooterEditor } from "./FooterEditor";
 import { MissingFooter } from "./MissingFooter";
 import { SiteInspector } from "./SiteInspector";
 
-/** Re-exported for the many components that already import it from here.
- *  The type itself lives with the scope table it keys. */
-export type { InspectorTab };
-
+/** Routes selection to the editor for that page, section or shared element. */
 export function Inspector({
   restaurantId,
   restaurant,
   restaurantLogoUrl,
   state,
   selection,
-  tab,
+  sectionPanel,
   surface,
   showBranchSelector = false,
   menus,
@@ -52,7 +48,6 @@ export function Inspector({
   catalog,
   catalogWarning,
   errors,
-  onTabChange,
   onSurfaceChange,
   onOpenOrderJourney,
   onConfigChange,
@@ -63,7 +58,6 @@ export function Inspector({
   onCreateFooter,
   onMakeDefault,
   onMakeHomepage,
-  onStoriesNavigationAvailabilityChange,
   onRestaurantLogoUpload,
   onRestaurantLogoRemove,
 }: {
@@ -72,7 +66,7 @@ export function Inspector({
   restaurantLogoUrl?: string;
   state: DraftStatePayload;
   selection: RailSelection;
-  tab: InspectorTab;
+  sectionPanel: SectionPanel;
   /** The preview surface on screen. Scopes the page inspector's fields so it
    *  never offers a setting the visible surface does not render. */
   surface: InspectorSurface;
@@ -82,7 +76,6 @@ export function Inspector({
   catalog: ThemeCatalog;
   catalogWarning?: string | null;
   errors: FieldError[];
-  onTabChange: (tab: InspectorTab) => void;
   onSurfaceChange: (surface: InspectorSurface) => void;
   onOpenOrderJourney?: () => void;
   onConfigChange: (path: StatePath, value: unknown) => void;
@@ -93,9 +86,6 @@ export function Inspector({
   onCreateFooter: () => void;
   onMakeDefault: (key: string) => void;
   onMakeHomepage: (key: string) => void;
-  onStoriesNavigationAvailabilityChange: (
-    available: boolean | undefined,
-  ) => void;
   onRestaurantLogoUpload: (file: File) => Promise<void>;
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
@@ -112,13 +102,6 @@ export function Inspector({
       : null;
   const footer = resolveSiteFooter(state.sections);
 
-  const title =
-    selection.kind === "site"
-      ? "Éléments partagés"
-      : section
-        ? section.section_type.replace(/_/g, " ")
-        : page?.title || "Page";
-
   // Only an order page has two surfaces. Not offered for the site selection
   // (which resolves to the landing page) or for a section.
   const showSurfaceSwitcher =
@@ -133,80 +116,35 @@ export function Inspector({
 
   return (
     <div className="min-h-full">
-      <div
-        data-inspector-header
-        className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 pb-0 pt-5 backdrop-blur"
-      >
-        <p
-          data-inspector-title
-          className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#315fce]"
-        >
-          Inspecteur
-        </p>
-        <h2
-          data-inspector-title
-          className="mt-1 truncate text-xl font-semibold capitalize tracking-tight text-slate-950"
-        >
-          {title}
-        </h2>
-        {showSurfaceSwitcher ? (
-          // Deliberately styled unlike the tab strip below: the surface picks
-          // WHAT you are editing, the tab picks which aspect of it. If it read
-          // as a fourth tab it would recreate the confusion this fixes.
-          <div className="mt-4 flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-              {t("websiteV3SurfaceLabel")}
-            </span>
-            <div
-              role="group"
-              aria-label={t("websiteV3SurfaceGroupLabel")}
-              className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5"
-            >
-              {surfaceOptions.map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  data-inspector-surface={value}
-                  aria-pressed={surface === value}
-                  onClick={() => onSurfaceChange(value)}
-                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-                    surface === value
-                      ? "bg-white text-slate-950 shadow-sm"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+      {showSurfaceSwitcher ? (
+        <div className="flex items-center gap-2 px-6 pt-4">
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            {t("websiteV3SurfaceLabel")}
+          </span>
+          <div
+            role="group"
+            aria-label={t("websiteV3SurfaceGroupLabel")}
+            className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+          >
+            {surfaceOptions.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                data-inspector-surface={value}
+                aria-pressed={surface === value}
+                onClick={() => onSurfaceChange(value)}
+                className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                  surface === value
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        ) : null}
-        <div
-          data-inspector-tabs
-          className={`${showSurfaceSwitcher ? "mt-3" : "mt-5"} grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1`}
-        >
-          {(
-            [
-              ["content", "Contenu"],
-              ["appearance", "Apparence"],
-              ["settings", "Réglages"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onTabChange(value)}
-              className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
-                tab === value
-                  ? "bg-white text-slate-950 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
         </div>
-      </div>
+      ) : null}
 
       {selection.kind === "site" && selection.region === "header" ? (
         <HeaderInspector
@@ -232,7 +170,6 @@ export function Inspector({
             restaurantId={restaurantId}
             pages={state.pages.filter(candidate => !isTechnicalSitePage(candidate))}
             sections={state.sections}
-            tab={tab === "appearance" ? "appearance" : "content"}
             onChange={(path, value) =>
               onSectionChange(stableSectionKey(footer), path, value)
             }
@@ -244,7 +181,6 @@ export function Inspector({
         <SiteInspector
           orderChoicesAvailable={websiteOrderChoicesAvailable(restaurant, state.config.checkout_config)}
           sections={state.sections}
-          tab={tab}
           config={state.config}
           restaurantId={restaurantId}
           restaurantLogoUrl={restaurantLogoUrl}
@@ -252,28 +188,15 @@ export function Inspector({
           pages={state.pages.filter(
             (candidate) => !isTechnicalSitePage(candidate),
           )}
-          footer={footer}
-          onCreateFooter={onCreateFooter}
           onChange={onConfigChange}
-          onPageVisibilityChange={(key, visible) =>
-            onPageChange(key, ["nav_visible"], visible)
-          }
-          onFooterChange={(path, value) =>
-            footer
-              ? onSectionChange(stableSectionKey(footer), path, value)
-              : undefined
-          }
-          onStoriesNavigationAvailabilityChange={
-            onStoriesNavigationAvailabilityChange
-          }
           onRestaurantLogoUpload={onRestaurantLogoUpload}
           onRestaurantLogoRemove={onRestaurantLogoRemove}
         />
       ) : section ? (
         <SectionInspector
+          sectionPanel={sectionPanel}
           restaurantId={restaurantId}
           section={section}
-          tab={tab}
           placementGroups={orderPlacementGroups(page, menus)}
           onChange={(path, value) =>
             onSectionChange(stableSectionKey(section), path, value)
@@ -285,7 +208,6 @@ export function Inspector({
           pages={state.pages.filter(
             (candidate) => !isTechnicalSitePage(candidate),
           )}
-          tab={tab}
           surface={surface}
           onSurfaceChange={onSurfaceChange}
           restaurantId={restaurantId}

@@ -49,6 +49,7 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
       { href: `${base}/settings/printers`, labelKey: 'printerProfilesTitle' },
     ] },
     { labelKey: 'settingsGroupCommunications', items: [
+      { href: `${base}/settings/stories`, labelKey: 'reels' },
       { href: `${base}/settings/whatsapp`, labelKey: 'whatsapp' },
       { href: `${base}/settings/message-templates`, labelKey: 'messageTemplates' },
     ] },

@@ -137,17 +137,12 @@ test("site settings delegate to Header while unmigrated page navigation remains 
   };
   const siteMarkup = render(
     React.createElement(SiteInspector, {
-      onCreateFooter: () => undefined,
       sections: [],
-      tab: "settings",
+
       config: {},
       restaurantId: 24,
       pages: [page],
-      footer: null,
       onChange: () => undefined,
-      onPageVisibilityChange: () => undefined,
-      onFooterChange: () => undefined,
-      onStoriesNavigationAvailabilityChange: () => undefined,
       onRestaurantLogoUpload: async () => undefined,
       onRestaurantLogoRemove: async () => undefined,
     }),
@@ -155,7 +150,7 @@ test("site settings delegate to Header while unmigrated page navigation remains 
   const pageMarkup = render(
     React.createElement(PageInspector, {
       page,
-      tab: "settings",
+
       surface: "page" as const,
       onSurfaceChange: () => undefined,
       restaurantId: 24,
@@ -195,7 +190,7 @@ test("footer exposes content and appearance fields in their tabs", () => {
   const contentMarkup = render(
     React.createElement(FooterEditor, {
       footer,
-      tab: "content",
+
       onChange: () => undefined,
     }),
   );
@@ -216,7 +211,7 @@ test("footer exposes content and appearance fields in their tabs", () => {
   const appearanceMarkup = render(
     React.createElement(FooterEditor, {
       footer,
-      tab: "appearance",
+
       onChange: () => undefined,
     }),
   );
@@ -384,7 +379,7 @@ test("order page appearance renders one normal category palette owner", () => {
   };
   const element = React.createElement(PageInspector, {
       page,
-      tab: "appearance",
+
       surface: "page" as const,
       onSurfaceChange: () => undefined,
       restaurantId: 24,
@@ -446,14 +441,6 @@ function renderTask4Editors(): string {
     render(
       React.createElement(FooterEditor, {
         footer,
-        tab: "content",
-        onChange: () => undefined,
-      }),
-    ),
-    render(
-      React.createElement(FooterEditor, {
-        footer,
-        tab: "appearance",
         onChange: () => undefined,
       }),
     ),

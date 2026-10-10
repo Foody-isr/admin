@@ -32,16 +32,20 @@ import { FeatureCardsAppearanceEditor } from "./FeatureCardsAppearanceEditor";
 import { FeaturedItemsEditor } from "./FeaturedItemsEditor";
 import { OrderDiscoveryAppearanceEditor } from "./OrderDiscoveryAppearanceEditor";
 
+/** Contextual section screens opened by content and section-settings actions. */
+export type SectionPanel = "content" | "appearance" | "settings";
+
+/** Edits the selected section without a global tab strip. */
 export function SectionInspector({
   restaurantId,
   section,
-  tab,
+  sectionPanel,
   placementGroups = [],
   onChange,
 }: {
   restaurantId: number;
   section: DraftSectionPayload;
-  tab: "content" | "appearance" | "settings";
+  sectionPanel: SectionPanel;
   placementGroups?: Array<{ id: string; name: string }>;
   onChange: (path: StatePath, value: unknown) => void;
 }) {
@@ -67,7 +71,7 @@ export function SectionInspector({
         onChange={onChange}
       />
     );
-  if (tab === "content") {
+  if (sectionPanel === "content") {
     return (
       <InspectorGroup
         title={
@@ -91,7 +95,7 @@ export function SectionInspector({
     );
   }
 
-  if (tab === "appearance") {
+  if (sectionPanel === "appearance") {
     return (
       <>
         <InspectorGroup title={t("editorLayoutColor")}>

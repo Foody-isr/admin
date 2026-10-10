@@ -10,7 +10,7 @@ import type {
   ThemeCatalog,
   WebsiteConfig,
 } from "@/lib/api";
-import { SectionImageUploader } from "@/components/website/SectionEditors";
+import { SectionImageUploader } from "./SupportingContentEditors";
 import { OrderPageInfoEditor } from "@/components/website/OrderPageInfoEditor";
 import { useI18n } from "@/lib/i18n";
 import { ThemesPanel } from "@/components/website-menu/ThemesPanel";
@@ -27,7 +27,6 @@ import { showsInspectorGroup } from "@/lib/website-v3/inspector-scope";
 import type {
   InspectorGroupId,
   InspectorSurface,
-  InspectorTab,
 } from "@/lib/website-v3/inspector-scope";
 import type {
   DraftPagePayload,
@@ -46,10 +45,10 @@ import { NavigationCtaEditor } from "./NavigationCtaEditor";
 import { ReadOnlyAddress } from "./PageAddress";
 import { ChainOrderEntryEditor } from "./ChainOrderEntryEditor";
 
+/** Edits the current page in one surface-scoped panel. */
 export function PageInspector({
   page,
   pages = [],
-  tab,
   surface,
   onSurfaceChange,
   restaurantId,
@@ -68,7 +67,6 @@ export function PageInspector({
 }: {
   page: DraftPagePayload;
   pages?: DraftPagePayload[];
-  tab: InspectorTab;
   /** The preview surface on screen. An order page has two — the menu and the
    *  checkout route — and most settings apply to exactly one of them. */
   surface: InspectorSurface;
@@ -94,7 +92,7 @@ export function PageInspector({
   /** The single visibility rule for this panel. Every group asks it, so what a
    *  surface owns is readable in one place — lib/website-v3/inspector-scope. */
   const shows = (id: InspectorGroupId) =>
-    showsInspectorGroup(id, { pageType: page.type, tab, surface });
+    showsInspectorGroup(id, { pageType: page.type, surface });
   const errorFor = (fieldId: string) =>
     errors.find((error) => error.fieldId === fieldId)?.message;
   const appearance = page.appearance_overrides;
@@ -127,220 +125,10 @@ export function PageInspector({
   if (surface === "branches") {
     return (
       <ChainOrderEntryEditor
-        tab={tab}
         restaurantId={restaurantId}
         appearance={page.appearance_overrides}
         onChange={onChange}
       />
-    );
-  }
-
-  if (tab === "content") {
-    return (
-      <>
-        {shows("page.identity") ? (
-        <InspectorGroup
-          groupId="page.identity"
-          title="Identité de la page"
-          description="Le titre est utilisé dans la navigation et comme repère dans le builder."
-        >
-          <InspectorField label="Nom" error={errorFor("page.title")}>
-            <input
-              data-field-id="page.title"
-              value={page.title}
-              onChange={(event) => onChange(["title"], event.target.value)}
-              className={controlClass}
-            />
-          </InspectorField>
-        </InspectorGroup>
-        ) : null}
-        {shows("page.catering_content") && page.type === "catering" ? (
-          <CateringContentEditor
-            page={page}
-            services={services}
-            onChange={onChange}
-          />
-        ) : null}
-        {shows("page.sections") ? (
-        <InspectorGroup
-          groupId="page.sections"
-          title="Sections"
-          description={
-            page.type === "landing" || page.type === "content"
-              ? "Sélectionnez une section dans l’aperçu ou ajoutez-en depuis le canvas."
-              : page.type === "order"
-                ? "Ajoutez une section Découverte & publicité depuis l’aperçu pour présenter vos autres services."
-                : "Les pages traiteur utilisent les prestations associées."
-          }
-        >
-          <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
-            {page.type === "landing" || page.type === "content"
-              ? "Les blocs de contenu suivent cette page dans l’aperçu, y compris avant publication."
-              : page.type === "order"
-                ? "Cette section est propre à la page Commander : elle ne reprend jamais automatiquement les cartes de l’accueil."
-                : "Le contenu traiteur est alimenté par les prestations sélectionnées dans Réglages."}
-          </p>
-        </InspectorGroup>
-        ) : null}
-        <SurfaceHandoff shows={shows} tab={tab} onSurfaceChange={onSurfaceChange} />
-      </>
-    );
-  }
-
-  if (tab === "appearance") {
-    return (
-      <>
-        {shows("page.theme") ? (
-        <InspectorGroup
-          groupId="page.theme"
-          title="Direction visuelle de la page"
-          description="Cette page peut avoir son propre thème. Les anciennes valeurs restent utilisées tant qu’aucune surcharge n’est choisie."
-        >
-          {catalogWarning ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
-              {catalogWarning}
-            </p>
-          ) : null}
-          <ThemesPanel
-            config={pageVisualConfig}
-            catalog={catalog}
-            excludedSectionColors={
-              page.type === "order" ? ["categoryBar"] : undefined
-            }
-            onUpdate={updateAppearance}
-          />
-        </InspectorGroup>
-        ) : null}
-        {shows("page.typography") ? (
-        <InspectorGroup
-          groupId="page.typography"
-          title="Typographie de la page"
-          description="Les styles de titres, catégories, produits, prix et descriptions sont propres à cette page."
-        >
-          <TypographyPanel
-            config={pageVisualConfig}
-            catalog={catalog}
-            restaurantId={restaurantId}
-            heroNameFont={pageVisualConfig.hero_name_font ?? ""}
-            heroSample={restaurant.name}
-            onHeroNameFontChange={(family) =>
-              updateAppearance({ hero_name_font: family })
-            }
-            onUpdate={updateAppearance}
-            fieldIdPrefix="page.appearance_overrides.typography.roles"
-          />
-        </InspectorGroup>
-        ) : null}
-        {shows("page.quick_colors") ? (
-        <InspectorGroup
-          groupId="page.quick_colors"
-          title="Ajustements rapides"
-          description="Ces couleurs remplacent les variables principales du thème uniquement sur cette page."
-        >
-          <ColorField
-            fieldId="page.appearance_overrides.bg"
-            label="Arrière-plan"
-            value={page.appearance_overrides.bg ?? ""}
-            fallback="#ffffff"
-            onChange={(value) =>
-              onChange(["appearance_overrides", "bg"], value)
-            }
-          />
-          <ColorField
-            fieldId="page.appearance_overrides.ink"
-            label="Texte général (par défaut)"
-            value={page.appearance_overrides.ink ?? ""}
-            fallback="#111827"
-            onChange={(value) =>
-              onChange(["appearance_overrides", "ink"], value)
-            }
-          />
-          <ColorField
-            fieldId="page.appearance_overrides.accent"
-            label="Accent"
-            value={page.appearance_overrides.accent ?? ""}
-            fallback="#315fce"
-            onChange={(value) =>
-              onChange(["appearance_overrides", "accent"], value)
-            }
-          />
-        </InspectorGroup>
-        ) : null}
-        {shows("page.fonts") ? (
-        <InspectorGroup groupId="page.fonts" title="Polices de la page">
-          <InspectorField label="Police des titres">
-            <input
-              data-field-id="page.appearance_overrides.headingFont"
-              value={page.appearance_overrides.headingFont ?? ""}
-              onChange={(event) =>
-                onChange(
-                  ["appearance_overrides", "headingFont"],
-                  event.target.value,
-                )
-              }
-              className={controlClass}
-              placeholder="Héritée du site"
-            />
-          </InspectorField>
-          <InspectorField label="Police du texte">
-            <input
-              data-field-id="page.appearance_overrides.bodyFont"
-              value={page.appearance_overrides.bodyFont ?? ""}
-              onChange={(event) =>
-                onChange(
-                  ["appearance_overrides", "bodyFont"],
-                  event.target.value,
-                )
-              }
-              className={controlClass}
-              placeholder="Héritée du site"
-            />
-          </InspectorField>
-        </InspectorGroup>
-        ) : null}
-        {shows("page.category_bar") ? (
-          <InspectorGroup
-            groupId="page.category_bar"
-            title={t("websiteV3CategoryBarTitle")}
-            description={t("websiteV3CategoryBarDescription")}
-          >
-            <CategoryNavigationEditor
-              value={appearance.category_navigation}
-              onChange={(value) =>
-                onChange(
-                  ["appearance_overrides", "category_navigation"],
-                  value,
-                )
-              }
-            />
-            {page.type === "order" && record(config.custom_palette).color_styles ? (
-              <>
-                <p>{t("editorOrderCategoryColorsHint")}</p>
-                <button type="button" className="sqe-button" onClick={() => openSiteColors()}>
-                  {t("editorEditColorStyles")}
-                </button>
-              </>
-            ) : <CategoryBarStateEditor
-              value={record(appearance.section_colors)}
-              onChange={(value) =>
-                onChange(
-                  ["appearance_overrides", "section_colors"],
-                  value,
-                )
-              }
-            />}
-          </InspectorGroup>
-        ) : null}
-        <CommerceAppearance
-          shows={shows}
-          page={page}
-          restaurantId={restaurantId}
-          restaurant={restaurant}
-          menus={menus}
-          onChange={onChange}
-        />
-        <SurfaceHandoff shows={shows} tab={tab} onSurfaceChange={onSurfaceChange} />
-      </>
     );
   }
 
@@ -361,6 +149,201 @@ export function PageInspector({
 
   return (
     <>
+      {shows("page.identity") ? (
+      <InspectorGroup
+        groupId="page.identity"
+        title="Identité de la page"
+        description="Le titre est utilisé dans la navigation et comme repère dans le builder."
+      >
+        <InspectorField label="Nom" error={errorFor("page.title")}>
+          <input
+            data-field-id="page.title"
+            value={page.title}
+            onChange={(event) => onChange(["title"], event.target.value)}
+            className={controlClass}
+          />
+        </InspectorField>
+      </InspectorGroup>
+      ) : null}
+      {shows("page.catering_content") && page.type === "catering" ? (
+        <CateringContentEditor
+          page={page}
+          services={services}
+          onChange={onChange}
+        />
+      ) : null}
+      {shows("page.sections") ? (
+      <InspectorGroup
+        groupId="page.sections"
+        title="Sections"
+        description={
+          page.type === "landing" || page.type === "content"
+            ? "Sélectionnez une section dans l’aperçu ou ajoutez-en depuis le canvas."
+            : page.type === "order"
+              ? "Ajoutez une section Découverte & publicité depuis l’aperçu pour présenter vos autres services."
+              : "Les pages traiteur utilisent les prestations associées."
+        }
+      >
+        <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
+          {page.type === "landing" || page.type === "content"
+            ? "Les blocs de contenu suivent cette page dans l’aperçu, y compris avant publication."
+            : page.type === "order"
+              ? "Cette section est propre à la page Commander : elle ne reprend jamais automatiquement les cartes de l’accueil."
+              : "Le contenu traiteur est alimenté par les prestations sélectionnées dans Réglages."}
+        </p>
+      </InspectorGroup>
+      ) : null}
+
+      {shows("page.theme") ? (
+      <InspectorGroup
+        groupId="page.theme"
+        title="Direction visuelle de la page"
+        description="Cette page peut avoir son propre thème. Les anciennes valeurs restent utilisées tant qu’aucune surcharge n’est choisie."
+      >
+        {catalogWarning ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+            {catalogWarning}
+          </p>
+        ) : null}
+        <ThemesPanel
+          config={pageVisualConfig}
+          catalog={catalog}
+          excludedSectionColors={
+            page.type === "order" ? ["categoryBar"] : undefined
+          }
+          onUpdate={updateAppearance}
+        />
+      </InspectorGroup>
+      ) : null}
+      {shows("page.typography") ? (
+      <InspectorGroup
+        groupId="page.typography"
+        title="Typographie de la page"
+        description="Les styles de titres, catégories, produits, prix et descriptions sont propres à cette page."
+      >
+        <TypographyPanel
+          config={pageVisualConfig}
+          catalog={catalog}
+          restaurantId={restaurantId}
+          heroNameFont={pageVisualConfig.hero_name_font ?? ""}
+          heroSample={restaurant.name}
+          onHeroNameFontChange={(family) =>
+            updateAppearance({ hero_name_font: family })
+          }
+          onUpdate={updateAppearance}
+          fieldIdPrefix="page.appearance_overrides.typography.roles"
+        />
+      </InspectorGroup>
+      ) : null}
+      {shows("page.quick_colors") ? (
+      <InspectorGroup
+        groupId="page.quick_colors"
+        title="Ajustements rapides"
+        description="Ces couleurs remplacent les variables principales du thème uniquement sur cette page."
+      >
+        <ColorField
+          fieldId="page.appearance_overrides.bg"
+          label="Arrière-plan"
+          value={page.appearance_overrides.bg ?? ""}
+          fallback="#ffffff"
+          onChange={(value) =>
+            onChange(["appearance_overrides", "bg"], value)
+          }
+        />
+        <ColorField
+          fieldId="page.appearance_overrides.ink"
+          label="Texte général (par défaut)"
+          value={page.appearance_overrides.ink ?? ""}
+          fallback="#111827"
+          onChange={(value) =>
+            onChange(["appearance_overrides", "ink"], value)
+          }
+        />
+        <ColorField
+          fieldId="page.appearance_overrides.accent"
+          label="Accent"
+          value={page.appearance_overrides.accent ?? ""}
+          fallback="#315fce"
+          onChange={(value) =>
+            onChange(["appearance_overrides", "accent"], value)
+          }
+        />
+      </InspectorGroup>
+      ) : null}
+      {shows("page.fonts") ? (
+      <InspectorGroup groupId="page.fonts" title="Polices de la page">
+        <InspectorField label="Police des titres">
+          <input
+            data-field-id="page.appearance_overrides.headingFont"
+            value={page.appearance_overrides.headingFont ?? ""}
+            onChange={(event) =>
+              onChange(
+                ["appearance_overrides", "headingFont"],
+                event.target.value,
+              )
+            }
+            className={controlClass}
+            placeholder="Héritée du site"
+          />
+        </InspectorField>
+        <InspectorField label="Police du texte">
+          <input
+            data-field-id="page.appearance_overrides.bodyFont"
+            value={page.appearance_overrides.bodyFont ?? ""}
+            onChange={(event) =>
+              onChange(
+                ["appearance_overrides", "bodyFont"],
+                event.target.value,
+              )
+            }
+            className={controlClass}
+            placeholder="Héritée du site"
+          />
+        </InspectorField>
+      </InspectorGroup>
+      ) : null}
+      {shows("page.category_bar") ? (
+        <InspectorGroup
+          groupId="page.category_bar"
+          title={t("websiteV3CategoryBarTitle")}
+          description={t("websiteV3CategoryBarDescription")}
+        >
+          <CategoryNavigationEditor
+            value={appearance.category_navigation}
+            onChange={(value) =>
+              onChange(
+                ["appearance_overrides", "category_navigation"],
+                value,
+              )
+            }
+          />
+          {page.type === "order" && record(config.custom_palette).color_styles ? (
+            <>
+              <p>{t("editorOrderCategoryColorsHint")}</p>
+              <button type="button" className="sqe-button" onClick={() => openSiteColors()}>
+                {t("editorEditColorStyles")}
+              </button>
+            </>
+          ) : <CategoryBarStateEditor
+            value={record(appearance.section_colors)}
+            onChange={(value) =>
+              onChange(
+                ["appearance_overrides", "section_colors"],
+                value,
+              )
+            }
+          />}
+        </InspectorGroup>
+      ) : null}
+      <CommerceAppearance
+        shows={shows}
+        page={page}
+        restaurantId={restaurantId}
+        restaurant={restaurant}
+        menus={menus}
+        onChange={onChange}
+      />
+
       {shows("page.address") ? (
       <InspectorGroup groupId="page.address" title="Adresse et type">
         <InspectorField
@@ -761,25 +744,17 @@ export function PageInspector({
         </InspectorGroup>
       ) : null}
 
-      <SurfaceHandoff shows={shows} tab={tab} onSurfaceChange={onSurfaceChange} />
+      <SurfaceHandoff shows={shows} onSurfaceChange={onSurfaceChange} />
     </>
   );
 }
 
-/** Shown on the checkout surface, where the page's own settings are hidden.
- *
- *  The theme, typography and base tokens DO repaint the checkout — the theme
- *  through foodyweb's OrderThemeBridge, the tokens through --bg-page/--text/
- *  --brand/--font-* — but the page owns them, so the copy must not claim the
- *  checkout is unaffected. It says where they live and gets the user there in
- *  one click, keeping the current tab. */
+/** Returns to the page settings from checkout. */
 function SurfaceHandoff({
   shows,
-  tab,
   onSurfaceChange,
 }: {
   shows: (id: InspectorGroupId) => boolean;
-  tab: InspectorTab;
   onSurfaceChange: (surface: InspectorSurface) => void;
 }) {
   const { t } = useI18n();
@@ -788,13 +763,7 @@ function SurfaceHandoff({
     <InspectorGroup
       groupId="page.handoff"
       title={t("websiteV3HandoffTitle")}
-      description={t(
-        tab === "appearance"
-          ? "websiteV3HandoffAppearance"
-          : tab === "content"
-            ? "websiteV3HandoffContent"
-            : "websiteV3HandoffSettings",
-      )}
+      description={t("websiteV3HandoffSettings")}
     >
       <button
         type="button"

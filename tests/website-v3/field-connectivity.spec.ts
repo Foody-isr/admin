@@ -3,7 +3,7 @@ import {
   assertContractOutput,
   expect,
   mutateContractControl,
-  openInspectorTab,
+  openSectionPanel,
   openPublicPage,
   previewFrame,
   publishCurrentDraft,
@@ -96,7 +96,7 @@ async function selectContractContext(
       await page.getByRole('button', { name: contract.editor.sectionLabel, exact: true }).click();
     }
   }
-  await openInspectorTab(page, contract.editor.tab);
+  await openSectionPanel(page, contract.editor.sectionPanel);
   // An order page has two preview surfaces and the inspector only offers the
   // fields the visible one renders, so the surface must be selected before the
   // control exists. See lib/website-v3/inspector-scope.

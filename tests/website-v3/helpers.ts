@@ -77,12 +77,19 @@ export async function selectBuilderPage(page: Page, title: string): Promise<void
   await waitForPreviewReady(page);
 }
 
-/** Opens one of the three inspector tabs. */
-export async function openInspectorTab(
-  page: Page,
-  tab: 'Contenu' | 'Apparence' | 'Réglages',
-): Promise<void> {
-  await page.getByRole('button', { name: tab, exact: true }).click();
+/** Opens a section's contextual screen; pages and shared elements have unified panels. */
+export async function openSectionPanel(page: Page, panel?: 'content' | 'appearance' | 'settings'): Promise<void> {
+  const section = page.locator('[data-section-panel]');
+  if (!panel || !(await section.count())) return;
+  if (await section.getAttribute('data-section-panel') === panel) return;
+  if (panel === 'settings') {
+    await section.getByRole('button', { name: 'Plus d’actions', exact: true }).click();
+    await section.getByRole('button', { name: 'Paramètres', exact: true }).click();
+  } else if (panel === 'content') {
+    await section.getByRole('button', { name: 'Cliquez ici pour modifier', exact: true }).click();
+  } else {
+    await section.getByRole('button', { name: 'Terminé', exact: true }).click();
+  }
 }
 
 /** Waits until the current full-draft autosave has completed. */

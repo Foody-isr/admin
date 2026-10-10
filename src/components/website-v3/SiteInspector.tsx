@@ -1,30 +1,24 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
-import { SectionImageUploader } from "@/components/website/SectionEditors";
-import {
-  loadInstagramStoriesSettings,
-  updateInstagramStoriesWithRefresh,
-} from "@/lib/social-navigation";
+import { SectionImageUploader } from "./SupportingContentEditors";
+import { useI18n } from "@/lib/i18n";
 import {
   type DraftConfigPayload,
   type DraftPagePayload,
   type DraftSectionPayload,
 } from "@/lib/website-v3/types";
 import {
-  ColorField,
   InspectorField,
   InspectorGroup,
   ToggleField,
   controlClass,
 } from "./controls";
-import { FooterEditor } from "./FooterEditor";
-import { MissingFooter } from "./MissingFooter";
 import { HeaderInspector } from "./HeaderInspector";
 
+/** Edits shared site identity and links to the dedicated Stories settings. */
 export function SiteInspector({
-  tab,
   config,
   restaurantId,
   restaurantLogoUrl,
@@ -32,15 +26,10 @@ export function SiteInspector({
   orderChoicesAvailable,
   pages,
   sections,
-  footer,
   onChange,
-  onFooterChange,
-  onCreateFooter,
-  onStoriesNavigationAvailabilityChange,
   onRestaurantLogoUpload,
   onRestaurantLogoRemove,
 }: {
-  tab: "content" | "appearance" | "settings";
   config: DraftConfigPayload;
   restaurantId: number;
   restaurantLogoUrl?: string;
@@ -48,24 +37,11 @@ export function SiteInspector({
   orderChoicesAvailable?: boolean;
   pages: DraftPagePayload[];
   sections: DraftSectionPayload[];
-  footer: DraftSectionPayload | null;
-  onCreateFooter: () => void;
   onChange: (path: readonly (string | number)[], value: unknown) => void;
-  onPageVisibilityChange: (key: string, visible: boolean) => void;
-  onFooterChange: (
-    path: readonly (string | number)[],
-    value: unknown,
-  ) => void;
-  onStoriesNavigationAvailabilityChange: (
-    available: boolean | undefined,
-  ) => void;
   onRestaurantLogoUpload: (file: File) => Promise<void>;
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
-  const [instagramConnected, setInstagramConnected] = useState(false);
-  const [storiesEnabled, setStoriesEnabled] = useState(false);
-  const [storiesBusy, setStoriesBusy] = useState(false);
-  const [storiesError, setStoriesError] = useState<string | null>(null);
+  const { t } = useI18n();
   const effectiveRestaurantLogoUrl = Object.prototype.hasOwnProperty.call(
     config,
     "restaurant_logo_url",
@@ -82,160 +58,14 @@ export function SiteInspector({
       ? string(config.share_image_bg)
       : "white";
 
-  useEffect(() => {
-    let active = true;
-    loadInstagramStoriesSettings(restaurantId)
-      .then((settings) => {
-        if (active) {
-          setInstagramConnected(settings.connected);
-          setStoriesEnabled(settings.storiesEnabled);
-          onStoriesNavigationAvailabilityChange(
-            settings.storiesNavigationAvailable,
-          );
-          setStoriesError(
-            settings.storiesNavigationAvailable === undefined
-              ? "La disponibilité publique de Stories est inconnue. Réessayez la vérification."
-              : null,
-          );
-        }
-      })
-      .catch((error) => {
-        if (active) {
-          setInstagramConnected(false);
-          onStoriesNavigationAvailabilityChange(undefined);
-          setStoriesError(
-            `Impossible de vérifier les réglages Stories. Réessayez. (${errorMessage(error)})`,
-          );
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [onStoriesNavigationAvailabilityChange, restaurantId]);
-
-  const updateStories = async (next: boolean) => {
-    const previous = storiesEnabled;
-    setStoriesEnabled(next);
-    setStoriesBusy(true);
-    setStoriesError(null);
-    try {
-      const result = await updateInstagramStoriesWithRefresh(
-        restaurantId,
-        next,
-      );
-      setStoriesEnabled(result.storiesEnabled);
-      if (result.refreshError) {
-        if (result.settings) {
-          setInstagramConnected(result.settings.connected);
-        }
-        onStoriesNavigationAvailabilityChange(undefined);
-        setStoriesError(
-          "Stories enregistrées, mais leur disponibilité publique n’a pas pu être vérifiée. Réessayez.",
-        );
-      } else if (result.settings) {
-        setInstagramConnected(result.settings.connected);
-        onStoriesNavigationAvailabilityChange(
-          result.settings.storiesNavigationAvailable,
-        );
-      }
-    } catch (error) {
-      setStoriesEnabled(previous);
-      setStoriesError(
-        `Impossible d’enregistrer Stories. (${errorMessage(error)})`,
-      );
-    } finally {
-      setStoriesBusy(false);
-    }
-  };
-
-  const retryStoriesRefresh = async () => {
-    setStoriesBusy(true);
-    setStoriesError(null);
-    try {
-      const settings = await loadInstagramStoriesSettings(restaurantId);
-      setInstagramConnected(settings.connected);
-      setStoriesEnabled(settings.storiesEnabled);
-      onStoriesNavigationAvailabilityChange(
-        settings.storiesNavigationAvailable,
-      );
-      if (settings.storiesNavigationAvailable === undefined) {
-        setStoriesError(
-          "La disponibilité publique de Stories reste inconnue. Réessayez la vérification.",
-        );
-      }
-    } catch (error) {
-      onStoriesNavigationAvailabilityChange(undefined);
-      setStoriesError(
-        `La disponibilité publique de Stories reste inconnue. Réessayez. (${errorMessage(error)})`,
-      );
-    } finally {
-      setStoriesBusy(false);
-    }
-  };
-
-  if (tab === "content") {
-    return (
-      <>
-        <InspectorGroup
-          title="Introduction"
-          description="La signature est affichée par les expériences publiques compatibles."
-        >
-          <InspectorField label="Signature">
-            <textarea
-              data-field-id="site.tagline"
-              value={string(config.tagline)}
-              onChange={(event) => onChange(["tagline"], event.target.value)}
-              className={`${controlClass} min-h-20 py-2.5`}
-              placeholder="Une phrase courte qui raconte votre cuisine."
-            />
-          </InspectorField>
-        </InspectorGroup>
-        {footer ? (
-          <FooterEditor
-            footer={footer}
-            restaurantId={restaurantId}
-            pages={pages}
-            sections={sections}
-            tab="content"
-            onChange={onFooterChange}
-          />
-        ) : (
-          <MissingFooter onCreate={onCreateFooter} />
-        )}
-      </>
-    );
-  }
-
-  if (tab === "appearance") {
-    return (
-      <>
-        <InspectorGroup
-          title="Éléments visuels partagés"
-          description="Le logo, la navigation et le pied de page sont partagés entre les pages du site."
-        >
-          <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
-            Ouvrez « Design du site » pour modifier les couleurs et les polices de votre site.
-          </div>
-        </InspectorGroup>
-        {footer ? (
-          <FooterEditor
-            footer={footer}
-            restaurantId={restaurantId}
-            pages={pages}
-            sections={sections}
-            tab="appearance"
-            onChange={onFooterChange}
-          />
-        ) : (
-          <MissingFooter onCreate={onCreateFooter} />
-        )}
-      </>
-    );
-  }
-
   if (editingHeader) return <><button className="sqe-button sqe-button-secondary m-4" onClick={() => setEditingHeader(false)}>Retour aux réglages du site</button><HeaderInspector config={config} pages={pages} sections={sections} restaurantId={restaurantId} restaurantLogoUrl={restaurantLogoUrl} restaurantCoverUrl={restaurantCoverUrl} orderChoicesAvailable={orderChoicesAvailable} onChange={onChange}/></>;
   return (
     <>
+      <InspectorGroup title={t("editorSiteIntroduction")}>
+        <InspectorField label={t("editorSiteTagline")}>
+          <textarea data-field-id="site.tagline" value={string(config.tagline)} onChange={event => onChange(["tagline"], event.target.value)} className={`${controlClass} min-h-20 py-2.5`} />
+        </InspectorField>
+      </InspectorGroup>
       <InspectorGroup
         title="Logos et identité"
         description="Le logo principal est partagé par le site. Les variantes permettent de garder un bon contraste."
@@ -342,85 +172,11 @@ export function SiteInspector({
           checked={boolean(config.show_orders_link, true)}
           onChange={(value) => onChange(["show_orders_link"], value)}
         />
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
-          <div>
-            <p className="text-sm font-medium text-slate-800">Instagram</p>
-            <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-              {instagramConnected
-                ? "Instagram connecté"
-                : "Instagram non connecté"}
-            </p>
-          </div>
-          <span
-            className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-              instagramConnected
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-slate-100 text-slate-500"
-            }`}
-          >
-            {instagramConnected ? "Connecté" : "Non connecté"}
-          </span>
-        </div>
-        <label
-          className={`flex items-start justify-between gap-4 rounded-xl border border-slate-200 p-3 ${
-            instagramConnected ? "cursor-pointer" : "cursor-not-allowed opacity-60"
-          }`}
-        >
-          <span>
-            <span className="block text-sm font-medium text-slate-800">
-              Afficher Stories
-            </span>
-            <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">
-              Stories apparaît seulement lorsque cette option et la connexion
-              Instagram sont actives.
-            </span>
-          </span>
-          <input
-            data-field-id="site.stories_enabled"
-            type="checkbox"
-            checked={storiesEnabled}
-            disabled={!instagramConnected || storiesBusy}
-            onChange={(event) => void updateStories(event.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#315fce]"
-          />
-        </label>
-        {storiesError ? (
-          <div className="space-y-1.5" role="alert">
-            <p className="text-xs text-red-600">{storiesError}</p>
-            <button
-              type="button"
-              disabled={storiesBusy}
-              onClick={() => void retryStoriesRefresh()}
-              className="text-xs font-semibold text-[#315fce] underline underline-offset-2 disabled:cursor-wait disabled:opacity-50"
-            >
-              Réessayer la vérification
-            </button>
-          </div>
-        ) : null}
-        {!instagramConnected ? (
-          <Link
-            href={`/${restaurantId}/reels`}
-            className="inline-flex text-xs font-semibold text-[#315fce] underline underline-offset-2"
-          >
-            Configurer Instagram dans les réglages Reels
-          </Link>
-        ) : null}
+        <Link href={`/${restaurantId}/settings/stories`} className="inline-flex text-sm font-semibold underline underline-offset-4">
+          {t("editorManageStories")}
+        </Link>
       </InspectorGroup>
 
-      <InspectorGroup title="Formulaires avancés">
-        <JsonField
-          fieldId="site.checkout_config"
-          label="Configuration du checkout"
-          value={config.checkout_config}
-          onChange={(value) => onChange(["checkout_config"], value)}
-        />
-        <JsonField
-          fieldId="site.order_page_info"
-          label="Informations de la page commande"
-          value={config.order_page_info}
-          onChange={(value) => onChange(["order_page_info"], value)}
-        />
-      </InspectorGroup>
     </>
   );
 }
@@ -539,65 +295,6 @@ function RangeField({
   );
 }
 
-function JsonField({
-  fieldId,
-  label,
-  value,
-  onChange,
-}: {
-  fieldId: string;
-  label: string;
-  value: unknown;
-  onChange: (value: Record<string, unknown>) => void;
-}) {
-  const serialized = pretty(record(value));
-  const [draft, setDraft] = useState(serialized);
-  const [invalid, setInvalid] = useState(false);
-
-  useEffect(() => {
-    setDraft(serialized);
-    setInvalid(false);
-  }, [serialized]);
-
-  return (
-    <InspectorField
-      label={label}
-      hint={
-        invalid
-          ? undefined
-          : "Format JSON avancé. Les changements sont appliqués en quittant le champ."
-      }
-      error={invalid ? "Le JSON est invalide. Corrigez-le avant de continuer." : undefined}
-    >
-      <textarea
-        data-field-id={fieldId}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          setInvalid(false);
-        }}
-        onBlur={(event) => {
-          const parsed = parseJson(event.target.value);
-          if (parsed) {
-            setInvalid(false);
-            onChange(parsed);
-          } else {
-            setInvalid(true);
-          }
-        }}
-        className={`${controlClass} min-h-32 py-2 font-mono text-xs`}
-        spellCheck={false}
-      />
-    </InspectorField>
-  );
-}
-
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
 function string(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -608,21 +305,4 @@ function number(value: unknown, fallback: number): number {
 
 function boolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
-}
-
-function pretty(value: Record<string, unknown>): string {
-  return JSON.stringify(value, null, 2);
-}
-
-function parseJson(value: string): Record<string, unknown> | null {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return record(parsed);
-  } catch {
-    return null;
-  }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

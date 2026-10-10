@@ -9,7 +9,7 @@ import { loadMetaSdk } from '@/lib/meta-sdk';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
-import { Switch } from '../settings/orders/_components';
+import { Switch } from '../orders/_components';
 
 const SDK_VERSION = process.env.NEXT_PUBLIC_META_GRAPH_VERSION || 'v21.0';
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || '';

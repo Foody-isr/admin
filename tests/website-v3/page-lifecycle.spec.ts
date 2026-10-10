@@ -1,7 +1,7 @@
 import { test as playwrightTest } from '@playwright/test';
 import {
   expect,
-  openInspectorTab,
+  openSectionPanel,
   openPublicPage,
   previewFrame,
   publishCurrentDraft,
@@ -49,7 +49,7 @@ websiteV3Test('content page lifecycle stays connected from draft to public delet
   await builderPage.goto(`/${restaurantId}/website-v3`);
   await selectBuilderPage(builderPage, 'Notre histoire');
   await builderPage.locator('[data-field-id="page.title"]').fill('Notre maison');
-  await openInspectorTab(builderPage, 'Réglages');
+  await openSectionPanel(builderPage, 'settings');
   await builderPage.locator('[data-field-id="page.slug"]').fill('notre-maison');
   await builderPage.locator('[data-field-id="page.slug"]').blur();
   await publishCurrentDraft(builderPage);
