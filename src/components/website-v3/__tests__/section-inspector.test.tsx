@@ -213,7 +213,7 @@ test("feature cards appearance exposes button colors and shape", () => {
 
 function renderSection(
   overrides: Partial<DraftSectionPayload>,
-  tab: "content" | "appearance" | "settings" = "content",
+  sectionPanel: "content" | "appearance" | "settings" = "content",
 ): string {
   const section: DraftSectionPayload = {
     tmp_id: "section-test",
@@ -233,7 +233,7 @@ function renderSection(
       {React.createElement(SectionInspector, {
         restaurantId: 24,
         section,
-        tab,
+        sectionPanel,
         placementGroups: [
           { id: "17", name: "Salades" },
           { id: "42", name: "Poissons" },

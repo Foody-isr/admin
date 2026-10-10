@@ -18,6 +18,7 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
     baseURL: "http://localhost:3003",
     viewport: { width: 1440, height: 1000 },
+    actionTimeout: 15_000,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

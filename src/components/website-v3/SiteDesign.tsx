@@ -266,7 +266,7 @@ export function SiteDesign({
               <ChevronRight size={18} />
             </button>
             <button className="sqe-design-row" onClick={onEditShared}>
-              {t("editorNavigation")}
+              {t("editorSiteSettings")}
               <ChevronRight size={18} />
             </button>
           </section>

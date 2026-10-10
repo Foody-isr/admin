@@ -25,14 +25,12 @@ import { FooterResponses } from "./FooterResponses";
 /** Edits the shared Footer using the same layout, content and style fields as the public renderer. */
 export function FooterEditor({
   footer,
-  tab,
   onChange,
   restaurantId = 0,
   pages = [],
   sections = [],
 }: {
   footer: DraftSectionPayload;
-  tab: "content" | "appearance";
   restaurantId?: number;
   config?: DraftConfigPayload;
   pages?: DraftPagePayload[];
@@ -229,12 +227,14 @@ export function FooterEditor({
   );
   return (
     <div className="sqh-editor" data-footer-editor>
+      <div className="sqe-panel-body">
       <ToggleField
         fieldId="site.footer.is_visible"
         label={t("editorShowFooter")}
         checked={footer.is_visible}
         onChange={(value) => onChange(["is_visible"], value)}
       />
+      </div>
       {panel(
         "layout",
         t("editorLayoutColor"),
@@ -347,204 +347,200 @@ export function FooterEditor({
           </div>
         </>,
       )}
-      {tab === "content" && (
+      {panel(
+        "logo",
+        c.logo,
         <>
-          {panel(
-            "logo",
-            c.logo,
-            <>
-              {select(
-                "logo_type",
-                c.type,
-                ["text", "image"],
-                [c.text, c.image],
-                "image",
-              )}
-              {content.logo_type === "text" ? (
-                text("logo_text", c.text)
-              ) : (
-                <ImageUploadField
-                  restaurantId={restaurantId}
-                  label={c.logo}
-                  currentUrl={String(content.logo_image ?? "")}
-                  onUploaded={(value) => set("logo_image", value)}
-                  onRemove={() => set("logo_image", "")}
-                />
-              )}
-              {select(
-                "logo_size",
-                c.size,
-                ["small", "medium", "large"],
-                [c.small, c.medium, c.large],
-                "medium",
-              )}
-              {color("logo_color", c.color)}
-              <p className="text-sm text-slate-500">{c.homeHelp}</p>
-            </>,
-            "show_logo",
+          {select(
+            "logo_type",
+            c.type,
+            ["text", "image"],
+            [c.text, c.image],
+            "image",
           )}
-          {panel(
-            "navigation",
-            c.navigation,
-            <>
-              {toggle(
-                "same_as_header",
-                c.sameHeader,
-                !Array.isArray(content.links),
-              )}
-              {content.same_as_header === false ||
-              (content.same_as_header === undefined &&
-                Array.isArray(content.links))
-                ? links("navigation_links")
-                : null}
-            </>,
-            "show_navigation",
+          {content.logo_type === "text" ? (
+            text("logo_text", c.text)
+          ) : (
+            <ImageUploadField
+              restaurantId={restaurantId}
+              label={c.logo}
+              currentUrl={String(content.logo_image ?? "")}
+              onUploaded={(value) => set("logo_image", value)}
+              onRemove={() => set("logo_image", "")}
+            />
           )}
-          {panel(
-            "title",
-            c.subscriptionTitle,
-            <>
-              {text("subscription_title", c.subscriptionTitle, c.stayLoop)}
-              {typography("subscription_title")}
-              {color("subscription_title_color", c.color)}
-            </>,
-            "show_subscription_title",
-            false,
+          {select(
+            "logo_size",
+            c.size,
+            ["small", "medium", "large"],
+            [c.small, c.medium, c.large],
+            "medium",
           )}
-          {panel(
-            "subscription",
-            c.subscription,
-            <>
-              {text("subscription_placeholder", c.placeholder, c.email)}
-              {text("subscription_button", c.button, c.signup)}
-              {select(
-                "subscription_style",
-                c.style,
-                ["filled", "outline"],
-                [c.filled, c.outline],
-                "filled",
-              )}
-              {color("subscription_color", c.color)}
-              {text("subscription_name", c.formName, c.subscription)}
-              {text(
-                "subscription_confirmation",
-                c.confirmation,
-                c.thanks,
-                true,
-              )}
-              <FooterResponses
-                restaurantId={restaurantId}
-                sectionId={footer.id}
-              />
-            </>,
-            "show_subscription",
-            false,
+          {color("logo_color", c.color)}
+          <p className="text-sm text-slate-500">{c.homeHelp}</p>
+        </>,
+        "show_logo",
+      )}
+      {panel(
+        "navigation",
+        c.navigation,
+        <>
+          {toggle(
+            "same_as_header",
+            c.sameHeader,
+            !Array.isArray(content.links),
           )}
-          {panel(
+          {content.same_as_header === false ||
+          (content.same_as_header === undefined &&
+            Array.isArray(content.links))
+            ? links("navigation_links")
+            : null}
+        </>,
+        "show_navigation",
+      )}
+      {panel(
+        "title",
+        c.subscriptionTitle,
+        <>
+          {text("subscription_title", c.subscriptionTitle, c.stayLoop)}
+          {typography("subscription_title")}
+          {color("subscription_title_color", c.color)}
+        </>,
+        "show_subscription_title",
+        false,
+      )}
+      {panel(
+        "subscription",
+        c.subscription,
+        <>
+          {text("subscription_placeholder", c.placeholder, c.email)}
+          {text("subscription_button", c.button, c.signup)}
+          {select(
+            "subscription_style",
+            c.style,
+            ["filled", "outline"],
+            [c.filled, c.outline],
+            "filled",
+          )}
+          {color("subscription_color", c.color)}
+          {text("subscription_name", c.formName, c.subscription)}
+          {text(
+            "subscription_confirmation",
+            c.confirmation,
+            c.thanks,
+            true,
+          )}
+          <FooterResponses
+            restaurantId={restaurantId}
+            sectionId={footer.id}
+          />
+        </>,
+        "show_subscription",
+        false,
+      )}
+      {panel(
+        "social",
+        c.social,
+        <>
+          {select(
+            "social_color",
+            c.socialColor,
+            ["social", "main", "light", "dark"],
+            [c.socialMedia, c.main, c.light, c.dark],
             "social",
-            c.social,
-            <>
-              {select(
-                "social_color",
-                c.socialColor,
-                ["social", "main", "light", "dark"],
-                [c.socialMedia, c.main, c.light, c.dark],
-                "social",
-              )}
-              {[
-                "instagram",
-                "facebook",
-                "tiktok",
-                "whatsapp",
-                "pinterest",
-                "youtube",
-                "linkedin",
-                "x",
-              ].map((platform) => {
-                const values = Array.isArray(content.social_links)
-                  ? (content.social_links as {
-                      platform: string;
-                      url: string;
-                    }[])
-                  : [];
-                return (
-                  <InspectorField label={platform} key={platform}>
-                    <input
-                      type="url"
-                      className={controlClass}
-                      data-field-id={`site.footer.content.social_links.${platform}`}
-                      value={
-                        values.find((link) => link.platform === platform)
-                          ?.url ?? ""
-                      }
-                      onChange={(e) =>
-                        set("social_links", [
-                          ...values.filter(
-                            (link) => link.platform !== platform,
-                          ),
-                          ...(e.target.value.trim()
-                            ? [{ platform, url: e.target.value }]
-                            : []),
-                        ])
-                      }
-                    />
-                  </InspectorField>
-                );
-              })}
-            </>,
-            "show_social",
           )}
-          {panel(
-            "external",
-            c.external,
-            <>
-              {links("external_links")}
-              {text("custom_text", c.copyright)}
-              {typography("external", "sm")}
-              {color("external_color", c.color, true)}
-            </>,
-            "show_external_links",
-          )}
-          {panel(
-            "payments",
-            c.payments,
-            <>
-              <p className="text-sm text-slate-500">{c.paymentHelp}</p>
-              {["Visa", "Mastercard", "Amex"].map((value) => (
-                <label key={value} className="sqh-check">
-                  {value}
-                  <input
-                    type="checkbox"
-                    checked={
-                      Array.isArray(content.payment_methods) &&
-                      content.payment_methods.includes(value)
-                    }
-                    onChange={(e) =>
-                      set("payment_methods", [
-                        ...(Array.isArray(content.payment_methods)
-                          ? content.payment_methods.filter((v) => v !== value)
-                          : []),
-                        ...(e.target.checked ? [value] : []),
-                      ])
-                    }
-                  />
-                </label>
-              ))}
-            </>,
-            "show_payment_methods",
-            false,
-          )}
-          {panel(
-            "contact",
-            c.contact,
-            <>
-              {toggle("show_description", t("websiteV3FooterShowDescription"))}
-              {toggle("show_address", t("websiteV3FooterShowAddress"))}
-              {toggle("show_phone", t("websiteV3FooterShowPhone"))}
-              {toggle("show_hours", t("websiteV3FooterShowHours"))}
-            </>,
-          )}
-        </>
+          {[
+            "instagram",
+            "facebook",
+            "tiktok",
+            "whatsapp",
+            "pinterest",
+            "youtube",
+            "linkedin",
+            "x",
+          ].map((platform) => {
+            const values = Array.isArray(content.social_links)
+              ? (content.social_links as {
+                  platform: string;
+                  url: string;
+                }[])
+              : [];
+            return (
+              <InspectorField label={platform} key={platform}>
+                <input
+                  type="url"
+                  className={controlClass}
+                  data-field-id={`site.footer.content.social_links.${platform}`}
+                  value={
+                    values.find((link) => link.platform === platform)
+                      ?.url ?? ""
+                  }
+                  onChange={(e) =>
+                    set("social_links", [
+                      ...values.filter(
+                        (link) => link.platform !== platform,
+                      ),
+                      ...(e.target.value.trim()
+                        ? [{ platform, url: e.target.value }]
+                        : []),
+                    ])
+                  }
+                />
+              </InspectorField>
+            );
+          })}
+        </>,
+        "show_social",
+      )}
+      {panel(
+        "external",
+        c.external,
+        <>
+          {links("external_links")}
+          {text("custom_text", c.copyright)}
+          {typography("external", "sm")}
+          {color("external_color", c.color, true)}
+        </>,
+        "show_external_links",
+      )}
+      {panel(
+        "payments",
+        c.payments,
+        <>
+          <p className="text-sm text-slate-500">{c.paymentHelp}</p>
+          {["Visa", "Mastercard", "Amex"].map((value) => (
+            <label key={value} className="sqh-check">
+              {value}
+              <input
+                type="checkbox"
+                checked={
+                  Array.isArray(content.payment_methods) &&
+                  content.payment_methods.includes(value)
+                }
+                onChange={(e) =>
+                  set("payment_methods", [
+                    ...(Array.isArray(content.payment_methods)
+                      ? content.payment_methods.filter((v) => v !== value)
+                      : []),
+                    ...(e.target.checked ? [value] : []),
+                  ])
+                }
+              />
+            </label>
+          ))}
+        </>,
+        "show_payment_methods",
+        false,
+      )}
+      {panel(
+        "contact",
+        c.contact,
+        <>
+          {toggle("show_description", t("websiteV3FooterShowDescription"))}
+          {toggle("show_address", t("websiteV3FooterShowAddress"))}
+          {toggle("show_phone", t("websiteV3FooterShowPhone"))}
+          {toggle("show_hours", t("websiteV3FooterShowHours"))}
+        </>,
       )}
     </div>
   );

@@ -235,7 +235,7 @@ export type FieldError = {
   message: string;
   pageKey?: string;
   sectionKey?: string;
-  tab?: "content" | "appearance" | "settings";
+  sectionPanel?: "content" | "appearance" | "settings";
 };
 
 /** Returns the stable key used by the editor and preview protocol. */

@@ -454,34 +454,6 @@
   border: 1px solid #e8e8e8;
   text-decoration: underline;
 }
-.sqe-tabs {
-  display: flex;
-  border-bottom: 1px solid #ddd;
-  padding: 0 24px;
-  gap: 20px;
-}
-.sqe-tabs button {
-  padding: 12px 0;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  font-weight: 600;
-  font-size: 14px;
-}
-.sqe-tabs button[aria-selected="true"] {
-  border-color: #101010;
-}
-.sqe-inspector [data-inspector-header] {
-  position: static;
-  border: 0;
-  padding: 0 24px;
-  background: white;
-  backdrop-filter: none;
-}
-.sqe-inspector [data-inspector-title],
-.sqe-inspector [data-inspector-tabs] {
-  display: none;
-}
 .sqe-inspector [data-inspector-surface] {
   min-height: 40px;
   font-size: 13px;

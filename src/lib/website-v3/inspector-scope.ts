@@ -1,4 +1,4 @@
-// Website Builder v3 — which inspector groups belong to which page, tab and
+// Website Builder v3 — which inspector groups belong to which page and
 // preview surface.
 //
 // An order page has TWO preview surfaces: the menu itself ("page") and the
@@ -20,9 +20,6 @@ import type { WebsitePageType } from "./types";
 
 /** The preview surface an inspector group applies to. */
 export type InspectorSurface = "branches" | "page" | "checkout";
-
-/** The three inspector tabs. Re-exported by components/website-v3/Inspector. */
-export type InspectorTab = "content" | "appearance" | "settings";
 
 /** Stable identity of an inspector group, independent of its (localised) title. */
 export type InspectorGroupId =
@@ -48,15 +45,12 @@ export type InspectorGroupId =
 
 export type InspectorGroupScope = {
   readonly id: InspectorGroupId;
-  /** Tabs the group appears in. Only the handoff card spans more than one. */
-  readonly tabs: readonly InspectorTab[];
   readonly pageTypes: readonly WebsitePageType[] | "all";
   readonly surfaces: readonly InspectorSurface[];
 };
 
 export type InspectorScopeContext = {
   readonly pageType: WebsitePageType;
-  readonly tab: InspectorTab;
   readonly surface: InspectorSurface;
 };
 
@@ -64,45 +58,44 @@ const ALL_PAGE_TYPES = "all" as const;
 const PAGE_ONLY = ["page"] as const;
 const CHECKOUT_ONLY = ["checkout"] as const;
 
-/** Ordered — the array order IS the render order inside each tab. */
+/** Ordered — the array order IS the render order inside the inspector. */
 export const INSPECTOR_GROUP_SCOPES: readonly InspectorGroupScope[] = [
   // ── Contenu ──────────────────────────────────────────────────────────────
-  { id: "page.identity", tabs: ["content"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.catering_content", tabs: ["content"], pageTypes: ["catering"], surfaces: PAGE_ONLY },
-  { id: "page.sections", tabs: ["content"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.identity", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.catering_content", pageTypes: ["catering"], surfaces: PAGE_ONLY },
+  { id: "page.sections", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
 
   // ── Apparence ────────────────────────────────────────────────────────────
   // Theme, typography and the base tokens reach the checkout too (through
   // foodyweb's OrderThemeBridge for the theme, and --bg-page/--text/--brand/
   // --font-* for the rest), but the PAGE owns them: one setting, one owner.
   // The handoff card sends the user back with a single click.
-  { id: "page.theme", tabs: ["appearance"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.typography", tabs: ["appearance"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.quick_colors", tabs: ["appearance"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.fonts", tabs: ["appearance"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.category_bar", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
+  { id: "page.theme", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.typography", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.quick_colors", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.fonts", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.category_bar", pageTypes: ["order"], surfaces: PAGE_ONLY },
   // Catering uses the same page-local cover asset and focal point as order,
   // but renders it in its editorial left panel rather than RestaurantHero.
-  { id: "page.cover", tabs: ["appearance"], pageTypes: ["order", "catering"], surfaces: PAGE_ONLY },
-  { id: "page.order_type_selector", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
-  { id: "page.catalog", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
-  { id: "page.category_visuals", tabs: ["appearance"], pageTypes: ["order"], surfaces: PAGE_ONLY },
+  { id: "page.cover", pageTypes: ["order", "catering"], surfaces: PAGE_ONLY },
+  { id: "page.order_type_selector", pageTypes: ["order"], surfaces: PAGE_ONLY },
+  { id: "page.catalog", pageTypes: ["order"], surfaces: PAGE_ONLY },
+  { id: "page.category_visuals", pageTypes: ["order"], surfaces: PAGE_ONLY },
 
   // ── Réglages ─────────────────────────────────────────────────────────────
-  { id: "page.address", tabs: ["settings"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.commerce", tabs: ["settings"], pageTypes: ["order", "catering"], surfaces: PAGE_ONLY },
-  { id: "page.navigation", tabs: ["settings"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.order_info", tabs: ["settings"], pageTypes: ["order"], surfaces: PAGE_ONLY },
-  { id: "page.seo", tabs: ["settings"], pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.address", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.commerce", pageTypes: ["order", "catering"], surfaces: PAGE_ONLY },
+  { id: "page.navigation", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
+  { id: "page.order_info", pageTypes: ["order"], surfaces: PAGE_ONLY },
+  { id: "page.seo", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
   // checkout_config is SITE-level: it is written through onConfigChange, never
   // through the page-scoped onChange, and it applies to every order page.
-  { id: "checkout.form", tabs: ["settings"], pageTypes: ["order"], surfaces: CHECKOUT_ONLY },
+  { id: "checkout.form", pageTypes: ["order"], surfaces: CHECKOUT_ONLY },
 
   // ── Renvoi ───────────────────────────────────────────────────────────────
-  // Last in every tab: it explains what the checkout surface does NOT own.
+  // Last: it explains what the checkout surface does NOT own.
   {
     id: "page.handoff",
-    tabs: ["content", "appearance", "settings"],
     pageTypes: ["order"],
     surfaces: CHECKOUT_ONLY,
   },
@@ -146,7 +139,6 @@ export function showsInspectorGroup(
 ): boolean {
   const scope = SCOPES_BY_ID.get(id);
   if (!scope) throw new Error(`Unknown inspector group: ${id}`);
-  if (!scope.tabs.includes(ctx.tab)) return false;
   if (!scope.surfaces.includes(ctx.surface)) return false;
   return scope.pageTypes === "all" || scope.pageTypes.includes(ctx.pageType);
 }

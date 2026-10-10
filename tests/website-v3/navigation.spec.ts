@@ -1,7 +1,7 @@
 import {
   expect,
   openPublicPage,
-  openInspectorTab,
+  openSectionPanel,
   previewFrame,
   publishCurrentDraft,
   selectBuilderPage,
@@ -59,7 +59,7 @@ websiteV3Test(
   "navigation settings list every fixture page with its visibility state",
   async ({ builderPage }) => {
     await builderPage.getByRole("button", { name: "Identité du site" }).click();
-    await openInspectorTab(builderPage, "Réglages");
+    await openSectionPanel(builderPage, 'settings');
 
     const switches = builderPage.locator(
       'input[data-field-id^="site.navigation-page."]',
@@ -93,7 +93,7 @@ websiteV3Test(
   "navigation visibility switches update the preview navbar immediately",
   async ({ builderPage, restaurantSlug }) => {
     await builderPage.getByRole("button", { name: "Identité du site" }).click();
-    await openInspectorTab(builderPage, "Réglages");
+    await openSectionPanel(builderPage, 'settings');
     await builderPage
       .getByRole("button", { name: "Aperçu mobile", exact: true })
       .click();
@@ -137,7 +137,7 @@ websiteV3Test(
   "always-transparent navigation stays transparent on hover and keyboard focus",
   async ({ builderPage }) => {
     await builderPage.getByRole("button", { name: "Identité du site" }).click();
-    await openInspectorTab(builderPage, "Réglages");
+    await openSectionPanel(builderPage, 'settings');
 
     await builderPage
       .locator('select[data-field-id="site.navbar_style"]')
@@ -171,7 +171,7 @@ websiteV3Test(
   "hero overlay navigation changes from transparent resting colors to hover colors",
   async ({ builderPage }) => {
     await builderPage.getByRole("button", { name: "Identité du site" }).click();
-    await openInspectorTab(builderPage, "Réglages");
+    await openSectionPanel(builderPage, 'settings');
 
     await builderPage
       .locator('select[data-field-id="site.navbar_style"]')
@@ -230,7 +230,7 @@ websiteV3Test(
   "overlay navigation stays solid when a reordered non-hero section renders first",
   async ({ builderPage }) => {
     await builderPage.getByRole("button", { name: "Identité du site" }).click();
-    await openInspectorTab(builderPage, "Réglages");
+    await openSectionPanel(builderPage, 'settings');
 
     await builderPage
       .locator('select[data-field-id="site.navbar_style"]')

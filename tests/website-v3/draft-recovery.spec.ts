@@ -1,6 +1,6 @@
 import {
   expect,
-  openInspectorTab,
+  openSectionPanel,
   openPublicPage,
   previewFrame,
   publishCurrentDraft,
@@ -94,7 +94,7 @@ websiteV3Test('invalid commerce associations block publish and recover after cor
     { page: 'Office Catering', field: 'page.settings.service_ids' },
   ]) {
     await selectBuilderPage(builderPage, scenario.page);
-    await openInspectorTab(builderPage, 'Réglages');
+    await openSectionPanel(builderPage, 'settings');
     const field = builderPage.locator(`[data-field-id="${scenario.field}"]`);
     for (const checkbox of await field.locator('input[type="checkbox"]:checked').all()) {
       await checkbox.uncheck();
@@ -122,7 +122,7 @@ websiteV3Test('publish failure preserves dirty state and retry publishes the lat
   const changed = `Publish retry ${Date.now()}`;
   await builderPage.locator('[data-field-id="page.title"]').fill(changed);
   await waitForDraftSaved(builderPage);
-  await openInspectorTab(builderPage, 'Réglages');
+  await openSectionPanel(builderPage, 'settings');
   const changedSlug = await builderPage.locator('[data-field-id="page.slug"]').inputValue();
   await builderPage.getByRole('button', { name: 'Aperçu ordinateur', exact: true }).click();
   await waitForPreviewReady(builderPage);

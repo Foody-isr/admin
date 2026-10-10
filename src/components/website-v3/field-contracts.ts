@@ -6,7 +6,7 @@ import type { InspectorSurface } from "@/lib/website-v3/inspector-scope";
 
 type Assertion = "text" | "attribute" | "css" | "visible" | "count";
 type TestValue = string | number | boolean | number[];
-type InspectorTab = "Contenu" | "Apparence" | "Réglages";
+import type { SectionPanel } from "./SectionInspector";
 
 type RendererExpectation = {
   selector: string;
@@ -18,7 +18,7 @@ type RendererExpectation = {
 type FieldEditorContract = {
   kind: "field" | "action";
   scope: "site" | "page" | "section";
-  tab: InspectorTab;
+  sectionPanel?: SectionPanel;
   pageTitle: string;
   sectionLabel?: string;
   publicSlug: string;
@@ -194,18 +194,6 @@ function siteAction(
   );
 }
 
-function liveSiteAction(id: string, path: readonly (string | number)[]): FieldContract {
-  return contract(
-    {
-      id,
-      scope: "site",
-      statePath: ["live", ...path],
-      pageTypes: ALL_PAGES,
-    },
-    true,
-  );
-}
-
 function contract(
   base: Pick<FieldContract, "id" | "scope" | "statePath" | "pageTypes">,
   isAction = false,
@@ -320,10 +308,7 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "site.footer.settings.custom_accent": "#d6ff3f",
   "site.footer.settings.custom_divider": "#334155",
   "site.favicon_url": "http://localhost:3000/logo-icon.svg",
-  "site.checkout_config": `{"note":"connected checkout"}`,
-  "site.order_page_info": `{"modal":["about"],"modal_text":"Connected order info"}`,
   "site.show_orders_link": false,
-  "site.stories_enabled": true,
   "site.layout_default": "compact",
   "site.layout_default_mobile": "magazine",
   "site.category_banner_style": "text-block",
@@ -462,14 +447,13 @@ function editorFor(
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
   const action = isAction ? "action" : "field";
-  if (id.startsWith("section.settings.motion.")) return { kind: action, scope: "section", tab: "Apparence", pageTitle: "About", sectionLabel: "Text and image", publicSlug: "about", commit: "change", prerequisite: id.endsWith(".enabled") ? undefined : { id: "section.settings.motion.enabled", value: true } };
-  if (id.startsWith("section.settings.carousel_")) return { kind: action, scope: "section", tab: "Apparence", pageTitle: "Home", sectionLabel: "Testimonials", publicSlug: "", commit: "change" };
+  if (id.startsWith("section.settings.motion.")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text and image", publicSlug: "about", commit: "change", prerequisite: id.endsWith(".enabled") ? undefined : { id: "section.settings.motion.enabled", value: true } };
+  if (id.startsWith("section.settings.carousel_")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "Home", sectionLabel: "Testimonials", publicSlug: "", commit: "change" };
 
   if (id.startsWith("site.footer.")) {
     return {
       kind: action,
       scope: "site",
-      tab: id.startsWith("site.footer.content.") ? "Contenu" : "Apparence",
       pageTitle: "Home",
       publicSlug: "",
       commit: "change",
@@ -478,21 +462,12 @@ function editorFor(
   if (id.startsWith("site.") || id.startsWith("section.content.custom_") ||
       (id.startsWith("section.content.show_") && id !== "section.content.show_heading") ||
       id === "section.content.social_links") {
-    const appearance = [
-      "site.theme_id", "site.pairing_id", "site.brand_color",
-      "site.hero_name_font", "site.typography", "site.layout_default",
-      "site.layout_default_mobile", "site.category_banner_style",
-      "site.category_banner_overlay", "site.category_banner_fit",
-      "site.category_banner_fit_mobile",
-    ].includes(id);
     return {
       kind: action,
       scope: "site",
-      tab: appearance ? "Apparence" : id === "site.tagline" ? "Contenu" : "Réglages",
       pageTitle: "Home",
       publicSlug: "",
-      commit: id === "site.typography" || id === "site.nav_layout" ||
-        id === "site.checkout_config" || id === "site.order_page_info" ? "blur" : "change",
+      commit: id === "site.typography" || id === "site.nav_layout" ? "blur" : "change",
     };
   }
 
@@ -518,26 +493,12 @@ function editorFor(
     const chainSelector = id.startsWith(
       "page.appearance_overrides.chain_order_entry.",
     );
-    const chainSelectorSetting =
-      chainSelector &&
-      [
-        "show_search",
-        "show_near_me",
-        "show_branch_count",
-        "show_branch_numbers",
-      ].some((field) => id.endsWith(`.${field}`));
     const pageCtaState = id.startsWith(
       "page.appearance_overrides.navbar_cta.",
     );
     return {
       kind: action,
       scope,
-      tab: id === "page.title" || cateringContent ? "Contenu" :
-        chainSelectorSetting ? "Réglages" :
-        id.startsWith("page.appearance_overrides.navbar_cta") ? "Réglages" :
-        id === "page.appearance_overrides.hide_navbar_name" ? "Réglages" :
-        id === "page.appearance_overrides.navbar_logo_position" ? "Réglages" :
-        id.startsWith("page.appearance_overrides.") ? "Apparence" : "Réglages",
       pageTitle: orderPage ? "Brunch Order" : cateringPage ? "Office Catering" :
         defaultPage ? "Dinner Order" : "About",
       publicSlug: orderPage ? "brunch-order" : cateringPage ? "office-catering" :
@@ -600,7 +561,7 @@ function editorFor(
   return {
     kind: action,
     scope,
-    tab: appearance ? "Apparence" : id === "section.is_visible" || id === "section.page_id" ? "Réglages" : "Contenu",
+    sectionPanel: appearance ? "appearance" : id === "section.is_visible" || id === "section.page_id" ? "settings" : "content",
     pageTitle: orderDiscovery
       ? "Dinner Order"
       : hero || scrolling || animated || menuHighlights || featureCards
@@ -645,17 +606,10 @@ function expectedFor(id: string, value: TestValue): string {
     return JSON.stringify(value.split("\n").map((text) => ({ text })));
   }
   if (
-    ["site.typography", "site.nav_layout", "site.checkout_config"].includes(id) &&
+    ["site.typography", "site.nav_layout"].includes(id) &&
     typeof value === "string"
   ) {
     return JSON.stringify(JSON.parse(value));
-  }
-  if (id === "site.order_page_info") {
-    return JSON.stringify({
-      bar: { pickup: [], delivery: [], dine_in: [] },
-      modal: ["about"],
-      modalText: "Connected order info",
-    });
   }
   if (id === "site.navbar_hamburger" && value === "compact") {
     return "mobile";
@@ -709,10 +663,7 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   site("site.navbar_cta.solid.text_color", ["navbar_cta", "solid", "text_color"], "nav", "style"),
   site("site.navbar_cta.solid.border_color", ["navbar_cta", "solid", "border_color"], "nav", "style"),
   site("site.favicon_url", ["favicon_url"], "link[rel='icon']", "value"),
-  site("site.checkout_config", ["checkout_config"], "[data-website-v3-page]", "count"),
-  site("site.order_page_info", ["order_page_info"], "[data-website-v3-page]", "count"),
   siteAction("site.show_orders_link", ["show_orders_link"]),
-  liveSiteAction("site.stories_enabled", ["stories_enabled"]),
   site("site.footer_branding.enabled", ["custom_palette", "footer_branding", "enabled"], "[data-editor-region=footer-branding]"),
   site("site.footer_branding.background", ["custom_palette", "footer_branding", "background"], "[data-editor-region=footer-branding]"),
   footer("site.footer.is_visible", ["is_visible"]),

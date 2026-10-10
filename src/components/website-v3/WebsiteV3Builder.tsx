@@ -97,11 +97,12 @@ import {
   type DraftHistory,
 } from "@/lib/website-v3/history";
 import { BuilderShell } from "./BuilderShell";
-import { Inspector, type InspectorTab } from "./Inspector";
+import { Inspector } from "./Inspector";
+import type { SectionPanel } from "./SectionInspector";
 import { MobileUnavailable } from "./MobileUnavailable";
 import { PageDialog } from "./PageDialog";
 import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { type RailSelection } from "./PageRail";
+import { type RailSelection } from "@/lib/website-v3/editor-selection";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { BranchWebsitePresence } from "./BranchWebsitePresence";
 import { websiteManagementMode } from "@/lib/website-v3/chain-mode";
@@ -245,7 +246,7 @@ function DesktopWebsiteV3Builder({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryToken, setRetryToken] = useState(0);
   const [selection, setSelection] = useState<RailSelection>({ kind: "site" });
-  const [tab, setTab] = useState<InspectorTab>("content");
+  const [sectionPanel, setSectionPanel] = useState<SectionPanel>("content");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
   const [journeyScreen, setJourneyScreen] = useState<OrderJourneyScreen>("cart");
   const [journeyOrderType, setJourneyOrderType] = useState<"delivery" | "pickup">("delivery");
@@ -470,18 +471,6 @@ function DesktopWebsiteV3Builder({
     [bumpPreview],
   );
 
-  const updateStoriesNavigationAvailability = useCallback(
-    (available: boolean | undefined) => {
-      if (storiesNavigationAvailableRef.current === available) return;
-      storiesNavigationAvailableRef.current = available;
-      setStoriesNavigationAvailable(available);
-      bumpPreview();
-    },
-    [bumpPreview],
-  );
-
-  // Clamped here, above the early returns, so the value is stable for both the
-  // preview and the inspector and no non-order page can resolve to "checkout".
   const previewPage =
     pageCandidate?.page ??
     themePreview?.pages.find((page) => pageKey(page) === themePreviewPageKey) ??
@@ -531,7 +520,7 @@ function DesktopWebsiteV3Builder({
   const previewCovered = stalePreviews.length === 0;
   // Why Publish would refuse right now. The button stays clickable and says so:
   // a disabled button explains nothing, and the field errors below live in the
-  // inspector of one page and one tab, which is very often not the one on screen.
+  // inspector for a selection that may not be on screen.
   const publishBlockedReason =
     themePreview || sectionCandidate || pageCandidate
       ? t("editorPreviewPending")
@@ -781,7 +770,7 @@ function DesktopWebsiteV3Builder({
     if (page.is_default) next = makeDefaultPage(next, pageKey(page));
     setLocalState(next);
     setSelection({ kind: "page", key: pageKey(page) });
-    setTab("content");
+    setSectionPanel("content");
     setDialogOpen(false);
   };
 
@@ -943,7 +932,7 @@ function DesktopWebsiteV3Builder({
     if (!state || !activePage || busyRef.current) return;
     setLocalState(addSiteFooter(state, `section-${crypto.randomUUID()}`));
     setSelection({ kind: "site", pageKey: pageKey(activePage), region: "footer" });
-    setTab("content");
+    setSectionPanel("content");
   };
 
   const addSection = (type: string, layout = "default") => {
@@ -974,7 +963,7 @@ function DesktopWebsiteV3Builder({
       pageKey: pageKey(activePage),
       sectionKey: sectionKey(section),
     });
-    setTab("appearance");
+    setSectionPanel("appearance");
   };
 
   const moveSection = (key: string, direction: -1 | 1) => {
@@ -1040,7 +1029,7 @@ function DesktopWebsiteV3Builder({
     } else if (error.pageKey) {
       setSelection({ kind: "page", key: error.pageKey });
     }
-    setTab(error.tab ?? "settings");
+    setSectionPanel(error.sectionPanel ?? "settings");
     bumpPreview();
     window.setTimeout(() => {
       const holder = document.querySelector<HTMLElement>(
@@ -1220,7 +1209,7 @@ function DesktopWebsiteV3Builder({
     setHoveredSectionKey(null);
     setRequestedSurface("page");
     setSelection({ kind: "page", key });
-    setTab("content");
+    setSectionPanel("content");
     bumpPreview(false);
   };
 
@@ -1256,7 +1245,7 @@ function DesktopWebsiteV3Builder({
       sectionKey: key,
       field,
     });
-    setTab(field ? "content" : "appearance");
+    setSectionPanel(field ? "content" : "appearance");
   };
 
   if (loading) {
@@ -1332,9 +1321,9 @@ function DesktopWebsiteV3Builder({
             state={state}
             activePage={activePage}
             selection={selection}
-            tab={tab}
+            sectionPanel={sectionPanel}
             busy={busy}
-            onTabChange={setTab}
+            onSectionPanelChange={setSectionPanel}
             onSelectSite={(region) => {
               setRequestedSurface("page");
               setSelection({
@@ -1342,7 +1331,7 @@ function DesktopWebsiteV3Builder({
                 pageKey: pageKey(activePage),
                 region,
               });
-              setTab("content");
+              setSectionPanel("content");
             }}
             onSelectPage={selectPage}
             onSelectSection={selectSection}
@@ -1437,7 +1426,7 @@ function DesktopWebsiteV3Builder({
             /> : <OrderPageEditor restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={websiteOrderChoicesAvailable(loaded.restaurant, state.config.checkout_config)} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => {
               const header = resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides);
               setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : header.layout === "restaurant" ? "restaurant" : "fulfillment"});
-              setTab("content");
+              setSectionPanel("content");
             }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
             onSelectOrderRegion={region => { setRequestedSurface(region === "order-journey" ? "checkout" : "page"); setSelection({kind: "page", key: pageKey(activePage), region}); }}
             onOpenOrderJourney={openOrderJourney}
@@ -1448,7 +1437,7 @@ function DesktopWebsiteV3Builder({
                 restaurantLogoUrl={loaded.restaurant.logo_url}
                 state={state}
                 selection={selection}
-                tab={tab}
+                sectionPanel={sectionPanel}
                 surface={surface}
                 showBranchSelector={showBranchSelector}
                 menus={loaded.menus}
@@ -1456,7 +1445,6 @@ function DesktopWebsiteV3Builder({
                 catalog={loaded.catalog}
                 catalogWarning={loaded.catalogWarning}
                 errors={allErrors}
-                onTabChange={setTab}
                 onSurfaceChange={changeSurface}
                 onOpenOrderJourney={activePage.type === "order" ? () => openOrderJourney() : undefined}
                 onConfigChange={updateConfig}
@@ -1477,9 +1465,6 @@ function DesktopWebsiteV3Builder({
                 }
                 onMakeHomepage={(key) =>
                   setLocalState(makeHomepagePage(state, key))
-                }
-                onStoriesNavigationAvailabilityChange={
-                  updateStoriesNavigationAvailability
                 }
                 onRestaurantLogoUpload={uploadMainLogo}
                 onRestaurantLogoRemove={removeMainLogo}
@@ -1518,7 +1503,7 @@ function DesktopWebsiteV3Builder({
                 region,
                 headerElement,
               });
-              setTab("content");
+              setSectionPanel("content");
             }}
             hoveredSectionKey={hoveredSectionKey}
             onHoverSection={setHoveredSectionKey}

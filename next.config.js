@@ -16,6 +16,7 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      { source: "/:restaurantId/reels", destination: "/:restaurantId/settings/stories", permanent: false },
       { source: "/:restaurantId/website", destination: "/:restaurantId/website-v3", permanent: false },
       { source: "/:restaurantId/website-v2", destination: "/:restaurantId/website-v3", permanent: false },
     ];

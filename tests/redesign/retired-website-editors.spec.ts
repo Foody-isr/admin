@@ -60,3 +60,24 @@ if (process.env.FOODY_PREVIEW_PRODUCTION === '1') {
     });
   }
 }
+
+test('Foody online is a direct editor link without an expandable builder section', async ({ page }) => {
+  const state = await install(page);
+  await page.goto('/2/settings/orders/preorders');
+  const nav = page.locator('aside');
+  const online = nav.getByRole('link', { name: 'Vente en ligne Foody', exact: true });
+  await expect(online).toHaveAttribute('href', '/2/website-v3');
+  await expect(online).not.toHaveAttribute('aria-expanded');
+  await expect(nav.getByRole('button', { name: 'Vente en ligne Foody', exact: true })).toHaveCount(0);
+  await expect(nav.getByText('Website Builder V3')).toHaveCount(0);
+  await expect(nav.getByText('Bêta', { exact: true })).toHaveCount(0);
+  await online.click();
+  await expect(page).toHaveURL(/\/2\/website-v3$/);
+  expect(state.requests.some(item => item.method !== 'GET')).toBe(false);
+});
+
+test('old Stories bookmarks redirect with restaurant and query intact', async ({ request }) => {
+  const response = await request.get('/25/reels?source=bookmark', { maxRedirects: 0 });
+  expect(response.status()).toBe(307);
+  expect(response.headers().location).toBe('/25/settings/stories?source=bookmark');
+});

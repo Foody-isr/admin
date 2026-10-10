@@ -523,7 +523,7 @@ export function validateDraftForPublish(
       fieldId: "page.type",
       message: "Le site doit contenir exactement une page d’accueil.",
       pageKey: landingPages[0] ? pageKey(landingPages[0]) : undefined,
-      tab: "settings",
+      sectionPanel: "settings",
     });
   }
 
@@ -535,7 +535,7 @@ export function validateDraftForPublish(
         fieldId: "page.title",
         message: "Le nom de la page est requis.",
         pageKey: key,
-        tab: "content",
+        sectionPanel: "content",
       });
     }
     if (!slug) {
@@ -543,21 +543,21 @@ export function validateDraftForPublish(
         fieldId: "page.slug",
         message: "L’adresse de la page est requise.",
         pageKey: key,
-        tab: "settings",
+        sectionPanel: "settings",
       });
     } else if (isReservedPublicWebsiteSlug(slug)) {
       errors.push({
         fieldId: "page.slug",
         message: "Cette adresse est réservée par Foody.",
         pageKey: key,
-        tab: "settings",
+        sectionPanel: "settings",
       });
     } else if (slugs.has(slug)) {
       errors.push({
         fieldId: "page.slug",
         message: "Cette adresse est déjà utilisée par une autre page.",
         pageKey: key,
-        tab: "settings",
+        sectionPanel: "settings",
       });
     } else {
       slugs.set(slug, key);
@@ -568,7 +568,7 @@ export function validateDraftForPublish(
         fieldId: "page.settings.menu_ids",
         message: "Sélectionnez au moins une carte.",
         pageKey: key,
-        tab: "settings",
+        sectionPanel: "settings",
       });
     } else if (page.type === "order" && references) {
       const broken = page.settings.menu_ids.filter(
@@ -579,7 +579,7 @@ export function validateDraftForPublish(
           fieldId: "page.settings.menu_ids",
           message: `Retirez ou remplacez les cartes indisponibles : ${broken.join(", ")}.`,
           pageKey: key,
-          tab: "settings",
+          sectionPanel: "settings",
         });
       }
     }
@@ -592,7 +592,7 @@ export function validateDraftForPublish(
         message:
           "Seules les pages commande et traiteur peuvent être principales.",
         pageKey: key,
-        tab: "settings",
+        sectionPanel: "settings",
       });
     }
   });
@@ -605,7 +605,7 @@ export function validateDraftForPublish(
         fieldId: "page.is_default",
         message: `Choisissez une page ${type === "order" ? "commande" : "traiteur"} principale.`,
         pageKey: pageKey(defaults[0] ?? candidates[0]),
-        tab: "settings",
+        sectionPanel: "settings",
       });
     }
   });
@@ -636,7 +636,7 @@ export function validateDraftForPublish(
           fieldId: "section.content.fields",
           message: "Ajoutez des champs nommés valides à ce formulaire.",
           sectionKey: sectionKey(section),
-          tab: "content",
+          sectionPanel: "content",
         });
       }
     }
@@ -648,7 +648,7 @@ export function validateDraftForPublish(
         fieldId: "section.page_id",
         message: "Cette section n’est reliée à aucune page.",
         sectionKey: sectionKey(section),
-        tab: "settings",
+        sectionPanel: "settings",
       });
     }
   });
@@ -670,13 +670,13 @@ export function mapWebsiteDraftError(error: unknown): FieldError | null {
         : String(error);
   const normalized = message.toLowerCase();
   if (normalized.includes("reserved slug")) {
-    return { fieldId: "page.slug", message, tab: "settings" };
+    return { fieldId: "page.slug", message, sectionPanel: "settings" };
   }
   if (normalized.includes("at least one menu")) {
     return {
       fieldId: "page.settings.menu_ids",
       message,
-      tab: "settings",
+      sectionPanel: "settings",
     };
   }
   if (
@@ -685,10 +685,10 @@ export function mapWebsiteDraftError(error: unknown): FieldError | null {
       normalized.includes("at most one") ||
       normalized.includes("is allowed"))
   ) {
-    return { fieldId: "page.is_default", message, tab: "settings" };
+    return { fieldId: "page.is_default", message, sectionPanel: "settings" };
   }
   if (normalized.includes("section") && normalized.includes("page")) {
-    return { fieldId: "section.page_id", message, tab: "settings" };
+    return { fieldId: "section.page_id", message, sectionPanel: "settings" };
   }
   return null;
 }

@@ -515,6 +515,10 @@ const translations: Record<Locale, Record<string, string>> = {
     editorContent: "Content",
     editorCustomize: "Customize",
     editorSettings: "Settings",
+    editorSiteIntroduction: 'Site introduction',
+    editorSiteSettings: "Site settings",
+    editorSiteTagline: 'Tagline',
+    editorManageStories: 'Manage Instagram Stories',
     editorHide: "Hide section",
     editorShow: "Show section",
     editorDelete: "Delete",
@@ -1702,10 +1706,6 @@ const translations: Record<Locale, Record<string, string>> = {
     websiteV3CheckoutFormDescription:
       'The fields asked of the customer, SMS verification and the confirmation screen. These settings are shared by every order page on the site, not just this one.',
     websiteV3HandoffTitle: 'Page settings',
-    websiteV3HandoffAppearance:
-      'The cart and checkout automatically inherit the shared theme, colours, fonts and button shape. Their layout is managed by Foody. Edit the design on the Page surface.',
-    websiteV3HandoffContent:
-      'The checkout has no content of its own: it shows this page’s cart. The title and sections are set on the Page surface.',
     websiteV3HandoffSettings:
       'The address, type, menus, navigation and SEO belong to the page and are set on the Page surface.',
     websiteV3HandoffAction: 'Set on the page',
@@ -5513,8 +5513,6 @@ const translations: Record<Locale, Record<string, string>> = {
     topCustomers: 'Top Customers',
     general: 'General',
     websiteBuilder: 'Website',
-    websiteBuilderV3: 'Website Builder V3',
-    betaLabel: 'Beta',
     reels: 'Stories',
     reelsLoadError: "Unable to load Stories. Retry to see their saved state.",
     reelsWriteUnconfirmed: "The change is not confirmed. It may already be applied; check the current state before retrying.",
@@ -8141,6 +8139,10 @@ const translations: Record<Locale, Record<string, string>> = {
     editorContent: "תוכן",
     editorCustomize: "התאמה אישית",
     editorSettings: "הגדרות",
+    editorSiteIntroduction: 'הקדמת האתר',
+    editorSiteSettings: "הגדרות האתר",
+    editorSiteTagline: 'משפט פתיחה',
+    editorManageStories: 'ניהול Stories באינסטגרם',
     editorHide: "הסתרת מקטע",
     editorShow: "הצגת מקטע",
     editorDelete: "מחיקה",
@@ -9325,10 +9327,6 @@ const translations: Record<Locale, Record<string, string>> = {
     websiteV3CheckoutFormDescription:
       'השדות שהלקוח ממלא, אימות ב‑SMS ומסך האישור. ההגדרות האלה משותפות לכל דפי ההזמנה באתר, לא רק לדף הזה.',
     websiteV3HandoffTitle: 'הגדרות הדף',
-    websiteV3HandoffAppearance:
-      'הסל והתשלום יורשים את העיצוב המשותף, הצבעים, הגופנים וצורת הכפתורים. הפריסה מנוהלת על ידי Foody. ניתן לערוך את העיצוב בתצוגת הדף.',
-    websiteV3HandoffContent:
-      'לדף התשלום אין תוכן משלו: הוא מציג את העגלה של הדף הזה. הכותרת והמקטעים נקבעים במשטח הדף.',
     websiteV3HandoffSettings:
       'הכתובת, הסוג, התפריטים, הניווט וה‑SEO שייכים לדף ונקבעים במשטח הדף.',
     websiteV3HandoffAction: 'לקבוע בדף',
@@ -13132,8 +13130,6 @@ const translations: Record<Locale, Record<string, string>> = {
     topCustomers: 'לקוחות מובילים',
     general: 'כללי',
     websiteBuilder: 'אתר',
-    websiteBuilderV3: 'Website Builder V3',
-    betaLabel: 'בטא',
     reels: 'סטוריז',
     reelsLoadError: "לא ניתן לטעון את הסטוריז. נסו שוב כדי לראות את המצב שנשמר.",
     reelsWriteUnconfirmed: "השינוי לא אושר. ייתכן שהוא כבר הוחל; בדקו את המצב לפני ניסיון נוסף.",
@@ -15759,6 +15755,10 @@ const translations: Record<Locale, Record<string, string>> = {
     editorContent: "Contenu",
     editorCustomize: "Personnaliser",
     editorSettings: "Paramètres",
+    editorSiteIntroduction: 'Présentation du site',
+    editorSiteSettings: "Paramètres du site",
+    editorSiteTagline: 'Phrase de présentation',
+    editorManageStories: 'Gérer les Stories Instagram',
     editorHide: "Masquer la section",
     editorShow: "Afficher la section",
     editorDelete: "Supprimer",
@@ -16947,10 +16947,6 @@ const translations: Record<Locale, Record<string, string>> = {
     websiteV3CheckoutFormDescription:
       'Les champs demandés au client, la vérification par SMS et l’écran de confirmation. Ces réglages sont partagés par toutes les pages commande du site, pas seulement celle-ci.',
     websiteV3HandoffTitle: 'Réglages de la page',
-    websiteV3HandoffAppearance:
-      'Le panier et le checkout héritent automatiquement du thème partagé, des couleurs, des polices et de la forme des boutons. Leur mise en page est gérée par Foody. Modifiez le design sur la surface Page.',
-    websiteV3HandoffContent:
-      'Le checkout n’a pas de contenu propre : il reprend le panier de cette page. Le titre et les sections se règlent sur la surface Page.',
     websiteV3HandoffSettings:
       'L’adresse, le type, les cartes, la navigation et le référencement appartiennent à la page et se règlent sur la surface Page.',
     websiteV3HandoffAction: 'Régler sur la page',
@@ -20754,8 +20750,6 @@ const translations: Record<Locale, Record<string, string>> = {
     topCustomers: 'Meilleurs clients',
     general: 'Général',
     websiteBuilder: 'Site web',
-    websiteBuilderV3: 'Website Builder V3',
-    betaLabel: 'Bêta',
     reels: 'Stories',
     reelsLoadError: "Impossible de charger les Stories. Réessayez pour voir leur état enregistré.",
     reelsWriteUnconfirmed: "La modification n’est pas confirmée. Elle peut déjà être appliquée ; vérifiez l’état avant de réessayer.",

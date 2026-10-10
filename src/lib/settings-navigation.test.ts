@@ -39,3 +39,13 @@ test('preorder configuration has one entry under order intake', () => {
   assert.equal(ordering.items.filter(item => item.href.endsWith('/settings/orders')).length, 1);
   assert.equal(ordering.items.some(item => item.href.endsWith('/orders/preorders')), false);
 });
+
+test('Stories belongs to communications and remains available to readers on mobile', () => {
+  const group = settingsNavigation(25).find(group => group.labelKey === 'settingsGroupCommunications')!;
+  const stories = group.items.find(item => item.href === '/25/settings/stories');
+  assert.ok(stories);
+  assert.equal(stories.desktopOnly, undefined);
+  const destinations = (permission: string) => visibleSettingsNavigation(25, (...required) => required.includes(permission)).flatMap(group => group.items);
+  for (const permission of ['settings.view', 'settings.edit']) assert.ok(destinations(permission).some(item => item.href === stories.href));
+  for (const permission of ['tables.manage', 'orders.view']) assert.ok(!destinations(permission).some(item => item.href === stories.href));
+});

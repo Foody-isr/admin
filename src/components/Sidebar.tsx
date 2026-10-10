@@ -40,7 +40,6 @@ interface SubItem {
   href: string;
   labelKey: string;
   badge?: number;
-  badgeLabelKey?: string;
   /**
    * Permissions granting access to this entry (any one of them). Needed when a
    * section groups pages with different gates — Clients holds both the customer
@@ -222,16 +221,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       icon: Globe,
       section: 'channels',
       perm: ['settings.edit'],
-      // Keep Stories accessible on mobile; the website builder is desktop-only.
-      subItems: [
-        {
-          href: `${base}/website-v3`,
-          labelKey: 'websiteBuilderV3',
-          badgeLabelKey: 'betaLabel',
-          desktopOnly: true,
-        },
-        { href: `${base}/reels`, labelKey: 'reels' },
-      ],
+      desktopOnly: true,
     },
   ];
   const courierNav: NavItem[] = [
@@ -425,7 +415,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                           href={sub.href}
                           label={t(sub.labelKey)}
                           badge={sub.badge}
-                          badgeLabel={sub.badgeLabelKey ? t(sub.badgeLabelKey) : undefined}
                           active={active}
                           desktopOnly={sub.desktopOnly}
                           onClick={onClose}
@@ -482,7 +471,6 @@ function SubLink({
   href,
   label,
   badge,
-  badgeLabel,
   active,
   desktopOnly,
   onClick,
@@ -490,7 +478,6 @@ function SubLink({
   href: string;
   label: string;
   badge?: number;
-  badgeLabel?: string;
   active: boolean;
   desktopOnly?: boolean;
   onClick?: () => void;
@@ -512,17 +499,6 @@ function SubLink({
           }`}
         >
           {badge}
-        </span>
-      )}
-      {badgeLabel && (
-        <span
-          className={`rounded-r-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] ${
-            active
-              ? 'bg-[color-mix(in_oklab,var(--brand-500)_18%,transparent)] text-[var(--brand-500)]'
-              : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
-          }`}
-        >
-          {badgeLabel}
         </span>
       )}
     </Link>

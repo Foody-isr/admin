@@ -13,7 +13,6 @@ import {
   surfacesForPageType,
   visibleInspectorGroups,
   type InspectorSurface,
-  type InspectorTab,
 } from "@/lib/website-v3/inspector-scope";
 import type {
   DraftPagePayload,
@@ -23,7 +22,6 @@ import { PageInspector } from "../PageInspector";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
-const TABS: readonly InspectorTab[] = ["content", "appearance", "settings"];
 const PAGE_TYPES: readonly WebsitePageType[] = [
   "landing",
   "content",
@@ -61,7 +59,6 @@ function page(type: WebsitePageType): DraftPagePayload {
 
 function renderInspector(
   pageType: WebsitePageType,
-  tab: InspectorTab,
   surface: InspectorSurface,
 ): string {
   return renderToStaticMarkup(
@@ -70,7 +67,6 @@ function renderInspector(
       null,
       React.createElement(PageInspector, {
         page: page(pageType),
-        tab,
         surface,
         onSurfaceChange: () => undefined,
         restaurantId: 24,
@@ -109,22 +105,21 @@ function renderedGroups(markup: string): string[] {
 }
 
 // ─── The matrix ──────────────────────────────────────────────────────────────
-// Every (page type x tab x surface) combination must render exactly the groups
+// Every (page type x surface) combination must render exactly the groups
 // the scope table predicts, in the table's order. Comparing ordered arrays also
 // pins the order, so a reordering that buries the checkout colours under the
 // handoff card fails here.
 
 for (const pageType of PAGE_TYPES) {
-  for (const tab of TABS) {
-    for (const surface of surfacesForPageType(pageType)) {
-      test(`${pageType} / ${tab} / ${surface} renders exactly its scoped groups`, () => {
+  for (const surface of surfacesForPageType(pageType)) {
+      test(`${pageType} / ${surface} renders exactly its scoped groups`, () => {
         assert.deepEqual(
-          renderedGroups(renderInspector(pageType, tab, surface)),
-          Array.from(visibleInspectorGroups({ pageType, tab, surface })),
+          renderedGroups(renderInspector(pageType, surface)),
+          Array.from(visibleInspectorGroups({ pageType, surface })),
         );
       });
     }
-  }
+
 }
 
 // ─── The bug, in the words it was reported in ────────────────────────────────
@@ -132,7 +127,7 @@ for (const pageType of PAGE_TYPES) {
 // leaking, not on group ids.
 
 test("the checkout surface offers no cart, category bar, cover or mode selector", () => {
-  const markup = renderInspector("order", "appearance", "checkout");
+  const markup = renderInspector("order", "checkout");
 
   assert.doesNotMatch(markup, /cart_text_colors/);
   assert.doesNotMatch(markup, /section_colors\.categoryBar/);
@@ -145,15 +140,15 @@ test("the checkout surface offers no cart, category bar, cover or mode selector"
 });
 
 test("the catering builder delegates offer visibility to the catering catalog", () => {
-  const markup = renderInspector("catering", "settings", "page");
+  const markup = renderInspector("catering", "page");
 
   assert.match(markup, /Catering visibility is managed in Catering/);
   assert.doesNotMatch(markup, /Prestations associées/);
   assert.match(markup, /\/24\/catering\/services/);
 });
 
-test("the catering content tab exposes page copy and per-service subtitles", () => {
-  const markup = renderInspector("catering", "content", "page");
+test("the catering editor exposes page copy and per-service subtitles", () => {
+  const markup = renderInspector("catering", "page");
 
   assert.match(markup, /data-inspector-group="page\.catering_content"/);
   assert.match(markup, /catering_page\.hero_title/);
@@ -166,7 +161,7 @@ test("the catering content tab exposes page copy and per-service subtitles", () 
 });
 
 test("the catering cover has its own visible upload control", () => {
-  const markup = renderInspector("catering", "appearance", "page");
+  const markup = renderInspector("catering", "page");
 
   assert.match(
     markup,
@@ -177,7 +172,7 @@ test("the catering cover has its own visible upload control", () => {
 });
 
 test("cart and checkout inherit the theme instead of exposing independent colours", () => {
-  const markup = renderInspector("order", "appearance", "page");
+  const markup = renderInspector("order", "page");
 
   assert.doesNotMatch(markup, /checkout_text_colors/);
   assert.doesNotMatch(markup, /cart_text_colors/);
@@ -186,7 +181,7 @@ test("cart and checkout inherit the theme instead of exposing independent colour
 });
 
 test("the checkout surface offers no page address, commerce or SEO", () => {
-  const markup = renderInspector("order", "settings", "checkout");
+  const markup = renderInspector("order", "checkout");
 
   assert.doesNotMatch(markup, /data-field-id="page\.slug"/);
   assert.doesNotMatch(markup, /data-field-id="page\.type"/);
@@ -196,26 +191,25 @@ test("the checkout surface offers no page address, commerce or SEO", () => {
   assert.doesNotMatch(markup, /Informations de commande/);
 });
 
-test("every checkout tab offers a one-click way back to the page", () => {
-  for (const tab of TABS) {
-    const markup = renderInspector("order", tab, "checkout");
+test("checkout offers a one-click way back to the page", () => {
+    const markup = renderInspector("order", "checkout");
     assert.match(
       markup,
       /data-inspector-action="surface\.page"/,
-      `${tab}: no handoff action`,
+      "no handoff action",
     );
     // Keyed copy: LocaleProvider initialises to 'en' and renderToStaticMarkup
     // never runs its effect, so assertions on new copy are in English.
-    assert.match(markup, /Set on the page/, tab);
-  }
+    assert.match(markup, /Set on the page/);
+
 });
 
 // The theme reaches the checkout too (through foodyweb's OrderThemeBridge), so
 // the handoff must not claim otherwise — a false explanation is worse than none.
-test("the handoff says the page settings also apply to the checkout", () => {
-  const markup = renderInspector("order", "appearance", "checkout");
+test("the handoff identifies where page settings are edited", () => {
+  const markup = renderInspector("order", "checkout");
 
-  assert.match(markup, /cart and checkout automatically inherit the shared theme/);
+  assert.match(markup, /The address, type, menus, navigation and SEO belong to the page/);
   assert.doesNotMatch(markup, /do not apply to the checkout/);
 });
 
@@ -225,36 +219,36 @@ test("the handoff says the page settings also apply to the checkout", () => {
 
 test("non-order pages never render a checkout-only group", () => {
   for (const pageType of ["landing", "content", "catering"] as const) {
-    for (const tab of TABS) {
-      const markup = renderInspector(pageType, tab, "page");
-      assert.doesNotMatch(markup, /checkout_text_colors/, `${pageType}/${tab}`);
+
+      const markup = renderInspector(pageType, "page");
+      assert.doesNotMatch(markup, /checkout_text_colors/, `${pageType}`);
       assert.doesNotMatch(
         markup,
         /data-inspector-group="page\.handoff"/,
-        `${pageType}/${tab}`,
+        `${pageType}`,
       );
       assert.doesNotMatch(
         markup,
         /data-inspector-group="checkout\./,
-        `${pageType}/${tab}`,
+        `${pageType}`,
       );
-    }
+
   }
 });
 
 test("landing and content pages keep only the page-wide appearance", () => {
   for (const pageType of ["landing", "content"] as const) {
-    const markup = renderInspector(pageType, "appearance", "page");
+    const markup = renderInspector(pageType, "page");
     assert.deepEqual(
       renderedGroups(markup),
-      ["page.theme", "page.typography", "page.quick_colors", "page.fonts"],
+      Array.from(visibleInspectorGroups({ pageType, surface: "page" })),
       pageType,
     );
   }
 });
 
 test("catering pages keep the cover and drop the order-only groups", () => {
-  const markup = renderInspector("catering", "appearance", "page");
+  const markup = renderInspector("catering", "page");
 
   assert.match(markup, /Left-side photo/);
   assert.doesNotMatch(markup, /cart_text_colors/);
