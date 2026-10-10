@@ -188,19 +188,10 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
                 return (
                   <label
                     key={v.id}
-                    className={cn(
-                      'flex items-center justify-between gap-3 rounded-md border border-[var(--line)] px-[var(--s-3)] py-2',
-                      soldOut ? 'cursor-not-allowed opacity-55' : 'cursor-pointer hover:border-[var(--fg-subtle)]',
-                    )}
+                    className="selection-row"
                   >
                     <span className="flex items-center gap-2 text-fs-sm">
-                      <input
-                        type="radio"
-                        name="variant"
-                        checked={variantId === v.id}
-                        disabled={soldOut}
-                        onChange={() => setVariantId(v.id)}
-                      />
+
                       {v.name}
                     </span>
                     {soldOut ? (
@@ -210,6 +201,13 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
                     ) : (
                       <span className="tabular-nums text-fs-sm">{money(v.price)}</span>
                     )}
+                      <input
+                        type="radio"
+                        name="variant"
+                        checked={variantId === v.id}
+                        disabled={soldOut}
+                        onChange={() => setVariantId(v.id)}
+                      />
                   </label>
                 );
               })}

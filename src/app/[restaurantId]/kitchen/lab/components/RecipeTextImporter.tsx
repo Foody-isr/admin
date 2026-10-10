@@ -345,7 +345,7 @@ function ImportEntryRow({ entry, checked, onToggle }: { entry: ManualRecipeImpor
   const isMatched = entry.status === 'matched';
   return (
     <div className={`rounded-[8px] border bg-[var(--surface)] ${checked ? 'border-[var(--line-strong)]' : 'border-[var(--line)] opacity-55'}`}>
-      <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5">
+      <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 selection-row">
         <input type="checkbox" checked={checked} onChange={onToggle} className="mt-1 h-4 w-4 rounded border-[var(--line-strong)] accent-[var(--brand-500)]" />
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">

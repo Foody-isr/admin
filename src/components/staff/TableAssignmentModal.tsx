@@ -244,9 +244,9 @@ function AssignmentGroup({
         ) : items.map((item) => (
           <label
             key={item.id}
-            className={`flex cursor-pointer items-center gap-3 min-h-11 rounded-r-md px-2.5 py-2 transition-colors ${
+            className={[`flex cursor-pointer items-center gap-3 min-h-11 rounded-r-md px-2.5 py-2 transition-colors ${
               selected.has(item.id) ? 'bg-[var(--brand-soft)]' : 'hover:bg-[var(--surface-subtle)]'
-            }`}
+            }`, "selection-row"].filter(Boolean).join(" ")}
           >
             <input
               type="checkbox"

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import '@/styles/selections.css';
 import { ThemeProvider } from '@/lib/theme-context';
 import { LocaleProvider } from '@/lib/i18n';
 import { ServiceWorkerRegister } from '@/components/common/ServiceWorkerRegister';

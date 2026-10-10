@@ -173,7 +173,7 @@ export function HeaderTargetDialog({
             </InspectorField>
           )
         )}
-        <label className="sqh-check">
+        <label className="sqh-check selection-row">
           {c.newTab}
           <input
             type="checkbox"

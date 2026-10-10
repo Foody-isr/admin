@@ -816,35 +816,6 @@
   padding: 12px 0;
   cursor: pointer;
 }
-.sqe-switch {
-  position: relative;
-  appearance: none;
-  width: 40px;
-  height: 24px;
-  border: 0;
-  border-radius: 24px;
-  background: #b3b3b3;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.sqe-switch:before {
-  content: "";
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: white;
-  transition: transform 0.12s;
-}
-.sqe-switch:checked {
-  background: #101010;
-}
-.sqe-switch:checked:before {
-  transform: translateX(16px);
-}
-
 .sqe-choice-field {
   margin-top: 24px;
 }
@@ -854,26 +825,10 @@
   font-size: 16px;
   font-weight: 500;
 }
-.sqe-segmented {
-  display: flex;
-  gap: 8px;
-}
-.sqe-segmented button {
-  height: 48px;
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #f5f6f7;
-  border: 2px solid transparent;
-  border-radius: 6px;
-  font-size: 16px;
-  font-weight: 600;
-}
-.sqe-segmented button[aria-pressed="true"] {
-  border-color: #101010;
-  background: #fff;
-}
+/* Compact appearance choices use the same quiet segmented control as settings. */
+.sqe-segmented { display:flex; gap:4px; padding:4px; border-radius:999px; background:var(--selection); }
+.sqe-segmented button { min-width:44px; min-height:40px; flex:1; display:flex; justify-content:center; align-items:center; padding:6px 12px; border:0; border-radius:999px; background:transparent; color:var(--fg); font-size:14px; font-weight:600; }
+.sqe-segmented button[aria-pressed="true"] { background:var(--surface); box-shadow:0 1px 4px #00000026; }
 .sqe-color-styles {
   display: flex;
   gap: 8px;
@@ -1075,9 +1030,6 @@
 .sqe-layout-choice .sqe-featured-mini--carousel { grid-template-columns:repeat(4,22px); }
 .sqe-featured-mini--carousel b { margin-left:0; }
 .sqe-featured-layout { min-width:90px; min-height:56px; padding:8px!important; }
-.sqe-featured-editor .sqe-segmented { display:inline-flex; gap:0; padding:4px; border-radius:999px; background:#f0f0f0; }
-.sqe-featured-editor .sqe-segmented button { min-width:44px; min-height:30px; border:0; border-radius:999px; background:transparent; }
-.sqe-featured-editor .sqe-segmented button[aria-pressed="true"] { outline:0; background:#fff; box-shadow:0 1px 5px #0002; }
 .sqe-featured-lightbox { font-size:14px; }
 .sqe-featured-lightbox summary { cursor:pointer; padding-block:12px; font-weight:600; }
 .sqe-featured-lightbox p { line-height:1.6; margin-bottom:16px; }

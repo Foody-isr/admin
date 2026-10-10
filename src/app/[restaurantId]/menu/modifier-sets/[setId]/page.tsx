@@ -13,6 +13,7 @@ import {
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Plus, Trash2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
@@ -81,7 +82,7 @@ function blankRow(sortOrder: number): ModifierRow {
   };
 }
 
-const ROW_GRID = '1fr 1fr 110px 70px 70px 140px 36px';
+const ROW_GRID = '1fr 1fr 110px 70px 70px 220px 36px';
 
 export default function ModifierSetEditorPage() {
   const { symbol } = useCurrency();
@@ -378,7 +379,7 @@ export default function ModifierSetEditorPage() {
           <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto">
             {/* Header */}
             <div
-              className="grid min-w-[800px] text-xs font-semibold text-[var(--fg-muted)] px-4 py-3 bg-[var(--surface-2)] border-b border-[var(--line)] gap-2"
+              className="grid min-w-[880px] text-xs font-semibold text-[var(--fg-muted)] px-4 py-3 bg-[var(--surface-2)] border-b border-[var(--line)] gap-2"
               style={{ gridTemplateColumns: ROW_GRID }}
             >
               <span>{t('name') || 'Name'}</span>
@@ -396,7 +397,7 @@ export default function ModifierSetEditorPage() {
                 className="border-b border-[var(--line)] last:border-b-0"
               >
                 <div
-                  className="grid min-w-[800px] items-center gap-2 px-4 py-3 hover:bg-[var(--surface-2)] transition-colors"
+                  className="grid min-w-[880px] items-center gap-2 px-4 py-3 hover:bg-[var(--surface-2)] transition-colors"
                   style={{ gridTemplateColumns: ROW_GRID }}
                 >
                   {isSourceTab ? (
@@ -455,10 +456,9 @@ export default function ModifierSetEditorPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <PillToggle
+                    <PillToggle label={t('active')}
                       checked={row.is_active}
                       onChange={(v) => updateRow(i, { is_active: v })}
-                      size="sm"
                     />
                     <span className="text-xs text-[var(--fg-muted)] whitespace-nowrap">
                       {row.is_active ? (t('inStock') || 'In stock') : (t('outOfStock') || 'Out of stock')}
@@ -495,7 +495,7 @@ export default function ModifierSetEditorPage() {
             {/* Inline add row */}
             {canEdit && (
             <div
-              className="grid min-w-[800px] items-center gap-2 px-4 py-3 border-t border-[var(--line)] bg-[var(--surface-2)]"
+              className="grid min-w-[880px] items-center gap-2 px-4 py-3 border-t border-[var(--line)] bg-[var(--surface-2)]"
               style={{ gridTemplateColumns: ROW_GRID }}
             >
               <div className="flex items-center gap-2 min-w-0">
@@ -681,23 +681,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function PillToggle({ checked, onChange, size = 'md' }: {
+function PillToggle({ checked, onChange, label }: {
   checked: boolean;
-  onChange: (v: boolean) => void;
-  size?: 'sm' | 'md';
+  onChange: (value: boolean) => void;
+  label: string;
 }) {
-  const dims = size === 'sm'
-    ? { track: 'h-5 w-9', knob: 'h-4 w-4', shift: 'translate-x-4' }
-    : { track: 'h-6 w-11', knob: 'h-5 w-5', shift: 'translate-x-5' };
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${dims.track} ${checked ? 'bg-orange-500' : 'bg-neutral-300 dark:bg-neutral-700'}`}
-    >
-      <span className={`pointer-events-none inline-block rounded-full bg-white shadow transform transition-transform ${dims.knob} ${checked ? dims.shift : 'translate-x-0'}`} />
-    </button>
-  );
+  return <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />;
 }
 
 // Conversational verbs offered by the palette (mirrors the server enum).
@@ -726,7 +715,7 @@ function ToggleRow({ checked, onChange, label, description, noBorder }: {
           <p className="text-xs mt-0.5 text-[var(--fg-muted)]">{description}</p>
         )}
       </div>
-      <PillToggle checked={checked} onChange={onChange} />
+      <PillToggle label={label} checked={checked} onChange={onChange} />
     </div>
   );
 }

@@ -160,7 +160,7 @@ export default function CateringFlowEditor({ restaurantId, service, canEdit, onS
             <h2 className="mt-1 text-xl font-semibold text-fg-primary">{t('catering_flow_title')}</h2>
             <p className="mt-1 text-sm leading-6 text-fg-secondary">{t('catering_flow_hint')}</p>
           </div>
-          <label className="flex cursor-pointer items-center gap-3 rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-semibold text-fg-primary">
+          <label className="flex cursor-pointer items-center gap-3 rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-semibold text-fg-primary selection-row">
             <input type="checkbox" checked={flow.enabled} disabled={!canEdit} onChange={(e) => { setSaved(false); setFlow({ ...flow, enabled: e.target.checked }); }} />
             {t('catering_flow_enabled')}
           </label>
@@ -246,7 +246,7 @@ function StepCard({ step, index, priorSteps, canEdit, pricingModel, centralPrici
       <div className="grid gap-4 p-4 lg:grid-cols-2">
         <Field label={t('catering_flow_question')}><input className="input" value={step.title} disabled={!canEdit} onChange={(e) => onChange({ ...step, title: e.target.value })} /></Field>
         <Field label={t('catering_flow_help')}><input className="input" value={step.description ?? ''} disabled={!canEdit} onChange={(e) => onChange({ ...step, description: e.target.value })} /></Field>
-        <label className="flex items-center gap-2 text-sm text-fg-primary"><input type="checkbox" checked={step.required} disabled={!canEdit} onChange={(e) => onChange({ ...step, required: e.target.checked })} />{t('catering_flow_required')}</label>
+        <label className="flex items-center gap-2 text-sm text-fg-primary selection-row"><input type="checkbox" checked={step.required} disabled={!canEdit} onChange={(e) => onChange({ ...step, required: e.target.checked })} />{t('catering_flow_required')}</label>
         <Field label={t('catering_flow_scope')}>
           <select className="input" disabled={!canEdit || step.kind === 'schedule'} value={step.kind === 'schedule' ? 'booking' : step.scope ?? 'booking'} onChange={(e) => onChange({ ...step, scope: e.target.value as 'booking' | 'session' })}>
             <option value="booking">{t('catering_flow_scope_booking')}</option>
@@ -285,7 +285,7 @@ function ScheduleEditor({ step, canEdit, pricingModel, centralPricingActive, onC
     </div>
     {schedule.mode === 'single'
       ? <p className="rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-3 py-2 text-sm text-fg-secondary">{t('catering_flow_schedule_single_hint')}</p>
-      : <label className="flex items-center gap-2 text-sm text-fg-primary"><input type="checkbox" checked={schedule.allow_same_day} disabled={!canEdit} onChange={(e) => update({ ...schedule, allow_same_day: e.target.checked })} />{t('catering_flow_same_day')}</label>}
+      : <label className="flex items-center gap-2 text-sm text-fg-primary selection-row"><input type="checkbox" checked={schedule.allow_same_day} disabled={!canEdit} onChange={(e) => update({ ...schedule, allow_same_day: e.target.checked })} />{t('catering_flow_same_day')}</label>}
     {schedule.mode === 'predefined' && <div className="space-y-2">
       {(schedule.slots ?? []).map((slot, index) => <div key={slot.id} className={`grid gap-2 rounded-lg border border-[var(--divider)] bg-[var(--surface)] p-3 ${centralPricingActive ? 'sm:grid-cols-[1fr_100px_110px_110px_auto]' : 'sm:grid-cols-[1fr_100px_110px_110px_150px_auto]'}`}>
         <input className="input" placeholder={t('catering_flow_slot_label')} disabled={!canEdit} value={slot.label} onChange={(e) => update({ ...schedule, slots: schedule.slots!.map((item, i) => i === index ? { ...item, label: e.target.value } : item) })} />

@@ -2,8 +2,9 @@
 
 import { useState, useRef, useId, useEffect } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Check, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { SelectionIndicator } from '@/components/ds/Selection';
 import { cn } from '@/lib/utils';
 import { inputFieldClass } from '@/components/ds/Input';
 
@@ -58,9 +59,9 @@ export default function SearchableSelect({ value, onChange, options, placeholder
           <div id={list} role="listbox" aria-label={label} className="mt-2 max-h-52 overflow-y-auto">
             {filtered.map((option, index) => <div key={option.value} id={`${list}-${index}`} role="option" aria-selected={option.value === value}
               onMouseDown={event => event.preventDefault()} onClick={() => select(option)} onMouseMove={() => setActive(index)}
-              className={cn('flex min-h-10 cursor-pointer items-center gap-2 rounded-r-sm px-2 py-2 text-fs-sm', index === activeIndex && 'bg-[var(--surface-2)]', option.value === value && 'text-[var(--brand-ink)] font-semibold')}>
+              className={cn('flex min-h-12 cursor-pointer items-center gap-4 border-b border-[var(--line)] px-2 py-3 text-fs-sm last:border-0', index === activeIndex && 'bg-[var(--surface-2)]', option.value === value && 'text-[var(--brand-ink)] font-semibold')}>
               <span className="min-w-0 flex-1 break-words">{option.label}{option.sublabel && <span className="block text-fs-xs font-normal text-[var(--fg-muted)]">{option.sublabel}</span>}</span>
-              {option.value === value && <Check aria-hidden className="h-4 w-4 shrink-0" />}
+              <SelectionIndicator checked={option.value === value} />
             </div>)}
           </div>
           {!filtered.length && <p role="status" className="p-3 text-fs-sm text-[var(--fg-muted)]">{emptyLabel ?? t('noResults')}</p>}

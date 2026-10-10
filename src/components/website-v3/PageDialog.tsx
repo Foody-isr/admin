@@ -307,7 +307,7 @@ export function PageDialog({
           ) : null}
 
           {type === "order" || type === "catering" ? (
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3">
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 selection-row">
               <input
                 type="checkbox"
                 data-field-id="page.create.is_default"
@@ -378,7 +378,7 @@ function AssociationPicker({
           options.map((option) => (
             <label
               key={option.id}
-              className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-slate-50"
+              className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-slate-50 selection-row"
             >
               <input
                 type="checkbox"

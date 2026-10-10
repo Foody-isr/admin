@@ -111,7 +111,7 @@ function BranchCard({ branch, services, canEdit, onSave }: {
           {services.map((s) => (
             <label
               key={s.id}
-              className="flex items-center gap-1 rounded border border-[var(--line)] px-2 py-1 text-sm text-fg-secondary"
+              className="flex items-center gap-1 rounded border border-[var(--line)] px-2 py-1 text-sm text-fg-secondary selection-row"
             >
               <input
                 type="checkbox"

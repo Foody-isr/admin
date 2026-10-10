@@ -1,10 +1,11 @@
 'use client';
 
+import { SelectionIndicator } from '@/components/ds/Selection';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import * as Popover from '@radix-ui/react-popover';
-import { ChevronDown, Check, Ruler, ArrowUpRight } from 'lucide-react';
+import { ChevronDown, Ruler, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import type { UnitConversionLike } from '@/lib/units';
@@ -149,7 +150,7 @@ function Option({
 }) {
   return (
     <div className="flex items-center gap-1">
-    <button type="button" onClick={onSelect} aria-pressed={selected} className={cn('flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-r-md px-2 py-2 text-start hover:bg-[var(--surface-2)]',selected && 'bg-[var(--brand-50)]')}>
+    <button type="button" onClick={onSelect} aria-pressed={selected} className="selection-button"><span className="choice-copy">
       {rule !== undefined && (
         <Ruler className={cn(
           'w-3.5 h-3.5 shrink-0',
@@ -167,8 +168,8 @@ function Option({
           </span>
         )}
       </div>
-      {selected && <Check className="w-3.5 h-3.5 text-[var(--brand-ink)] shrink-0" />}
-      </button>
+
+      </span><SelectionIndicator checked={selected} /></button>
       {editHref && (
         <Link
           href={editHref}

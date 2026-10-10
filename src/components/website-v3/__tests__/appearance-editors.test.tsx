@@ -68,7 +68,7 @@ test("category headings have a visible toggle; menu headings follow the number o
     onPreviewItem: () => undefined,
   }));
   assert.doesNotMatch(markup, /Menu titles/);
-  assert.match(markup, /Category titles<\/span><input[^>]*role="switch"[^>]*checked/);
+  assert.match(markup, /Category titles<\/span><span class="boolean-input"><input[^>]*role="switch"[^>]*checked/);
   assert.match(markup, /Category title style/);
 });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { SelectionIndicator } from '@/components/ds/Selection';
 import { AlertTriangle, BookOpen, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
@@ -283,16 +284,10 @@ function FactPicker<T extends string>({
               aria-pressed={active}
               disabled={disabled}
               onClick={() => onToggle(value)}
-              className={`min-h-9 rounded-full border px-3 text-fs-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                active
-                  ? warning
-                    ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                    : 'border-[var(--brand-500)] bg-[var(--brand-500)]/10 text-[var(--fg)]'
-                  : 'border-[var(--line)] bg-transparent text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]'
-              }`}
-            >
+              className="selection-button"
+            ><span className="choice-copy">
               {labelFor(value)}
-            </button>
+            </span><SelectionIndicator checked={active} multiple /></button>
           );
         })}
       </div>

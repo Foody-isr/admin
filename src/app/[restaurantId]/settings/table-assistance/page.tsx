@@ -1,5 +1,6 @@
 'use client';
 
+import { BooleanInput } from '@/components/ds/Selection';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CakeSlice, Clock3, Eye } from 'lucide-react';
@@ -113,7 +114,7 @@ function AssistanceWorkspace({ rid }: { rid: number }) {
             <label className="flex items-start gap-3">
               <Icon className="mt-1 size-5 shrink-0 text-[var(--fg-muted)]" aria-hidden="true" />
               <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{rulesTitle(rule.type)}</span><span id={`${rule.type}-hint`} className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t(rule.type === 'check_in' ? 'serviceGuidanceCheckInDesc' : 'serviceGuidanceDessertDesc')}</span></span>
-              <input role="switch" type="checkbox" aria-label={rulesTitle(rule.type)} aria-describedby={`${rule.type}-hint`} checked={rule.enabled} disabled={!canEdit || saving} onChange={event => patchRule(rule.type, { enabled: event.target.checked })} className="mt-1 size-5 shrink-0 accent-[var(--action)]" />
+              <BooleanInput aria-label={rulesTitle(rule.type)} aria-describedby={`${rule.type}-hint`} checked={rule.enabled} disabled={!canEdit || saving} onChange={event => patchRule(rule.type, { enabled: event.target.checked })} />
             </label>
             <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               <Field label={t('serviceGuidanceDelay')}><NumberField required integer min={1} max={180} format={String} value={rule.delay_minutes} readOnly={!canEdit || saving || !rule.enabled} onChange={delay_minutes => patchRule(rule.type, { delay_minutes })} /></Field>
@@ -125,7 +126,7 @@ function AssistanceWorkspace({ rid }: { rid: number }) {
       </Section>
       <Section title={t('tableAssistanceProtection')} desc={t('tableAssistanceProtectionDesc')}>
         <label className="flex items-start gap-4"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t('tableAssistanceLimitEnabled')}</span><span id="assistance-limit-hint" className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t('tableAssistanceLimitEnabledDesc')}</span></span>
-          <input type="checkbox" role="switch" aria-label={t('tableAssistanceLimitEnabled')} aria-describedby="assistance-limit-hint" checked={policy.table_assistance_rate_limit_enabled} disabled={!canEdit || saving} onChange={event => patchPolicy({ table_assistance_rate_limit_enabled: event.target.checked })} className="mt-1 size-5 shrink-0 accent-[var(--action)]" />
+          <BooleanInput aria-label={t('tableAssistanceLimitEnabled')} aria-describedby="assistance-limit-hint" checked={policy.table_assistance_rate_limit_enabled} disabled={!canEdit || saving} onChange={event => patchPolicy({ table_assistance_rate_limit_enabled: event.target.checked })} />
         </label>
         <p aria-live="polite" className="my-5 rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{preview}</p>
         <div className="grid gap-4 sm:grid-cols-2">

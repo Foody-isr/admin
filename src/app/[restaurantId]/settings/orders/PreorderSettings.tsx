@@ -9,7 +9,7 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, Input, Section, Select } from '@/components/ds';
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace';
-import { ModeCard, ServiceToggle } from './_components';
+import { ModeChoice, ServiceToggle } from './_components';
 import OrderingServices, { orderingServicesFrom, invalidOrderingHours, type OrderingServicesDraft } from './OrderingServices';
 import OrdersOverview from './OrdersOverview';
 
@@ -159,11 +159,11 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('preorderLoadFailed')}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div> : draft && <form onSubmit={save} noValidate className="space-y-6">
       {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
       <Section title={t('intakeTitle')} desc={t('intakeScope')}>
-        <div role="group" aria-label={t('intakeTitle')} className="grid gap-3 md:grid-cols-3">{(['immediate', 'preorder', 'mixed'] as const).map(policy => <ModeCard key={policy}
+        <div role="radiogroup" aria-label={t('intakeTitle')} className="choice-group">{(['immediate', 'preorder', 'mixed'] as const).map(policy => <ModeChoice name="order-intake-policy" key={policy}
           title={t(`intakeMode_${policy}`)} desc={t(`intakeMode_${policy}Desc`)}
           selected={(draft.mode === 'off' ? 'immediate' : draft.preordersOnly ? 'preorder' : 'mixed') === policy}
           onClick={() => patch({ mode: policy === 'immediate' ? 'off' : draft.mode === 'off' ? calendar : draft.mode, preordersOnly: policy === 'preorder' })} disabled={!canEdit || saving || (policy === 'preorder' && !policySupported)} />)}</div>
-        {draft.mode !== 'off' && <div className="mt-6"><h2 className="mb-3 text-base font-semibold">{t('intakeCalendarTitle')}</h2><div role="group" aria-label={t('intakeCalendarTitle')} className="grid gap-3 md:grid-cols-2">{(['slots', 'batch'] as const).map(mode => <ModeCard key={mode} title={t(mode === 'slots' ? 'preorderModeSlots' : 'preorderModeBatch')} desc={t(mode === 'slots' ? 'preorderModeSlotsDesc' : 'preorderModeBatchDesc')} selected={draft.mode === mode} onClick={() => { setCalendar(mode); patch({ mode }); }} disabled={!canEdit || saving} />)}</div></div>}
+        {draft.mode !== 'off' && <div className="mt-6"><h2 className="mb-3 text-base font-semibold">{t('intakeCalendarTitle')}</h2><div role="radiogroup" aria-label={t('intakeCalendarTitle')} className="choice-group">{(['slots', 'batch'] as const).map(mode => <ModeChoice name="order-intake-calendar" key={mode} title={t(mode === 'slots' ? 'preorderModeSlots' : 'preorderModeBatch')} desc={t(mode === 'slots' ? 'preorderModeSlotsDesc' : 'preorderModeBatchDesc')} selected={draft.mode === mode} onClick={() => { setCalendar(mode); patch({ mode }); }} disabled={!canEdit || saving} />)}</div></div>}
         {!policySupported && <p className="mt-4 text-sm text-[var(--fg-muted)]">{t('intakePolicyUnavailable')}</p>}
         <p className="mt-4 text-sm leading-6 text-[var(--fg-muted)]">{t('intakeRetainedSettings')}</p>
       </Section>

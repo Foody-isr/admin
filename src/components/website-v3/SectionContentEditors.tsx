@@ -737,7 +737,7 @@ function OrderDiscoveryEditor({
             onChange={(value) => updatePromotion(index, "link", value)}
             placeholder="/catering, /epicerie ou https://…"
           />
-          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3 selection-row">
             <span className="text-sm font-medium text-slate-800">
               Ouvrir dans un nouvel onglet
             </span>

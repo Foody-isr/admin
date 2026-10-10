@@ -1,5 +1,6 @@
 "use client";
 
+import { BooleanInput } from '@/components/ds/Selection';
 import type { ReactNode } from "react";
 
 export const controlClass =
@@ -87,13 +88,10 @@ export function ToggleField({
           </span>
         ) : null}
       </span>
-      <input
+      <BooleanInput
         data-field-id={fieldId}
-        type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="sqe-switch"
-        role="switch"
       />
     </label>
   );

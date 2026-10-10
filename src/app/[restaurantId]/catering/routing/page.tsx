@@ -262,12 +262,12 @@ function RoutingRuleEditModal({ restaurantId, editing, services, branches, onClo
           />
         </div>
 
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-2 selection-row">
           <input type="checkbox" checked={isFallback} onChange={(e) => setIsFallback(e.target.checked)} />
           <span className="text-sm text-fg-secondary">{t('catering_routing_fallback')}</span>
         </label>
 
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-2 selection-row">
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           <span className="text-sm text-fg-secondary">{t('catering_routing_active')}</span>
         </label>

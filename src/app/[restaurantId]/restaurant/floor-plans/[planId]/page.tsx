@@ -278,11 +278,11 @@ function SectionModal({ restaurantId, onCreated, onClose }: {
 
           {/* Naming mode */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-2 cursor-pointer selection-row">
               <input type="radio" checked={autoNames} onChange={() => setAutoNames(true)} className="accent-brand-500" />
               <span className="text-sm text-fg-primary">{t('autoNames')}</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-2 cursor-pointer selection-row">
               <input type="radio" checked={!autoNames} onChange={() => setAutoNames(false)} className="accent-brand-500" />
               <span className="text-sm text-fg-primary">{t('customNames')}</span>
             </label>

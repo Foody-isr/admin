@@ -534,7 +534,7 @@ export function FeaturedItemsEditor({
                   {visibleItems.map((item) => (
                     <tr className="border-b border-neutral-200" key={item.id}>
                       <td className="p-4">
-                        <label className="flex items-center gap-4">
+                        <label className="flex items-center gap-4 selection-row">
                           <input
                             type="checkbox"
                             className="h-5 w-5 accent-black"

@@ -290,14 +290,13 @@ function TableAssignmentModeSelector({
         const selected = option.value === mode;
         return (
           <label key={option.value}
-            className={`relative flex min-h-[86px] cursor-pointer items-start gap-3 border-b border-divider px-5 py-4 text-start transition-colors last:border-b-0 md:border-b-0 md:border-e md:last:border-e-0 ${disabled ? 'cursor-wait opacity-60' : ''} ${selected ? 'bg-[var(--brand-soft)]' : 'hover:bg-[var(--surface-subtle)]'}`}>
+            className={[`relative flex min-h-[86px] cursor-pointer items-start gap-3 border-b border-divider px-5 py-4 text-start transition-colors last:border-b-0 md:border-b-0 md:border-e md:last:border-e-0 ${disabled ? 'cursor-wait opacity-60' : ''} ${selected ? 'bg-[var(--brand-soft)]' : 'hover:bg-[var(--surface-subtle)]'}`, "selection-row"].filter(Boolean).join(" ")}>
             <input className="peer sr-only" type="radio" name="table-assignment-mode" value={option.value} checked={selected} onChange={() => onChange(option.value)} />
             <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-r-md peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--brand-ink)] peer-focus-visible:ring-offset-2 [&_svg]:h-4 [&_svg]:w-4 ${selected ? 'bg-[var(--action)] text-[var(--action-fg)]' : 'bg-[var(--surface-subtle)] text-fg-secondary'}`}>{option.icon}</span>
             <span>
               <span className="block text-sm font-semibold text-fg-primary">{option.title}</span>
               <span className="mt-1 block text-xs leading-5 text-fg-secondary">{option.description}</span>
             </span>
-            {selected && <span className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--brand-ink)]" />}
           </label>
         );
       })}

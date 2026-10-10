@@ -478,7 +478,7 @@ function GroupArticleModal({ restaurantId, serviceId, offerId, pricingModel, gro
         <div className="grid gap-4 sm:grid-cols-2">
           <label><span className="text-sm font-semibold text-fg-secondary">{t(pricingModel === 'per_person' ? 'catering_group_articles_guest_price' : 'catering_group_articles_unit_price')}</span><input type="number" min="0" step="0.01" className="input mt-1" value={price} onChange={(event) => setPrice(event.target.value)} /></label>
           <label><span className="text-sm font-semibold text-fg-secondary">{t(pricingModel === 'per_person' ? 'catering_group_articles_min_guests' : 'catering_group_articles_min_quantity')}</span><input type="number" min="0" step="1" className="input mt-1" value={minimum} onChange={(event) => setMinimum(event.target.value)} /></label>
-          <label className="flex items-center gap-3 self-end rounded-xl border border-[var(--divider)] px-4 py-3"><input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} /><span className="text-sm font-semibold text-fg-primary">{t('catering_group_articles_visible')}</span></label>
+          <label className="flex items-center gap-3 self-end rounded-xl border border-[var(--divider)] px-4 py-3 selection-row"><input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} /><span className="text-sm font-semibold text-fg-primary">{t('catering_group_articles_visible')}</span></label>
         </div>
       </div>
     </Modal>

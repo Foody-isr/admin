@@ -205,7 +205,7 @@ function PromptEditModal({
             <textarea dir="auto" id="image-prompt-text" required className="input min-h-40" value={prompt} onChange={event => setPrompt(event.target.value)} placeholder={t('imagePromptExample')} aria-describedby="image-prompt-variables" />
             <p id="image-prompt-variables" className="mt-3 flex flex-wrap gap-1 text-xs text-fg-secondary">{t('imagePromptVariables')}{' '}{['{{item_name}}', '{{item_description}}', '{{category}}'].map(variable => <code key={variable} dir="ltr" className="rounded bg-[var(--surface-2)] px-1 py-0.5">{variable}</code>)}</p>
           </div>
-          <label className="flex min-h-11 items-start gap-3 rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">
+          <label className="flex min-h-11 items-start gap-3 rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)] selection-row">
             <input type="checkbox" checked={isDefault} onChange={event => setIsDefault(event.target.checked)} className="mt-1 size-4 shrink-0" />
             <span><span className="block font-medium">{t('imagePromptDefault')}</span><span className="mt-1 block text-xs">{t('imagePromptDefaultDescription')}</span></span>
           </label>

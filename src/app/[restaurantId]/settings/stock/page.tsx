@@ -88,7 +88,7 @@ function StockSettingsWorkspace({rid}: {rid:number}) {
           <details className="mt-4 border-t border-[var(--line)] pt-2">
             <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">{t('stockLegacySettings')}</summary>
             <p id="stock-legacy-hint" className="mb-3 text-sm text-fg-secondary">{t('stockLegacyHint')}</p>
-            <label className="flex min-h-11 items-center gap-3 text-sm"><input aria-label={t('autoDisableSoldoutLabel')} aria-describedby="stock-legacy-hint" type="checkbox" className="size-5 shrink-0 accent-[var(--brand-ink)]" checked={draft.auto_disable_soldout} disabled={saving || !canEdit} onChange={event => {setDraft({...draft,auto_disable_soldout:event.target.checked});setSaved(false);}}/>{t('autoDisableSoldoutLabel')}</label>
+            <label className="flex min-h-11 items-center gap-3 text-sm selection-row"><input aria-label={t('autoDisableSoldoutLabel')} aria-describedby="stock-legacy-hint" type="checkbox" className="size-5 shrink-0 accent-[var(--brand-ink)]" checked={draft.auto_disable_soldout} disabled={saving || !canEdit} onChange={event => {setDraft({...draft,auto_disable_soldout:event.target.checked});setSaved(false);}}/>{t('autoDisableSoldoutLabel')}</label>
           </details>
         </Section>
         {saveError && <p role="alert" className="text-sm text-[var(--danger-500)]">{saveError}</p>}

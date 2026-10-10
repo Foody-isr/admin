@@ -131,7 +131,7 @@ export default function StockItemEditor({rid,editing,categories,suppliers,source
       <div><dt className="text-fg-secondary">{t('stockCurrentQuantity')}</dt><dd className="mt-1 font-semibold"><bdi dir="ltr">{editing?.quantity??0} {editing?.unit??total.baseUnit}</bdi></dd></div>
       <div><dt className="text-fg-secondary">{t('value')} · {t('exVat')}</dt><dd className="mt-1 break-all font-semibold"><bdi>{money((editing?.quantity??0)*(editing?.cost_per_unit??0))}</bdi></dd></div>
     </dl>
-    <label className="flex min-h-11 items-center justify-between gap-3 text-sm"><span>{t('active')}</span><input className="size-5 accent-[var(--brand-action)]" type="checkbox" checked={isActive} onChange={event=>setIsActive(event.target.checked)}/></label>
+    <label className="flex min-h-11 items-center justify-between gap-3 text-sm selection-row"><span>{t('active')}</span><input className="size-5 accent-[var(--brand-action)]" type="checkbox" checked={isActive} onChange={event=>setIsActive(event.target.checked)}/></label>
     <Field label={t('notes')}><Textarea rows={3} value={notes} onChange={event=>setNotes(event.target.value)}/></Field>
   </fieldset>;
   return <>

@@ -108,7 +108,7 @@ export function PageSettingsDialog({
                   />
                 </label>
                 {!valid && <p role="alert">{t("editorInvalidPage")}</p>}
-                <label className="sqe-settings-check">
+                <label className="sqe-settings-check selection-row">
                   <input
                     type="checkbox"
                     checked={draft.nav_visible}

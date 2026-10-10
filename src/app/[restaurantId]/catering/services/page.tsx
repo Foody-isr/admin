@@ -145,7 +145,7 @@ function ServiceEditor({ restaurantId, editing, onClose, onSaved }: { restaurant
       <div className="space-y-5">
         <label><span className="text-sm font-semibold text-fg-secondary">{t('catering_offer_group_name')}</span><input autoFocus className="input mt-1" value={name} onChange={(event) => setName(event.target.value)} /></label>
         <label><span className="text-sm font-semibold text-fg-secondary">{t('description')}</span><textarea rows={3} className="input mt-1" value={description} onChange={(event) => setDescription(event.target.value)} /></label>
-        <label className="flex items-start gap-3 rounded-xl border border-brand-500/20 bg-brand-500/5 p-4"><input type="checkbox" className="mt-1" checked={visible} onChange={(event) => setVisible(event.target.checked)} /><span><span className="block font-semibold text-fg-primary">{t('catering_offer_group_visible')}</span><span className="mt-1 block text-sm text-fg-secondary">{t('catering_offer_group_visible_hint')}</span></span></label>
+        <label className="flex items-start gap-3 rounded-xl border border-brand-500/20 bg-brand-500/5 p-4 selection-row"><input type="checkbox" className="mt-1" checked={visible} onChange={(event) => setVisible(event.target.checked)} /><span><span className="block font-semibold text-fg-primary">{t('catering_offer_group_visible')}</span><span className="mt-1 block text-sm text-fg-secondary">{t('catering_offer_group_visible_hint')}</span></span></label>
       </div>
     </Modal>
   );

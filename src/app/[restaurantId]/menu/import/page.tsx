@@ -144,11 +144,11 @@ function MenuImportWorkspace({ rid }: { rid: number }) {
             </div>
             <Section title={t('menuImportOptions')}>
               <fieldset disabled={disabled} className="min-w-0 space-y-5">
-                <label className="flex items-start gap-3 text-sm leading-6"><input type="checkbox" className="mt-1 size-4 shrink-0" checked={state.createCarte} onChange={event => state.setCreateCarte(event.target.checked)} />{t('importCreateCarteLabel')}</label>
+                <label className="flex items-start gap-3 text-sm leading-6 selection-row"><input type="checkbox" className="mt-1 size-4 shrink-0" checked={state.createCarte} onChange={event => state.setCreateCarte(event.target.checked)} />{t('importCreateCarteLabel')}</label>
                 {state.createCarte && <Field label={t('importCarteNameLabel')}><Input dir="auto" value={state.carteName} placeholder={t('importCarteNameDefault')} onChange={event => state.setCarteName(event.target.value)} /></Field>}
                 {!state.createCarte && <p className="text-xs leading-5 text-[var(--fg-muted)]">{t('menuImportLibraryHint')}</p>}
-                <label className="flex items-start gap-3 text-sm leading-6"><input type="checkbox" className="mt-1 size-4 shrink-0" checked={state.autoTranslate} onChange={event => state.toggleTranslation(event.target.checked)} />{t('importAutoTranslateLabel')}</label>
-                {hasBranding && <label className="flex items-start gap-3 text-sm leading-6"><input type="checkbox" className="mt-1 size-4 shrink-0" checked={state.importBranding} onChange={event => state.setImportBranding(event.target.checked)} />{t('importBrandingLabel')}</label>}
+                <label className="flex items-start gap-3 text-sm leading-6 selection-row"><input type="checkbox" className="mt-1 size-4 shrink-0" checked={state.autoTranslate} onChange={event => state.toggleTranslation(event.target.checked)} />{t('importAutoTranslateLabel')}</label>
+                {hasBranding && <label className="flex items-start gap-3 text-sm leading-6 selection-row"><input type="checkbox" className="mt-1 size-4 shrink-0" checked={state.importBranding} onChange={event => state.setImportBranding(event.target.checked)} />{t('importBrandingLabel')}</label>}
                 <div className="border-t border-[var(--line)] pt-5">{primaryLanguage}</div>
               </fieldset>
             </Section>

@@ -678,7 +678,7 @@ function NewItemEditor() {
             .map((set) => (
               <label
                 key={set.id}
-                className="flex min-h-16 cursor-pointer items-center gap-3 border-b border-[var(--line)] p-3 hover:bg-[var(--surface-2)]"
+                className="flex min-h-16 cursor-pointer items-center gap-3 border-b border-[var(--line)] p-3 hover:bg-[var(--surface-2)] selection-row"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block break-words text-sm font-semibold">
