@@ -7644,6 +7644,7 @@ export interface FloorPlanPlacement {
   height: number;
   shape: 'square' | 'circle' | 'rectangle';
   rotation: number; // degrees
+  geometry_version?: number;
   table: RestaurantTableRef;
 }
 
@@ -7672,6 +7673,7 @@ export interface DecorationInput {
 }
 
 export interface FloorPlan {
+  layout_geometry_version?: number;
   id: number;
   restaurant_id: number;
   name: string;
@@ -7697,6 +7699,7 @@ export interface PlacementInput {
   height: number;
   shape: 'square' | 'circle' | 'rectangle';
   rotation: number; // degrees
+  geometry_version?: number;
 }
 
 // Sections

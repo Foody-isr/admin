@@ -412,3 +412,22 @@ matches, skips existing days by default, and never deducts imported historical
 sales from current stock. Historical imports do not reconstruct actual food cost.
 Simulations stay separate from real forecasts and inventory. Resetting is a user
 operation and is never part of installation or deployment.
+
+## Floor-plan editor
+
+The floor-plan editor follows the Square layout: a fine square grid, floating
+shape/width/height tools, four resize handles, a rotation handle, section table
+palettes and Undo/Redo. Width and height use grid units (new tables start at
+8 × 8); storage stays in canonical canvas percentages. Pointer gestures work
+with mouse, pen and touch. Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z travel history; focus
+the rotation handle and use Left/Right for 15-degree turns.
+
+Layouts are saved explicitly. Removing a marker leaves the restaurant table
+available in the palette. Table/section creation keeps unsaved placement edits.
+Legacy placements keep their former visible dimensions; `geometry_version: 2`
+round-trips authored size and angle. Deploy API migration 227 and the matching
+FoodyPOS before releasing this editor. It refuses writes to an API without
+`layout_geometry_version: 2`, preventing silent resizing by an older server.
+
+Run isolated browser checks with `npx playwright test -c playwright.floor-plan.config.ts`.
+All API calls in this suite use synthetic in-memory fixtures.
