@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useReducer } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getFloorPlan, listSections, updateFloorPlan, deleteFloorPlan,
+  getRestaurant, getFloorPlan, listSections, deleteFloorPlan,
   saveFloorPlanLayout, createSection,
   FloorPlan, TableSection, PlacementInput, DecorationInput, SectionInput,
 } from '@/lib/api';
@@ -21,18 +21,18 @@ import {
   AlignEndHorizontal,
   AlignHorizontalDistributeCenter,
   AlignVerticalSpaceAround,
+  RectangleHorizontal, Circle, RotateCw,
 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { TableEditorModal } from '@/components/tables/TableEditorModal';
 import {
-  applyRectangleRotation,
-  applyTableShape,
   FLOOR_PLAN_CANVAS_ASPECT,
-  normalizeTablePlacement,
+  normalizeTablePlacement, authoredTablePlacement, resizeAuthoredTable, AUTHORED_TABLE_SIZE, FLOOR_PLAN_GRID_COLUMNS, FLOOR_PLAN_GRID_ROWS,
   tablePlacementCollisionIds,
-  TABLE_SIZE_PRESETS,
 } from '@/lib/floor-plan-layout';
 import type { TableShape } from '@/lib/floor-plan-layout';
+import { floorPlanHistoryReducer, type FloorPlanHistory, type FloorPlanHistoryAction } from '@/lib/floor-plan-history';
+import styles from './editor.module.css';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +45,7 @@ interface CanvasPlacement {
   height: number;   // %
   shape: TableShape;
   rotation: number; // degrees
+  geometryVersion?: number;
 }
 
 interface CanvasDecoration {
@@ -79,8 +80,8 @@ interface ItemBox {
   height: number;
 }
 
-const MIN_ITEM_SIZE = 3; // percent
-const MAX_ITEM_SIZE = 60; // percent
+const MIN_ITEM_SIZE = .5; // percent
+const MAX_ITEM_SIZE = 45; // percent
 const SNAP_THRESHOLD = 1.2; // percent — within this distance, edges/centers snap together
 
 // The canonical width/height ratio the canvas is rendered at, mirroring
@@ -98,10 +99,10 @@ const SNAP_THRESHOLD = 1.2; // percent — within this distance, edges/centers s
 // canonical canvas these produce the intended physical table proportions.
 // Equal percentages would instead inherit the canvas ratio and read as a flat
 // letterbox. Kept in sync with common.DefaultPlacementWidth/Height (Go).
-const DEFAULT_TABLE_W = TABLE_SIZE_PRESETS.square.width;
-const DEFAULT_TABLE_H = TABLE_SIZE_PRESETS.square.height;
-const AUTO_PLACE_GAP = 2;           // % — gap between adjacent auto-placed tables
-const AUTO_PLACE_MARGIN = 4;        // % — margin from canvas edges
+const DEFAULT_TABLE_W = AUTHORED_TABLE_SIZE.width;
+const DEFAULT_TABLE_H = AUTHORED_TABLE_SIZE.height;
+const AUTO_PLACE_GAP = 100 / FLOOR_PLAN_GRID_COLUMNS;           // % — gap between adjacent auto-placed tables
+const AUTO_PLACE_MARGIN = 100 / FLOOR_PLAN_GRID_COLUMNS;        // % — margin from canvas edges
 
 function rectsOverlap(
   a: { x: number; y: number; width: number; height: number },
@@ -132,8 +133,8 @@ function nextAutoSlot(
   // Stride is per-axis: the slot is no longer square, so a single stride would
   // either overlap rows or leave a large gap between columns.
   const strideX = DEFAULT_TABLE_W + AUTO_PLACE_GAP;
-  const strideY = DEFAULT_TABLE_H + AUTO_PLACE_GAP;
-  for (let y = AUTO_PLACE_MARGIN; y + DEFAULT_TABLE_H <= 100 - AUTO_PLACE_MARGIN; y += strideY) {
+  const strideY = DEFAULT_TABLE_H + 100 / FLOOR_PLAN_GRID_ROWS;
+  for (let y = 100 / FLOOR_PLAN_GRID_ROWS; y + DEFAULT_TABLE_H <= 100 - 100 / FLOOR_PLAN_GRID_ROWS; y += strideY) {
     for (let x = AUTO_PLACE_MARGIN; x + DEFAULT_TABLE_W <= 100 - AUTO_PLACE_MARGIN; x += strideX) {
       const slot = { x, y, width: DEFAULT_TABLE_W, height: DEFAULT_TABLE_H };
       if (!occupied.some((o) => rectsOverlap(slot, o))) {
@@ -339,24 +340,20 @@ function SectionModal({ restaurantId, onCreated, onClose }: {
 // ─── Resize handles ──────────────────────────────────────────────────────────
 
 const RESIZE_HANDLES: { handle: ResizeHandle; top?: string; bottom?: string; left?: string; right?: string; cursor: string }[] = [
-  { handle: 'nw', top: '-6px', left: '-6px', cursor: 'nwse-resize' },
-  { handle: 'n', top: '-6px', left: '50%', cursor: 'ns-resize' },
-  { handle: 'ne', top: '-6px', right: '-6px', cursor: 'nesw-resize' },
-  { handle: 'e', top: '50%', right: '-6px', cursor: 'ew-resize' },
-  { handle: 'se', bottom: '-6px', right: '-6px', cursor: 'nwse-resize' },
-  { handle: 's', bottom: '-6px', left: '50%', cursor: 'ns-resize' },
-  { handle: 'sw', bottom: '-6px', left: '-6px', cursor: 'nesw-resize' },
-  { handle: 'w', top: '50%', left: '-6px', cursor: 'ew-resize' },
+  {handle:'n',top:'-4px',left:'50%',cursor:'ns-resize'},
+  {handle:'e',top:'50%',right:'-4px',cursor:'ew-resize'},
+  {handle:'s',bottom:'-4px',left:'50%',cursor:'ns-resize'},
+  {handle:'w',top:'50%',left:'-4px',cursor:'ew-resize'},
 ];
 
 function ResizeHandles({
   type,
   id,
-  onMouseDown,
+  onPointerDown,
 }: {
   type: 'table' | 'decoration';
   id: number | string;
-  onMouseDown: (e: React.MouseEvent, type: 'table' | 'decoration', id: number | string, handle: ResizeHandle) => void;
+  onPointerDown: (e: React.PointerEvent, type: 'table' | 'decoration', id: number | string, handle: ResizeHandle) => void;
 }) {
   return (
     <>
@@ -366,15 +363,16 @@ function ResizeHandles({
         return (
           <div
             key={h.handle}
-            onMouseDown={(e) => onMouseDown(e, type, id, h.handle)}
+            data-testid={`resize-${h.handle}`}
+            onPointerDown={(e) => onPointerDown(e, type, id, h.handle)}
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'absolute',
-              width: '12px',
-              height: '12px',
+              width: '8px',
+              height: '8px',
               background: '#ffffff',
-              border: '2px solid #F18A47',
-              borderRadius: '2px',
+              border: '1px solid #333',
+              borderRadius: '50%',
               cursor: h.cursor,
               top: h.top,
               bottom: h.bottom,
@@ -459,59 +457,6 @@ function AlignmentToolbar({
   );
 }
 
-// ─── Picker: bring an existing section into the current plan's sidebar ────────
-
-function AddExistingSectionPicker({
-  sections,
-  onPick,
-  onClose,
-}: {
-  sections: TableSection[];
-  onPick: (sectionId: number) => void;
-  onClose: () => void;
-}) {
-  const { t } = useI18n();
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 pt-[max(var(--s-4),var(--safe-top))] pb-[max(var(--s-4),var(--safe-bottom))]"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
-      onClick={onClose}
-    >
-      <div
-        className="card w-full max-w-md p-6 space-y-4 max-h-full overflow-y-auto"
-        style={{ background: 'var(--bg)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-fg-primary">{t('useExistingSection')}</h2>
-          <button onClick={onClose} className="p-1 rounded-md hover:bg-[var(--surface-subtle)]">
-            <XIcon className="w-5 h-5 text-fg-secondary" />
-          </button>
-        </div>
-        <p className="text-xs text-fg-secondary">{t('useExistingSectionHint')}</p>
-        {sections.length === 0 ? (
-          <p className="text-sm text-fg-secondary py-4 text-center">{t('noOtherSections')}</p>
-        ) : (
-          <div className="space-y-1.5">
-            {sections.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => onPick(s.id)}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-[var(--divider)] hover:border-[var(--brand-500)] hover:bg-[var(--surface-subtle)] transition-colors text-left"
-              >
-                <span className="font-medium text-fg-primary">{s.name}</span>
-                <span className="text-xs text-fg-secondary">
-                  {(s.tables ?? []).length} {t('tablesCount')}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Editor ──────────────────────────────────────────────────────────────
 
 export default function FloorPlanEditorPage() {
@@ -528,23 +473,25 @@ export default function FloorPlanEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Canvas placements (working copy)
-  const [placements, setPlacements] = useState<CanvasPlacement[]>([]);
-  const [originalPlacements, setOriginalPlacements] = useState<CanvasPlacement[]>([]);
-  const [decorations, setDecorations] = useState<CanvasDecoration[]>([]);
-  const [originalDecorations, setOriginalDecorations] = useState<CanvasDecoration[]>([]);
+  type Layout = { placements: CanvasPlacement[]; decorations: CanvasDecoration[] };
+  const [history, dispatch] = useReducer(
+    (state: FloorPlanHistory<Layout>, action: FloorPlanHistoryAction<Layout>) => floorPlanHistoryReducer(state, action),
+    { present: { placements: [], decorations: [] }, past: [], future: [] },
+  );
+  const { placements, decorations } = history.present;
+  const [original, setOriginal] = useState<Layout>({ placements: [], decorations: [] });
+  const [error, setError] = useState('');
+  const [restaurantName, setRestaurantName] = useState('');
+  const dirty = JSON.stringify(history.present) !== JSON.stringify(original);
+  const setPlacements = (update: React.SetStateAction<CanvasPlacement[]>) => dispatch({ type:'update', update: current => ({ ...current, placements: typeof update === 'function' ? update(current.placements) : update }) });
+  const setDecorations = (update: React.SetStateAction<CanvasDecoration[]>) => dispatch({ type:'update', update: current => ({ ...current, decorations: typeof update === 'function' ? update(current.decorations) : update }) });
+  const travel = useCallback((type: 'undo' | 'redo') => { dispatch({ type }); setSelection([]); }, []);
 
   // Multi-selection. `selection[0]` is the "primary" — the property panel
   // shows its details. Other entries participate in multi-drag, alignment,
   // and group-delete. Empty array = nothing selected.
   const [selection, setSelection] = useState<SelectionEntry[]>([]);
   const [showSectionModal, setShowSectionModal] = useState(false);
-  const [showAddSectionPicker, setShowAddSectionPicker] = useState(false);
-  // Sections the user has explicitly brought into this plan's sidebar during
-  // the current session. Combined with sections that already have placements,
-  // this determines what's visible in the right panel. New plans start with
-  // an empty sidebar so they aren't polluted by every restaurant-wide section.
-  const [sessionAddedSectionIds, setSessionAddedSectionIds] = useState<Set<number>>(new Set());
   const [addTableTarget, setAddTableTarget] = useState<{
     sectionId: number;
     sectionName: string;
@@ -575,6 +522,7 @@ export default function FloorPlanEditorPage() {
     initialY: number;
     initialWidth: number;
     initialHeight: number;
+    rotation: number;
   } | null>(null);
   const dropState = useRef<{ tableId: number; tableName: string } | null>(null);
   // Rubber-band selection: click an empty spot of the canvas and drag a box;
@@ -587,10 +535,12 @@ export default function FloorPlanEditorPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [fp, secs] = await Promise.all([getFloorPlan(rid, pid), listSections(rid)]);
+      const [fp, secs, restaurant] = await Promise.all([getFloorPlan(rid, pid), listSections(rid), getRestaurant(rid)]);
+      setRestaurantName(restaurant.name);
       setPlan(fp);
       setSections(secs);
-      const mapped: CanvasPlacement[] = (fp.placements ?? []).map((p) => normalizeTablePlacement({
+      const mapped: CanvasPlacement[] = (fp.placements ?? []).map((p) => authoredTablePlacement({
+        geometryVersion: p.geometry_version ?? 0,
         tableId: p.table_id,
         tableName: p.table.name,
         x: p.x,
@@ -600,8 +550,6 @@ export default function FloorPlanEditorPage() {
         shape: p.shape,
         rotation: p.rotation ?? 0,
       }));
-      setPlacements(mapped);
-      setOriginalPlacements(mapped);
       const mappedDecs: CanvasDecoration[] = (fp.decorations ?? []).map((d) => ({
         id: String(d.id),
         label: d.label,
@@ -613,11 +561,17 @@ export default function FloorPlanEditorPage() {
         color: d.color,
         rotation: d.rotation ?? 0,
       }));
-      setDecorations(mappedDecs);
-      setOriginalDecorations(mappedDecs);
+      const layout = { placements:mapped, decorations:mappedDecs };
+      dispatch({ type:'reset', value:layout });
+      setOriginal(layout);
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('floorEditorLoadError'));
     } finally {
       setLoading(false);
     }
+    // Locale changes must not reload over an unsaved layout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rid, pid]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -625,16 +579,7 @@ export default function FloorPlanEditorPage() {
   const placedIds = new Set(placements.map((p) => p.tableId));
   const collisionIds = tablePlacementCollisionIds(placements);
 
-  // Sections visible in the right sidebar: sections that have at least one
-  // table placed on this plan, plus any the user has explicitly added to this
-  // plan during the current edit session.
-  const visibleSections = sections.filter((s) => {
-    if (sessionAddedSectionIds.has(s.id)) return true;
-    return (s.tables ?? []).some((t) => placedIds.has(t.id));
-  });
-  const hiddenSections = sections.filter(
-    (s) => !visibleSections.some((v) => v.id === s.id),
-  );
+  const visibleSections = sections;
 
   // ─── Selection helpers ───────────────────────────────────────────────────
 
@@ -680,13 +625,14 @@ export default function FloorPlanEditorPage() {
 
   // ─── Canvas drag (move tables and decorations) ────────────────────────────
 
-  const handleTableMouseDown = (e: React.MouseEvent, tableId: number) => {
+  const handleTableMouseDown = (e: React.PointerEvent, tableId: number) => {
     e.preventDefault();
     e.stopPropagation();
     const next = computeSelectionForClick('table', tableId, e.shiftKey);
     setSelection(next);
     // Shift+click toggles — don't start dragging on a shift-click.
     if (e.shiftKey) return;
+    dispatch({ type:'begin' });
     dragState.current = {
       startMouseX: e.clientX,
       startMouseY: e.clientY,
@@ -694,12 +640,13 @@ export default function FloorPlanEditorPage() {
     };
   };
 
-  const handleDecorationMouseDown = (e: React.MouseEvent, decId: string) => {
+  const handleDecorationPointerDown = (e: React.PointerEvent, decId: string) => {
     e.preventDefault();
     e.stopPropagation();
     const next = computeSelectionForClick('decoration', decId, e.shiftKey);
     setSelection(next);
     if (e.shiftKey) return;
+    dispatch({ type:'begin' });
     dragState.current = {
       startMouseX: e.clientX,
       startMouseY: e.clientY,
@@ -707,7 +654,7 @@ export default function FloorPlanEditorPage() {
     };
   };
 
-  const handleRotateMouseDown = (e: React.MouseEvent, kind: 'table' | 'decoration', id: number | string) => {
+  const handleRotateMouseDown = (e: React.PointerEvent, kind: 'table' | 'decoration', id: number | string) => {
     e.preventDefault();
     e.stopPropagation();
     if (!canvasRef.current) return;
@@ -725,11 +672,12 @@ export default function FloorPlanEditorPage() {
     const centerX = rect.left + (item.x / 100) * rect.width + (item.width / 100) * rect.width / 2;
     const centerY = rect.top + (item.y / 100) * rect.height + (item.height / 100) * rect.height / 2;
     const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+    dispatch({ type:'begin' });
     rotateState.current = { kind, id, centerX, centerY, startAngle, startRotation };
   };
 
   const handleResizeMouseDown = (
-    e: React.MouseEvent,
+    e: React.PointerEvent,
     type: 'table' | 'decoration',
     id: number | string,
     handle: ResizeHandle,
@@ -747,6 +695,7 @@ export default function FloorPlanEditorPage() {
             return d ? { type, id, x: d.x, y: d.y, width: d.width, height: d.height } : undefined;
           })();
     if (!item) return;
+    dispatch({ type:'begin' });
     resizeState.current = {
       type,
       id,
@@ -757,12 +706,14 @@ export default function FloorPlanEditorPage() {
       initialY: item.y,
       initialWidth: item.width,
       initialHeight: item.height,
+      rotation: type === 'table' ? placements.find(p => p.tableId === id)?.rotation ?? 0 : decorations.find(d => d.id === id)?.rotation ?? 0,
     };
   };
 
   // Mouse-down on the canvas background → start a rubber-band selection.
-  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+  const handleCanvasMouseDown = (e: React.PointerEvent) => {
     if (e.target !== e.currentTarget) return;
+    if (e.pointerType === 'touch') { setSelection([]); return; }
     if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -772,14 +723,14 @@ export default function FloorPlanEditorPage() {
   };
 
   useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent) => {
       // Rotation
       if (rotateState.current) {
         const { kind, id, centerX, centerY, startAngle, startRotation } = rotateState.current;
         const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
         const rotation = startRotation + (angle - startAngle);
         if (kind === 'table') {
-          setPlacements((prev) => prev.map((p) => p.tableId === id ? { ...p, rotation } : p));
+          setPlacements((prev) => prev.map((p) => p.tableId === id ? normalizeTablePlacement({ ...p, rotation }) : p));
         } else {
           setDecorations((prev) => prev.map((d) => d.id === id ? { ...d, rotation } : d));
         }
@@ -792,6 +743,11 @@ export default function FloorPlanEditorPage() {
         const rect = canvasRef.current.getBoundingClientRect();
         const dx = ((e.clientX - rs.startMouseX) / rect.width) * 100;
         const dy = ((e.clientY - rs.startMouseY) / rect.height) * 100;
+
+        if (rs.type === 'table') {
+          setPlacements(prev => prev.map(p => p.tableId === rs.id ? resizeAuthoredTable({ ...p, x:rs.initialX, y:rs.initialY, width:rs.initialWidth, height:rs.initialHeight, rotation:rs.rotation }, rs.handle, dx, dy) : p));
+          return;
+        }
 
         let nx = rs.initialX;
         let ny = rs.initialY;
@@ -826,11 +782,7 @@ export default function FloorPlanEditorPage() {
         if (nx + nw > 100) nw = 100 - nx;
         if (ny + nh > 100) nh = 100 - ny;
 
-        if (rs.type === 'table') {
-          setPlacements((prev) => prev.map((p) => p.tableId === rs.id ? { ...p, x: nx, y: ny, width: nw, height: nh } : p));
-        } else {
-          setDecorations((prev) => prev.map((d) => d.id === rs.id ? { ...d, x: nx, y: ny, width: nw, height: nh } : d));
-        }
+        setDecorations((prev) => prev.map((d) => d.id === rs.id ? { ...d, x: nx, y: ny, width: nw, height: nh } : d));
         return;
       }
 
@@ -894,7 +846,7 @@ export default function FloorPlanEditorPage() {
 
         setPlacements((prev) => prev.map((p) => {
           const init = initial.find((i) => i.type === 'table' && i.id === p.tableId);
-          return init ? { ...p, x: init.x + snappedDx, y: init.y + snappedDy } : p;
+          return init ? normalizeTablePlacement({ ...p, x: init.x + snappedDx, y: init.y + snappedDy }) : p;
         }));
         setDecorations((prev) => prev.map((d) => {
           const init = initial.find((i) => i.type === 'decoration' && i.id === d.id);
@@ -917,7 +869,7 @@ export default function FloorPlanEditorPage() {
       }
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = () => {
       // Finalize rubber-band: select every item whose bbox overlaps the box.
       if (rubberBand) {
         const minX = Math.min(rubberBand.startX, rubberBand.currentX);
@@ -941,6 +893,7 @@ export default function FloorPlanEditorPage() {
           setSelection(next);
         }
       }
+      dispatch({ type:'end' });
       dragState.current = null;
       rotateState.current = null;
       resizeState.current = null;
@@ -949,11 +902,13 @@ export default function FloorPlanEditorPage() {
       setSnapGuides({ vertical: [], horizontal: [] });
     };
 
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
     return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rubberBand, placements, decorations]);
@@ -970,7 +925,7 @@ export default function FloorPlanEditorPage() {
     const y = Math.max(0, Math.min(100 - DEFAULT_TABLE_H, ((e.clientY - rect.top) / rect.height) * 100));
     const { tableId, tableName } = dropState.current;
     if (!placedIds.has(tableId)) {
-      setPlacements((prev) => [...prev, { tableId, tableName, x, y, width: DEFAULT_TABLE_W, height: DEFAULT_TABLE_H, shape: 'square', rotation: 0 }]);
+      setPlacements((prev) => [...prev, { tableId, tableName, x, y, width: DEFAULT_TABLE_W, height: DEFAULT_TABLE_H, shape: 'square', rotation: 0, geometryVersion: 2 }]);
     }
     dropState.current = null;
   };
@@ -996,10 +951,12 @@ export default function FloorPlanEditorPage() {
   /** Removes every selected item from the canvas (placements and/or decorations). */
   const removeSelected = () => {
     if (selection.length === 0) return;
+    dispatch({type:'begin'});
     const tableIds = new Set(selection.filter((s) => s.type === 'table').map((s) => s.id as number));
     const decIds = new Set(selection.filter((s) => s.type === 'decoration').map((s) => s.id as string));
     setPlacements((prev) => prev.filter((p) => !tableIds.has(p.tableId)));
     setDecorations((prev) => prev.filter((d) => !decIds.has(d.id)));
+    dispatch({type:'end'});
     setSelection([]);
   };
 
@@ -1034,6 +991,7 @@ export default function FloorPlanEditorPage() {
   const applyAlignment = (compute: (b: ItemBox, all: ItemBox[]) => { x?: number; y?: number }) => {
     const boxes = selectionBoxes();
     if (boxes.length < 2) return;
+    dispatch({type:'begin'});
     const updates = new Map<string, { x?: number; y?: number }>();
     for (const b of boxes) {
       updates.set(`${b.type}:${b.id}`, compute(b, boxes));
@@ -1046,6 +1004,7 @@ export default function FloorPlanEditorPage() {
       const u = updates.get(`decoration:${d.id}`);
       return u ? { ...d, ...(u.x !== undefined ? { x: u.x } : {}), ...(u.y !== undefined ? { y: u.y } : {}) } : d;
     }));
+    dispatch({type:'end'});
   };
 
   const alignLeft = () => {
@@ -1079,6 +1038,7 @@ export default function FloorPlanEditorPage() {
   const distribute = (axis: 'x' | 'y') => {
     const boxes = selectionBoxes();
     if (boxes.length < 3) return;
+    dispatch({type:'begin'});
     const sorted = [...boxes].sort((a, b) => (axis === 'x' ? a.x - b.x : a.y - b.y));
     const first = sorted[0];
     const last = sorted[sorted.length - 1];
@@ -1097,14 +1057,17 @@ export default function FloorPlanEditorPage() {
       const u = updates.get(`decoration:${d.id}`);
       return u ? { ...d, ...(u.x !== undefined ? { x: u.x } : {}), ...(u.y !== undefined ? { y: u.y } : {}) } : d;
     }));
+    dispatch({type:'end'});
   };
 
   // ─── Save / Delete ────────────────────────────────────────────────────────
 
   const handleSave = async () => {
+    if (plan?.layout_geometry_version !== 2) { setError(t('floorEditorApiUpdate')); return; }
     setSaving(true);
     try {
       const inputs: PlacementInput[] = placements.map((p) => ({
+        geometry_version: 2,
         table_id: p.tableId,
         x: p.x,
         y: p.y,
@@ -1123,10 +1086,11 @@ export default function FloorPlanEditorPage() {
         color: d.color,
         rotation: d.rotation,
       }));
-      await saveFloorPlanLayout(rid, pid, inputs, decInputs);
+      const saved = await saveFloorPlanLayout(rid, pid, inputs, decInputs);
+      if ((saved.placements ?? []).some(p => p.geometry_version !== 2)) throw new Error(t('floorEditorApiUpdate'));
       router.push(`/${rid}/restaurant/floor-plans`);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to save');
+      setError(err instanceof Error ? err.message : t('floorEditorSaveError'));
     } finally {
       setSaving(false);
     }
@@ -1138,13 +1102,33 @@ export default function FloorPlanEditorPage() {
     router.push(`/${rid}/restaurant/floor-plans`);
   };
 
-  const handleReset = () => {
-    setPlacements(originalPlacements);
-    setDecorations(originalDecorations);
-    setSelection([]);
+  const goBack = () => {
+    if (dirty && !confirm(t('floorEditorDiscard'))) return;
+    router.push(`/${rid}/restaurant/floor-plans`);
   };
 
-  const goBack = () => router.push(`/${rid}/restaurant/floor-plans`);
+  useEffect(() => {
+    if (!dirty) return;
+    const guard = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [dirty]);
+
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      if (!canManage || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || (event.target instanceof HTMLElement && event.target.isContentEditable)) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault(); travel(event.shiftKey ? 'redo' : 'undo');
+      }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [canManage, travel]);
+
+  const updateSelectedTable = (patch: Partial<CanvasPlacement>) => {
+    if (!selectedPlacement) return;
+    setPlacements(prev => prev.map(p => p.tableId === selectedPlacement.tableId ? normalizeTablePlacement({ ...p, ...patch }) : p));
+  };
 
   if (loading) {
     return (
@@ -1156,164 +1140,52 @@ export default function FloorPlanEditorPage() {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 pt-safe-t pb-safe-b flex flex-col" style={{ background: 'var(--bg)' }}>
+      <div className={styles.editor} data-testid="floor-editor">
 
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--divider)' }}>
-          <button onClick={goBack} className="w-10 h-10 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors" style={{ border: '1px solid var(--divider)' }}>
-            <XIcon className="w-5 h-5" />
-          </button>
-          <h1 className="text-base font-semibold text-fg-primary">{plan ? (plan.name ? t('editFloorPlan') + ' — ' + plan.name : t('editFloorPlan')) : t('editFloorPlan')}</h1>
-          {canManage && (
-            <div className="flex items-center gap-2">
-              <button onClick={handleReset} className="btn-secondary px-4 text-sm">{t('resetLayout')}</button>
-              <button onClick={handleDelete} className="btn-secondary px-4 text-sm text-red-400 border-red-400/30">{t('deleteFloorPlan')}</button>
-              <button onClick={handleSave} disabled={saving} className="btn-primary px-5 text-sm disabled:opacity-50">
-                {saving ? t('saving') : t('saveFloorPlan')}
-              </button>
-            </div>
-          )}
-        </div>
+        <header className={styles.header}>
+          <button onClick={goBack} className={styles.close} aria-label={t('close')}><XIcon size={22} /></button>
+          <h1>{t('editFloorPlan')}</h1>
+          {canManage && <div className={styles.headerActions}>
+            <button disabled={!history.past.length || saving} onClick={() => travel('undo')}>{t('floorEditorUndo')}</button>
+            <button disabled={!history.future.length || saving} onClick={() => travel('redo')}>{t('floorEditorRedo')}</button>
+            <button onClick={handleDelete} disabled={saving} className={styles.destructive}>{t('deleteFloorPlan')}</button>
+            <button onClick={handleSave} disabled={saving || !plan} className={styles.save}>{saving ? t('saving') : t('saveFloorPlan')}</button>
+          </div>}
+        </header>
+        {error && <div role="alert" className={styles.error}>{error}{!plan && <button onClick={() => { setLoading(true); loadData(); }}>{t('retry')}</button>}</div>}
 
         {/* Body */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className={styles.body}>
 
-          {/* Left panel — selected item controls */}
-          <div className="w-32 flex-shrink-0 flex flex-col gap-3 p-3" style={{ borderRight: '1px solid var(--divider)' }}>
-            {canManage && selectedPlacement && (
-              <>
-                <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">Table</p>
-                <div>
-                  <p className="text-xs text-fg-secondary mb-1.5">{t('shape')}</p>
-                  <div className="flex flex-col gap-1">
-                    {(['circle', 'square', 'rectangle'] as const).map((s) => (
-                      <button key={s}
-                        onClick={() => {
-                          if (primary?.type !== 'table') return;
-                          setPlacements((prev) => prev.map((p) => p.tableId === primary.id ? applyTableShape(p, s) : p));
-                        }}
-                        className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${selectedPlacement.shape === s ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}
-                        style={selectedPlacement.shape !== s ? { background: 'var(--surface-subtle)' } : {}}
-                      >
-                        {s === 'square' ? t('squareShape') : s === 'circle' ? t('circleShape') : t('rectangleShape')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {selectedPlacement.shape === 'rectangle' && (
-                  <div>
-                    <p className="text-xs text-fg-secondary mb-1.5">{t('rotation')}</p>
-                    <div className="grid grid-cols-2 gap-1">
-                      {([0, 90] as const).map((rotation) => (
-                        <button
-                          key={rotation}
-                          onClick={() => {
-                            if (primary?.type !== 'table') return;
-                            setPlacements((prev) => prev.map((p) => p.tableId === primary.id ? applyRectangleRotation(p, rotation) : p));
-                          }}
-                          className={`px-2 py-1.5 rounded text-xs font-medium ${selectedPlacement.rotation === rotation ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}
-                          style={selectedPlacement.rotation !== rotation ? { background: 'var(--surface-subtle)' } : {}}
-                        >
-                          {rotation}°
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <p className="text-[11px] leading-4 text-fg-secondary">{t('tableSizeManagedAutomatically')}</p>
-                <button onClick={removeSelected} className="p-2 rounded-md hover:bg-red-500/10 self-start">
-                  <TrashIcon className="w-4 h-4 text-red-400" />
-                </button>
-              </>
-            )}
+          {canManage && (selectedPlacement || selectedDecoration) && <aside className={styles.properties} aria-label={t('floorEditorProperties')}>
+            <p>{t('shape')}</p>
+            <div className={styles.shapeButtons}>
+              <button aria-label={t('rectangleShape')} aria-pressed={(selectedPlacement?.shape ?? selectedDecoration?.shape) !== 'circle'}
+                onClick={() => selectedPlacement ? updateSelectedTable({ shape:'square' }) : updateSelectedDecoration({ shape:'rectangle' })}><RectangleHorizontal size={24} strokeWidth={1.5} /></button>
+              <button aria-label={t('circleShape')} aria-pressed={(selectedPlacement?.shape ?? selectedDecoration?.shape) === 'circle'}
+                onClick={() => selectedPlacement ? updateSelectedTable({ shape:'circle' }) : updateSelectedDecoration({ shape:'circle' })}><Circle size={24} strokeWidth={1.5} /></button>
+            </div>
+            {selectedDecoration && <label>{t('tableLabel')}<input value={selectedDecoration.label} onChange={e => updateSelectedDecoration({label:e.target.value})} /></label>}
+            <label>{t('tableWidth')}<NumberInput aria-label={t('tableWidth')} min={1} max={48}
+              value={Number(((selectedPlacement?.width ?? selectedDecoration!.width) / 100 * FLOOR_PLAN_GRID_COLUMNS).toFixed(1))}
+              onChange={n => selectedPlacement ? updateSelectedTable({width:n/FLOOR_PLAN_GRID_COLUMNS*100}) : updateSelectedDecoration({width:n/FLOOR_PLAN_GRID_COLUMNS*100})} /></label>
+            <label>{t('tableHeight')}<NumberInput aria-label={t('tableHeight')} min={1} max={32}
+              value={Number(((selectedPlacement?.height ?? selectedDecoration!.height) / 100 * FLOOR_PLAN_GRID_ROWS).toFixed(1))}
+              onChange={n => selectedPlacement ? updateSelectedTable({height:n/FLOOR_PLAN_GRID_ROWS*100}) : updateSelectedDecoration({height:n/FLOOR_PLAN_GRID_ROWS*100})} /></label>
+            {selectedDecoration && <div className={styles.colors}>{PALETTE_COLORS.map(c => <button key={c} aria-label={c} onClick={() => updateSelectedDecoration({color:c})} style={{background:c}} />)}</div>}
+            <button className={styles.removeItem} aria-label={t('floorEditorRemoveTable')} onClick={removeSelected}><TrashIcon size={22} /></button>
+          </aside>}
 
-            {canManage && selectedDecoration && (
-              <>
-                <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">Forme</p>
-                <div>
-                  <p className="text-xs text-fg-secondary mb-1">Étiquette</p>
-                  <input
-                    value={selectedDecoration.label}
-                    onChange={(e) => updateSelectedDecoration({ label: e.target.value })}
-                    className="input text-xs w-full"
-                    placeholder="Cuisine..."
-                  />
-                </div>
-                <div>
-                  <p className="text-xs text-fg-secondary mb-1.5">{t('shape')}</p>
-                  <div className="flex flex-col gap-1">
-                    {(['rectangle', 'circle'] as const).map((s) => (
-                      <button key={s}
-                        onClick={() => updateSelectedDecoration({ shape: s })}
-                        className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${selectedDecoration.shape === s ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}
-                        style={selectedDecoration.shape !== s ? { background: 'var(--surface-subtle)' } : {}}
-                      >
-                        {s === 'rectangle' ? 'Carré' : 'Cercle'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-fg-secondary mb-1">{t('tableWidth')}</p>
-                  <NumberInput integer min={4} max={60}
-                    value={Math.round(selectedDecoration.width)}
-                    onChange={(n) => updateSelectedDecoration({ width: n })}
-                    className="input text-xs w-full" />
-                </div>
-                <div>
-                  <p className="text-xs text-fg-secondary mb-1">{t('tableHeight')}</p>
-                  <NumberInput integer min={4} max={60}
-                    value={Math.round(selectedDecoration.height)}
-                    onChange={(n) => updateSelectedDecoration({ height: n })}
-                    className="input text-xs w-full" />
-                </div>
-                <div>
-                  <p className="text-xs text-fg-secondary mb-1.5">Couleur</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PALETTE_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => updateSelectedDecoration({ color: c })}
-                        style={{ background: c, width: 20, height: 20, borderRadius: 4, border: selectedDecoration.color === c ? '2px solid #F18A47' : '1px solid rgba(0,0,0,0.15)' }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <button onClick={removeSelected} className="p-2 rounded-md hover:bg-red-500/10 self-start">
-                  <TrashIcon className="w-4 h-4 text-red-400" />
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Center — canvas.
-              Locked to the canonical aspect ratio and letterboxed inside whatever space is
-              available, rather than stretched to fill it. A free-floating ratio
-              (this used to be `w-full` x `70vh`) silently changed what the
-              stored height percentages meant, so a table drawn square here came
-              out as a flattened rectangle on the POS. Capping the width at
-              `70vh * ratio` keeps the previous vertical footprint. */}
-          <div className="flex-1 overflow-auto p-4 relative flex flex-col items-center gap-3">
-            {collisionIds.size > 0 && (
-              <div role="alert" className="w-full max-w-xl rounded-lg border border-red-400/50 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-300">
-                {t('floorPlanOverlapWarning').replace('{count}', String(collisionIds.size))}
-              </div>
-            )}
+          {/* Keep the canonical canvas ratio so authored dimensions match the POS. */}
+          <div className={styles.stage}>
             <div
               ref={canvasRef}
-              className="relative w-full select-none"
-              style={{
-                aspectRatio: String(FLOOR_PLAN_CANVAS_ASPECT),
-                maxWidth: `calc(70vh * ${FLOOR_PLAN_CANVAS_ASPECT})`,
-                background: 'white',
-                backgroundImage: 'linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px)',
-                backgroundSize: '40px 40px',
-                borderRadius: '8px',
-                border: '1px solid var(--divider)',
-              }}
+              className={styles.canvas}
+              data-testid="floor-canvas"
+              style={{ aspectRatio: String(FLOOR_PLAN_CANVAS_ASPECT), '--grid-step': `${100/FLOOR_PLAN_GRID_COLUMNS}%` } as React.CSSProperties}
               onDragOver={canManage ? handleCanvasDragOver : undefined}
               onDrop={canManage ? handleCanvasDrop : undefined}
-              onMouseDown={canManage ? handleCanvasMouseDown : undefined}
+              onPointerDown={canManage ? handleCanvasMouseDown : undefined}
             >
               {/* Decorations — rendered first (behind tables) */}
               {decorations.map((d) => {
@@ -1335,7 +1207,7 @@ export default function FloorPlanEditorPage() {
                   >
                     {/* Visible shape */}
                     <div
-                      onMouseDown={canManage ? (e) => handleDecorationMouseDown(e, d.id) : undefined}
+                      onPointerDown={canManage ? (e) => handleDecorationPointerDown(e, d.id) : undefined}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -1354,11 +1226,11 @@ export default function FloorPlanEditorPage() {
                       </span>
                     </div>
                     {/* Resize handles — only on the primary selected item */}
-                    {canManage && isPrimary && <ResizeHandles type="decoration" id={d.id} onMouseDown={handleResizeMouseDown} />}
+                    {canManage && isPrimary && <ResizeHandles type="decoration" id={d.id} onPointerDown={handleResizeMouseDown} />}
                     {/* Rotate handle */}
                     {canManage && isPrimary && (
                       <div
-                        onMouseDown={(e) => handleRotateMouseDown(e, 'decoration', d.id)}
+                        onPointerDown={(e) => handleRotateMouseDown(e, 'decoration', d.id)}
                         onClick={(e) => e.stopPropagation()}
                         title="Rotate"
                         style={{
@@ -1395,25 +1267,28 @@ export default function FloorPlanEditorPage() {
                 return (
                   <div
                     key={p.tableId}
+                    data-testid={`floor-table-${p.tableId}`}
+                    className={styles.table}
                     style={{
                       position: 'absolute',
                       left: `${p.x}%`,
                       top: `${p.y}%`,
                       width: `${p.width}%`,
                       height: `${p.height}%`,
-                      zIndex: 2,
+                      transform: `rotate(${p.rotation}deg)`,
+                      zIndex: isSelectedTbl ? 4 : 2,
                     }}
                   >
                     {/* Visible table */}
                     <div
-                      onMouseDown={canManage ? (e) => handleTableMouseDown(e, p.tableId) : undefined}
+                      onPointerDown={canManage ? (e) => handleTableMouseDown(e, p.tableId) : undefined}
                       style={{
                         width: '100%',
                         height: '100%',
-                        borderRadius: p.shape === 'circle' ? '50%' : p.shape === 'rectangle' ? '14px' : '6px',
-                        background: '#1a1a1a',
-                        border: hasCollision ? '3px solid #ef4444' : isSelectedTbl ? '2px solid #F18A47' : '2px solid transparent',
-                        boxShadow: hasCollision ? '0 0 0 4px rgba(239,68,68,0.18)' : undefined,
+                        borderRadius: p.shape === 'circle' ? '50%' : '1px',
+                        background: isSelectedTbl ? 'var(--floor-selected)' : 'var(--floor-table)',
+                        border: '1px solid var(--floor-table-border)',
+                        outline: isSelectedTbl ? '1px solid var(--floor-selected)' : undefined,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1423,10 +1298,14 @@ export default function FloorPlanEditorPage() {
                       }}
                       title={hasCollision ? t('floorPlanTableOverlap') : undefined}
                     >
-                      <span style={{ color: 'white', fontSize: '11px', fontWeight: 600, textAlign: 'center', padding: '2px', lineHeight: 1.2 }}>
+                      <span style={{ color: 'white', fontSize: '14px', fontWeight: 500, textAlign: 'center', padding: '2px', lineHeight: 1.1, transform:`rotate(${-p.rotation}deg)` }}>
                         {p.tableName}
                       </span>
                     </div>
+                    {canManage && primary?.type === 'table' && primary.id === p.tableId && <>
+                      <ResizeHandles type="table" id={p.tableId} onPointerDown={handleResizeMouseDown} />
+                      <button className={styles.rotateHandle} aria-label={t('rotation')} onKeyDown={e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); updateSelectedTable({rotation:p.rotation+(e.key === 'ArrowRight'?15:-15)}); } }} onPointerDown={e => handleRotateMouseDown(e, 'table', p.tableId)}><RotateCw size={22}/></button>
+                    </>}
                   </div>
                 );
               })}
@@ -1505,125 +1384,28 @@ export default function FloorPlanEditorPage() {
             )}
           </div>
 
-          {/* Right panel — sections palette */}
-          <div className="w-64 flex-shrink-0 overflow-y-auto p-4 space-y-4" style={{ borderLeft: '1px solid var(--divider)' }}>
-            {/* Plan name */}
-            {plan && (
-              <div>
-                <p className="font-semibold text-fg-primary">{plan.name}</p>
-              </div>
-            )}
-
-            {/* Empty-state hint when no sections are active in this plan */}
-            {visibleSections.length === 0 && (
-              <p className="text-xs text-fg-secondary">
-                {t('noSectionsInPlanHint')}
-              </p>
-            )}
-
-            {/* Sections — filtered to only those active in this plan */}
-            {visibleSections.map((section) => {
-              const tables = section.tables ?? [];
-              const unplaced = tables.filter((t) => !placedIds.has(t.id));
-              const placed = tables.filter((t) => placedIds.has(t.id));
-              return (
-                <div key={section.id}>
-                  <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-2">{section.name}</p>
-                  {tables.length === 0 && (
-                    <p className="text-xs text-fg-secondary">{t('noTablesInSection')}</p>
-                  )}
-                  <div className="flex flex-wrap gap-1.5">
-                    {/* Unplaced — click to place, also draggable */}
-                    {unplaced.map((tbl) => (
-                      <div
-                        key={tbl.id}
-                        draggable={canManage}
-                        onDragStart={canManage ? () => { dropState.current = { tableId: tbl.id, tableName: tbl.name }; } : undefined}
-                        onClick={canManage ? () => {
-                          const { x, y } = nextAutoSlot(placements, decorations);
-                          setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: DEFAULT_TABLE_W, height: DEFAULT_TABLE_H, shape: 'square', rotation: 0 }]);
-                          setSelection([{ type: 'table', id: tbl.id }]);
-                        } : undefined}
-                        className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer select-none transition-opacity hover:opacity-80"
-                        style={{ background: '#1a1a1a', color: 'white' }}
-                        title={tbl.name}
-                      >
-                        {tbl.name}
-                      </div>
-                    ))}
-                    {/* Already placed — greyed */}
-                    {placed.map((tbl) => (
-                      <div
-                        key={tbl.id}
-                        className="px-2.5 py-1.5 rounded text-xs font-medium select-none opacity-30"
-                        style={{ background: 'var(--surface-subtle)', color: 'var(--text-secondary)' }}
-                        title={tbl.name}
-                      >
-                        {tbl.name}
-                      </div>
-                    ))}
-                    {/* + Add table — the primary table creation entry point */}
-                    {canManage && (
-                      <button
-                        onClick={() =>
-                          setAddTableTarget({
-                            sectionId: section.id,
-                            sectionName: section.name,
-                            nextIndex: tables.length + 1,
-                          })
-                        }
-                        className="px-2 py-1.5 rounded text-xs font-medium cursor-pointer flex items-center gap-1 hover:bg-[var(--surface-subtle)] text-fg-secondary"
-                        style={{ border: '1px dashed var(--divider)' }}
-                        title={t('addTable')}
-                      >
-                        <Plus className="w-3 h-3" />
-                        {t('addTable')}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Decoration presets */}
-            {canManage && (
-              <div style={{ borderTop: '1px solid var(--divider)', paddingTop: '1rem' }}>
-                <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-2">Formes</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {DECORATION_PRESETS.map((preset) => (
-                    <button
-                      key={preset.label}
-                      onClick={() => addDecoration(preset)}
-                      className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
-                      style={{ background: preset.color, color: 'rgba(0,0,0,0.6)', border: '1px solid rgba(0,0,0,0.1)' }}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Use an existing section on this plan */}
-            {canManage && hiddenSections.length > 0 && (
-              <button
-                onClick={() => setShowAddSectionPicker(true)}
-                className="w-full text-sm text-brand-500 hover:underline text-left mt-2"
-              >
-                + {t('useExistingSection')}
-              </button>
-            )}
-
-            {/* Create a brand-new section */}
-            {canManage && (
-              <button
-                onClick={() => setShowSectionModal(true)}
-                className="w-full text-sm text-brand-500 hover:underline text-left mt-2"
-              >
-                + {t('addSection')}
-              </button>
-            )}
-          </div>
+          <aside className={styles.palette} aria-label={t('floorEditorTables')}>
+            <div className={styles.planIdentity}><h2>{plan?.name}</h2><p>{restaurantName}</p></div>
+            <div className={styles.paletteContent}>
+              {visibleSections.length === 0 && <p className="text-sm text-fg-secondary">{t('noSectionsInPlanHint')}</p>}
+              {visibleSections.map(section => <section key={section.id} className={styles.section}>
+                <h3>{section.name}</h3>
+                <div className={styles.tableGrid}>{(section.tables ?? []).map(tbl => {
+                  const placed = placedIds.has(tbl.id);
+                  return <button key={tbl.id} data-testid={`palette-table-${tbl.id}`} disabled={!canManage || placed}
+                    draggable={canManage && !placed} onDragStart={() => {dropState.current={tableId:tbl.id,tableName:tbl.name};}}
+                    onDragEnd={() => { dropState.current=null; }}
+                    onClick={() => { const {x,y}=nextAutoSlot(placements,decorations); setPlacements(prev => [...prev, {tableId:tbl.id, tableName:tbl.name,x,y,width:DEFAULT_TABLE_W,height:DEFAULT_TABLE_H,shape:'square',rotation:0,geometryVersion:2}]); setSelection([{type:'table',id:tbl.id}]); }}
+                    title={tbl.name}>{tbl.name}</button>;
+                })}</div>
+                {canManage && <button className={styles.addTable} onClick={() => setAddTableTarget({sectionId:section.id,sectionName:section.name,nextIndex:(section.tables??[]).length+1})}><Plus size={14}/>{t('addTable')}</button>}
+              </section>)}
+              {canManage && <details className={styles.landmarks}><summary>{t('floorEditorLandmarks')}</summary><div>{DECORATION_PRESETS.map(preset => <button key={preset.label} onClick={() => addDecoration(preset)} style={{background:preset.color}}>{preset.label}</button>)}</div></details>}
+            </div>
+            {canManage && <div className={styles.paletteFooter}>
+              <button onClick={() => setShowSectionModal(true)}>{t('addSection')}</button>
+            </div>}
+          </aside>
         </div>
       </div>
 
@@ -1633,32 +1415,9 @@ export default function FloorPlanEditorPage() {
           restaurantId={rid}
           onCreated={(newId) => {
             setShowSectionModal(false);
-            // Newly created sections start visible in this plan's sidebar so
-            // the user can immediately drop their tables onto the canvas.
-            setSessionAddedSectionIds((prev) => {
-              const next = new Set(prev);
-              next.add(newId);
-              return next;
-            });
-            loadData();
+            listSections(rid).then(setSections).catch(err => setError(String(err)));
           }}
           onClose={() => setShowSectionModal(false)}
-        />
-      )}
-
-      {/* Picker — bring an existing section into this plan's sidebar */}
-      {showAddSectionPicker && (
-        <AddExistingSectionPicker
-          sections={hiddenSections}
-          onPick={(sectionId) => {
-            setSessionAddedSectionIds((prev) => {
-              const next = new Set(prev);
-              next.add(sectionId);
-              return next;
-            });
-            setShowAddSectionPicker(false);
-          }}
-          onClose={() => setShowAddSectionPicker(false)}
         />
       )}
 
@@ -1669,8 +1428,8 @@ export default function FloorPlanEditorPage() {
           sectionId={addTableTarget.sectionId}
           sectionName={addTableTarget.sectionName}
           nextIndex={addTableTarget.nextIndex}
-          onSaved={() => { setAddTableTarget(null); loadData(); }}
-          onDeleted={() => { setAddTableTarget(null); loadData(); }}
+          onSaved={() => { setAddTableTarget(null); listSections(rid).then(setSections).catch(err => setError(String(err))); }}
+          onDeleted={() => { setAddTableTarget(null); listSections(rid).then(setSections).catch(err => setError(String(err))); }}
           onClose={() => setAddTableTarget(null)}
         />
       )}
