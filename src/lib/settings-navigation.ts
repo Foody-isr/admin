@@ -37,7 +37,6 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
     ] },
     { labelKey: 'settingsGroupOrdering', items: [
       { href: `${base}/settings/orders`, labelKey: 'settingsOrderTaking', exact: true },
-      { href: `${base}/settings/orders/preorders`, labelKey: 'preorderTitle' },
       { href: `${base}/settings/delivery`, labelKey: 'deliveryZones' },
       { href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant' },
     ] },

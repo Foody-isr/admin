@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { CalendarDays, Clock3, ListChecks, PauseCircle, Settings2 } from 'lucide-react';
-import { getRestaurant, getRestaurantSettings, updateRestaurantSettings, type Restaurant, type RestaurantSettings } from '@/lib/api';
+import { ListChecks, PauseCircle, Settings2 } from 'lucide-react';
+import { getRestaurant, getRestaurantSettings, getBatchFulfillmentConfig, type BatchFulfillmentConfigResponse, updateRestaurantSettings, type Restaurant, type RestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, Input, Section, Select } from '@/components/ds';
@@ -44,17 +44,25 @@ function checkSettings(settings: RestaurantSettings): RestaurantSettings {
 }
 
 /** Review ordering availability and explicitly apply pause or reopening changes. */
-export default function OrdersOverview() {
+export default function OrdersOverview({ embedded = false, latestOrdering = null }: { embedded?: boolean; latestOrdering?: RestaurantSettings | null }) {
   const { restaurantId } = useParams();
-  return <OverviewWorkspace key={String(restaurantId)} rid={Number(restaurantId)} />;
+  return <OverviewWorkspace key={String(restaurantId)} rid={Number(restaurantId)} embedded={embedded} latestOrdering={latestOrdering} />;
 }
-function OverviewWorkspace({ rid }: { rid: number }) {
+function OverviewWorkspace({ rid, embedded, latestOrdering }: { rid: number; embedded: boolean; latestOrdering: RestaurantSettings | null }) {
   const { t, locale } = useI18n(); const router = useRouter(); const { hasAnyPermission } = usePermissions(); const canEdit = hasAnyPermission('settings.edit');
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null), [settings, setSettings] = useState<RestaurantSettings | null>(null);
   const [draft, setDraft] = useState<PauseDraft>({ mode: 'manual', until: '' });
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false), [saveError, setSaveError] = useState(false);
   const [saving, setSaving] = useState(false), [saved, setSaved] = useState(false), [invalid, setInvalid] = useState(false), [leaving, setLeaving] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now);
+  const [batch, setBatch] = useState<BatchFulfillmentConfigResponse | null>(null);
+  const [batchError, setBatchError] = useState(false);
+  useEffect(() => {
+    if (!latestOrdering) return;
+    // Refresh ordering facts without discarding an unfinished pause/reopening draft.
+    setSettings(current => current ? { ...current, preorders_only: latestOrdering.preorders_only, scheduling_enabled: latestOrdering.scheduling_enabled, batch_fulfillment_enabled: latestOrdering.batch_fulfillment_enabled } : current);
+    setRestaurant(current => current ? { ...current, pickup_enabled: latestOrdering.pickup_enabled ?? current.pickup_enabled, delivery_enabled: latestOrdering.delivery_enabled ?? current.delivery_enabled, dine_in_enabled: latestOrdering.dine_in_enabled ?? current.dine_in_enabled, opening_hours_config: latestOrdering.opening_hours_config } : current);
+  }, [latestOrdering]);
   const lock = useRef(false), lifetime = useRef({ generation: 0, sequence: 0 });
   const dirty = !!settings && JSON.stringify(draft) !== JSON.stringify(pauseDraft(settings));
   const load = useCallback(async () => {
@@ -67,6 +75,16 @@ function OverviewWorkspace({ rid }: { rid: number }) {
   }, [rid]);
   useEffect(() => { const current = lifetime.current; void load(); return () => { current.generation += 1; }; }, [load]);
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 15000); return () => clearInterval(timer); }, []);
+  useEffect(() => {
+    if (!settings?.batch_fulfillment_enabled) { setBatch(null); return; }
+    let current = true;
+    const refresh = () => { void getBatchFulfillmentConfig(rid).then(value => {
+      if (typeof value.enabled !== 'boolean' || (value.enabled && (!Number.isFinite(Date.parse(value.current_batch_open_at)) || !Number.isFinite(Date.parse(value.current_batch_cutoff))))) throw new Error('Incomplete batch status');
+      if (current) { setBatch(value); setBatchError(false); }
+    }).catch(() => { if (current) { setBatch(null); setBatchError(true); } }); };
+    refresh(); const timer = window.setInterval(refresh, 60000);
+    return () => { current = false; clearInterval(timer); };
+  }, [rid, settings?.batch_fulfillment_enabled, latestOrdering]);
   useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => { if (dirty || lock.current) { event.preventDefault(); event.returnValue = ''; } };
     const navigate = (event: MouseEvent) => {
@@ -90,18 +108,19 @@ function OverviewWorkspace({ rid }: { rid: number }) {
     finally { if (current()) { lock.current = false; setSaving(false); } }
   };
   const destinations = [
-    { id: 'availability', title: 'ordersAvailabilityTitle', desc: 'ordersAvailabilityDesc', icon: Clock3 },
-    { id: 'preorders', title: 'preorderTitle', desc: 'ordersPreordersDesc', icon: CalendarDays },
     { id: 'processing', title: 'ordersProcessingTitle', desc: 'ordersProcessingDesc', icon: Settings2 },
     { id: 'workflow', title: 'orderWorkflow', desc: 'ordersWorkflowDesc', icon: ListChecks },
   ];
   const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return <SettingsWorkspace title={t('ordersAndAvailability')} description={t('ordersHubDesc')}>
+  const batchOpen = !!batch?.enabled && Date.parse(batch.current_batch_open_at) <= now && now < Date.parse(batch.current_batch_cutoff);
+  const batchDate = (value: string) => new Intl.DateTimeFormat(locale, { weekday: 'long', hour: '2-digit', minute: '2-digit', timeZone: restaurant ? timezoneOf(restaurant) : 'Asia/Jerusalem' }).format(new Date(value));
+  const content = <>
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('ordersLoadError')}</p><Button onClick={() => void load()}>{t('retry')}</Button></div> : restaurant && settings && <div className="space-y-6">
       <Section role="region" aria-label={t('ordersCurrentStatus')} title={t('ordersCurrentStatus')}>
         <div className="rounded-r-lg bg-[var(--summary-bg)] p-5 text-[var(--summary-fg)]"><p className="text-xl font-semibold">{t(paused ? 'ordersPausedBadge' : 'ordersPauseInactive')}</p><p className="mt-2 text-sm leading-6">{t(paused ? 'ordersPausedBannerDesc' : 'ordersStatusScopeHint')}</p>{paused && settings.orders_paused_until && !settings.rush_mode && <p className="mt-3 text-sm font-medium">{t('pauseUntilWhen')} : <bdi>{new Intl.DateTimeFormat(locale,{ dateStyle: 'medium',timeStyle: 'short',timeZone: timezoneOf(restaurant) }).format(new Date(settings.orders_paused_until))}</bdi> · <bdi>{timezoneOf(restaurant)}</bdi></p>}</div>
-        <p className="my-4 text-sm leading-6 text-[var(--fg-muted)]">{t('ordersHoursScopeHint')} · <bdi>{timezoneOf(restaurant)}</bdi></p>
-        <dl className="grid gap-3 sm:grid-cols-3">{CHANNELS.map(channel => { const open = openBySchedule(restaurant,channel,now); return <div key={channel} className="min-w-0 rounded-r-md border border-[var(--line)] p-4"><dt className="text-sm text-[var(--fg-muted)]">{t(channel === 'dine_in' ? 'dineIn' : channel)}</dt><dd className="mt-2 text-base font-semibold">{t(!restaurant[`${channel}_enabled`] ? 'ordersProcessingInactive' : open === null ? 'ordersHoursUnknown' : open ? 'openNow' : 'closedNow')}</dd></div>; })}</dl>
+        {settings.batch_fulfillment_enabled && <div className="mt-4 rounded-r-md bg-[var(--summary-bg)] p-4"><p className="font-semibold">{t(paused ? 'ordersPausedBadge' : batchError ? 'intakeBatchStatusError' : !batch ? 'loading' : !batch.enabled ? 'intakeBatchIncomplete' : batchOpen ? 'intakeBatchOpen' : 'intakeBatchClosed')}</p>{batch?.enabled && <p className="mt-2 text-sm">{t(batchOpen ? 'intakeClosesAt' : 'intakeOpensAt')} <bdi>{batchDate(batchOpen ? batch.current_batch_cutoff : now < Date.parse(batch.current_batch_open_at) ? batch.current_batch_open_at : batch.next_batch_open_at)}</bdi></p>}</div>}
+        <p className="my-4 text-sm leading-6 text-[var(--fg-muted)]">{t(settings.preorders_only ? 'intakeStatusScope' : 'ordersHoursScopeHint')} · <bdi>{timezoneOf(restaurant)}</bdi></p>
+        <dl className="grid gap-3 sm:grid-cols-3">{CHANNELS.filter(channel => !settings.preorders_only || channel !== 'dine_in').map(channel => { const open = openBySchedule(restaurant,channel,now); return <div key={channel} className="min-w-0 rounded-r-md border border-[var(--line)] p-4"><dt className="text-sm text-[var(--fg-muted)]">{t(channel === 'dine_in' ? 'dineIn' : channel)}</dt><dd className="mt-2 text-base font-semibold">{t(!restaurant[`${channel}_enabled`] ? 'ordersProcessingInactive' : paused ? 'ordersPausedBadge' : settings.preorders_only ? settings.batch_fulfillment_enabled ? 'intakeBatchCalendar' : 'intakeReservation' : open === null ? 'ordersHoursUnknown' : open ? 'openNow' : 'closedNow')}</dd></div>; })}</dl>
         <p className="mt-4 text-sm text-[var(--fg-muted)]">{t('preorderTitle')} : {t(settings.batch_fulfillment_enabled ? 'preorderModeBatch' : settings.scheduling_enabled ? 'preorderModeSlots' : 'preorderModeOff')}</p>
       </Section>
       <Section title={t('pauseSectionTitle')}>
@@ -121,5 +140,6 @@ function OverviewWorkspace({ rid }: { rid: number }) {
       <div className="grid gap-4 md:grid-cols-2">{destinations.map(({id,title,desc,icon:Icon}) => <Link key={id} href={`/${rid}/settings/orders/${id}`} className="group rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5 transition-colors hover:border-[var(--brand-ink)]"><Icon className="mb-3 size-5 text-[var(--brand-ink)]" aria-hidden="true" /><h2 className="text-base font-semibold">{t(title)}</h2><p className="mt-2 text-sm leading-6 text-[var(--fg-muted)]">{t(desc)}</p></Link>)}</div>
     </div>}
     <ConfirmDialog open={leaving !== null} onOpenChange={open => { if (!open) setLeaving(null); }} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { const target = leaving; setLeaving(null); if (settings) setDraft(pauseDraft(settings)); setInvalid(false); if (target === 'reload') void load(); else if (target && target !== 'reset') router.push(target); }} />
-  </SettingsWorkspace>;
+  </>;
+  return embedded ? content : <SettingsWorkspace title={t('ordersAndAvailability')} description={t('ordersHubDesc')}>{content}</SettingsWorkspace>;
 }

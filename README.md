@@ -521,3 +521,18 @@ For an isolated browser check, run `FOODY_COMPONENT_MOTION=1 node
 tests/redesign/website-editor-server.mjs` with the local web/admin environment
 variables described above. The fixture includes entry effects, image wobble,
 parallax, variable-width text and two rotating reviews; all writes stay in memory.
+
+## Unified order intake
+
+`/[restaurantId]/settings/orders` starts with Immediate orders, Preorders only,
+or Both, followed by slot/weekly-lot organization, services and the relevant
+calendar. The old `/orders/preorders` route redirects here. Strict weekly lots
+hide classic pickup/delivery hours; slots retain receiving hours. Hidden values
+are kept, and policy/services/calendar edits share one save. Table service remains
+independent under Restaurant → Hours. The live lot status uses the server calendar
+and the restaurant timezone; pause controls remain available on the same page.
+
+Requires the API's `preorders_only` contract (migration 226). Existing scheduled
+restaurants are shown as Both until the operator explicitly selects Preorders
+only. Browser regressions: `npx playwright test -c playwright.redesign.config.ts
+tests/redesign/order-preorders.spec.ts tests/redesign/order-availability.spec.ts`.

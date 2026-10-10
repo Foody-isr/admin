@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { getRestaurant, updateRestaurant, type Restaurant, type OpeningHoursConfig, type DayHours, type WeeklyHours } from '@/lib/api';
+import { getRestaurant, getRestaurantSettings, updateRestaurant, type Restaurant, type OpeningHoursConfig, type DayHours, type WeeklyHours } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { clampWeekStartDay, getEffectiveWorkdays } from '@/lib/weeks';
@@ -38,6 +39,7 @@ function AvailabilityWorkspace({ rid }: { rid: number }) {
   const canEdit = hasAnyPermission('settings.edit'), canCatering = hasAnyPermission('catering.manage');
   const [draft, setDraft] = useState<Draft | null>(null), [baseline, setBaseline] = useState<Draft | null>(null);
   const [timezone, setTimezone] = useState('');
+  const [strictBatch, setStrictBatch] = useState(false);
   const [tab, setTab] = useState<Channel>('pickup');
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false), [saveError, setSaveError] = useState(false), [saved, setSaved] = useState(false);
@@ -48,7 +50,7 @@ function AvailabilityWorkspace({ rid }: { rid: number }) {
     const generation = lifetime.current.generation, sequence = ++lifetime.current.sequence;
     const current = () => generation === lifetime.current.generation && sequence === lifetime.current.sequence;
     setLoading(true); setLoadError(false);
-    try { const restaurant = await getRestaurant(rid), next = draftFrom(restaurant); if (current()) { setDraft(next); setBaseline(next); setTimezone(restaurant.timezone || ''); } }
+    try { const [restaurant, settings] = await Promise.all([getRestaurant(rid), getRestaurantSettings(rid)]), next = draftFrom(restaurant); if (current()) { setDraft(next); setBaseline(next); setTimezone(restaurant.timezone || ''); setStrictBatch(!!settings.preorders_only && !!settings.batch_fulfillment_enabled); } }
     catch { if (current()) setLoadError(true); }
     finally { if (current()) setLoading(false); }
   }, [rid]);
@@ -66,7 +68,8 @@ function AvailabilityWorkspace({ rid }: { rid: number }) {
   }, [dirty]);
   const patch = (values: Partial<Draft>) => { if (!canEdit || lock.current) return; setDraft(current => current ? { ...current, ...values } : current); setSaved(false); setSaveError(false); setInvalid(null); };
   const channelLabel = (channel: Channel) => t(channel === 'dine_in' ? 'dineIn' : channel);
-  const active = draft ? CHANNELS.filter(channel => draft[`${channel}_enabled`]) : [];
+  const visibleChannels = CHANNELS.filter(channel => !strictBatch || channel === 'dine_in');
+  const active = draft ? visibleChannels.filter(channel => draft[`${channel}_enabled`]) : [];
   const effectiveTab = active.includes(tab) ? tab : active[0] ?? tab;
   const hours = editableHours(draft?.opening_hours_config);
   const orderedDays = DAYS.map((_, index) => DAYS[(clampWeekStartDay(draft?.week_start_day) + index) % 7]);
@@ -94,7 +97,8 @@ function AvailabilityWorkspace({ rid }: { rid: number }) {
   return <SettingsWorkspace title={t('ordersAvailabilityTitle')} description={t('ordersAvailabilityDesc')}>
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('availabilityLoadFailed')}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div> : draft && <form onSubmit={save} noValidate className="space-y-6">
       {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
-      <Section title={t('orderModesTitle')} desc={t('orderModesDesc')}><div className="grid gap-3 md:grid-cols-2">{CHANNELS.map(channel => <ServiceToggle key={channel} label={channelLabel(channel)} sub={t(channel === 'dine_in' ? 'dineInServiceDesc' : channel === 'pickup' ? 'pickupServiceDesc' : 'deliveryServiceDesc')} checked={draft[`${channel}_enabled`]} disabled={!canEdit || saving} onChange={value => patch({ [`${channel}_enabled`]: value })} />)}{canCatering && <ServiceToggle label={t('cateringOnlyMode')} sub={t('cateringOnlyModeDesc')} checked={draft.catering_only ?? false} disabled={!canEdit || saving} onChange={catering_only => patch({ catering_only })} />}</div>{active.length === 0 && <p className="mt-4 text-sm text-[var(--fg-muted)]">{t('availabilityNoClassicModes')}</p>}</Section>
+      {strictBatch && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('intakeBatchHoursOnly')} <Link href={`/${rid}/settings/orders`} className="underline">{t('intakeManageOnline')}</Link></p>}
+      <Section title={t('orderModesTitle')} desc={t('orderModesDesc')}><div className="grid gap-3 md:grid-cols-2">{visibleChannels.map(channel => <ServiceToggle key={channel} label={channelLabel(channel)} sub={t(channel === 'dine_in' ? 'dineInServiceDesc' : channel === 'pickup' ? 'pickupServiceDesc' : 'deliveryServiceDesc')} checked={draft[`${channel}_enabled`]} disabled={!canEdit || saving} onChange={value => patch({ [`${channel}_enabled`]: value })} />)}{canCatering && <ServiceToggle label={t('cateringOnlyMode')} sub={t('cateringOnlyModeDesc')} checked={draft.catering_only ?? false} disabled={!canEdit || saving} onChange={catering_only => patch({ catering_only })} />}</div>{active.length === 0 && <p className="mt-4 text-sm text-[var(--fg-muted)]">{t('availabilityNoClassicModes')}</p>}</Section>
       <Section title={t('openingHours')} desc={t('openingHoursDesc')}>
         <p className="mb-4 rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t('availabilityTimezoneHint')} {timezone ? <bdi>{timezone}</bdi> : t('availabilityTimezoneUnknown')}</p>
         {active.length === 0 ? <p className="text-sm text-[var(--fg-muted)]">{t('noServiceEnabledHoursBanner')}</p> : <>

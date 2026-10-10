@@ -33,3 +33,9 @@ test('a settings reader cannot follow staff-management destinations without thei
   assert.ok(!nav.flatMap(group => group.items).some(item => item.href.endsWith('/team')));
   assert.ok(nav.flatMap(group => group.items).some(item => item.href.endsWith('/orders/availability')));
 });
+
+test('preorder configuration has one entry under order intake', () => {
+  const ordering = settingsNavigation(19).find(group => group.labelKey === 'settingsGroupOrdering')!;
+  assert.equal(ordering.items.filter(item => item.href.endsWith('/settings/orders')).length, 1);
+  assert.equal(ordering.items.some(item => item.href.endsWith('/orders/preorders')), false);
+});
