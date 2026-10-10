@@ -6,7 +6,7 @@ const days = ['sunday','monday','tuesday','wednesday','thursday','friday','satur
 async function install(page: Page, options: { locale?: string; permissions?: string[] } = {}) {
   const fixtureOptions = { empty: false, permissions: options.permissions }, fixture = createFixture(fixtureOptions);
   const week = Object.fromEntries(days.map(day => [day,{ open: '09:00', close: '22:00', closed: false }]));
-  const control = { settings: { orders_paused: false, orders_paused_until: null, rush_mode: false, scheduling_enabled: true, batch_fulfillment_enabled: false } as Record<string, any>, restaurant: { dine_in_enabled: true, pickup_enabled: true, delivery_enabled: false, timezone: 'Asia/Jerusalem', opening_hours_config: { pickup: structuredClone(week), dine_in: structuredClone(week) } } as Record<string, any>, reads: 0, failRead: false, failSave: 0, applyAndFail: false, gate: null as Promise<void> | null };
+  const control = { settings: { preorders_only: false, scheduling_lead_time_minutes: 90, scheduling_max_days_ahead: 7, scheduling_slot_duration_minutes: 30, scheduling_require_prepayment: false, batch_require_prepayment: true, batch_fulfillment_days: [], orders_paused: false, orders_paused_until: null, rush_mode: false, scheduling_enabled: true, batch_fulfillment_enabled: false } as Record<string, any>, restaurant: { dine_in_enabled: true, pickup_enabled: true, delivery_enabled: false, timezone: 'Asia/Jerusalem', opening_hours_config: { pickup: structuredClone(week), dine_in: structuredClone(week) } } as Record<string, any>, reads: 0, failRead: false, failSave: 0, applyAndFail: false, gate: null as Promise<void> | null };
   const writes: { body: any; restaurant?: string }[] = [];
   await page.clock.setFixedTime(new Date('2026-10-04T12:00:00Z'));
   await page.addInitScript(({ locale }) => { localStorage.setItem('foody_restaurant_token','isolated-ui-fixture'); localStorage.setItem('foody_restaurant_user',JSON.stringify({ id:1, full_name:'Équipe démo',role:'owner',email:'demo@foody.test' })); localStorage.setItem('foody_restaurant_ids','[1,2]'); localStorage.setItem('foody-admin-locale',locale); localStorage.setItem('foody_admin_theme',locale === 'he' ? 'dark' : 'light'); }, { locale: options.locale ?? 'fr' });
@@ -15,8 +15,10 @@ async function install(page: Page, options: { locale?: string; permissions?: str
     if (/\/restaurants\/\d+\/settings$/.test(path)) {
       if (method === 'GET') { control.reads++; if (control.failRead) return route.fulfill({ status:503,json:{error:'Synthetic overview failure'} }); }
       else { writes.push({body,restaurant}); if(control.gate) await control.gate; if(control.applyAndFail) Object.assign(control.settings,body); if(control.failSave){control.failSave--;return route.fulfill({status:503,json:{error:'Synthetic pause failure'}});} Object.assign(control.settings,body); }
-      return route.fulfill({json:{settings:control.settings}});
+      return route.fulfill({json:{settings:{...control.restaurant,...control.settings}}});
     }
+    if (/\/batch-fulfillment-config$/.test(path)) return route.fulfill({json:{enabled:true,ordering_open:true,current_batch_open_at:'2026-10-04T09:00:00+03:00',current_batch_cutoff:'2026-10-07T22:00:00+03:00',next_batch_open_at:'2026-10-11T09:00:00+03:00'}});
+    if (/\/batch-preview$/.test(path)) return route.fulfill({json:{upcoming_cycles:[]}});
     const result=fixture.response(req.url(),method,body,Number(restaurant)||1);
     if (/\/restaurants\/\d+$/.test(path)) return route.fulfill({json:{restaurant:{...(result.json as any)?.restaurant,...control.restaurant}}});
     return route.fulfill({json:result.json??{},status:result.status??200});
@@ -64,9 +66,35 @@ test('ordering hub a failed response does not claim rollback and readback does n
 });
 
 test('ordering hub draft survives locale changes and reset/navigation require confirmation',async({page})=>{
-  const state=await install(page);state.control.settings.orders_paused=true;await page.goto('/1/settings/orders');await draftMode(page).selectOption('time');await reopen(page).fill('2026-10-06T12:00');const reads=state.control.reads;await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Restaurant', exact: true }).click();await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link',{name:'Horaires et disponibilité',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(reopen(page)).toHaveValue('2026-10-06T12:00');await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await page.getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(draftMode(page)).toHaveValue('manual');await draftMode(page).selectOption('time');await reopen(page).fill('2026-10-06T13:00');await page.getByRole('button',{name:'Atelier Foody',exact:true}).click();await page.getByRole('dialog').getByRole('combobox').selectOption('he');await page.keyboard.press('Escape');await expect(reopen(page)).toHaveValue('2026-10-06T13:00');expect(state.control.reads).toBe(reads);
+  const state=await install(page);state.control.settings.orders_paused=true;await page.goto('/1/settings/orders');await draftMode(page).selectOption('time');await reopen(page).fill('2026-10-06T12:00');const reads=state.control.reads;await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Restaurant', exact: true }).click();await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link',{name:'Horaires et disponibilité',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(reopen(page)).toHaveValue('2026-10-06T12:00');await page.getByRole('button',{name:'Réinitialiser',exact:true}).and(page.locator(':enabled')).click();await page.getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(draftMode(page)).toHaveValue('manual');await draftMode(page).selectOption('time');await reopen(page).fill('2026-10-06T13:00');await page.getByRole('button',{name:'Atelier Foody',exact:true}).click();await page.getByRole('dialog').getByRole('combobox').selectOption('he');await page.keyboard.press('Escape');await expect(reopen(page)).toHaveValue('2026-10-06T13:00');expect(state.control.reads).toBe(reads);
 });
 
 test('ordering hub load failure retries without fabricated status and read-only users cannot pause',async({page})=>{
   const state=await install(page,{permissions:['settings.view']});state.control.failRead=true;await page.goto('/1/settings/orders');await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger');await expect(pause(page)).toHaveCount(0);state.control.failRead=false;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(pause(page)).toBeDisabled();expect(state.writes).toHaveLength(0);
+});
+
+
+test('strict lot status uses its calendar and pause, not classic opening hours', async ({ page }) => {
+  const state = await install(page);
+  Object.assign(state.control.settings, { preorders_only: true, scheduling_enabled: false, batch_fulfillment_enabled: true });
+  await page.goto('/1/settings/orders');
+  await expect(status(page)).toContainText('Prise de précommandes ouverte');
+  await expect(status(page)).not.toContainText('Ouvert maintenant');
+  await expect(status(page)).toContainText('Selon le calendrier du lot');
+  await pause(page).click();
+  await expect(status(page)).not.toContainText('Prise de précommandes ouverte');
+});
+
+test('saving the ordering policy preserves an unfinished reopening draft', async ({ page }) => {
+  const state = await install(page);
+  state.control.settings.orders_paused = true;
+  await page.goto('/1/settings/orders');
+  await draftMode(page).selectOption('time');
+  await reopen(page).fill('2026-10-06T12:00');
+  await page.getByRole('button', { name: /^Précommandes uniquement/ }).click();
+  await page.getByRole('button', { name: 'Enregistrer les modifications', exact: true }).click();
+  await expect.poll(() => state.writes.length).toBe(1);
+  expect(state.writes[0].body).toEqual({ preorders_only: true });
+  await expect(reopen(page)).toHaveValue('2026-10-06T12:00');
+  await expect(apply(page)).toBeEnabled();
 });

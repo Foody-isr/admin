@@ -169,6 +169,12 @@ export type PricingMode = 'standard' | 'by_weight';
 export type TableAssignmentMode = 'free' | 'collaborative' | 'strict';
 
 export interface RestaurantSettings {
+  /** Require the configured calendar for guest pickup and delivery. */
+  preorders_only?: boolean;
+  pickup_enabled?: boolean;
+  delivery_enabled?: boolean;
+  dine_in_enabled?: boolean;
+  opening_hours_config?: OpeningHoursConfig;
   id: number;
   restaurant_id: number;
   require_order_approval: boolean;
@@ -182,6 +188,7 @@ export interface RestaurantSettings {
   service_mode: string;
   table_assignment_mode: TableAssignmentMode;
   scheduling_enabled: boolean;
+  scheduling_available_hours?: { start: string; end: string; days?: number[] }[];
   // Slot-based scheduling detail (mutually exclusive with batch fulfillment).
   scheduling_min_days_ahead?: number;
   /** Precise default preparation promise. Supersedes the legacy day field. */

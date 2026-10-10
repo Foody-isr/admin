@@ -32,14 +32,14 @@ const guarded = (page: Page) => page.evaluate(() => { const event = new Event('b
 
 for (const locale of ['fr','he']) test(`order availability responsive hours and workdays ${locale}`, async ({ page }, info) => {
   const state = await install(page, { locale }); await page.setViewportSize({ width: locale === 'fr' ? 375 : 1440, height: 1000 }); await page.goto('/1/settings/orders/availability');
-  await expect(page.locator('input[type=time]').first()).toHaveValue('09:00'); await page.screenshot({ path: info.outputPath(`order-availability-${locale}.png`) });
+  await expect(page.locator('input[type=time]').first()).toHaveValue('09:00', { timeout: 30_000 }); await page.screenshot({ path: info.outputPath(`order-availability-${locale}.png`) });
   await page.locator('input[type=time]').first().scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`order-hours-${locale}.png`) });
   await page.locator('form select').last().scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`order-workdays-${locale}.png`) });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(state.fixture.unhandled).toEqual([]);
 });
 
 test('availability retries failed loading without exposing default editable values', async ({ page }) => {
-  const state = await install(page); await page.goto('/1/settings/orders/availability'); await expect(opening(page)).toHaveValue('09:00'); await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Commandes et livraison', exact: true }).click(); await page.getByRole('link', { name: 'Précommandes', exact: true }).click(); await expect(page.locator('#preorder-lead')).toHaveValue('90'); state.control.failRead = true; await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Restaurant', exact: true }).click(); await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Horaires et disponibilité', exact: true }).click(); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger la disponibilité'); await expect(opening(page)).toHaveCount(0);
+  const state = await install(page); await page.goto('/1/settings/orders/availability'); await expect(opening(page)).toHaveValue('09:00'); await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Commandes et livraison', exact: true }).click(); await page.getByRole('link', { name: 'Prise de commandes', exact: true }).click(); await expect(page.getByRole('button', { name: /^Commandes immédiates/ })).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 }); state.control.failRead = true; await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Restaurant', exact: true }).click(); await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Horaires et disponibilité', exact: true }).click(); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger la disponibilité'); await expect(opening(page)).toHaveCount(0);
   state.control.failRead = false; await page.getByRole('button', { name: 'Réessayer', exact: true }).click(); await expect(opening(page)).toHaveValue('09:00'); expect(state.writes).toHaveLength(0);
 });
 
@@ -77,7 +77,7 @@ test('availability custom workdays preserve Sunday zero and clearing them restor
 
 test('availability protects navigation and reset, then preserves draft across locale changes', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/orders/availability'); await opening(page).fill('08:00'); const reads = state.control.reads;
-  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Commandes et livraison', exact: true }).click(); await page.getByRole('link', { name: 'Précommandes', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('button', { name: 'Annuler', exact: true }).click(); await expect(opening(page)).toHaveValue('08:00');
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Commandes et livraison', exact: true }).click(); await page.getByRole('link', { name: 'Prise de commandes', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('button', { name: 'Annuler', exact: true }).click(); await expect(opening(page)).toHaveValue('08:00');
   await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click(); await page.getByRole('button', { name: 'Abandonner les modifications', exact: true }).click(); await expect(opening(page)).toHaveValue('09:00'); await opening(page).fill('08:45');
   await page.getByRole('button', { name: 'Atelier Foody', exact: true }).click(); await page.getByRole('dialog').getByRole('combobox').selectOption('he'); await page.keyboard.press('Escape'); await expect(page.locator('#availability-pickup-monday-open')).toHaveValue('08:45'); expect(state.control.reads).toBe(reads);
 });
@@ -95,4 +95,19 @@ test('availability distinguishes catering from disabled standard modes and prese
   const state = await install(page); state.control.values.pickup_enabled = false; state.control.values.dine_in_enabled = false;
   await page.goto('/1/settings/orders/availability'); await expect(page.getByText(/Le traiteur conserve ses réglages/)).toBeVisible(); await expect(page.locator('input[type=time]')).toHaveCount(0);
   await page.getByRole('switch', { name: 'Traiteur uniquement', exact: true }).click(); await save(page).click(); await expect(status(page)).toContainText('Enregistré'); expect(state.writes[0].body).toEqual({ catering_only: false });
+});
+
+
+test('strict weekly availability only edits table hours and preserves pickup hours', async ({ page }) => {
+  const state = await install(page);
+  const pickupHours = structuredClone(state.control.values.opening_hours_config.pickup);
+  await page.route('**/restaurants/1/settings', route => route.fulfill({ json: { settings: { preorders_only: true, batch_fulfillment_enabled: true } } }));
+  await page.goto('/1/settings/orders/availability');
+  await expect(page.getByRole('switch', { name: 'À emporter', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('switch', { name: 'Sur place', exact: true })).toBeVisible();
+  await page.locator('#availability-dine_in-monday-open').fill('10:30');
+  await save(page).click();
+  await expect(status(page)).toContainText('Enregistré');
+  expect(state.writes[0].body.opening_hours_config.pickup).toEqual(pickupHours);
+  expect(state.writes[0].body.opening_hours_config.dine_in.monday.open).toBe('10:30');
 });

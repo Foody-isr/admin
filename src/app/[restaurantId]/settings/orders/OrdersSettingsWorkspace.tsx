@@ -9,7 +9,6 @@ import { OrderWorkflowBuilder } from './OrderWorkflowBuilder';
 import AvailabilitySettings from './AvailabilitySettings';
 import ProcessingSettings from './ProcessingSettings';
 import PreorderSettings from './PreorderSettings';
-import OrdersOverview from './OrdersOverview';
 
 export type OrdersSettingsView = 'overview' | 'availability' | 'preorders' | 'processing' | 'workflow';
 
@@ -19,7 +18,7 @@ export default function OrdersSettingsPage({ view = 'overview' }: { view?: Order
   if (view === 'processing') return <ProcessingSettings />;
   if (view === 'preorders') return <PreorderSettings />;
   if (view === 'workflow') return <WorkflowSettings />;
-  return <OrdersOverview />;
+  return <PreorderSettings />;
 }
 function WorkflowSettings() {
   const { restaurantId } = useParams(), rid = Number(restaurantId);
