@@ -20,6 +20,7 @@ import {
   controlClass,
 } from "./controls";
 import { FooterEditor } from "./FooterEditor";
+import { MissingFooter } from "./MissingFooter";
 import { HeaderInspector } from "./HeaderInspector";
 
 export function SiteInspector({
@@ -34,6 +35,7 @@ export function SiteInspector({
   footer,
   onChange,
   onFooterChange,
+  onCreateFooter,
   onStoriesNavigationAvailabilityChange,
   onRestaurantLogoUpload,
   onRestaurantLogoRemove,
@@ -47,6 +49,7 @@ export function SiteInspector({
   pages: DraftPagePayload[];
   sections: DraftSectionPayload[];
   footer: DraftSectionPayload | null;
+  onCreateFooter: () => void;
   onChange: (path: readonly (string | number)[], value: unknown) => void;
   onPageVisibilityChange: (key: string, visible: boolean) => void;
   onFooterChange: (
@@ -197,7 +200,7 @@ export function SiteInspector({
             onChange={onFooterChange}
           />
         ) : (
-          <MissingFooter />
+          <MissingFooter onCreate={onCreateFooter} />
         )}
       </>
     );
@@ -224,7 +227,7 @@ export function SiteInspector({
             onChange={onFooterChange}
           />
         ) : (
-          <MissingFooter />
+          <MissingFooter onCreate={onCreateFooter} />
         )}
       </>
     );
@@ -419,16 +422,6 @@ export function SiteInspector({
         />
       </InspectorGroup>
     </>
-  );
-}
-
-function MissingFooter() {
-  return (
-    <InspectorGroup title="Pied de page">
-      <p className="rounded-xl bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
-        Ajoutez une section « Pied de page » pour afficher vos coordonnées, horaires et liens.
-      </p>
-    </InspectorGroup>
   );
 }
 

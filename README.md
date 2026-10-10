@@ -135,6 +135,15 @@ The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementa
 
 Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
 
+The **Footer** panel offers **Add footer** when none exists. It creates a shared
+`_site` section through draft autosave and undo/redo. Existing hidden or legacy
+footers retain their identity and content; retired theme sections are ignored.
+The footer visibility switch is independent of **Footer branding** and preserves
+page-level visibility overrides. The inspector targets the footer selected by
+the public renderer. Run the isolated browser regression with
+`npx playwright test -c playwright.website-editor.config.ts`; it uses the sibling
+`foodyweb` checkout and an in-memory API on ports 3000, 3003 and 18081.
+
 The order page's **Item list** selects one global color style for its list,
 category bar, pills and item cards. In **Site design → Colors**, each of the six
 styles has optional menu colors in three collapsed groups. Unset roles remain

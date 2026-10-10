@@ -42,11 +42,12 @@ function render(
   pages: DraftPagePayload[],
   selection: RailSelection,
   surface: InspectorSurface = "page",
+  sections: DraftStatePayload["sections"] = [],
 ): string {
   const state: DraftStatePayload = {
     config: {},
     pages,
-    sections: [],
+    sections,
     deleted_page_ids: [],
     deleted_section_ids: [],
   };
@@ -72,6 +73,7 @@ function render(
         onPageChange: () => undefined,
         onPageReplace: () => undefined,
         onSectionChange: () => undefined,
+        onCreateFooter: () => undefined,
         onMakeDefault: () => undefined,
         onMakeHomepage: () => undefined,
         onStoriesNavigationAvailabilityChange: () => undefined,
@@ -145,4 +147,25 @@ test("the three inspector tabs are still present alongside it", () => {
   for (const label of ["Contenu", "Apparence", "Réglages"]) {
     assert.match(markup, new RegExp(`>${label}</button>`), label);
   }
+});
+
+test("missing footers offer creation in the dedicated and shared site panels", () => {
+  for (const region of ["footer", undefined] as const) {
+    const markup = render([page("landing", "home")], { kind: "site", region });
+    assert.match(markup, />Add footer<\/button>/);
+    assert.doesNotMatch(markup, /from Add section/);
+  }
+});
+
+test("hidden footers stay editable and branding needs no footer section", () => {
+  const markup = render([page("landing", "home")], { kind: "site", region: "footer" }, "page", [{
+    id: 42, section_type: "footer", page: "_site", sort_order: 0,
+    is_visible: false, layout: "columns", content: {}, settings: {},
+  }]);
+  assert.match(markup, /data-footer-editor/);
+  assert.match(markup, /data-field-id="site.footer.is_visible"/);
+  assert.doesNotMatch(markup, />Add footer<\/button>/);
+  const branding = render([page("landing", "home")], { kind: "site", region: "footer-branding" });
+  assert.match(branding, /site.footer_branding.enabled/);
+  assert.doesNotMatch(branding, />Add footer<\/button>/);
 });

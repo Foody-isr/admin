@@ -229,6 +229,12 @@ export function FooterEditor({
   );
   return (
     <div className="sqh-editor" data-footer-editor>
+      <ToggleField
+        fieldId="site.footer.is_visible"
+        label={t("editorShowFooter")}
+        checked={footer.is_visible}
+        onChange={(value) => onChange(["is_visible"], value)}
+      />
       {panel(
         "layout",
         t("editorLayoutColor"),

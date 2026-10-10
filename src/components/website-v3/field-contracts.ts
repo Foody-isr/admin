@@ -125,12 +125,20 @@ function footer(
   id: string,
   path: readonly (string | number)[],
 ): FieldContract {
-  return contract({
+  const base = contract({
     id,
     scope: "site",
     statePath: path,
     pageTypes: ALL_PAGES,
   });
+  if (id !== "site.footer.is_visible") return base;
+  const assertion = {
+    selector: '[data-editor-region="footer"]',
+    assertion: "visible" as const,
+    expected: "false",
+    name: "hidden",
+  };
+  return { ...base, testValue: false, preview: assertion, public: assertion };
 }
 
 function sectionVisibility(): FieldContract {
@@ -707,6 +715,7 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   liveSiteAction("site.stories_enabled", ["stories_enabled"]),
   site("site.footer_branding.enabled", ["custom_palette", "footer_branding", "enabled"], "[data-editor-region=footer-branding]"),
   site("site.footer_branding.background", ["custom_palette", "footer_branding", "background"], "[data-editor-region=footer-branding]"),
+  footer("site.footer.is_visible", ["is_visible"]),
   footer("site.footer.content.custom_text", ["content", "custom_text"]),
   footer("site.footer.content.show_logo", ["content", "show_logo"]),
   footer("site.footer.content.show_description", ["content", "show_description"]),
