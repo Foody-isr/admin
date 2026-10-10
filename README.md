@@ -556,3 +556,23 @@ Requires the API's `preorders_only` contract (migration 226). Existing scheduled
 restaurants are shown as Both until the operator explicitly selects Preorders
 only. Browser regressions: `npx playwright test -c playwright.redesign.config.ts
 tests/redesign/order-preorders.spec.ts tests/redesign/order-availability.spec.ts`.
+
+
+## Floor-plan editor
+
+The floor-plan editor follows the Square layout: a fine square grid, floating
+shape/width/height tools, four resize handles, a rotation handle, section table
+palettes and Undo/Redo. Width and height use grid units (new tables start at
+8 × 8); storage stays in canonical canvas percentages. Pointer gestures work
+with mouse, pen and touch. Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z travel history; focus
+the rotation handle and use Left/Right for 15-degree turns.
+
+Layouts are saved explicitly. Removing a marker leaves the restaurant table
+available in the palette. Table/section creation keeps unsaved placement edits.
+Legacy placements keep their former visible dimensions; `geometry_version: 2`
+round-trips authored size and angle. Deploy API migration 227 and the matching
+FoodyPOS before releasing this editor. It refuses writes to an API without
+`layout_geometry_version: 2`, preventing silent resizing by an older server.
+
+Run isolated browser checks with `npx playwright test -c playwright.floor-plan.config.ts`.
+All API calls in this suite use synthetic in-memory fixtures.

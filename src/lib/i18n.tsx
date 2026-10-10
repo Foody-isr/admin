@@ -6018,6 +6018,15 @@ const translations: Record<Locale, Record<string, string>> = {
     minutes: 'minutes',
 
     // ── Floor Plans ──
+    floorEditorUndo: 'Undo',
+    floorEditorRedo: 'Redo',
+    floorEditorProperties: 'Selected table',
+    floorEditorRemoveTable: 'Remove from floor plan',
+    floorEditorLandmarks: 'Landmarks',
+    floorEditorDiscard: 'Discard unsaved floor plan changes?',
+    floorEditorLoadError: 'Unable to load the floor plan.',
+    floorEditorSaveError: 'Unable to save the floor plan.',
+    floorEditorApiUpdate: 'The API needs to be updated to preserve table dimensions and rotation.',
     floorPlans: 'Floor plans',
     createFloorPlan: 'Create floor plan',
     floorPlanName: 'Floor plan name',
@@ -13634,6 +13643,15 @@ const translations: Record<Locale, Record<string, string>> = {
     minutes: 'דקות',
 
     // ── Floor Plans ──
+    floorEditorUndo: 'בטל',
+    floorEditorRedo: 'בצע שוב',
+    floorEditorProperties: 'שולחן נבחר',
+    floorEditorRemoveTable: 'הסר מתוכנית הקומה',
+    floorEditorLandmarks: 'ציוני דרך',
+    floorEditorDiscard: 'לבטל שינויים שלא נשמרו בתוכנית הקומה?',
+    floorEditorLoadError: 'לא ניתן לטעון את תוכנית הקומה.',
+    floorEditorSaveError: 'לא ניתן לשמור את תוכנית הקומה.',
+    floorEditorApiUpdate: 'יש לעדכן את השרת כדי לשמור מידות וסיבוב שולחנות.',
     floorPlans: 'תוכניות קומה',
     createFloorPlan: 'צור תוכנית קומה',
     floorPlanName: 'שם תוכנית הקומה',
@@ -21254,6 +21272,15 @@ const translations: Record<Locale, Record<string, string>> = {
     minutes: 'minutes',
 
     // ── Floor Plans ──
+    floorEditorUndo: 'Annuler',
+    floorEditorRedo: 'Rétablir',
+    floorEditorProperties: 'Table sélectionnée',
+    floorEditorRemoveTable: 'Retirer du plan de salle',
+    floorEditorLandmarks: 'Repères',
+    floorEditorDiscard: 'Abandonner les modifications du plan de salle ?',
+    floorEditorLoadError: 'Impossible de charger le plan de salle.',
+    floorEditorSaveError: 'Impossible d’enregistrer le plan de salle.',
+    floorEditorApiUpdate: 'L’API doit être mise à jour pour conserver les dimensions et la rotation des tables.',
     floorPlans: 'Plans de salle',
     createFloorPlan: 'Créer un plan de salle',
     floorPlanName: 'Nom du plan de salle',
