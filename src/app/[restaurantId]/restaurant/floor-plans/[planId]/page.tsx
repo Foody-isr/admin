@@ -1384,7 +1384,7 @@ export default function FloorPlanEditorPage() {
             )}
           </div>
 
-          <aside className={styles.palette} aria-label={t('tables')}>
+          <aside className={styles.palette} aria-label={t('floorEditorTables')}>
             <div className={styles.planIdentity}><h2>{plan?.name}</h2><p>{restaurantName}</p></div>
             <div className={styles.paletteContent}>
               {visibleSections.length === 0 && <p className="text-sm text-fg-secondary">{t('noSectionsInPlanHint')}</p>}
