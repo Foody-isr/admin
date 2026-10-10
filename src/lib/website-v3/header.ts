@@ -328,3 +328,9 @@ export function resolvePageHeader(
 export function restaurantInfoLayout(settings: WebsiteHeader["restaurant"], canChoose: boolean): "modern" | "classic" {
   return settings.info_layout ?? (canChoose ? "modern" : "classic");
 }
+
+/** Standard service bars inherit the header until an independent information style is selected. */
+export function headerInformationColorStyle(header: WebsiteHeader): WebsiteHeader["color_style"] {
+  return header.layout === "restaurant" || header.restaurant.info_color_style !== "default"
+    ? header.restaurant.info_color_style : header.color_style;
+}

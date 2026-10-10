@@ -576,7 +576,10 @@ export function HeaderInspector({
             "fulfillment",
             c.fulfillment,
             <>
-              <ColorStylePicker value={header.color_style} onChange={id => set("color_style", id as WebsiteHeader["color_style"])} />
+              <ColorStylePicker value={header.restaurant.info_color_style}
+                inheritedStyle={header.color_style} defaultLabel={c.sameAsHeader}
+                fieldId="header.restaurant.info_color_style"
+                onChange={id => patch("restaurant", {info_color_style: id as WebsiteHeader["restaurant"]["info_color_style"]})} />
               <p>{c.fulfillmentColorHint}</p>
               {!customOrderHeader && toggle("fulfillment", c.fulfillment)}
               <p>{c.fulfillmentHelp}</p><p>{c.rulesHint}</p>
