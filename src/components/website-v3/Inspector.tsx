@@ -26,11 +26,12 @@ import type {
 import { PageInspector } from "./PageInspector";
 import type { RailSelection } from "./PageRail";
 import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
-import { sectionBelongs } from "@/lib/website-v3/section-operations";
+import { resolveSiteFooter } from "@/lib/website-v3/footer";
 import { SectionInspector } from "./SectionInspector";
 import { HeaderInspector } from "./HeaderInspector";
 import { FooterBrandingEditor } from "./FooterBrandingEditor";
 import { FooterEditor } from "./FooterEditor";
+import { MissingFooter } from "./MissingFooter";
 import { SiteInspector } from "./SiteInspector";
 
 /** Re-exported for the many components that already import it from here.
@@ -59,6 +60,7 @@ export function Inspector({
   onPageChange,
   onPageReplace,
   onSectionChange,
+  onCreateFooter,
   onMakeDefault,
   onMakeHomepage,
   onStoriesNavigationAvailabilityChange,
@@ -88,6 +90,7 @@ export function Inspector({
   onPageChange: (key: string, path: StatePath, value: unknown) => void;
   onPageReplace: (key: string, page: DraftPagePayload) => void;
   onSectionChange: (key: string, path: StatePath, value: unknown) => void;
+  onCreateFooter: () => void;
   onMakeDefault: (key: string) => void;
   onMakeHomepage: (key: string) => void;
   onStoriesNavigationAvailabilityChange: (
@@ -107,19 +110,7 @@ export function Inspector({
           (candidate) => stableSectionKey(candidate) === selection.sectionKey,
         ) ?? null)
       : null;
-  const footer =
-    state.sections.find(
-      (candidate) =>
-        candidate.section_type === "footer" &&
-        page &&
-        sectionBelongs(candidate, page),
-    ) ??
-    state.sections.find(
-      (candidate) =>
-        candidate.section_type === "footer" && candidate.page === "_site",
-    ) ??
-    state.sections.find((candidate) => candidate.section_type === "footer") ??
-    null;
+  const footer = resolveSiteFooter(state.sections);
 
   const title =
     selection.kind === "site"
@@ -247,7 +238,7 @@ export function Inspector({
             }
           />
         ) : (
-          <p className="sqe-panel-body">{t("editorNoFooter")}</p>
+          <MissingFooter onCreate={onCreateFooter} />
         )
       ) : selection.kind === "site" ? (
         <SiteInspector
@@ -262,6 +253,7 @@ export function Inspector({
             (candidate) => !isTechnicalSitePage(candidate),
           )}
           footer={footer}
+          onCreateFooter={onCreateFooter}
           onChange={onConfigChange}
           onPageVisibilityChange={(key, visible) =>
             onPageChange(key, ["nav_visible"], visible)

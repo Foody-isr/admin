@@ -137,6 +137,7 @@ test("site settings delegate to Header while unmigrated page navigation remains 
   };
   const siteMarkup = render(
     React.createElement(SiteInspector, {
+      onCreateFooter: () => undefined,
       sections: [],
       tab: "settings",
       config: {},

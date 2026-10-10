@@ -9,6 +9,7 @@ import {
 } from "@/lib/website-v3/navigation-links";
 import { headerFromLegacy, resolvePageHeader } from "@/lib/website-v3/header";
 import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
+import { addSiteFooter } from "@/lib/website-v3/footer";
 import { websiteOrderChoicesAvailable } from "@/lib/website-v3/fulfillment";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -938,6 +939,13 @@ function DesktopWebsiteV3Builder({
     bumpPreview(false);
   };
 
+  const createFooter = () => {
+    if (!state || !activePage || busyRef.current) return;
+    setLocalState(addSiteFooter(state, `section-${crypto.randomUUID()}`));
+    setSelection({ kind: "site", pageKey: pageKey(activePage), region: "footer" });
+    setTab("content");
+  };
+
   const addSection = (type: string, layout = "default") => {
     if (!state || !activePage || busyRef.current) return;
     const section: DraftSectionPayload = {
@@ -1463,6 +1471,7 @@ function DesktopWebsiteV3Builder({
                 onPageChange={updatePage}
                 onPageReplace={replacePage}
                 onSectionChange={updateSection}
+                onCreateFooter={createFooter}
                 onMakeDefault={(key) =>
                   setLocalState(makeDefaultPage(state, key))
                 }

@@ -67,6 +67,15 @@ test("every custom contract selector is backed by a foodyweb renderer hook", () 
       return;
     }
     if (contract.id === "section.is_visible") return;
+    if (contract.id === "site.footer.is_visible") {
+      assert.match(webSources, /data-editor-region="footer"/);
+      for (const output of [contract.preview, contract.public]) {
+        assert.equal(output.selector, '[data-editor-region="footer"]');
+        assert.equal(output.assertion, "visible");
+        assert.equal(output.expected, "false");
+      }
+      return;
+    }
     [contract.preview.selector, contract.public.selector].forEach((selector) => {
       if (contract.editor.kind === "action") return;
       const expected = `data-field-${contract.id
@@ -299,6 +308,7 @@ function task4FieldPaths(): Map<string, readonly (string | number)[]> {
     ]);
   }
   paths.set("site.footer.layout", ["layout"]);
+  paths.set("site.footer.is_visible", ["is_visible"]);
   for (const field of [
     "color_style",
     "custom_bg",
@@ -391,6 +401,7 @@ test("builder exposes system links without inventing rail pages", () => {
       LocaleProvider,
       null,
       React.createElement(SiteInspector, {
+        onCreateFooter: () => undefined,
       sections: [],
         tab: "settings",
         config: { show_orders_link: true, stories_enabled: true },
