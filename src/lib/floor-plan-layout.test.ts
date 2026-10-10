@@ -8,6 +8,7 @@ import {
   tablePlacementCollisionIds,
   TABLE_SIZE_PRESETS,
   VERTICAL_RECTANGLE_SIZE,
+  authoredTablePlacement, resizeAuthoredTable,
 } from "./floor-plan-layout";
 
 test("normalization applies the square preset while preserving the centre", () => {
@@ -85,4 +86,24 @@ test("collision detection reports both overlapping table ids", () => {
     },
   ];
   assert.deepEqual(Array.from(tablePlacementCollisionIds(placements)).sort(), [1, 2]);
+});
+
+
+test('authored dimensions and rotation survive normalization and outline changes', () => {
+  const source = {tableId:1, x:20, y:30, width:6.25, height:10.875, shape:'square' as const, rotation:45, geometryVersion:2};
+  assert.deepEqual(normalizeTablePlacement(source),source);
+  const circle = applyTableShape(source,'circle');
+  assert.equal(circle.width,source.width); assert.equal(circle.height,source.height); assert.equal(circle.rotation,45);
+  // A legacy vertical rectangle used dimensions already rotated by 90 degrees.
+  const legacy = authoredTablePlacement({...source,geometryVersion:0,shape:'rectangle',rotation:90});
+  assert.equal(legacy.rotation,0); assert.equal(legacy.geometryVersion,2);
+  assert.equal(legacy.width,10.5); assert.equal(legacy.height,27.4);
+});
+
+test('rotated resize moves in local axes and preserves the opposite edge', () => {
+  const source = {x:30,y:30,width:8,height:12,shape:'rectangle' as const,rotation:90,geometryVersion:2};
+  const resized = resizeAuthoredTable(source,'e',0,8);
+  assert.ok(resized.width > source.width);
+  assert.ok(Math.abs((resized.y+resized.height/2)-(source.y+source.height/2)-4) < .0001);
+  assert.equal(resized.height,source.height);
 });
