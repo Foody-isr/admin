@@ -1,5 +1,5 @@
 import { orderJourneyColorStyle } from "./order-journey";
-import { headerFromLegacy, resolvePageHeader } from "./header";
+import { headerFromLegacy, resolvePageHeader, headerInformationColorStyle } from "./header";
 import { normalizeSiteColors, sectionSiteColorId } from "./site-colors";
 import { sectionBelongs } from "./section-operations";
 import { pageKey, type DraftConfigPayload, type DraftPagePayload, type DraftSectionPayload } from "./types";
@@ -24,7 +24,9 @@ export function siteColorUsage(
     const parts = new Set<ColorUsagePart>();
     const header = resolvePageHeader(shared, page.type, page.appearance_overrides);
     if (matches(header.color_style)) parts.add("header");
-    if (header.layout === "restaurant" && header.restaurant.info_enabled && matches(header.restaurant.info_color_style)) parts.add("info");
+    const showsInfo = header.layout === "restaurant" ? header.restaurant.info_enabled
+      : page.type === "order" ? page.appearance_overrides.website_order?.show_fulfillment !== false : header.fulfillment.enabled;
+    if (showsInfo && matches(headerInformationColorStyle(header))) parts.add("info");
     if (page.type === "order" && matches(page.appearance_overrides.website_order?.color_style)) parts.add("menu");
     if (page.type === "order") {
       const order = page.appearance_overrides.website_order;

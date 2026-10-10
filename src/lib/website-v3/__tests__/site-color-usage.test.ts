@@ -24,6 +24,22 @@ test("usage follows header, restaurant info, explicit menu and inherited default
   assert.deepEqual(usage("style-4").map(value => value.title), ["Home"]);
 });
 
+test("standard headers report service bar colors separately from navigation", () => {
+  const header = normalizeWebsiteHeader({color_style: "style-2", fulfillment: {enabled: true}, restaurant: {info_color_style: "style-4"}});
+  const state = normalizeDraftState({config: {nav_layout: {header}}, pages: [
+    {tmp_id: "home", type: "landing", slug: "home", title: "Home"},
+  ], sections: []});
+  const palette = {color_styles: normalizeSiteColors({})};
+  const usage = (id: string) => siteColorUsage(state.config, state.pages, [], palette, id).flatMap(value => value.parts);
+  assert.deepEqual(usage("style-2"), ["header"]);
+  assert.deepEqual(usage("style-4"), ["info"]);
+  const saved = (state.config.nav_layout as {header: typeof header}).header;
+  saved.restaurant.info_color_style = "default";
+  assert.deepEqual(usage("style-2"), ["header", "info"]);
+  saved.fulfillment.enabled = false;
+  assert.deepEqual(usage("style-2"), ["header"]);
+});
+
 test("usage includes visible page sections and shared sections, excludes hidden sections", () => {
   const state = normalizeDraftState({config: {}, pages: [
     {tmp_id: "home", type: "landing", slug: "home", title: "Home"},
