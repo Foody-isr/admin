@@ -21,7 +21,9 @@ import {
 } from '@simplewebauthn/browser';
 import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { RUNTIME_API_URL } from './runtime-origins';
+
+export const API_URL = RUNTIME_API_URL;
 const TOKEN_KEY = 'foody_restaurant_token';
 const USER_KEY = 'foody_restaurant_user';
 const RIDS_KEY = 'foody_restaurant_ids';
@@ -168,13 +170,46 @@ export interface BatchFulfillmentDay {
 export type PricingMode = 'standard' | 'by_weight';
 export type TableAssignmentMode = 'free' | 'collaborative' | 'strict';
 
+/** Reusable checkout policy assigned to physical devices in this restaurant. */
+/** Restaurant-wide names for predefined POS checks. */
+export interface TicketGroup {
+ id: string; restaurant_id: number; name: string; naming: 'automatic' | 'custom'; names: string[];
+ created_at: string; updated_at: string;
+}
+/** A named open bill, independent of individual kitchen batches. */
+export interface OpenTicket {
+ id: string; restaurant_id: number; group_id: string | null; name: string; order_type: 'pickup' | 'delivery';
+ closed_at: string | null; created_at: string; updated_at: string;
+}
+
+export interface POSCheckBehavior {
+ allow_hold_fire: boolean; collapse_sent: boolean; open_checks_enabled: boolean; open_checks_home: boolean; predefined_tickets: boolean;
+}
+export interface POSMode {
+ check_behavior?: POSCheckBehavior;
+ id: string; name: string; device_ids: string[];
+ seating_mode: FullServiceSettings['seating_mode']; send_and_stay: boolean;
+ coursing_enabled: boolean; auto_progression: boolean;
+ tile_size: 'tall' | 'wide'; sort_cart: FullServiceSettings['sort_cart'];
+}
+/** Staff fulfillment prompts are independent from guest checkout. */
+export interface POSFulfillment {
+ prompt: 'never' | 'start' | 'checkout'; default: 'dine_in' | 'pickup' | 'delivery';
+ enabled: ('dine_in' | 'pickup' | 'delivery')[];
+}
 /** Restaurant POS policy, independent of online/QR checkout payment requirements. */
 export interface FullServiceSettings {
+ check_behavior?: POSCheckBehavior;
  seating_mode: 'disabled' | 'coversOnly' | 'optionalSeats' | 'requiredSeats';
  send_and_stay: boolean;
  coursing_enabled: boolean;
  /** Advance to the next required selection during POS item entry. Defaults to false. */
  auto_progression?: boolean;
+ order_entry?: { tile_size: 'tall' | 'wide'; return_to_menu: 'home' | 'previous' };
+ fulfillment?: POSFulfillment;
+ immediate_category_ids?: number[];
+ course_ticket_policy?: 'fired_only' | 'fired_and_held';
+ modes?: POSMode[];
  courses: string[];
  show_held_on_kds: boolean;
  sort_cart: 'course' | 'seat' | 'entry';
@@ -733,6 +768,8 @@ export interface OrderItemModifier {
 }
 
 export interface OrderItem {
+  /** Immutable financial/production adjustment; original price snapshots remain. */
+  adjustment?: { kind: 'comp' | 'void'; reason: string; at: string } | null;
   /** Numbered table seat; absent/null means shared by the table. */
   seat_number?: number | null;
   id: number;

@@ -1,3 +1,5 @@
+
+import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
 // Curated Google-Fonts library offered in the website builder's typography
 // controls (hero name font, per-role overrides, and section font pickers).
 //
@@ -155,7 +157,7 @@ export function unloadCustomFont(family: string): void {
 
 // Guest app origin — its /api/font proxy streams uploaded fonts with open CORS,
 // so the builder preview (admin origin) can load them regardless of S3 CORS.
-const WEB_ORIGIN = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+const WEB_ORIGIN = RUNTIME_WEB_URL;
 
 /** Route an uploaded font's S3 URL through the guest app's /api/font proxy so
  *  the builder preview's cross-origin @font-face isn't blocked by S3 CORS. Only

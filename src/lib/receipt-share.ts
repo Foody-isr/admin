@@ -1,3 +1,5 @@
+
+import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
 // Pure helpers for sharing an order receipt with the customer via device
 // deep-links (WhatsApp / email). Framework-free and side-effect-free so the
 // order drawer stays thin and these stay trivially correct. The component
@@ -5,7 +7,7 @@
 
 /** Base URL of the guest-facing foodyweb app, where the receipt page lives. */
 export const WEB_BASE_URL =
-  process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+  RUNTIME_WEB_URL;
 
 /** Public receipt page URL for an order, or '' when the order has no token. */
 export function receiptShareUrl(token: string | undefined | null): string {

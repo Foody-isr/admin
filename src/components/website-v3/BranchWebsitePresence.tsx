@@ -1,5 +1,7 @@
 "use client";
 
+import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -22,7 +24,7 @@ import {
   Store,
 } from "lucide-react";
 
-const WEB_ORIGIN = process.env.NEXT_PUBLIC_WEB_URL || "https://dev-app.foody-pos.co.il";
+const WEB_ORIGIN = RUNTIME_WEB_URL;
 
 type FormState = {
   publicName: string;

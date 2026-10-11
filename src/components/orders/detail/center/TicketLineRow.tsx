@@ -62,7 +62,7 @@ export function ModifierRows({ item }: { item: OrderItem }) {
     <>
       {item.modifiers.map((m) => {
         const isAdd = m.action === 'add';
-        const delta = m.price_delta ?? 0;
+        const delta = item.adjustment ? 0 : (m.price_delta ?? 0);
         return (
           <Fragment key={m.id}>
             <Gap />
@@ -160,7 +160,7 @@ export function TicketLineRow({
   t: (k: string) => string;
 }) {
   const variantText = variantChipText(item);
-  const showUnpaidChip = hasBalance && item.billed_at == null;
+  const showUnpaidChip = hasBalance && !item.adjustment && item.billed_at == null;
 
   return (
     <div
@@ -185,16 +185,17 @@ export function TicketLineRow({
             {variantText}
           </span>
         )}
+        {item.adjustment && <span className="basis-full text-fs-xs text-[var(--fg-muted)]">{t(item.adjustment.kind === 'comp' ? 'orderLineComped' : 'orderLineVoided')} · {item.adjustment.reason}</span>}
         {showUnpaidChip && <Badge tone="warning">{t('notPaidChip')}</Badge>}
       </span>
 
-      <Money value={item.price * item.quantity} className="text-[14px] leading-[22px] font-normal text-end text-[var(--fg)]" />
+      <Money value={item.adjustment ? 0 : item.price * item.quantity} className="text-[14px] leading-[22px] font-normal text-end text-[var(--fg)]" />
 
       <ModifierRows item={item} />
       <WeightRow item={item} />
       {item.notes && <NoteRow note={item.notes} />}
 
-      {item.quantity > 1 && (
+      {item.quantity > 1 && !item.adjustment && (
         <>
           <Gap />
           <Gap />

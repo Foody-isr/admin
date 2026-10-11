@@ -1,5 +1,7 @@
 'use client';
 
+import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
+
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -17,7 +19,7 @@ import { parsePrice } from '@/lib/delivery-pricing';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+const WEB_URL = RUNTIME_WEB_URL;
 
 /** Local editing state. Empty strings mean "unset" (fall back to the zone). */
 interface Draft {

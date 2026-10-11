@@ -126,7 +126,7 @@ automatic first-variant selection and skipping optional customization. Both
 preferences follow the item’s explicit Save and new-item draft recovery. Legacy
 items keep first-variant selection on and skip-customization off. Automatic
 progression between sections after single-choice selections is a separate restaurant
-setting under **Settings → Full service → Fast order entry**. Reopening an item
+setting under **Settings → Device management → Modes → Checkout → Fast order entry**. Reopening an item
 keeps its editor open. These settings do not change guest web checkout or combo
 composition. Deploy the matching API and POS support before enabling them.
 Isolated browser checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/item-checkout.spec.ts`.
@@ -610,17 +610,39 @@ All API calls in this suite use synthetic in-memory fixtures.
 
 ## Full service and kitchen stations
 
-`/[restaurantId]/settings/full-service` edits the restaurant's covers, optional
-seats, Send & Stay, courses and check sorting policy. A separate Kitchen stations
-editor on that page configures registered tablets, phones, computers or displays:
+Settings now separates the restaurant policy from device checkout profiles:
+
+- Service settings → **Services** (`/settings/services`): ordered course names,
+  immediate-send library categories and fired/held paper-ticket policy.
+- Service settings → **Menu behavior** (`/settings/menu-behavior`): return home
+  or remain in the current menu group after adding an item.
+- Fulfillment methods → **POS** (`/settings/fulfillment`): enabled existing order
+  types, default and staff prompt at order start or Pay/Send.
+- Device management → **Modes** (`/settings/modes`): reusable full-service
+  profiles assigned to registered devices. Checkout sections control entry tile
+  size/progression, covers/seats, coursing and cart sorting; Open checks controls
+  Send & Stay. Unsaved changes persist across sections of the same profile.
+- Device management → **Kitchen displays** (`/settings/kitchen-displays`):
+  registered tablets, phones, computers or displays with
 Prep/Expo role, completion scope, columns, text size, timers, held courses and
-routing by source, dining option and library category. Both editors require an
-explicit save and protect unsaved changes when navigating away.
+routing by source, dining option and library category.
+
+Editors require explicit Save and protect unsaved changes on close/link navigation
+and reload. The legacy `/settings/full-service` route redirects to restaurant
+checkout defaults. A device can belong to only one checkout mode; forgotten and
+foreign devices cannot be assigned. Item opening/variant defaults remain in the
+item editor rather than a global force-open switch.
 
 Deploy the matching API with migrations 228–230 and 232 before using these settings.
 Admin and POS consume the same persisted policy; kitchen progress remains separate
 from payments, table occupancy and inventory. Comp/void reasons are configuration
-only until the corresponding operational actions are implemented.
+only until the corresponding operational actions are implemented. Additive
+mode/fulfillment/menu/printing policies reuse `full_service` JSONB and need no new
+migration. POS reloads settings explicitly; changing Admin does not push a live
+mode update. Fired/held printing currently adds held context to fired tickets;
+standalone held-only printing and custom fulfillment labels remain unsupported.
+
+Isolated checks: `npx playwright test -c playwright.redesign.config.ts pos-settings.spec.ts item-checkout.spec.ts`.
 
 ## Delivery address autocomplete
 
