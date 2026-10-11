@@ -11,7 +11,7 @@ import type {
 } from "@/lib/api";
 import type { DraftPagePayload } from "@/lib/website-v3/types";
 import * as PageDialogModule from "../PageDialog";
-import { PageInspector } from "../PageInspector";
+import { PageGeneralSettings } from "../PageSettingsDialog";
 
 Object.assign(globalThis, { React });
 
@@ -86,8 +86,8 @@ test("page address UI renders one address across inspector and dialog", () => {
       assert.match(dialog, /data-field-id="page\.create\.slug"/, addressState.name);
       assert.doesNotMatch(dialog, /data-page-address-readonly/, addressState.name);
     } else {
-      assert.doesNotMatch(inspector, /data-field-id="page\.slug"/, addressState.name);
-      assert.match(inspector, new RegExp(`>${addressState.publicAddress}</div>`), addressState.name);
+      assert.match(inspector, /data-field-id="page\.slug" disabled=""/, addressState.name);
+      assert.match(inspector, new RegExp(`value="${addressState.publicAddress}"`) , addressState.name);
       assert.doesNotMatch(dialog, /data-field-id="page\.create\.slug"/, addressState.name);
       assert.match(dialog, new RegExp(`>${addressState.publicAddress}</div>`), addressState.name);
       assert.doesNotMatch(inspector, new RegExp(`/${addressState.page.slug}`), addressState.name);
@@ -186,75 +186,16 @@ test("reserved aliases only explain an explicit visible address entry", () => {
   );
 });
 
-test("page inspector exposes overlay colors when the page inherits overlay", () => {
-  const inspector = renderInspector(contentPage(), { navbar_style: "overlay" });
-
-  assert.match(inspector, /Couleur de fond au survol/);
-  assert.match(inspector, /Couleur du texte normale/);
-  assert.match(inspector, /Couleur du texte au survol/);
+test("page settings distinguish site entry from the primary commerce alias", () => {
+  const markup = renderInspector(commercePage("order", "commander", true));
+  assert.match(markup, /Site entry page/);
+  assert.match(markup, /Primary order page/);
+  assert.doesNotMatch(markup, /Direction visuelle|Catalogue et séparateurs/);
 });
 
-test("page inspector distinguishes the site homepage from commerce defaults", () => {
-  const inspector = renderInspector(commercePage("order", "commander", true));
-
-  assert.match(inspector, /Site entry page/);
-  assert.match(inspector, /Primary order page/);
-  assert.match(inspector, /data-field-id="page\.is_homepage"/);
-  assert.match(inspector, /data-field-id="page\.is_default"/);
-});
-
-test("page inspector exposes inherited, shown, and hidden restaurant name states", () => {
-  const inspector = renderInspector(contentPage());
-
-  assert.match(
-    inspector,
-    /data-field-id="page\.appearance_overrides\.hide_navbar_name"/,
-  );
-  assert.match(inspector, /Inherit from site/);
-  assert.match(inspector, /Show restaurant name/);
-  assert.match(inspector, /Hide restaurant name/);
-});
-
-test("order page appearance exposes order type selector controls", () => {
-  const inspector = renderInspector(
-    commercePage("order", "commander", true),
-    {},
-  );
-
-  assert.match(inspector, /Sélecteur du type de commande/);
-  assert.match(inspector, /order_type_selector\.shape/);
-  assert.match(inspector, /order_type_selector\.variant/);
-  assert.match(inspector, /order_type_selector\.size/);
-  assert.match(inspector, /order_type_selector\.border_color/);
-});
-
-function renderInspector(
-  page: DraftPagePayload,
-  config: Record<string, unknown> = {},
-): string {
-  return renderToStaticMarkup(
-    React.createElement(
-      LocaleProvider,
-      null,
-      React.createElement(PageInspector, {
-        page,
-          surface: "page" as const,
-        onSurfaceChange: () => undefined,
-        restaurantId: 24,
-        restaurant: {} as Restaurant,
-        config,
-        onConfigChange: () => undefined,
-        catalog: { themes: [], typography_pairings: [] } as ThemeCatalog,
-        menus: [] as Menu[],
-        services: [] as CateringService[],
-        errors: [],
-        onChange: () => undefined,
-        onReplace: () => undefined,
-        onMakeDefault: () => undefined,
-        onMakeHomepage: () => undefined,
-      }),
-    ),
-  );
+function renderInspector(page: DraftPagePayload): string {
+  return renderToStaticMarkup(React.createElement(LocaleProvider, null,
+    React.createElement(PageGeneralSettings, { page, draft: page, menus: [], onChange: () => undefined })));
 }
 
 function commercePage(

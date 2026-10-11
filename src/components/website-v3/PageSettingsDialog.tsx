@@ -1,5 +1,8 @@
 "use client";
 
+import type { Menu } from "@/lib/api";
+import type { FieldError } from "@/lib/website-v3/types";
+import { CommerceSelector } from "./CommerceSelector";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/lib/i18n";
@@ -16,12 +19,16 @@ export function PageSettingsDialog({
   page,
   pages,
   restaurantId,
+  menus = [],
+  errors = [],
   onClose,
   onSave,
 }: {
   page: DraftPagePayload;
   pages: DraftPagePayload[];
   restaurantId: number;
+  menus?: Menu[];
+  errors?: FieldError[];
   onClose: () => void;
   onSave: (page: DraftPagePayload) => void;
 }) {
@@ -87,38 +94,7 @@ export function PageSettingsDialog({
           </div>
           <div role="tabpanel" className="sqe-settings-fields">
             {tab === "general" && (
-              <>
-                <label>
-                  {t("editorPageName")}
-                  <input
-                    value={draft.title}
-                    onChange={(event) =>
-                      setDraft({ ...draft, title: event.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  {t("editorPageUrl")}
-                  <input
-                    disabled={!editable}
-                    value={editable ? draft.slug : publicAddressForPage(page)}
-                    onChange={(event) =>
-                      setDraft({ ...draft, slug: event.target.value })
-                    }
-                  />
-                </label>
-                {!valid && <p role="alert">{t("editorInvalidPage")}</p>}
-                <label className="sqe-settings-check selection-row">
-                  <input
-                    type="checkbox"
-                    checked={draft.nav_visible}
-                    onChange={(event) =>
-                      setDraft({ ...draft, nav_visible: event.target.checked })
-                    }
-                  />
-                  {t("editorAddNavigation")}
-                </label>
-              </>
+              <PageGeneralSettings page={page} draft={draft} menus={menus} errors={errors} valid={valid} onChange={setDraft} />
             )}
             {tab === "seo" && (
               <>
@@ -130,6 +106,7 @@ export function PageSettingsDialog({
                 <label>
                   {t("editorSeoTitle")}
                   <input
+                    data-field-id="page.seo.title"
                     value={String(draft.seo?.title ?? "")}
                     onChange={(event) => seo("title", event.target.value)}
                   />
@@ -138,6 +115,7 @@ export function PageSettingsDialog({
                 <label>
                   {t("editorSeoDescription")}
                   <textarea
+                    data-field-id="page.seo.description"
                     value={String(draft.seo?.description ?? "")}
                     onChange={(event) => seo("description", event.target.value)}
                   />
@@ -166,5 +144,89 @@ export function PageSettingsDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Stages identity, navigation and menu associations without writing the draft. */
+export function PageGeneralSettings({
+  page,
+  draft,
+  menus,
+  errors = [],
+  valid = true,
+  onChange,
+}: {
+  page: DraftPagePayload;
+  draft: DraftPagePayload;
+  menus: Menu[];
+  errors?: FieldError[];
+  valid?: boolean;
+  onChange: (page: DraftPagePayload) => void;
+}) {
+  const { t } = useI18n();
+  const editable = pageAddressIsEditable(page) && !page.is_homepage;
+  return (
+    <>
+      <label>
+        {t("editorPageName")}
+        <input
+          data-field-id="page.title"
+          value={draft.title}
+          onChange={(event) => onChange({ ...draft, title: event.target.value })}
+        />
+      </label>
+      <label>
+        {t("editorPageUrl")}
+        <input
+          data-field-id="page.slug"
+          disabled={!editable}
+          value={editable ? draft.slug : publicAddressForPage(page)}
+          onChange={(event) => onChange({ ...draft, slug: event.target.value })}
+        />
+      </label>
+      {!valid && <p role="alert">{t("editorInvalidPage")}</p>}
+      {errors.map((error) => (
+        <p role="alert" key={error.fieldId}>{error.message}</p>
+      ))}
+      <label className="sqe-settings-check selection-row">
+        <input
+          type="checkbox"
+          data-field-id="page.nav_visible"
+          checked={draft.nav_visible}
+          onChange={(event) => onChange({ ...draft, nav_visible: event.target.checked })}
+        />
+        {t("editorAddNavigation")}
+      </label>
+      <label className="sqe-settings-check selection-row">
+        <input
+          type="checkbox"
+          data-field-id="page.is_homepage"
+          checked={draft.is_homepage}
+          disabled={page.is_homepage}
+          onChange={(event) => onChange({ ...draft, is_homepage: event.target.checked })}
+        />
+        {t("websiteV3Homepage")}
+      </label>
+      {(draft.type === "order" || draft.type === "catering") && (
+        <label className="sqe-settings-check selection-row">
+          <input
+            type="checkbox"
+            data-field-id="page.is_default"
+            checked={draft.is_default}
+            disabled={page.is_default}
+            onChange={(event) => onChange({ ...draft, is_default: event.target.checked })}
+          />
+          {t(draft.type === "order" ? "websiteV3OrderPrimary" : "websiteV3CateringPrimary")}
+        </label>
+      )}
+      {draft.type === "order" && (
+        <CommerceSelector
+          page={draft}
+          menus={menus}
+          error={errors.find((error) => error.fieldId === "page.settings.menu_ids")?.message}
+          onChange={(menu_ids) => onChange({ ...draft, settings: { ...draft.settings, menu_ids } })}
+        />
+      )}
+    </>
   );
 }
