@@ -147,10 +147,10 @@ export default function OptionSetDetailPage() {
     return (
       <CenteredModalShell title="" onClose={goBack}>
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <p className="text-neutral-600 dark:text-neutral-400">Option set not found</p>
+          <p className="text-[var(--fg-muted)]">Option set not found</p>
           <button
             onClick={goBack}
-            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-lg shadow-lg shadow-orange-500/25 transition-all"
+            className="px-4 py-2 text-sm font-medium text-[var(--action-fg)] bg-[var(--action)] hover:bg-[var(--action-hover)] rounded-r-md transition-all"
           >
             {t('back')}
           </button>
@@ -172,11 +172,11 @@ export default function OptionSetDetailPage() {
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-1 h-6 bg-orange-500 rounded-full" />
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-[var(--fg)]">
               {t('details') || 'Details'}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 space-y-4">
+          <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-5 space-y-4">
             <div className="flex items-center gap-3 flex-wrap">
               <LocaleTabs
                 locales={SUPPORTED_LOCALES}
@@ -193,14 +193,14 @@ export default function OptionSetDetailPage() {
             </div>
             <LocaleEditingBanner active={activeLocale} source={sourceLocale} />
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+              <label className="block text-sm font-medium text-[var(--fg-muted)] mb-2">
                 {t('optionSetName')}
               </label>
               {isSourceTab ? (
-                <input
+                <input aria-label={t('optionSetName')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                  className="w-full min-h-10 px-3 py-2 text-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-lg text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)] focus:border-[var(--brand-ink)] transition-colors"
                 />
               ) : (
                 <>
@@ -212,11 +212,11 @@ export default function OptionSetDetailPage() {
                       )
                     }
                     placeholder={name || t('optionSetName')}
-                    className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                    className="w-full min-h-10 px-3 py-2 text-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-lg text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)] focus:border-[var(--brand-ink)] transition-colors"
                   />
-                  <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+                  <div className="text-xs text-[var(--fg-subtle)] mt-1">
                     {(t('languageSourceLabel') || 'Source') + ': '}
-                    <span className="text-neutral-500 dark:text-neutral-400">{name || '—'}</span>
+                    <span className="text-[var(--fg-muted)]">{name || '—'}</span>
                   </div>
                 </>
               )}
@@ -228,18 +228,18 @@ export default function OptionSetDetailPage() {
         <section>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-1 h-6 bg-orange-500 rounded-full" />
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-[var(--fg)]">
               {t('options')}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+          <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto">
             <div
-              className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700"
+              className="grid min-w-[640px] text-xs font-semibold text-[var(--fg-muted)] px-4 py-3 bg-[var(--surface-2)] border-b border-[var(--line)]"
               style={{ gridTemplateColumns: '1fr 140px 110px 100px 36px' }}
             >
               <span>{t('variantName')}</span>
               <span>SKU</span>
-              <span className="text-right">{t('price')}</span>
+              <span className="text-end">{t('price')}</span>
               <span>{t('status')}</span>
               <span />
             </div>
@@ -261,39 +261,39 @@ export default function OptionSetDetailPage() {
             {/* Add-option row */}
             {canEdit && (
             <div
-              className="grid items-center gap-2 px-4 py-3 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-[#0a0a0a]"
+              className="grid min-w-[640px] items-center gap-2 px-4 py-3 border-t border-[var(--line)] bg-[var(--surface-2)]"
               style={{ gridTemplateColumns: '1fr 140px 110px 100px 36px' }}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <Plus size={14} className="text-orange-500 shrink-0" />
-                <input
+                <Plus size={14} className="text-[var(--brand-ink)] shrink-0" />
+                <input aria-label={t('variantName')}
                   value={newOptionName}
                   onChange={(e) => setNewOptionName(e.target.value)}
                   placeholder={t('addOption') || 'Add option'}
-                  className="flex-1 text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white min-w-0"
+                  className="flex-1 text-sm bg-transparent border-0 outline-none text-[var(--fg)] min-w-0"
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }}
                 />
               </div>
-              <input
+              <input aria-label="SKU"
                 value={newOptionSku}
                 onChange={(e) => setNewOptionSku(e.target.value)}
                 placeholder="—"
-                className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
+                className="text-sm bg-transparent border-0 outline-none text-[var(--fg-muted)]"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }}
               />
               <NumberInput
-                min={0}
+                min={0} aria-label={t('price')}
                 value={newOptionPrice}
                 onChange={setNewOptionPrice}
                 placeholder="0.00"
-                className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
+                className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] text-end pe-1"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }}
               />
               <span />
               {newOptionName.trim() ? (
                 <button
                   onClick={handleAddOption}
-                  className="text-sm font-medium text-orange-500 hover:underline justify-self-end"
+                  className="text-sm font-medium text-[var(--brand-ink)] hover:underline justify-self-end"
                 >
                   {t('add')}
                 </button>
@@ -309,7 +309,7 @@ export default function OptionSetDetailPage() {
         {canEdit && (
           <button
             onClick={handleDelete}
-            className="text-sm font-medium text-red-500 hover:text-red-600 hover:underline"
+            className="text-sm font-medium text-[var(--danger-500)] hover:underline"
           >
             {t('delete')} {t('options').toLowerCase()}
           </button>
@@ -402,17 +402,17 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
 
   return (
     <div
-      className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
+      className="grid min-w-[640px] items-center gap-2 px-4 py-3 border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors"
       style={{ gridTemplateColumns: '1fr 140px 110px 100px 36px' }}
     >
       {isSourceTab ? (
-        <input
+        <input aria-label={t('optionSetName')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={handleNameBlur}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
           readOnly={!canEdit}
-          className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
+          className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2"
         />
       ) : (
         <input
@@ -426,7 +426,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
           readOnly={!canEdit}
           placeholder={name || t('variantName')}
-          className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2 italic"
+          className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2 italic"
         />
       )}
       <input
@@ -436,7 +436,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         readOnly={!canEdit}
         placeholder="—"
-        className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
+        className="text-sm bg-transparent border-0 outline-none text-[var(--fg-muted)]"
       />
       <NumberInput
         min={0}
@@ -446,13 +446,13 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         readOnly={!canEdit}
         placeholder="0.00"
-        className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
+        className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] text-end pe-1"
       />
       <select
         value={isActive ? 'active' : 'inactive'}
         onChange={(e) => handleActiveChange(e.target.value === 'active')}
         disabled={!canEdit}
-        className="text-xs bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
+        className="text-xs bg-transparent border-0 outline-none text-[var(--fg-muted)]"
       >
         <option value="active">{t('available')}</option>
         <option value="inactive">{t('unavailable')}</option>
@@ -460,7 +460,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
       {canEdit ? (
         <button
           onClick={handleDelete}
-          className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          className="size-9 flex items-center justify-center rounded-lg text-[var(--fg-subtle)] hover:text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
           title={t('delete')}
         >
           <Trash2 size={14} />

@@ -1,0 +1,177 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/billing.spec.ts",
+      "tests/redesign/stories.spec.ts",
+      "--grep",
+      "billing plan change requires|stories removal requires"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next start --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "billing.spec.ts",
+      "file": "billing.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "billing plan change requires confirmation and serializes writes for this restaurant",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1584,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:58:09.146Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d4578388efe8f23c8f70-7fdcb3430b7901808c63",
+          "file": "billing.spec.ts",
+          "line": 36,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "stories.spec.ts",
+      "file": "stories.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "stories removal requires confirmation and cancellation restores trigger focus",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1321,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:58:11.069Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4a7870dab9f2beb54560-b02c264be5b967bce357",
+          "file": "stories.spec.ts",
+          "line": 79,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T13:58:07.774Z",
+    "duration": 4676.301,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

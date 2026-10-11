@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Download } from 'lucide-react';
 import {
@@ -27,6 +27,7 @@ import {
   writeStoredBasis,
   writeStoredSel,
 } from '@/lib/analytics-range';
+import { comparableDelta } from '@/lib/dashboard-comparison';
 import { downloadCsv } from '@/lib/csv/export';
 import {
   Badge,
@@ -48,14 +49,9 @@ import BreakdownExplorer from './BreakdownExplorer';
 const RANGE_STORAGE_KEY = 'foody.analytics.range.v3';
 const BASIS_STORAGE_KEY = 'foody.analytics.basis.v1';
 
-function pct(now: number, before: number): number {
-  if (!before) return now > 0 ? 100 : 0;
-  return ((now - before) / before) * 100;
-}
-
-function delta(now: number, before: number): { value: string; direction: 'up' | 'down' } {
-  const p = pct(now, before);
-  return { value: `${p >= 0 ? '+' : ''}${p.toFixed(1)}%`, direction: p >= 0 ? 'up' : 'down' };
+function delta(now: number | undefined, before: number | undefined): { value: string; direction: 'up' | 'down' | 'flat' } | undefined {
+  const p = comparableDelta(now, before);
+  return p == null ? undefined : { value: `${p > 0 ? '+' : ''}${p.toFixed(1)}%`, direction: p > 0 ? 'up' : p < 0 ? 'down' : 'flat' };
 }
 
 // Auto time granularity for the trend so long ranges stay readable.
@@ -97,6 +93,9 @@ export default function AnalyticsOverviewPage() {
   const [trendGrain, setTrendGrain] = useState<BreakdownDimension>('day');
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [topError, setTopError] = useState(false);
+  const loadSequence = useRef(0);
 
   // Hydrate week config + persisted selection before the first fetch.
   useEffect(() => {
@@ -134,7 +133,8 @@ export default function AnalyticsOverviewPage() {
   );
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const request = ++loadSequence.current;
+    setLoading(true); setLoadError(false); setTopError(false); setPeriod(null);
     const days = daysInclusive(dateRange);
     const grain = granularityFor(days);
     setTrendGrain(grain);
@@ -143,6 +143,9 @@ export default function AnalyticsOverviewPage() {
       getBreakdown(rid, { dimension: grain, scope, basis }),
       getTopSellers(rid, scope, basis),
     ]);
+    if (request !== loadSequence.current) return;
+    setLoadError(per.status === 'rejected' || brk.status === 'rejected');
+    setTopError(top.status === 'rejected');
     if (per.status === 'fulfilled') setPeriod(per.value);
     if (brk.status === 'fulfilled') {
       const points = [...brk.value.rows]
@@ -178,13 +181,14 @@ export default function AnalyticsOverviewPage() {
   const cur = period?.current;
   const prev = period?.previous;
   const revenue = cur?.total_revenue ?? 0;
+  const revenueDelta = delta(cur?.total_revenue, prev?.total_revenue);
   const fmtMoney = (n: number) => money(n, { decimals: 0, grouped: true });
   const spark = sparkline(trend.map((p) => p.value));
 
   const onExportTrend = useCallback(() => {
     const header = [t('period'), t('revenue')];
     const body = trend.map((p) => [p.label, Math.round(p.value)]);
-    downloadCsv(`mamie-revenue-${scope.from}_${scope.to}`, [header, ...body]);
+    downloadCsv(`foody-revenue-${scope.from}_${scope.to}`, [header, ...body]);
   }, [trend, scope, t]);
 
   return (
@@ -211,28 +215,29 @@ export default function AnalyticsOverviewPage() {
         }
       />
 
-      {loading && !period ? (
+      {loadError && <div role="alert" className="mb-4 rounded-r-md border border-[var(--line)] p-4 text-[var(--danger-500)]"><p>{t('workspaceLoadError')}</p><Button className="mt-3" onClick={load}>{t('retry')}</Button></div>}
+      {loading ? (
         <div className="flex justify-center py-16">
           <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
         </div>
-      ) : (
+      ) : period ? (
         <>
           {/* Hero: revenue + trend */}
-          <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-6)] mb-[var(--s-5)]">
+          <div className="bg-[var(--summary-bg)] border border-[var(--line)] rounded-r-lg p-4 sm:p-6 mb-[var(--s-5)]">
             <div className="flex flex-wrap items-end justify-between gap-[var(--s-4)] mb-[var(--s-4)]">
               <div>
-                <div className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)] mb-[var(--s-2)]">
+                <div className="text-fs-sm font-medium text-[var(--fg-muted)] mb-[var(--s-2)]">
                   {t('revenue')}
                 </div>
                 <div
                   className="font-semibold tabular-nums text-[var(--fg)]"
-                  style={{ fontSize: 48, letterSpacing: '-0.03em', lineHeight: 1 }}
+                  style={{ fontSize: 'clamp(28px, 4vw, 40px)', letterSpacing: '-0.03em', lineHeight: 1.2 }}
                 >
                   {fmtMoney(revenue)}
                 </div>
                 <div className="flex items-center gap-[var(--s-2)] mt-[var(--s-2)]">
-                  <DeltaPill {...delta(revenue, prev?.total_revenue ?? 0)} />
-                  <span className="text-fs-sm text-[var(--fg-muted)]">{t('vsPreviousPeriod')}</span>
+                  {revenueDelta && <DeltaPill {...revenueDelta} />}
+                  {revenueDelta && <span className="text-fs-sm text-[var(--fg-muted)]">{t('vsPreviousPeriod')}</span>}
                 </div>
               </div>
               {spark.line && (
@@ -246,20 +251,20 @@ export default function AnalyticsOverviewPage() {
           </div>
 
           {/* KPI strip */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-[var(--s-4)] mb-[var(--s-5)]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--s-4)] mb-[var(--s-5)]">
             <Kpi
               label={t('orders')}
-              value={(cur?.total_orders ?? 0).toLocaleString('en-US')}
-              delta={delta(cur?.total_orders ?? 0, prev?.total_orders ?? 0)}
+              value={(cur?.total_orders ?? 0).toLocaleString(locStr)}
+              delta={delta(cur?.total_orders, prev?.total_orders)}
             />
             <Kpi
               label={t('avgTicket')}
               value={money(cur?.avg_ticket ?? 0, { decimals: 1 })}
-              delta={delta(cur?.avg_ticket ?? 0, prev?.avg_ticket ?? 0)}
+              delta={delta(cur?.avg_ticket, prev?.avg_ticket)}
             />
             <Kpi
               label={t('itemsSold')}
-              value={cur?.items_sold ? cur.items_sold.toLocaleString('en-US') : '—'}
+              value={cur?.items_sold ? cur.items_sold.toLocaleString(locStr) : '—'}
               sub={cur?.items_sold ? undefined : t('noItemDetailForPeriod')}
             />
           </div>
@@ -271,7 +276,7 @@ export default function AnalyticsOverviewPage() {
 
           {/* Top sellers (line-item data; empty for imported history) */}
           <Section title={t('topSellingItems') || 'Articles les plus vendus'}>
-            {topSellers.length === 0 ? (
+            {topError ? <p role="alert" className="text-fs-sm text-[var(--danger-500)]">{t('workspaceLoadError')} <Button onClick={load}>{t('retry')}</Button></p> : topSellers.length === 0 ? (
               <p className="text-fs-sm text-[var(--fg-muted)]">{t('noItemDetailForPeriod')}</p>
             ) : (
               <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
@@ -281,8 +286,8 @@ export default function AnalyticsOverviewPage() {
                       <tr>
                         <th style={{ width: 48 }}>#</th>
                         <th>{t('itemName') || 'Article'}</th>
-                        <th style={{ textAlign: 'right' }}>{t('quantity') || 'Qté'}</th>
-                        <th style={{ textAlign: 'right' }}>{t('revenue')}</th>
+                        <th style={{ textAlign: 'end' }}>{t('quantity') || 'Qté'}</th>
+                        <th style={{ textAlign: 'end' }}>{t('revenue')}</th>
                         <th style={{ width: 80 }} />
                       </tr>
                     </Thead>
@@ -290,13 +295,13 @@ export default function AnalyticsOverviewPage() {
                       {topSellers.map((item, i) => (
                         <tr key={item.name}>
                           <td>
-                            <span className="inline-grid place-items-center w-7 h-7 rounded-r-sm bg-[var(--surface-3)] text-[var(--fg-muted)] text-[10px] font-bold">
+                            <span className="inline-grid place-items-center w-7 h-7 rounded-r-sm bg-[var(--surface-3)] text-[var(--fg-muted)] text-fs-xs font-bold">
                               {i + 1}
                             </span>
                           </td>
                           <td className="text-[var(--fg)] font-medium">{item.name}</td>
-                          <NumTd style={{ textAlign: 'right' }}>{item.quantity}</NumTd>
-                          <NumTd style={{ textAlign: 'right' }}>{fmtMoney(item.revenue ?? 0)}</NumTd>
+                          <NumTd style={{ textAlign: 'end' }}>{item.quantity}</NumTd>
+                          <NumTd style={{ textAlign: 'end' }}>{fmtMoney(item.revenue ?? 0)}</NumTd>
                           <td>{i === 0 && <Badge tone="brand">★ Top</Badge>}</td>
                         </tr>
                       ))}
@@ -307,20 +312,20 @@ export default function AnalyticsOverviewPage() {
             )}
           </Section>
         </>
-      )}
+      ) : null}
     </>
   );
 }
 
-function DeltaPill({ value, direction }: { value: string; direction: 'up' | 'down' }) {
+function DeltaPill({ value, direction }: { value: string; direction: 'up' | 'down' | 'flat' }) {
   const up = direction === 'up';
   return (
     <span
       className={`inline-flex items-center gap-1 text-fs-xs font-medium tabular-nums ${
-        up ? 'text-[var(--success-500)] dark:text-[#4ade80]' : 'text-[var(--danger-500)] dark:text-[#fb7185]'
+        direction === 'flat' ? 'text-[var(--fg-muted)]' : up ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'
       }`}
     >
-      <span aria-hidden>{up ? '↑' : '↓'}</span>
+      <span aria-hidden>{direction === 'flat' ? '−' : up ? '↑' : '↓'}</span>
       {value}
     </span>
   );

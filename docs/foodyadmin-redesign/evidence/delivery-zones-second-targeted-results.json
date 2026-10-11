@@ -1,0 +1,954 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/delivery-zones.spec.ts"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "delivery-zones.spec.ts",
+      "file": "delivery-zones.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "delivery zones responsive fr 375",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9861,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:32:58.562Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-735026240d41a1c9e7a3",
+          "file": "delivery-zones.spec.ts",
+          "line": 41,
+          "column": 78
+        },
+        {
+          "title": "delivery zones responsive he 1440",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2213,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:08.785Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-fe570b0f194a5a730101",
+          "file": "delivery-zones.spec.ts",
+          "line": 41,
+          "column": 78
+        },
+        {
+          "title": "delivery zones responsive en 820",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2165,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:11.005Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-26fcbfab09acc6645795",
+          "file": "delivery-zones.spec.ts",
+          "line": 41,
+          "column": 78
+        },
+        {
+          "title": "delivery order-only roles can manage zones without loading protected restaurant settings",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4509,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:13.175Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-5b12b8a843f788578510",
+          "file": "delivery-zones.spec.ts",
+          "line": 42,
+          "column": 5
+        },
+        {
+          "title": "delivery settings-only viewer sees readonly minimum without requesting order-managed zones",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1673,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:17.694Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-01f1210557e9811c6c77",
+          "file": "delivery-zones.spec.ts",
+          "line": 43,
+          "column": 5
+        },
+        {
+          "title": "delivery zone and minimum failures remain independent and retryable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2006,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:19.375Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-1dc78e2d0111eada82e0",
+          "file": "delivery-zones.spec.ts",
+          "line": 44,
+          "column": 5
+        },
+        {
+          "title": "delivery minimum load error never becomes an editable zero fallback",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1769,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:21.390Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-a454355fb8de034ef9a2",
+          "file": "delivery-zones.spec.ts",
+          "line": 45,
+          "column": 5
+        },
+        {
+          "title": "delivery radius price edit preserves its original centre and explicit zero minimum",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2140,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:23.171Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-0c9264b5675125332bdb",
+          "file": "delivery-zones.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "delivery radius can explicitly adopt the current restaurant origin",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3805,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:25.321Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-b12ecd45a0e48f689f2c",
+          "file": "delivery-zones.spec.ts",
+          "line": 47,
+          "column": 5
+        },
+        {
+          "title": "delivery geocoding outage preserves an existing zone but blocks a new radius without origin",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2820,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:29.137Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-5265a17a602ff2c6cd42",
+          "file": "delivery-zones.spec.ts",
+          "line": 48,
+          "column": 5
+        },
+        {
+          "title": "delivery city draft handles postal codes, duplicate names and unadded text",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2437,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:31.968Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-17380a83361aea5f7e62",
+          "file": "delivery-zones.spec.ts",
+          "line": 49,
+          "column": 5
+        },
+        {
+          "title": "delivery legacy polygon survives a fee edit and can be viewed without new drawing tools",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2146,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:34.413Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-a21aac806bc1d8bb1ea8",
+          "file": "delivery-zones.spec.ts",
+          "line": 50,
+          "column": 5
+        },
+        {
+          "title": "delivery invalid radius and negative fee do not mutate",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1996,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:36.570Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-32c097eca78c0d856816",
+          "file": "delivery-zones.spec.ts",
+          "line": 51,
+          "column": 5
+        },
+        {
+          "title": "delivery zone draft and pending city guard dismissal",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3118,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:38.573Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-8e8afc3e8dfd333f7e26",
+          "file": "delivery-zones.spec.ts",
+          "line": 52,
+          "column": 5
+        },
+        {
+          "title": "delivery minimum serializes a scoped zero save and never sends other settings",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 7337,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('Enregistré', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Enregistré', { exact: true })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('Enregistré', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Enregistré', { exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:53:717",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                      "column": 717,
+                      "line": 53
+                    },
+                    "snippet": "  51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});\n  52 | test('delivery zone draft and pending city guard dismissal',async({page})=>{const state=await install(page);await open(page);await edit(page,1);await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true})).toHaveValue('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(0);});\n> 53 | test('delivery minimum serializes a scoped zero save and never sends other settings',async({page})=>{const state=await install(page);await open(page,2);await minimumInput(page).fill('');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(page.getByText(/Indiquez 0 pour aucun minimum/)).toBeVisible();await minimumInput(page).fill('0');let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await page.getByRole('button',{name:'Enregistrer',exact:true}).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(minimumInput(page)).toBeDisabled();release();state.control.gate=null;await expect(page.getByText('Enregistré',{exact:true})).toBeVisible();expect(state.writes).toEqual([{method:'PUT',path:'/api/v1/restaurants/2/settings',rid:'2',query:'',body:{minimum_order_delivery:0}}]);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             ^\n  54 | for(const kind of ['create','update','delete','minimum'])test(`delivery uncertain ${kind} reconciles by GET without repeated writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='minimum'){await minimumInput(page).fill('0');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();}else if(kind==='delete'){await page.getByRole('button',{name:`Supprimer · ${seed()[1].name}`,exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}else{if(kind==='create'){await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouvelle ville');await dialog(page).getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('cities');await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville démo');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();}else{await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('8');}await save(page).click();}await expect(verify(page)).toBeVisible();await verify(page).click();await expect(page.getByText(/Impossible de vérifier/)).toBeVisible();state.control.failRead=false;state.control.failMinimumRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);});\n  55 | test('delivery differing zone readback preserves the draft until confirmed adoption',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('10');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true})).toHaveValue('10');await page.screenshot({path:info.outputPath('delivery-zones-recovery-fr.png'),animations:'disabled'});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true})).toHaveValue('0');await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  56 | test('delivery last active zone deactivation explains the actual coverage rule',async({page},info)=>{const state=await install(page);await open(page);await page.getByRole('checkbox',{name:`Zone active · ${seed()[0].name}`,exact:true}).click();await expect(page.getByRole('alertdialog').getByText(/Sans zone classique active/)).toBeVisible();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(0);await page.getByRole('checkbox',{name:`Zone active · ${seed()[0].name}`,exact:true}).click();await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('delivery-zones-disable-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Désactiver la zone',exact:true}).click();await expect(page.getByText(/Sans zone classique active/)).toBeVisible();expect(state.writes[0].body.is_active).toBe(false);expect(state.writes[0].body.radius_m).toBe(5000);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                        "column": 717,
+                        "line": 53
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('Enregistré', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Enregistré', { exact: true })\u001b[22m\n\n\n  51 | test('delivery invalid radius and negative fee do not mutate',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('0.0001');await save(page).click();await expect(dialog(page).getByText(/Un rayon nécessite un centre valide/)).toBeVisible();await dialog(page).getByRole('textbox',{name:'Rayon (km)',exact:true}).fill('5');await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('-2');await save(page).click();await expect(dialog(page).getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);});\n  52 | test('delivery zone draft and pending city guard dismissal',async({page})=>{const state=await install(page);await open(page);await edit(page,1);await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true})).toHaveValue('Ville non ajoutée');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(0);});\n> 53 | test('delivery minimum serializes a scoped zero save and never sends other settings',async({page})=>{const state=await install(page);await open(page,2);await minimumInput(page).fill('');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(page.getByText(/Indiquez 0 pour aucun minimum/)).toBeVisible();await minimumInput(page).fill('0');let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await page.getByRole('button',{name:'Enregistrer',exact:true}).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(minimumInput(page)).toBeDisabled();release();state.control.gate=null;await expect(page.getByText('Enregistré',{exact:true})).toBeVisible();expect(state.writes).toEqual([{method:'PUT',path:'/api/v1/restaurants/2/settings',rid:'2',query:'',body:{minimum_order_delivery:0}}]);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             ^\n  54 | for(const kind of ['create','update','delete','minimum'])test(`delivery uncertain ${kind} reconciles by GET without repeated writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='minimum'){await minimumInput(page).fill('0');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();}else if(kind==='delete'){await page.getByRole('button',{name:`Supprimer · ${seed()[1].name}`,exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}else{if(kind==='create'){await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Nouvelle ville');await dialog(page).getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('cities');await dialog(page).getByRole('textbox',{name:'Ville ou code postal',exact:true}).fill('Ville démo');await dialog(page).getByRole('button',{name:'Ajouter',exact:true}).click();}else{await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('8');}await save(page).click();}await expect(verify(page)).toBeVisible();await verify(page).click();await expect(page.getByText(/Impossible de vérifier/)).toBeVisible();state.control.failRead=false;state.control.failMinimumRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);});\n  55 | test('delivery differing zone readback preserves the draft until confirmed adoption',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('10');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true})).toHaveValue('10');await page.screenshot({path:info.outputPath('delivery-zones-recovery-fr.png'),animations:'disabled'});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true})).toHaveValue('0');await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  56 | test('delivery last active zone deactivation explains the actual coverage rule',async({page},info)=>{const state=await install(page);await open(page);await page.getByRole('checkbox',{name:`Zone active · ${seed()[0].name}`,exact:true}).click();await expect(page.getByRole('alertdialog').getByText(/Sans zone classique active/)).toBeVisible();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(0);await page.getByRole('checkbox',{name:`Zone active · ${seed()[0].name}`,exact:true}).click();await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('delivery-zones-disable-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Désactiver la zone',exact:true}).click();await expect(page.getByText(/Sans zone classique active/)).toBeVisible();expect(state.writes[0].body.is_active).toBe(false);expect(state.writes[0].body.radius_m).toBe(5000);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts:53:717"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:41.699Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-mi-445cc--never-sends-other-settings/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-mi-445cc--never-sends-other-settings/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/delivery-zones-delivery-mi-445cc--never-sends-other-settings/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/delivery-zones.spec.ts",
+                    "column": 717,
+                    "line": 53
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-7d55b68bb5ce029c9a4c",
+          "file": "delivery-zones.spec.ts",
+          "line": 53,
+          "column": 5
+        },
+        {
+          "title": "delivery uncertain create reconciles by GET without repeated writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3153,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:50.006Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-76706f1944eece0b3016",
+          "file": "delivery-zones.spec.ts",
+          "line": 54,
+          "column": 62
+        },
+        {
+          "title": "delivery uncertain update reconciles by GET without repeated writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2662,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:53.361Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-daa59b408fec83e2678c",
+          "file": "delivery-zones.spec.ts",
+          "line": 54,
+          "column": 62
+        },
+        {
+          "title": "delivery uncertain delete reconciles by GET without repeated writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2743,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:56.036Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-92b37fc912fa942f0a16",
+          "file": "delivery-zones.spec.ts",
+          "line": 54,
+          "column": 62
+        },
+        {
+          "title": "delivery uncertain minimum reconciles by GET without repeated writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1936,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:33:58.785Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-66a374414bdcb748f4bd",
+          "file": "delivery-zones.spec.ts",
+          "line": 54,
+          "column": 62
+        },
+        {
+          "title": "delivery differing zone readback preserves the draft until confirmed adoption",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2674,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:34:00.729Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-0b25d35538c77245ccc5",
+          "file": "delivery-zones.spec.ts",
+          "line": 55,
+          "column": 5
+        },
+        {
+          "title": "delivery last active zone deactivation explains the actual coverage rule",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2821,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:34:03.409Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-1c78c82241bf559ee5dc",
+          "file": "delivery-zones.spec.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "delivery tour protection is explained without deletion or automatic retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1959,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:34:06.236Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-910e5d45e2ca9bd6f829",
+          "file": "delivery-zones.spec.ts",
+          "line": 57,
+          "column": 5
+        },
+        {
+          "title": "delivery filtering and mobile map preview remain usable with failed tiles",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2020,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:34:08.201Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-117aec30f415eb59185e",
+          "file": "delivery-zones.spec.ts",
+          "line": 58,
+          "column": 5
+        },
+        {
+          "title": "delivery language change preserves loaded data without refetching zones or minimum",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2084,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:34:10.227Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7d9eee3fbf9474b731c-b0f8362018eea96d8883",
+          "file": "delivery-zones.spec.ts",
+          "line": 59,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T15:32:57.370Z",
+    "duration": 75089.537,
+    "expected": 23,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

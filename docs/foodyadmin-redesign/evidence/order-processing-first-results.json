@@ -1,0 +1,546 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/order-processing.spec.ts"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "order-processing.spec.ts",
+      "file": "order-processing.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "processing responsive policies fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 41813,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:42:57.571Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-61eff3f5dd4d546ebe58",
+          "file": "order-processing.spec.ts",
+          "line": 37,
+          "column": 39
+        },
+        {
+          "title": "processing responsive policies he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5707,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:43:40.726Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-2f76aaf9fc265ae810ed",
+          "file": "order-processing.spec.ts",
+          "line": 37,
+          "column": 39
+        },
+        {
+          "title": "processing exposes failed or incomplete reads and retries without editable defaults",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4977,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:43:46.452Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-0a71748a4c26f0e99566",
+          "file": "order-processing.spec.ts",
+          "line": 43,
+          "column": 5
+        },
+        {
+          "title": "processing prep-only save preserves null and absent inheritance and is scoped to restaurant two",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4831,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:43:51.444Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-77b5533d70f38b86cbd7",
+          "file": "order-processing.spec.ts",
+          "line": 49,
+          "column": 5
+        },
+        {
+          "title": "processing kitchen override can be reverted before save but cannot pretend to restore inheritance afterwards",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5472,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:43:56.293Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-4d6cd23cd336e9b20f97",
+          "file": "order-processing.spec.ts",
+          "line": 54,
+          "column": 5
+        },
+        {
+          "title": "processing preserves historical service mode and preparation estimate on independent payment change",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 9641,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('combobox', { name: 'Mode de service', exact: true })\nExpected: \u001b[32m\"drive_thru\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('combobox', { name: 'Mode de service', exact: true })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('combobox', { name: 'Mode de service', exact: true })\nExpected: \u001b[32m\"drive_thru\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('combobox', { name: 'Mode de service', exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-processing.spec.ts:61:86",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-processing.spec.ts",
+                      "column": 86,
+                      "line": 61
+                    },
+                    "snippet": "  59 | test('processing preserves historical service mode and preparation estimate on independent payment change', async ({ page }) => {\n  60 |   const state = await install(page); state.control.settings.service_mode = 'drive_thru'; state.control.settings.pickup_prep_time_minutes = 360; await page.goto('/1/settings/orders/processing');\n> 61 |   await expect(page.getByRole('combobox', { name: 'Mode de service', exact: true })).toHaveValue('drive_thru'); await expect(page.getByText(/Ce mode de service existant/)).toBeVisible(); await payment(page).selectOption('false'); await save(page).click(); await expect(status(page)).toContainText('Enregistré'); expect(state.writes[0].body).toEqual({ require_pickup_prepayment: false }); await expect(prep(page)).toHaveValue('360');\n     |                                                                                      ^\n  62 | });\n  63 |\n  64 | test('processing validates empty fractional and out-of-range estimates and focuses the input', async ({ page }) => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-processing.spec.ts",
+                        "column": 86,
+                        "line": 61
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('combobox', { name: 'Mode de service', exact: true })\nExpected: \u001b[32m\"drive_thru\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('combobox', { name: 'Mode de service', exact: true })\u001b[22m\n\n\n  59 | test('processing preserves historical service mode and preparation estimate on independent payment change', async ({ page }) => {\n  60 |   const state = await install(page); state.control.settings.service_mode = 'drive_thru'; state.control.settings.pickup_prep_time_minutes = 360; await page.goto('/1/settings/orders/processing');\n> 61 |   await expect(page.getByRole('combobox', { name: 'Mode de service', exact: true })).toHaveValue('drive_thru'); await expect(page.getByText(/Ce mode de service existant/)).toBeVisible(); await payment(page).selectOption('false'); await save(page).click(); await expect(status(page)).toContainText('Enregistré'); expect(state.writes[0].body).toEqual({ require_pickup_prepayment: false }); await expect(prep(page)).toHaveValue('360');\n     |                                                                                      ^\n  62 | });\n  63 |\n  64 | test('processing validates empty fractional and out-of-range estimates and focuses the input', async ({ page }) => {\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-processing.spec.ts:61:86"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:44:01.778Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/order-processing-processin-2f2cc--independent-payment-change/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/order-processing-processin-2f2cc--independent-payment-change/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/order-processing-processin-2f2cc--independent-payment-change/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-processing.spec.ts",
+                    "column": 86,
+                    "line": 61
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-85d9fb0ddbca36417478",
+          "file": "order-processing.spec.ts",
+          "line": 59,
+          "column": 5
+        },
+        {
+          "title": "processing validates empty fractional and out-of-range estimates and focuses the input",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8242,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:44:13.016Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-3b2130c7c023d34c745a",
+          "file": "order-processing.spec.ts",
+          "line": 64,
+          "column": 5
+        },
+        {
+          "title": "processing freezes edits and serializes writes while preserving the failed draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7703,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:44:21.913Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-7b69677c613f586ff637",
+          "file": "order-processing.spec.ts",
+          "line": 70,
+          "column": 5
+        },
+        {
+          "title": "processing retains its draft through locale changes and confirms reset and navigation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5957,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:44:29.635Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-fb29dfe1781d418070df",
+          "file": "order-processing.spec.ts",
+          "line": 76,
+          "column": 5
+        },
+        {
+          "title": "processing read-only users can review settings without changing policies",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4793,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:44:35.616Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-3f86ad1f96d4e35d0914",
+          "file": "order-processing.spec.ts",
+          "line": 83,
+          "column": 5
+        },
+        {
+          "title": "processing disabled channels retain their settings and remain inaccessible to edits",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6314,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:44:40.435Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-eea9098bce1df81e07fe",
+          "file": "order-processing.spec.ts",
+          "line": 87,
+          "column": 5
+        },
+        {
+          "title": "processing English labels and numeric direction are explicit",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4254,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T12:44:46.768Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-ab67291f11f7ebacb630",
+          "file": "order-processing.spec.ts",
+          "line": 92,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T12:42:54.669Z",
+    "duration": 116570.793,
+    "expected": 11,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

@@ -5,17 +5,17 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 h-[22px] px-2 rounded-r-sm text-fs-xs font-medium whitespace-nowrap',
+  'inline-flex items-center gap-1 min-h-[24px] px-2 rounded-r-sm text-fs-xs font-medium whitespace-nowrap',
   {
     variants: {
       tone: {
         neutral: 'bg-[var(--surface-2)] text-[var(--fg-muted)]',
-        success: 'bg-[var(--success-50)] text-[var(--success-500)] dark:text-[#4ade80]',
-        warning: 'bg-[var(--warning-50)] text-[var(--warning-500)] dark:text-[#fbbf24]',
-        danger: 'bg-[var(--danger-50)] text-[var(--danger-500)] dark:text-[#fb7185]',
-        info: 'bg-[var(--info-50)] text-[var(--info-500)] dark:text-[#60a5fa]',
+        success: 'bg-[var(--success-50)] text-[var(--success-500)]',
+        warning: 'bg-[var(--warning-50)] text-[var(--warning-500)]',
+        danger: 'bg-[var(--danger-50)] text-[var(--danger-500)]',
+        info: 'bg-[var(--info-50)] text-[var(--info-500)]',
         brand:
-          'text-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)]',
+          'text-[var(--brand-ink)] bg-[var(--brand-soft)]',
         // Combo indicator — violet, distinct from the panel's blue/green/amber
         // breakdown hues and from brand orange (= default sales).
         combo:

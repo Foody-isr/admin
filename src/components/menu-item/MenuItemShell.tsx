@@ -1,10 +1,14 @@
 'use client';
 
-import { Save, X } from 'lucide-react';
-import { useEffect } from 'react';
+import { X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { useDialogReturnFocus } from '@/lib/use-dialog-return-focus';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
+import './item-editor.css';
+import ItemSectionOutline from './ItemSectionOutline';
 
 interface Props {
   title: string;
@@ -14,14 +18,11 @@ interface Props {
   saveDisabled?: boolean;
   sidebar: React.ReactNode;
   children: React.ReactNode;
+  dirty?: boolean;
+  initialSection?: string;
 }
 
-/**
- * Item-editor shell — inset full-screen modal with 280px left rail.
- * Aligned to the Foody OS design-reference FullScreenEditor pattern
- * (see design-reference/design/drawer.jsx): 60px head, close-left,
- * centered title, save/cancel right. API preserved for existing callers.
- */
+/** A continuous, accessible item editor with one scroll area and fixed actions. */
 export default function MenuItemShell({
   title,
   onClose,
@@ -30,79 +31,144 @@ export default function MenuItemShell({
   saveDisabled = false,
   sidebar,
   children,
+  dirty = false,
+  initialSection = 'details',
 }: Props) {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
 
-  // Esc to close — parity with Radix Dialog UX.
+  const focus = useDialogReturnFocus();
+  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const [sidebarCards, setSidebarCards] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+    if (!scrollRoot) return;
+    const update = () => setScrolled(scrollRoot.scrollTop > 56);
+    scrollRoot.addEventListener('scroll', update, { passive: true });
+    update();
+    return () => scrollRoot.removeEventListener('scroll', update);
+  }, [scrollRoot]);
+  useEffect(() => {
+    const id =
+      initialSection === 'details'
+        ? 'information'
+        : initialSection === 'cost'
+          ? 'recipe'
+          : initialSection === 'modifiers'
+            ? 'personalizations'
+            : initialSection;
+    const root = scrollRoot;
+    if (!root || id === 'information') return;
+    const scroll = () => {
+      const section = root.querySelector<HTMLElement>(
+        `[data-item-section="${id}"]`,
+      );
+      if (!section) return false;
+      root.scrollTo({
+        top:
+          root.scrollTop +
+          section.getBoundingClientRect().top -
+          root.getBoundingClientRect().top -
+          24,
+        behavior: 'auto',
+      });
+      return true;
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    // Availability and recipe data can expand earlier sections after mount.
+    // Keep the requested section in view until the user starts interacting.
+    const mutationObserver = new MutationObserver(() => {
+      scroll();
+    });
+    const resizeObserver = new ResizeObserver(() => {
+      scroll();
+    });
+    const stop = () => {
+      mutationObserver.disconnect();
+      resizeObserver.disconnect();
+      for (const event of ['wheel', 'touchstart', 'pointerdown', 'keydown'])
+        root.removeEventListener(event, stop);
+    };
+    mutationObserver.observe(root, { childList: true, subtree: true });
+    if (root.firstElementChild) resizeObserver.observe(root.firstElementChild);
+    for (const event of ['wheel', 'touchstart', 'pointerdown', 'keydown'])
+      root.addEventListener(event, stop, { passive: true });
+    scroll();
+    return stop;
+  }, [initialSection, scrollRoot]);
 
   return (
-    <div className="fixed inset-0 z-50">
-      {/* Backdrop — matches FullScreenEditor (Stock/Prep) entrance animation */}
-      <div
-        className="absolute inset-0 bg-black/50 animate-in fade-in-0 duration-200"
-        onClick={onClose}
-      />
-
-      {/* Inset container — 32px top, 24px bottom, 24px each side on desktop;
-          full-screen edge-to-edge on mobile. Symmetric left/right insets
-          (no transform centering) keeps the modal correctly centered in
-          RTL as well as LTR — left:50% + width:calc would over-constrain
-          and get inverted by the RTL containing-block rules.
-          Entrance animation (fade-in + subtle zoom) matches the Radix-powered
-          FullScreenEditor used by Stock / Prep editors. */}
-      <div
-        className="absolute inset-0 md:top-[32px] md:bottom-[24px] md:left-[24px] md:right-[24px] pt-safe-t pb-safe-b flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
-      >
-        {/* Head — 60px, close-left · centered title · save/cancel right.
-            Cancel button hides on mobile (X already cancels). */}
-        <div className="h-[60px] shrink-0 px-[var(--s-4)] md:px-[var(--s-5)] flex items-center gap-[var(--s-3)] md:gap-[var(--s-4)] bg-[var(--surface)] border-b border-[var(--line)]">
-          <Button variant="ghost" size="md" icon onClick={onClose} aria-label={t('cancel')}>
-            <X />
-          </Button>
-          <div className="flex-1 text-center min-w-0">
-            <h2 className="text-fs-md font-semibold text-[var(--fg)] truncate">
-              {title}
-            </h2>
-          </div>
-          <div className="flex items-center gap-[var(--s-2)] shrink-0">
-            <Button variant="secondary" size="md" onClick={onClose} className="hidden md:inline-flex">
-              {t('cancel')}
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--surface)]" />
+        <Dialog.Content
+          {...focus}
+          aria-describedby={undefined}
+          className="item-editor fixed inset-0 z-50 flex flex-col overflow-clip pt-safe-t pb-safe-b"
+        >
+          <header className="item-editor-header">
+            <Button
+              variant="secondary"
+              icon
+              onClick={onClose}
+              aria-label={t('cancel')}
+              className="item-editor-close"
+            >
+              <X />
             </Button>
-            {canEdit && (
+            <div className="item-editor-header-title">
+              <Dialog.Title className={scrolled ? '' : 'sr-only'}>
+                {title}
+              </Dialog.Title>
+              {dirty && (
+                <p role="status" className="item-editor-unsaved">
+                  {t('itemUnsavedChanges')}
+                </p>
+              )}
+            </div>
+            <div className="item-editor-actions">
               <Button
-                variant="primary"
-                size="md"
-                onClick={onSave}
-                disabled={saving || saveDisabled}
+                variant="secondary"
+                onClick={onClose}
+                className="hidden md:inline-flex"
               >
-                <Save />
-                {saving ? t('saving') : t('save')}
+                {t('cancel')}
               </Button>
-            )}
+              {canEdit && (
+                <Button
+                  variant="primary"
+                  onClick={onSave}
+                  disabled={saving || saveDisabled}
+                >
+                  {saving ? t('saving') : t('save')}
+                </Button>
+              )}
+            </div>
+          </header>
+          <div
+            ref={setScrollRoot}
+            data-item-editor-scroll
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          >
+            <div className="item-editor-layout">
+              <h1 className="item-editor-title">{title}</h1>
+              <main className="min-w-0">{children}</main>
+              <aside className="item-editor-sidebar">
+                <div ref={setSidebarCards}>{sidebar}</div>
+                <ItemSectionOutline
+                  scrollRoot={scrollRoot}
+                  cards={sidebarCards}
+                />
+              </aside>
+            </div>
           </div>
-        </div>
-
-        {/* Body — on mobile the summary rail stacks above the main content
-            (so image upload + summary stay reachable); on md+ it sits as a
-            280px sidebar to the start of the main content. */}
-        <div className="flex-1 flex flex-col md:grid overflow-y-auto md:overflow-hidden min-h-0 md:[grid-template-columns:280px_1fr]">
-          <aside className="md:border-e border-[var(--line)] md:bg-[var(--surface)] p-[var(--s-4)] md:p-[var(--s-5)] md:overflow-y-auto md:max-w-[280px]">
-            {sidebar}
-          </aside>
-          <main className="flex md:flex-1 flex-col md:overflow-hidden min-w-0">
-            {children}
-          </main>
-        </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

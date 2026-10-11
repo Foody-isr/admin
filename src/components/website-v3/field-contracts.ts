@@ -6,7 +6,7 @@ import type { InspectorSurface } from "@/lib/website-v3/inspector-scope";
 
 type Assertion = "text" | "attribute" | "css" | "visible" | "count";
 type TestValue = string | number | boolean | number[];
-type InspectorTab = "Contenu" | "Apparence" | "Réglages";
+import type { SectionPanel } from "./SectionInspector";
 
 type RendererExpectation = {
   selector: string;
@@ -18,7 +18,7 @@ type RendererExpectation = {
 type FieldEditorContract = {
   kind: "field" | "action";
   scope: "site" | "page" | "section";
-  tab: InspectorTab;
+  sectionPanel?: SectionPanel;
   pageTitle: string;
   sectionLabel?: string;
   publicSlug: string;
@@ -125,12 +125,20 @@ function footer(
   id: string,
   path: readonly (string | number)[],
 ): FieldContract {
-  return contract({
+  const base = contract({
     id,
     scope: "site",
     statePath: path,
     pageTypes: ALL_PAGES,
   });
+  if (id !== "site.footer.is_visible") return base;
+  const assertion = {
+    selector: '[data-editor-region="footer"]',
+    assertion: "visible" as const,
+    expected: "false",
+    name: "hidden",
+  };
+  return { ...base, testValue: false, preview: assertion, public: assertion };
 }
 
 function sectionVisibility(): FieldContract {
@@ -186,18 +194,6 @@ function siteAction(
   );
 }
 
-function liveSiteAction(id: string, path: readonly (string | number)[]): FieldContract {
-  return contract(
-    {
-      id,
-      scope: "site",
-      statePath: ["live", ...path],
-      pageTypes: ALL_PAGES,
-    },
-    true,
-  );
-}
-
 function contract(
   base: Pick<FieldContract, "id" | "scope" | "statePath" | "pageTypes">,
   isAction = false,
@@ -231,6 +227,29 @@ function contract(
 }
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
+  "section.settings.motion.parallax_target": "text",
+  "section.settings.motion.mobile_parallax": "up",
+  "section.settings.motion.mobile_parallax_target": "text",
+  "section.settings.motion.mobile_parallax_amount": 200,
+
+  "section.settings.word_animation": "slide",
+  "section.settings.resize_width": false,
+  "section.settings.carousel_autoplay": true,
+  "section.settings.carousel_interval": 6000,
+  "section.settings.carousel_duration": 700,
+  "section.settings.motion.enabled": true,
+  "section.settings.motion.entrance": "zoom",
+  "section.settings.motion.mobile_entrance": "from_bottom",
+  "section.settings.motion.duration_ms": 1500,
+  "section.settings.motion.delay_ms": 200,
+  "section.settings.motion.replay": true,
+  "section.settings.motion.media_hover": "wobble",
+  "section.settings.motion.button_hover": "push",
+  "section.settings.motion.parallax": "up",
+  "section.settings.motion.parallax_amount": 30,
+  "section.settings.motion.mobile": false,
+  "section.settings.motion.parallax_mobile": true,
+
   "site.theme_id": "editorial-dark",
   "site.pairing_id": "modern-sans",
   "site.brand_color": "#1a2b3c",
@@ -241,29 +260,6 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "page.appearance_overrides.typography.roles.itemName.color": "#1e293b",
   "page.appearance_overrides.typography.roles.itemPrice.color": "#b45309",
   "page.appearance_overrides.typography.roles.itemDescription.color": "#64748b",
-  "page.appearance_overrides.checkout_text_colors.heading": "#0f172a",
-  "page.appearance_overrides.checkout_text_colors.primary": "#1e293b",
-  "page.appearance_overrides.checkout_text_colors.secondary": "#64748b",
-  "page.appearance_overrides.checkout_text_colors.input": "#111827",
-  "page.appearance_overrides.checkout_text_colors.price": "#92400e",
-  "page.appearance_overrides.checkout_text_colors.button": "#ffffff",
-  "page.appearance_overrides.cart_text_colors.heading": "#0f172a",
-  "page.appearance_overrides.cart_text_colors.primary": "#1e293b",
-  "page.appearance_overrides.cart_text_colors.secondary": "#64748b",
-  "page.appearance_overrides.cart_text_colors.price": "#92400e",
-  "page.appearance_overrides.cart_text_colors.button": "#ffffff",
-  "page.appearance_overrides.cart_text_colors.buttonBg": "#1d4ed8",
-  "page.appearance_overrides.cart_text_colors.closeBg": "#e2e8f0",
-  "page.appearance_overrides.cart_text_colors.closeText": "#0f172a",
-  "page.appearance_overrides.cart_text_colors.surface": "#fffbeb",
-  "page.appearance_overrides.cart_text_colors.surfaceMuted": "#fef3c7",
-  "page.appearance_overrides.cart_text_colors.divider": "#fcd34d",
-  "page.appearance_overrides.cart_text_colors.accent": "#7c3aed",
-  "page.appearance_overrides.cart_text_colors.overlay": "#1e1b4b",
-  "page.appearance_overrides.cart_text_colors.stepperBg": "#ede9fe",
-  "page.appearance_overrides.cart_text_colors.stepperText": "#6d28d9",
-  "page.appearance_overrides.cart_text_colors.stepperBorder": "#c4b5fd",
-  "page.appearance_overrides.cart_text_colors.remove": "#b91c1c",
   "site.nav_layout": `{"logo":"left","links":"center","cta":"right"}`,
   "site.compact-navigation.icon": "#111827",
   "site.compact-navigation.button-background": "#ffffff",
@@ -305,15 +301,14 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "site.footer.layout": "centered",
   "site.footer.settings.color_style": "custom",
   "site.footer.settings.custom_bg": "#111827",
+  "site.footer_branding.enabled": false,
+  "site.footer_branding.background": "#234537",
   "site.footer.settings.custom_text": "#f8fafc",
   "site.footer.settings.custom_muted": "#94a3b8",
   "site.footer.settings.custom_accent": "#d6ff3f",
   "site.footer.settings.custom_divider": "#334155",
   "site.favicon_url": "http://localhost:3000/logo-icon.svg",
-  "site.checkout_config": `{"note":"connected checkout"}`,
-  "site.order_page_info": `{"modal":["about"],"modal_text":"Connected order info"}`,
   "site.show_orders_link": false,
-  "site.stories_enabled": true,
   "site.layout_default": "compact",
   "site.layout_default_mobile": "magazine",
   "site.category_banner_style": "text-block",
@@ -396,6 +391,10 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.content.show_heading": false,
   "section.content.body": "Connected section body",
   "section.content.text": "Connected scrolling text",
+  "section.content.phrases": "a little\na lot\nwith passion",
+  "section.settings.show_text": false,
+  "section.settings.rotating_color": "#d7807f",
+  "section.settings.speed": "slow",
   "section.content.cta_text": "Connected CTA",
   "section.content.cta_link": "/about",
   "section.content.image_url": "http://localhost:3000/logo-icon.svg",
@@ -438,6 +437,7 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.insert_after_items": 9,
   "section.settings.bg_image": "http://localhost:3000/logo-icon.svg",
   "section.settings.bg_overlay": true,
+  "section.settings.image_only": true,
 };
 
 function editorFor(
@@ -447,11 +447,13 @@ function editorFor(
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
   const action = isAction ? "action" : "field";
+  if (id.startsWith("section.settings.motion.")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text and image", publicSlug: "about", commit: "change", prerequisite: id.endsWith(".enabled") ? undefined : { id: "section.settings.motion.enabled", value: true } };
+  if (id.startsWith("section.settings.carousel_")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "Home", sectionLabel: "Testimonials", publicSlug: "", commit: "change" };
+
   if (id.startsWith("site.footer.")) {
     return {
       kind: action,
       scope: "site",
-      tab: id.startsWith("site.footer.content.") ? "Contenu" : "Apparence",
       pageTitle: "Home",
       publicSlug: "",
       commit: "change",
@@ -460,21 +462,12 @@ function editorFor(
   if (id.startsWith("site.") || id.startsWith("section.content.custom_") ||
       (id.startsWith("section.content.show_") && id !== "section.content.show_heading") ||
       id === "section.content.social_links") {
-    const appearance = [
-      "site.theme_id", "site.pairing_id", "site.brand_color",
-      "site.hero_name_font", "site.typography", "site.layout_default",
-      "site.layout_default_mobile", "site.category_banner_style",
-      "site.category_banner_overlay", "site.category_banner_fit",
-      "site.category_banner_fit_mobile",
-    ].includes(id);
     return {
       kind: action,
       scope: "site",
-      tab: appearance ? "Apparence" : id === "site.tagline" ? "Contenu" : "Réglages",
       pageTitle: "Home",
       publicSlug: "",
-      commit: id === "site.typography" || id === "site.nav_layout" ||
-        id === "site.checkout_config" || id === "site.order_page_info" ? "blur" : "change",
+      commit: id === "site.typography" || id === "site.nav_layout" ? "blur" : "change",
     };
   }
 
@@ -500,40 +493,18 @@ function editorFor(
     const chainSelector = id.startsWith(
       "page.appearance_overrides.chain_order_entry.",
     );
-    const chainSelectorSetting =
-      chainSelector &&
-      [
-        "show_search",
-        "show_near_me",
-        "show_branch_count",
-        "show_branch_numbers",
-      ].some((field) => id.endsWith(`.${field}`));
     const pageCtaState = id.startsWith(
       "page.appearance_overrides.navbar_cta.",
     );
     return {
       kind: action,
       scope,
-      tab: id === "page.title" || cateringContent ? "Contenu" :
-        chainSelectorSetting ? "Réglages" :
-        id.startsWith("page.appearance_overrides.navbar_cta") ? "Réglages" :
-        id === "page.appearance_overrides.hide_navbar_name" ? "Réglages" :
-        id === "page.appearance_overrides.navbar_logo_position" ? "Réglages" :
-        id.startsWith("page.appearance_overrides.") ? "Apparence" : "Réglages",
       pageTitle: orderPage ? "Brunch Order" : cateringPage ? "Office Catering" :
         defaultPage ? "Dinner Order" : "About",
       publicSlug: orderPage ? "brunch-order" : cateringPage ? "office-catering" :
         defaultPage ? "dinner-order" :
         id === "page.slug" ? String(FIELD_TEST_VALUES[id]) : "about",
-      // The checkout text colours only render on the order page's checkout
-      // surface, so a driver must switch surface before locating them.
-      surface: chainSelector
-        ? "branches"
-        : id.startsWith(
-        "page.appearance_overrides.checkout_text_colors.",
-      )
-        ? "checkout"
-        : "page",
+      surface: chainSelector ? "branches" : "page",
       commit: "change",
       prerequisite: pageCtaState
         ? { id: "page.appearance_overrides.navbar_cta", value: true }
@@ -547,6 +518,12 @@ function editorFor(
     "section.content.video_url",
   ].includes(id);
   const scrolling = id === "section.content.text";
+  const animated = [
+    "section.content.phrases",
+    "section.settings.show_text",
+    "section.settings.rotating_color",
+    "section.settings.speed",
+  ].includes(id);
   const menuHighlights = [
     "section.settings.card_bg",
     "section.settings.card_text",
@@ -580,20 +557,22 @@ function editorFor(
     id === "section.settings.insert_after_items";
   const appearance =
     id === "section.layout" ||
-    (id.startsWith("section.settings.") && !discoveryPlacement);
+    (id.startsWith("section.settings.") && !discoveryPlacement && !animated);
   return {
     kind: action,
     scope,
-    tab: appearance ? "Apparence" : id === "section.is_visible" || id === "section.page_id" ? "Réglages" : "Contenu",
+    sectionPanel: appearance ? "appearance" : id === "section.is_visible" || id === "section.page_id" ? "settings" : "content",
     pageTitle: orderDiscovery
       ? "Dinner Order"
-      : hero || scrolling || menuHighlights || featureCards
+      : hero || scrolling || animated || menuHighlights || featureCards
         ? "Home"
         : "About",
     sectionLabel: hero
       ? "Hero banner"
       : scrolling
         ? "Scrolling text"
+        : animated
+          ? "Animated text"
         : menuHighlights
           ? "Menu highlights"
           : featureCards
@@ -603,7 +582,7 @@ function editorFor(
               : "Text and image",
     publicSlug: orderDiscovery
       ? "dinner-order"
-      : hero || scrolling || menuHighlights || featureCards
+      : hero || scrolling || animated || menuHighlights || featureCards
         ? ""
         : "about",
     commit: "change",
@@ -623,18 +602,14 @@ function serialize(value: TestValue): string {
 }
 
 function expectedFor(id: string, value: TestValue): string {
+  if (id === "section.content.phrases" && typeof value === "string") {
+    return JSON.stringify(value.split("\n").map((text) => ({ text })));
+  }
   if (
-    ["site.typography", "site.nav_layout", "site.checkout_config"].includes(id) &&
+    ["site.typography", "site.nav_layout"].includes(id) &&
     typeof value === "string"
   ) {
     return JSON.stringify(JSON.parse(value));
-  }
-  if (id === "site.order_page_info") {
-    return JSON.stringify({
-      bar: { pickup: [], delivery: [], dine_in: [] },
-      modal: ["about"],
-      modalText: "Connected order info",
-    });
   }
   if (id === "site.navbar_hamburger" && value === "compact") {
     return "mobile";
@@ -688,10 +663,10 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   site("site.navbar_cta.solid.text_color", ["navbar_cta", "solid", "text_color"], "nav", "style"),
   site("site.navbar_cta.solid.border_color", ["navbar_cta", "solid", "border_color"], "nav", "style"),
   site("site.favicon_url", ["favicon_url"], "link[rel='icon']", "value"),
-  site("site.checkout_config", ["checkout_config"], "[data-website-v3-page]", "count"),
-  site("site.order_page_info", ["order_page_info"], "[data-website-v3-page]", "count"),
   siteAction("site.show_orders_link", ["show_orders_link"]),
-  liveSiteAction("site.stories_enabled", ["stories_enabled"]),
+  site("site.footer_branding.enabled", ["custom_palette", "footer_branding", "enabled"], "[data-editor-region=footer-branding]"),
+  site("site.footer_branding.background", ["custom_palette", "footer_branding", "background"], "[data-editor-region=footer-branding]"),
+  footer("site.footer.is_visible", ["is_visible"]),
   footer("site.footer.content.custom_text", ["content", "custom_text"]),
   footer("site.footer.content.show_logo", ["content", "show_logo"]),
   footer("site.footer.content.show_description", ["content", "show_description"]),
@@ -853,44 +828,6 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
       ["order"],
     ),
   ),
-  ...(["heading", "primary", "secondary", "input", "price", "button"] as const).map((role) =>
-    page(
-      `page.appearance_overrides.checkout_text_colors.${role}`,
-      ["appearance_overrides", "checkout_text_colors", role],
-      "order",
-      "color",
-      ["order"],
-    ),
-  ),
-  // Cart drawer roles: text, surfaces, then the buttons the drawer owns. No
-  // "input": the cart has no fields.
-  ...([
-    "heading",
-    "primary",
-    "secondary",
-    "price",
-    "surface",
-    "surfaceMuted",
-    "divider",
-    "accent",
-    "overlay",
-    "button",
-    "buttonBg",
-    "closeBg",
-    "closeText",
-    "stepperBg",
-    "stepperText",
-    "stepperBorder",
-    "remove",
-  ] as const).map((role) =>
-    page(
-      `page.appearance_overrides.cart_text_colors.${role}`,
-      ["appearance_overrides", "cart_text_colors", role],
-      "order",
-      "color",
-      ["order"],
-    ),
-  ),
   page(
     "page.appearance_overrides.navbar_style",
     ["appearance_overrides", "navbar_style"],
@@ -978,6 +915,10 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   orderSection("section.content.show_heading", ["content", "show_heading"], "order_discovery", "visible"),
   section("section.content.body", ["content", "body"], "[data-website-section] p", "text"),
   section("section.content.text", ["content", "text"], "[data-website-section]", "text"),
+  section("section.content.phrases", ["content", "phrases"], "animated_text", "text"),
+  section("section.settings.show_text", ["settings", "show_text"], "animated_text", "visible"),
+  section("section.settings.rotating_color", ["settings", "rotating_color"], "animated_text", "color"),
+  section("section.settings.speed", ["settings", "speed"], "animated_text", "value"),
   section("section.content.cta_text", ["content", "cta_text"], "[data-website-section] a", "text"),
   section("section.content.cta_link", ["content", "cta_link"], "[data-website-section] a", "value"),
   section("section.content.image_url", ["content", "image_url"], "[data-website-section] img", "value"),
@@ -1020,6 +961,28 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   orderSection("section.settings.insert_after_items", ["settings", "insert_after_items"], "order_discovery", "value"),
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
+  section("section.settings.image_only", ["settings", "image_only"], "text_and_image", "visible"),
+  section("section.settings.word_animation", ["settings", "word_animation"], "[data-website-section]", "style"),
+  section("section.settings.resize_width", ["settings", "resize_width"], "[data-website-section]", "style"),
+  section("section.settings.carousel_autoplay", ["settings", "carousel_autoplay"], "[data-website-section]", "style"),
+  section("section.settings.carousel_interval", ["settings", "carousel_interval"], "[data-website-section]", "style"),
+  section("section.settings.carousel_duration", ["settings", "carousel_duration"], "[data-website-section]", "style"),
+  section("section.settings.motion.enabled", ["settings", "motion", "enabled"], "[data-website-section]", "style"),
+  section("section.settings.motion.entrance", ["settings", "motion", "entrance"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_entrance", ["settings", "motion", "mobile_entrance"], "[data-website-section]", "style"),
+  section("section.settings.motion.duration_ms", ["settings", "motion", "duration_ms"], "[data-website-section]", "style"),
+  section("section.settings.motion.delay_ms", ["settings", "motion", "delay_ms"], "[data-website-section]", "style"),
+  section("section.settings.motion.replay", ["settings", "motion", "replay"], "[data-website-section]", "style"),
+  section("section.settings.motion.media_hover", ["settings", "motion", "media_hover"], "[data-website-section]", "style"),
+  section("section.settings.motion.button_hover", ["settings", "motion", "button_hover"], "[data-website-section]", "style"),
+  section("section.settings.motion.parallax", ["settings", "motion", "parallax"], "[data-website-section]", "style"),
+  section("section.settings.motion.parallax_amount", ["settings", "motion", "parallax_amount"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile", ["settings", "motion", "mobile"], "[data-website-section]", "style"),
+  section("section.settings.motion.parallax_mobile", ["settings", "motion", "parallax_mobile"], "[data-website-section]", "style"),
+  section("section.settings.motion.parallax_target", ["settings", "motion", "parallax_target"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_parallax", ["settings", "motion", "mobile_parallax"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_parallax_target", ["settings", "motion", "mobile_parallax_target"], "[data-website-section]", "style"),
+  section("section.settings.motion.mobile_parallax_amount", ["settings", "motion", "mobile_parallax_amount"], "[data-website-section]", "style"),
   action("section.create", "section", ["sections"]),
   action("section.delete", "section", ["deleted_section_ids"]),
 ] as const;

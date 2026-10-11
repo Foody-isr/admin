@@ -1,12 +1,15 @@
 'use client';
 
 import Link from 'next/link';
+import { isSettingsDestinationActive, visibleSettingsNavigation } from '@/lib/settings-navigation';
+import RestaurantAccountMenu from './RestaurantAccountMenu';
+import SearchTriggerButton from './search/SearchTriggerButton';
+import { NavigationFrame, useDesktopNavigation } from './common/NavigationFrame';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useWs } from '@/lib/ws-context';
-import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme-context';
 import { getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
@@ -23,34 +26,11 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  ArrowLeft,
-  ArrowRight,
-  User as UserIcon,
-  CalendarClock,
-  LogOut,
   Flame,
   Sun,
   Moon,
-  Languages,
-  Tag,
-  DollarSign,
-  CreditCard,
-  Printer,
-  Bell,
-  BellRing,
-  LayoutGrid,
-  Armchair,
-  QrCode,
-  Sparkles,
-  Boxes,
-  Package,
-  MessageCircle,
-  MessageSquareText,
-  MapPin,
   Truck,
-  Fingerprint,
   PartyPopper,
-  MonitorSmartphone,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -60,7 +40,6 @@ interface SubItem {
   href: string;
   labelKey: string;
   badge?: number;
-  badgeLabelKey?: string;
   /**
    * Permissions granting access to this entry (any one of them). Needed when a
    * section groups pages with different gates — Clients holds both the customer
@@ -69,6 +48,7 @@ interface SubItem {
   perm?: string[];
   /** Hide this entry when the sidebar is shown as the mobile drawer (<lg). */
   desktopOnly?: boolean;
+  exact?: boolean;
 }
 
 interface SubItemGroup {
@@ -87,6 +67,8 @@ interface NavItem {
   clickHref?: string;
   /** Hide this entry when the sidebar is shown as the mobile drawer (<lg). */
   desktopOnly?: boolean;
+  /** Start a distinct sales-channel section before this destination. */
+  section?: 'channels';
 }
 
 interface SidebarProps {
@@ -96,21 +78,22 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const LOCALE_LABELS: Record<Locale, string> = { en: 'English', he: 'עברית', fr: 'Français' };
-
+/** Restaurant navigation with permission-scoped destinations and account access. */
 export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, restaurantIds, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [profileOpen, setProfileOpen] = useState(false);
   const { hasAnyPermission, roleName, loading: permissionsLoading } = usePermissions();
   const { status: wsStatus } = useWs();
-  const { t, direction, locale, setLocale } = useI18n();
-  const { collapsed, toggleCollapsed } = useSidebar();
+  const { t, direction } = useI18n();
+  const { collapsed: storedCollapsed, toggleCollapsed, setCollapsed } = useSidebar();
+  const desktop = useDesktopNavigation();
+  const collapsed = desktop && storedCollapsed;
 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [expansion, setExpansion] = useState<{ pathname: string; overrides: Record<string, boolean> }>({ pathname, overrides: {} });
+  const overrides = expansion.pathname === pathname ? expansion.overrides : {};
+  const settingsGroups = visibleSettingsNavigation(restaurantId, hasAnyPermission);
 
   useEffect(() => {
     if (permissionsLoading || isCourierRoleName(roleName)) return;
@@ -120,19 +103,13 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
   const base = `/${restaurantId}`;
   const isRtl = direction === 'rtl';
-  const BackArrow = isRtl ? ArrowRight : ArrowLeft;
 
-  function toggleKey(key: string) {
-    setExpandedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  function toggleKey(key: string, expanded: boolean) {
+    setExpansion(current => ({ pathname, overrides: { ...(current.pathname === pathname ? current.overrides : {}), [key]: !expanded } }));
   }
 
   const allNav: NavItem[] = [
-    { href: `${base}/dashboard`, labelKey: 'dashboard', icon: Home },
+    { href: `${base}/dashboard`, labelKey: 'dashboardHome', icon: Home },
     {
       href: `${base}/menu`,
       labelKey: 'menu',
@@ -160,7 +137,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
         { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
         { href: `${base}/kitchen/suppliers`, labelKey: 'purchases' },
-        { href: `${base}/kitchen/food-cost`, labelKey: 'costsAndMargins', desktopOnly: true },
+        { href: `${base}/kitchen/food-cost`, labelKey: 'costsAndMargins' },
       ],
     },
     {
@@ -178,23 +155,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           perm: ['orders.manage'],
         },
         { href: `${base}/orders/production`, labelKey: 'productionTitle' },
-      ],
-    },
-    {
-      href: `${base}/website-v3`,
-      labelKey: 'online',
-      icon: Globe,
-      perm: ['settings.edit'],
-      // The group is visible on mobile so an admin can reach Stories (connect
-      // Instagram) from a phone. The website builder itself stays desktop-only.
-      subItems: [
-        {
-          href: `${base}/website-v3`,
-          labelKey: 'websiteBuilderV3',
-          badgeLabelKey: 'betaLabel',
-          desktopOnly: true,
-        },
-        { href: `${base}/reels`, labelKey: 'reels' },
       ],
     },
     {
@@ -248,11 +208,20 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { href: `${base}/catering/routing`, labelKey: 'nav_catering_routing', perm: ['catering.manage'] },
       ],
     },
+    { href: `${base}/chain/branches`, labelKey: 'chain_branches', icon: Building2, perm: ['chain.manage'] },
     {
       href: `${base}/settings`,
       labelKey: 'settings',
       icon: Settings,
-      perm: ['settings.view', 'settings.edit', 'tables.manage'],
+      subGroups: settingsGroups,
+    },
+    {
+      href: `${base}/website-v3`,
+      labelKey: 'foodyOnline',
+      icon: Globe,
+      section: 'channels',
+      perm: ['settings.edit'],
+      desktopOnly: true,
     },
   ];
   const courierNav: NavItem[] = [
@@ -275,7 +244,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         ? { ...item, subItems: item.subItems.filter((s) => !s.perm || hasAnyPermission(...s.perm)) }
         : item,
     )
-    .filter((item) => !item.subItems || item.subItems.length > 0);
+    .filter((item) => (!item.subItems || item.subItems.length > 0) && (!item.subGroups || item.subGroups.length > 0));
 
   function getSubHrefs(item: NavItem): string[] {
     return [
@@ -304,91 +273,15 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     return !!(item.subItems?.length || item.subGroups?.length);
   }
 
-  // Settings sub-nav — when on /settings/*, the main rail is replaced by these
-  // groups so the user sees a single sidebar instead of two stacked. Mirrors
-  // design-reference/screens/settings.jsx SettingsShell groups.
-  const isSettingsRoute =
-    pathname === `${base}/settings` ||
-    pathname.startsWith(`${base}/settings/`) ||
-    // Tours live outside /settings but belong to the Commerce group below, so the
-    // settings rail must stay up on them or the entry vanishes once opened.
-    pathname.startsWith(`${base}/delivery/`) ||
-    pathname.startsWith(`${base}/restaurant/floor-plans`) ||
-    pathname.startsWith(`${base}/restaurant/sections`) ||
-    pathname.startsWith(`${base}/restaurant/table-status`) ||
-    pathname.startsWith(`${base}/restaurant/table-qr`) ||
-    pathname.startsWith(`${base}/restaurant/workflow`);
-  const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon; desktopOnly?: boolean; perm?: string[] }[] }[] = [
-    {
-      groupKey: 'settingsGroupAccount',
-      items: [
-        { id: 'general',       href: `${base}/settings`,                labelKey: 'general',       icon: Settings },
-        { id: 'branding',      href: `${base}/settings/branding`,        labelKey: 'branding',      icon: Tag },
-        { id: 'language',      href: `${base}/settings/language`,        labelKey: 'language',      icon: Languages },
-        { id: 'notifications', href: `${base}/settings/notifications`,   labelKey: 'notifications', icon: Bell },
-        { id: 'whatsapp',      href: `${base}/settings/whatsapp`,        labelKey: 'whatsapp',      icon: MessageCircle },
-        { id: 'message-templates', href: `${base}/settings/message-templates`, labelKey: 'messageTemplates', icon: MessageSquareText },
-        { id: 'security',      href: `${base}/settings/security`,        labelKey: 'security',      icon: Fingerprint },
-      ],
-    },
-    {
-      groupKey: 'settingsGroupCommerce',
-      items: [
-        { id: 'orders', href: `${base}/settings/orders`, labelKey: 'ordersAndAvailability', icon: CalendarClock },
-        { id: 'stock', href: `${base}/settings/stock`, labelKey: 'stockSettings', icon: Package },
-        { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
-        { id: 'cibus', href: `${base}/settings/cibus`, labelKey: 'cibusSettings', icon: CreditCard, desktopOnly: true },
-        { id: 'ai-assistant', href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant', icon: Sparkles },
-        { id: 'delivery', href: `${base}/settings/delivery`, labelKey: 'deliveryZones', icon: MapPin },
-        { id: 'tours', href: `${base}/delivery/tours`, labelKey: 'tours', icon: Truck },
-      ],
-    },
-    {
-      groupKey: 'settingsGroupDevices',
-      items: [
-        { id: 'devices', href: `${base}/settings/devices`, labelKey: 'deviceManagementTitle', icon: MonitorSmartphone, desktopOnly: true, perm: ['printers.view', 'printers.manage', 'shifts.view', 'shifts.manage', 'payments.view', 'payments.manage', 'kitchen.view', 'kitchen.manage', 'settings.view', 'settings.edit'] },
-        { id: 'printer-profiles', href: `${base}/settings/printers`, labelKey: 'printerProfilesTitle', icon: Printer, desktopOnly: true, perm: ['printers.view', 'printers.manage'] },
-      ],
-    },
-    {
-      groupKey: 'settingsGroupRestaurant',
-      items: [
-        { id: 'floor-plans', href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', icon: LayoutGrid, desktopOnly: true },
-        { id: 'sections', href: `${base}/restaurant/sections`, labelKey: 'sections', icon: Boxes },
-        { id: 'table-assistance', href: `${base}/settings/table-assistance`, labelKey: 'tableServiceSettings', icon: BellRing },
-        { id: 'table-status', href: `${base}/restaurant/table-status`, labelKey: 'tableStatus', icon: Armchair },
-        { id: 'table-qr', href: `${base}/restaurant/table-qr`, labelKey: 'tableQrCodes', icon: QrCode },
-      ],
-    },
-    {
-      groupKey: 'settingsGroupOrg',
-      items: [
-        { id: 'team', href: `${base}/settings/team`, labelKey: 'staffAndRoles', icon: Users, desktopOnly: true },
-      ],
-    },
-  ];
-  const isSettingsItemActive = (href: string): boolean => {
-    // /settings is the general page; only mark it active on exact match so
-    // it doesn't stay highlighted when visiting a sibling sub-page.
-    if (href === `${base}/settings`) return pathname === href;
-    return isPathActive(href);
-  };
-
   const sidebarWidth = collapsed
     ? 'w-[var(--sidebar-w-collapsed)]'
     : 'w-[var(--sidebar-w)]';
-  const brandInitial = (restaurantName?.trim().charAt(0) || 'F').toUpperCase();
 
   return (
     <>
-      {/* Mobile backdrop */}
-      {isOpen && (
-        <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={onClose} />
-      )}
-
-      <aside
+      <NavigationFrame open={isOpen} onClose={onClose}
         className={`
-          fixed top-0 z-30 h-dvh pt-safe-t pb-safe-b flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
+          restaurant-sidebar fixed top-0 z-30 h-dvh pt-safe-t pb-safe-b flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
           ${sidebarWidth}
           transition-[width,transform] duration-200 ease-in-out
           lg:translate-x-0
@@ -397,104 +290,26 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           ${isOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'}
         `}
       >
-        {/* Brand / restaurant header — height matches --topbar-h so it aligns
-            with the topbar across the column gutter. */}
-        <div className="h-[var(--topbar-h)] px-[var(--s-5)] border-b border-[var(--line)] flex items-center">
-          <button
-            onClick={() => setProfileOpen(true)}
-            className="w-full flex items-center gap-[var(--s-3)] text-left min-w-0"
-            aria-label={t('profile')}
-          >
-            <div
-              className="w-8 h-8 shrink-0 rounded-r-md flex items-center justify-center text-white font-bold text-fs-md"
-              style={{
-                background:
-                  'linear-gradient(135deg, var(--brand-400), var(--brand-600))',
-                boxShadow: '0 2px 8px rgba(249,115,22,.3)',
-              }}
-            >
-              {brandInitial}
-            </div>
-            {!collapsed && (
-              <span className="font-semibold text-fs-md text-[var(--fg)] truncate">
-                {restaurantName ?? 'Foody'}
-              </span>
-            )}
-          </button>
+        <div className={collapsed ? 'p-3' : 'space-y-4 p-4'}>
+          <RestaurantAccountMenu restaurantId={restaurantId} restaurantName={restaurantName ?? 'Foody'} collapsed={collapsed} onNavigate={onClose} />
+          {!collapsed && <SearchTriggerButton placement="sidebar" />}
         </div>
 
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-2 lg:hidden">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]">
+          <span className="text-xs font-semibold text-[var(--fg-muted)]">
             {t('menu')}
           </span>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--sidebar-hover)]">
+          <button onClick={onClose} aria-label={t('close')} className="p-2 rounded hover:bg-[var(--sidebar-hover)]">
             <X className="w-5 h-5 text-[var(--fg-muted)]" />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-[var(--s-3)] space-y-0.5 overflow-y-auto">
-          {isSettingsRoute ? (
-            <>
-              {/* Back-to-app link */}
-              <Link
-                href={`${base}/dashboard`}
-                onClick={onClose}
-                className="w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out mb-[var(--s-2)]"
-              >
-                <BackArrow className="w-[18px] h-[18px] shrink-0" />
-                {!collapsed && <span className="truncate">{t('backToApp') || 'Back to app'}</span>}
-              </Link>
-              <div className="border-t border-[var(--line)] -mx-[var(--s-3)] mb-[var(--s-2)]" />
-              {!collapsed && (
-                <div className="text-fs-xs font-semibold uppercase tracking-[.08em] text-[var(--fg-muted)] px-[var(--s-3)] pt-[var(--s-2)] pb-[var(--s-3)]">
-                  {t('settings')}
-                </div>
-              )}
-              {settingsSections.map((s) => {
-                const visibleItems = s.items.filter((it) => !it.perm || hasAnyPermission(...it.perm));
-                if (visibleItems.length === 0) return null;
-                const allDesktopOnly = visibleItems.every((it) => it.desktopOnly);
-                return (
-                <div
-                  key={s.groupKey}
-                  className={`mb-[var(--s-3)]${allDesktopOnly ? ' max-lg:hidden' : ''}`}
-                >
-                  {!collapsed && (
-                    <div className="text-[10px] font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] px-[var(--s-3)] py-[var(--s-2)]">
-                      {t(s.groupKey)}
-                    </div>
-                  )}
-                  {visibleItems.map((it) => {
-                    const active = isSettingsItemActive(it.href);
-                    const Icon = it.icon;
-                    return (
-                      <Link
-                        key={it.id}
-                        href={it.href}
-                        onClick={onClose}
-                        className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
-                          it.desktopOnly ? 'max-lg:hidden ' : ''
-                        }${
-                          active
-                            ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
-                            : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
-                        }`}
-                      >
-                        <Icon className="w-[18px] h-[18px] shrink-0" />
-                        {!collapsed && <span className="flex-1 truncate">{t(it.labelKey)}</span>}
-                      </Link>
-                    );
-                  })}
-                </div>
-                );
-              })}
-            </>
-          ) : (
-            nav.map((item) => {
+        <nav aria-label={t('mainNavigation')} data-collapsed={collapsed || undefined} className="restaurant-sidebar-nav flex-1 overflow-y-auto">
+          {nav.map((item) => {
             const isActive = isItemActive(item);
-            const expanded = expandedKeys.has(item.labelKey) || isActive;
+            const expanded = overrides[item.labelKey] ?? isActive;
             const children = hasChildren(item);
             const totalBadge =
               (item.subItems?.reduce((a, s) => a + (s.badge ?? 0), 0) ?? 0) +
@@ -505,27 +320,29 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
             return (
               <div key={item.labelKey} className={item.desktopOnly ? 'max-lg:hidden' : undefined}>
+                {item.section === 'channels' && (
+                  <hr className="mx-2 my-4 border-0 border-t border-[var(--line)]" />
+                )}
                 {/* Top-level row */}
                 {children ? (
-                  // Parent groups never get the orange gradient — only text color
-                  // shifts when expanded. Active state lives on the leaf child.
+                  // Expanding a section keeps the current workspace visible.
                   <button
+                    aria-label={t(item.labelKey)}
+                    title={collapsed ? t(item.labelKey) : undefined}
+                    aria-expanded={!collapsed && expanded}
+                    aria-controls={`nav-${item.labelKey}`}
                     onClick={() => {
                       if (collapsed) {
-                        // In collapsed mode, clicking top-level navigates instead of expanding.
-                        window.location.href = getNavHref(item);
+                        setCollapsed(false);
+                        setExpansion(current => ({ pathname, overrides: { ...(current.pathname === pathname ? current.overrides : {}), [item.labelKey]: true } }));
                       } else {
-                        toggleKey(item.labelKey);
+                        toggleKey(item.labelKey, expanded);
                       }
                     }}
-                    className={`w-full flex items-center justify-between gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
-                      expanded
-                        ? 'text-[var(--fg)]'
-                        : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
-                    }`}
+                    className="restaurant-nav-row justify-between"
                   >
-                    <div className="flex items-center gap-[var(--s-3)] min-w-0">
-                      <item.icon className="w-[18px] h-[18px] shrink-0" />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <item.icon aria-hidden className="size-5 shrink-0" />
                       {!collapsed && <span className="truncate">{t(item.labelKey)}</span>}
                     </div>
                     {!collapsed && (
@@ -536,7 +353,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                           </span>
                         )}
                         <ChevronDown
-                          className={`w-3.5 h-3.5 shrink-0 transition-transform text-[var(--fg-subtle)] ${
+                          aria-hidden
+                          className={`restaurant-nav-chevron ${
                             expanded ? 'rotate-180' : ''
                           }`}
                         />
@@ -546,14 +364,13 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                 ) : (
                   <Link
                     href={getNavHref(item)}
+                    aria-label={t(item.labelKey)}
+                    aria-current={isActive ? 'page' : undefined}
+                    title={collapsed ? t(item.labelKey) : undefined}
                     onClick={onClose}
-                    className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
-                      isActive
-                        ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
-                        : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
-                    }`}
+                    className="restaurant-nav-row"
                   >
-                    <item.icon className="w-[18px] h-[18px] shrink-0" />
+                    <item.icon aria-hidden className="size-5 shrink-0" />
                     {!collapsed && <span className="flex-1 truncate">{t(item.labelKey)}</span>}
                     {item.labelKey === 'orders' && !collapsed && (
                       <span
@@ -572,29 +389,24 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
                 {/* Expanded sub-items */}
                 {children && expanded && !collapsed && (
-                  <div className="mt-0.5 space-y-0.5 ps-[30px]">
-                    {item.subGroups?.map((group) => (
-                      <div key={group.labelKey} className="py-[var(--s-1)]">
-                        <p className="px-[var(--s-3)] pt-[var(--s-3)] pb-[var(--s-1)] text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">
-                          {t(group.labelKey)}
-                        </p>
-                        {group.items.map((sub) => {
-                          const active = isPathActive(sub.href);
-                          return (
-                            <SubLink
-                              key={sub.href}
-                              href={sub.href}
-                              label={t(sub.labelKey)}
-                              badge={sub.badge}
-                              badgeLabel={sub.badgeLabelKey ? t(sub.badgeLabelKey) : undefined}
-                              active={active}
-                              desktopOnly={sub.desktopOnly}
-                              onClick={onClose}
-                            />
-                          );
-                        })}
-                      </div>
-                    ))}
+                  <div id={`nav-${item.labelKey}`} className="mt-0.5 space-y-0.5 ps-5">
+                    {item.subGroups?.map((group) => {
+                      const groupKey = `${item.labelKey}-${group.labelKey}`;
+                      const groupActive = group.items.some(sub => isSettingsDestinationActive(pathname, sub));
+                      const groupExpanded = overrides[groupKey] ?? groupActive;
+                      return <div key={groupKey}>
+                        <button type="button" aria-expanded={groupExpanded} aria-controls={`nav-${groupKey}`}
+                          onClick={() => toggleKey(groupKey, groupExpanded)}
+                          className="restaurant-nav-sub justify-between">
+                          <span>{t(group.labelKey)}</span>
+                          <ChevronDown aria-hidden className={`restaurant-nav-chevron ${groupExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                        {groupExpanded && <div id={`nav-${groupKey}`} className="ps-3">
+                          {group.items.map(sub => <SubLink key={sub.href} href={sub.href} label={t(sub.labelKey)}
+                            active={isSettingsDestinationActive(pathname, sub)} desktopOnly={sub.desktopOnly} onClick={onClose} />)}
+                        </div>}
+                      </div>;
+                    })}
                     {item.subItems?.map((sub) => {
                       const active = isPathActive(sub.href);
                       return (
@@ -603,7 +415,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                           href={sub.href}
                           label={t(sub.labelKey)}
                           badge={sub.badge}
-                          badgeLabel={sub.badgeLabelKey ? t(sub.badgeLabelKey) : undefined}
                           active={active}
                           desktopOnly={sub.desktopOnly}
                           onClick={onClose}
@@ -615,15 +426,15 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               </div>
             );
             })
-          )}
+          }
         </nav>
 
-        {/* Footer — theme + collapse. */}
+        {/* Display controls */}
         <div className="border-t border-[var(--line)]">
-          <div className="flex">
+          <div className={collapsed ? 'grid grid-cols-1' : 'flex'}>
             <button
               onClick={toggleTheme}
-              className={`flex-1 h-9 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out ${isRtl ? 'border-l' : 'border-r'} border-[var(--line)]`}
+              className="flex-1 h-11 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
               title={theme === 'dark' ? t('lightMode') : t('darkMode')}
             >
               {theme === 'dark' ? (
@@ -634,7 +445,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </button>
             <button
               onClick={toggleCollapsed}
-              className="flex-1 h-9 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
+              className="flex-1 h-11 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
               title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
             >
               {collapsed ? (
@@ -651,127 +462,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </button>
           </div>
         </div>
-      </aside>
-
-      {/* ── Profile drawer ── */}
-      {profileOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-50"
-          onClick={() => setProfileOpen(false)}
-        />
-      )}
-      <div
-        className={`
-          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] pt-safe-t pb-safe-b flex flex-col bg-[var(--sidebar-bg)]
-          transition-transform duration-200 ease-in-out border-[var(--line)]
-          ${isRtl ? 'left-0 border-r' : 'right-0 border-l'}
-          ${profileOpen ? 'translate-x-0' : isRtl ? '-translate-x-full' : 'translate-x-full'}
-        `}
-      >
-        {/* Drawer header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
-          <button
-            onClick={() => setProfileOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-[var(--sidebar-hover)]"
-          >
-            <X className="w-5 h-5 text-[var(--fg)]" />
-          </button>
-        </div>
-
-        {/* User info */}
-        <div className="px-5 py-5 border-b border-[var(--line)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-brand-500 text-white">
-              <span className="text-sm font-bold">
-                {(user?.full_name || user?.email || '?')[0].toUpperCase()}
-              </span>
-            </div>
-            <div className="min-w-0">
-              {user?.full_name && (
-                <p className="text-sm font-semibold truncate text-[var(--fg)]">
-                  {user.full_name}
-                </p>
-              )}
-              {user?.email && (
-                <p className="text-xs truncate text-[var(--fg-muted)]">
-                  {user.email}
-                </p>
-              )}
-            </div>
-          </div>
-          {restaurantName && (
-            <p className="mt-3 text-xs font-medium text-[var(--fg-muted)]">
-              {restaurantName}
-            </p>
-          )}
-        </div>
-
-        {/* Drawer menu items */}
-        <nav className="flex-1 overflow-y-auto py-2">
-          <button
-            onClick={toggleTheme}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
-          >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            {theme === 'dark' ? t('lightMode') : t('darkMode')}
-          </button>
-
-          <div className="px-5 py-3">
-            <div className="flex items-center gap-3 mb-2">
-              <Languages className="w-5 h-5 text-[var(--fg)]" />
-              <span className="text-sm text-[var(--fg)]">{t('language')}</span>
-            </div>
-            <div className="flex gap-2 ml-8">
-              {SUPPORTED_LOCALES.map((loc) => (
-                <button
-                  key={loc}
-                  onClick={() => setLocale(loc)}
-                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                    locale === loc
-                      ? 'border-brand-500 text-brand-500 font-semibold'
-                      : 'border-[var(--line)] text-[var(--fg-muted)] hover:border-[var(--text-secondary)]'
-                  }`}
-                >
-                  {LOCALE_LABELS[loc]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {restaurantIds.length > 1 && (
-            <Link
-              href="/select-restaurant"
-              onClick={() => setProfileOpen(false)}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
-            >
-              <Building2 className="w-5 h-5" />
-              {t('switchRestaurant')}
-            </Link>
-          )}
-
-          <Link
-            href={`/${restaurantId}/settings`}
-            onClick={() => setProfileOpen(false)}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
-          >
-            <Settings className="w-5 h-5" />
-            {t('settings')}
-          </Link>
-        </nav>
-
-        <div className="border-t border-[var(--line)] px-5 py-4">
-          <button
-            onClick={() => {
-              setProfileOpen(false);
-              logout();
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors hover:bg-red-500/10 text-red-500"
-          >
-            <LogOut className="w-5 h-5" />
-            {t('signOut')}
-          </button>
-        </div>
-      </div>
+      </NavigationFrame>
     </>
   );
 }
@@ -780,7 +471,6 @@ function SubLink({
   href,
   label,
   badge,
-  badgeLabel,
   active,
   desktopOnly,
   onClick,
@@ -788,7 +478,6 @@ function SubLink({
   href: string;
   label: string;
   badge?: number;
-  badgeLabel?: string;
   active: boolean;
   desktopOnly?: boolean;
   onClick?: () => void;
@@ -796,14 +485,9 @@ function SubLink({
   return (
     <Link
       href={href}
+      aria-current={active ? 'page' : undefined}
       onClick={onClick}
-      className={`w-full flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-2 rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
-        desktopOnly ? 'max-lg:hidden ' : ''
-      }${
-        active
-          ? 'bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)]'
-          : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
-      }`}
+      className={`restaurant-nav-sub justify-between ${desktopOnly ? 'max-lg:hidden' : ''}`}
     >
       <span className="truncate">{label}</span>
       {badge !== undefined && badge > 0 && (
@@ -815,17 +499,6 @@ function SubLink({
           }`}
         >
           {badge}
-        </span>
-      )}
-      {badgeLabel && (
-        <span
-          className={`rounded-r-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] ${
-            active
-              ? 'bg-[color-mix(in_oklab,var(--brand-500)_18%,transparent)] text-[var(--brand-500)]'
-              : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
-          }`}
-        >
-          {badgeLabel}
         </span>
       )}
     </Link>

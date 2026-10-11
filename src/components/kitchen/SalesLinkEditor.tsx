@@ -1,8 +1,9 @@
 "use client";
 
+import { ChoiceRow } from '@/components/ds/Selection';
 import { useState } from 'react';
 import Image from 'next/image';
-import { Package, Check, Link2 } from 'lucide-react';
+import { Package, Link2 } from 'lucide-react';
 import { linkSaleToLibrary, type SalesLinkContext, type SalesLinkStatus } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { matchesSalesLibraryItem } from '@/lib/sales-library';
@@ -40,12 +41,11 @@ export function SalesLinkEditor({ restaurantId, reportId, sale, context, onSaved
     <div className={styles.toolbar}><KitchenSearch value={search} label={t('salesLinkSearch')} onChange={value => {setSearch(value); setPage(0);}}/></div>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <div className="px-5" role="radiogroup" aria-label={t('salesLinkChoose')}>
-      {items.slice(currentPage * 8, currentPage * 8 + 8).map(item => <button key={item.id} type="button" role="radio" aria-checked={selected === item.id} disabled={busy}
-        onClick={() => setSelected(item.id)} className={`my-2 flex min-h-20 w-full items-center gap-3 rounded-xl border p-3 text-start ${selected === item.id ? 'border-[var(--brand-500)] bg-[var(--surface-2)]' : 'border-[var(--line)]'}`}>
+      {items.slice(currentPage * 8, currentPage * 8 + 8).map(item => <ChoiceRow type="radio" name="sales-link-item" key={item.id} checked={selected === item.id} disabled={busy} onChange={() => setSelected(item.id)} label={<span className="flex items-center gap-3">
         {/^https?:\/\//.test(item.image_url) ? <Image src={item.image_url} alt="" width={48} height={48} unoptimized className="h-12 w-12 rounded-lg object-cover"/> : <Package className="m-3 shrink-0 text-[var(--fg-muted)]" size={24}/>}
         <span className="min-w-0 flex-1"><strong className="block" dir="auto">{item.name}</strong><small className="block text-[var(--fg-muted)]" dir="auto">{item.category}{item.translations?.name?.he && item.translations.name.he !== item.name ? ` · ${item.translations.name.he}` : ''}</small><small className="block text-[var(--fg-muted)]">{t(item.has_recipe ? 'salesLinkWithRecipe' : 'salesLinkNoRecipe')}</small></span>
-        {selected === item.id && <Check size={20} className="shrink-0"/>}
-      </button>)}
+
+      </span>} />)}
     </div>
     {!items.length && <p className={styles.empty}>{t('noResults')}</p>}
     <KitchenPagination page={currentPage} count={items.length} size={8} onChange={setPage}/>

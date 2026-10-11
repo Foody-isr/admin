@@ -8,6 +8,8 @@ import type { DraftStatePayload } from "../types";
 
 const compatible = {
   protocol: "foody.website-v3",
+  editor_catalog: 2,
+  animated_text: true, component_animations: 1,
   version: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
@@ -101,9 +103,43 @@ test("marks every page for explicit V3 activation without mutating the draft", (
 
   const prepared = prepareWebsiteV3StateForPublication(state);
 
-  assert.equal(state.pages[0].appearance_overrides.foody_renderer_version, undefined);
-  assert.equal(prepared.pages[0].appearance_overrides.foody_renderer_version, 1);
-  assert.equal(prepared.pages[1].appearance_overrides.foody_renderer_version, 1);
+  assert.equal(
+    state.pages[0].appearance_overrides.foody_renderer_version,
+    undefined,
+  );
+  assert.equal(
+    prepared.pages[0].appearance_overrides.foody_renderer_version,
+    1,
+  );
+  assert.equal(
+    prepared.pages[1].appearance_overrides.foody_renderer_version,
+    1,
+  );
   assert.notEqual(prepared, state);
   assert.notEqual(prepared.pages[0], state.pages[0]);
+});
+
+test("rejects storefronts without the new section catalogue", async () => {
+  for (const editor_catalog of [undefined, 1])
+    await assert.rejects(
+      requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+        Response.json({ ...compatible, editor_catalog }),
+      ),
+      /site public n’est pas compatible/,
+    );
+});
+
+test("rejects a storefront that cannot render animated text", async () => {
+  for (const animated_text of [undefined, false]) {
+    await assert.rejects(
+      requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+        Response.json({ ...compatible, animated_text }),
+      ),
+      /site public n’est pas compatible/,
+    );
+  }
+});
+
+test("rejects renderers that cannot show component animations", async () => {
+  await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://app.foody-pos.co.il", async () => Response.json({...compatible, component_animations: undefined})), /site public n’est pas compatible/);
 });

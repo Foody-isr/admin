@@ -1,0 +1,710 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/order-workflow.spec.ts"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "order-workflow.spec.ts",
+      "file": "order-workflow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "workflow responsive editor and all automations fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12276,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:12.633Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-10f4d87049da2664a60d",
+          "file": "order-workflow.spec.ts",
+          "line": 48,
+          "column": 40
+        },
+        {
+          "title": "workflow responsive editor and all automations he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3570,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:25.307Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-1540e124d17b346d67a8",
+          "file": "order-workflow.spec.ts",
+          "line": 48,
+          "column": 40
+        },
+        {
+          "title": "workflow preserves stage identity, colors, multiple triggers and historical first-stage courier flags",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2266,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:28.889Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-52e6965868a3af396146",
+          "file": "order-workflow.spec.ts",
+          "line": 52,
+          "column": 5
+        },
+        {
+          "title": "workflow saves only the active service and retains drafts in other services",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2817,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:31.164Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-cb31d25dfa8c42f19e1e",
+          "file": "order-workflow.spec.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "workflow mutation locks inputs, type changes and duplicate writes with restaurant scope",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2076,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:33.990Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-7c0dfc69bd863c17529f",
+          "file": "order-workflow.spec.ts",
+          "line": 60,
+          "column": 5
+        },
+        {
+          "title": "workflow initial failures retry and read-only controls are keyboard disabled",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2104,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:36.077Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-c0b763d500aba2ef71c4",
+          "file": "order-workflow.spec.ts",
+          "line": 64,
+          "column": 5
+        },
+        {
+          "title": "workflow an absent flow can be created from its empty state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2009,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:38.190Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-dd176520c266a957b3d2",
+          "file": "order-workflow.spec.ts",
+          "line": 68,
+          "column": 5
+        },
+        {
+          "title": "workflow validates blank names and stage ordering without losing the draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2117,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:40.209Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-e7f9dc5a57219b88e168",
+          "file": "order-workflow.spec.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "workflow enforces unique event assignment across steps but permits several events on one step",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2197,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:42.334Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-18001c9fa29e5109c492",
+          "file": "order-workflow.spec.ts",
+          "line": 76,
+          "column": 5
+        },
+        {
+          "title": "workflow bounds stage counts without hiding the add action at zero",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3139,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:44.539Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-729acf2b565c6ff16c8a",
+          "file": "order-workflow.spec.ts",
+          "line": 80,
+          "column": 5
+        },
+        {
+          "title": "workflow disabled customer notifications retain edited message text",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2048,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:47.685Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-4f805150e34fbad2c116",
+          "file": "order-workflow.spec.ts",
+          "line": 86,
+          "column": 5
+        },
+        {
+          "title": "workflow unchanged readback unlocks an explicit retry without discarding the draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2279,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:49.738Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-afd2d29bfd089fdc476c",
+          "file": "order-workflow.spec.ts",
+          "line": 90,
+          "column": 5
+        },
+        {
+          "title": "workflow applied-but-failed save adopts assigned stage IDs without a second mutation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2123,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:52.023Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-1127b6911e0ea7d6fddf",
+          "file": "order-workflow.spec.ts",
+          "line": 94,
+          "column": 5
+        },
+        {
+          "title": "workflow verification can fail and retry without repeating the failed write",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2142,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:54.152Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-ac70f2b78feab2e77d8d",
+          "file": "order-workflow.spec.ts",
+          "line": 98,
+          "column": 5
+        },
+        {
+          "title": "workflow divergent server version requires review and adoption preserves other service drafts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3338,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:56.299Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-cdd505f2434d9e322b8d",
+          "file": "order-workflow.spec.ts",
+          "line": 102,
+          "column": 5
+        },
+        {
+          "title": "workflow reset uses a confirmation and the actual returned guided actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2381,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:28:59.642Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-d16f1500abc8e45b4263",
+          "file": "order-workflow.spec.ts",
+          "line": 106,
+          "column": 5
+        },
+        {
+          "title": "workflow uncertain reset reads the actual version without claiming a completed reset",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2747,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:29:02.029Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-492e52fa85c4321b16a0",
+          "file": "order-workflow.spec.ts",
+          "line": 110,
+          "column": 5
+        },
+        {
+          "title": "workflow draft guards, local discard and locale change do not reload or erase other drafts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3485,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T13:29:04.786Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-6dde0d2af2a38644c205",
+          "file": "order-workflow.spec.ts",
+          "line": 114,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T13:28:11.166Z",
+    "duration": 57406.43,
+    "expected": 18,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

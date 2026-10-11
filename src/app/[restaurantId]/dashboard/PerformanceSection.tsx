@@ -1,123 +1,64 @@
 'use client';
 
-import { useI18n } from '@/lib/i18n';
-import type { ComparisonResult } from '@/lib/api';
+import type { ReactNode } from 'react';
+import { useI18n, useCurrency } from '@/lib/i18n';
+import { comparableDelta } from '@/lib/dashboard-comparison';
+import type { DaySummary, PeriodComparison } from '@/lib/api';
 import HourlyChart from './HourlyChart';
-import MetricCard from './MetricCard';
 
-interface PerformanceSectionProps {
-  comparison: ComparisonResult | null;
-  currentLabel: string;
-  previousLabel: string;
-}
-
-function pctChange(current: number, previous: number): number | null {
-  if (previous === 0) return null;
-  return ((current - previous) / previous) * 100;
-}
-
-function formatCurrency(val: number): string {
-  return `\u20AA${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-export default function PerformanceSection({ comparison, currentLabel, previousLabel }: PerformanceSectionProps) {
-  const { t } = useI18n();
-
-  const cur = comparison?.current;
-  const prev = comparison?.previous;
-
-  const chartData = (comparison?.hourly ?? []).map((h) => ({
-    hour: h.hour,
-    current: h.current_amt,
-    previous: h.previous_amt,
-  }));
-
-  // Date filter pills (display only for now)
-  const dateLabel = cur?.date
-    ? new Date(cur.date + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
-    : '—';
-
-  return (
-    <div className="card">
-      <h2 className="text-base font-semibold text-fg-primary mb-4">{t('performance')}</h2>
-
-      {/* Filter pills */}
-      <div className="flex items-center gap-2 mb-6">
-        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium" style={{ background: 'var(--surface-subtle)', color: 'var(--text-primary)' }}>
-          Date <span className="font-bold ml-1">{dateLabel}</span>
-        </span>
-        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium" style={{ background: 'var(--surface-subtle)', color: 'var(--text-primary)' }}>
-          vs <span className="font-bold ml-1">{previousLabel}</span>
-        </span>
-      </div>
-
-      {/* Net Sales headline */}
-      <div className="mb-1">
-        <div className="text-xs text-fg-secondary mb-1">{t('netSales')}</div>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-fg-primary">
-            {cur ? formatCurrency(cur.net_sales) : '—'}
-          </span>
-          {cur && prev && (
-            <span className={`comparison-badge ${pctChange(cur.net_sales, prev.net_sales) === null ? 'neutral' : (pctChange(cur.net_sales, prev.net_sales)! >= 0 ? 'up' : 'down')}`}>
-              {pctChange(cur.net_sales, prev.net_sales) === null
-                ? t('notAvailable')
-                : `${pctChange(cur.net_sales, prev.net_sales)! >= 0 ? '\u25B2' : '\u25BC'} ${Math.abs(pctChange(cur.net_sales, prev.net_sales)!).toFixed(1)}%`}
-            </span>
-          )}
-          {(!cur || !prev) && <span className="comparison-badge neutral">{t('notAvailable')}</span>}
-        </div>
-      </div>
-
-      {/* No data placeholder or chart */}
-      {!comparison || (cur && cur.net_sales === 0 && prev && prev.net_sales === 0) ? (
-        <div className="flex items-center justify-center py-6 text-sm text-fg-secondary mb-4">
-          {t('noActivityYet')}
-        </div>
-      ) : (
-        <div className="mb-6 mt-4">
-          <HourlyChart
-            data={chartData}
-            height={100}
-            labelCurrent={currentLabel}
-            labelPrevious={previousLabel}
-          />
-        </div>
-      )}
-
-      {/* Metrics grid */}
-      <div className="grid grid-cols-2 gap-x-8">
-        <MetricCard
-          label={t('grossSales')}
-          value={cur ? formatCurrency(cur.gross_sales) : '—'}
-          change={cur && prev ? pctChange(cur.gross_sales, prev.gross_sales) : null}
-        />
-        <MetricCard
-          label={t('transactions')}
-          value={cur ? String(cur.transactions) : '—'}
-          change={cur && prev ? pctChange(cur.transactions, prev.transactions) : null}
-        />
-        <MetricCard
-          label={t('laborPercent')}
-          value={cur ? `${cur.labor_percent.toFixed(2)}%` : '—'}
-          change={null}
-        />
-        <MetricCard
-          label={t('avgSale')}
-          value={cur ? formatCurrency(cur.avg_sale) : '—'}
-          change={cur && prev ? pctChange(cur.avg_sale, prev.avg_sale) : null}
-        />
-        <MetricCard
-          label={t('compsAndDiscounts')}
-          value={cur ? formatCurrency(cur.discounts) : '—'}
-          change={null}
-        />
-        <MetricCard
-          label={t('tips')}
-          value={cur ? formatCurrency(cur.tips) : '—'}
-          change={null}
-        />
-      </div>
+/** Performance totals and comparison bars use the same selected date and revenue scope. */
+export default function PerformanceSection({ period, series, previousSeries, controls, comparisonLabel, comparable, chartNote, loading,
+  serieMode = false, serieDate, previousSerieDate, comparisonNote }: {
+  period: PeriodComparison | null; series: DaySummary[] | null; previousSeries: DaySummary[] | null; controls: ReactNode;
+  comparisonLabel: string; comparable: boolean; chartNote?: string; loading: boolean;
+  serieMode?: boolean; serieDate?: string; previousSerieDate?: string; comparisonNote?: string;
+}) {
+  const { t, locale } = useI18n();
+  const { code: currency } = useCurrency();
+  const money = (value: number) => new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).format(value);
+  const current = period?.current;
+  const previous = comparable ? period?.previous : undefined;
+  const delta = comparableDelta(current?.total_revenue, previous?.total_revenue);
+  const chartUnavailable = !period || !series;
+  const showComparison = comparable && !!previous && !!previousSeries;
+  const previousByDate = new Map((previousSeries ?? []).map(row => [row.date, row.gross_sales]));
+  const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
+  const fullDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const data = (series ?? []).map((row, i) => {
+    const priorDate = serieMode && serieDate && previousSerieDate
+      ? new Date((dayNumber(row.date) - dayNumber(serieDate) + dayNumber(previousSerieDate)) * 86_400_000).toISOString().slice(0, 10)
+      : previousSeries?.[i]?.date;
+    return {
+      label: new Date(`${row.date}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' }),
+      currentPeriodLabel: fullDate(row.date), previousPeriodLabel: priorDate ? fullDate(priorDate) : t('dashboardPreviousPeriod'),
+      current: row.gross_sales, previous: serieMode ? previousByDate.get(priorDate ?? '') ?? 0 : previousSeries?.[i]?.gross_sales ?? 0,
+    };
+  });
+  const metrics = [
+    { label: t('orders'), value: current?.total_orders, prior: previous?.total_orders },
+    { label: t('avgTicket'), value: current?.avg_ticket, prior: previous?.avg_ticket, currency: true },
+    { label: t('itemsSold'), value: current?.items_sold, prior: previous?.items_sold },
+  ];
+  const change = (value: number | null) => value === null || !comparable ? null : <span className="dashboard-change" title={comparisonLabel}>
+    <span aria-hidden="true">{value < 0 ? '↘' : '↗'}</span>{`${new Intl.NumberFormat(locale, { maximumFractionDigits: 1, signDisplay: 'exceptZero' }).format(value)} %`}<span>{comparisonLabel}</span>
+  </span>;
+  return <section className="dashboard-card dashboard-performance">
+    <div className="dashboard-section-heading"><h2>{t(serieMode ? 'dashboardSerieOverview' : 'performance')}</h2></div>
+    <div className="dashboard-revenue"><span>{t('grossSales')}</span><strong>{current ? money(current.total_revenue) : '—'}</strong>{change(delta)}</div>
+    <div className="dashboard-metrics">{metrics.map((metric) => <div key={metric.label}>
+      <span>{metric.label}</span><strong>{metric.value == null ? '—' : metric.currency ? money(metric.value) : new Intl.NumberFormat(locale).format(metric.value)}</strong>
+      {change(comparableDelta(metric.value, metric.prior))}
+    </div>)}</div>
+    <div className="dashboard-performance-body">
+      <div className="dashboard-section-heading"><div><h3>{t(serieMode ? 'dashboardOrderIntake' : 'dashboardSalesTrend')}</h3><p>{t(serieMode ? 'dashboardOrderIntakeHint' : 'dashboardSalesTrendHint')}</p></div>
+        <div className="dashboard-chart-legend"><span><i className="dashboard-chart-current" />{t(serieMode ? 'dateBasisSerieShort' : 'dashboardCurrentPeriod')}</span>
+          {showComparison && <span><i className="dashboard-chart-previous" />{t('dashboardPreviousPeriod')}</span>}</div></div>
+      <HourlyChart data={data} ariaLabel={t(serieMode ? 'dashboardOrderIntake' : 'performance')} unavailable={chartUnavailable} formatValue={money} showComparison={showComparison}
+        metricLabel={t('grossSales')} direction={locale === 'he' ? 'rtl' : 'ltr'}
+        emptyLabel={chartUnavailable ? t(loading ? 'loading' : 'couldNotLoad') : t('dashboardNoPeriodData')} />
+      {chartNote && <p className="dashboard-chart-note">{chartNote}</p>}
+      {comparisonNote && <p className="dashboard-chart-note">{comparisonNote}</p>}
     </div>
-  );
+    <div className="dashboard-filters">{controls}</div>
+  </section>;
 }

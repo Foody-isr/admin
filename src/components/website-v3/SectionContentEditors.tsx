@@ -1,14 +1,20 @@
 "use client";
 
+import { MotionTextContentFields } from "./MotionTextContentFields";
+import { TextImageContentEditor } from "./TextImageContentEditor";
 import { useRef, useState } from "react";
+import {
+  SquareContentEditor,
+  SQUARE_CONTENT_TYPES,
+} from "./SquareContentEditor";
 import {
   AboutBlocksEditor,
   ActionButtonsEditor,
-  MenuHighlightsEditor,
   PicnicBasketEditor,
-} from "@/components/website/SectionEditors";
+} from "./SupportingContentEditors";
 import { uploadSectionImage, uploadSectionVideo } from "@/lib/api";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
+import { FeaturedItemsEditor } from "./FeaturedItemsEditor";
 import { InspectorField, ToggleField, controlClass } from "./controls";
 
 type SectionContentEditorsProps = {
@@ -47,6 +53,16 @@ export function SectionContentEditors({
     onChange(["content", key], value);
   const updateSettings = (key: string, value: unknown) =>
     onChange(["settings", key], value);
+
+  if (SQUARE_CONTENT_TYPES.has(section.section_type))
+    return (
+      <SquareContentEditor
+        key={`${restaurantId}:${section.id ?? section.tmp_id}`}
+        restaurantId={restaurantId}
+        section={section}
+        onChange={onChange}
+      />
+    );
 
   switch (section.section_type) {
     case "hero_banner":
@@ -89,14 +105,13 @@ export function SectionContentEditors({
           updateContent={updateContent}
         />
       );
+    case "featured_menu":
     case "menu_highlights":
       return (
-        <MenuHighlightsEditor
+        <FeaturedItemsEditor
           restaurantId={restaurantId}
-          content={section.content}
-          settings={section.settings}
-          updateContent={updateContent}
-          updateSettings={updateSettings}
+          section={section}
+          onChange={onChange}
         />
       );
     case "picnic_basket":
@@ -131,6 +146,7 @@ export function SectionContentEditors({
         />
       );
     case "text_and_image":
+      return <TextImageContentEditor section={section} restaurantId={restaurantId} onChange={onChange} />;
     case "promo_banner":
       return (
         <>
@@ -158,15 +174,8 @@ export function SectionContentEditors({
         </>
       );
     case "scrolling_text":
-      return (
-        <TextField
-          fieldId="section.content.text"
-          label="Texte défilant"
-          value={text(section.content.text)}
-          onChange={(value) => updateContent("text", value)}
-          multiline
-        />
-      );
+    case "animated_text":
+      return <MotionTextContentFields section={section} onChange={onChange} />;
     case "footer":
       return (
         <TextField
@@ -275,7 +284,8 @@ function HeroEditor({
   );
 }
 
-function VideoUploadField({
+/** Uploads a hero video while preserving its poster image. */
+export function VideoUploadField({
   restaurantId,
   currentUrl,
   posterUrl,
@@ -317,7 +327,9 @@ function VideoUploadField({
   return (
     <div className="space-y-2">
       <div>
-        <p className="text-xs font-semibold text-slate-600">Vidéo de couverture</p>
+        <p className="text-xs font-semibold text-slate-600">
+          Vidéo de couverture
+        </p>
         <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
           MP4 ou WebM, 50 Mo maximum. La vidéo sera muette et jouée en boucle.
         </p>
@@ -432,7 +444,9 @@ function GalleryEditor({
                   <button
                     type="button"
                     onClick={() =>
-                      onChange(images.filter((_, itemIndex) => itemIndex !== index))
+                      onChange(
+                        images.filter((_, itemIndex) => itemIndex !== index),
+                      )
                     }
                     className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600"
                   >
@@ -565,9 +579,7 @@ function OrderDiscoveryEditor({
     onChange(
       "promotions",
       promotions.map((promotion, promotionIndex) =>
-        promotionIndex === index
-          ? { ...promotion, [key]: value }
-          : promotion,
+        promotionIndex === index ? { ...promotion, [key]: value } : promotion,
       ),
     );
   }
@@ -615,7 +627,9 @@ function OrderDiscoveryEditor({
               <button
                 type="button"
                 disabled={index === 0}
-                onClick={() => onChange("promotions", move(promotions, index, index - 1))}
+                onClick={() =>
+                  onChange("promotions", move(promotions, index, index - 1))
+                }
                 className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-500 disabled:opacity-30"
               >
                 Monter
@@ -623,7 +637,9 @@ function OrderDiscoveryEditor({
               <button
                 type="button"
                 disabled={index === promotions.length - 1}
-                onClick={() => onChange("promotions", move(promotions, index, index + 1))}
+                onClick={() =>
+                  onChange("promotions", move(promotions, index, index + 1))
+                }
                 className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-500 disabled:opacity-30"
               >
                 Descendre
@@ -660,7 +676,11 @@ function OrderDiscoveryEditor({
                 max={100}
                 value={number(promotion.image_focal_x, 50)}
                 onChange={(event) =>
-                  updatePromotion(index, "image_focal_x", Number(event.target.value))
+                  updatePromotion(
+                    index,
+                    "image_focal_x",
+                    Number(event.target.value),
+                  )
                 }
                 className="w-full accent-[#315fce]"
               />
@@ -672,7 +692,11 @@ function OrderDiscoveryEditor({
                 max={100}
                 value={number(promotion.image_focal_y, 50)}
                 onChange={(event) =>
-                  updatePromotion(index, "image_focal_y", Number(event.target.value))
+                  updatePromotion(
+                    index,
+                    "image_focal_y",
+                    Number(event.target.value),
+                  )
                 }
                 className="w-full accent-[#315fce]"
               />
@@ -713,7 +737,7 @@ function OrderDiscoveryEditor({
             onChange={(value) => updatePromotion(index, "link", value)}
             placeholder="/catering, /epicerie ou https://…"
           />
-          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3 selection-row">
             <span className="text-sm font-medium text-slate-800">
               Ouvrir dans un nouvel onglet
             </span>
@@ -721,11 +745,7 @@ function OrderDiscoveryEditor({
               type="checkbox"
               checked={promotion.open_in_new_tab === true}
               onChange={(event) =>
-                updatePromotion(
-                  index,
-                  "open_in_new_tab",
-                  event.target.checked,
-                )
+                updatePromotion(index, "open_in_new_tab", event.target.checked)
               }
               className="h-4 w-4 rounded border-slate-300 text-[#315fce]"
             />
@@ -780,9 +800,7 @@ function TestimonialsEditor({
       items={reviews}
       itemLabel="Avis"
       addLabel="Ajouter un avis"
-      onAdd={() =>
-        onChange([...reviews, { name: "", text: "", rating: 5 }])
-      }
+      onAdd={() => onChange([...reviews, { name: "", text: "", rating: 5 }])}
       onRemove={(index) =>
         onChange(reviews.filter((_, reviewIndex) => reviewIndex !== index))
       }
@@ -940,7 +958,8 @@ function TextField({
   );
 }
 
-function ImageUploadField({
+/** Uploads a section image with visible progress and failure feedback. */
+export function ImageUploadField({
   restaurantId,
   label,
   fieldId,

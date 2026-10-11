@@ -4,12 +4,20 @@ const REQUIRED_PROTOCOL = "foody.website-v3";
 const REQUIRED_VERSION = 1;
 const REQUIRED_PUBLICATION_MARKER = "foody_renderer_version";
 const REQUIRED_RENDERER_VERSION = 1;
-const REQUIRED_PAGE_TYPES = ["landing", "content", "order", "catering"] as const;
+const REQUIRED_PAGE_TYPES = [
+  "landing",
+  "content",
+  "order",
+  "catering",
+] as const;
 const REQUIRED_SURFACES = ["page", "checkout"] as const;
 
 export type WebsiteV3RuntimeCapabilities = {
   protocol: typeof REQUIRED_PROTOCOL;
   version: number;
+  editor_catalog: 2;
+  animated_text: true;
+  component_animations: 1;
   page_types: string[];
   surfaces: string[];
   publication: {
@@ -47,7 +55,12 @@ export async function requireWebsiteV3RuntimeCapabilities(
 
 function isCompatible(value: unknown): value is WebsiteV3RuntimeCapabilities {
   if (!isRecord(value)) return false;
-  if (value.protocol !== REQUIRED_PROTOCOL || value.version !== REQUIRED_VERSION) {
+  if (
+    value.protocol !== REQUIRED_PROTOCOL ||
+    value.version !== REQUIRED_VERSION ||
+    value.editor_catalog !== 2 ||
+    value.animated_text !== true || value.component_animations !== 1
+  ) {
     return false;
   }
   const pageTypes = value.page_types;
@@ -92,5 +105,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }

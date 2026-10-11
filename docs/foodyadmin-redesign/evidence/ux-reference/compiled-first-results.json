@@ -1,0 +1,4507 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "ux-foundations.spec.ts",
+      "device-inventory.spec.ts",
+      "discounts.spec.ts",
+      "order-availability.spec.ts",
+      "order-processing.spec.ts",
+      "order-workflow.spec.ts",
+      "order-overview.spec.ts",
+      "--max-failures=6"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 6,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next start --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "device-inventory.spec.ts",
+      "file": "device-inventory.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "device inventory responsive filters, physical devices and detail fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1029,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:35.912Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-88ff75fc7aafe2243dcd",
+          "file": "device-inventory.spec.ts",
+          "line": 40,
+          "column": 40
+        },
+        {
+          "title": "device inventory responsive filters, physical devices and detail he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 641,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:37.346Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-481b0bf3034443bd80f7",
+          "file": "device-inventory.spec.ts",
+          "line": 40,
+          "column": 40
+        },
+        {
+          "title": "device inventory filtering, search and column visibility preserve physical identity",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1108,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:37.992Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-264067e2561417c1aa5b",
+          "file": "device-inventory.spec.ts",
+          "line": 43,
+          "column": 5
+        },
+        {
+          "title": "device inventory pagination selection and sorting remain usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1263,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:39.105Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-3d3ff524167a6c2cb3ea",
+          "file": "device-inventory.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "device inventory initial error, malformed data and empty inventory are distinct",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 406,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:40.373Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-e8be6f5b80bdefd7d8e5",
+          "file": "device-inventory.spec.ts",
+          "line": 49,
+          "column": 5
+        },
+        {
+          "title": "device inventory name save serializes, scopes and permits clearing an alias",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 825,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:40.785Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-fee4289e041013c76179",
+          "file": "device-inventory.spec.ts",
+          "line": 52,
+          "column": 5
+        },
+        {
+          "title": "device inventory polling and locale do not replace a name draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1095,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:41.615Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-98c21bec896fd28de6b9",
+          "file": "device-inventory.spec.ts",
+          "line": 55,
+          "column": 5
+        },
+        {
+          "title": "device inventory name length validates before a request",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 665,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:42.715Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-6aae5a9c1f3e5d8255c6",
+          "file": "device-inventory.spec.ts",
+          "line": 58,
+          "column": 5
+        },
+        {
+          "title": "device inventory uncertain rename recovers without repeating PATCH true",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 805,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:43.385Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-6f520a1a783171f608ea",
+          "file": "device-inventory.spec.ts",
+          "line": 61,
+          "column": 42
+        },
+        {
+          "title": "device inventory uncertain rename recovers without repeating PATCH false",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 847,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:44.196Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-13627abff70213e5071f",
+          "file": "device-inventory.spec.ts",
+          "line": 61,
+          "column": 42
+        },
+        {
+          "title": "device inventory read-only details and mixed capabilities require all permissions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 624,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:45.048Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-abedb0ae153a72ce9435",
+          "file": "device-inventory.spec.ts",
+          "line": 64,
+          "column": 5
+        },
+        {
+          "title": "device inventory read-only role cannot test, cancel, rename or forget a printer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 628,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:45.678Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-6d66d22590b55cf65478",
+          "file": "device-inventory.spec.ts",
+          "line": 67,
+          "column": 5
+        },
+        {
+          "title": "device inventory test ticket sends locale once and does not claim physical print",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 846,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:46.312Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-ac3ea6bcdcbd1e627d91",
+          "file": "device-inventory.spec.ts",
+          "line": 70,
+          "column": 5
+        },
+        {
+          "title": "device inventory lost test response asks for hardware inspection before another explicit test",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1081,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:47.163Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-e4f4bb35837089bedef7",
+          "file": "device-inventory.spec.ts",
+          "line": 73,
+          "column": 5
+        },
+        {
+          "title": "device inventory cancel queue distinguishes confirmed action from failed refresh",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1124,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:48.248Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-1c2dcb068c5634c51ea5",
+          "file": "device-inventory.spec.ts",
+          "line": 76,
+          "column": 5
+        },
+        {
+          "title": "device inventory uncertain cancellation reads the current queue without repeating POST",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1112,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:49.378Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-24d0f28ade49314bf9d5",
+          "file": "device-inventory.spec.ts",
+          "line": 79,
+          "column": 5
+        },
+        {
+          "title": "device inventory bulk forget retains successful removals and retries only remaining devices",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2657,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:50.496Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-8657193b0858ebaff49c",
+          "file": "device-inventory.spec.ts",
+          "line": 82,
+          "column": 5
+        },
+        {
+          "title": "device inventory lost delete response verifies absence without another DELETE",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1505,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:53.159Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-60d7073d862d7c60df1a",
+          "file": "device-inventory.spec.ts",
+          "line": 85,
+          "column": 5
+        },
+        {
+          "title": "device inventory English empty and connect help retain scoped POS access link",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 351,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:54.670Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-ddeb9e6880d999f625c9",
+          "file": "device-inventory.spec.ts",
+          "line": 88,
+          "column": 5
+        },
+        {
+          "title": "device inventory locale changes do not refetch data",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 802,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:55.029Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-d8d9ad35135ffffefdbb",
+          "file": "device-inventory.spec.ts",
+          "line": 91,
+          "column": 5
+        },
+        {
+          "title": "device inventory mobile filters and navigation expose the allowed hardware route",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 426,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:55.837Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-3b9b46db6c863f19302c",
+          "file": "device-inventory.spec.ts",
+          "line": 95,
+          "column": 5
+        },
+        {
+          "title": "device inventory rejects unrelated order-only roles at the route boundary",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 242,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:56.268Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-038acd8ab6c949ba1f67",
+          "file": "device-inventory.spec.ts",
+          "line": 109,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "discounts.spec.ts",
+      "file": "discounts.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "discounts responsive list and editor fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 541,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:56.527Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-cec42acb0d7799ece629",
+          "file": "discounts.spec.ts",
+          "line": 41,
+          "column": 40
+        },
+        {
+          "title": "discounts responsive list and editor he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 605,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:57.073Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-4b99bea4bdf3404c298f",
+          "file": "discounts.spec.ts",
+          "line": 41,
+          "column": 40
+        },
+        {
+          "title": "discounts retain null start, historic zero cap, unknown selections and all fields on rename",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 514,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:57.682Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-679f28691a297ba27d1b",
+          "file": "discounts.spec.ts",
+          "line": 44,
+          "column": 5
+        },
+        {
+          "title": "discounts preserve each scope selection when changing scope and free-delivery type",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 531,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:58.201Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-530f6d89581f2818e816",
+          "file": "discounts.spec.ts",
+          "line": 47,
+          "column": 5
+        },
+        {
+          "title": "discounts validate percentages, caps and date order without a request",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 589,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:58.736Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-ab3988a55262391e4018",
+          "file": "discounts.spec.ts",
+          "line": 50,
+          "column": 5
+        },
+        {
+          "title": "discounts optional end date toggle preserves draft and can clear the saved bound",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 567,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:59.331Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-768bbfc6003d668883b0",
+          "file": "discounts.spec.ts",
+          "line": 53,
+          "column": 5
+        },
+        {
+          "title": "discounts catalog retry preserves unavailable IDs and supports safe search",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 544,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:13:59.904Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-040da8c94c63605f0358",
+          "file": "discounts.spec.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "discounts uncertain applied save reads the record without repeating PUT",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 593,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:00.454Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-3c43d4667553ac99d38c",
+          "file": "discounts.spec.ts",
+          "line": 59,
+          "column": 5
+        },
+        {
+          "title": "discounts unapplied save preserves the draft and allows an explicit retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 644,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:01.052Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-fd81f51b900b9248d63c",
+          "file": "discounts.spec.ts",
+          "line": 62,
+          "column": 5
+        },
+        {
+          "title": "discounts divergent saved version is reviewed and adopted only after confirmation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1505,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:01.702Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-3a0c95842ccd43089d5f",
+          "file": "discounts.spec.ts",
+          "line": 65,
+          "column": 5
+        },
+        {
+          "title": "discounts draft leave confirmation cancels without erasing and restores trigger focus",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1116,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:03.213Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-e47f924bfd0a38c1892b",
+          "file": "discounts.spec.ts",
+          "line": 68,
+          "column": 5
+        },
+        {
+          "title": "discounts read-only role can inspect but cannot modify or remove",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 393,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:04.334Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-d2b6b2f28a688a7b4bfe",
+          "file": "discounts.spec.ts",
+          "line": 71,
+          "column": 5
+        },
+        {
+          "title": "discounts delete requires confirmation and serializes repeated clicks",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1080,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:04.733Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-54f0664451d8f87bcf04",
+          "file": "discounts.spec.ts",
+          "line": 74,
+          "column": 5
+        },
+        {
+          "title": "discounts uncertain deletion verifies absence or presence without a second DELETE true",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1041,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:05.818Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-4198227ed1d2b105fbf3",
+          "file": "discounts.spec.ts",
+          "line": 77,
+          "column": 42
+        },
+        {
+          "title": "discounts uncertain deletion verifies absence or presence without a second DELETE false",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 942,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:06.871Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-8056754fe0456b31f94d",
+          "file": "discounts.spec.ts",
+          "line": 77,
+          "column": 42
+        },
+        {
+          "title": "discounts list load failure, malformed response and empty state remain distinct",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 490,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:07.822Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-3a2a49b100c489c87f0c",
+          "file": "discounts.spec.ts",
+          "line": 80,
+          "column": 5
+        },
+        {
+          "title": "discounts create serializes submit and preserves decimal amounts and normalized code",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 446,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:08.318Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-be06de20eb3619b23512",
+          "file": "discounts.spec.ts",
+          "line": 83,
+          "column": 5
+        },
+        {
+          "title": "discounts uncertain creation reconciles by normalized code true",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 493,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:08.771Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-06e32a013b466605d638",
+          "file": "discounts.spec.ts",
+          "line": 86,
+          "column": 42
+        },
+        {
+          "title": "discounts uncertain creation reconciles by normalized code false",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 530,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:09.274Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-68cdefbfbf483133f27b",
+          "file": "discounts.spec.ts",
+          "line": 86,
+          "column": 42
+        },
+        {
+          "title": "discounts uncertain duplicate creation does not overwrite an existing code",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 520,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:09.811Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-b94810882a6e1ea4c8c7",
+          "file": "discounts.spec.ts",
+          "line": 89,
+          "column": 5
+        },
+        {
+          "title": "discounts malformed save acknowledgement requires readback",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 801,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:10.339Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-54b3346dc2a729dca06a",
+          "file": "discounts.spec.ts",
+          "line": 92,
+          "column": 5
+        },
+        {
+          "title": "discounts English currency, search and restaurant day are independent from browser day",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 5376,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('2 active out of 2 codes', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('2 active out of 2 codes', { exact: true })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('2 active out of 2 codes', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('2 active out of 2 codes', { exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:96:442",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                      "column": 442,
+                      "line": 96
+                    },
+                    "snippet": "  94 | });\n  95 | test('discounts English currency, search and restaurant day are independent from browser day', async ({ page }) => {\n> 96 |   const state = await install(page, { locale: 'en', currency: 'EUR', timezone: 'Pacific/Honolulu' }); state.control.rows[0] = { ...sample(), type: 'fixed', value: 12.75, total_cap: null }; await page.clock.setFixedTime(new Date('2026-10-05T01:00:00Z')); await page.goto('/1/marketing/discounts'); await expect(page.getByText('€12.75', { exact: true })).toBeVisible(); await expect(page.getByText('2 active out of 2 codes', { exact: true })).toBeVisible(); await expect(page.getByText('Oct 4, 2026', { exact: true })).toHaveCount(2); await page.getByRole('searchbox').fill('équipe introuvable'); await expect(page.getByText('No discounts match your search.', { exact: true })).toBeVisible(); await page.getByRole('searchbox').fill('bienvenue'); await expect(page.getByRole('button', { name: 'LIVRAISON', exact: true })).toHaveCount(0); expect(state.writes).toHaveLength(0);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                          ^\n  97 | });\n  98 | test('discounts locale change preserves loaded data without another discount read', async ({ page }) => {\n  99 |   const state = await install(page); await page.goto('/1/marketing/discounts'); await expect(page.getByRole('button', { name: 'BIENVENUE10', exact: true })).toBeVisible(); const reads = state.control.reads; await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'BIENVENUE10', exact: true }).click(); await expect(editor(page).getByRole('heading', { name: 'עריכת הנחה', exact: true })).toBeVisible(); await expect(editor(page).locator('#discount-totalCap')).toHaveValue('0'); expect(state.control.reads).toBe(reads); expect(state.writes).toHaveLength(0);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                        "column": 442,
+                        "line": 96
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('2 active out of 2 codes', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('2 active out of 2 codes', { exact: true })\u001b[22m\n\n\n  94 | });\n  95 | test('discounts English currency, search and restaurant day are independent from browser day', async ({ page }) => {\n> 96 |   const state = await install(page, { locale: 'en', currency: 'EUR', timezone: 'Pacific/Honolulu' }); state.control.rows[0] = { ...sample(), type: 'fixed', value: 12.75, total_cap: null }; await page.clock.setFixedTime(new Date('2026-10-05T01:00:00Z')); await page.goto('/1/marketing/discounts'); await expect(page.getByText('€12.75', { exact: true })).toBeVisible(); await expect(page.getByText('2 active out of 2 codes', { exact: true })).toBeVisible(); await expect(page.getByText('Oct 4, 2026', { exact: true })).toHaveCount(2); await page.getByRole('searchbox').fill('équipe introuvable'); await expect(page.getByText('No discounts match your search.', { exact: true })).toBeVisible(); await page.getByRole('searchbox').fill('bienvenue'); await expect(page.getByRole('button', { name: 'LIVRAISON', exact: true })).toHaveCount(0); expect(state.writes).toHaveLength(0);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                          ^\n  97 | });\n  98 | test('discounts locale change preserves loaded data without another discount read', async ({ page }) => {\n  99 |   const state = await install(page); await page.goto('/1/marketing/discounts'); await expect(page.getByRole('button', { name: 'BIENVENUE10', exact: true })).toBeVisible(); const reads = state.control.reads; await page.getByRole('button', { name: 'Foody · Profil', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'עברית', exact: true }).click(); await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'BIENVENUE10', exact: true }).click(); await expect(editor(page).getByRole('heading', { name: 'עריכת הנחה', exact: true })).toBeVisible(); await expect(editor(page).locator('#discount-totalCap')).toHaveValue('0'); expect(state.control.reads).toBe(reads); expect(state.writes).toHaveLength(0);\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:96:442"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:11.148Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-Englis-dd128-ndependent-from-browser-day/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-Englis-dd128-ndependent-from-browser-day/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                    "column": 442,
+                    "line": 96
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-af6fc8cea48446618cb2",
+          "file": "discounts.spec.ts",
+          "line": 95,
+          "column": 5
+        },
+        {
+          "title": "discounts locale change preserves loaded data without another discount read",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 986,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:16.923Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-bb3b561140a1afbaf10d",
+          "file": "discounts.spec.ts",
+          "line": 98,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "order-availability.spec.ts",
+      "file": "order-availability.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "order availability responsive hours and workdays fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 396,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:18.039Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-450d9557d50271ce369e",
+          "file": "order-availability.spec.ts",
+          "line": 33,
+          "column": 39
+        },
+        {
+          "title": "order availability responsive hours and workdays he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 491,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:18.441Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-d6a9d7e866241d0960f8",
+          "file": "order-availability.spec.ts",
+          "line": 33,
+          "column": 39
+        },
+        {
+          "title": "availability retries failed loading without exposing default editable values",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 15451,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Horaires et disponibilité', exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Horaires et disponibilité', exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-availability.spec.ts:42:600",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-availability.spec.ts",
+                      "column": 600,
+                      "line": 42
+                    },
+                    "snippet": "  40 |\n  41 | test('availability retries failed loading without exposing default editable values', async ({ page }) => {\n> 42 |   const state = await install(page); await page.goto('/1/settings/orders/availability'); await expect(opening(page)).toHaveValue('09:00'); await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Commandes et livraison', exact: true }).click(); await page.getByRole('link', { name: 'Précommandes', exact: true }).click(); await expect(page.locator('#preorder-lead')).toHaveValue('90'); state.control.failRead = true; await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Horaires et disponibilité', exact: true }).click(); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger la disponibilité'); await expect(opening(page)).toHaveCount(0);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ^\n  43 |   state.control.failRead = false; await page.getByRole('button', { name: 'Réessayer', exact: true }).click(); await expect(opening(page)).toHaveValue('09:00'); expect(state.writes).toHaveLength(0);\n  44 | });\n  45 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-availability.spec.ts",
+                        "column": 600,
+                        "line": 42
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Horaires et disponibilité', exact: true })\u001b[22m\n\n\n  40 |\n  41 | test('availability retries failed loading without exposing default editable values', async ({ page }) => {\n> 42 |   const state = await install(page); await page.goto('/1/settings/orders/availability'); await expect(opening(page)).toHaveValue('09:00'); await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Commandes et livraison', exact: true }).click(); await page.getByRole('link', { name: 'Précommandes', exact: true }).click(); await expect(page.locator('#preorder-lead')).toHaveValue('90'); state.control.failRead = true; await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Horaires et disponibilité', exact: true }).click(); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger la disponibilité'); await expect(opening(page)).toHaveCount(0);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ^\n  43 |   state.control.failRead = false; await page.getByRole('button', { name: 'Réessayer', exact: true }).click(); await expect(opening(page)).toHaveValue('09:00'); expect(state.writes).toHaveLength(0);\n  44 | });\n  45 |\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-availability.spec.ts:42:600"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:18.936Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/order-availability-availab-d7e31-ing-default-editable-values/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/order-availability-availab-d7e31-ing-default-editable-values/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/order-availability.spec.ts",
+                    "column": 600,
+                    "line": 42
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-e01eb187e7b1c5001da5",
+          "file": "order-availability.spec.ts",
+          "line": 41,
+          "column": 5
+        },
+        {
+          "title": "availability mode-only save leaves absent hours, automatic workdays and hidden catering untouched",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 507,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:34.738Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-f7fcb72a7447ae0f6698",
+          "file": "order-availability.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "availability keeps overnight and all-day values and preserves other channels",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 524,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:35.365Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-12793466df49f5b044a6",
+          "file": "order-availability.spec.ts",
+          "line": 51,
+          "column": 5
+        },
+        {
+          "title": "availability proposed hours are explicit and initialise only when an hours field is changed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 444,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:35.895Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-b93a2945727221ac9daa",
+          "file": "order-availability.spec.ts",
+          "line": 57,
+          "column": 5
+        },
+        {
+          "title": "availability validates incomplete time and preserves draft through failed serialized save",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 586,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:36.344Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-32ec16973040b9e3a599",
+          "file": "order-availability.spec.ts",
+          "line": 62,
+          "column": 5
+        },
+        {
+          "title": "availability retains hours while a service is disabled and reopened",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 463,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:36.942Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-962c4b90b88c5d5fe9dd",
+          "file": "order-availability.spec.ts",
+          "line": 68,
+          "column": 5
+        },
+        {
+          "title": "availability custom workdays preserve Sunday zero and clearing them restores automatic mode",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 592,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:37.411Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-4f3eabb141c8101a1f91",
+          "file": "order-availability.spec.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "availability protects navigation and reset, then preserves draft across locale changes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1653,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:38.008Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-2f2ce344e498ab334568",
+          "file": "order-availability.spec.ts",
+          "line": 78,
+          "column": 5
+        },
+        {
+          "title": "availability read-only and legacy opening-hours entry use the same scoped view",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 334,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:39.670Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-5e67b2e5eda02a21603e",
+          "file": "order-availability.spec.ts",
+          "line": 85,
+          "column": 5
+        },
+        {
+          "title": "availability English labels keep times LTR inside the restaurant time zone",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 289,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:40.012Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-cc9a6c7e33a1031d0bdd",
+          "file": "order-availability.spec.ts",
+          "line": 89,
+          "column": 5
+        },
+        {
+          "title": "availability distinguishes catering from disabled standard modes and preserves hidden hours",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 348,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:40.306Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86f3501e48a89e4107b-a3782972d335a778a0c3",
+          "file": "order-availability.spec.ts",
+          "line": 94,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "order-overview.spec.ts",
+      "file": "order-overview.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "ordering hub responsive and scoped status fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 337,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:40.664Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-d64a4d7f9f239df3d373",
+          "file": "order-overview.spec.ts",
+          "line": 33,
+          "column": 38
+        },
+        {
+          "title": "ordering hub responsive and scoped status he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 362,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:41.006Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-34eeeb2279e0803c5eb1",
+          "file": "order-overview.spec.ts",
+          "line": 33,
+          "column": 38
+        },
+        {
+          "title": "ordering hub calculates hours in restaurant time rather than browser time",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 297,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:41.373Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-59adb9384bc2e83cdee2",
+          "file": "order-overview.spec.ts",
+          "line": 37,
+          "column": 5
+        },
+        {
+          "title": "ordering hub follows current-day overnight semantics and exclusive closing",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 583,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:41.674Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-b9ca36d2944042847038",
+          "file": "order-overview.spec.ts",
+          "line": 41,
+          "column": 5
+        },
+        {
+          "title": "ordering hub preserves 24-hour and absent schedule behavior without defaulting to nine to twenty-two",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 324,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:42.264Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-68d2bc8ac1789e44507c",
+          "file": "order-overview.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "ordering hub expired pause is inactive while legacy rush remains authoritative",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 662,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:42.593Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-90b8f843aff32aab3ce1",
+          "file": "order-overview.spec.ts",
+          "line": 50,
+          "column": 5
+        },
+        {
+          "title": "ordering hub pause and resume are immediate serialized actions scoped to the restaurant",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 525,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:43.259Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-e4c8d7a4b1e09fcad3ef",
+          "file": "order-overview.spec.ts",
+          "line": 54,
+          "column": 5
+        },
+        {
+          "title": "ordering hub timed reopening requires a valid future date and explicit application",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 532,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:43.795Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-d301344001521bf17eaa",
+          "file": "order-overview.spec.ts",
+          "line": 58,
+          "column": 5
+        },
+        {
+          "title": "ordering hub a failed response does not claim rollback and readback does not repeat the mutation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 554,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:44.333Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-b86167dd1504fa1eb8ce",
+          "file": "order-overview.spec.ts",
+          "line": 62,
+          "column": 5
+        },
+        {
+          "title": "ordering hub draft survives locale changes and reset/navigation require confirmation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1696,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:44.897Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-f648efb89ea28731fea0",
+          "file": "order-overview.spec.ts",
+          "line": 66,
+          "column": 5
+        },
+        {
+          "title": "ordering hub load failure retries without fabricated status and read-only users cannot pause",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 425,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:46.599Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93de76d8f0dec8e17c49-da7bab27292d5191e8b7",
+          "file": "order-overview.spec.ts",
+          "line": 70,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "order-processing.spec.ts",
+      "file": "order-processing.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "processing responsive policies fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 433,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:47.035Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-61eff3f5dd4d546ebe58",
+          "file": "order-processing.spec.ts",
+          "line": 37,
+          "column": 39
+        },
+        {
+          "title": "processing responsive policies he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 516,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:47.473Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-2f76aaf9fc265ae810ed",
+          "file": "order-processing.spec.ts",
+          "line": 37,
+          "column": 39
+        },
+        {
+          "title": "processing exposes failed or incomplete reads and retries without editable defaults",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 494,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:47.997Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-0a71748a4c26f0e99566",
+          "file": "order-processing.spec.ts",
+          "line": 43,
+          "column": 5
+        },
+        {
+          "title": "processing prep-only save preserves null and absent inheritance and is scoped to restaurant two",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 463,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:48.496Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-77b5533d70f38b86cbd7",
+          "file": "order-processing.spec.ts",
+          "line": 49,
+          "column": 5
+        },
+        {
+          "title": "processing kitchen override can be reverted before save but cannot pretend to restore inheritance afterwards",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 477,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:48.963Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-4d6cd23cd336e9b20f97",
+          "file": "order-processing.spec.ts",
+          "line": 54,
+          "column": 5
+        },
+        {
+          "title": "processing preserves historical service mode and preparation estimate on independent payment change",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 398,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:49.445Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-85d9fb0ddbca36417478",
+          "file": "order-processing.spec.ts",
+          "line": 59,
+          "column": 5
+        },
+        {
+          "title": "processing validates empty fractional and out-of-range estimates and focuses the input",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 609,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:49.850Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-3b2130c7c023d34c745a",
+          "file": "order-processing.spec.ts",
+          "line": 64,
+          "column": 5
+        },
+        {
+          "title": "processing freezes edits and serializes writes while preserving the failed draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 716,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:50.464Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-7b69677c613f586ff637",
+          "file": "order-processing.spec.ts",
+          "line": 70,
+          "column": 5
+        },
+        {
+          "title": "processing retains its draft through locale changes and confirms reset and navigation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1797,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:51.187Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-fb29dfe1781d418070df",
+          "file": "order-processing.spec.ts",
+          "line": 76,
+          "column": 5
+        },
+        {
+          "title": "processing read-only users can review settings without changing policies",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 349,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:52.992Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-3f86ad1f96d4e35d0914",
+          "file": "order-processing.spec.ts",
+          "line": 83,
+          "column": 5
+        },
+        {
+          "title": "processing disabled channels retain their settings and remain inaccessible to edits",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 504,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:53.353Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-eea9098bce1df81e07fe",
+          "file": "order-processing.spec.ts",
+          "line": 87,
+          "column": 5
+        },
+        {
+          "title": "processing English labels and numeric direction are explicit",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 312,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:53.864Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-ab67291f11f7ebacb630",
+          "file": "order-processing.spec.ts",
+          "line": 92,
+          "column": 5
+        },
+        {
+          "title": "processing explicit service and automatic dispatch choices save only their own properties",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 427,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:54.180Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-2e7d94a80f8412468571",
+          "file": "order-processing.spec.ts",
+          "line": 96,
+          "column": 5
+        },
+        {
+          "title": "processing all inactive channels expose no editable policy or false closure claim",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 294,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:54.613Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9512f162f0f77736df09-f7f9f4f5f8977b64b077",
+          "file": "order-processing.spec.ts",
+          "line": 100,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "order-workflow.spec.ts",
+      "file": "order-workflow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "workflow responsive editor and all automations fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 381,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:54.919Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-10f4d87049da2664a60d",
+          "file": "order-workflow.spec.ts",
+          "line": 48,
+          "column": 40
+        },
+        {
+          "title": "workflow responsive editor and all automations he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 428,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:55.305Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-1540e124d17b346d67a8",
+          "file": "order-workflow.spec.ts",
+          "line": 48,
+          "column": 40
+        },
+        {
+          "title": "workflow preserves stage identity, colors, multiple triggers and historical first-stage courier flags",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 398,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:55.737Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-52e6965868a3af396146",
+          "file": "order-workflow.spec.ts",
+          "line": 52,
+          "column": 5
+        },
+        {
+          "title": "workflow saves only the active service and retains drafts in other services",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 529,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:56.140Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-cb31d25dfa8c42f19e1e",
+          "file": "order-workflow.spec.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "workflow mutation locks inputs, type changes and duplicate writes with restaurant scope",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 393,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:56.676Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-7c0dfc69bd863c17529f",
+          "file": "order-workflow.spec.ts",
+          "line": 60,
+          "column": 5
+        },
+        {
+          "title": "workflow initial failures retry and read-only controls are keyboard disabled",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 397,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:57.074Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-c0b763d500aba2ef71c4",
+          "file": "order-workflow.spec.ts",
+          "line": 64,
+          "column": 5
+        },
+        {
+          "title": "workflow an absent flow can be created from its empty state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 389,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:57.477Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-dd176520c266a957b3d2",
+          "file": "order-workflow.spec.ts",
+          "line": 68,
+          "column": 5
+        },
+        {
+          "title": "workflow validates blank names and stage ordering without losing the draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 416,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:57.871Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-e7f9dc5a57219b88e168",
+          "file": "order-workflow.spec.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "workflow enforces unique event assignment across steps but permits several events on one step",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 478,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:58.293Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-18001c9fa29e5109c492",
+          "file": "order-workflow.spec.ts",
+          "line": 76,
+          "column": 5
+        },
+        {
+          "title": "workflow bounds stage counts without hiding the add action at zero",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1111,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:58.777Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-729acf2b565c6ff16c8a",
+          "file": "order-workflow.spec.ts",
+          "line": 80,
+          "column": 5
+        },
+        {
+          "title": "workflow disabled customer notifications retain edited message text",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 511,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:14:59.893Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-4f805150e34fbad2c116",
+          "file": "order-workflow.spec.ts",
+          "line": 86,
+          "column": 5
+        },
+        {
+          "title": "workflow unchanged readback unlocks an explicit retry without discarding the draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 526,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:00.411Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-afd2d29bfd089fdc476c",
+          "file": "order-workflow.spec.ts",
+          "line": 90,
+          "column": 5
+        },
+        {
+          "title": "workflow applied-but-failed save adopts assigned stage IDs without a second mutation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 624,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:00.943Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-1127b6911e0ea7d6fddf",
+          "file": "order-workflow.spec.ts",
+          "line": 94,
+          "column": 5
+        },
+        {
+          "title": "workflow verification can fail and retry without repeating the failed write",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 496,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:01.573Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-ac70f2b78feab2e77d8d",
+          "file": "order-workflow.spec.ts",
+          "line": 98,
+          "column": 5
+        },
+        {
+          "title": "workflow divergent server version requires review and adoption preserves other service drafts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1681,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:02.074Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-cdd505f2434d9e322b8d",
+          "file": "order-workflow.spec.ts",
+          "line": 102,
+          "column": 5
+        },
+        {
+          "title": "workflow reset uses a confirmation and the actual returned guided actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 795,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:03.761Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-d16f1500abc8e45b4263",
+          "file": "order-workflow.spec.ts",
+          "line": 106,
+          "column": 5
+        },
+        {
+          "title": "workflow uncertain reset reads the actual version without claiming a completed reset",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 941,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:04.563Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-492e52fa85c4321b16a0",
+          "file": "order-workflow.spec.ts",
+          "line": 110,
+          "column": 5
+        },
+        {
+          "title": "workflow draft guards, local discard and locale change do not reload or erase other drafts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1798,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:05.510Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-6dde0d2af2a38644c205",
+          "file": "order-workflow.spec.ts",
+          "line": 114,
+          "column": 5
+        },
+        {
+          "title": "workflow catering preset keeps stage identities and saves delivery guidance only for delivery",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 505,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:07.313Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-e618b64bda0aac17eb22",
+          "file": "order-workflow.spec.ts",
+          "line": 118,
+          "column": 5
+        },
+        {
+          "title": "workflow legacy link preserves the restaurant and English labels",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 463,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:07.823Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "20e6b0d0c2d9001be2f6-8c1b2f64ff5193ca7fd1",
+          "file": "order-workflow.spec.ts",
+          "line": 122,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "ux-foundations.spec.ts",
+      "file": "ux-foundations.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "articles use the six-control reference rail and no category tabs or KPI cards",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 376,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:08.304Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-d77440747dc2effa5c22",
+          "file": "ux-foundations.spec.ts",
+          "line": 29,
+          "column": 5
+        },
+        {
+          "title": "category filtering is drafted, discarded on Escape and applied explicitly",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 595,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:08.685Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-a64bca58cf3b705d9d26",
+          "file": "ux-foundations.spec.ts",
+          "line": 49,
+          "column": 5
+        },
+        {
+          "title": "status menu is immediate and supports keyboard multi-selection",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 476,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:09.286Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-35c2fe2d4530bde59474",
+          "file": "ux-foundations.spec.ts",
+          "line": 68,
+          "column": 5
+        },
+        {
+          "title": "all filters use a nested drawer and Apply keeps category and status in sync",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 600,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:09.767Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-a04d4de7bb1316641d72",
+          "file": "ux-foundations.spec.ts",
+          "line": 81,
+          "column": 5
+        },
+        {
+          "title": "settings expand without navigation and retain the global app destinations",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 616,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:10.371Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-0407d22f4312b0b3e71c",
+          "file": "ux-foundations.spec.ts",
+          "line": 98,
+          "column": 5
+        },
+        {
+          "title": "reference rail and filter panel support fr at 375",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 374,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:10.993Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-b540e9ea27f0b325772c",
+          "file": "ux-foundations.spec.ts",
+          "line": 120,
+          "column": 7
+        },
+        {
+          "title": "reference rail and filter panel support he at 1440",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 403,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:11.373Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-df0031169b6221a69c16",
+          "file": "ux-foundations.spec.ts",
+          "line": 120,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: kitchen/stock",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 464,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:11.782Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-9ba4eb4f37c183ae2928",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: kitchen/prep",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 511,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:12.251Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-32a0d630f72b126ce696",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: menu/menus",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 409,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:12.768Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-f05044d2440360eb268e",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: staff",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 447,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:13.181Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-61832fde527d9b11d7d9",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: orders/all",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 577,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:13.633Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-30e9ccc4b4d5aa6fd3c1",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: settings/devices",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 461,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:14.216Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-5d4d1bda46239b5a49d5",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: marketing/discounts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 460,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:14.683Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-a9a26dc7a31f747a550d",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: kitchen/supplies",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 515,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:15.148Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-1b39dfac0070ef81dea0",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: kitchen/suppliers?tab=suppliers",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 526,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:15.668Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-c37619649ae98678b17f",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: kitchen/suppliers?tab=orders",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 444,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:16.199Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-c98e44c638c42deee800",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: settings/team",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 551,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:16.649Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-051e7ce06d3218252459",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "shared reference toolbar: menu/modifiers",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 468,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:17.206Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-37e3ca5d4699e078793e",
+          "file": "ux-foundations.spec.ts",
+          "line": 135,
+          "column": 7
+        },
+        {
+          "title": "order payment and status filters apply once and closing discards the draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 658,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:17.683Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-c154a21f73e838fa7dd8",
+          "file": "ux-foundations.spec.ts",
+          "line": 158,
+          "column": 5
+        },
+        {
+          "title": "reference list without an unsupported create action: staff/devices",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 336,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:18.346Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-4e4dfa323e96f3947227",
+          "file": "ux-foundations.spec.ts",
+          "line": 180,
+          "column": 7
+        },
+        {
+          "title": "reference list without an unsupported create action: staff/shifts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 365,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:18.687Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-de81b57b0442ee70db43",
+          "file": "ux-foundations.spec.ts",
+          "line": 180,
+          "column": 7
+        },
+        {
+          "title": "legacy modifier removal retains explicit confirmation after flattening the table",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 888,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T18:15:19.057Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "eb1f7c56f14723cfcc38-20af8d918b1bd642e5f5",
+          "file": "ux-foundations.spec.ts",
+          "line": 194,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T18:13:34.478Z",
+    "duration": 105526.781,
+    "expected": 124,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}

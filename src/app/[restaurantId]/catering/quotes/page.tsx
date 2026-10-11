@@ -458,7 +458,7 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
             </div>
 
             <div>
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 selection-row">
                 <input
                   type="checkbox"
                   checked={refundExternal}

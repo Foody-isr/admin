@@ -1,5 +1,6 @@
 'use client';
 
+import { Switch } from '@/components/ui/switch';
 import { useCallback, useMemo } from 'react';
 import {
   BUILTIN_CONFIRMATION_ACTIONS,
@@ -397,20 +398,9 @@ function Toggle({
   checked, onChange, title,
 }: { checked: boolean; onChange: (b: boolean) => void; title?: string }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      title={title}
-      className={`relative w-9 h-5 rounded-full transition flex-shrink-0 ${checked ? 'bg-brand-500' : ''}`}
-      style={!checked ? { background: 'var(--divider)' } : undefined}
-    >
-      <span
-        className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
-        style={{ transform: checked ? 'translateX(18px)' : 'translateX(2px)' }}
-      />
-    </button>
+    <Switch onCheckedChange={() => onChange(!checked)}
+          title={title}
+          aria-label={title} checked={checked} />
   );
 }
 

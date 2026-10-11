@@ -5,8 +5,7 @@
 // Picks a carte at the top, then renders that carte's item categories as a
 // collapsible tree. Each item line is a click-to-toggle that adds/removes the
 // item from the currently-active step. Each category header has a "+ tout
-// ajouter" affordance that drops the whole category into the active step as
-// a category-mode binding (the rotation use case).
+// ajouter" affordance that adds the visible matching items as explicit choices.
 //
 // The catalog is presentational + emits intent — actual draft mutations live
 // in CompositionTab, which owns the step list and the active-step selection.
@@ -22,6 +21,7 @@ import type { ComboStepDraft } from './types';
 const CARTE_FILTER_STORAGE_KEY = 'foody.combo.carte';
 
 interface Props {
+  restaurantId: number;
   menus: Menu[];
   categories: MenuCategory[];
   /** Flat item lookup — used to derive which item-categories contain items
@@ -38,11 +38,11 @@ interface Props {
   anyCarteItemIds: Set<number>;
   onAddItem: (menuItemId: number) => void;
   onRemoveItem: (menuItemId: number) => void;
-  onSetCategory: (categoryId: number) => void;
+  onSetCategory: (categoryId: number, visibleItemIds: number[]) => void;
 }
 
 export default function CarteCatalog({
-  menus,
+  restaurantId, menus,
   categories,
   itemsById,
   activeStep,
@@ -52,6 +52,7 @@ export default function CarteCatalog({
   onSetCategory,
 }: Props) {
   const { t } = useI18n();
+  const storageKey = `${CARTE_FILTER_STORAGE_KEY}.${restaurantId}`;
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
 
@@ -60,7 +61,7 @@ export default function CarteCatalog({
   const [carteId, setCarteId] = useState<number | null>(() => {
     if (typeof window === 'undefined') return menus[0]?.id ?? null;
     try {
-      const raw = localStorage.getItem(CARTE_FILTER_STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (raw === '') return null;
       const id = raw != null ? Number(raw) : NaN;
       if (Number.isFinite(id) && menus.some((m) => m.id === id)) return id;
@@ -69,8 +70,8 @@ export default function CarteCatalog({
   });
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try { localStorage.setItem(CARTE_FILTER_STORAGE_KEY, carteId == null ? '' : String(carteId)); } catch { /* */ }
-  }, [carteId]);
+    try { localStorage.setItem(storageKey, carteId == null ? '' : String(carteId)); } catch { /* */ }
+  }, [carteId, storageKey]);
 
   // Set of menu_item.id reachable through the selected carte's groups (new
   // model) or legacy categories field. Null = no scope (show full library).
@@ -159,7 +160,7 @@ export default function CarteCatalog({
         <label className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
           {t('catalogCarteLabel')}
         </label>
-        <Select
+        <Select aria-label={t('catalogCarteLabel')} className="min-h-11"
           value={carteId ?? ''}
           onChange={(e) => setCarteId(e.target.value ? Number(e.target.value) : null)}
         >
@@ -171,6 +172,8 @@ export default function CarteCatalog({
         <InputGroup
           leading={<Search />}
           inputProps={{
+            'aria-label': t('catalogSearch'),
+            className: 'min-h-11',
             value: search,
             onChange: (e) => setSearch(e.target.value),
             placeholder: t('catalogSearch'),
@@ -179,7 +182,7 @@ export default function CarteCatalog({
       </div>
 
       {/* Tree */}
-      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+      <div className="flex-1 min-h-0 max-h-80 overflow-y-auto pe-1 xl:max-h-none">
         {filteredCategories.length === 0 ? (
           <div className="text-fs-xs text-[var(--fg-subtle)] text-center py-[var(--s-6)]">
             {carteId != null && allowedItemIds && allowedItemIds.size === 0
@@ -205,13 +208,14 @@ export default function CarteCatalog({
                   <div className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] border-b border-[var(--line)] bg-[var(--surface-2)]">
                     <button
                       type="button"
+                      aria-expanded={expanded}
                       onClick={() => toggleExpanded(cat.id)}
-                      className="inline-flex items-center gap-1 flex-1 min-w-0 text-start"
+                      className="inline-flex min-h-11 items-center gap-1 flex-1 min-w-0 text-start"
                     >
                       {expanded ? (
                         <ChevronDown className="w-3.5 h-3.5 text-[var(--fg-muted)] shrink-0" />
                       ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-[var(--fg-muted)] shrink-0" />
+                        <ChevronRight className="rtl:rotate-180 w-3.5 h-3.5 text-[var(--fg-muted)] shrink-0" />
                       )}
                       <span className="text-fs-xs font-bold uppercase tracking-[.06em] text-[var(--fg)] truncate">
                         {cat.name}
@@ -223,9 +227,9 @@ export default function CarteCatalog({
                     {canEdit && (
                       <button
                         type="button"
-                        onClick={() => onSetCategory(cat.id)}
-                        className="inline-flex items-center gap-1 text-fs-xs font-medium px-1.5 py-0.5 rounded-r-sm shrink-0 transition-colors text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)]"
-                        title={t('catalogAddAllTooltip')}
+                        onClick={() => onSetCategory(cat.id, (cat.items ?? []).map(item => item.id))}
+                        className="inline-flex min-h-11 items-center gap-1 text-fs-xs font-medium px-1.5 py-0.5 rounded-r-sm shrink-0 transition-colors text-[var(--brand-ink)] hover:bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)]"
+                        title={t('catalogAddAllTooltip')} aria-label={`${t('catalogAddAll')} — ${cat.name}`}
                       >
                         <Plus className="w-3 h-3" /> {t('catalogAddAll')}
                       </button>
@@ -242,11 +246,12 @@ export default function CarteCatalog({
                             key={it.id}
                             type="button"
                             disabled={!canEdit}
+                            aria-pressed={isIn}
                             onClick={() => {
                               if (!canEdit) return;
                               isIn ? onRemoveItem(it.id) : onAddItem(it.id);
                             }}
-                            className={`w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] border-t border-[var(--line)] text-start text-fs-sm transition-colors disabled:cursor-default ${
+                            className={`w-full min-h-11 flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] border-t border-[var(--line)] text-start text-fs-sm transition-colors disabled:cursor-default ${
                               isIn
                                 ? 'bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] text-[var(--fg)]'
                                 : 'hover:bg-[var(--surface-2)] text-[var(--fg)]'
@@ -255,7 +260,7 @@ export default function CarteCatalog({
                             <div
                               className={`w-[16px] h-[16px] rounded-r-xs flex items-center justify-center shrink-0 ${
                                 isIn
-                                  ? 'bg-[var(--brand-500)] text-white'
+                                  ? 'bg-[var(--action)] text-[var(--action-fg)]'
                                   : 'bg-[var(--surface)] border border-[var(--line-strong)]'
                               }`}
                               aria-hidden

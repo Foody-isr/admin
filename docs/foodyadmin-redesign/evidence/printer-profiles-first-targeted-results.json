@@ -1,0 +1,1252 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/printer-profiles.spec.ts"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "printer-profiles.spec.ts",
+      "file": "printer-profiles.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "printer profiles responsive list, editor and settings fr",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 13076,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m2\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m2\u001b[39m\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:45:883",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 883,
+                      "line": 45
+                    },
+                    "snippet": "  43 | async function edit(page:Page){await action(page,'Modifier le profil');}\n  44 | for(const locale of ['fr','he'])test(`printer profiles responsive list, editor and settings ${locale}`,async({page},info)=>{\n> 45 |  const state=await install(page,{locale});await page.setViewportSize({width:locale==='fr'?375:1440,height:1000});await open(page);await page.screenshot({path:info.outputPath(`printer-profiles-list-${locale}.png`)});await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath(`printer-profiles-detail-${locale}.png`),animations:'disabled'});await dialog(page).getByRole('button',{name:locale==='fr'?'Modifier':'עריכה',exact:true}).click();await expect(dialog(page)).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath(`printer-profiles-editor-${locale}.png`),animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(state.fixture.unhandled).toEqual([]);expect(state.control.categoryReads).toBe(1);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   ^\n  46 | });\n  47 | test('printer roles load categories without a menu permission and readonly details expose all settings',async({page})=>{const state=await install(page,{permissions:['printers.view']});await open(page);await expect(page.getByRole('button',{name:'Créer un profil',exact:true})).toHaveCount(0);await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page).getByText('Réglages d’impression communs',{exact:true})).toBeVisible();await expect(dialog(page).getByRole('button',{name:'Modifier',exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0);expect(state.control.categoryReads).toBe(1);expect(state.fixture.unhandled).toEqual([]);});\n  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 883,
+                        "line": 45
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m2\u001b[39m\n\n  43 | async function edit(page:Page){await action(page,'Modifier le profil');}\n  44 | for(const locale of ['fr','he'])test(`printer profiles responsive list, editor and settings ${locale}`,async({page},info)=>{\n> 45 |  const state=await install(page,{locale});await page.setViewportSize({width:locale==='fr'?375:1440,height:1000});await open(page);await page.screenshot({path:info.outputPath(`printer-profiles-list-${locale}.png`)});await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath(`printer-profiles-detail-${locale}.png`),animations:'disabled'});await dialog(page).getByRole('button',{name:locale==='fr'?'Modifier':'עריכה',exact:true}).click();await expect(dialog(page)).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath(`printer-profiles-editor-${locale}.png`),animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(state.fixture.unhandled).toEqual([]);expect(state.control.categoryReads).toBe(1);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   ^\n  46 | });\n  47 | test('printer roles load categories without a menu permission and readonly details expose all settings',async({page})=>{const state=await install(page,{permissions:['printers.view']});await open(page);await expect(page.getByRole('button',{name:'Créer un profil',exact:true})).toHaveCount(0);await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page).getByText('Réglages d’impression communs',{exact:true})).toBeVisible();await expect(dialog(page).getByRole('button',{name:'Modifier',exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0);expect(state.control.categoryReads).toBe(1);expect(state.fixture.unhandled).toEqual([]);});\n  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:45:883"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:05:09.875Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-p-aadaf-list-editor-and-settings-fr/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-p-aadaf-list-editor-and-settings-fr/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-p-aadaf-list-editor-and-settings-fr/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 883,
+                    "line": 45
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-f61007d81bc50651ec87",
+          "file": "printer-profiles.spec.ts",
+          "line": 44,
+          "column": 37
+        },
+        {
+          "title": "printer profiles responsive list, editor and settings he",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 17706,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: 'עריכה', exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: 'עריכה', exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:45:541",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 541,
+                      "line": 45
+                    },
+                    "snippet": "  43 | async function edit(page:Page){await action(page,'Modifier le profil');}\n  44 | for(const locale of ['fr','he'])test(`printer profiles responsive list, editor and settings ${locale}`,async({page},info)=>{\n> 45 |  const state=await install(page,{locale});await page.setViewportSize({width:locale==='fr'?375:1440,height:1000});await open(page);await page.screenshot({path:info.outputPath(`printer-profiles-list-${locale}.png`)});await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath(`printer-profiles-detail-${locale}.png`),animations:'disabled'});await dialog(page).getByRole('button',{name:locale==='fr'?'Modifier':'עריכה',exact:true}).click();await expect(dialog(page)).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath(`printer-profiles-editor-${locale}.png`),animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(state.fixture.unhandled).toEqual([]);expect(state.control.categoryReads).toBe(1);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             ^\n  46 | });\n  47 | test('printer roles load categories without a menu permission and readonly details expose all settings',async({page})=>{const state=await install(page,{permissions:['printers.view']});await open(page);await expect(page.getByRole('button',{name:'Créer un profil',exact:true})).toHaveCount(0);await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page).getByText('Réglages d’impression communs',{exact:true})).toBeVisible();await expect(dialog(page).getByRole('button',{name:'Modifier',exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0);expect(state.control.categoryReads).toBe(1);expect(state.fixture.unhandled).toEqual([]);});\n  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 541,
+                        "line": 45
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: 'עריכה', exact: true })\u001b[22m\n\n\n  43 | async function edit(page:Page){await action(page,'Modifier le profil');}\n  44 | for(const locale of ['fr','he'])test(`printer profiles responsive list, editor and settings ${locale}`,async({page},info)=>{\n> 45 |  const state=await install(page,{locale});await page.setViewportSize({width:locale==='fr'?375:1440,height:1000});await open(page);await page.screenshot({path:info.outputPath(`printer-profiles-list-${locale}.png`)});await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath(`printer-profiles-detail-${locale}.png`),animations:'disabled'});await dialog(page).getByRole('button',{name:locale==='fr'?'Modifier':'עריכה',exact:true}).click();await expect(dialog(page)).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath(`printer-profiles-editor-${locale}.png`),animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(state.fixture.unhandled).toEqual([]);expect(state.control.categoryReads).toBe(1);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             ^\n  46 | });\n  47 | test('printer roles load categories without a menu permission and readonly details expose all settings',async({page})=>{const state=await install(page,{permissions:['printers.view']});await open(page);await expect(page.getByRole('button',{name:'Créer un profil',exact:true})).toHaveCount(0);await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page).getByText('Réglages d’impression communs',{exact:true})).toBeVisible();await expect(dialog(page).getByRole('button',{name:'Modifier',exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0);expect(state.control.categoryReads).toBe(1);expect(state.fixture.unhandled).toEqual([]);});\n  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:45:541"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:05:24.164Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-p-a2fd2-list-editor-and-settings-he/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-p-a2fd2-list-editor-and-settings-he/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-p-a2fd2-list-editor-and-settings-he/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 541,
+                    "line": 45
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-4040f922935607abfe39",
+          "file": "printer-profiles.spec.ts",
+          "line": 44,
+          "column": 37
+        },
+        {
+          "title": "printer roles load categories without a menu permission and readonly details expose all settings",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1799,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m2\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m2\u001b[39m\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:47:622",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 622,
+                      "line": 47
+                    },
+                    "snippet": "  45 |  const state=await install(page,{locale});await page.setViewportSize({width:locale==='fr'?375:1440,height:1000});await open(page);await page.screenshot({path:info.outputPath(`printer-profiles-list-${locale}.png`)});await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath(`printer-profiles-detail-${locale}.png`),animations:'disabled'});await dialog(page).getByRole('button',{name:locale==='fr'?'Modifier':'עריכה',exact:true}).click();await expect(dialog(page)).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath(`printer-profiles-editor-${locale}.png`),animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(state.fixture.unhandled).toEqual([]);expect(state.control.categoryReads).toBe(1);\n  46 | });\n> 47 | test('printer roles load categories without a menu permission and readonly details expose all settings',async({page})=>{const state=await install(page,{permissions:['printers.view']});await open(page);await expect(page.getByRole('button',{name:'Créer un profil',exact:true})).toHaveCount(0);await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page).getByText('Réglages d’impression communs',{exact:true})).toBeVisible();await expect(dialog(page).getByRole('button',{name:'Modifier',exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0);expect(state.control.categoryReads).toBe(1);expect(state.fixture.unhandled).toEqual([]);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ^\n  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});\n  49 | test('printer failed and malformed load is distinct from empty and retries',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/printers');await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toHaveCount(0);state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('alert')).toBeVisible();state.control.malformed=false;state.control.profiles=[];await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toBeVisible();});\n  50 | test('printer create uses exact defaults, scoped request and synchronous double-submit guard',async({page})=>{const state=await install(page);await open(page,2);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await expect(save(page)).toBeDisabled();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('  Reçus démo  ');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await save(page).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();await expect(dialog(page).getByRole('textbox')).toBeDisabled();release();state.control.gate=null;await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'POST',path:'/api/v1/restaurants/2/printing/profiles',rid:'2',body:{name:'Reçus démo',job_types:['receipts'],dine_in_category_ids:[1,2],online_category_ids:[1,2],copies:1,enabled:true,ticket_margins:'both',print_recipient_information:true,hide_ticket_footer:true}});expect(state.writes[0].body.id).toBeUndefined();});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 622,
+                        "line": 47
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m2\u001b[39m\n\n  45 |  const state=await install(page,{locale});await page.setViewportSize({width:locale==='fr'?375:1440,height:1000});await open(page);await page.screenshot({path:info.outputPath(`printer-profiles-list-${locale}.png`)});await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page)).toHaveCSS('transform','none');await page.screenshot({path:info.outputPath(`printer-profiles-detail-${locale}.png`),animations:'disabled'});await dialog(page).getByRole('button',{name:locale==='fr'?'Modifier':'עריכה',exact:true}).click();await expect(dialog(page)).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath(`printer-profiles-editor-${locale}.png`),animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(state.fixture.unhandled).toEqual([]);expect(state.control.categoryReads).toBe(1);\n  46 | });\n> 47 | test('printer roles load categories without a menu permission and readonly details expose all settings',async({page})=>{const state=await install(page,{permissions:['printers.view']});await open(page);await expect(page.getByRole('button',{name:'Créer un profil',exact:true})).toHaveCount(0);await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page).getByText('Réglages d’impression communs',{exact:true})).toBeVisible();await expect(dialog(page).getByRole('button',{name:'Modifier',exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0);expect(state.control.categoryReads).toBe(1);expect(state.fixture.unhandled).toEqual([]);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ^\n  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});\n  49 | test('printer failed and malformed load is distinct from empty and retries',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/printers');await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toHaveCount(0);state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('alert')).toBeVisible();state.control.malformed=false;state.control.profiles=[];await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toBeVisible();});\n  50 | test('printer create uses exact defaults, scoped request and synchronous double-submit guard',async({page})=>{const state=await install(page);await open(page,2);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await expect(save(page)).toBeDisabled();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('  Reçus démo  ');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await save(page).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();await expect(dialog(page).getByRole('textbox')).toBeDisabled();release();state.control.gate=null;await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'POST',path:'/api/v1/restaurants/2/printing/profiles',rid:'2',body:{name:'Reçus démo',job_types:['receipts'],dine_in_category_ids:[1,2],online_category_ids:[1,2],copies:1,enabled:true,ticket_margins:'both',print_recipient_information:true,hide_ticket_footer:true}});expect(state.writes[0].body.id).toBeUndefined();});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:47:622"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:05:42.531Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-r-7bf84-details-expose-all-settings/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-r-7bf84-details-expose-all-settings/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-r-7bf84-details-expose-all-settings/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 622,
+                    "line": 47
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-45ce42c05a213907551f",
+          "file": "printer-profiles.spec.ts",
+          "line": 47,
+          "column": 5
+        },
+        {
+          "title": "printer search includes assignment names and handles no matches",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1857,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:05:44.830Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-df87864dc1735029bd5d",
+          "file": "printer-profiles.spec.ts",
+          "line": 48,
+          "column": 5
+        },
+        {
+          "title": "printer failed and malformed load is distinct from empty and retries",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1885,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('alert')\nExpected: visible\nError: strict mode violation: getByRole('alert') resolved to 2 elements:\n    1) <div role=\"alert\" class=\"flex items-start gap-3 rounded-r-md p-4 text-fs-sm leading-relaxed bg-[var(--danger-50)] text-[var(--danger-500)]\">…</div> aka getByRole('alert').filter({ hasText: 'Impossible de charger la' })\n    2) <div role=\"alert\" aria-live=\"assertive\" id=\"__next-route-announcer__\"></div> aka locator('[id=\"__next-route-announcer__\"]')\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('alert')\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('alert')\nExpected: visible\nError: strict mode violation: getByRole('alert') resolved to 2 elements:\n    1) <div role=\"alert\" class=\"flex items-start gap-3 rounded-r-md p-4 text-fs-sm leading-relaxed bg-[var(--danger-50)] text-[var(--danger-500)]\">…</div> aka getByRole('alert').filter({ hasText: 'Impossible de charger la' })\n    2) <div role=\"alert\" aria-live=\"assertive\" id=\"__next-route-announcer__\"></div> aka locator('[id=\"__next-route-announcer__\"]')\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('alert')\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:49:496",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 496,
+                      "line": 49
+                    },
+                    "snippet": "  47 | test('printer roles load categories without a menu permission and readonly details expose all settings',async({page})=>{const state=await install(page,{permissions:['printers.view']});await open(page);await expect(page.getByRole('button',{name:'Créer un profil',exact:true})).toHaveCount(0);await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page).getByText('Réglages d’impression communs',{exact:true})).toBeVisible();await expect(dialog(page).getByRole('button',{name:'Modifier',exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0);expect(state.control.categoryReads).toBe(1);expect(state.fixture.unhandled).toEqual([]);});\n  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});\n> 49 | test('printer failed and malformed load is distinct from empty and retries',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/printers');await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toHaveCount(0);state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('alert')).toBeVisible();state.control.malformed=false;state.control.profiles=[];await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toBeVisible();});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ^\n  50 | test('printer create uses exact defaults, scoped request and synchronous double-submit guard',async({page})=>{const state=await install(page);await open(page,2);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await expect(save(page)).toBeDisabled();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('  Reçus démo  ');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await save(page).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();await expect(dialog(page).getByRole('textbox')).toBeDisabled();release();state.control.gate=null;await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'POST',path:'/api/v1/restaurants/2/printing/profiles',rid:'2',body:{name:'Reçus démo',job_types:['receipts'],dine_in_category_ids:[1,2],online_category_ids:[1,2],copies:1,enabled:true,ticket_margins:'both',print_recipient_information:true,hide_ticket_footer:true}});expect(state.writes[0].body.id).toBeUndefined();});\n  51 | test('printer editor retains hidden categories and formatting while avoiding duplicated shared controls',async({page},info)=>{const state=await install(page);await open(page);await edit(page);await expect(dialog(page).getByRole('checkbox',{name:'Imprimer les informations du destinataire',exact:true})).toHaveCount(1);await dialog(page).getByRole('switch',{name:'Tickets en ligne',exact:true}).uncheck();await dialog(page).getByRole('switch',{name:'Tickets sur place',exact:true}).uncheck();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Reçus modifiés');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({job_types:['receipts'],dine_in_category_ids:[1,99],online_category_ids:[2],copies:5,ticket_layout:'compact',font_size:'large',enabled:false,auto_print_new_categories:false,one_item_per_ticket:true});await page.getByRole('button',{name:'Actions · Reçus modifiés',exact:true}).click();await page.getByRole('menuitem',{name:'Modifier le profil',exact:true}).click();await dialog(page).getByRole('switch',{name:'Tickets sur place',exact:true}).check();await dialog(page).getByRole('combobox',{name:'Marges des tickets',exact:true}).selectOption('none');await dialog(page).getByRole('combobox',{name:'Ordre de tri des articles',exact:true}).selectOption('seat');await dialog(page).getByRole('combobox',{name:'Taille de la police',exact:true}).selectOption('small');await dialog(page).getByRole('combobox',{name:'Mise en page des tickets',exact:true}).selectOption('classic');await dialog(page).getByRole('button',{name:'Diminuer',exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-format-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body).toMatchObject({ticket_margins:'none',item_sort_order:'seat',font_size:'small',ticket_layout:'classic',copies:4});});\n  52 | test('printer UTF-8 name limit and duplicate name never send invalid writes',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(61));await save(page).click();await expect(dialog(page).getByText(/120 octets UTF-8/)).toBeVisible();expect(state.writes).toHaveLength(0);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(60));await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(60));await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();await expect(dialog(page).getByText('Un profil utilise déjà ce nom. Choisissez un autre nom.',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(1);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 496,
+                        "line": 49
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('alert')\nExpected: visible\nError: strict mode violation: getByRole('alert') resolved to 2 elements:\n    1) <div role=\"alert\" class=\"flex items-start gap-3 rounded-r-md p-4 text-fs-sm leading-relaxed bg-[var(--danger-50)] text-[var(--danger-500)]\">…</div> aka getByRole('alert').filter({ hasText: 'Impossible de charger la' })\n    2) <div role=\"alert\" aria-live=\"assertive\" id=\"__next-route-announcer__\"></div> aka locator('[id=\"__next-route-announcer__\"]')\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('alert')\u001b[22m\n\n\n  47 | test('printer roles load categories without a menu permission and readonly details expose all settings',async({page})=>{const state=await install(page,{permissions:['printers.view']});await open(page);await expect(page.getByRole('button',{name:'Créer un profil',exact:true})).toHaveCount(0);await page.getByRole('button',{name:seed().name,exact:true}).click();await expect(dialog(page).getByText('Réglages d’impression communs',{exact:true})).toBeVisible();await expect(dialog(page).getByRole('button',{name:'Modifier',exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0);expect(state.control.categoryReads).toBe(1);expect(state.fixture.unhandled).toEqual([]);});\n  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});\n> 49 | test('printer failed and malformed load is distinct from empty and retries',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/printers');await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toHaveCount(0);state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('alert')).toBeVisible();state.control.malformed=false;state.control.profiles=[];await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toBeVisible();});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ^\n  50 | test('printer create uses exact defaults, scoped request and synchronous double-submit guard',async({page})=>{const state=await install(page);await open(page,2);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await expect(save(page)).toBeDisabled();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('  Reçus démo  ');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await save(page).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();await expect(dialog(page).getByRole('textbox')).toBeDisabled();release();state.control.gate=null;await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'POST',path:'/api/v1/restaurants/2/printing/profiles',rid:'2',body:{name:'Reçus démo',job_types:['receipts'],dine_in_category_ids:[1,2],online_category_ids:[1,2],copies:1,enabled:true,ticket_margins:'both',print_recipient_information:true,hide_ticket_footer:true}});expect(state.writes[0].body.id).toBeUndefined();});\n  51 | test('printer editor retains hidden categories and formatting while avoiding duplicated shared controls',async({page},info)=>{const state=await install(page);await open(page);await edit(page);await expect(dialog(page).getByRole('checkbox',{name:'Imprimer les informations du destinataire',exact:true})).toHaveCount(1);await dialog(page).getByRole('switch',{name:'Tickets en ligne',exact:true}).uncheck();await dialog(page).getByRole('switch',{name:'Tickets sur place',exact:true}).uncheck();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Reçus modifiés');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({job_types:['receipts'],dine_in_category_ids:[1,99],online_category_ids:[2],copies:5,ticket_layout:'compact',font_size:'large',enabled:false,auto_print_new_categories:false,one_item_per_ticket:true});await page.getByRole('button',{name:'Actions · Reçus modifiés',exact:true}).click();await page.getByRole('menuitem',{name:'Modifier le profil',exact:true}).click();await dialog(page).getByRole('switch',{name:'Tickets sur place',exact:true}).check();await dialog(page).getByRole('combobox',{name:'Marges des tickets',exact:true}).selectOption('none');await dialog(page).getByRole('combobox',{name:'Ordre de tri des articles',exact:true}).selectOption('seat');await dialog(page).getByRole('combobox',{name:'Taille de la police',exact:true}).selectOption('small');await dialog(page).getByRole('combobox',{name:'Mise en page des tickets',exact:true}).selectOption('classic');await dialog(page).getByRole('button',{name:'Diminuer',exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-format-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body).toMatchObject({ticket_margins:'none',item_sort_order:'seat',font_size:'small',ticket_layout:'classic',copies:4});});\n  52 | test('printer UTF-8 name limit and duplicate name never send invalid writes',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(61));await save(page).click();await expect(dialog(page).getByText(/120 octets UTF-8/)).toBeVisible();expect(state.writes).toHaveLength(0);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(60));await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(60));await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();await expect(dialog(page).getByText('Un profil utilise déjà ce nom. Choisissez un autre nom.',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(1);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:49:496"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:05:46.817Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-f-e1339-inct-from-empty-and-retries/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-f-e1339-inct-from-empty-and-retries/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-f-e1339-inct-from-empty-and-retries/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 496,
+                    "line": 49
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-ee704483f5f7fd625055",
+          "file": "printer-profiles.spec.ts",
+          "line": 49,
+          "column": 5
+        },
+        {
+          "title": "printer create uses exact defaults, scoped request and synchronous double-submit guard",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 7059,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true })\nExpected: disabled\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true })\nExpected: disabled\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:50:636",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 636,
+                      "line": 50
+                    },
+                    "snippet": "  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});\n  49 | test('printer failed and malformed load is distinct from empty and retries',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/printers');await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toHaveCount(0);state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('alert')).toBeVisible();state.control.malformed=false;state.control.profiles=[];await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toBeVisible();});\n> 50 | test('printer create uses exact defaults, scoped request and synchronous double-submit guard',async({page})=>{const state=await install(page);await open(page,2);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await expect(save(page)).toBeDisabled();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('  Reçus démo  ');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await save(page).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();await expect(dialog(page).getByRole('textbox')).toBeDisabled();release();state.control.gate=null;await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'POST',path:'/api/v1/restaurants/2/printing/profiles',rid:'2',body:{name:'Reçus démo',job_types:['receipts'],dine_in_category_ids:[1,2],online_category_ids:[1,2],copies:1,enabled:true,ticket_margins:'both',print_recipient_information:true,hide_ticket_footer:true}});expect(state.writes[0].body.id).toBeUndefined();});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ^\n  51 | test('printer editor retains hidden categories and formatting while avoiding duplicated shared controls',async({page},info)=>{const state=await install(page);await open(page);await edit(page);await expect(dialog(page).getByRole('checkbox',{name:'Imprimer les informations du destinataire',exact:true})).toHaveCount(1);await dialog(page).getByRole('switch',{name:'Tickets en ligne',exact:true}).uncheck();await dialog(page).getByRole('switch',{name:'Tickets sur place',exact:true}).uncheck();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Reçus modifiés');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({job_types:['receipts'],dine_in_category_ids:[1,99],online_category_ids:[2],copies:5,ticket_layout:'compact',font_size:'large',enabled:false,auto_print_new_categories:false,one_item_per_ticket:true});await page.getByRole('button',{name:'Actions · Reçus modifiés',exact:true}).click();await page.getByRole('menuitem',{name:'Modifier le profil',exact:true}).click();await dialog(page).getByRole('switch',{name:'Tickets sur place',exact:true}).check();await dialog(page).getByRole('combobox',{name:'Marges des tickets',exact:true}).selectOption('none');await dialog(page).getByRole('combobox',{name:'Ordre de tri des articles',exact:true}).selectOption('seat');await dialog(page).getByRole('combobox',{name:'Taille de la police',exact:true}).selectOption('small');await dialog(page).getByRole('combobox',{name:'Mise en page des tickets',exact:true}).selectOption('classic');await dialog(page).getByRole('button',{name:'Diminuer',exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-format-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body).toMatchObject({ticket_margins:'none',item_sort_order:'seat',font_size:'small',ticket_layout:'classic',copies:4});});\n  52 | test('printer UTF-8 name limit and duplicate name never send invalid writes',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(61));await save(page).click();await expect(dialog(page).getByText(/120 octets UTF-8/)).toBeVisible();expect(state.writes).toHaveLength(0);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(60));await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(60));await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();await expect(dialog(page).getByText('Un profil utilise déjà ce nom. Choisissez un autre nom.',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(1);});\n  53 | test('printer drafts guard close and transition to assignment editing',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await expect(page.getByRole('alertdialog')).toBeVisible();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon');await dialog(page).getByRole('button',{name:'Attribuer des imprimantes',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page).getByRole('combobox')).toBeVisible();await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(0);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 636,
+                        "line": 50
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true })\nExpected: disabled\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true })\u001b[22m\n\n\n  48 | test('printer search includes assignment names and handles no matches',async({page})=>{await install(page);await open(page);await page.getByRole('searchbox').fill('Ancienne tablette');await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();await page.getByRole('searchbox').fill('ZZZ');await expect(page.getByText('Aucun profil ne correspond à cette recherche.',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toBeVisible();});\n  49 | test('printer failed and malformed load is distinct from empty and retries',async({page})=>{const state=await install(page);state.control.failRead=true;await page.goto('/1/settings/printers');await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toHaveCount(0);state.control.failRead=false;state.control.malformed=true;await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByRole('alert')).toBeVisible();state.control.malformed=false;state.control.profiles=[];await page.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(page.getByText('Aucun profil d’imprimante',{exact:true})).toBeVisible();});\n> 50 | test('printer create uses exact defaults, scoped request and synchronous double-submit guard',async({page})=>{const state=await install(page);await open(page,2);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await expect(save(page)).toBeDisabled();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('  Reçus démo  ');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await save(page).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();await expect(dialog(page).getByRole('textbox')).toBeDisabled();release();state.control.gate=null;await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({method:'POST',path:'/api/v1/restaurants/2/printing/profiles',rid:'2',body:{name:'Reçus démo',job_types:['receipts'],dine_in_category_ids:[1,2],online_category_ids:[1,2],copies:1,enabled:true,ticket_margins:'both',print_recipient_information:true,hide_ticket_footer:true}});expect(state.writes[0].body.id).toBeUndefined();});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ^\n  51 | test('printer editor retains hidden categories and formatting while avoiding duplicated shared controls',async({page},info)=>{const state=await install(page);await open(page);await edit(page);await expect(dialog(page).getByRole('checkbox',{name:'Imprimer les informations du destinataire',exact:true})).toHaveCount(1);await dialog(page).getByRole('switch',{name:'Tickets en ligne',exact:true}).uncheck();await dialog(page).getByRole('switch',{name:'Tickets sur place',exact:true}).uncheck();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Reçus modifiés');await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body).toMatchObject({job_types:['receipts'],dine_in_category_ids:[1,99],online_category_ids:[2],copies:5,ticket_layout:'compact',font_size:'large',enabled:false,auto_print_new_categories:false,one_item_per_ticket:true});await page.getByRole('button',{name:'Actions · Reçus modifiés',exact:true}).click();await page.getByRole('menuitem',{name:'Modifier le profil',exact:true}).click();await dialog(page).getByRole('switch',{name:'Tickets sur place',exact:true}).check();await dialog(page).getByRole('combobox',{name:'Marges des tickets',exact:true}).selectOption('none');await dialog(page).getByRole('combobox',{name:'Ordre de tri des articles',exact:true}).selectOption('seat');await dialog(page).getByRole('combobox',{name:'Taille de la police',exact:true}).selectOption('small');await dialog(page).getByRole('combobox',{name:'Mise en page des tickets',exact:true}).selectOption('classic');await dialog(page).getByRole('button',{name:'Diminuer',exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-format-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body).toMatchObject({ticket_margins:'none',item_sort_order:'seat',font_size:'small',ticket_layout:'classic',copies:4});});\n  52 | test('printer UTF-8 name limit and duplicate name never send invalid writes',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(61));await save(page).click();await expect(dialog(page).getByText(/120 octets UTF-8/)).toBeVisible();expect(state.writes).toHaveLength(0);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(60));await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('א'.repeat(60));await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();await expect(dialog(page).getByText('Un profil utilise déjà ce nom. Choisissez un autre nom.',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(1);});\n  53 | test('printer drafts guard close and transition to assignment editing',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon');await dialog(page).getByRole('button',{name:'Fermer',exact:true}).click();await expect(page.getByRole('alertdialog')).toBeVisible();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon');await dialog(page).getByRole('button',{name:'Attribuer des imprimantes',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(dialog(page).getByRole('combobox')).toBeVisible();await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(0);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:50:636"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:05:49.265Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-c-5f546-hronous-double-submit-guard/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-c-5f546-hronous-double-submit-guard/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-c-5f546-hronous-double-submit-guard/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 636,
+                    "line": 50
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-52414e7588fbfad84df3",
+          "file": "printer-profiles.spec.ts",
+          "line": 50,
+          "column": 5
+        },
+        {
+          "title": "printer editor retains hidden categories and formatting while avoiding duplicated shared controls",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5168,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:05:56.889Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-adacf427f8eb90adeb17",
+          "file": "printer-profiles.spec.ts",
+          "line": 51,
+          "column": 5
+        },
+        {
+          "title": "printer UTF-8 name limit and duplicate name never send invalid writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7900,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:02.282Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-2d730bcaa574ab4af3fd",
+          "file": "printer-profiles.spec.ts",
+          "line": 52,
+          "column": 5
+        },
+        {
+          "title": "printer drafts guard close and transition to assignment editing",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3756,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:10.189Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-54573455aca795577401",
+          "file": "printer-profiles.spec.ts",
+          "line": 53,
+          "column": 5
+        },
+        {
+          "title": "printer selecting all categories preserves unavailable IDs until explicit removal",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2785,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:13.956Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-768b331fac7bc73a60b6",
+          "file": "printer-profiles.spec.ts",
+          "line": 54,
+          "column": 5
+        },
+        {
+          "title": "printer assignments preserve unavailable devices and restrict options to observed printers",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3121,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:16.752Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-19cfecc73db0e76254ce",
+          "file": "printer-profiles.spec.ts",
+          "line": 55,
+          "column": 5
+        },
+        {
+          "title": "printer unavailable assignment is represented when Go returns null observations",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2466,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:19.892Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-34266b79933e56014d1d",
+          "file": "printer-profiles.spec.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "printer uncertain create reconciles through GET without repeating writes",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 2460,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 1697,
+                      "line": 57
+                    },
+                    "snippet": "  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 1697,
+                        "line": 57
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n\n  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:22.365Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-cfccf-ET-without-repeating-writes/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-cfccf-ET-without-repeating-writes/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-cfccf-ET-without-repeating-writes/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 1697,
+                    "line": 57
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-5d21123ae03e1e2b77d1",
+          "file": "printer-profiles.spec.ts",
+          "line": 57,
+          "column": 73
+        },
+        {
+          "title": "printer uncertain update reconciles through GET without repeating writes",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 6,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 3095,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 1697,
+                      "line": 57
+                    },
+                    "snippet": "  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 1697,
+                        "line": 57
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n\n  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:25.379Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-20d45-ET-without-repeating-writes/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-20d45-ET-without-repeating-writes/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-20d45-ET-without-repeating-writes/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 1697,
+                    "line": 57
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-fe11a8bcd69471f48ffc",
+          "file": "printer-profiles.spec.ts",
+          "line": 57,
+          "column": 73
+        },
+        {
+          "title": "printer uncertain assign reconciles through GET without repeating writes",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 7,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 3376,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 1697,
+                      "line": 57
+                    },
+                    "snippet": "  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 1697,
+                        "line": 57
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n\n  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:29.363Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-86ccd-ET-without-repeating-writes/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-86ccd-ET-without-repeating-writes/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-86ccd-ET-without-repeating-writes/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 1697,
+                    "line": 57
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-ba21d7504ca700d46878",
+          "file": "printer-profiles.spec.ts",
+          "line": 57,
+          "column": 73
+        },
+        {
+          "title": "printer uncertain duplicate reconciles through GET without repeating writes",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 8,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 3037,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 1697,
+                      "line": 57
+                    },
+                    "snippet": "  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 1697,
+                        "line": 57
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n\n  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:33.350Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-1740c-ET-without-repeating-writes/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-1740c-ET-without-repeating-writes/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-1740c-ET-without-repeating-writes/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 1697,
+                    "line": 57
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-7bc096da9d822bd8463f",
+          "file": "printer-profiles.spec.ts",
+          "line": 57,
+          "column": 73
+        },
+        {
+          "title": "printer uncertain delete reconciles through GET without repeating writes",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 9,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 3163,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 1697,
+                      "line": 57
+                    },
+                    "snippet": "  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 1697,
+                        "line": 57
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m4\u001b[39m\n\n  55 | test('printer assignments preserve unavailable devices and restrict options to observed printers',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('option',{name:/Autre poste/})).toHaveCount(0);await dialog(page).getByRole('combobox').selectOption('printer-2');await page.screenshot({path:info.outputPath('printer-profiles-assignments-fr.png')});await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-2'},{device_id:'old-pos',device_name:'Ancienne tablette',printer_id:'old-printer'}]);await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[1].body.assignments).toHaveLength(1);});\n  56 | test('printer unavailable assignment is represented when Go returns null observations',async({page})=>{const state=await install(page);state.control.agents[0].printer_ids=null;await open(page);await action(page,'Modifier les imprimantes assignées');await expect(dialog(page).getByRole('combobox')).toHaveValue('printer-1');await expect(dialog(page).getByRole('option',{name:'Indisponible · Cuisine',exact:true})).toHaveCount(1);await dialog(page).getByRole('button',{name:'Retirer cette affectation',exact:true}).click();await save(page).click();await expect(dialog(page)).toHaveCount(0);expect(state.writes[0].body.assignments).toEqual([{device_id:'pos-1',device_name:'Caisse accueil',printer_id:'printer-1'}]);});\n> 57 | for(const kind of ['create','update','assign','duplicate','delete'])test(`printer uncertain ${kind} reconciles through GET without repeating writes`,async({page})=>{const state=await install(page);state.control.failWrite=true;state.control.applyAndFail=true;state.control.failAfterWrite=true;await open(page);if(kind==='create'){await page.getByRole('button',{name:'Créer un profil',exact:true}).click();await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Nouveau profil');await dialog(page).getByRole('switch',{name:'Reçus',exact:true}).check();await save(page).click();}else if(kind==='update'){await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Cuisine modifiée');await save(page).click();}else if(kind==='assign'){await action(page,'Modifier les imprimantes assignées');await dialog(page).getByRole('combobox').selectOption('printer-2');await save(page).click();}else if(kind==='duplicate'){await action(page,'Dupliquer le profil');}else{await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();}await expect(verify(page)).toBeVisible();if(['create','update','assign'].includes(kind)){await expect(save(page)).toBeDisabled();await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();}await verify(page).click();await expect(page.getByText(/Impossible de vérifier les profils enregistrés/)).toBeVisible();state.control.failRead=false;await verify(page).click();await expect(verify(page)).toHaveCount(0);await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);expect(state.control.reads).toBe(3);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n  58 | test('printer differing saved state preserves draft and needs confirmation to adopt',async({page},info)=>{const state=await install(page);state.control.failWrite=true;await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Nom du profil',exact:true}).fill('Brouillon conservé');await save(page).click();await verify(page).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByText('Voir la version enregistrée',{exact:true}).click();await page.screenshot({path:info.outputPath('printer-profiles-recovery-fr.png')});await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue('Brouillon conservé');await dialog(page).getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(dialog(page).getByRole('textbox')).toHaveValue(seed().name);await expect(save(page)).toBeDisabled();expect(state.writes).toHaveLength(1);});\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:57:1697"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:37.042Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-f2e35-ET-without-repeating-writes/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-f2e35-ET-without-repeating-writes/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-u-f2e35-ET-without-repeating-writes/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 1697,
+                    "line": 57
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-0ff20b3f440506eba29e",
+          "file": "printer-profiles.spec.ts",
+          "line": 57,
+          "column": 73
+        },
+        {
+          "title": "printer differing saved state preserves draft and needs confirmation to adopt",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3698,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:40.853Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-1557cadb65ee5d120c05",
+          "file": "printer-profiles.spec.ts",
+          "line": 58,
+          "column": 5
+        },
+        {
+          "title": "printer duplication never copies assignments and confirmed delete removes only the profile",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3776,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:44.690Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-c3ca8b83101f7b5a2c7b",
+          "file": "printer-profiles.spec.ts",
+          "line": 59,
+          "column": 5
+        },
+        {
+          "title": "printer locale switch retains data without refetching",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2399,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:48.472Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-0f2276897d9e89ca6f94",
+          "file": "printer-profiles.spec.ts",
+          "line": 60,
+          "column": 5
+        },
+        {
+          "title": "printer English empty workspace remains accessible on mobile",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 6638,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('No printer profiles yet', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('No printer profiles yet', { exact: true })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('No printer profiles yet', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('No printer profiles yet', { exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:61:405",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                      "column": 405,
+                      "line": 61
+                    },
+                    "snippet": "  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});\n> 61 | test('printer English empty workspace remains accessible on mobile',async({page})=>{const state=await install(page,{locale:'en'});state.control.profiles=[];await page.setViewportSize({width:375,height:812});await page.goto('/2/settings/printers');await expect(page.getByRole('button',{name:'Create profile',exact:true})).toBeVisible();await expect(page.getByText('No printer profiles yet',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(0);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                     ^\n  62 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                        "column": 405,
+                        "line": 61
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('No printer profiles yet', { exact: true })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('No printer profiles yet', { exact: true })\u001b[22m\n\n\n  59 | test('printer duplication never copies assignments and confirmed delete removes only the profile',async({page},info)=>{const state=await install(page);await open(page);await action(page,'Dupliquer le profil');await expect(page.getByRole('button',{name:`${seed().name} (copy)`,exact:true})).toBeVisible();expect(state.control.profiles[1].assignments).toEqual([]);await action(page,'Supprimer le profil');await expect(page.getByRole('alertdialog')).toHaveCSS('opacity','1');await page.screenshot({path:info.outputPath('printer-profiles-delete-fr.png'),animations:'disabled'});await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();expect(state.writes).toHaveLength(1);await action(page,'Supprimer le profil');await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(page.getByRole('button',{name:seed().name,exact:true})).toHaveCount(0);expect(state.control.printers).toHaveLength(3);expect(state.writes).toHaveLength(2);});\n  60 | test('printer locale switch retains data without refetching',async({page})=>{const state=await install(page);await open(page);const reads=state.control.reads;await page.getByRole('button',{name:'Foody · Profil',exact:true}).click();await dialog(page).getByRole('button',{name:'עברית',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('heading',{name:'פרופילי מדפסות',exact:true})).toBeVisible();expect(state.control.reads).toBe(reads);});\n> 61 | test('printer English empty workspace remains accessible on mobile',async({page})=>{const state=await install(page,{locale:'en'});state.control.profiles=[];await page.setViewportSize({width:375,height:812});await page.goto('/2/settings/printers');await expect(page.getByRole('button',{name:'Create profile',exact:true})).toBeVisible();await expect(page.getByText('No printer profiles yet',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(0);});\n     |                                                                                                                                                                                                                                                                                                                                                                                                                     ^\n  62 |\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts:61:405"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T15:06:50.877Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-E-2c07d-emains-accessible-on-mobile/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-E-2c07d-emains-accessible-on-mobile/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/printer-profiles-printer-E-2c07d-emains-accessible-on-mobile/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/printer-profiles.spec.ts",
+                    "column": 405,
+                    "line": 61
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ebc27d8f34cdfdf827d-58345a9d8d964838d0aa",
+          "file": "printer-profiles.spec.ts",
+          "line": 61,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T15:05:08.538Z",
+    "duration": 109121.066,
+    "expected": 10,
+    "skipped": 0,
+    "unexpected": 11,
+    "flaky": 0
+  }
+}

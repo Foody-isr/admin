@@ -1,336 +1,235 @@
 'use client';
 
-// Message templates settings — where a restaurant owner rewrites the WhatsApp
-// order confirmation their customers receive. One Section per entry in
-// TEMPLATE_REGISTRY (today just order_recap), each with three language tabs.
-//
-// The body shown per language is the restaurant's own customization if one
-// exists, otherwise the registry's shipped default — so a restaurant that
-// never opens this screen keeps receiving exactly the text it gets today.
-// Saving reloads the list so languages the server just auto-translated show
-// up immediately, without ever clobbering a draft the owner is mid-typing in
-// another tab (tracked via `dirtyRef`).
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Badge, Button, PageHead, Section, Tab, Tabs, TabsContent, TabsList } from '@/components/ds';
-import { useI18n, i18nOr } from '@/lib/i18n';
+import { Badge, Button, ConfirmDialog, PageHead, Section, Tab, Tabs, TabsContent, TabsList } from '@/components/ds';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import {
-  listMessageTemplates,
-  saveMessageTemplate,
-  resetMessageTemplate,
-  type MessageTemplate,
-} from '@/lib/api';
+import { listMessageTemplates, resetMessageTemplate, saveMessageTemplate, type MessageTemplate } from '@/lib/api';
 import { TEMPLATE_REGISTRY, type TemplateDefinition } from '@/lib/messages/registry';
 import { RECAP_LOCALES, type RecapLocale } from '@/lib/orders/whatsapp-recap';
 import { TemplateEditor } from './TemplateEditor';
 import { hasUnsavedDraft, runSaveFlow, type DraftStatus } from './draft-state';
 
-const LOCALE_LABEL: Record<RecapLocale, string> = {
-  fr: 'Français',
-  he: 'עברית',
-  en: 'English',
-};
+const LOCALE_LABEL = { fr: 'Français', he: 'עברית', en: 'English' };
+type Baseline = Pick<MessageTemplate, 'key' | 'locale' | 'body' | 'is_auto_translated'>;
+type Busy = { kind: 'save' | 'reset' | 'refresh'; key: string } | null;
+const compositeKey = (key: string, locale: RecapLocale) => `${key}::${locale}`;
 
-function compositeKey(key: string, locale: RecapLocale): string {
-  return `${key}::${locale}`;
-}
-
+/** Isolate every localized draft and saved baseline to its active restaurant. */
 export default function MessageTemplatesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t, locale: uiLocale } = useI18n();
+  return <TemplateWorkspace key={rid} rid={rid} />;
+}
+
+function TemplateWorkspace({ rid }: { rid: number }) {
+  const { t, locale: uiLocale, direction } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
-
-  const [rows, setRows] = useState<MessageTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  // Editor content per "key::locale". Initialized from the server row when one
-  // exists, else the registry default (behaviour: never a blank box).
+  const [rows, setRows] = useState<Baseline[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [activeLocale, setActiveLocale] = useState<Record<string, RecapLocale>>({});
-  const [saving, setSaving] = useState<Record<string, boolean>>({});
-  const [resetting, setResetting] = useState<Record<string, boolean>>({});
+  const [activeLocale, setActiveLocale] = useState<Record<string, RecapLocale>>(() => Object.fromEntries(
+    TEMPLATE_REGISTRY.map(def => [def.key, RECAP_LOCALES.includes(uiLocale as RecapLocale) ? uiLocale as RecapLocale : 'fr']),
+  ));
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [refreshError, setRefreshError] = useState('');
+  const [busy, setBusy] = useState<Busy>(null);
   const [status, setStatus] = useState<Record<string, DraftStatus>>({});
-
-  // Mirror of `drafts`, always current. handleSave has to read the draft as it
-  // stands AFTER its request resolves, to decide whether the owner kept typing
-  // meanwhile; `drafts` captured in that closure is a snapshot from before the
-  // request. Kept in step by applyDrafts(), the single writer.
+  const [resetTarget, setResetTarget] = useState<{ definition: TemplateDefinition; locale: RecapLocale } | null>(null);
   const draftsRef = useRef<Record<string, string>>({});
+  const dirtyRef = useRef(new Set<string>());
+  const lock = useRef(false);
+  const request = useRef({ sequence: 0, generation: 0 });
+  const copy = useRef(t);
+  copy.current = t;
 
-  // Composite keys the owner has typed into since the last server sync. Reload
-  // must never overwrite one of these with a freshly fetched value, or a
-  // background refresh (triggered by saving a DIFFERENT language) would wipe
-  // out an in-progress edit. A ref (not state) because reload() reads it
-  // synchronously without wanting to re-render on every keystroke.
-  const dirtyRef = useRef<Set<string>>(new Set());
-
-  // Monotonic generation counter guarding against a stale reload's response
-  // landing after a newer one. Saving two locales back to back kicks off two
-  // overlapping GETs (each save awaits its PUT, then calls reload()); network
-  // timing gives no guarantee the first GET's response arrives first. Without
-  // this guard, an older response can resolve after a newer save and
-  // overwrite that locale's just-saved body and "translated automatically"
-  // badge with a pre-save snapshot — wrong, on the one screen whose entire
-  // job is telling the owner what is actually saved. Only the response
-  // belonging to the most recently STARTED reload is ever applied; an older
-  // one that resolves late is silently dropped (a subsequent reload, if any,
-  // is still authoritative and unaffected).
-  const reloadSeqRef = useRef(0);
-
-  // The only writer of `drafts`, so `draftsRef` cannot drift from the state.
-  // Both are updated synchronously here rather than via a setState updater:
-  // an updater must stay pure, and mutating the ref inside one would break
-  // that (React may invoke it twice).
-  const applyDrafts = useCallback(
-    (update: (prev: Record<string, string>) => Record<string, string>) => {
-      const next = update(draftsRef.current);
-      draftsRef.current = next;
-      setDrafts(next);
-    },
-    [],
-  );
+  const applyDrafts = useCallback((update: (current: Record<string, string>) => Record<string, string>) => {
+    const next = update(draftsRef.current);
+    draftsRef.current = next;
+    setDrafts(next);
+  }, []);
 
   const reload = useCallback(async () => {
-    const seq = ++reloadSeqRef.current;
+    const sequence = ++request.current.sequence;
     const list = await listMessageTemplates(rid);
-    if (seq !== reloadSeqRef.current) return; // superseded by a newer reload — drop this stale response
+    if (sequence !== request.current.sequence) return;
     setRows(list);
-    applyDrafts((prev) => {
-      const next = { ...prev };
-      for (const def of TEMPLATE_REGISTRY) {
-        for (const locale of RECAP_LOCALES) {
-          const ck = compositeKey(def.key, locale);
-          if (dirtyRef.current.has(ck)) continue;
-          const row = list.find((r) => r.key === def.key && r.locale === locale);
-          next[ck] = row ? row.body : def.defaults[locale];
+    applyDrafts(current => {
+      const next = { ...current };
+      for (const def of TEMPLATE_REGISTRY) for (const locale of RECAP_LOCALES) {
+        const key = compositeKey(def.key, locale);
+        if (!dirtyRef.current.has(key)) {
+          next[key] = list.find(row => row.key === def.key && row.locale === locale)?.body ?? def.defaults[locale];
         }
       }
       return next;
     });
+    setRefreshError('');
   }, [rid, applyDrafts]);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
+    const generation = request.current.generation;
+    const sequence = request.current.sequence + 1;
     setLoading(true);
-    setLoadError(null);
-    reload()
-      .catch((e: unknown) => setLoadError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setLoading(false));
-    // reload() itself is stable per `rid`; re-running it on every identity
-    // change would refetch pointlessly.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rid]);
+    setLoadError('');
+    try { await reload(); }
+    catch (cause) {
+      if (generation === request.current.generation && sequence === request.current.sequence) setLoadError(cause instanceof Error ? cause.message : copy.current('loadFailed'));
+    } finally {
+      if (generation === request.current.generation && sequence === request.current.sequence) setLoading(false);
+    }
+  }, [reload]);
 
-  // Default each template's active tab to the admin's own UI language (when it
-  // is one of the three recap locales) so staff start editing in the language
-  // they read fastest.
   useEffect(() => {
-    const initial: RecapLocale = (RECAP_LOCALES as readonly string[]).includes(uiLocale)
-      ? (uiLocale as RecapLocale)
-      : 'fr';
-    setActiveLocale((prev) => {
-      const next = { ...prev };
-      for (const def of TEMPLATE_REGISTRY) {
-        if (!next[def.key]) next[def.key] = initial;
-      }
-      return next;
-    });
-    // Only seed once per template key, on mount — must not fight the owner's
-    // own tab clicks afterward.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const current = request.current;
+    void load();
+    return () => { current.sequence += 1; current.generation += 1; };
+  }, [load]);
 
-  const rowFor = (key: string, locale: RecapLocale) =>
-    rows.find((r) => r.key === key && r.locale === locale);
+  const rowFor = (key: string, locale: RecapLocale) => rows.find(row => row.key === key && row.locale === locale);
+  const bodyFor = (def: TemplateDefinition, locale: RecapLocale) => drafts[compositeKey(def.key, locale)] ?? def.defaults[locale];
+  const isDirty = (def: TemplateDefinition, locale: RecapLocale) => hasUnsavedDraft(bodyFor(def, locale), rowFor(def.key, locale), def.defaults[locale]);
+  const hasDirty = TEMPLATE_REGISTRY.some(def => RECAP_LOCALES.some(locale => isDirty(def, locale)));
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (hasDirty || lock.current) { event.preventDefault(); event.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasDirty]);
 
-  const setDraft = (key: string, locale: RecapLocale, value: string) => {
-    const ck = compositeKey(key, locale);
-    dirtyRef.current.add(ck);
-    applyDrafts((prev) => ({ ...prev, [ck]: value }));
+  const clearStatus = (key: string) => setStatus(current => {
+    const next = { ...current }; delete next[key]; return next;
+  });
+  const setDraft = (def: TemplateDefinition, locale: RecapLocale, body: string) => {
+    const key = compositeKey(def.key, locale);
+    if (!canEdit || (busy?.kind === 'reset' && busy.key === key)) return;
+    if (hasUnsavedDraft(body, rowFor(def.key, locale), def.defaults[locale])) dirtyRef.current.add(key);
+    else dirtyRef.current.delete(key);
+    applyDrafts(current => ({ ...current, [key]: body }));
+    clearStatus(key);
   };
 
-  const bodyFor = (def: TemplateDefinition, locale: RecapLocale) =>
-    drafts[compositeKey(def.key, locale)] ?? def.defaults[locale];
-
-  const clearStatus = (ck: string) => {
-    setStatus((prev) => {
-      if (!(ck in prev)) return prev;
-      const next = { ...prev };
-      delete next[ck];
-      return next;
-    });
+  const refresh = async () => {
+    if (lock.current) return;
+    lock.current = true;
+    const generation = request.current.generation;
+    setBusy({ kind: 'refresh', key: '' });
+    try { await reload(); }
+    catch (cause) {
+      if (generation === request.current.generation) setRefreshError(cause instanceof Error ? cause.message : t('loadFailed'));
+    } finally {
+      if (generation === request.current.generation) { lock.current = false; setBusy(null); }
+    }
   };
 
-  // The sequencing here is the whole point, and it lives in runSaveFlow so it
-  // can be tested: the verdict shown to the staff is decided by the SAVE's
-  // outcome and applied before the follow-up read is awaited, and the dirty
-  // flag is only released if the textarea still holds exactly what was sent.
-  const handleSave = async (def: TemplateDefinition, locale: RecapLocale) => {
-    const ck = compositeKey(def.key, locale);
-    const body = bodyFor(def, locale);
-    setSaving((prev) => ({ ...prev, [ck]: true }));
-    clearStatus(ck);
-
+  const save = async (def: TemplateDefinition, locale: RecapLocale) => {
+    const key = compositeKey(def.key, locale), body = bodyFor(def, locale);
+    if (!canEdit || lock.current || loading || loadError || (!isDirty(def, locale) && status[key]?.tone !== 'warning')) return;
+    if (new TextEncoder().encode(body).length > 8000) return;
+    lock.current = true;
+    const generation = request.current.generation;
+    setBusy({ kind: 'save', key });
+    clearStatus(key);
     await runSaveFlow({
       sent: body,
       save: () => saveMessageTemplate(rid, def.key, locale, body),
-      currentDraft: () => draftsRef.current[ck] ?? def.defaults[locale],
-      translationFailed: (result) => !!result.translation_error,
-      labels: {
-        saved: t('messageTemplatesSaved'),
-        translateFailed: t('messageTemplatesTranslateFailed'),
-      },
+      currentDraft: () => draftsRef.current[key] ?? def.defaults[locale],
+      translationFailed: response => !!response.translation_error,
+      labels: { saved: t('messageTemplatesSaved'), translateFailed: t('messageTemplatesTranslateFailed') },
       commit: ({ clearDirty, status: outcome }) => {
-        // Released only when the draft still matches: if the owner kept typing
-        // during the request, the flag must stay so reload() leaves their
-        // keystrokes alone.
-        if (clearDirty) dirtyRef.current.delete(ck);
-        setStatus((prev) => ({ ...prev, [ck]: outcome }));
+        if (generation !== request.current.generation) return;
+        if (clearDirty) dirtyRef.current.delete(key);
+        else if (outcome.tone !== 'danger') dirtyRef.current.add(key);
+        if (outcome.tone !== 'danger') {
+          // The acknowledged source is authoritative even when the follow-up
+          // GET fails. Newly typed text stays in drafts and remains unsaved.
+          setRows(current => [...current.filter(row => row.key !== def.key || row.locale !== locale), { key: def.key, locale, body, is_auto_translated: false }]);
+        }
+        setStatus(current => ({ ...current, [key]: outcome }));
       },
-      reload,
+      reload: async () => {
+        if (generation !== request.current.generation) return;
+        try { await reload(); }
+        catch (cause) {
+          if (generation === request.current.generation) setRefreshError(cause instanceof Error ? cause.message : t('loadFailed'));
+          throw cause;
+        }
+      },
     });
-
-    setSaving((prev) => ({ ...prev, [ck]: false }));
+    if (generation === request.current.generation) { lock.current = false; setBusy(null); }
   };
 
-  const handleReset = async (def: TemplateDefinition, locale: RecapLocale) => {
-    const ck = compositeKey(def.key, locale);
-    setResetting((prev) => ({ ...prev, [ck]: true }));
+  const reset = async (def: TemplateDefinition, locale: RecapLocale) => {
+    if (!canEdit || lock.current || loading || loadError) return;
+    const key = compositeKey(def.key, locale), generation = request.current.generation;
+    lock.current = true;
+    setBusy({ kind: 'reset', key });
+    clearStatus(key);
     try {
       await resetMessageTemplate(rid, def.key, locale);
-      dirtyRef.current.delete(ck);
-      clearStatus(ck);
-    } catch (e) {
-      setStatus((prev) => ({
-        ...prev,
-        [ck]: { tone: 'danger', text: e instanceof Error ? e.message : String(e) },
-      }));
-      setResetting((prev) => ({ ...prev, [ck]: false }));
-      return;
+      if (generation !== request.current.generation) return;
+      dirtyRef.current.delete(key);
+      setRows(current => current.filter(row => row.key !== def.key || row.locale !== locale));
+      applyDrafts(current => ({ ...current, [key]: def.defaults[locale] }));
+      setStatus(current => ({ ...current, [key]: { tone: 'success', text: t('messageTemplateResetDone') } }));
+      try { await reload(); }
+      catch (cause) {
+        if (generation === request.current.generation) setRefreshError(cause instanceof Error ? cause.message : t('loadFailed'));
+      }
+    } catch (cause) {
+      if (generation === request.current.generation) setStatus(current => ({ ...current, [key]: { tone: 'danger', text: cause instanceof Error ? cause.message : t('saveFailed') } }));
+    } finally {
+      if (generation === request.current.generation) { lock.current = false; setBusy(null); }
     }
-
-    // Same rule as saving: the DELETE succeeded, so a failing refresh must not
-    // be dressed up as a failed reset.
-    try {
-      await reload();
-    } catch {
-      /* the customization is gone from the server; the screen is one refresh behind */
-    }
-    setResetting((prev) => ({ ...prev, [ck]: false }));
   };
 
-  return (
-    <div>
-      <PageHead title={t('messageTemplates')} desc={t('messageTemplatesDesc')} />
-
-      {loading ? (
-        <p className="text-fs-sm text-[var(--fg-muted)]">…</p>
-      ) : loadError ? (
-        <p className="text-fs-sm text-[var(--danger-500)]">{loadError}</p>
-      ) : (
-        TEMPLATE_REGISTRY.map((def) => {
-          const active = activeLocale[def.key] ?? 'fr';
-          const ck = compositeKey(def.key, active);
-          const activeRow = rowFor(def.key, active);
-          const isAutoTranslated = !!activeRow?.is_auto_translated;
-          const st = status[ck];
-          const statusClass =
-            st?.tone === 'danger'
-              ? 'text-[var(--danger-500)]'
-              : st?.tone === 'warning'
-                ? 'text-[var(--warning-500)]'
-                : 'text-[var(--success-500)]';
-
-          return (
-            <Section key={def.key} title={i18nOr(t, `template_${def.key}`, def.key)}>
-              <Tabs
-                value={active}
-                onValueChange={(v) =>
-                  setActiveLocale((prev) => ({ ...prev, [def.key]: v as RecapLocale }))
-                }
-              >
-                <TabsList>
-                  {RECAP_LOCALES.map((loc) => {
-                    const locRow = rowFor(def.key, loc);
-                    // One Save button, three languages, and Save writes only
-                    // the active one. Editing French then Hebrew and pressing
-                    // Save once persists French alone; the Hebrew draft merely
-                    // survives in its box because the dirty flag shields it
-                    // from the reload, which LOOKS retained right up until the
-                    // page is left and it is gone. The indicator is the fix:
-                    // it does not change what Save writes, it stops the loss
-                    // from being invisible.
-                    const unsaved = hasUnsavedDraft(bodyFor(def, loc), locRow, def.defaults[loc]);
-                    return (
-                      <Tab key={loc} value={loc}>
-                        {LOCALE_LABEL[loc]}
-                        {locRow?.is_auto_translated && (
-                          <span
-                            className="w-1.5 h-1.5 rounded-full bg-[var(--brand-500)]"
-                            aria-hidden
-                            title={t('messageTemplatesAutoTranslated')}
-                          />
-                        )}
-                        {unsaved && (
-                          // Deliberately a different shape AND colour from the
-                          // "translated automatically" dot: a tab can carry
-                          // both at once, and two identical dots would say
-                          // nothing.
-                          <span
-                            className="w-1.5 h-1.5 shrink-0 rounded-full border border-[var(--warning-500)] bg-transparent"
-                            title={t('messageTemplatesUnsaved')}
-                          >
-                            <span className="sr-only">{t('messageTemplatesUnsaved')}</span>
-                          </span>
-                        )}
-                      </Tab>
-                    );
-                  })}
-                </TabsList>
-
-                {RECAP_LOCALES.map((loc) => (
-                  <TabsContent key={loc} value={loc} className="mt-[var(--s-3)]">
-                    <TemplateEditor
-                      definition={def}
-                      locale={loc}
-                      body={bodyFor(def, loc)}
-                      onChange={(value) => setDraft(def.key, loc, value)}
-                      readOnly={!canEdit}
-                    />
-                  </TabsContent>
-                ))}
-              </Tabs>
-
-              <div className="flex items-center gap-[var(--s-3)] mt-[var(--s-4)] flex-wrap">
-                {isAutoTranslated && <Badge tone="brand">{t('messageTemplatesAutoTranslated')}</Badge>}
-                {st && <span className={`text-fs-sm ${statusClass}`}>{st.text}</span>}
-                <div className="flex-1" />
-                {canEdit && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleReset(def, active)}
-                      disabled={!!resetting[ck] || !!saving[ck]}
-                    >
-                      {t('messageTemplatesReset')}
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={() => handleSave(def, active)}
-                      disabled={!!saving[ck] || !!resetting[ck]}
-                    >
-                      {saving[ck] ? t('saving') : t('save')}
-                    </Button>
-                  </>
-                )}
+  return <div className="space-y-6">
+    <PageHead title={t('messageTemplates')} desc={t('messageTemplatesDesc')} />
+    <p className="rounded-r-lg bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t('messageTemplateSaveScope')}</p>
+    {loading ? <p role="status" className="py-6 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ?
+      <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{loadError}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div> : <>
+        {refreshError && <div role="alert" className="space-y-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4">
+          <p className="text-sm text-[var(--warning-500)]">{t('messageTemplateRefreshPending')}</p>
+          <p className="text-xs text-[var(--fg-muted)]">{refreshError}</p>
+          <Button variant="secondary" disabled={!!busy} onClick={() => void refresh()}>{t('refresh')}</Button>
+        </div>}
+        {TEMPLATE_REGISTRY.map(def => {
+          const active = activeLocale[def.key] ?? 'fr', key = compositeKey(def.key, active);
+          const row = rowFor(def.key, active), outcome = status[key], dirty = isDirty(def, active);
+          const tooLong = new TextEncoder().encode(bodyFor(def, active)).length > 8000;
+          const color = outcome?.tone === 'danger' ? 'var(--danger-500)' : outcome?.tone === 'warning' ? 'var(--warning-500)' : 'var(--success-500)';
+          return <Section key={def.key} role="region" aria-label={t(`template_${def.key}`)} title={t(`template_${def.key}`)}>
+            <Tabs value={active} dir={direction} onValueChange={value => setActiveLocale(current => ({ ...current, [def.key]: value as RecapLocale }))}>
+              <TabsList aria-label={t(`template_${def.key}`)} className="self-start max-w-full">
+                {RECAP_LOCALES.map(locale => <Tab key={locale} value={locale}>
+                  {LOCALE_LABEL[locale]}
+                  {isDirty(def, locale) && <span className="size-2 shrink-0 rounded-full border border-[var(--warning-500)]" title={t('messageTemplatesUnsaved')}><span className="sr-only">{t('messageTemplatesUnsaved')}</span></span>}
+                </Tab>)}
+              </TabsList>
+              {RECAP_LOCALES.map(locale => <TabsContent key={locale} value={locale}>
+                <TemplateEditor definition={def} locale={locale} body={bodyFor(def, locale)} onChange={body => setDraft(def, locale, body)} readOnly={!canEdit || (busy?.kind === 'reset' && busy.key === compositeKey(def.key, locale))} />
+              </TabsContent>)}
+            </Tabs>
+            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[var(--line)] pt-4">
+              {row?.is_auto_translated && <Badge tone="info">{t('messageTemplatesAutoTranslated')}</Badge>}
+              {dirty && <Badge tone="warning">{t('messageTemplatesUnsaved')}</Badge>}
+              <div className="ms-auto flex flex-wrap gap-2">
+                {canEdit && <>
+                  <Button variant="secondary" disabled={!!busy || (!row && !dirty)} onClick={() => setResetTarget({ definition: def, locale: active })}>{t('messageTemplatesReset')}</Button>
+                  <Button disabled={!!busy || (!dirty && outcome?.tone !== 'warning') || tooLong} onClick={() => void save(def, active)}>{t(busy?.kind === 'save' && busy.key === key ? 'saving' : outcome?.tone === 'warning' && !dirty ? 'messageTemplateRetryTranslations' : 'save')}</Button>
+                </>}
               </div>
-            </Section>
-          );
-        })
-      )}
-    </div>
-  );
+            </div>
+            {tooLong && <p role="alert" className="mt-3 text-sm text-[var(--danger-500)]">{t('messageTemplateTooLong')}</p>}
+            {outcome && <p role={outcome.tone === 'danger' ? 'alert' : 'status'} className="mt-3 text-sm" style={{ color }}>{outcome.text}{dirty && outcome.tone !== 'danger' ? ` ${t('messageTemplateLaterEdits')}` : ''}</p>}
+          </Section>;
+        })}
+      </>}
+    <ConfirmDialog open={!!resetTarget} onOpenChange={open => { if (!open) setResetTarget(null); }} title={t('messageTemplatesReset')}
+      description={t('messageTemplateResetConfirm').replace('{locale}', resetTarget ? LOCALE_LABEL[resetTarget.locale] : '')} confirmLabel={t('messageTemplatesReset')} cancelLabel={t('cancel')} danger
+      onConfirm={() => { const target = resetTarget; setResetTarget(null); if (target) void reset(target.definition, target.locale); }} />
+  </div>;
 }

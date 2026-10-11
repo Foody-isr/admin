@@ -2,268 +2,216 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  ArrowLeft,
+  ChevronDown,
   ExternalLink,
   Monitor,
-  PanelLeftClose,
-  PanelLeftOpen,
-  RotateCcw,
-  Send,
+  MoreHorizontal,
+  Redo2,
   Smartphone,
+  Undo2,
 } from "lucide-react";
-import type {
-  AutosaveStatus,
-} from "@/lib/website-v3/autosave";
+import { useI18n } from "@/lib/i18n";
+import type { AutosaveStatus } from "@/lib/website-v3/autosave";
 import type { PreviewDevice } from "@/lib/website-v3/types";
 
+/** Houses the contextual editor and the persistent live preview. */
 export function BuilderShell({
-  restaurantId,
-  restaurantName,
   status,
   previewStatus,
   device,
   publicUrl,
-  publishedAt,
   publishBlockedReason,
   busy,
   onDeviceChange,
   onDiscard,
   onPublish,
-  rail,
-  inspector,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  sidebar,
   preview,
+  previewOnly,
+  onPreviewChange,
 }: {
-  restaurantId: number;
-  restaurantName: string;
   status: AutosaveStatus;
   previewStatus: "syncing" | "synced" | "stale";
   device: PreviewDevice;
   publicUrl: string | null;
-  publishedAt?: string | null;
-  /** Why publishing would refuse right now, or null when it would go through.
-   *  The button stays enabled either way — clicking it surfaces the reason and
-   *  jumps to whatever needs fixing. */
   publishBlockedReason: string | null;
   busy: boolean;
   onDeviceChange: (device: PreviewDevice) => void;
   onDiscard: () => void;
   onPublish: () => void;
-  rail: ReactNode;
-  inspector: ReactNode;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  sidebar: ReactNode;
   preview: ReactNode;
+  previewOnly: boolean;
+  onPreviewChange: (value: boolean) => void;
 }) {
-  const [railCollapsed, setRailCollapsed] = useState(false);
-
+  const { t, direction } = useI18n();
+  const [deviceMenu, setDeviceMenu] = useState(false);
   useEffect(() => {
-    setRailCollapsed(
-      window.localStorage.getItem("foody.website-v3.rail-collapsed") ===
-        "true",
-    );
-  }, []);
-
-  const toggleRail = () => {
-    setRailCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem(
-        "foody.website-v3.rail-collapsed",
-        String(next),
-      );
-      return next;
-    });
-  };
-
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDeviceMenu(false);
+        if (previewOnly) onPreviewChange(false);
+        return;
+      }
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.closest('input,textarea,select,[role="dialog"]'))
+      )
+        return;
+      if (
+        (!event.metaKey && !event.ctrlKey) ||
+        event.key.toLowerCase() !== "z" ||
+        busy ||
+        previewOnly
+      )
+        return;
+      if (event.shiftKey ? canRedo : canUndo) {
+        event.preventDefault();
+        if (event.shiftKey) onRedo();
+        else onUndo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, canRedo, canUndo, onPreviewChange, onRedo, onUndo, previewOnly]);
+  const statusText =
+    status === "error"
+      ? t("editorSaveError")
+      : status === "saving"
+        ? t("editorSaving")
+        : previewStatus === "stale"
+          ? t("editorPreviewStale")
+          : t("editorSaved");
   return (
-    <div className="hidden h-screen min-h-[720px] flex-col overflow-hidden bg-[#171b22] text-slate-950 lg:flex">
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-[#11151b] px-4 text-white">
-        <a
-          href={`/${restaurantId}/dashboard`}
-          aria-label="Retour au tableau de bord"
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-slate-300 transition hover:border-white/25 hover:bg-white/5 hover:text-white"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        </a>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="truncate text-sm font-semibold">{restaurantName}</h1>
-            <span className="rounded-md border border-[#84a5ff]/40 bg-[#315fce]/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#b8caff]">
-              V3 Beta
-            </span>
-          </div>
-          <p className="mt-0.5 text-[11px] text-slate-400">
-            {status === "saving"
-              ? "Enregistrement…"
-              : status === "error"
-                ? "Échec de l’enregistrement"
-                : status === "saved"
-                  ? "Brouillon enregistré"
-                  : "Prêt"}
-            {publishedAt ? ` · publié ${formatDate(publishedAt)}` : ""}
-          </p>
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <span
-            className={`mr-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-              previewStatus === "synced"
-                ? "bg-emerald-400/10 text-emerald-300"
-                : previewStatus === "stale"
-                  ? "bg-amber-400/10 text-amber-200"
-                  : "bg-white/5 text-slate-300"
-            }`}
-          >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                previewStatus === "synced"
-                  ? "bg-emerald-300"
-                  : previewStatus === "stale"
-                    ? "bg-amber-300"
-                    : "animate-pulse bg-slate-300"
-              }`}
-            />
-            {previewStatus === "synced"
-              ? "Aperçu à jour"
-              : previewStatus === "stale"
-                ? "Aperçu désynchronisé"
-                : "Mise à jour…"}
-          </span>
-
-          <div className="flex rounded-xl border border-white/10 bg-white/5 p-1">
-            <DeviceButton
-              active={device === "desktop"}
-              label="Aperçu ordinateur"
-              onClick={() => onDeviceChange("desktop")}
+    <div
+      className={`sqe ${previewOnly ? "sqe--preview" : ""}`}
+      dir={direction}
+      data-testid="website-editor"
+    >
+      <aside className="sqe-sidebar" hidden={previewOnly}>
+        {sidebar}
+      </aside>
+      <div className="sqe-workspace">
+        <header className="sqe-toolbar">
+          <div className="sqe-device-wrap">
+            <button
+              className="sqe-button sqe-icon-button"
+              aria-label={t("editorDevice")}
+              aria-expanded={deviceMenu}
+              onClick={() => setDeviceMenu(!deviceMenu)}
             >
-              <Monitor className="h-4 w-4" />
-            </DeviceButton>
-            <DeviceButton
-              active={device === "mobile"}
-              label="Aperçu mobile"
-              onClick={() => onDeviceChange("mobile")}
-            >
-              <Smartphone className="h-4 w-4" />
-            </DeviceButton>
-          </div>
-          {publicUrl ? (
-            <a
-              href={publicUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex h-9 items-center gap-2 rounded-xl border border-white/10 px-3 text-xs font-semibold text-slate-200 transition hover:border-white/25 hover:bg-white/5"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Voir le site
-            </a>
-          ) : null}
-          <button
-            type="button"
-            onClick={onDiscard}
-            disabled={busy}
-            className="flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-slate-300 transition hover:bg-white/5 hover:text-white disabled:opacity-40"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={onPublish}
-            disabled={busy}
-            title={publishBlockedReason ?? undefined}
-            aria-describedby={
-              publishBlockedReason ? "publish-blocked-reason" : undefined
-            }
-            className={`flex h-9 items-center gap-2 rounded-xl px-4 text-xs font-bold shadow-[0_8px_24px_rgba(215,255,79,0.14)] transition disabled:cursor-not-allowed disabled:opacity-40 ${
-              publishBlockedReason
-                ? "bg-[#d7ff4f]/40 text-[#172000]/70 hover:bg-[#d7ff4f]/60"
-                : "bg-[#d7ff4f] text-[#172000] hover:bg-[#e2ff78]"
-            }`}
-          >
-            <Send className="h-3.5 w-3.5" />
-            Publier
-          </button>
-          {publishBlockedReason ? (
-            <span id="publish-blocked-reason" className="sr-only">
-              {publishBlockedReason}
-            </span>
-          ) : null}
-        </div>
-      </header>
-
-      <div
-        className="grid min-h-0 flex-1 transition-[grid-template-columns] duration-200"
-        style={{
-          gridTemplateColumns: `${
-            railCollapsed ? "48px" : "240px"
-          } minmax(320px,420px) minmax(640px,1fr)`,
-        }}
-      >
-        <aside className="relative min-h-0 overflow-y-auto border-r border-slate-200 bg-[#f8fafc]">
-          <button
-            type="button"
-            aria-label={
-              railCollapsed
-                ? "Ouvrir le panneau des pages"
-                : "Réduire le panneau des pages"
-            }
-            title={
-              railCollapsed
-                ? "Ouvrir le panneau des pages"
-                : "Réduire le panneau des pages"
-            }
-            onClick={toggleRail}
-            className={`sticky top-2 z-20 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm hover:text-slate-900 ${
-              railCollapsed ? "mx-auto" : "float-right mr-2"
-            }`}
-          >
-            {railCollapsed ? (
-              <PanelLeftOpen className="h-4 w-4" />
-            ) : (
-              <PanelLeftClose className="h-4 w-4" />
+              {device === "desktop" ? (
+                <Monitor size={18} />
+              ) : (
+                <Smartphone size={18} />
+              )}
+              <ChevronDown size={14} />
+            </button>
+            {deviceMenu && (
+              <>
+                <button
+                  className="sqe-dismiss"
+                  aria-label={t("editorClose")}
+                  onClick={() => setDeviceMenu(false)}
+                />
+                <div className="sqe-menu" role="menu">
+                  {(["desktop", "mobile"] as const).map((value) => (
+                    <button
+                      key={value}
+                      role="menuitemradio"
+                      aria-checked={device === value}
+                      onClick={() => {
+                        onDeviceChange(value);
+                        setDeviceMenu(false);
+                      }}
+                    >
+                      {value === "desktop" ? (
+                        <Monitor size={18} />
+                      ) : (
+                        <Smartphone size={18} />
+                      )}
+                      {t(
+                        value === "desktop" ? "editorDesktop" : "editorMobile",
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
-          </button>
-          <div className={railCollapsed ? "hidden" : "block"}>{rail}</div>
-        </aside>
-        <section className="min-h-0 overflow-y-auto border-r border-slate-200 bg-white">
-          {inspector}
-        </section>
-        <main className="min-h-0 min-w-0 bg-[#242a33]">{preview}</main>
+          </div>
+          {!previewOnly && (
+            <div className="sqe-history">
+              <button
+                className="sqe-icon-button"
+                disabled={!canUndo || busy}
+                onClick={onUndo}
+                title={t("editorUndo")}
+                aria-label={t("editorUndo")}
+              >
+                <Undo2 size={18} />
+              </button>
+              <button
+                className="sqe-icon-button"
+                disabled={!canRedo || busy}
+                onClick={onRedo}
+                title={t("editorRedo")}
+                aria-label={t("editorRedo")}
+              >
+                <Redo2 size={18} />
+              </button>
+            </div>
+          )}
+          <span
+            className={`sqe-save-status ${status === "error" ? "sqe-save-status--error" : ""}`}
+            role="status"
+          >
+            {statusText}
+          </span>
+          <div className="sqe-toolbar-actions">
+            <details className="sqe-more">
+              <summary className="sqe-icon-button" aria-label={t("editorMore")}>
+                <MoreHorizontal size={20} />
+              </summary>
+              <div className="sqe-menu">
+                {publicUrl && (
+                  <a href={publicUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink size={16} />
+                    {t("editorViewSite")}
+                  </a>
+                )}
+                <button disabled={busy} onClick={onDiscard}>
+                  {t("editorDiscard")}
+                </button>
+              </div>
+            </details>
+            <button
+              className="sqe-button"
+              onClick={() => onPreviewChange(!previewOnly)}
+            >
+              {t(previewOnly ? "editorClosePreview" : "editorPreview")}
+            </button>
+            <button
+              className="sqe-button sqe-button--primary"
+              disabled={busy}
+              onClick={onPublish}
+              title={publishBlockedReason ?? undefined}
+            >
+              {t("editorPublish")}
+            </button>
+          </div>
+        </header>
+        <main className="sqe-canvas">{preview}</main>
       </div>
     </div>
   );
-}
-
-function DeviceButton({
-  active,
-  label,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={active}
-      onClick={onClick}
-      className={`flex h-7 w-8 items-center justify-center rounded-lg transition ${
-        active ? "bg-white text-slate-950" : "text-slate-400 hover:text-white"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function formatDate(value: string): string {
-  try {
-    return new Intl.DateTimeFormat("fr-FR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
 }

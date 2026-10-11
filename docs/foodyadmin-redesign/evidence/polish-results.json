@@ -1,0 +1,11 @@
+{
+  "stats": {
+    "startTime": "2026-10-03T22:33:57.296Z",
+    "duration": 7311.1,
+    "expected": 8,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "scope": "Food cost et rapports après corrections visuelles finales"
+}

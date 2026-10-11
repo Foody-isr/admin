@@ -1,6 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { useI18n } from '@/lib/i18n';
 
 export interface TrendPoint {
   label: string;
@@ -19,7 +21,15 @@ export default function TrendChart({
   points: TrendPoint[];
   formatValue: (n: number) => string;
 }) {
-  const W = 720;
+  const { t } = useI18n();
+  const container = useRef<HTMLDivElement>(null);
+  const [W, setWidth] = useState(720);
+  useEffect(() => {
+    if (!container.current) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(260, entry.contentRect.width)));
+    observer.observe(container.current);
+    return () => observer.disconnect();
+  }, [points.length]);
   const H = 260;
   const padL = 8;
   const padR = 8;
@@ -39,16 +49,16 @@ export default function TrendChart({
       ? `${line} L ${xs[xs.length - 1].toFixed(1)} ${(padT + innerH).toFixed(1)} L ${xs[0].toFixed(1)} ${(padT + innerH).toFixed(1)} Z`
       : '';
     return { xs, ys, line, area, max, innerH };
-  }, [points]);
+  }, [points, W]);
 
   if (points.length === 0) return null;
 
   // Thin x-axis labels so they never overlap: show at most ~8.
-  const step = Math.max(1, Math.ceil(points.length / 8));
+  const step = Math.max(1, Math.ceil(points.length / Math.max(2, Math.floor(W / 90))));
 
   return (
-    <div dir="ltr" className="relative w-full">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none"
+    <div ref={container} dir="ltr" className="relative w-full">
+      <svg aria-hidden viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none"
         onMouseLeave={() => setHover(null)}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => {
           const y = padT + geo.innerH * f;
@@ -57,7 +67,7 @@ export default function TrendChart({
         {geo.area && <path d={geo.area} fill="color-mix(in oklab, var(--brand-500) 16%, transparent)" />}
         {geo.line && <path d={geo.line} fill="none" stroke="var(--brand-500)" strokeWidth={2.5} />}
         {/* Hover crosshair + marker */}
-        {hover != null && (
+        {hover != null && points[hover] && (
           <>
             <line x1={geo.xs[hover]} y1={padT} x2={geo.xs[hover]} y2={padT + geo.innerH}
               stroke="var(--fg-subtle)" strokeWidth={1} />
@@ -76,17 +86,21 @@ export default function TrendChart({
         {/* X labels */}
         {points.map((p, i) =>
           i % step === 0 ? (
-            <text key={`l-${i}`} x={geo.xs[i]} y={H - 12} fontSize={11} fill="var(--fg-muted)"
-              textAnchor="middle">
+            <text key={`l-${i}`} x={geo.xs[i]} y={H - 12} fontSize={12} fill="var(--fg-muted)"
+              textAnchor={i === 0 ? 'start' : i >= points.length - step ? 'end' : 'middle'}>
               {p.label}
             </text>
           ) : null,
         )}
       </svg>
-      {hover != null && (
+      <details className="mt-3 text-fs-sm text-[var(--fg)]">
+        <summary className="min-h-10 cursor-pointer py-2">{t('chartData')}</summary>
+        <div className="max-h-64 overflow-auto"><table className="w-full border-collapse"><thead><tr><th className="p-2 text-start">{t('period')}</th><th className="p-2 text-end">{t('revenue')}</th></tr></thead><tbody>{points.map((point, index) => <tr key={index} className="border-t border-[var(--line)]"><td className="p-2">{point.label}</td><td className="p-2 text-end tabular-nums">{formatValue(point.value)}</td></tr>)}</tbody></table></div>
+      </details>
+      {hover != null && points[hover] && (
         <div
-          className="pointer-events-none absolute -translate-x-1/2 -top-1 rounded-r-sm bg-[var(--fg)] text-[var(--surface)] text-fs-xs px-2 py-1 whitespace-nowrap shadow-2"
-          style={{ left: `${(geo.xs[hover] / W) * 100}%` }}
+          className="pointer-events-none absolute -translate-x-1/2 -top-1 rounded-r-sm bg-[var(--fg)] text-[var(--surface)] text-fs-xs px-2 py-1 max-w-full text-center shadow-2"
+          style={{ left: `clamp(90px, ${(geo.xs[hover] / W) * 100}%, calc(100% - 90px))` }}
         >
           <span className="opacity-70">{points[hover].label}</span>{' '}
           <span className="font-semibold tabular-nums">{formatValue(points[hover].value)}</span>

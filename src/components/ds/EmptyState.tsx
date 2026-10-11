@@ -51,7 +51,7 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
       )}
       <div className="text-fs-sm font-medium text-[var(--fg)]">{title}</div>
       {desc && (
-        <div className="text-fs-xs text-[var(--fg-subtle)] max-w-[42ch] text-balance">{desc}</div>
+        <div className="text-fs-sm text-[var(--fg-muted)] max-w-[42ch] text-balance">{desc}</div>
       )}
       {action && <div className="mt-[var(--s-2)]">{action}</div>}
     </div>

@@ -1,81 +1,80 @@
 'use client';
 
+import { useState } from 'react';
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { useIsMobile } from '@/components/ui/use-mobile';
+
+interface ChartDatum {
+  label: string; current: number; previous: number;
+  currentPeriodLabel?: string; previousPeriodLabel?: string;
+}
 interface HourlyChartProps {
-  data: { hour: number; current: number; previous: number }[];
-  height?: number;
-  labelCurrent?: string;
-  labelPrevious?: string;
+  data: ChartDatum[];
+  emptyLabel: string;
+  unavailable?: boolean;
+  ariaLabel: string;
+  formatValue?: (value: number) => string;
+  showComparison?: boolean;
+  metricLabel?: string;
+  direction?: 'ltr' | 'rtl';
 }
 
-const HOUR_LABELS = [
-  '12am', '', '', '3am', '', '', '6am', '', '', '9', '', '',
-  '12pm', '', '', '3pm', '', '', '6pm', '', '', '9pm', '', '',
-];
-
-export default function HourlyChart({
-  data,
-  height = 120,
-  labelCurrent,
-  labelPrevious,
-}: HourlyChartProps) {
-  const maxVal = Math.max(...data.map((d) => Math.max(d.current, d.previous)), 1);
-
-  return (
-    <div>
-      {/* Legend */}
-      {(labelCurrent || labelPrevious) && (
-        <div className="flex items-center gap-4 mb-3 text-xs text-fg-secondary">
-          {labelCurrent && (
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-brand-500 inline-block" />
-              {labelCurrent}
-            </span>
-          )}
-          {labelPrevious && (
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: 'var(--divider)' }} />
-              {labelPrevious}
-            </span>
-          )}
+function ChartBar({ row, max, formatValue, showComparison, metricLabel, direction }: {
+  row: ChartDatum; max: number; formatValue: (value: number) => string; showComparison: boolean;
+  metricLabel: string; direction: 'ltr' | 'rtl';
+}) {
+  const [open, setOpen] = useState(false);
+  const mobile = useIsMobile();
+  return <TooltipPrimitive.Root open={open} onOpenChange={setOpen}>
+    <TooltipPrimitive.Trigger asChild>
+      <button type="button" className="dashboard-chart-bar"
+        aria-label={`${row.label}: ${formatValue(row.current)}${showComparison ? ` / ${formatValue(row.previous)}` : ''}`}
+        onPointerDown={event => {
+          if (event.pointerType === 'touch') { event.preventDefault(); setOpen(value => !value); }
+        }}
+        onPointerLeave={event => { if (event.pointerType === 'touch') event.preventDefault(); }}
+        onClick={event => {
+          event.preventDefault();
+          if (!('pointerType' in event.nativeEvent) || event.nativeEvent.pointerType !== 'touch') setOpen(value => !value);
+        }}>
+        {showComparison && <i className="dashboard-chart-previous" style={{ height: `${Math.abs(row.previous) / max * 100}%` }} />}
+        <i className="dashboard-chart-current" style={{ height: `${Math.abs(row.current) / max * 100}%` }} />
+      </button>
+    </TooltipPrimitive.Trigger>
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Content className="dashboard-chart-tooltip" side={mobile ? 'top' : 'right'} align="center" sideOffset={12} collisionPadding={16} dir={direction}>
+        <div className="dashboard-tooltip-period">
+          <p>{row.currentPeriodLabel ?? row.label}</p>
+          <div><strong>{metricLabel}</strong><span>{formatValue(row.current)}</span></div>
         </div>
-      )}
+        {showComparison && <div className="dashboard-tooltip-period">
+          <p>{row.previousPeriodLabel ?? row.label}</p>
+          <div><strong>{metricLabel}</strong><span>{formatValue(row.previous)}</span></div>
+        </div>}
+      </TooltipPrimitive.Content>
+    </TooltipPrimitive.Portal>
+  </TooltipPrimitive.Root>;
+}
 
-      {/* Chart */}
-      <div dir="ltr" className="flex items-end gap-[2px]" style={{ height }}>
-        {data.map((d) => {
-          const curH = (d.current / maxVal) * 100;
-          const prevH = (d.previous / maxVal) * 100;
-          return (
-            <div key={d.hour} className="flex-1 relative flex items-end justify-center gap-[1px]" style={{ height: '100%' }}>
-              <div
-                className="w-full rounded-t-sm"
-                style={{
-                  height: `${prevH}%`,
-                  minHeight: d.previous > 0 ? 2 : 0,
-                  background: 'var(--divider)',
-                }}
-              />
-              <div
-                className="w-full rounded-t-sm"
-                style={{
-                  height: `${curH}%`,
-                  minHeight: d.current > 0 ? 2 : 0,
-                  background: 'var(--sidebar-active)',
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* X-axis labels */}
-      <div dir="ltr" className="flex mt-1.5">
-        {data.map((d) => (
-          <div key={d.hour} className="flex-1 text-center text-[10px] text-fg-secondary">
-            {HOUR_LABELS[d.hour] || ''}
-          </div>
-        ))}
-      </div>
+/** Paired bars retain the time grid in empty states and expose exact values on focus. */
+export default function HourlyChart({ data, emptyLabel, unavailable = false, ariaLabel, formatValue = String, showComparison = true,
+  metricLabel = ariaLabel, direction = 'ltr' }: HourlyChartProps) {
+  const max = Math.max(1, ...data.flatMap((row) => [Math.abs(row.current), showComparison ? Math.abs(row.previous) : 0]));
+  const empty = !data.some((row) => row.current !== 0 || (showComparison && row.previous !== 0));
+  const stride = Math.max(1, Math.ceil((data.length - 1) / 8));
+  return <TooltipPrimitive.Provider delayDuration={0} skipDelayDuration={0}><div className="dashboard-chart" aria-label={ariaLabel}>
+    <div className="dashboard-chart-plot" dir="ltr">
+      <div className="dashboard-chart-grid" aria-hidden="true"><i /><i /><i /></div>
+      {empty || unavailable ? <div className="dashboard-chart-empty"><span>{emptyLabel}</span></div> : <div className="dashboard-chart-bars">
+        {data.map((row, index) => <ChartBar key={index} row={row} max={max} formatValue={formatValue}
+          showComparison={showComparison} metricLabel={metricLabel} direction={direction} />)}
+      </div>}
     </div>
-  );
+    <div className="dashboard-chart-axis" dir="ltr">{data.map((row, index) => {
+      const last = data.length - 1;
+      if (index !== last && (index % stride !== 0 || (index !== 0 && last - index < stride / 2))) return null;
+      const position = (index + .5) / data.length;
+      return <span key={index} style={{ left: `calc(${position * 100}% + ${16 - 32 * position}px)` }}>{row.label}</span>;
+    })}</div>
+  </div></TooltipPrimitive.Provider>;
 }

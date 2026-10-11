@@ -35,7 +35,7 @@ async function workspace(page: Page, allowed = true, stale = false) {
 
 test('reset is reviewed and explicitly confirmed; recovery conflict remains visible', async ({page})=>{
   const writes=await workspace(page);
-  await page.getByRole('button',{name:'04 Réinitialiser'}).click();
+  await page.getByRole('button',{name:'Réinitialiser',exact:true}).click();
   await page.getByLabel('Valeur par défaut des ingrédients',{exact:true}).fill('10');
   await page.getByRole('button',{name:'Vérifier les effets'}).click();
   await expect(page.getByRole('cell',{name:'Cabillaud'})).toBeVisible();
@@ -52,7 +52,7 @@ test('reset is reviewed and explicitly confirmed; recovery conflict remains visi
 });
 test('simulation label persists and stale previews cannot claim success', async ({page})=>{
   await workspace(page,true,true);
-  await page.getByRole('button',{name:'02 Simuler une cuisine'}).click();
+  await page.getByRole('button',{name:'Simuler une cuisine',exact:true}).click();
   await expect(page.getByText('Simulation · données isolées de votre cuisine réelle')).toBeVisible();
   await page.getByRole('button',{name:'Vérifier les effets'}).click();
   await expect(page.getByRole('columnheader',{name:'Prévision du jour'})).toBeVisible();

@@ -66,6 +66,8 @@ export default function LocalizedOrderNameField({
             : t('orderItemTranslatedName').replace('{language}', language)}
         </span>
         <Input
+          aria-label={isSource?t('orderItemSourceName'):t('orderItemTranslatedName').replace('{language}',language)}
+          className="min-h-11"
           dir={activeLocale === 'he' ? 'rtl' : 'auto'}
           value={value}
           onChange={(event) =>

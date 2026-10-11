@@ -12,7 +12,6 @@ import type {
 import type { DraftPagePayload } from "@/lib/website-v3/types";
 import * as PageDialogModule from "../PageDialog";
 import { PageInspector } from "../PageInspector";
-import { PageRail } from "../PageRail";
 
 Object.assign(globalThis, { React });
 
@@ -54,7 +53,7 @@ const addressStates: Array<{
   },
 ];
 
-test("page address UI renders one address across inspector, dialog, and rail", () => {
+test("page address UI renders one address across inspector and dialog", () => {
   const AddressField = (
     PageDialogModule as Record<string, unknown>
   ).PageDialogAddressField;
@@ -80,7 +79,6 @@ test("page address UI renders one address across inspector, dialog, and rail", (
         },
       ),
     );
-    const rail = renderRail(addressState.page);
 
     if (addressState.editable) {
       assert.match(inspector, /data-field-id="page\.slug"/, addressState.name);
@@ -94,10 +92,7 @@ test("page address UI renders one address across inspector, dialog, and rail", (
       assert.match(dialog, new RegExp(`>${addressState.publicAddress}</div>`), addressState.name);
       assert.doesNotMatch(inspector, new RegExp(`/${addressState.page.slug}`), addressState.name);
       assert.doesNotMatch(dialog, new RegExp(`/${addressState.page.slug}`), addressState.name);
-      assert.doesNotMatch(rail, new RegExp(`/${addressState.page.slug}`), addressState.name);
     }
-
-    assert.match(rail, new RegExp(`>${addressState.publicAddress}</span>`), addressState.name);
   }
 });
 
@@ -224,7 +219,6 @@ test("order page appearance exposes order type selector controls", () => {
   const inspector = renderInspector(
     commercePage("order", "commander", true),
     {},
-    "appearance",
   );
 
   assert.match(inspector, /Sélecteur du type de commande/);
@@ -237,7 +231,6 @@ test("order page appearance exposes order type selector controls", () => {
 function renderInspector(
   page: DraftPagePayload,
   config: Record<string, unknown> = {},
-  tab: "content" | "appearance" | "settings" = "settings",
 ): string {
   return renderToStaticMarkup(
     React.createElement(
@@ -245,8 +238,7 @@ function renderInspector(
       null,
       React.createElement(PageInspector, {
         page,
-        tab,
-        surface: "page" as const,
+          surface: "page" as const,
         onSurfaceChange: () => undefined,
         restaurantId: 24,
         restaurant: {} as Restaurant,
@@ -262,21 +254,6 @@ function renderInspector(
         onMakeHomepage: () => undefined,
       }),
     ),
-  );
-}
-
-function renderRail(page: DraftPagePayload): string {
-  return renderToStaticMarkup(
-    React.createElement(PageRail, {
-      pages: [page],
-      selection: { kind: "site" },
-      onSelectSite: () => undefined,
-      onSelectPage: () => undefined,
-      onCreate: () => undefined,
-      onDuplicate: () => undefined,
-      onMove: () => undefined,
-      onDelete: () => undefined,
-    }),
   );
 }
 

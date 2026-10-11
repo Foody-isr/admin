@@ -110,6 +110,10 @@ export interface Restaurant {
   /** Google Places API key (client-restricted) for address/city autocomplete. Optional. */
   google_places_api_key?: string;
   pickup_enabled: boolean;
+  /** Whether guests may choose a future fulfillment slot. */
+  scheduling_enabled?: boolean;
+  /** Whether fulfillment follows the restaurant's batch calendar. */
+  batch_fulfillment_enabled?: boolean;
   dine_in_enabled: boolean;
   /** No classic menu: customers land on the catering shop and Menu is hidden. */
   catering_only?: boolean;
@@ -165,6 +169,12 @@ export type PricingMode = 'standard' | 'by_weight';
 export type TableAssignmentMode = 'free' | 'collaborative' | 'strict';
 
 export interface RestaurantSettings {
+  /** Require the configured calendar for guest pickup and delivery. */
+  preorders_only?: boolean;
+  pickup_enabled?: boolean;
+  delivery_enabled?: boolean;
+  dine_in_enabled?: boolean;
+  opening_hours_config?: OpeningHoursConfig;
   id: number;
   restaurant_id: number;
   require_order_approval: boolean;
@@ -178,6 +188,7 @@ export interface RestaurantSettings {
   service_mode: string;
   table_assignment_mode: TableAssignmentMode;
   scheduling_enabled: boolean;
+  scheduling_available_hours?: { start: string; end: string; days?: number[] }[];
   // Slot-based scheduling detail (mutually exclusive with batch fulfillment).
   scheduling_min_days_ahead?: number;
   /** Precise default preparation promise. Supersedes the legacy day field. */
@@ -582,6 +593,14 @@ export function normalizeMenuItemCustomerFacts(
   };
 }
 
+/** Conditions for receiving an item on the selected weekdays (0 = Sunday). */
+export interface PreparationRule {
+  days: number[];
+  lead_time_minutes?: number;
+  cutoff_days_before?: number;
+  cutoff_time?: string;
+}
+
 export interface MenuItem {
   id: number;
   category_id: number;
@@ -612,6 +631,8 @@ export interface MenuItem {
   /** Combo-level toggle: allow guests to order several of this combo at once.
    *  null/undefined = default (allowed = true); false = single combo only. */
   combo_allow_quantity?: boolean | null;
+  /** Component reserved for combos; excluded from standalone website selections. */
+  combo_only?: boolean;
   item_type: ItemType;
   sort_order: number;
   rotation_group?: string;
@@ -657,6 +678,8 @@ export interface MenuItem {
    *  restaurant default (Réglages → Commandes). Batch collection dates read it
    *  rounded up to whole days, so 90 minutes still means "not today". */
   preparation_lead_time_minutes?: number | null;
+  /** Null inherits the fixed notice; unlisted weekdays cannot be fulfilled. */
+  preparation_schedule?: PreparationRule[] | null;
   /** Computed (read-only) availability stamped onto staff menu responses. */
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
@@ -1175,6 +1198,14 @@ export interface ExtraFont {
 }
 
 export interface TypographyOverrides {
+  /** Global website design. Page/section overrides remain more specific. */
+  site?: {
+    template?: string;
+    headingFont?: string;
+    bodyFont?: string;
+    buttonShape?: 'pill' | 'rounded' | 'square';
+  };
+
   roles?: Partial<Record<TypographyRoleKey, TypographyRoleOverride>>;
   /** Restaurant-curated Google Fonts additions, offered alongside the curated list. */
   extraFonts?: ExtraFont[];
@@ -1210,6 +1241,7 @@ export type CompactNavigationStyle = {
   button_background_color?: string;
 };
 export type NavLayout = {
+  header?: import("./website-v3/header").WebsiteHeader;
   content: NavLayoutSide;
   shopping: NavLayoutSide;
   compact_navigation?: CompactNavigationStyle;
@@ -2746,10 +2778,12 @@ export interface PrinterConfiguration extends PrintPrinter {
   profiles?: PrinterProfile[];
 }
 
+/** Load the complete restaurant-scoped printers inventory. */
 export async function listPrinterConfigurations(id: number): Promise<PrinterConfiguration[]> {
   const data = await apiFetch<{ printers: PrinterConfiguration[] }>(
     `/api/v1/restaurants/${id}/printing/printers`, id,
   );
+  if (!data || !(Array.isArray(data.printers) || data.printers === null)) throw new Error('Invalid printers response');
   return data.printers ?? [];
 }
 
@@ -2886,11 +2920,13 @@ export interface RestaurantDevice {
   profile_names: string[];
 }
 
+/** Read the physical inventory without mistaking an incomplete response for an empty list. */
 export async function listDevices(restaurantId: number): Promise<RestaurantDevice[]> {
   const data = await apiFetch<{ devices: RestaurantDevice[] }>(
     `/api/v1/restaurants/${restaurantId}/devices`, restaurantId,
   );
-  return data.devices ?? [];
+  if (!data || !Array.isArray(data.devices)) throw new Error('Incomplete device inventory');
+  return data.devices;
 }
 
 export async function updateDeviceDisplayName(
@@ -2931,10 +2967,22 @@ export async function cancelPendingPrintJobs(
   );
 }
 
+/** Minimal category identity exposed to printer roles. */
+export interface PrinterProfileCategory { id: number; name: string }
+
+/** Load restaurant-global categories with printer permissions. */
+export async function listPrinterProfileCategories(id: number): Promise<PrinterProfileCategory[]> {
+  const data = await apiFetch<{ categories: PrinterProfileCategory[] }>(`/api/v1/restaurants/${id}/printing/spooler/categories`, id);
+  if (!data || !(Array.isArray(data.categories) || data.categories === null) || (data.categories ?? []).some(row => !row || !Number.isInteger(row.id) || row.id <= 0 || typeof row.name !== 'string')) throw new Error('Invalid printer categories');
+  return data.categories ?? [];
+}
+
+/** Load the complete restaurant-scoped profile inventory. */
 export async function listPrinterProfiles(id: number): Promise<PrinterProfile[]> {
   const data = await apiFetch<{ profiles: PrinterProfile[] }>(
     `/api/v1/restaurants/${id}/printing/profiles`, id,
   );
+  if (!data || !(Array.isArray(data.profiles) || data.profiles === null)) throw new Error('Invalid profiles response');
   return data.profiles ?? [];
 }
 
@@ -2978,10 +3026,12 @@ export async function replacePrinterProfileAssignments(
   return data.profile;
 }
 
+/** Load the complete restaurant-scoped agents inventory. */
 export async function listPrintAgents(id: number): Promise<PrintAgent[]> {
   const data = await apiFetch<{ agents: PrintAgent[] }>(
     `/api/v1/restaurants/${id}/printing/agents`, id,
   );
+  if (!data || !(Array.isArray(data.agents) || data.agents === null)) throw new Error('Invalid agents response');
   return data.agents ?? [];
 }
 
@@ -3002,10 +3052,11 @@ export interface CibusCreds {
   masked_company_code?: string;
 }
 
+/** Complete replacement: omitted values would clear the stored identity. */
 export interface UpdateCibusCredsInput {
-  cibus_restaurant_id?: string;
-  cibus_pos_id?: string;
-  cibus_company_code?: string;
+  cibus_restaurant_id: string;
+  cibus_pos_id: string;
+  cibus_company_code: string;
 }
 
 export async function getCibusCreds(id: number): Promise<CibusCreds> {
@@ -3127,6 +3178,9 @@ export interface BackfillResult {
   modifiers: number;
   variant_groups: number;
   variants: number;
+  /** Option counts returned by recent translation endpoints. */
+  option_sets?: number;
+  options?: number;
 }
 
 /**
@@ -5786,7 +5840,8 @@ export async function listPOSAccessCredentials(restaurantId: number): Promise<PO
     `/api/v1/restaurants/${restaurantId}/pos-devices`,
     restaurantId,
   );
-  return data.devices ?? [];
+  if (!data || !Array.isArray(data.devices)) throw new Error('Incomplete device inventory');
+  return data.devices;
 }
 
 export async function revokePOSAccessCredential(restaurantId: number, deviceId: number): Promise<void> {
@@ -6662,6 +6717,14 @@ export async function createImportDraft(
   return data.draft;
 }
 
+/** Update a restaurant-scoped draft while retaining its existing document attachment. */
+export async function updateImportDraft(
+  restaurantId:number,draftId:number,input:{supplier_id?:number;supplier_name:string;extraction:DeliveryExtraction;edited_items:ConfirmDeliveryItemInput[]},
+):Promise<DeliveryImportDraft> {
+  const data=await apiFetch<{draft:DeliveryImportDraft}>(`/api/v1/stock/import/drafts/${draftId}?restaurant_id=${restaurantId}`,restaurantId,{method:'PUT',body:JSON.stringify(input)});
+  return data.draft;
+}
+
 export async function deleteImportDraft(restaurantId: number, draftId: number): Promise<void> {
   await apiFetch(`/api/v1/stock/import/drafts/${draftId}?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'DELETE',
@@ -6996,7 +7059,7 @@ export async function removeTrustedCustomer(restaurantId: number, customerId: nu
   );
 }
 
-// ─── Customer profile (address/apartment/floor, account-backed) ───────────────
+// ─── Customer profile (restaurant identity overrides and optional account) ──
 
 export interface CustomerDeliverySeed {
   address: string;
@@ -8843,7 +8906,7 @@ export async function labDiscardDraft(
   );
 }
 
-/** Get the restaurant's food cost target percentage (0–100). */
+/** Get the restaurant's food cost target fraction (0–1). */
 export async function getFoodCostTarget(
   restaurantId: number
 ): Promise<{ food_cost_target_pct: number }> {
@@ -8852,7 +8915,7 @@ export async function getFoodCostTarget(
   );
 }
 
-/** Set the restaurant's food cost target percentage (0–100). */
+/** Set the restaurant's food cost target fraction (0–1). */
 export async function setFoodCostTarget(
   restaurantId: number,
   pct: number
@@ -9259,10 +9322,12 @@ export interface DeliveryZoneInput {
   tour_only?: boolean;
 }
 
+/** Load the restaurant delivery-zone inventory without masking invalid responses. */
 export async function getDeliveryZones(restaurantId: number): Promise<DeliveryZone[]> {
   const data = await apiFetch<{ zones: DeliveryZone[] }>(
     `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId
   );
+  if (!data || !(Array.isArray(data.zones) || data.zones === null)) throw new Error('Invalid delivery zone response');
   return data.zones ?? [];
 }
 
@@ -9418,10 +9483,12 @@ export interface ValidateDiscountRequest {
   phone?: string;
 }
 
+/** List scoped discounts, distinguishing a valid empty collection from an incomplete response. */
 export async function listDiscounts(restaurantId: number, opts: { active?: boolean } = {}): Promise<Discount[]> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (opts.active !== undefined) qs.set('active', String(opts.active));
   const data = await apiFetch<{ discounts: Discount[] }>(`/api/v1/discounts?${qs.toString()}`, restaurantId);
+  if (!data || !Object.prototype.hasOwnProperty.call(data, 'discounts') || (data.discounts !== null && !Array.isArray(data.discounts))) throw new Error('Incomplete discounts response');
   return data.discounts ?? [];
 }
 
@@ -10353,4 +10420,9 @@ export async function parseKitchenData(rid: number, files: File[], retried = fal
   const result = await res.json();
   if (!res.ok) throw new ApiError(result.error || result.message || 'data_workspace_failed', res.status);
   return result;
+}
+
+/** Responses to a published website form, scoped to the active restaurant. */
+export function listWebsiteFormResponses(restaurantId: number, sectionId: number, before?: number) {
+  return apiFetch<Array<{ id: number; created_at: string; values: Record<string, string> }>>(`/api/v1/restaurants/${restaurantId}/website-forms/${sectionId}/submissions${before ? `?before=${before}` : ""}`, restaurantId);
 }

@@ -11,9 +11,9 @@ export default function FormSection({
 }) {
   return (
     <div
-      className={`rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-4 space-y-3 ${className}`}
+      className={`rounded-r-lg border border-[var(--divider)] bg-[var(--surface)] p-5 space-y-4 ${className}`}
     >
-      {title && <h3 className="font-bold text-fg-primary">{title}</h3>}
+      {title && <h3 className="font-semibold text-fg-primary">{title}</h3>}
       {children}
     </div>
   );

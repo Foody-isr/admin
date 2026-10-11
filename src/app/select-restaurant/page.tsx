@@ -1,102 +1,64 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStoredRestaurantIds, getStoredUser, getRestaurant, Restaurant, isAuthenticated, canAccessAdmin, logout } from '@/lib/api';
-import { StoreIcon } from 'lucide-react';
+import { ArrowRight, LoaderCircle, Store } from 'lucide-react';
+import AccessShell from '@/components/brand/AccessShell';
+import FoodyAdminBrand from '@/components/brand/FoodyAdminBrand';
+import { getStoredRestaurantIds, getStoredUser, getRestaurant, type Restaurant, isAuthenticated, canAccessAdmin, logout } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { restaurantHomePath } from '@/lib/courier-access';
 
+type RestaurantChoice = { id: number; restaurant?: Restaurant };
+
+/** Select an accessible establishment, retaining access when its details fail to load. */
 export default function SelectRestaurantPage() {
   const router = useRouter();
   const { t } = useI18n();
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [choices, setChoices] = useState<RestaurantChoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace('/login');
-      return;
-    }
+    if (!isAuthenticated()) { router.replace('/login'); return; }
     const user = getStoredUser();
-    const rids = getStoredRestaurantIds();
-    if (!canAccessAdmin(user, rids)) {
-      logout();
-      router.replace('/login');
-      return;
-    }
-    if (rids.length === 1) {
-      router.replace(restaurantHomePath(rids[0], user?.role ?? ''));
-      return;
-    }
-    // Resilient: a single failing restaurant fetch (expired token races, a
-    // transient API error, or an inactive-subscription 402) must not blank the
-    // whole chooser and trap the user. Load each independently and fall back to
-    // a minimal card (by id) for any that fail, so every restaurant stays
-    // reachable.
-    Promise.allSettled(rids.map((id) => getRestaurant(id)))
-      .then((results) => {
-        setRestaurants(
-          results.map((res, i) =>
-            res.status === 'fulfilled'
-              ? res.value
-              : ({ id: rids[i], name: `${t('restaurant')} #${rids[i]}`, address: '' } as Restaurant)
-          )
-        );
-      })
-      .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const ids = getStoredRestaurantIds();
+    if (!canAccessAdmin(user, ids)) { logout(); router.replace('/login'); return; }
+    if (ids.length === 1) { router.replace(restaurantHomePath(ids[0], user?.role ?? '')); return; }
+    let active = true;
+    setLoading(true);
+    // Keep every authorized restaurant reachable even if its details fail.
+    Promise.allSettled(ids.map(id => getRestaurant(id))).then(results => {
+      if (active) setChoices(results.map((result, index) => ({ id: ids[index], restaurant: result.status === 'fulfilled' ? result.value : undefined })));
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [router, attempt]);
 
-  if (loading) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))]">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+  const incomplete = choices.some(choice => !choice.restaurant);
+  return <AccessShell>
+    <div className="w-full max-w-md">
+      <div className="mb-8 flex justify-center"><FoodyAdminBrand subtitle={t('restaurantPortal')} /></div>
+      <h1 className="mb-6 text-2xl font-semibold">{t('chooseRestaurant')}</h1>
+      {loading && <p role="status" className="mb-4 flex items-center gap-3 text-sm text-fg-secondary"><LoaderCircle aria-hidden className="size-5 animate-spin" />{t('loading')}</p>}
+      {!loading && incomplete && <div role="alert" className="mb-4 rounded-r-md bg-[var(--warning-50)] p-4 text-sm text-[var(--warning-500)]">
+        <p>{t('restaurantDetailsUnavailable')}</p>
+        <button type="button" onClick={() => setAttempt(value => value + 1)} className="mt-2 min-h-11 font-semibold underline underline-offset-4">{t('retry')}</button>
+      </div>}
+      {!loading && choices.length === 0 && <p role="status" className="rounded-r-lg border border-[var(--line)] p-5 text-sm text-fg-secondary">{t('noLinkedRestaurants')}</p>}
+      <div className="space-y-3" aria-busy={loading}>
+        {choices.map(({ id, restaurant }) => <button key={id} type="button"
+          onClick={() => router.push(restaurantHomePath(id, getStoredUser()?.role ?? ''))}
+          className="flex w-full items-center gap-4 rounded-r-lg border border-[var(--line-strong)] p-4 text-start transition-colors hover:border-[var(--brand-ink)] hover:bg-[var(--surface-2)]">
+          {restaurant?.logo_url ? <img src={restaurant.logo_url} alt="" className="size-12 shrink-0 rounded-r-md object-cover" />
+            : <span className="grid size-12 shrink-0 place-items-center rounded-r-md bg-[var(--summary-bg)] text-[var(--summary-fg)]"><Store aria-hidden className="size-6" /></span>}
+          <span className="min-w-0 flex-1 break-words">
+            <span className="block font-semibold">{restaurant?.name ?? `${t('restaurant')} #${id}`}</span>
+            {restaurant?.address && <span className="mt-1 block text-sm text-fg-secondary">{restaurant.address}</span>}
+          </span>
+          <ArrowRight aria-hidden className="size-4 shrink-0 text-fg-secondary rtl:rotate-180" />
+        </button>)}
       </div>
-    );
-  }
-
-  return (
-    <div className="min-h-dvh flex items-center justify-center px-4 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] bg-page">
-      <div className="w-full max-w-md">
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
-              <span className="text-xl font-black text-white">F</span>
-            </div>
-            <h1 className="text-xl font-bold text-fg-primary">{t('chooseRestaurant')}</h1>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {restaurants.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => router.push(restaurantHomePath(r.id, getStoredUser()?.role ?? ''))}
-              className="w-full card hover:border-brand-500 hover:shadow-md transition-all text-left flex items-center gap-4"
-            >
-              {r.logo_url ? (
-                <img src={r.logo_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
-              ) : (
-                <div className="w-12 h-12 rounded-lg bg-brand-100 flex items-center justify-center">
-                  <StoreIcon className="w-6 h-6 text-brand-500" />
-                </div>
-              )}
-              <div>
-                <div className="font-semibold text-fg-primary">{r.name}</div>
-                <div className="text-sm text-fg-secondary">{r.address}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={() => { logout(); router.replace('/login'); }}
-          className="mt-6 w-full text-center text-sm text-fg-secondary hover:text-fg-primary"
-        >
-          {t('signOut')}
-        </button>
-      </div>
+      <button type="button" onClick={() => { logout(); router.replace('/login'); }} className="mt-6 min-h-11 w-full text-center text-sm font-medium text-fg-secondary hover:text-fg-primary">{t('signOut')}</button>
     </div>
-  );
+  </AccessShell>;
 }

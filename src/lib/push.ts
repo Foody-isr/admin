@@ -13,6 +13,33 @@ import { getToken } from './api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
+// A browser has one subscription. Serialize manual changes and background repair
+// so a slow repair cannot recreate a row after a confirmed local disable.
+let subscriptionWork: Promise<unknown> = Promise.resolve();
+let localStopRequested = false;
+function serializeSubscription<T>(work: () => Promise<T>): Promise<T> {
+  const result = subscriptionWork.then(work, work);
+  subscriptionWork = result.catch(() => undefined);
+  return result;
+}
+
+/** Browser failures with stable codes for translated, endpoint-free UI messages. */
+export class PushClientError extends Error {
+  constructor(public code: 'unsupported' | 'permissionDenied' | 'workerUnavailable' | 'noSubscription' | 'localStopFailed') {
+    super(code);
+    this.name = 'PushClientError';
+  }
+}
+
+/** Keep the two unsubscribe receipts separate when only one side succeeds. */
+export class PushUnsubscribeError extends Error {
+  constructor(public serverRemoved: boolean, public browserRemoved: boolean) {
+    super('Push unsubscribe incomplete');
+    this.name = 'PushUnsubscribeError';
+  }
+}
+
+
 export type PushPermissionState = 'unsupported' | 'denied' | 'default' | 'granted';
 
 export interface PushEnvironment {
@@ -102,8 +129,8 @@ async function fetchVapidPublicKey(restaurantId: number): Promise<string> {
 /** Lookup an existing push subscription if any. Returns null when none exists. */
 export async function getCurrentSubscription(): Promise<PushSubscription | null> {
   if (!getEnvironment().supported) return null;
-  const reg = await navigator.serviceWorker.ready;
-  return reg.pushManager.getSubscription();
+  const reg = await navigator.serviceWorker.getRegistration();
+  return reg ? reg.pushManager.getSubscription() : null;
 }
 
 /** Constant-time-irrelevant byte equality between two BufferSources — used to
@@ -138,17 +165,22 @@ function buffersEqual(
  */
 export async function subscribe(restaurantId: number): Promise<PushSubscription> {
   if (!getEnvironment().supported) {
-    throw new Error('Push not supported in this browser');
+    throw new PushClientError('unsupported');
   }
   if (Notification.permission !== 'granted') {
     const next = await Notification.requestPermission();
     if (next !== 'granted') {
-      throw new Error('Notification permission denied');
+      throw new PushClientError('permissionDenied');
     }
   }
 
-  const reg = await navigator.serviceWorker.ready;
-  return persistSubscription(restaurantId, reg);
+  return serializeSubscription(async () => {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg?.active) throw new PushClientError('workerUnavailable');
+    const sub = await persistSubscription(restaurantId, reg);
+    localStopRequested = false;
+    return sub;
+  });
 }
 
 /**
@@ -168,7 +200,7 @@ async function persistSubscription(
   if (sub) {
     const existingKey = sub.options.applicationServerKey;
     if (!buffersEqual(existingKey, appServerKey)) {
-      await sub.unsubscribe().catch(() => {});
+      await stopLocalSubscription(reg, sub);
       sub = null;
     }
   }
@@ -206,39 +238,65 @@ async function persistSubscription(
  * forever when no SW exists. Never throws — failures are logged, not fatal.
  */
 export async function syncSubscription(restaurantId: number): Promise<boolean> {
-  const env = getEnvironment();
-  if (!env.supported || env.permission !== 'granted') return false;
-  const reg = await navigator.serviceWorker.getRegistration();
-  if (!reg) return false;
-  try {
-    await persistSubscription(restaurantId, reg);
-    return true;
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn('[push] background re-sync failed:', err);
-    return false;
+  return serializeSubscription(async () => {
+    try {
+      const env = getEnvironment();
+      if (localStopRequested || !env.supported || env.permission !== 'granted') return false;
+      const reg = await navigator.serviceWorker.getRegistration();
+      // Permission alone is not consent to re-enable a subscription the user
+      // deliberately removed. Repair only a currently subscribed browser.
+      if (!reg?.active || !await reg.pushManager.getSubscription()) return false;
+      await persistSubscription(restaurantId, reg);
+      return true;
+    } catch {
+      // Background repair cannot report an endpoint or credentials in logs.
+      // eslint-disable-next-line no-console
+      console.warn('[push] background re-sync failed');
+      return false;
+    }
+  });
+}
+
+async function stopLocalSubscription(reg: ServiceWorkerRegistration, sub: PushSubscription): Promise<void> {
+  const stopped = await sub.unsubscribe();
+  if (!stopped && (await reg.pushManager.getSubscription())?.endpoint === sub.endpoint) {
+    throw new PushClientError('localStopFailed');
   }
 }
 
-/** Unsubscribe this device — both locally and server-side. Idempotent. */
-export async function unsubscribe(restaurantId: number): Promise<void> {
-  if (!getEnvironment().supported) return;
-  const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.getSubscription();
-  if (!sub) return;
+/** Finish only the local phase after a server removal has been acknowledged. */
+export async function unsubscribeLocally(): Promise<void> {
+  localStopRequested = true;
+  return serializeSubscription(async () => {
+    if (!getEnvironment().supported) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg ? await reg.pushManager.getSubscription() : null;
+    if (reg && sub) await stopLocalSubscription(reg, sub);
+  });
+}
 
-  // Tell the server first; if that fails we still want to honor the user's
-  // request locally so we don't keep receiving pushes.
-  try {
-    await authedFetch('/api/v1/admin/push/unsubscribe', restaurantId, {
-      method: 'POST',
-      body: JSON.stringify({ endpoint: sub.endpoint }),
-    });
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn('[push] server unsubscribe failed (continuing locally):', err);
-  }
-  await sub.unsubscribe();
+/** Stop delivery locally even if the server is unavailable, reporting each phase. */
+export async function unsubscribe(restaurantId: number): Promise<void> {
+  localStopRequested = true;
+  return serializeSubscription(async () => {
+    if (!getEnvironment().supported) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg ? await reg.pushManager.getSubscription() : null;
+    if (!reg || !sub) return;
+    let serverRemoved = false;
+    let browserRemoved = false;
+    try {
+      await authedFetch('/api/v1/admin/push/unsubscribe', restaurantId, {
+        method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+      serverRemoved = true;
+    } catch { /* The local stop must still be attempted; the receipt below reports failure. */ }
+    try {
+      await stopLocalSubscription(reg, sub);
+      browserRemoved = true;
+    } catch { /* Report this phase separately so a retry does not repeat the server write. */ }
+    if (!serverRemoved || !browserRemoved) throw new PushUnsubscribeError(serverRemoved, browserRemoved);
+  });
 }
 
 export interface TestSendResult {
@@ -261,9 +319,10 @@ export interface TestSendResult {
  */
 export async function sendTestPush(restaurantId: number): Promise<TestSendResult> {
   const sub = await getCurrentSubscription();
+  if (!sub?.endpoint) throw new PushClientError('noSubscription');
   const res = await authedFetch('/api/v1/admin/push/test', restaurantId, {
     method: 'POST',
-    body: JSON.stringify({ endpoint: sub?.endpoint ?? '' }),
+    body: JSON.stringify({ endpoint: sub.endpoint }),
   });
   return (await res.json()) as TestSendResult;
 }
@@ -286,12 +345,19 @@ export async function listDevices(restaurantId: number): Promise<PushDevice[]> {
   return data.devices ?? [];
 }
 
-/** Remove one of the current user's subscriptions by id (server-side only —
- *  the browser keeps its local sub, which the settings page handles by also
- *  unsubscribing locally when the removed device is the current one). */
-export async function removeDevice(restaurantId: number, id: number): Promise<void> {
-  await authedFetch(`/api/v1/admin/push/devices/${id}`, restaurantId, {
-    method: 'DELETE',
+/** Remove one server row, optionally stopping this browser in the same serialized operation. */
+export async function removeDevice(restaurantId: number, id: number, stopBrowser = false): Promise<void> {
+  if (stopBrowser) localStopRequested = true;
+  await serializeSubscription(async () => {
+    await authedFetch(`/api/v1/admin/push/devices/${id}`, restaurantId, { method: 'DELETE' });
+    if (!stopBrowser) return;
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if (reg && sub) await stopLocalSubscription(reg, sub);
+    } catch {
+      throw new PushUnsubscribeError(true, false);
+    }
   });
 }
 

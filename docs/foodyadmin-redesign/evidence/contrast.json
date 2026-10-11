@@ -1,0 +1,142 @@
+[
+  {
+    "theme": "light",
+    "pair": "Texte principal",
+    "foreground": "#171717",
+    "background": "#ffffff",
+    "contrast": 17.93
+  },
+  {
+    "theme": "light",
+    "pair": "Texte secondaire",
+    "foreground": "#525b63",
+    "background": "#f5f6f7",
+    "contrast": 6.39
+  },
+  {
+    "theme": "light",
+    "pair": "Métadonnée",
+    "foreground": "#68727b",
+    "background": "#f5f6f7",
+    "contrast": 4.53
+  },
+  {
+    "theme": "light",
+    "pair": "Action",
+    "foreground": "#ffffff",
+    "background": "#b83d00",
+    "contrast": 5.67
+  },
+  {
+    "theme": "light",
+    "pair": "Lien de marque sélectionné",
+    "foreground": "#a83900",
+    "background": "#fff0e7",
+    "contrast": 5.81
+  },
+  {
+    "theme": "light",
+    "pair": "Résumé",
+    "foreground": "#153b5b",
+    "background": "#edf4f8",
+    "contrast": 10.45
+  },
+  {
+    "theme": "light",
+    "pair": "Succès",
+    "foreground": "#237049",
+    "background": "#e9f5ee",
+    "contrast": 5.38
+  },
+  {
+    "theme": "light",
+    "pair": "Attention",
+    "foreground": "#865800",
+    "background": "#fff4d6",
+    "contrast": 5.62
+  },
+  {
+    "theme": "light",
+    "pair": "Erreur",
+    "foreground": "#b42318",
+    "background": "#fff0ee",
+    "contrast": 5.93
+  },
+  {
+    "theme": "light",
+    "pair": "Bord de contrôle",
+    "foreground": "#7d8992",
+    "background": "#f5f6f7",
+    "contrast": 3.31
+  },
+  {
+    "theme": "dark",
+    "pair": "Texte principal",
+    "foreground": "#f4f6f8",
+    "background": "#1b2228",
+    "contrast": 14.84
+  },
+  {
+    "theme": "dark",
+    "pair": "Texte secondaire",
+    "foreground": "#c0c9d0",
+    "background": "#242d35",
+    "contrast": 8.33
+  },
+  {
+    "theme": "dark",
+    "pair": "Métadonnée",
+    "foreground": "#9eacb7",
+    "background": "#242d35",
+    "contrast": 6.02
+  },
+  {
+    "theme": "dark",
+    "pair": "Action",
+    "foreground": "#171717",
+    "background": "#ff9866",
+    "contrast": 8.48
+  },
+  {
+    "theme": "dark",
+    "pair": "Lien de marque sélectionné",
+    "foreground": "#ffac82",
+    "background": "#39271e",
+    "contrast": 7.74
+  },
+  {
+    "theme": "dark",
+    "pair": "Résumé",
+    "foreground": "#cee4f7",
+    "background": "#203848",
+    "contrast": 9.34
+  },
+  {
+    "theme": "dark",
+    "pair": "Succès",
+    "foreground": "#86d7aa",
+    "background": "#1d382c",
+    "contrast": 7.44
+  },
+  {
+    "theme": "dark",
+    "pair": "Attention",
+    "foreground": "#f1ce7c",
+    "background": "#3c321d",
+    "contrast": 8.32
+  },
+  {
+    "theme": "dark",
+    "pair": "Erreur",
+    "foreground": "#ffaaa0",
+    "background": "#412724",
+    "contrast": 7.47
+  },
+  {
+    "theme": "dark",
+    "pair": "Bord de contrôle",
+    "foreground": "#6b7c89",
+    "background": "#242d35",
+    "contrast": 3.24
+  }
+]

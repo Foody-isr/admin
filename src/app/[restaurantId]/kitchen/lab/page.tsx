@@ -1,19 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
   ArrowLeftIcon,
   CheckIcon,
-  ChevronDownIcon,
   FlaskConicalIcon,
   LoaderCircleIcon,
   Trash2Icon,
 } from 'lucide-react';
-import { labGetDraft, labCommitDraft, labDiscardDraft, labPatchDraft } from '@/lib/api';
+import { labGetDraft, labCommitDraft, labDiscardDraft, labRefineDraft } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Button } from '@/components/ds';
+import { Button, ConfirmDialog } from '@/components/ds';
 import { useDraftQueue } from './hooks/useDraftQueue';
 import { applyPatches } from './hooks/useDraftPatches';
 import { DraftInputRail } from './components/DraftInputRail';
@@ -32,334 +31,144 @@ import { RecipeTextImporter } from './components/RecipeTextImporter';
 import { normalizeLabDraftPayload } from './normalizePayload';
 import type { DraftPayload, Draft } from './types';
 
-/** AI-assisted creation and review workspace for profitable restaurant recipes. */
+import { useDraftAutosave } from './hooks/useDraftAutosave';
+
+/** Restaurant-scoped workspace for reviewing and saving manual or assisted recipes. */
 export default function RecipeLabPage() {
-  const params = useParams<{ restaurantId: string }>();
-  const restaurantId = parseInt(params.restaurantId, 10);
+  const { restaurantId } = useParams<{ restaurantId: string }>();
+  return <LabWorkspace key={restaurantId} restaurantId={Number(restaurantId)} />;
+}
+
+function LabWorkspace({ restaurantId }: { restaurantId: number }) {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
-  const { refetch: refetchQueue } = useDraftQueue(restaurantId);
-
+  const queue = useDraftQueue(restaurantId);
   const [activeDraftId, setActiveDraftId] = useState<number | null>(null);
   const [entryMode, setEntryMode] = useState<LabEntryMode | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [payload, setPayload] = useState<DraftPayload | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [refineOpen, setRefineOpen] = useState(false);
-  const [queueOpen, setQueueOpen] = useState(false);
-  const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const saveSequence = useRef(0);
-
-  useEffect(() => {
-    if (activeDraftId == null) {
-      setDraft(null);
-      setPayload(null);
-      setLoadError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(null);
-    labGetDraft(restaurantId, activeDraftId)
-      .then((nextDraft) => {
-        if (cancelled) return;
-        setDraft(nextDraft);
-        setPayload(nextDraft.payload ? normalizeLabDraftPayload(nextDraft.payload) : null);
-        setAutosaveState('idle');
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        console.error('Failed to load draft', error);
-        setLoadError(error instanceof Error ? error.message : 'Failed to load draft');
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [restaurantId, activeDraftId]);
-
-  useEffect(() => () => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-  }, []);
-
-  const updatePayload = useCallback((next: DraftPayload) => {
-    setPayload(next);
-    if (!canManage || activeDraftId == null) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    const sequence = ++saveSequence.current;
-    setAutosaveState('saving');
-    saveTimer.current = setTimeout(async () => {
-      try {
-        const recalculated = await labPatchDraft(restaurantId, activeDraftId, next);
-        if (saveSequence.current === sequence) {
-          setPayload(normalizeLabDraftPayload(recalculated));
-          setAutosaveState('saved');
-        }
-      } catch (error) {
-        console.error('Draft autosave failed', error);
-        if (saveSequence.current === sequence) setAutosaveState('error');
-      }
-    }, 550);
-  }, [activeDraftId, canManage, restaurantId]);
-
-  const handleSave = useCallback(async () => {
-    if (!payload || activeDraftId == null) return;
-    if (draft?.menu_item_id != null && payload.has_existing_recipe !== false && !window.confirm(t('labReplaceConfirm').replace('{name}', draft.dish_name))) return;
-
-    setSubmitting(true);
-    try {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      const recalculated = await labPatchDraft(restaurantId, activeDraftId, payload);
-      await labCommitDraft(restaurantId, activeDraftId, recalculated);
-      setActiveDraftId(null);
-      refetchQueue();
-    } catch (error) {
-      console.error('Commit failed', error);
-      window.alert(t('labSaveFailed'));
-    } finally {
-      setSubmitting(false);
-    }
-  }, [restaurantId, activeDraftId, payload, draft, refetchQueue, t]);
-
-  const handleDiscard = useCallback(async () => {
-    if (activeDraftId == null) return;
-    setSubmitting(true);
-    try {
-      await labDiscardDraft(restaurantId, activeDraftId);
-      setActiveDraftId(null);
-      refetchQueue();
-    } catch (error) {
-      console.error('Discard failed', error);
-    } finally {
-      setSubmitting(false);
-    }
-  }, [restaurantId, activeDraftId, refetchQueue]);
-
-  const handleSellingPriceChange = useCallback((sellingPrice: number | undefined) => {
-    if (!payload) return;
-    updatePayload({ ...payload, cost_summary: { ...payload.cost_summary, selling_price: sellingPrice } });
-  }, [payload, updatePayload]);
-
-  const retryLoad = () => {
-    const id = activeDraftId;
-    setActiveDraftId(null);
-    requestAnimationFrame(() => setActiveDraftId(id));
-  };
-
-  const isManual = payload?.creation_mode === 'manual';
-
-  return (
-    <div className="min-h-full min-w-0 overflow-x-clip bg-[var(--bg)] text-[var(--fg)]">
-      <header className="border-b border-[var(--line)] bg-[var(--surface)]">
-        <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--brand-500)] text-white shadow-[var(--shadow-1)]">
-              <FlaskConicalIcon className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-xl font-semibold tracking-[-0.025em]">{t('labTitle')}</h1>
-              <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{t('labSubtitle')}</p>
-            </div>
-          </div>
-
-          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-start sm:gap-5">
-            {(activeDraftId != null || entryMode != null) && (
-              <>
-                <ProgressSteps reviewing={activeDraftId != null} manual={isManual || entryMode === 'manual'} />
-                <div className="hidden h-7 w-px bg-[var(--line)] sm:block" />
-              </>
-            )}
-            <FoodCostTargetSetting restaurantId={restaurantId} canManage={canManage} />
-          </div>
-        </div>
-      </header>
-
-      {activeDraftId == null ? (
-        <main className="mx-auto max-w-[1320px] py-6 sm:px-1 sm:py-8">
-          <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div>
-              {entryMode == null ? (
-                <LabEntryChoice onChoose={setEntryMode} />
-              ) : (
-                <>
-                  <button type="button" onClick={() => setEntryMode(null)} className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-[8px] pe-2 text-sm font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
-                    <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" /> {t('labBackToChoices')}
-                  </button>
-                  {entryMode === 'manual' ? (
-                    <ManualRecipeStarter
-                      restaurantId={restaurantId}
-                      canManage={canManage}
-                      onCreated={(draftId) => { setActiveDraftId(draftId); refetchQueue(); }}
-                    />
-                  ) : (
-                    <>
-                      <div className="mb-6 max-w-3xl">
-                        <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--fg)] sm:text-4xl">{t('labBriefHeading')}</h2>
-                        <p className="mt-2 max-w-2xl text-base leading-7 text-[var(--fg-muted)]">{t('labBriefIntro')}</p>
-                      </div>
-                      <DraftInputRail restaurantId={restaurantId} onAfterGenerate={refetchQueue} canManage={canManage} />
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-            <aside className="overflow-hidden rounded-[18px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-1)] xl:sticky xl:top-5">
-              <button
-                type="button"
-                onClick={() => setQueueOpen((current) => !current)}
-                aria-expanded={queueOpen}
-                className="flex min-h-14 w-full items-center justify-between gap-3 px-5 py-4 text-start focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] xl:pointer-events-none xl:min-h-0 xl:items-start xl:pb-0"
-              >
-                <span>
-                  <span className="block text-base font-semibold text-[var(--fg)]">{t('labDraftsTitle')}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[var(--fg-muted)]">{t('labDraftsHelp')}</span>
-                </span>
-                <ChevronDownIcon className={`h-4 w-4 shrink-0 text-[var(--fg-muted)] transition-transform xl:hidden ${queueOpen ? 'rotate-180' : ''}`} />
-              </button>
-              <div className={`${queueOpen ? 'block' : 'hidden'} border-t border-[var(--line)] p-4 xl:block xl:border-t-0 xl:p-5 xl:pt-4`}>
-                <DraftQueue restaurantId={restaurantId} activeDraftId={activeDraftId} onSelect={setActiveDraftId} />
-              </div>
-            </aside>
-          </div>
-        </main>
-      ) : (
-        <main className="mx-auto max-w-[1440px] pb-6 pt-4 sm:px-1 sm:pb-8 sm:pt-6">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <button type="button" onClick={() => setActiveDraftId(null)} className="inline-flex min-h-11 items-center gap-2 rounded-[8px] pe-2 text-sm font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]">
-              <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" /> {t('labBackToBriefs')}
-            </button>
-            <AutosaveStatus state={autosaveState} />
-          </div>
-
-          {loading && (
-            <div className="flex min-h-[420px] items-center justify-center gap-2 text-sm text-[var(--fg-muted)]">
-              <LoaderCircleIcon className="h-5 w-5 animate-spin" /> {t('labLoading')}
-            </div>
-          )}
-
-          {!loading && loadError && (
-            <div className="rounded-[14px] border border-[var(--danger-500)] bg-[var(--danger-50)] p-5 text-sm text-[var(--danger-500)]">
-              <p>{loadError}</p>
-              <Button variant="secondary" size="sm" className="mt-3" onClick={retryLoad}>{t('retry')}</Button>
-            </div>
-          )}
-
-          {!loading && !loadError && payload && (
-            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_370px]">
-              <div className="order-1 xl:col-span-2">
-                <CostSummaryHeader payload={payload} onSellingPriceChange={handleSellingPriceChange} canManage={canManage} />
-              </div>
-
-              {canManage && (
-                <div className="sticky z-10 order-2 rounded-[14px] border border-[var(--line-strong)] bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] p-2 shadow-[var(--shadow-2)] backdrop-blur-xl xl:hidden" style={{ top: 'calc(var(--topbar-total-h) + 8px)' }}>
-                  <div className="flex items-center gap-3">
-                    <span className="min-w-0 flex-1 px-2">
-                      <span className="block text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--fg-muted)]">{t('labFoodCostPct')}</span>
-                      <span className={`block text-lg font-semibold tabular-nums ${payload.cost_summary.verdict === 'ok' ? 'text-[var(--success-500)]' : 'text-[var(--fg)]'}`}>
-                        {payload.cost_summary.food_cost_pct == null ? '—' : `${(payload.cost_summary.food_cost_pct * 100).toFixed(0)}%`}
-                      </span>
-                    </span>
-                    <Button size="lg" onClick={handleSave} disabled={submitting || (isManual && payload.components.length === 0)}>
-                      {submitting ? <LoaderCircleIcon className="animate-spin" /> : <CheckIcon />}
-                      {submitting ? t('labSaving') : isManual ? t('labSaveManualRecipe') : t('labSaveRecipe')}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <aside className="order-4 space-y-4 xl:order-3 xl:sticky xl:top-5">
-                {isManual ? (
-                  <ManualValidationPanel payload={payload} canManage={canManage} submitting={submitting} onSave={handleSave} />
-                ) : (
-                  <IntelligencePanel
-                    payload={payload}
-                    canManage={canManage}
-                    submitting={submitting}
-                    onSave={handleSave}
-                    onRefine={() => setRefineOpen(true)}
-                  />
-                )}
-                {draft?.menu_item_id != null && (
-                  <VersionHistory restaurantId={restaurantId} menuItemId={draft.menu_item_id} canManage={canManage} onRestored={(restored) => updatePayload(normalizeLabDraftPayload(restored))} />
-                )}
-              </aside>
-
-              <div className="order-3 min-w-0 space-y-4 xl:order-2">
-                {isManual && activeDraftId != null && (
-                  <RecipeTextImporter
-                    restaurantId={restaurantId}
-                    draftId={activeDraftId}
-                    payload={payload}
-                    canManage={canManage}
-                    onChange={updatePayload}
-                  />
-                )}
-                <RecipeTree restaurantId={restaurantId} payload={payload} onChange={updatePayload} canManage={canManage} />
-                {!isManual && (
-                  <ImageStudio
-                    restaurantId={restaurantId}
-                    draftId={activeDraftId}
-                    currentImage={payload.selected_image_url}
-                    disabled={!canManage || autosaveState === 'saving'}
-                    onConfirmed={(url) => setPayload((current) => current ? { ...current, selected_image_url: url } : current)}
-                  />
-                )}
-                {canManage && (
-                  <div className="flex justify-end pt-2">
-                    <button type="button" onClick={handleDiscard} disabled={submitting} className="inline-flex min-h-11 items-center gap-2 rounded-[8px] px-3 py-2 text-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:opacity-50">
-                      <Trash2Icon className="h-3.5 w-3.5" /> {t('labDeleteDraft')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </main>
-      )}
-
-      <RefineDrawer
-        restaurantId={restaurantId}
-        draftId={activeDraftId}
-        open={refineOpen && canManage && !isManual}
-        onClose={() => setRefineOpen(false)}
-        onPatches={(patches) => { if (payload) updatePayload(applyPatches(payload, patches)); }}
-      />
-    </div>
-  );
+  const [entryBusy, setEntryBusy] = useState(false);
+  const [entryDirty,setEntryDirty]=useState(false);
+  const [entryAction,setEntryAction]=useState<(() => void) | null>(null);
+  const leaveEntry=(action:()=>void)=>{if(entryDirty)setEntryAction(()=>action);else action();};
+  useEffect(()=>{const guard=(event:BeforeUnloadEvent)=>{if(entryBusy||entryDirty){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard);},[entryBusy,entryDirty]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const completed = (id: number, message: string) => { queue.remove(id); setActiveDraftId(null); setNotice(message); void queue.refetch(); };
+  return <div className="min-h-full min-w-0 text-[var(--fg)]">
+    <header className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-[var(--line)] pb-5">
+      <div className="flex items-start gap-3"><span className="rounded-[8px] bg-[var(--summary-bg)] p-3 text-[var(--summary-fg)]"><FlaskConicalIcon className="h-5 w-5" /></span><div><h1 className="text-2xl font-semibold tracking-tight">{t('labTitle')}</h1><p className="mt-1 text-sm text-[var(--fg-muted)]">{t('labSubtitle')}</p></div></div>
+      <FoodCostTargetSetting restaurantId={restaurantId} canManage={canManage && !entryBusy && activeDraftId == null} />
+    </header>
+    {notice && <p role="status" className="mb-4 rounded-[8px] border border-[var(--line)] bg-[var(--success-50)] p-3 text-sm text-[var(--fg)]">{notice}</p>}
+    {activeDraftId == null ? <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div>{entryMode == null ? <LabEntryChoice onChoose={mode => { setNotice(null); setEntryMode(mode); }} /> : <>
+        <Button variant="ghost" disabled={entryBusy} className="mb-4" onClick={() => leaveEntry(() => setEntryMode(null))}><ArrowLeftIcon className="rtl:rotate-180" />{t('labBackToChoices')}</Button>
+        {entryMode === 'manual' ? <ManualRecipeStarter restaurantId={restaurantId} canManage={canManage} onBusyChange={setEntryBusy} onCreated={id => { setActiveDraftId(id); void queue.refetch(); }} /> : <>
+          <div className="mb-4"><h2 className="text-xl font-semibold">{t('labBriefHeading')}</h2><p className="mt-1 text-sm leading-6 text-[var(--fg-muted)]">{t('labBriefIntro')}</p></div>
+          <DraftInputRail onDirtyChange={setEntryDirty} restaurantId={restaurantId} canManage={canManage} onBusyChange={setEntryBusy} onAfterGenerate={drafts => { queue.add(drafts); void queue.refetch(); }} />
+        </>}
+      </>}</div>
+      <aside aria-label={t('labDraftsTitle')} className="rounded-[8px] border border-[var(--line)] bg-[var(--surface)] p-4 xl:sticky xl:top-5"><h2 className="text-base font-semibold">{t('labDraftsTitle')}</h2><p className="mb-4 mt-1 text-sm leading-5 text-[var(--fg-muted)]">{t('labDraftsHelp')}</p><DraftQueue state={queue} activeDraftId={activeDraftId} disabled={entryBusy} onSelect={id => leaveEntry(() => {setNotice(null);setActiveDraftId(id);})} /></aside>
+    </div> : <DraftLoader key={activeDraftId} restaurantId={restaurantId} draftId={activeDraftId} canManage={canManage} onBack={() => { setActiveDraftId(null); void queue.refetch(); }} onDone={message => completed(activeDraftId, message)} />}
+    <ConfirmDialog open={entryAction!=null} onOpenChange={open=>{if(!open)setEntryAction(null);}} title={t('discardChanges')} description={t('labLeaveUnsaved')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} danger onConfirm={()=>{entryAction?.();setEntryAction(null);setEntryDirty(false);}} />
+  </div>;
 }
 
-function ProgressSteps({ reviewing, manual }: { reviewing: boolean; manual: boolean }) {
+function DraftLoader({ restaurantId, draftId, canManage, onBack, onDone }: { restaurantId: number; draftId: number; canManage: boolean; onBack: () => void; onDone: (message: string) => void }) {
   const { t } = useI18n();
-  const steps = manual
-    ? [t('labManualStepDish'), t('labManualStepCompose'), t('labManualStepSave')]
-    : [t('labStepBrief'), t('labStepProposals'), t('labStepFinalize')];
-  const activeIndex = reviewing ? 1 : 0;
-  return (
-    <ol className="flex min-w-0 items-center" aria-label={steps[activeIndex]}>
-      {steps.map((label, index) => (
-        <li key={label} className="flex min-w-0 items-center">
-          {index > 0 && <span className={`mx-1.5 h-px w-4 sm:mx-2 sm:w-6 ${index <= activeIndex ? 'bg-[var(--brand-500)]' : 'bg-[var(--line-strong)]'}`} />}
-          <span className={`flex items-center gap-1.5 text-xs font-medium ${index === activeIndex ? 'text-[var(--fg)]' : index < activeIndex ? 'text-[var(--brand-500)]' : 'text-[var(--fg-subtle)]'}`}>
-            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:h-5 sm:w-5 ${index === activeIndex ? 'bg-[var(--brand-500)] text-white' : index < activeIndex ? 'bg-[color-mix(in_oklab,var(--brand-500)_12%,var(--surface))] text-[var(--brand-500)]' : 'border border-[var(--line-strong)]'}`}>
-              {index < activeIndex ? <CheckIcon className="h-3 w-3" /> : index + 1}
-            </span>
-            <span className={`${index === activeIndex ? 'max-w-28 truncate' : 'hidden'} sm:inline sm:max-w-none`}>{label}</span>
-          </span>
-        </li>
-      ))}
-    </ol>
-  );
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const load = async () => { try { const next = await labGetDraft(restaurantId, draftId); if (active) { setDraft(next); setError(null); if (next.status === 'generating') timer = setTimeout(load, 3000); } } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : t('labOperationFailed')); } };
+    void load(); return () => { active = false; clearTimeout(timer); };
+  }, [restaurantId, draftId, attempt, t]);
+  if (draft?.status === 'ready' && draft.payload && !error) return <DraftEditor key={draft.id} restaurantId={restaurantId} draft={draft} canManage={canManage} onBack={onBack} onDone={onDone} />;
+  return <div className="space-y-4"><Button variant="ghost" onClick={onBack}><ArrowLeftIcon className="rtl:rotate-180" />{t('labBackToBriefs')}</Button>{error ? <div role="alert" className="text-[var(--danger-500)]"><p>{error}</p><Button variant="secondary" onClick={() => setAttempt(x => x+1)}>{t('retry')}</Button></div> : <div role="status" className="rounded-[8px] border border-[var(--line)] p-6"><p className="font-semibold" dir="auto">{draft?.dish_name}</p><p>{draft ? t(`labDraftStatus_${draft.status}`) : t('labLoading')}</p>{draft?.error_message && <p>{draft.error_message}</p>}{draft?.status === 'error' && <Button variant="secondary" onClick={() => setAttempt(x => x+1)}>{t('retry')}</Button>}</div>}</div>;
+}
+
+function DraftEditor({ restaurantId, draft, canManage, onBack, onDone }: { restaurantId: number; draft: Draft; canManage: boolean; onBack: () => void; onDone: (message: string) => void }) {
+  const { t } = useI18n();
+  const save = useDraftAutosave(restaurantId, draft.id, draft.payload!, canManage);
+  const { payload } = save;
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<'commit' | 'discard' | 'leave' | null>(null);
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [captureDirty,setCaptureDirty]=useState(false);
+  const [refineDirty,setRefineDirty]=useState(false);
+  const [commitUncertain, setCommitUncertain] = useState(false);
+  const isManual = payload.creation_mode === 'manual';
+  const editable = canManage && !busy && !commitUncertain;
+
+  useEffect(() => { const beforeUnload = (event: BeforeUnloadEvent) => { if (save.dirty || busy || commitUncertain || captureDirty || refineDirty) {event.preventDefault();event.returnValue='';} }; window.addEventListener('beforeunload', beforeUnload);return () => window.removeEventListener('beforeunload', beforeUnload); }, [save.dirty,busy,commitUncertain,captureDirty,refineDirty]);
+
+  const runAction = async <T,>(action: (canonical: DraftPayload) => Promise<T>, persist = true): Promise<T> => {
+    if (!canManage || lock.current || commitUncertain) throw new Error(t('labActionPending'));
+    lock.current = true;setBusy(true);setError(null);
+    try { if (!persist) await save.settle(); return await action(persist ? await save.flush() : payload); } finally { lock.current=false;setBusy(false); }
+  };
+  const back = async () => {
+    if (lock.current || commitUncertain) return;
+    lock.current=true;setBusy(true);
+    try {await save.flush();if(captureDirty || refineDirty)setConfirm('leave');else onBack();} catch {setConfirm('leave');} finally {lock.current=false;setBusy(false);}
+  };
+  const commit = async () => {
+    if (!canManage || lock.current) return;
+    lock.current=true;setBusy(true);setError(null);setConfirm(null);
+    try {
+      if (commitUncertain) {
+        const current = await labGetDraft(restaurantId,draft.id);
+        if (current.status === 'committed') { onDone(t('labRecipeSaved')); return; }
+        if (current.status !== 'ready') throw new Error(t(`labDraftStatus_${current.status}`));
+        setCommitUncertain(false);
+      }
+      const canonical = await save.flush();
+      // A lost commit response must be reconciled with GET before any further PATCH.
+      setCommitUncertain(true);
+      await labCommitDraft(restaurantId,draft.id,canonical);
+      onDone(t('labRecipeSaved'));
+    } catch (cause) {setError(cause instanceof Error ? cause.message : t('labSaveFailed'));} finally {lock.current=false;setBusy(false);}
+  };
+  const requestCommit = () => { if (draft.menu_item_id != null && payload.has_existing_recipe !== false) setConfirm('commit'); else void commit(); };
+  const discard = async () => {
+    setConfirm(null);
+    try { await runAction(async () => { await labDiscardDraft(restaurantId,draft.id);onDone(t('labDraftRemoved')); }, false); }
+    catch (cause) {setError(cause instanceof Error ? cause.message : t('labOperationFailed'));}
+  };
+  const refine = (message: string) => runAction(async canonical => {
+    const result = await labRefineDraft(restaurantId,draft.id,message);
+    if (result.patches.length) save.update(applyPatches(canonical,result.patches));
+    return result;
+  });
+  return <div className="min-w-0">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onClick={() => void back()} disabled={busy || commitUncertain}><ArrowLeftIcon className="rtl:rotate-180" />{t('labBackToBriefs')}</Button><div className="flex flex-wrap items-center gap-2"><AutosaveStatus state={save.state} />{save.state === 'error' && <Button variant="secondary" disabled={busy || commitUncertain} onClick={() => void save.flush().catch(() => undefined)}>{t('retry')}</Button>}</div></div>
+    {save.error && <p role="alert" className="mb-4 text-sm text-[var(--danger-500)]">{save.error}</p>}
+    {error && <div role="alert" className="mb-4 rounded-[8px] border border-[var(--danger-action)] p-3 text-sm"><p>{error}</p>{commitUncertain && <><p className="mt-1">{t('labCommitCheckHint')}</p><Button className="mt-2" disabled={busy} onClick={() => void commit()}>{t('retry')}</Button></>}</div>}
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="order-1 xl:col-span-2"><CostSummaryHeader payload={payload} canManage={editable} onSellingPriceChange={selling_price => save.update({...payload,cost_summary:{...payload.cost_summary,selling_price}})} /></div>
+      {canManage && <div className="sticky z-10 order-2 flex items-center justify-between gap-3 rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] p-3 xl:hidden" style={{top:'calc(var(--topbar-total-h) + 8px)'}}><span className="text-sm">{t('labFoodCostPct')}<strong dir="ltr" className="ms-2 tabular-nums">{payload.cost_summary.food_cost_pct == null ? '—' : `${(payload.cost_summary.food_cost_pct*100).toFixed(0)}%`}</strong></span><Button onClick={requestCommit} disabled={!editable || payload.components.length===0}>{busy ? <LoaderCircleIcon className="animate-spin" /> : <CheckIcon />}{isManual ? t('labSaveManualRecipe') : t('labSaveRecipe')}</Button></div>}
+      <aside className="order-4 space-y-4 xl:order-3 xl:sticky xl:top-5">{isManual ? <ManualValidationPanel payload={payload} canManage={canManage} submitting={!editable} onSave={requestCommit} /> : <IntelligencePanel payload={payload} canManage={canManage} submitting={!editable || payload.components.length===0} onSave={requestCommit} onRefine={() => setRefineOpen(true)} />}
+        {draft.menu_item_id != null && <VersionHistory restaurantId={restaurantId} menuItemId={draft.menu_item_id} canManage={editable} runAction={runAction} onRestored={async restored => { if(restored) save.update(normalizeLabDraftPayload(restored)); await save.flush(); }} />}
+      </aside>
+      <div className="order-3 min-w-0 space-y-4 xl:order-2">{isManual && <RecipeTextImporter onDirtyChange={setCaptureDirty} restaurantId={restaurantId} draftId={draft.id} payload={payload} canManage={editable} onChange={save.update} />}
+        <RecipeTree restaurantId={restaurantId} payload={payload} onChange={save.update} canManage={editable} />
+        {!isManual && <ImageStudio restaurantId={restaurantId} draftId={draft.id} currentImage={payload.selected_image_url} disabled={!editable} runAction={runAction} onConfirmed={(url, canonical) => save.accept({...canonical,selected_image_url:url})} />}
+        {canManage && <div className="flex justify-end"><Button variant="ghost" onClick={() => setConfirm('discard')} disabled={!editable}><Trash2Icon />{t('labDeleteDraft')}</Button></div>}
+      </div>
+    </div>
+    <RefineDrawer onDirtyChange={setRefineDirty} open={refineOpen && canManage && !isManual} initialHistory={draft.chat_history ?? []} onClose={() => setRefineOpen(false)} onSend={refine} />
+    <ConfirmDialog open={confirm != null} onOpenChange={open => {if (!open) setConfirm(null);}} title={confirm === 'discard' ? t('labDeleteDraft') : confirm === 'leave' ? t('discardChanges') : t('labSaveRecipe')} description={confirm === 'discard' ? t('labDiscardConfirm') : confirm === 'leave' ? t('labLeaveUnsaved') : t('labReplaceConfirm').replace('{name}',draft.dish_name)} confirmLabel={confirm === 'discard' ? t('delete') : confirm === 'leave' ? t('discardChanges') : t('labSaveRecipe')} cancelLabel={t('cancel')} danger={confirm !== 'commit'} onConfirm={() => {if(confirm==='discard') void discard();else if(confirm==='leave')onBack();else void commit();}} />
+  </div>;
 }
 
 function AutosaveStatus({ state }: { state: 'idle' | 'saving' | 'saved' | 'error' }) {
   const { t } = useI18n();
   if (state === 'idle') return null;
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs ${state === 'error' ? 'text-[var(--danger-500)]' : 'text-[var(--fg-muted)]'}`}>
+    <span role="status" className={`inline-flex items-center gap-1.5 text-xs ${state === 'error' ? 'text-[var(--danger-500)]' : 'text-[var(--fg-muted)]'}`}>
       {state === 'saving' && <LoaderCircleIcon className="h-3.5 w-3.5 animate-spin" />}
       {state === 'saved' && <CheckIcon className="h-3.5 w-3.5 text-[var(--success-500)]" />}
       {state === 'saving' ? t('labAutosaving') : state === 'saved' ? t('labAutosaved') : t('labAutosaveFailed')}

@@ -2,8 +2,10 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Eye, Pencil, X } from 'lucide-react';
-import { Button } from '@/components/ds/Button';
+import { ChevronLeft, Eye, Pencil, ArrowUp, ArrowDown, SlidersHorizontal, Plus } from 'lucide-react';
+import { Button, FullScreenEditor, ConfirmDialog } from '@/components/ds';
+import Modal from '@/components/Modal';
+import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { PosTile } from '@/components/menu/PosTile';
 import { PosTileCanvas } from '@/components/menu/PosTileCanvas';
@@ -58,11 +60,18 @@ function withPositions(tiles: PosDisplayTile[]): PosDisplayTile[] {
   return tiles.map((t, i) => ({ ...t, position: i }));
 }
 
+/** Isolates layout drafts when navigating between restaurant menus. */
 export default function PosDisplayEditorPage() {
+  const { restaurantId, menuId } = useParams();
+  return <PosDisplayEditor key={`${restaurantId}.${menuId}`} />;
+}
+
+function PosDisplayEditor() {
   const { restaurantId, menuId } = useParams();
   const rid = Number(restaurantId);
   const mid = Number(menuId);
   const router = useRouter();
+  const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
 
@@ -82,13 +91,30 @@ export default function PosDisplayEditorPage() {
   const [saving, setSaving] = React.useState(false);
   const [preview, setPreview] = React.useState(false);
   const [addOpen, setAddOpen] = React.useState(false);
+  const [discard, setDiscard] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+  const [retry, setRetry] = React.useState(0);
+  const [loadFailed, setLoadFailed] = React.useState(false);
+  const [rename, setRename] = React.useState<{ id: number; name: string } | null>(null);
+  const [renameError, setRenameError] = React.useState('');
+  const [renaming, setRenaming] = React.useState(false);
+  const busyRef = React.useRef(false);
+  const baseline = React.useRef('');
+  const inspector = React.useRef<HTMLElement>(null);
+  const renameInput = React.useRef<HTMLInputElement>(null);
+  const dirty = !!baseline.current && baseline.current !== JSON.stringify({ tiles, group_tiles: groupTiles });
+  React.useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
-  const closeBack = () => router.push(`/${rid}/menu/menus/${mid}`);
+  const closeBack = () => { if (busyRef.current) return; if (dirty) setDiscard(true); else router.push(`/${rid}/menu/menus/${mid}`); };
 
   // ── Load ──
   React.useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    setLoading(true); setError(null); setLoadFailed(false);
     Promise.all([listMenus(rid), listAllItems(rid), getPosDisplay(rid, mid)])
       .then(([menus, items, layout]) => {
         if (cancelled) return;
@@ -98,9 +124,10 @@ export default function PosDisplayEditorPage() {
         setItemMap(new Map(items.map((it) => [it.id, it])));
         setTiles(layout.tiles ?? []);
         setGroupTiles(layout.group_tiles ?? {});
+        baseline.current = JSON.stringify({ tiles: layout.tiles ?? [], group_tiles: layout.group_tiles ?? {} });
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Erreur de chargement');
+        if (!cancelled) { setError(e instanceof Error ? e.message : 'libraryOperationFailed'); setLoadFailed(true); }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -108,7 +135,7 @@ export default function PosDisplayEditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [rid, mid]);
+  }, [rid, mid, retry]);
 
   // ── Current container ──
   // Inside a group, fall back to synthesized item tiles when no layout is
@@ -124,6 +151,8 @@ export default function PosDisplayEditorPage() {
 
   const setCurrentTiles = React.useCallback(
     (next: PosDisplayTile[]) => {
+      if (!canEdit || busyRef.current) return;
+      setSaved(false);
       const positioned = withPositions(next);
       if (level === 'menu') {
         setTiles(positioned);
@@ -131,7 +160,7 @@ export default function PosDisplayEditorPage() {
         setGroupTiles((prev) => ({ ...prev, [String(level)]: positioned }));
       }
     },
-    [level],
+    [level, canEdit],
   );
 
   // ── Resolve display data for a tile ──
@@ -140,15 +169,15 @@ export default function PosDisplayEditorPage() {
       if (tile.tile_type === 'group') {
         const g = tile.ref_group_id != null ? groupMap.get(tile.ref_group_id) : undefined;
         return {
-          name: g?.name ?? 'Groupe',
+          name: g?.name ?? t('groupName'),
           imageUrl: g?.image_url,
           itemCount: g?.items?.length,
         };
       }
       const it = tile.ref_item_id != null ? itemMap.get(tile.ref_item_id) : undefined;
-      return { name: it?.name ?? 'Article', price: it?.price, imageUrl: it?.image_url };
+      return { name: it?.name ?? t('article'), price: it?.price, imageUrl: it?.image_url };
     },
-    [groupMap, itemMap],
+    [groupMap, itemMap, t],
   );
 
   const selectedTile =
@@ -268,41 +297,40 @@ export default function PosDisplayEditorPage() {
     setSelectedIndex(null);
   };
 
-  // ── Rename group (group tiles only) ──
-  const renameSelectedGroup = async () => {
-    if (!selectedTile || selectedTile.tile_type !== 'group' || selectedTile.ref_group_id == null) {
-      return;
-    }
-    const gid = selectedTile.ref_group_id;
-    const current = groupMap.get(gid);
-    const name = window.prompt('Nom du groupe de menus', current?.name ?? '');
-    if (name == null) return;
-    const trimmed = name.trim();
-    if (!trimmed || trimmed === current?.name) return;
+  // A group rename is persisted immediately, separately from the layout draft.
+  const renameSelectedGroup = () => {
+    if (!canEdit || selectedTile?.tile_type !== 'group' || selectedTile.ref_group_id == null) return;
+    const group = groupMap.get(selectedTile.ref_group_id);
+    setRenameError(''); setRename({ id: selectedTile.ref_group_id, name: group?.name ?? '' });
+  };
+  const saveGroupName = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!rename || !rename.name.trim() || !canEdit || busyRef.current) return;
+    busyRef.current = true; setRenaming(true); setRenameError('');
     try {
-      const updated = await updateGroup(rid, gid, { name: trimmed });
-      setGroupMap((prev) => {
-        const m = new Map(prev);
-        const existing = m.get(gid);
-        m.set(gid, existing ? { ...existing, ...updated } : updated);
-        return m;
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Échec du renommage');
-    }
+      const updated = await updateGroup(rid, rename.id, { name: rename.name.trim() });
+      setGroupMap(previous => { const next = new Map(previous); const existing = next.get(rename.id); next.set(rename.id, existing ? { ...existing, ...updated } : updated); return next; });
+      setRename(null);
+    } catch (cause) { setRenameError(cause instanceof Error ? cause.message : t('libraryOperationFailed')); }
+    finally { busyRef.current = false; setRenaming(false); }
   };
 
   // ── Save ──
   const save = async () => {
+    if (!canEdit || busyRef.current || loading || loadFailed) return;
+    busyRef.current = true;
     setSaving(true);
     setError(null);
     try {
       const layout = await savePosDisplay(rid, mid, { tiles, group_tiles: groupTiles });
       setTiles(layout.tiles ?? []);
       setGroupTiles(layout.group_tiles ?? {});
+      baseline.current = JSON.stringify({ tiles: layout.tiles ?? [], group_tiles: layout.group_tiles ?? {} });
+      setSaved(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Échec de l'enregistrement");
+      setError(e instanceof Error ? e.message : t('libraryOperationFailed'));
     } finally {
+      busyRef.current = false;
       setSaving(false);
     }
   };
@@ -318,140 +346,52 @@ export default function PosDisplayEditorPage() {
 
   const menuName = menu?.name ?? '';
   const currentGroupName =
-    level !== 'menu' ? groupMap.get(level)?.name ?? 'Groupe' : '';
+    level !== 'menu' ? groupMap.get(level)?.name ?? t('groupName') : '';
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 grid place-items-center bg-[var(--bg)]">
-        <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
+  const moveSelected = (delta: number) => {
+    if (selectedIndex === null || !canEdit || busyRef.current) return;
+    const target = selectedIndex + delta;
+    if (target < 0 || target >= currentTiles.length) return;
+    setCurrentTiles(arrayMove(currentTiles, selectedIndex, target)); setSelectedIndex(target);
+  };
+
+  return <><FullScreenEditor open onOpenChange={open => { if (!open) closeBack(); }} title={t('posLayoutTitle')} subtitle={menuName || undefined} showCancel={false}
+    onSave={canEdit && !loading && !loadFailed && menu ? save : undefined} saveLabel={t(saving ? 'saving' : 'save')} saveDisabled={saving || !dirty}>
+    {loading ? <p role="status" className="py-16 text-center text-fg-secondary">{t('loading')}</p>
+    : loadFailed ? <div role="alert" className="space-y-4 rounded-r-lg border border-[var(--line)] p-5"><p className="text-[var(--danger-500)]">{t(error || 'libraryOperationFailed')}</p><Button variant="secondary" onClick={() => setRetry(value => value + 1)}>{t('retry')}</Button></div>
+    : !menu ? <p role="status" className="py-12 text-center text-fg-secondary">{t('menuNotFound')}</p>
+    : <div className="min-w-0 space-y-5">
+      <div className="flex flex-wrap items-center gap-3 rounded-r-lg bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">
+        <p className="min-w-0 flex-[1_1_300px]">{t('posLayoutDescription')}</p>
+        {canEdit && <Button variant="secondary" disabled={saving} aria-pressed={preview} onClick={() => { setPreview(value => !value); setSelectedIndex(null); }}>{preview ? <Pencil /> : <Eye />}{t(preview ? 'edit' : 'preview')}</Button>}
+        <span role="status">{dirty ? t('settingsUnsaved') : saved ? t('posLayoutSaved') : ''}</span>
       </div>
-    );
-  }
-
-  if (!menu) {
-    return (
-      <div className="fixed inset-0 grid place-items-center bg-[var(--bg)] text-[var(--fg-muted)]">
-        <div className="text-center space-y-[var(--s-3)]">
-          <p>Menu introuvable.</p>
-          <Button variant="secondary" size="sm" onClick={closeBack}>
-            Retour
-          </Button>
-        </div>
+      {error && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{t(error)}</p>}
+      {level !== 'menu' && <nav aria-label={t('menus')} className="flex flex-wrap items-center gap-2 text-sm"><Button variant="secondary" onClick={goToMenuLevel}><ChevronLeft className="rtl:rotate-180" />{menuName}</Button><span className="break-words font-semibold" dir="auto">{currentGroupName}</span></nav>}
+      <div className={`grid min-w-0 gap-5 ${!preview && canEdit ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''}`}>
+        <section className="min-w-0 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-3 sm:p-4" aria-label={t('posLayoutTitle')}>
+          {!preview && canEdit && <div className="mb-4 flex flex-wrap items-center gap-2"><Button variant="primary" disabled={saving} onClick={() => setAddOpen(true)}><Plus />{t('posAddTile')}</Button><Button variant="secondary" className="lg:hidden" onClick={() => inspector.current?.scrollIntoView({ block: 'start' })}><SlidersHorizontal />{t('posTileSettings')}</Button></div>}
+          <div className="overflow-x-auto p-1" tabIndex={0} role="region" aria-label={t('posLayoutTitle')}><fieldset disabled={saving} className="min-w-0">
+            {preview || !canEdit ? <PreviewGrid tiles={currentTiles} resolve={resolve} onDrill={onDrill} /> : <PosTileCanvas tiles={currentTiles} resolve={resolve} selectedIndex={selectedIndex} onSelect={onSelect} onDrill={onDrill} onAdd={() => setAddOpen(true)} onReorder={onReorder} />}
+          </fieldset></div>
+          {!currentTiles.length && <p className="py-5 text-center text-sm text-fg-secondary">{t('posNoTiles')}</p>}
+        </section>
+        {!preview && canEdit && <aside ref={inspector} aria-label={t('posTileSettings')} className="min-w-0 scroll-mt-4 self-start rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+          <h2 className="rounded-t-r-lg bg-[var(--summary-bg)] p-4 font-semibold text-[var(--summary-fg)]">{t('posTileSettings')}</h2>
+          <fieldset disabled={saving} className="min-w-0 space-y-5 p-4">
+            {selectedTile && <div className="space-y-3 border-b border-[var(--line)] pb-4"><p className="break-words font-semibold" dir="auto">{resolve(selectedTile).name}</p><div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" disabled={selectedIndex === 0} onClick={() => moveSelected(-1)}><ArrowUp />{t('moveUp')}</Button><Button variant="secondary" size="sm" disabled={selectedIndex === currentTiles.length - 1} onClick={() => moveSelected(1)}><ArrowDown />{t('moveDown')}</Button></div></div>}
+            <PosTileInspector tile={selectedTile} linkedImageUrl={selectedLinkedImageUrl} onSort={applySort} onSizeChange={(size: PosTileSize) => updateSelectedTile({ size })} onBgTypeChange={(bg_type: PosBgType) => updateSelectedTile({ bg_type })} onColorPick={color => updateSelectedTile({ color })} onImageUrlChange={image_url => updateSelectedTile({ image_url })} onRenameGroup={renameSelectedGroup} onDrill={() => { if (selectedIndex !== null) onDrill(selectedIndex); }} onRemove={removeSelectedTile} />
+          </fieldset>
+        </aside>}
       </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-40 pt-safe-t pb-safe-b flex flex-col bg-[var(--bg)] text-[var(--fg)]">
-      {/* ── Top bar ── */}
-      <header className="h-[60px] shrink-0 flex items-center gap-[var(--s-3)] sm:gap-[var(--s-4)] px-[var(--s-4)] sm:px-[var(--s-5)] border-b border-[var(--line)] bg-[var(--surface)]">
-        <Button variant="ghost" size="md" icon aria-label="Fermer" onClick={closeBack}>
-          <X />
-        </Button>
-        <h1 className="flex-1 text-center text-fs-md font-semibold truncate">
-          {`Présentation du menu ${menuName} sur le système de caisse`}
-        </h1>
-        <Button
-          variant={preview ? 'primary' : 'secondary'}
-          size="sm"
-          onClick={() => {
-            setPreview((p) => !p);
-            setSelectedIndex(null);
-          }}
-        >
-          {preview ? <Pencil className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          {preview ? 'Modifier' : 'Aperçu'}
-        </Button>
-        {canEdit && (
-          <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-            {saving ? 'Enregistrement…' : 'Enregistrer'}
-          </Button>
-        )}
-      </header>
-
-      {error && (
-        <div className="shrink-0 px-[var(--s-5)] py-[var(--s-2)] text-fs-sm text-[var(--danger-500)] bg-[color-mix(in_oklab,var(--danger-500)_8%,transparent)] border-b border-[var(--line)]">
-          {error}
-        </div>
-      )}
-
-      <div className="flex-1 min-h-0 flex">
-        {/* ── Canvas ── */}
-        <main className="flex-1 min-w-0 overflow-auto p-[var(--s-6)]">
-          {/* Breadcrumb when drilled into a group */}
-          {level !== 'menu' && (
-            <div className="flex items-center gap-[var(--s-2)] mb-[var(--s-4)]">
-              <Button
-                variant="ghost"
-                size="sm"
-                icon
-                aria-label="Retour au menu"
-                onClick={goToMenuLevel}
-              >
-                <ChevronLeft />
-              </Button>
-              <nav className="text-fs-sm text-[var(--fg-muted)]">
-                <button
-                  type="button"
-                  onClick={goToMenuLevel}
-                  className="hover:text-[var(--fg)] transition-colors"
-                >
-                  {menuName}
-                </button>
-                <span className="mx-[var(--s-2)] text-[var(--fg-subtle)]">›</span>
-                <span className="text-[var(--fg)] font-medium">{currentGroupName}</span>
-              </nav>
-            </div>
-          )}
-
-          {preview || !canEdit ? (
-            <PreviewGrid tiles={currentTiles} resolve={resolve} onDrill={onDrill} />
-          ) : (
-            <PosTileCanvas
-              tiles={currentTiles}
-              resolve={resolve}
-              selectedIndex={selectedIndex}
-              onSelect={onSelect}
-              onDrill={onDrill}
-              onAdd={() => setAddOpen(true)}
-              onReorder={onReorder}
-            />
-          )}
-        </main>
-
-        {/* ── Context panel (hidden in preview) ── */}
-        {!preview && canEdit && (
-          <aside className="w-[360px] shrink-0 overflow-auto border-s border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
-            <PosTileInspector
-              tile={selectedTile}
-              linkedImageUrl={selectedLinkedImageUrl}
-              onSort={applySort}
-              onSizeChange={(size: PosTileSize) => updateSelectedTile({ size })}
-              onBgTypeChange={(bg: PosBgType) => updateSelectedTile({ bg_type: bg })}
-              onColorPick={(color) => updateSelectedTile({ color })}
-              onImageUrlChange={(url) => updateSelectedTile({ image_url: url })}
-              onRenameGroup={renameSelectedGroup}
-              onDrill={() => {
-                if (selectedIndex != null) onDrill(selectedIndex);
-              }}
-              onRemove={removeSelectedTile}
-            />
-          </aside>
-        )}
-      </div>
-
-      {/* ── Add-tile picker ── */}
-      <PosAddTileModal
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        level={level}
-        menu={menu}
-        items={Array.from(itemMap.values())}
-        placedGroupIds={placedGroupIds}
-        onAdd={onAddTiles}
-      />
-    </div>
-  );
+      <PosAddTileModal open={addOpen} onOpenChange={setAddOpen} level={level} menu={menu} items={Array.from(itemMap.values())} placedGroupIds={placedGroupIds} onAdd={onAddTiles} />
+    </div>}
+  </FullScreenEditor>
+  <ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardChanges')} description={t('libraryDiscardDescription')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => router.push(`/${rid}/menu/menus/${mid}`)} />
+  {rename && <Modal initialFocusRef={renameInput} title={t('posRenameGroup')} subtitle={t('posRenameImmediate')} onClose={() => { if (!renaming) setRename(null); }} footer={<div className="flex justify-end gap-2"><Button variant="secondary" disabled={renaming} onClick={() => setRename(null)}>{t('cancel')}</Button><Button variant="primary" type="submit" form="pos-rename" disabled={renaming || !rename.name.trim()}>{t(renaming ? 'saving' : 'save')}</Button></div>}>
+    <form id="pos-rename" onSubmit={saveGroupName} className="space-y-4"><label className="block space-y-2 text-sm"><span>{t('groupName')}</span><input ref={renameInput} required disabled={renaming} className="input" value={rename.name} onChange={event => setRename({ ...rename, name: event.target.value })} /></label>{renameError && <p role="alert" className="text-sm text-[var(--danger-500)]">{renameError}</p>}</form>
+  </Modal>}
+  </>;
 }
 
 /** Read-only grid for Aperçu mode — same spans, no selection or add cell. */

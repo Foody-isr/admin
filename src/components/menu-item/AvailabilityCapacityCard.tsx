@@ -56,7 +56,7 @@ export function AvailabilityCapacityCard({ preview, failed = false }: Props) {
               className="grid h-10 w-10 shrink-0 place-items-center rounded-r-md"
               style={{
                 background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
-                color: 'var(--brand-500)',
+                color: 'var(--brand-ink)',
               }}
             >
               <PackageCheck className="h-[18px] w-[18px]" />
@@ -117,7 +117,7 @@ export function AvailabilityCapacityCard({ preview, failed = false }: Props) {
 
       {preview?.ingredients && preview.ingredients.length > 0 && (
         <details className="group border-t border-[var(--line)]">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-[var(--s-5)] py-[var(--s-3)] text-fs-xs font-semibold text-[var(--brand-500)] hover:bg-[var(--surface-2,var(--surface))] [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-[var(--s-5)] py-[var(--s-3)] text-fs-xs font-semibold text-[var(--brand-ink)] hover:bg-[var(--surface-2,var(--surface))] [&::-webkit-details-marker]:hidden">
             {t('availabilityViewCalculation')}
             <ChevronDown className="h-4 w-4 transition-transform duration-150 group-open:rotate-180" />
           </summary>

@@ -8,6 +8,7 @@ export { Badge, badgeVariants } from './Badge';
 export type { BadgeProps } from './Badge';
 
 export { Chip } from './Chip';
+export { ChoiceRow, BooleanInput, BooleanIndicator, SelectionIndicator } from './Selection';
 export type { ChipProps } from './Chip';
 
 export { Kpi } from './Kpi';

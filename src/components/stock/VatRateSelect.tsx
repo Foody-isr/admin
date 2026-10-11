@@ -26,13 +26,8 @@ interface Props {
 export default function VatRateSelect({ value, onChange, restaurantRate, compact }: Props) {
   const { t } = useI18n();
   const mode = modeFor(value);
-  const selectCls = compact
-    ? 'rounded-md border px-2 py-1 text-xs bg-transparent'
-    : 'rounded-[10px] border px-3 py-2 text-[15px] font-medium bg-transparent';
-  const numCls = compact
-    ? 'rounded-md border px-2 py-1 text-xs w-16 tabular-nums bg-transparent'
-    : 'rounded-[10px] border px-3 py-2 text-[15px] font-medium w-20 tabular-nums bg-transparent';
-  const borderStyle = { borderColor: 'rgba(255,255,255,0.08)' };
+  const selectCls = `min-h-11 max-w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-sm ${compact ? 'max-w-56' : ''}`;
+  const numCls = 'min-h-11 w-24 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-sm tabular-nums';
 
   const handleModeChange = (next: Mode) => {
     if (next === 'default') onChange(null);
@@ -41,10 +36,9 @@ export default function VatRateSelect({ value, onChange, restaurantRate, compact
   };
 
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex max-w-full flex-wrap items-center gap-1.5">
       <select
         className={selectCls}
-        style={borderStyle}
         value={mode}
         onChange={(e) => handleModeChange(e.target.value as Mode)}
         aria-label={t('vatRate')}
@@ -58,9 +52,9 @@ export default function VatRateSelect({ value, onChange, restaurantRate, compact
       {mode === 'custom' && (
         <span className="inline-flex items-center gap-0.5">
           <NumberInput
+            aria-label={t('vatCustom')}
             min={0}
             className={numCls}
-            style={borderStyle}
             value={value ?? 0}
             onChange={onChange}
           />

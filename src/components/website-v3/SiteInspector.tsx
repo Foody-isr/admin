@@ -1,72 +1,54 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
-import { SectionImageUploader } from "@/components/website/SectionEditors";
+import { SectionImageUploader } from "./SupportingContentEditors";
+import { useI18n } from "@/lib/i18n";
 import {
-  loadInstagramStoriesSettings,
-  updateInstagramStoriesWithRefresh,
-} from "@/lib/social-navigation";
-import {
-  pageKey,
   type DraftConfigPayload,
   type DraftPagePayload,
   type DraftSectionPayload,
 } from "@/lib/website-v3/types";
-import { normalizeNavbarStyle } from "@/lib/website-v3/state";
 import {
-  ColorField,
   InspectorField,
   InspectorGroup,
   ToggleField,
   controlClass,
 } from "./controls";
-import { FooterEditor } from "./FooterEditor";
-import { NavigationCtaEditor } from "./NavigationCtaEditor";
+import { HeaderInspector } from "./HeaderInspector";
 
+/** Edits shared site identity and links to the dedicated Stories settings. */
 export function SiteInspector({
-  tab,
   config,
   restaurantId,
   restaurantLogoUrl,
+  restaurantCoverUrl,
+  orderChoicesAvailable,
   pages,
-  footer,
+  sections,
   onChange,
-  onPageVisibilityChange,
-  onFooterChange,
-  onStoriesNavigationAvailabilityChange,
   onRestaurantLogoUpload,
   onRestaurantLogoRemove,
 }: {
-  tab: "content" | "appearance" | "settings";
   config: DraftConfigPayload;
   restaurantId: number;
   restaurantLogoUrl?: string;
+  restaurantCoverUrl?: string;
+  orderChoicesAvailable?: boolean;
   pages: DraftPagePayload[];
-  footer: DraftSectionPayload | null;
+  sections: DraftSectionPayload[];
   onChange: (path: readonly (string | number)[], value: unknown) => void;
-  onPageVisibilityChange: (key: string, visible: boolean) => void;
-  onFooterChange: (
-    path: readonly (string | number)[],
-    value: unknown,
-  ) => void;
-  onStoriesNavigationAvailabilityChange: (
-    available: boolean | undefined,
-  ) => void;
   onRestaurantLogoUpload: (file: File) => Promise<void>;
   onRestaurantLogoRemove: () => Promise<void>;
 }) {
-  const [instagramConnected, setInstagramConnected] = useState(false);
-  const [storiesEnabled, setStoriesEnabled] = useState(false);
-  const [storiesBusy, setStoriesBusy] = useState(false);
-  const [storiesError, setStoriesError] = useState<string | null>(null);
+  const { t } = useI18n();
   const effectiveRestaurantLogoUrl = Object.prototype.hasOwnProperty.call(
     config,
     "restaurant_logo_url",
   )
     ? string(config.restaurant_logo_url)
     : restaurantLogoUrl;
-  const navbarStyle = normalizeNavbarStyle(config.navbar_style);
+  const [editingHeader, setEditingHeader] = useState(false);
   const shareImageUrl = string(config.share_image_url);
   const shareImageMode =
     string(config.share_image_mode) === "cover" ? "cover" : "logo";
@@ -76,201 +58,14 @@ export function SiteInspector({
       ? string(config.share_image_bg)
       : "white";
 
-  useEffect(() => {
-    let active = true;
-    loadInstagramStoriesSettings(restaurantId)
-      .then((settings) => {
-        if (active) {
-          setInstagramConnected(settings.connected);
-          setStoriesEnabled(settings.storiesEnabled);
-          onStoriesNavigationAvailabilityChange(
-            settings.storiesNavigationAvailable,
-          );
-          setStoriesError(
-            settings.storiesNavigationAvailable === undefined
-              ? "La disponibilité publique de Stories est inconnue. Réessayez la vérification."
-              : null,
-          );
-        }
-      })
-      .catch((error) => {
-        if (active) {
-          setInstagramConnected(false);
-          onStoriesNavigationAvailabilityChange(undefined);
-          setStoriesError(
-            `Impossible de vérifier les réglages Stories. Réessayez. (${errorMessage(error)})`,
-          );
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [onStoriesNavigationAvailabilityChange, restaurantId]);
-
-  const updateStories = async (next: boolean) => {
-    const previous = storiesEnabled;
-    setStoriesEnabled(next);
-    setStoriesBusy(true);
-    setStoriesError(null);
-    try {
-      const result = await updateInstagramStoriesWithRefresh(
-        restaurantId,
-        next,
-      );
-      setStoriesEnabled(result.storiesEnabled);
-      if (result.refreshError) {
-        if (result.settings) {
-          setInstagramConnected(result.settings.connected);
-        }
-        onStoriesNavigationAvailabilityChange(undefined);
-        setStoriesError(
-          "Stories enregistrées, mais leur disponibilité publique n’a pas pu être vérifiée. Réessayez.",
-        );
-      } else if (result.settings) {
-        setInstagramConnected(result.settings.connected);
-        onStoriesNavigationAvailabilityChange(
-          result.settings.storiesNavigationAvailable,
-        );
-      }
-    } catch (error) {
-      setStoriesEnabled(previous);
-      setStoriesError(
-        `Impossible d’enregistrer Stories. (${errorMessage(error)})`,
-      );
-    } finally {
-      setStoriesBusy(false);
-    }
-  };
-
-  const retryStoriesRefresh = async () => {
-    setStoriesBusy(true);
-    setStoriesError(null);
-    try {
-      const settings = await loadInstagramStoriesSettings(restaurantId);
-      setInstagramConnected(settings.connected);
-      setStoriesEnabled(settings.storiesEnabled);
-      onStoriesNavigationAvailabilityChange(
-        settings.storiesNavigationAvailable,
-      );
-      if (settings.storiesNavigationAvailable === undefined) {
-        setStoriesError(
-          "La disponibilité publique de Stories reste inconnue. Réessayez la vérification.",
-        );
-      }
-    } catch (error) {
-      onStoriesNavigationAvailabilityChange(undefined);
-      setStoriesError(
-        `La disponibilité publique de Stories reste inconnue. Réessayez. (${errorMessage(error)})`,
-      );
-    } finally {
-      setStoriesBusy(false);
-    }
-  };
-
-  if (tab === "content") {
-    return (
-      <>
-        <InspectorGroup
-          title="Introduction"
-          description="La signature est affichée par les expériences publiques compatibles."
-        >
-          <InspectorField label="Signature">
-            <textarea
-              data-field-id="site.tagline"
-              value={string(config.tagline)}
-              onChange={(event) => onChange(["tagline"], event.target.value)}
-              className={`${controlClass} min-h-20 py-2.5`}
-              placeholder="Une phrase courte qui raconte votre cuisine."
-            />
-          </InspectorField>
-        </InspectorGroup>
-        {footer ? (
-          <FooterEditor
-            footer={footer}
-            tab="content"
-            onChange={onFooterChange}
-          />
-        ) : (
-          <MissingFooter />
-        )}
-      </>
-    );
-  }
-
-  if (tab === "appearance") {
-    return (
-      <>
-        <InspectorGroup
-          title="Éléments visuels partagés"
-          description="Le logo, la navigation et le pied de page sont globaux. Les thèmes, couleurs et typographies se règlent maintenant dans l’onglet Apparence de chaque page."
-        >
-          <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
-            Sélectionnez une page dans la colonne de gauche pour personnaliser son
-            thème. Ouvrez Réglages ici pour modifier les logos et la barre de
-            navigation partagés.
-          </div>
-        </InspectorGroup>
-        {footer ? (
-          <FooterEditor
-            footer={footer}
-            tab="appearance"
-            onChange={onFooterChange}
-          />
-        ) : (
-          <MissingFooter />
-        )}
-      </>
-    );
-  }
-
-  const navLayout = Object.fromEntries(
-    Object.entries(record(config.nav_layout)).filter(
-      ([key]) => key !== "bottom_navigation",
-    ),
-  );
-  const contentNavConfig = record(navLayout.content);
-  const contentNav = {
-    desktop: string(contentNavConfig.desktop) || "full",
-    mobile: string(contentNavConfig.mobile) || "compact",
-  };
-  const shoppingNavConfig = record(navLayout.shopping);
-  const shoppingNav = {
-    desktop: string(shoppingNavConfig.desktop) || "compact",
-    mobile: string(shoppingNavConfig.mobile) || "compact",
-  };
-  const compactNavigation = record(navLayout.compact_navigation);
-  const navigationModes = [
-    contentNav.desktop,
-    contentNav.mobile,
-    shoppingNav.desktop,
-    shoppingNav.mobile,
-  ];
-  const hasLogoNavigation = navigationModes.some(
-    (mode) => mode === "full" || mode === "compact",
-  );
-  const hasLinkNavigation = navigationModes.some(
-    (mode) => mode === "full" || mode === "slim",
-  );
-  const updateNavigationExtension = (key: "compact_navigation", patch: Record<string, unknown>) =>
-    onChange([], { ...config, nav_layout: { ...navLayout, [key]: { ...record(navLayout[key]), ...patch } } });
-  const updateNavSide = (
-    side: "content" | "shopping",
-    patch: Record<string, unknown>,
-    legacyPatch: Record<string, unknown> = {},
-  ) =>
-    onChange([], {
-      ...config,
-      ...legacyPatch,
-      nav_layout: {
-        ...navLayout,
-        [side]: {
-          ...(side === "content" ? contentNav : shoppingNav),
-          ...patch,
-        },
-      },
-    });
+  if (editingHeader) return <><button className="sqe-button sqe-button-secondary m-4" onClick={() => setEditingHeader(false)}>Retour aux réglages du site</button><HeaderInspector config={config} pages={pages} sections={sections} restaurantId={restaurantId} restaurantLogoUrl={restaurantLogoUrl} restaurantCoverUrl={restaurantCoverUrl} orderChoicesAvailable={orderChoicesAvailable} onChange={onChange}/></>;
   return (
     <>
+      <InspectorGroup title={t("editorSiteIntroduction")}>
+        <InspectorField label={t("editorSiteTagline")}>
+          <textarea data-field-id="site.tagline" value={string(config.tagline)} onChange={event => onChange(["tagline"], event.target.value)} className={`${controlClass} min-h-20 py-2.5`} />
+        </InspectorField>
+      </InspectorGroup>
       <InspectorGroup
         title="Logos et identité"
         description="Le logo principal est partagé par le site. Les variantes permettent de garder un bon contraste."
@@ -279,53 +74,6 @@ export function SiteInspector({
           currentUrl={effectiveRestaurantLogoUrl}
           onUpload={onRestaurantLogoUpload}
           onRemove={onRestaurantLogoRemove}
-        />
-        {hasLogoNavigation ? <><InspectorField label="Position du logo dans la barre">
-          <select
-            data-field-id="site.navbar_logo_position"
-            value={string(config.navbar_logo_position) || "left"}
-            onChange={(event) =>
-              onChange(["navbar_logo_position"], event.target.value)
-            }
-            className={controlClass}
-          >
-            <option value="left">Gauche</option>
-            <option value="center">Centre</option>
-            <option value="right">Droite</option>
-          </select>
-        </InspectorField>
-        <ToggleField
-          fieldId="site.hide_navbar_name"
-          label="Masquer le nom du restaurant"
-          checked={boolean(config.hide_navbar_name, false)}
-          onChange={(value) => onChange(["hide_navbar_name"], value)}
-        />
-        <SectionImageUploader
-          restaurantId={restaurantId}
-          currentUrl={string(config.navbar_scrolled_logo_url)}
-          onUploaded={(url) => onChange(["navbar_scrolled_logo_url"], url)}
-          onRemove={() => onChange(["navbar_scrolled_logo_url"], "")}
-          label="Logo alternatif sur fond clair"
-        />
-        <input
-          type="url"
-          data-field-id="site.navbar_scrolled_logo_url"
-          value={string(config.navbar_scrolled_logo_url)}
-          onChange={(event) =>
-            onChange(["navbar_scrolled_logo_url"], event.target.value)
-          }
-          className={controlClass}
-          placeholder="Ou collez l’URL du logo alternatif"
-        />
-        </> : null}
-        <RangeField
-          fieldId="site.logo_size"
-          label="Taille du logo dans les barres"
-          value={number(config.logo_size, 48)}
-          min={28}
-          max={72}
-          suffix="px"
-          onChange={(value) => onChange(["logo_size"], value)}
         />
         <RangeField
           fieldId="site.hero_logo_size"
@@ -409,160 +157,8 @@ export function SiteInspector({
         ) : null}
       </InspectorGroup>
 
-      <InspectorGroup
-        title="Navigation"
-        description="Composez une navigation lisible pour les pages contenu et commerce."
-      >
-        {hasLinkNavigation ? <><InspectorField label="Style">
-          <select
-            data-field-id="site.navbar_style"
-            value={navbarStyle}
-            onChange={(event) => onChange(["navbar_style"], event.target.value)}
-            className={controlClass}
-          >
-            <option value="solid">Pleine</option>
-            <option value="transparent">Toujours transparente</option>
-            <option value="overlay">
-              Transparente puis colorée au survol
-            </option>
-          </select>
-        </InspectorField>
-        <ColorField
-          fieldId="site.navbar_color"
-          label={
-            navbarStyle === "overlay"
-              ? "Fond au survol"
-              : "Couleur de fond"
-          }
-          value={string(config.navbar_color)}
-          fallback="#ffffff"
-          onChange={(value) => onChange(["navbar_color"], value)}
-        />
-        <ColorField
-          fieldId="site.navbar_overlay_text_color"
-          label="Texte au repos"
-          value={string(config.navbar_overlay_text_color)}
-          fallback="#ffffff"
-          onChange={(value) =>
-            onChange(["navbar_overlay_text_color"], value)
-          }
-        />
-        <ColorField
-          fieldId="site.navbar_text_color"
-          label={
-            navbarStyle === "overlay" ? "Texte au survol" : "Texte"
-          }
-          value={string(config.navbar_text_color)}
-          fallback="#111111"
-          onChange={(value) => onChange(["navbar_text_color"], value)}
-        />
-        </> : null}
-        <div className="space-y-2">
-          {pages
-            .slice()
-            .sort((left, right) => left.sort_order - right.sort_order)
-            .map((page) => (
-              <ToggleField
-                key={pageKey(page)}
-                fieldId={`site.navigation-page.${pageKey(page)}`}
-                label={page.title}
-                description={`/${page.slug} · ${page.type}`}
-                checked={page.nav_visible}
-                onChange={(visible) =>
-                  onPageVisibilityChange(pageKey(page), visible)
-                }
-              />
-            ))}
-        </div>
-        <InspectorField label="Pages contenu · ordinateur">
-          <select
-            value={string(contentNav.desktop) || "full"}
-            onChange={(event) =>
-              updateNavSide("content", { desktop: event.target.value })
-            }
-            className={controlClass}
-          >
-            <option value="full">Complète · liens visibles</option>
-            <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · flottante avec logo</option>
-            <option value="compact_no_logo">Compacte · flottante sans logo</option>
-            <option value="hidden">Masquée</option>
-          </select>
-        </InspectorField>
-        <InspectorField label="Pages contenu · mobile">
-          <select
-            data-field-id="site.navbar_hamburger"
-            value={string(contentNav.mobile) || "compact"}
-            onChange={(event) =>
-              updateNavSide(
-                "content",
-                { mobile: event.target.value },
-                {
-                  navbar_hamburger:
-                    event.target.value === "compact" || event.target.value === "compact_no_logo" ? "mobile" : "off",
-                },
-              )
-            }
-            className={controlClass}
-          >
-            <option value="full">Complète</option>
-            <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · avec logo</option>
-            <option value="compact_no_logo">Compacte · sans logo</option>
-            <option value="hidden">Masquée</option>
-          </select>
-        </InspectorField>
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
-          Les pages de commande utilisent désormais une navigation dédiée et
-          identique pour tous les restaurants&nbsp;: contrôles compacts sur
-          ordinateur et mobile, puis barre des catégories au défilement. Les
-          réglages ci-dessous concernent le traiteur et les autres pages boutique.
-        </div>
-        <InspectorField label="Traiteur et pages boutique · ordinateur">
-          <select
-            value={string(shoppingNav.desktop) || "compact"}
-            onChange={(event) =>
-              updateNavSide("shopping", { desktop: event.target.value })
-            }
-            className={controlClass}
-          >
-            <option value="full">Complète · liens visibles</option>
-            <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · flottante avec logo</option>
-            <option value="compact_no_logo">Compacte · flottante sans logo</option>
-            <option value="hidden">Masquée</option>
-          </select>
-        </InspectorField>
-        <InspectorField label="Traiteur et pages boutique · mobile">
-          <select
-            value={string(shoppingNav.mobile) || "compact"}
-            onChange={(event) =>
-              updateNavSide("shopping", { mobile: event.target.value })
-            }
-            className={controlClass}
-          >
-            <option value="full">Complète</option>
-            <option value="slim">Fine · liens visibles sans logo</option>
-            <option value="compact">Compacte · avec logo</option>
-            <option value="compact_no_logo">Compacte · sans logo</option>
-            <option value="hidden">Masquée</option>
-          </select>
-        </InspectorField>
-        <div className="space-y-3 border-t border-slate-100 pt-4">
-          <p className="text-xs font-semibold text-slate-700">Navigation compacte · ordinateur</p>
-          <p className="text-[11px] leading-4 text-slate-500">Ces couleurs s’appliquent aussi au bouton menu des pages de commande.</p>
-          <InspectorField label="Position du menu hamburger"><select className={controlClass} value={string(compactNavigation.hamburger_position) || "left"} onChange={(event) => updateNavigationExtension("compact_navigation", { hamburger_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
-          <InspectorField label="Position des actions"><select className={controlClass} value={string(compactNavigation.actions_position) || "right"} onChange={(event) => updateNavigationExtension("compact_navigation", { actions_position: event.target.value })}><option value="left">Gauche</option><option value="right">Droite</option></select></InspectorField>
-          <ColorField fieldId="site.compact-navigation.icon" label="Couleur des icônes" value={string(compactNavigation.icon_color)} fallback="#111111" onChange={(value) => updateNavigationExtension("compact_navigation", { icon_color: value })} />
-          <ColorField fieldId="site.compact-navigation.button-background" label="Fond des boutons" value={string(compactNavigation.button_background_color)} fallback="#ffffff" onChange={(value) => updateNavigationExtension("compact_navigation", { button_background_color: value })} />
-        </div>
-        <div className="border-t border-slate-100 pt-4">
-          <NavigationCtaEditor
-            value={record(config.navbar_cta)}
-            allowInherit={false}
-            onChange={(value) => onChange(["navbar_cta"], value ?? {})}
-          />
-        </div>
+      <InspectorGroup title="En-tête" description="Personnalisez le logo, les liens, les boutons et la disposition de l’en-tête.">
+        <button className="sqe-button sqe-button-secondary w-full" onClick={() => setEditingHeader(true)}>Modifier l’en-tête</button>
       </InspectorGroup>
 
       <InspectorGroup
@@ -576,101 +172,17 @@ export function SiteInspector({
           checked={boolean(config.show_orders_link, true)}
           onChange={(value) => onChange(["show_orders_link"], value)}
         />
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
-          <div>
-            <p className="text-sm font-medium text-slate-800">Instagram</p>
-            <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-              {instagramConnected
-                ? "Instagram connecté"
-                : "Instagram non connecté"}
-            </p>
-          </div>
-          <span
-            className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-              instagramConnected
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-slate-100 text-slate-500"
-            }`}
-          >
-            {instagramConnected ? "Connecté" : "Non connecté"}
-          </span>
-        </div>
-        <label
-          className={`flex items-start justify-between gap-4 rounded-xl border border-slate-200 p-3 ${
-            instagramConnected ? "cursor-pointer" : "cursor-not-allowed opacity-60"
-          }`}
-        >
-          <span>
-            <span className="block text-sm font-medium text-slate-800">
-              Afficher Stories
-            </span>
-            <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">
-              Stories apparaît seulement lorsque cette option et la connexion
-              Instagram sont actives.
-            </span>
-          </span>
-          <input
-            data-field-id="site.stories_enabled"
-            type="checkbox"
-            checked={storiesEnabled}
-            disabled={!instagramConnected || storiesBusy}
-            onChange={(event) => void updateStories(event.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#315fce]"
-          />
-        </label>
-        {storiesError ? (
-          <div className="space-y-1.5" role="alert">
-            <p className="text-xs text-red-600">{storiesError}</p>
-            <button
-              type="button"
-              disabled={storiesBusy}
-              onClick={() => void retryStoriesRefresh()}
-              className="text-xs font-semibold text-[#315fce] underline underline-offset-2 disabled:cursor-wait disabled:opacity-50"
-            >
-              Réessayer la vérification
-            </button>
-          </div>
-        ) : null}
-        {!instagramConnected ? (
-          <Link
-            href={`/${restaurantId}/reels`}
-            className="inline-flex text-xs font-semibold text-[#315fce] underline underline-offset-2"
-          >
-            Configurer Instagram dans les réglages Reels
-          </Link>
-        ) : null}
+        <Link href={`/${restaurantId}/settings/stories`} className="inline-flex text-sm font-semibold underline underline-offset-4">
+          {t("editorManageStories")}
+        </Link>
       </InspectorGroup>
 
-      <InspectorGroup title="Formulaires avancés">
-        <JsonField
-          fieldId="site.checkout_config"
-          label="Configuration du checkout"
-          value={config.checkout_config}
-          onChange={(value) => onChange(["checkout_config"], value)}
-        />
-        <JsonField
-          fieldId="site.order_page_info"
-          label="Informations de la page commande"
-          value={config.order_page_info}
-          onChange={(value) => onChange(["order_page_info"], value)}
-        />
-      </InspectorGroup>
     </>
   );
 }
 
-function MissingFooter() {
-  return (
-    <InspectorGroup title="Pied de page">
-      <p className="rounded-xl bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
-        Aucune section footer canonique n’est disponible. Les réglages associés
-        ne sont pas exposés pour éviter une configuration sans effet.
-      </p>
-    </InspectorGroup>
-  );
-}
-
-function RestaurantLogoUploader({
+/** Uploads or removes the shared restaurant logo and surfaces persistence errors. */
+export function RestaurantLogoUploader({
   currentUrl,
   onUpload,
   onRemove,
@@ -783,65 +295,6 @@ function RangeField({
   );
 }
 
-function JsonField({
-  fieldId,
-  label,
-  value,
-  onChange,
-}: {
-  fieldId: string;
-  label: string;
-  value: unknown;
-  onChange: (value: Record<string, unknown>) => void;
-}) {
-  const serialized = pretty(record(value));
-  const [draft, setDraft] = useState(serialized);
-  const [invalid, setInvalid] = useState(false);
-
-  useEffect(() => {
-    setDraft(serialized);
-    setInvalid(false);
-  }, [serialized]);
-
-  return (
-    <InspectorField
-      label={label}
-      hint={
-        invalid
-          ? undefined
-          : "Format JSON avancé. Les changements sont appliqués en quittant le champ."
-      }
-      error={invalid ? "Le JSON est invalide. Corrigez-le avant de continuer." : undefined}
-    >
-      <textarea
-        data-field-id={fieldId}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          setInvalid(false);
-        }}
-        onBlur={(event) => {
-          const parsed = parseJson(event.target.value);
-          if (parsed) {
-            setInvalid(false);
-            onChange(parsed);
-          } else {
-            setInvalid(true);
-          }
-        }}
-        className={`${controlClass} min-h-32 py-2 font-mono text-xs`}
-        spellCheck={false}
-      />
-    </InspectorField>
-  );
-}
-
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
 function string(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -852,21 +305,4 @@ function number(value: unknown, fallback: number): number {
 
 function boolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
-}
-
-function pretty(value: Record<string, unknown>): string {
-  return JSON.stringify(value, null, 2);
-}
-
-function parseJson(value: string): Record<string, unknown> | null {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return record(parsed);
-  } catch {
-    return null;
-  }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

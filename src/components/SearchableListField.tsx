@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { SearchIcon } from 'lucide-react';
 
 export type SearchableOption = { value: string; label: string };
 
 type BaseProps = {
   options: SearchableOption[];
+  id?: string;
+  'aria-label'?: string;
+  'aria-describedby'?: string;
   placeholder?: string;
   emptyLabel?: string;
   className?: string;
@@ -30,6 +33,7 @@ type MultiProps = BaseProps & {
 
 export default function SearchableListField(props: SingleProps | MultiProps) {
   const { options, placeholder, emptyLabel, className = '' } = props;
+  const groupId=useId();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -67,14 +71,17 @@ export default function SearchableListField(props: SingleProps | MultiProps) {
   return (
     <div className={`space-y-3 ${className}`}>
       <div className="relative">
-        <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+        <SearchIcon className="w-4 h-4 absolute start-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
         <input
           type="text"
+          id={props.id}
+          aria-label={props['aria-label']}
+          aria-describedby={props['aria-describedby']}
           placeholder={placeholder}
           value={displayValue}
           onFocus={() => setOpen(true)}
           onChange={(e) => handleInputChange(e.target.value)}
-          className="input text-sm w-full pl-9"
+          className="input min-h-11 text-sm w-full ps-9"
         />
       </div>
       {open && (
@@ -87,11 +94,11 @@ export default function SearchableListField(props: SingleProps | MultiProps) {
               return (
                 <label
                   key={opt.value}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--surface-subtle)] cursor-pointer transition-colors"
+                  className="flex items-center gap-2 min-h-11 px-2 py-2 rounded-r-md hover:bg-[var(--surface-subtle)] cursor-pointer transition-colors"
                 >
                   <input
                     type={isSingle ? 'radio' : 'checkbox'}
-                    name={isSingle ? 'searchable-list' : undefined}
+                    name={isSingle ? groupId : undefined}
                     checked={checked}
                     onChange={() => handleSelect(opt)}
                     className={

@@ -51,6 +51,7 @@ export function CustomerDeliveryFields({ value, onChange, disabled, underAddress
     <>
       <Field label={t('deliveryAddress')}>
         <Input
+          dir="auto"
           value={value.address}
           disabled={disabled}
           onChange={(e) => onChange({ address: e.target.value })}
@@ -60,6 +61,7 @@ export function CustomerDeliveryFields({ value, onChange, disabled, underAddress
       <div className="grid grid-cols-3 gap-2">
         <Field label={t('city')} className="col-span-1">
           <Input
+          dir="auto"
             value={value.city}
             disabled={disabled}
             onChange={(e) => onChange({ city: e.target.value })}
@@ -67,6 +69,7 @@ export function CustomerDeliveryFields({ value, onChange, disabled, underAddress
         </Field>
         <Field label={t('floor')} className="col-span-1">
           <Input
+          dir="auto"
             value={value.floor}
             disabled={disabled}
             onChange={(e) => onChange({ floor: e.target.value })}
@@ -74,6 +77,7 @@ export function CustomerDeliveryFields({ value, onChange, disabled, underAddress
         </Field>
         <Field label={t('apt')} className="col-span-1">
           <Input
+          dir="auto"
             value={value.apt}
             disabled={disabled}
             onChange={(e) => onChange({ apt: e.target.value })}
@@ -82,6 +86,7 @@ export function CustomerDeliveryFields({ value, onChange, disabled, underAddress
       </div>
       <Field label={t('buildingCode')}>
         <Input
+          dir="auto"
           value={value.entryCode}
           disabled={disabled}
           onChange={(e) => onChange({ entryCode: e.target.value })}
@@ -89,6 +94,7 @@ export function CustomerDeliveryFields({ value, onChange, disabled, underAddress
       </Field>
       <Field label={t('deliveryNotes')}>
         <Textarea
+          dir="auto"
           value={value.deliveryNotes}
           disabled={disabled}
           onChange={(e) => onChange({ deliveryNotes: e.target.value })}

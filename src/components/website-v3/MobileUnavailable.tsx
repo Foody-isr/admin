@@ -1,9 +1,11 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { MonitorUp } from "lucide-react";
 
 export function MobileUnavailable({ restaurantId }: { restaurantId: number }) {
+  const { t } = useI18n();
   return (
     <main className="flex min-h-dvh items-center justify-center bg-[#f4f6f8] px-6 pt-[max(var(--s-6),var(--safe-top))] pb-[max(var(--s-6),var(--safe-bottom))] lg:hidden">
       <section className="w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
@@ -11,7 +13,7 @@ export function MobileUnavailable({ restaurantId }: { restaurantId: number }) {
           <MonitorUp className="h-7 w-7" aria-hidden="true" />
         </span>
         <p className="mt-6 text-xs font-bold uppercase tracking-[0.2em] text-[#315fce]">
-          Website Builder V3
+          {t("foodyOnline")}
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
           Ouvrez le builder sur un écran plus large

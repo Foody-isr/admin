@@ -1,15 +1,6 @@
-'use client';
+import RestaurantRedirect from '@/components/RestaurantRedirect';
 
-import { useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-
+/** Open the default analytics workspace with the existing query context. */
 export default function AnalyticsRedirect() {
-  const { restaurantId } = useParams();
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace(`/${restaurantId}/analytics/overview`);
-  }, [restaurantId, router]);
-
-  return null;
+  return <RestaurantRedirect target="analytics/overview"/>;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BookOpenIcon,
   CalendarDaysIcon,
@@ -15,7 +15,7 @@ import { labGenerateDrafts } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ds';
 import { MenuItemPicker } from './MenuItemPicker';
-import type { RecipeBrief, RecipeObjective } from '../types';
+import type { RecipeBrief, RecipeObjective, Draft } from '../types';
 
 const OBJECTIVES: {
   value: RecipeObjective;
@@ -34,13 +34,20 @@ const OBJECTIVES: {
 export function DraftInputRail({
   restaurantId,
   onAfterGenerate,
+  onBusyChange,
+  onDirtyChange,
   canManage,
 }: {
   restaurantId: number;
-  onAfterGenerate?: () => void;
+  onAfterGenerate?: (drafts: Draft[]) => void;
+  onBusyChange: (busy: boolean) => void;
+  onDirtyChange: (dirty: boolean) => void;
   canManage: boolean;
 }) {
   const { t, locale } = useI18n();
+  const lock=useRef(false);
+  const fields=useRef<HTMLFieldSetElement>(null);
+  const [error,setError]=useState<string|null>(null);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -56,39 +63,29 @@ export function DraftInputRail({
     notes: '',
   });
 
+  const baseline=useRef(JSON.stringify(brief));
+  useEffect(()=>{onDirtyChange(!!text.trim() || JSON.stringify(brief)!==baseline.current);},[text,brief,onDirtyChange]);
+
   const parseDishNames = (raw: string): string[] =>
     raw.split('\n').map((line) => line.trim()).filter(Boolean);
 
-  const handleGenerate = async () => {
-    const dishNames = parseDishNames(text);
-    if (dishNames.length === 0) return;
-    setSubmitting(true);
-    try {
-      await labGenerateDrafts(restaurantId, { dish_names: dishNames, locale, brief });
-      setText('');
-      onAfterGenerate?.();
-    } finally {
-      setSubmitting(false);
-    }
+  const generate = async (input: {dish_names?:string[];menu_item_ids?:string[]}) => {
+    if (!canManage || lock.current) return;
+    if (fields.current && !Array.from(fields.current.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea')).every(field=>field.reportValidity())) return;
+    lock.current=true;setSubmitting(true);onBusyChange(true);setError(null);
+    try {const result=await labGenerateDrafts(restaurantId,{...input,locale,brief});baseline.current=JSON.stringify(brief);setText('');onDirtyChange(false);onAfterGenerate?.(result.drafts);}
+    catch(cause){setError(cause instanceof Error?cause.message:t('labOperationFailed'));}
+    finally{lock.current=false;setSubmitting(false);onBusyChange(false);}
   };
-
-  const handlePickConfirm = async (ids: number[]) => {
-    setPickerOpen(false);
-    setSubmitting(true);
-    try {
-      await labGenerateDrafts(restaurantId, { menu_item_ids: ids.map(String), locale, brief });
-      onAfterGenerate?.();
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const handleGenerate=()=>{const names=parseDishNames(text);if(names.length)void generate({dish_names:names});};
+  const handlePickConfirm=(ids:number[])=>{setPickerOpen(false);if(ids.length)void generate({menu_item_ids:ids.map(String)});};
 
   const canGenerate = parseDishNames(text).length > 0 && !submitting;
 
   return (
     <>
-      <section className="overflow-hidden rounded-[18px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
-        <div className="border-b border-[var(--line)] px-5 py-5 sm:px-7 sm:py-6">
+      <section aria-busy={submitting} className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--surface)] ">
+        <fieldset ref={fields} disabled={submitting || !canManage} className="min-w-0"><div className="border-b border-[var(--line)] px-5 py-5 sm:px-7 sm:py-6">
           <div className="flex items-start gap-4">
             <StepNumber value="1" />
             <div className="min-w-0">
@@ -106,9 +103,9 @@ export function DraftInputRail({
                   type="button"
                   aria-pressed={active}
                   onClick={() => setBrief((current) => ({ ...current, objective: value }))}
-                  className={`group flex min-h-[92px] items-start gap-3 rounded-[12px] border p-4 text-start transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${active ? 'border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_8%,var(--surface))] shadow-[inset_3px_0_0_var(--brand-500)]' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'}`}
+                  className={`group flex min-h-[92px] items-start gap-3 rounded-[8px] border p-4 text-start transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${active ? 'border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_8%,var(--surface))] ' : 'border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'}`}
                 >
-                  <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] ${active ? 'bg-[var(--brand-500)] text-white' : 'bg-[var(--surface-2)] text-[var(--fg-muted)] group-hover:text-[var(--fg)]'}`}>
+                  <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] ${active ? 'bg-[var(--action)] text-[var(--action-fg)]' : 'bg-[var(--surface-2)] text-[var(--fg-muted)] group-hover:text-[var(--fg)]'}`}>
                     <Icon className="h-4 w-4" />
                   </span>
                   <span>
@@ -127,14 +124,14 @@ export function DraftInputRail({
             <div className="min-w-0 flex-1">
               <label htmlFor="lab-dish-ideas" className="text-base font-semibold text-[var(--fg)]">{t('labDescribeDish')}</label>
               <p className="mt-1 text-sm leading-6 text-[var(--fg-muted)]">{t('labDescribeDishHelp')}</p>
-              <textarea
+              <textarea dir="auto"
                 id="lab-dish-ideas"
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 placeholder={t('labDishNamesPlaceholder')}
                 rows={3}
                 disabled={submitting}
-                className="mt-4 w-full resize-none rounded-[12px] border border-[var(--line-strong)] bg-[var(--surface)] px-4 py-3 text-base leading-6 text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:outline-none focus:shadow-[var(--focus-ring)] disabled:opacity-50"
+                className="mt-4 w-full resize-none rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-4 py-3 text-base leading-6 text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:outline-none focus:shadow-[var(--focus-ring)] disabled:opacity-50"
               />
 
               {canManage && (
@@ -151,7 +148,7 @@ export function DraftInputRail({
                 </div>
               )}
 
-              <details className="group mt-4 rounded-[10px] border border-[var(--line)] bg-[var(--surface-2)]">
+              <details className="group mt-4 rounded-[8px] border border-[var(--line)] bg-[var(--surface-2)]">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] [&::-webkit-details-marker]:hidden">
                   <span>
                     {t('labOptionalSettings')}
@@ -165,7 +162,7 @@ export function DraftInputRail({
                     <select
                       value={brief.stock_policy}
                       onChange={(event) => setBrief((current) => ({ ...current, stock_policy: event.target.value as RecipeBrief['stock_policy'] }))}
-                      className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+                      className="mt-1.5 h-11 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
                     >
                       <option value="existing_only">{t('labStockOnly')}</option>
                       <option value="prefer_existing">{t('labStockPrefer')}</option>
@@ -184,17 +181,17 @@ export function DraftInputRail({
                       onChange={(event) => setBrief((current) => ({ ...current, creativity: Number(event.target.value) }))}
                       className="mt-2 w-full accent-[var(--brand-500)]"
                     />
-                    <span className="flex justify-between text-[10px] font-normal"><span>{t('labFamiliar')}</span><span>{t('labBold')}</span></span>
+                    <span className="flex justify-between text-xs font-normal"><span>{t('labFamiliar')}</span><span>{t('labBold')}</span></span>
                   </label>
 
                   {brief.objective === 'seasonal' && (
                     <label className="text-xs font-medium text-[var(--fg-muted)]">
                       {t('labObjectiveSeasonal')}
-                      <input
+                      <input dir="auto"
                         value={brief.season ?? ''}
                         onChange={(event) => setBrief((current) => ({ ...current, season: event.target.value }))}
                         placeholder={t('labSeasonPlaceholder')}
-                        className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+                        className="mt-1.5 h-11 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
                       />
                     </label>
                   )}
@@ -206,7 +203,7 @@ export function DraftInputRail({
                       min={0}
                       value={brief.max_prep_time_mins ?? 0}
                       onChange={(event) => setBrief((current) => ({ ...current, max_prep_time_mins: Number(event.target.value) }))}
-                      className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+                      className="mt-1.5 h-11 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
                     />
                   </label>
 
@@ -216,13 +213,13 @@ export function DraftInputRail({
                       value={(brief.must_use ?? []).join(', ')}
                       onChange={(event) => setBrief((current) => ({ ...current, must_use: event.target.value.split(',').map((value) => value.trim()).filter(Boolean) }))}
                       placeholder={t('labIngredientsPlaceholder')}
-                      className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
+                      className="mt-1.5 h-11 w-full rounded-[8px] border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] focus:border-[var(--brand-500)] focus:outline-none"
                     />
                   </label>
 
                   <label className="text-xs font-medium text-[var(--fg-muted)] sm:col-span-2">
                     {t('labConstraints')}
-                    <textarea
+                    <textarea dir="auto"
                       value={brief.notes ?? ''}
                       onChange={(event) => setBrief((current) => ({ ...current, notes: event.target.value }))}
                       placeholder={t('labConstraintsPlaceholder')}
@@ -236,6 +233,7 @@ export function DraftInputRail({
             </div>
           </div>
         </div>
+        </fieldset>{error && <p role="alert" className="border-t border-[var(--line)] p-4 text-sm text-[var(--danger-500)]">{error}</p>}
       </section>
 
       {canManage && pickerOpen && (

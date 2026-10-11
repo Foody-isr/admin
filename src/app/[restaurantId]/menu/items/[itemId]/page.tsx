@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
   detachModifierSetFromItem, setModifierSetItemOverrides,
@@ -15,7 +15,7 @@ import {
   MenuCategory, MenuItem, ModifierSet, Menu,
   ModifierSetItemOverridesInput,
   OptionSet, ItemOptionOverride, ItemType, PricingMode,
-  StockItem, PrepItem, MenuItemIngredient,
+  StockItem, PrepItem, MenuItemIngredient, IngredientInput,
   TranslationMap, MenuItemCustomerFacts, normalizeMenuItemCustomerFacts,
 } from '@/lib/api';
 import { getRestaurantSettings } from '@/lib/api';
@@ -23,8 +23,9 @@ import type { Locale } from '@/components/i18n/LocaleTabs';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
-import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
-import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
+import MenuItemDistribution from '@/components/menu-item/MenuItemDistribution';
+import MenuItemPhoto from '@/components/menu-item/MenuItemPhoto';
+import MenuItemEditorForm from '@/components/menu-item/MenuItemEditorForm';
 import MenuItemTabOptions from '@/components/menu-item/MenuItemTabOptions';
 import VariantsEditor, {
   VariantGroupState,
@@ -35,19 +36,21 @@ import VariantsEditor, {
 import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-item/MenuItemTabRecipe';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 import ItemAvailabilityPanel, { ItemAvailabilityPanelHandle } from '@/components/menu-item/ItemAvailabilityPanel';
-import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
+import ItemUnsavedDialog from '@/components/menu-item/ItemUnsavedDialog';
+import { useItemLeaveGuard } from '@/components/menu-item/useItemLeaveGuard';
+import type { SimulatorReceipt } from '@/components/menu-item/WhatIfSimulator';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
 import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
 import { deriveStepKind } from '@/components/menu-item/combo/types';
 import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
-import { computeComboSavings, computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
-import { Badge } from '@/components/ds';
-import { Boxes } from 'lucide-react';
-import { computeItemCostSummary } from '@/lib/cost-utils';
-import { XIcon } from 'lucide-react';
+import { computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
+import { Button, ConfirmDialog } from '@/components/ds';
+import { keyedRecipeIngredients } from '@/lib/recipe-editor-rows';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
+import Modal from '@/components/Modal';
 import AIImageGeneratorModal from '@/components/menu-item/AIImageGeneratorModal';
 
 const VALID_TABS: MenuItemSection[] = ['details', 'composition', 'recipe', 'availability'];
@@ -61,15 +64,21 @@ function remapLegacyTab(raw: string | null): MenuItemSection | null {
   return VALID_TABS.includes(mapped as MenuItemSection) ? (mapped as MenuItemSection) : null;
 }
 
+/** Keeps cached content and outstanding requests scoped to the active item. */
 export default function EditItemPage() {
+  const { restaurantId, itemId } = useParams();
+  return <EditItemEditor key={`${restaurantId}.${itemId}`} />;
+}
+
+function EditItemEditor() {
   const { restaurantId, itemId } = useParams();
   const rid = Number(restaurantId);
   const iid = Number(itemId);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
+  const canEditRecipe = canEdit && hasAnyPermission('kitchen.manage');
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   // Hydrate from sessionStorage cache set by the list page's openEditor helper.
@@ -81,18 +90,25 @@ export default function EditItemPage() {
   const [item, setItem] = useState<MenuItem | null>(() => {
     if (typeof window === 'undefined' || !Number.isFinite(iid)) return null;
     try {
-      const raw = sessionStorage.getItem(`foody.menuItem.${iid}`);
+      const raw = sessionStorage.getItem(`foody.menuItem.${rid}.${iid}`);
       if (!raw) return null;
-      sessionStorage.removeItem(`foody.menuItem.${iid}`);
+      sessionStorage.removeItem(`foody.menuItem.${rid}.${iid}`);
       return JSON.parse(raw) as MenuItem;
     } catch {
       return null;
     }
   });
-  const [loading, setLoading] = useState<boolean>(() => item == null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const initialized = useRef(false);
+  const requestGuard = useRef(new RestaurantRequestGuard());
+  requestGuard.current.enterRestaurant(rid);
 
   const initialTab = remapLegacyTab(searchParams.get('tab')) ?? 'details';
-  const [activeTab, setActiveTab] = useState<MenuItemSection>(initialTab);
+
+  const [simulationState, setSimulationState] = useState({dirty:false, busy:false});
+  const [recipeDirty, setRecipeDirty] = useState(false);
+  const [availabilityDirty, setAvailabilityDirty] = useState(false);
 
   // Return address. Pages that open the editor (e.g. a carte detail page)
   // pass ?from=<path> so Back and post-save land where the user came from.
@@ -129,6 +145,8 @@ export default function EditItemPage() {
   );
   const [imageUrl, setImageUrl] = useState(() => item?.image_url ?? '');
   const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false);
+  const [saveError, setSaveError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
 
@@ -145,6 +163,17 @@ export default function EditItemPage() {
   // Modifier sets modal
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
+  const [modifierQuery, setModifierQuery] = useState('');
+  const modifierSearch = useRef<HTMLInputElement>(null);
+  const [modifierError, setModifierError] = useState('');
+  const [modifierBusy, setModifierBusy] = useState(false);
+  const modifierLock = useRef(false);
+  const modifierConfirmed = useRef(new Map<number, boolean>());
+  const [modifierRemoval, setModifierRemoval] = useState<{ kind: 'set' | 'modifier'; id: number } | null>(null);
+  const [removalSaved, setRemovalSaved] = useState(false);
+  const [imageError, setImageError] = useState('');
+  const [imageBusy, setImageBusy] = useState(false);
+  const imageLock = useRef(false);
 
   // Option sets (attached to this item) + the full restaurant list (used by
   // the inline VariantsEditor's autocomplete to suggest re-using an existing
@@ -168,17 +197,63 @@ export default function EditItemPage() {
 
   // Food cost / ingredients state
   const [ingredients, setIngredients] = useState<MenuItemIngredient[]>([]);
+  const ingredientsCurrent = useRef<MenuItemIngredient[]>([]);
+  const ingredientQueue = useRef<Promise<void>>(Promise.resolve());
+  const [ingredientRemoval, setIngredientRemoval] = useState<string | null>(null);
+  const [ingredientRemovalBusy, setIngredientRemovalBusy] = useState(false);
+  const [ingredientRemovalError, setIngredientRemovalError] = useState('');
+  const ingredientRemovalLock = useRef(false);
+  const persistIngredients = (change: (current: MenuItemIngredient[]) => IngredientInput[]) => {
+    const pending = ingredientQueue.current.then(async () => {
+      const saved = await setMenuItemIngredients(rid, iid, change(ingredientsCurrent.current));
+      ingredientsCurrent.current = saved; setIngredients(saved);
+    });
+    ingredientQueue.current = pending.catch(() => {});
+    return pending;
+  };
+  const ingredientInput = (ingredient: MenuItemIngredient): IngredientInput => ({
+    stock_item_id: ingredient.stock_item_id, prep_item_id: ingredient.prep_item_id,
+    quantity_needed: ingredient.quantity_needed, unit: ingredient.unit,
+    option_id: ingredient.option_id, variant_overrides: ingredient.variant_overrides,
+  });
+  const removeIngredient = async () => {
+    if (!canEditRecipe || ingredientRemoval === null || ingredientRemovalLock.current) return;
+    ingredientRemovalLock.current = true; setIngredientRemovalBusy(true); setIngredientRemovalError('');
+    try { await persistIngredients(current => keyedRecipeIngredients(current).filter(value => value.key !== ingredientRemoval).map(value => ingredientInput(value.ingredient))); setIngredientRemoval(null); }
+    catch (cause) { setIngredientRemovalError(cause instanceof Error ? cause.message : t('saveFailed')); }
+    finally { ingredientRemovalLock.current = false; setIngredientRemovalBusy(false); }
+  };
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
   const [vatRate, setVatRate] = useState(18);
+  const [defaultLeadMinutes, setDefaultLeadMinutes] = useState(0);
   const [defaultStockUnit, setDefaultStockUnit] = useState<'' | 'g' | 'kg'>('');
 
   const recipeRef = useRef<MenuItemTabRecipeHandle>(null);
   const availabilityRef = useRef<ItemAvailabilityPanelHandle>(null);
 
+  const formSnapshot = JSON.stringify({ name, price, pricingMode, pricePerKg, estimatedWeightGrams,
+    description, imageUrl, aiContext, customerFacts, portion, translations, categoryId, isActive, allowNotes,
+    comboAllowQuantity, itemType, comboSteps, variantGroups, groups: Array.from(selectedGroupIds).sort((a,b) => a-b) });
+  const initialSnapshot = useRef<string | null>(null);
+  useEffect(() => {
+    if (initialized.current && !loading && !loadError && initialSnapshot.current === null) initialSnapshot.current = formSnapshot;
+  }, [formSnapshot, loading, loadError]);
+  const hasUnsavedChanges = useCallback(() => simulationState.dirty || (canEdit && (
+    (initialSnapshot.current !== null && initialSnapshot.current !== formSnapshot)
+    || recipeRef.current?.isDirty() || availabilityRef.current?.isDirty()
+  )), [canEdit, formSnapshot, simulationState.dirty]);
+  const leaveGuard = useItemLeaveGuard(() => !!hasUnsavedChanges(), () =>
+    simulationState.busy || saveLock.current || modifierLock.current || imageLock.current,
+  );
+
   const loadData = useCallback(async () => {
+    const guard = requestGuard.current;
+    const request = guard.begin(rid);
+    if (!initialized.current) setLoading(true);
+    setLoadError('');
     try {
-      const [cats, allMenus, ms, optSets, optOverrides, stock, prep, ings, restaurant] = await Promise.all([
+      const [cats, allMenus, ms, optSets, optOverrides, stock, prep, ings, restaurant, settings] = await Promise.all([
         getAllCategories(rid),
         listMenus(rid),
         listModifierSets(rid),
@@ -188,7 +263,14 @@ export default function EditItemPage() {
         listPrepItems(rid),
         getMenuItemIngredients(rid, iid),
         getRestaurant(rid),
+        getRestaurantSettings(rid),
       ]);
+      if (!guard.isCurrent(request)) return;
+      const foundItem = cats.flatMap(category => category.items ?? []).find(value => value.id === iid);
+      if (!foundItem) throw new Error('itemNotFound');
+      setVatRate(settings.vat_rate ?? 18);
+      setDefaultStockUnit((settings.default_stock_unit as '' | 'g' | 'kg') ?? '');
+      setDefaultLeadMinutes((settings.scheduling_lead_time_minutes ?? 0) > 0 ? settings.scheduling_lead_time_minutes! : (settings.scheduling_min_days_ahead ?? 0) * 1440);
       const defaultLocale = restaurant.default_locale;
       if (defaultLocale === 'en' || defaultLocale === 'he' || defaultLocale === 'fr') {
         setSourceLocale(defaultLocale);
@@ -199,18 +281,22 @@ export default function EditItemPage() {
       setItemOptionOverrides(optOverrides ?? []);
       setStockItems(stock ?? []);
       setPrepItems(prep ?? []);
+      ingredientsCurrent.current = ings ?? [];
       setIngredients(ings ?? []);
       const attached = (optSets ?? []).filter((os) =>
         (os.menu_items ?? []).some((mi) => mi.id === iid)
       );
       setAllOptionSets(optSets ?? []);
       setAttachedOptionSets(attached);
-      setVariantGroups(variantGroupsFromOptionSets(attached, optOverrides ?? [], iid));
-      setVariantsDirty(false);
+      if (!initialized.current) {
+        setVariantGroups(variantGroupsFromOptionSets(attached, optOverrides ?? [], iid));
+        setVariantsDirty(false);
+      }
       for (const cat of cats) {
         const found = (cat.items ?? []).find((i) => i.id === iid);
         if (found) {
           setItem(found);
+          if (!initialized.current) {
           setName(found.name);
           setPrice(found.price ?? 0);
           setPricingMode(found.pricing_mode ?? 'standard');
@@ -267,6 +353,7 @@ export default function EditItemPage() {
               return draft;
             }));
           }
+          }
           break;
         }
       }
@@ -278,22 +365,47 @@ export default function EditItemPage() {
           }
         }
       }
-      setSelectedGroupIds(gIds);
-      setInitialGroupIds(new Set(gIds));
+      if (!initialized.current) {
+        setSelectedGroupIds(gIds);
+        setInitialGroupIds(new Set(gIds));
+      }
+      initialized.current = true;
+    } catch (cause) {
+      if (guard.isCurrent(request)) {
+        if (initialized.current) setSaveError(cause instanceof Error ? cause.message : 'libraryOperationFailed');
+        else setLoadError(cause instanceof Error ? cause.message : 'libraryOperationFailed');
+      }
     } finally {
-      setLoading(false);
+      if (guard.isCurrent(request)) setLoading(false);
     }
   }, [rid, iid]);
 
-  useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => {
-    getRestaurantSettings(rid)
-      .then((s) => {
-        setVatRate(s.vat_rate ?? 18);
-        setDefaultStockUnit((s.default_stock_unit as '' | 'g' | 'kg') ?? '');
-      })
-      .catch(() => {});
-  }, [rid]);
+  useEffect(() => { const guard = requestGuard.current; void loadData(); return () => guard.invalidate(); }, [loadData]);
+
+  const refreshCostData = async (receipt: SimulatorReceipt) => {
+    const [cats, overrides, nextIngredients, stock, prep] = await Promise.all([
+      getAllCategories(rid), getItemOptionPrices(rid,iid), getMenuItemIngredients(rid,iid), listStockItems(rid), listPrepItems(rid),
+    ]);
+    const fresh = cats.flatMap(category => category.items ?? []).find(value => value.id === iid);
+    if (!fresh) throw new Error(t('itemNotFound'));
+    setCategories(cats); setItem(fresh); setItemOptionOverrides(overrides);
+    ingredientsCurrent.current = nextIngredients; setIngredients(nextIngredients);
+    setStockItems(stock); setPrepItems(prep);
+    if (receipt.price != null) {
+      const nextPrice = receipt.price;
+      const optionId = receipt.variantId?.startsWith('opt:') ? Number(receipt.variantId.slice(4)) : null;
+      const patchGroups = (groups: VariantGroupState[]) => groups.map(group => ({...group,rows:group.rows.map(row => row.optionId === optionId ? {...row,price:nextPrice} : row)}));
+      if (optionId != null) setVariantGroups(patchGroups);
+      else setPrice(nextPrice);
+      // Mark only the directly applied price as saved; preserve all other drafts.
+      if (initialSnapshot.current) {
+        const baseline = JSON.parse(initialSnapshot.current);
+        if (optionId != null) baseline.variantGroups = patchGroups(baseline.variantGroups);
+        else baseline.price = nextPrice;
+        initialSnapshot.current = JSON.stringify(baseline);
+      }
+    }
+  };
 
   const allMenuItems = categories.flatMap((c) =>
     (c.items ?? []).map((i) => ({ ...i, category_name: c.name, category_id: c.id }))
@@ -332,13 +444,6 @@ export default function EditItemPage() {
       setPendingType(next);
     } else {
       setItemType(next);
-      // 'recipe' is article-only; 'composition' is combo-only. Bounce to the
-      // shared 'details' (Article) tab when the active one leaves the new set.
-      if (next === 'combo' && activeTab === 'recipe') {
-        setActiveTab('details');
-      } else if (next !== 'combo' && activeTab === 'composition') {
-        setActiveTab('details');
-      }
     }
   };
 
@@ -353,11 +458,6 @@ export default function EditItemPage() {
       setComboSteps([]);
     }
     setItemType(pendingType);
-    if (pendingType === 'combo' && activeTab === 'recipe') {
-      setActiveTab('details');
-    } else if (pendingType !== 'combo' && activeTab === 'composition') {
-      setActiveTab('details');
-    }
     setPendingType(null);
   };
 
@@ -383,8 +483,10 @@ export default function EditItemPage() {
   const priceOk = isByWeight ? pricePerKg > 0 : effectivePrice > 0;
 
   const handleSave = async () => {
-    if (!name.trim() || !priceOk) return;
-    setSaving(true);
+    if (!canEdit || loading || loadError || simulationState.busy || saveLock.current || modifierLock.current || imageLock.current || !name.trim() || !priceOk) return;
+    if (simulationState.dirty) { setSaveError(t('simulatorFinishHint')); return; }
+    saveLock.current = true; setSaving(true);
+    setSaveError('');
     try {
       const updatePayload: Record<string, unknown> = {
         name: name.trim(),
@@ -412,7 +514,7 @@ export default function EditItemPage() {
       }
       const updated = await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);
       setItem((prev) => prev ? { ...prev, ...updated } : prev);
-      if (recipeRef.current?.isDirty()) {
+      if (itemType !== 'combo' && recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
       }
       // Stock & disponibilité tab is transactional: it stages edits locally and
@@ -433,43 +535,64 @@ export default function EditItemPage() {
       for (const groupId of removedGroups) {
         await removeItemFromGroup(rid, groupId, iid);
       }
-      router.push(backTarget);
+      leaveGuard.finish(backTarget);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to save');
+      setSaveError(err instanceof Error ? err.message : t('saveFailed'));
     } finally {
-      setSaving(false);
+      saveLock.current = false; setSaving(false);
     }
   };
 
   const handleImageUpload = async (file: File) => {
+    if (!canEdit || saving || modifierLock.current || imageLock.current) return;
+    imageLock.current = true; setImageBusy(true); setImageError('');
     try {
       const url = await uploadMenuItemImage(rid, iid, file);
-      setImageUrl(url);
       await updateMenuItem(rid, iid, { image_url: url });
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Upload failed');
-    }
+      setImageUrl(url);
+    } catch (cause) { setImageError(cause instanceof Error ? cause.message : t('libraryOperationFailed')); }
+    finally { imageLock.current = false; setImageBusy(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
-  const handleDeleteModifier = async (modId: number) => {
-    if (!confirm(t('deleteThisModifier'))) return;
-    await deleteModifier(rid, modId);
-    loadData();
+  // Immediate modifier writes refresh only their records, retaining the form draft.
+  const refreshModifiers = async () => {
+    const cats = await getAllCategories(rid);
+    const refreshed = cats.flatMap(category => category.items ?? []).find(value => value.id === iid);
+    if (!refreshed) throw new Error(t('itemNotFound'));
+    setCategories(cats); setItem(refreshed);
+  };
+  const toggleModifierSet = async (setId: number, attached: boolean) => {
+    if (!canEdit || modifierLock.current || saving || imageLock.current) return;
+    modifierLock.current = true; setModifierBusy(true); setModifierError('');
+    try {
+      if (modifierConfirmed.current.get(setId) !== !attached) {
+        if (attached) await detachModifierSetFromItem(rid, setId, iid);
+        else await attachModifierSetToItems(rid, setId, [iid]);
+        modifierConfirmed.current.set(setId, !attached);
+      }
+      await refreshModifiers();
+    } catch (cause) { setModifierError(cause instanceof Error ? cause.message : t('libraryOperationFailed')); }
+    finally { modifierLock.current = false; setModifierBusy(false); }
+  };
+  const removeModifier = async () => {
+    if (!canEdit || !modifierRemoval || modifierLock.current || saving || imageLock.current) return;
+    modifierLock.current = true; setModifierBusy(true); setModifierError('');
+    try {
+      if (!removalSaved) {
+        if (modifierRemoval.kind === 'set') await detachModifierSetFromItem(rid, modifierRemoval.id, iid);
+        else await deleteModifier(rid, modifierRemoval.id);
+        setRemovalSaved(true);
+      }
+      await refreshModifiers(); setModifierRemoval(null);
+    } catch (cause) { setModifierError(cause instanceof Error ? cause.message : t('libraryOperationFailed')); }
+    finally { modifierLock.current = false; setModifierBusy(false); }
+  };
+  const requestModifierRemoval = (kind: 'set' | 'modifier', id: number) => {
+    setRemovalSaved(false); setModifierError(''); setModifierRemoval({kind,id});
   };
 
-  const goBack = () => router.push(backTarget);
-
-  const costSummary = useMemo(() => {
-    if (!item || ingredients.length === 0) return null;
-    const s = computeItemCostSummary({
-      item,
-      ingredients,
-      overrides: itemOptionOverrides,
-      vatRate,
-      showCostsExVat: true,
-    });
-    return { foodCost: s.foodCost, costPct: s.costPct, margin: s.margin };
-  }, [item, ingredients, itemOptionOverrides, vatRate]);
+  const navigateAway = leaveGuard.request;
+  const goBack = () => navigateAway(backTarget);
 
   const activeCategoryName = useMemo(
     () => categories.find((c) => c.id === categoryId)?.name,
@@ -479,30 +602,27 @@ export default function EditItemPage() {
   // Combo savings for the rail. Mirrors the PricingCard math via the same
   // pure helper, so the two stay in sync. Hooks must run unconditionally —
   // declared here, *above* the loading early return below.
-  const railItemsById = useMemo(() => {
+  const comboItemsById = useMemo(() => {
     const m = new Map<number, MenuItem>();
     for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
     return m;
   }, [categories]);
-  const railComboSummary = itemType === 'combo'
-    ? computeComboSavings(price, comboSteps, railItemsById)
-    : null;
 
   // Render the modal shell immediately — matches the stock-editor UX where
   // the dimmed backdrop + inset container appear in one frame, then the body
   // populates. Prevents the full-screen white/black flash that happened while
   // the item data was still being fetched on route navigation.
-  if (loading || !item) {
+  if (loading || loadError || !item) {
     return (
       <MenuItemShell
-        title={loading ? (t('loading') || 'Chargement…') : (t('itemNotFound') || 'Article introuvable')}
+        title={loading ? t('loading') : t(loadError || 'itemNotFound')}
         onClose={goBack}
         onSave={() => {}}
         saving={false}
         saveDisabled
         sidebar={
           <div className="flex items-center justify-center h-full">
-            <div className="animate-spin w-5 h-5 border-2 border-[var(--brand-500)] border-t-transparent rounded-full" />
+            {loading && <div aria-hidden className="animate-spin w-5 h-5 border-2 border-[var(--brand-500)] border-t-transparent rounded-full" />}
           </div>
         }
       >
@@ -510,10 +630,11 @@ export default function EditItemPage() {
           {loading ? (
             <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
           ) : (
-            <div className="flex flex-col items-center gap-[var(--s-3)]">
+            <div role="alert" className="flex flex-col items-center gap-[var(--s-3)] p-5 text-center">
               <p className="text-fs-sm text-[var(--fg-muted)]">
-                {t('itemNotFound') || 'Article introuvable'}
+                {t(loadError || 'itemNotFound')}
               </p>
+              <Button variant="secondary" onClick={() => void loadData()}>{t('retry')}</Button>
               <button
                 onClick={goBack}
                 className="text-fs-sm text-[var(--brand-500)] hover:underline"
@@ -527,51 +648,17 @@ export default function EditItemPage() {
     );
   }
 
-  // Tab set adapts to item type, and is intentionally limited to three:
-  //   Articles → Article (identity + price + sizes + modifiers) · Recette
-  //              (recipe + folded-in cost) · Stock & disponibilité.
-  //   Combos   → Article · Composition · Stock & disponibilité.
-  // The cost-over-target warning now rides on the Recette tab (cost lives
-  // there), since the standalone Coût tab was removed.
-  const costWarning = costSummary?.costPct != null && costSummary.costPct > 0.35;
-  const tabs: TabBarItem[] = itemType === 'combo'
-    ? [
-        { id: 'details', label: t('tabArticle') },
-        { id: 'composition', label: t('tabComposition'), count: comboSteps.length },
-        { id: 'availability', label: t('tabStock') },
-      ]
-    : [
-        { id: 'details', label: t('tabArticle') },
-        { id: 'recipe', label: t('tabRecipe'), warning: costWarning },
-        { id: 'availability', label: t('tabStock') },
-      ];
-
-  // Hidden on mobile: tab bar is tight on phones, and the orange brand badge
-  // visually competes with the active-tab pill. The type is already chosen
-  // explicitly via the picker cards in the Details tab.
-  const typeBadgeTrailing = (
-    <Badge tone="brand" className="hidden md:inline-flex h-6 px-2.5 font-semibold tracking-[.04em]">
-      <Boxes className="w-3 h-3" />
-      {itemType === 'combo' ? t('typeBadgeCombo') : t('typeBadgeArticle')}
-    </Badge>
-  );
-
   const rail = (
-    <MenuItemSummaryRail
-      imageUrl={imageUrl}
-      name={name}
-      price={effectivePrice}
-      activeStatus={isActive}
-      availabilityState={item?.availability_state}
-      availabilityBottleneck={item?.availability_bottleneck}
-      categoryName={activeCategoryName}
-      // Hide the food-cost summary for combos — it doesn't apply (a combo's
-      // cost is the sum of its constituent items' costs, not its own recipe).
-      costSummary={itemType === 'combo' ? null : costSummary}
-      comboSummary={railComboSummary}
-      onShowComboSavingsDetail={itemType === 'combo' ? () => setSavingsModalOpen(true) : undefined}
-      onImageClick={canEdit ? () => fileInputRef.current?.click() : undefined}
-      onAiImageClick={canEdit ? () => setAiModalOpen(true) : undefined}
+    <MenuItemDistribution
+      categories={categories}
+      categoryId={categoryId}
+      setCategoryId={setCategoryId}
+      menus={menus}
+      selectedGroupIds={selectedGroupIds}
+      setSelectedGroupIds={setSelectedGroupIds}
+      isActive={isActive}
+      setIsActive={setIsActive}
+      disabled={loading || saving || imageBusy || modifierBusy}
     />
   );
 
@@ -607,82 +694,109 @@ export default function EditItemPage() {
         onClose={goBack}
         onSave={canEdit ? handleSave : () => {}}
         saving={saving}
-        saveDisabled={!canEdit || !name.trim() || !priceOk}
+        saveDisabled={
+          !canEdit ||
+          simulationState.busy ||
+          imageBusy ||
+          modifierBusy ||
+          loading ||
+          !!loadError ||
+          !name.trim() ||
+          !priceOk
+        }
         sidebar={rail}
+        dirty={!!hasUnsavedChanges() || recipeDirty || availabilityDirty}
+        initialSection={initialTab}
       >
-        <div className="flex flex-col flex-1 overflow-hidden bg-[var(--bg)]">
-          {/* Tab bar — transparent banner that blends with modal bg,
-              matching the food-cost page layout where tabs sit directly on the page bg */}
-          <div className="px-[var(--s-6)] py-[var(--s-4)] border-b border-[var(--line)] shrink-0">
-            <MenuItemTabBar
-              tabs={tabs}
-              active={activeTab}
-              onChange={setActiveTab}
-              trailing={typeBadgeTrailing}
-            />
-          </div>
+        <div className="flex min-w-0 flex-col  bg-[var(--bg)]">
+          {imageBusy && (
+            <p role="status" className="p-4 text-sm text-fg-secondary">
+              {t('loading')}
+            </p>
+          )}
+          {imageError && (
+            <p role="alert" className="p-4 text-sm text-[var(--danger-500)]">
+              {imageError}
+            </p>
+          )}
+          {saveError && (
+            <p
+              role="alert"
+              className="mx-6 mt-4 p-3 rounded-r-md bg-[var(--danger-50)] text-[var(--danger-500)] text-sm"
+            >
+              {saveError}
+            </p>
+          )}
+          <fieldset
+            disabled={loading || saving || imageBusy || modifierBusy}
+            className="min-w-0"
 
-          {/* Tab content — same vertical rhythm as food-cost page */}
-          <div className="flex-1 overflow-y-auto p-[var(--s-6)]">
-            {/* ── Tab: Article (identity + price + sizes + modifiers) ── */}
-            {activeTab === 'details' && (
-              <div className="space-y-[var(--s-6)]">
-                <MenuItemTabDetails
+          >
+            <MenuItemEditorForm
+              name={name}
+              setName={setName}
+              price={price}
+              setPrice={setPrice}
+              pricingMode={pricingMode}
+              setPricingMode={setPricingMode}
+              pricePerKg={pricePerKg}
+              setPricePerKg={setPricePerKg}
+              estimatedWeightGrams={estimatedWeightGrams}
+              setEstimatedWeightGrams={setEstimatedWeightGrams}
+              description={description}
+              setDescription={setDescription}
+              customerFacts={customerFacts}
+              setCustomerFacts={setCustomerFacts}
+              suggestedCustomerIngredients={ingredients
+                .map(
+                  (ingredient) =>
+                    ingredient.stock_item?.name ??
+                    ingredient.prep_item?.name ??
+                    '',
+                )
+                .filter(Boolean)}
+              aiContext={aiContext}
+              setAiContext={setAiContext}
+              portion={portion}
+              setPortion={setPortion}
+              allowNotes={allowNotes}
+              setAllowNotes={setAllowNotes}
+              vatRate={vatRate}
+              itemType={itemType}
+              sourceLocale={sourceLocale}
+              translations={translations}
+              setTranslations={setTranslations}
+              onRetranslate={(fields) => retranslateMenuItem(rid, iid, fields)}
+              onTypeChange={requestTypeChange}
+              // Only hide the base-price field once the first size carries
+              // a real price; otherwise the owner would have nowhere to set
+              // a price (the first size inherits the base when left at 0).
+              hideBasePrice={meaningfulVariants && firstVariantPrice > 0}
+              photo={
+                <MenuItemPhoto
+                  imageUrl={imageUrl || undefined}
                   name={name}
-                  setName={setName}
-                  price={price}
-                  setPrice={setPrice}
-                  pricingMode={pricingMode}
-                  setPricingMode={setPricingMode}
-                  pricePerKg={pricePerKg}
-                  setPricePerKg={setPricePerKg}
-                  estimatedWeightGrams={estimatedWeightGrams}
-                  setEstimatedWeightGrams={setEstimatedWeightGrams}
-                  description={description}
-                  setDescription={setDescription}
-                  customerFacts={customerFacts}
-                  setCustomerFacts={setCustomerFacts}
-                  suggestedCustomerIngredients={ingredients
-                    .map((ingredient) => ingredient.stock_item?.name ?? ingredient.prep_item?.name ?? '')
-                    .filter(Boolean)}
-                  aiContext={aiContext}
-                  setAiContext={setAiContext}
-                  portion={portion}
-                  setPortion={setPortion}
-                  categoryId={categoryId}
-                  setCategoryId={setCategoryId}
-                  isActive={isActive}
-                  setIsActive={setIsActive}
-                  allowNotes={allowNotes}
-                  setAllowNotes={setAllowNotes}
-                  vatRate={vatRate}
-                  categories={categories}
-                  menus={menus}
-                  selectedGroupIds={selectedGroupIds}
-                  setSelectedGroupIds={setSelectedGroupIds}
-                  itemType={itemType}
-                  sourceLocale={sourceLocale}
-                  translations={translations}
-                  setTranslations={setTranslations}
-                  onRetranslate={(fields) => retranslateMenuItem(rid, iid, fields)}
-                  onTypeChange={requestTypeChange}
-                  comboStepsCount={comboSteps.length}
-                  onJumpToComposition={() => setActiveTab('composition')}
-                  // Only hide the base-price field once the first size carries
-                  // a real price; otherwise the owner would have nowhere to set
-                  // a price (the first size inherits the base when left at 0).
-                  hideBasePrice={meaningfulVariants && firstVariantPrice > 0}
+                  onImageClick={
+                    canEdit && !imageBusy && !saving && !modifierBusy
+                      ? () => fileInputRef.current?.click()
+                      : undefined
+                  }
+                  onRemove={
+                    canEdit && !imageBusy && !saving && !modifierBusy
+                      ? () => setImageUrl('')
+                      : undefined
+                  }
+                  onAiImageClick={
+                    canEdit && !imageBusy && !saving && !modifierBusy
+                      ? () => setAiModalOpen(true)
+                      : undefined
+                  }
                 />
-
-                {/* Sizes / variants — pricing lives here when present, which is
-                    why the base-price field above hides itself (no more "same
-                    price shown twice"). Combos price via the Composition tab.
-                    By-weight items are priced per kg, not by size, so the sizes
-                    editor is hidden for them. */}
-                {itemType !== 'combo' && !isByWeight && (
-                  <section className="max-w-4xl bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+              }
+              pricingContent={
+                itemType !== 'combo' && !isByWeight ? (
+                  <section>
                     <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
-                      <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
                       <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
                         {t('variants') || 'Variantes'}
                       </h3>
@@ -693,233 +807,367 @@ export default function EditItemPage() {
                     </p>
                     <VariantsEditor
                       groups={variantGroups}
-                      onChange={(g) => { setVariantGroups(g); setVariantsDirty(true); }}
+                      onChange={(g) => {
+                        setVariantGroups(g);
+                        setVariantsDirty(true);
+                      }}
                       allOptionSets={allOptionSets}
                       itemBasePrice={effectivePrice}
                     />
                   </section>
-                )}
-
-                {/* Modifiers — add-ons (sans coriandre, sauce à part…) */}
-                {itemType !== 'combo' && (
-                  <MenuItemTabOptions
-                    item={item}
-                    attachedModifierSets={item.modifier_sets ?? []}
-                    allModifierSets={allModifierSets}
-                    attachedOptionSets={attachedOptionSets}
-                    itemOptionOverrides={itemOptionOverrides}
-                    onAddModifierSet={canEdit ? () => setModifierModalOpen(true) : () => {}}
-                    onDetachModifierSet={canEdit ? async (id) => {
-                      if (!confirm('Unlink this modifier set from item?')) return;
-                      await detachModifierSetFromItem(rid, id, iid);
-                      loadData();
-                    } : () => {}}
-                    onSaveModifierSetOverrides={canEdit ? async (setId: number, input: ModifierSetItemOverridesInput) => {
-                      await setModifierSetItemOverrides(rid, setId, iid, input);
-                      loadData();
-                    } : undefined}
-                    onDeleteModifier={canEdit ? handleDeleteModifier : () => {}}
-                    // Variants render in their own section just above, so these
-                    // handlers are no-ops kept to satisfy the prop contract.
-                    onAddVariantGroup={() => {}}
-                    onEditVariantGroup={() => {}}
-                    onDeleteVariantGroup={() => {}}
-                    onAddOptionSet={() => {}}
-                    onEditOptionSet={() => {}}
-                    onDetachOptionSet={() => {}}
-                    hideVariantsSection
-                  />
-                )}
-              </div>
-            )}
-
-            {/* ── Tab: Composition (combo only) ─────────────────── */}
-            {activeTab === 'composition' && itemType === 'combo' && (
-              <CompositionTab
-                comboName={name}
-                basePrice={price}
-                onBasePriceChange={setPrice}
-                steps={comboSteps}
-                onStepsChange={setComboSteps}
-                categories={categories}
-                menus={menus}
-                restaurantId={rid}
-                onShowSavingsDetail={() => setSavingsModalOpen(true)}
-                comboAllowQuantity={comboAllowQuantity}
-                onComboAllowQuantityChange={setComboAllowQuantity}
-              />
-            )}
-
-            {/* ── Tab: Recette (recipe + folded-in cost readout) ─── */}
-            {activeTab === 'recipe' && (
-              <MenuItemTabRecipe
-                ref={recipeRef}
-                rid={rid}
-                item={item}
-                ingredients={ingredients}
-                stockItems={stockItems}
-                prepItems={prepItems}
-                variants={variantGroups.flatMap((g) =>
-                  g.rows
-                    .filter((r) => r.isActive && r.optionId != null && r.name.trim())
-                    .map((r) => ({ option_id: r.optionId!, name: r.name })),
-                )}
-                onAddIngredient={canEdit ? async (input) => {
-                  const next = [
-                    ...ingredients.map((ing) => ({
-                      stock_item_id: ing.stock_item_id,
-                      prep_item_id: ing.prep_item_id,
-                      quantity_needed: ing.quantity_needed,
-                      unit: ing.unit,
-                      option_id: ing.option_id,
-                      variant_overrides: ing.variant_overrides,
-                    })),
-                    input,
-                  ];
-                  const saved = await setMenuItemIngredients(rid, iid, next);
-                  setIngredients(saved);
-                } : async () => {}}
-                onDeleteIngredient={canEdit ? async (id) => {
-                  if (!confirm(t('delete') + '?')) return;
-                  const next = ingredients.filter((i) => i.id !== id);
-                  const saved = await setMenuItemIngredients(
-                    rid,
-                    iid,
-                    next.map((ing) => ({
-                      stock_item_id: ing.stock_item_id,
-                      prep_item_id: ing.prep_item_id,
-                      quantity_needed: ing.quantity_needed,
-                      unit: ing.unit,
-                      option_id: ing.option_id,
-                      variant_overrides: ing.variant_overrides,
-                    })),
-                  );
-                  setIngredients(saved);
-                } : () => {}}
-                onUpdateIngredient={canEdit ? async (id, patch) => {
-                  const next = ingredients.map((i) =>
-                    i.id === id ? { ...i, ...patch } : i,
-                  );
-                  const saved = await setMenuItemIngredients(
-                    rid,
-                    iid,
-                    next.map((ing) => ({
-                      stock_item_id: ing.stock_item_id,
-                      prep_item_id: ing.prep_item_id,
-                      quantity_needed: ing.quantity_needed,
-                      unit: ing.unit,
-                      option_id: ing.option_id,
-                      variant_overrides: ing.variant_overrides,
-                    })),
-                  );
-                  setIngredients(saved);
-                } : async () => {}}
-                onRefreshLists={async () => {
-                  // Re-fetch only the lists the composer searches over —
-                  // cheaper than full loadData() on every inline create.
-                  const [stock, prep] = await Promise.all([
-                    listStockItems(rid),
-                    listPrepItems(rid),
-                  ]);
-                  setStockItems(stock ?? []);
-                  setPrepItems(prep ?? []);
-                }}
-                onImported={loadData}
-              />
-            )}
-
-            {/* Cost is fully derived from the recipe above + price, so it lives
-                here as a readout under the recipe instead of a separate tab. */}
-            {activeTab === 'recipe' && item && (
-              <div className="mt-[var(--s-6)]">
-                <MenuItemTabCost
-                  rid={rid}
+                ) : undefined
+              }
+              personalizationContent={
+                <MenuItemTabOptions
                   item={item}
-                  ingredients={ingredients}
+                  attachedModifierSets={item.modifier_sets ?? []}
+                  allModifierSets={allModifierSets}
+                  attachedOptionSets={attachedOptionSets}
                   itemOptionOverrides={itemOptionOverrides}
-                  vatRate={vatRate}
-                  price={effectivePrice}
-                  onChangesApplied={loadData}
-                  collapsible
+                  onAddModifierSet={
+                    canEdit
+                      ? () => {
+                          setModifierError('');
+                          setModifierQuery('');
+                          setModifierModalOpen(true);
+                        }
+                      : () => {}
+                  }
+                  onDetachModifierSet={
+                    canEdit
+                      ? (id) => requestModifierRemoval('set', id)
+                      : () => {}
+                  }
+                  onSaveModifierSetOverrides={
+                    canEdit
+                      ? async (
+                          setId: number,
+                          input: ModifierSetItemOverridesInput,
+                        ) => {
+                          await setModifierSetItemOverrides(
+                            rid,
+                            setId,
+                            iid,
+                            input,
+                          );
+                          await refreshModifiers();
+                        }
+                      : undefined
+                  }
+                  onDeleteModifier={
+                    canEdit
+                      ? (id) => requestModifierRemoval('modifier', id)
+                      : () => {}
+                  }
+                  // Variants render in their own section just above, so these
+                  // handlers are no-ops kept to satisfy the prop contract.
+                  onAddVariantGroup={() => {}}
+                  onEditVariantGroup={() => {}}
+                  onDeleteVariantGroup={() => {}}
+                  onAddOptionSet={() => {}}
+                  onEditOptionSet={() => {}}
+                  onDetachOptionSet={() => {}}
+                  hideVariantsSection
                 />
-              </div>
-            )}
-
-            {/* ── Tab: Stock & disponibilité ───────────────────── */}
-            {activeTab === 'availability' && item && (
-              <ItemAvailabilityPanel
-                ref={availabilityRef}
-                rid={rid}
-                itemId={iid}
-                item={item}
-                defaultStockUnit={defaultStockUnit}
-                onSaved={loadData}
-              />
-            )}
-          </div>
+              }
+              compositionContent={
+                itemType === 'combo' ? (
+                  <CompositionTab
+                    comboName={name}
+                    basePrice={price}
+                    steps={comboSteps}
+                    onStepsChange={setComboSteps}
+                    categories={categories}
+                    menus={menus}
+                    restaurantId={rid}
+                    onShowSavingsDetail={() => setSavingsModalOpen(true)}
+                    comboAllowQuantity={comboAllowQuantity}
+                    onComboAllowQuantityChange={setComboAllowQuantity}
+                  />
+                ) : undefined
+              }
+              availabilityContent={
+                <ItemAvailabilityPanel
+                  ref={availabilityRef}
+                  onDirtyChange={setAvailabilityDirty}
+                  rid={rid}
+                  itemId={iid}
+                  item={item}
+                  defaultStockUnit={defaultStockUnit}
+                  defaultLeadMinutes={defaultLeadMinutes}
+                />
+              }
+              recipeContent={
+                <>
+                  <MenuItemTabRecipe
+                    ref={recipeRef}
+                    onDirtyChange={setRecipeDirty}
+                    rid={rid}
+                    item={item}
+                    ingredients={ingredients}
+                    stockItems={stockItems}
+                    prepItems={prepItems}
+                    variants={variantGroups.flatMap((g) =>
+                      g.rows
+                        .filter(
+                          (r) =>
+                            r.isActive && r.optionId != null && r.name.trim(),
+                        )
+                        .map((r) => ({ option_id: r.optionId!, name: r.name })),
+                    )}
+                    onAddIngredient={(input) =>
+                      canEditRecipe
+                        ? persistIngredients((current) => [
+                            ...current.map(ingredientInput),
+                            input,
+                          ])
+                        : Promise.resolve()
+                    }
+                    onDeleteIngredient={(id) => {
+                      if (canEditRecipe) {
+                        setIngredientRemovalError('');
+                        setIngredientRemoval(id);
+                      }
+                    }}
+                    onUpdateIngredient={(id, patch) =>
+                      canEditRecipe
+                        ? persistIngredients((current) =>
+                            keyedRecipeIngredients(current).map(
+                              ({ ingredient, key }) =>
+                                ingredientInput(
+                                  key === id
+                                    ? { ...ingredient, ...patch }
+                                    : ingredient,
+                                ),
+                            ),
+                          )
+                        : Promise.resolve()
+                    }
+                    onRefreshLists={async () => {
+                      // Re-fetch only the lists the composer searches over —
+                      // cheaper than full loadData() on every inline create.
+                      const [stock, prep] = await Promise.all([
+                        listStockItems(rid),
+                        listPrepItems(rid),
+                      ]);
+                      setStockItems(stock ?? []);
+                      setPrepItems(prep ?? []);
+                    }}
+                    onImported={async () => {
+                      const [nextIngredients, stock, prep] = await Promise.all([
+                        getMenuItemIngredients(rid, iid),
+                        listStockItems(rid),
+                        listPrepItems(rid),
+                      ]);
+                      setIngredients(nextIngredients);
+                      ingredientsCurrent.current = nextIngredients;
+                      setStockItems(stock);
+                      setPrepItems(prep);
+                    }}
+                  />
+                  <MenuItemTabCost
+                    rid={rid}
+                    item={item}
+                    ingredients={ingredients}
+                    itemOptionOverrides={itemOptionOverrides}
+                    vatRate={vatRate}
+                    price={effectivePrice}
+                    onChangesApplied={refreshCostData}
+                    onSimulationStateChange={setSimulationState}
+                    onNavigate={navigateAway}
+                    collapsible
+                  />
+                </>
+              }
+            />
+          </fieldset>
         </div>
       </MenuItemShell>
 
-      {/* Modifier Sets Modal */}
+      <ItemUnsavedDialog
+        open={leaveGuard.open}
+        onCancel={leaveGuard.cancel}
+        onDiscard={() => leaveGuard.finish(backTarget)}
+        onSave={handleSave}
+        saving={saving}
+        saveDisabled={!canEdit || !name.trim() || !priceOk || simulationState.dirty}
+        hint={simulationState.dirty ? t('simulatorFinishHint') : !name.trim() || !priceOk ? t('itemSaveRequiredFields') : undefined}
+        error={saveError}
+      />
+
       {modifierModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50">
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-neutral-200 dark:border-neutral-700">
-            <div className="p-6 pb-4 flex items-center justify-between">
-              <button
-                onClick={() => setModifierModalOpen(false)}
-                className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center"
+        <Modal
+          title={t('modifiers')}
+          subtitle={t('itemModifiersImmediate')}
+          initialFocusRef={modifierSearch}
+          onClose={() => {
+            if (!modifierLock.current) setModifierModalOpen(false);
+          }}
+          footer={
+            <Button
+              variant="primary"
+              disabled={modifierBusy}
+              onClick={() => setModifierModalOpen(false)}
+            >
+              {t('done')}
+            </Button>
+          }
+        >
+          <fieldset disabled={modifierBusy} className="min-w-0 space-y-4">
+            <label className="block">
+              <span className="sr-only">{t('search')}</span>
+              <input
+                ref={modifierSearch}
+                className="input"
+                value={modifierQuery}
+                onChange={(event) => setModifierQuery(event.target.value)}
+                placeholder={t('search')}
+              />
+            </label>
+            {allModifierSets
+              .filter((set) =>
+                set.name
+                  .toLocaleLowerCase()
+                  .includes(modifierQuery.toLocaleLowerCase().trim()),
+              )
+              .map((set) => (
+                <label
+                  key={set.id}
+                  className="flex min-h-16 cursor-pointer items-center gap-3 border-b border-[var(--line)] p-3 text-sm hover:bg-[var(--surface-2)] selection-row"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words font-semibold">
+                      {set.name}
+                    </span>
+                    <span className="text-xs text-fg-secondary">
+                      {set.modifiers
+                        ?.map((modifier) => modifier.name)
+                        .join(', ')}
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    aria-label={set.name}
+                    checked={
+                      item.modifier_sets?.some(
+                        (attached) => attached.id === set.id,
+                      ) ?? false
+                    }
+                    onChange={() =>
+                      void toggleModifierSet(
+                        set.id,
+                        item.modifier_sets?.some(
+                          (attached) => attached.id === set.id,
+                        ) ?? false,
+                      )
+                    }
+                    className="size-5 shrink-0 accent-[var(--brand-500)]"
+                  />
+                </label>
+              ))}
+            {!allModifierSets.some((set) =>
+              set.name
+                .toLocaleLowerCase()
+                .includes(modifierQuery.toLocaleLowerCase().trim()),
+            ) && (
+              <p className="py-6 text-center text-sm text-fg-secondary">
+                {t('noResults')}
+              </p>
+            )}
+          </fieldset>
+          {modifierError && (
+            <p
+              role="alert"
+              className="mt-4 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]"
+            >
+              {modifierError}
+            </p>
+          )}
+        </Modal>
+      )}
+      {ingredientRemoval !== null && (
+        <Modal
+          title={t('itemRemoveIngredient')}
+          onClose={() => {
+            if (!ingredientRemovalLock.current) setIngredientRemoval(null);
+          }}
+          footer={
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="secondary"
+                disabled={ingredientRemovalBusy}
+                onClick={() => setIngredientRemoval(null)}
               >
-                <XIcon className="w-5 h-5 text-neutral-900 dark:text-white" />
-              </button>
-              <button
-                onClick={() => setModifierModalOpen(false)}
-                className="bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] text-neutral-900 dark:text-white rounded-full px-5 py-2 text-[14px] font-medium"
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={ingredientRemovalBusy}
+                onClick={() => void removeIngredient()}
               >
-                {t('done')}
-              </button>
+                {t(ingredientRemovalBusy ? 'saving' : 'remove')}
+              </Button>
             </div>
-            <div className="px-6 pb-4">
-              <h2 className="text-[20px] font-bold text-neutral-900 dark:text-white mb-2">{t('modifiers')}</h2>
-              <p className="text-[14px] text-neutral-600 dark:text-neutral-400">{t('modifiersDescription')}</p>
+          }
+        >
+          <p className="text-sm text-fg-secondary">
+            {t('itemRemoveIngredientHint')}
+          </p>
+          {ingredientRemovalError && (
+            <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">
+              {ingredientRemovalError}
+            </p>
+          )}
+        </Modal>
+      )}
+      {modifierRemoval && (
+        <Modal
+          title={t(
+            modifierRemoval.kind === 'set'
+              ? 'itemDetachModifierSet'
+              : 'deleteThisModifier',
+          )}
+          onClose={() => {
+            if (!modifierLock.current) setModifierRemoval(null);
+          }}
+          footer={
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="secondary"
+                disabled={modifierBusy}
+                onClick={() => setModifierRemoval(null)}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={modifierBusy}
+                onClick={() => void removeModifier()}
+              >
+                {t(
+                  modifierBusy
+                    ? 'saving'
+                    : modifierRemoval.kind === 'set'
+                      ? 'detach'
+                      : 'delete',
+                )}
+              </Button>
             </div>
-            <div className="mx-6 border-t-2 border-[#fafafa]" />
-            <div className="flex-1 overflow-y-auto px-6 pb-6">
-              {allModifierSets.length > 0 ? (
-                allModifierSets.map((ms) => {
-                  const alreadyAttached = (item.modifier_sets ?? []).some((ims: ModifierSet) => ims.id === ms.id);
-                  return (
-                    <label
-                      key={ms.id}
-                      className="w-full flex items-center gap-3 py-4 border-b border-neutral-200 dark:border-neutral-700 cursor-pointer hover:bg-neutral-100 dark:bg-[#1a1a1a] transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[16px] font-medium text-neutral-900 dark:text-white">{ms.name}</span>
-                        <p className="text-[14px] text-neutral-600 dark:text-neutral-400 truncate">
-                          {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
-                        </p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={alreadyAttached}
-                        onChange={async () => {
-                          if (alreadyAttached) {
-                            await detachModifierSetFromItem(rid, ms.id, iid);
-                          } else {
-                            await attachModifierSetToItems(rid, ms.id, [iid]);
-                          }
-                          loadData();
-                        }}
-                        className="w-5 h-5 rounded border-2 border-neutral-200 dark:border-neutral-700 accent-orange-500 shrink-0"
-                      />
-                    </label>
-                  );
-                })
-              ) : (
-                <p className="text-[14px] text-neutral-600 dark:text-neutral-400 text-center py-8">{t('noModifiersForItem')}</p>
-              )}
-            </div>
-          </div>
-        </div>
+          }
+        >
+          <p className="text-sm text-fg-secondary">
+            {t(
+              modifierRemoval.kind === 'set'
+                ? 'itemDetachModifierSetHint'
+                : 'itemModifiersImmediate',
+            )}
+          </p>
+          {modifierError && (
+            <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">
+              {modifierError}
+            </p>
+          )}
+        </Modal>
       )}
 
       {/* ── Type-switch confirmation modal ─────────────────────── */}
@@ -928,6 +1176,7 @@ export default function EditItemPage() {
           fromType={itemType}
           toType={pendingType}
           loss={lossSummary}
+          existingItem
           onCancel={() => setPendingType(null)}
           onConfirm={confirmTypeChange}
         />
@@ -940,7 +1189,7 @@ export default function EditItemPage() {
           breakdown={computeComboSavingsBreakdown(
             price,
             comboSteps,
-            railItemsById,
+            comboItemsById,
           )}
           onClose={() => setSavingsModalOpen(false)}
         />

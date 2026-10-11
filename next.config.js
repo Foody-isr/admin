@@ -9,6 +9,18 @@ const securityHeaders = [
 
 const nextConfig = {
   poweredByHeader: false,
+  webpack(config, { dev }) {
+    // Isolated UI verification can run without a persistent webpack disk cache.
+    if (dev && process.env.FOODY_PREVIEW_LOW_DISK === '1') config.cache = false;
+    return config;
+  },
+  async redirects() {
+    return [
+      { source: "/:restaurantId/reels", destination: "/:restaurantId/settings/stories", permanent: false },
+      { source: "/:restaurantId/website", destination: "/:restaurantId/website-v3", permanent: false },
+      { source: "/:restaurantId/website-v2", destination: "/:restaurantId/website-v3", permanent: false },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

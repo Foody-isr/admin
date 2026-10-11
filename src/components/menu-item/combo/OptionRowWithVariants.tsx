@@ -5,7 +5,7 @@
 //   • a vertical list of VariantSubRow — one per source variant (excluded
 //     ones rendered greyed-out so the operator can re-include them).
 
-import { AlertTriangle, ChevronDown, ChevronUp, HelpCircle, Layers, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Layers, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -46,12 +46,12 @@ export default function OptionRowWithVariants({ option, basePrice, comboOnly, on
   return (
     <div className="rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] overflow-hidden">
       {/* Parent header */}
-      <div className="flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)]">
+      <div className="flex flex-wrap items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)]">
         <Thumb url={option.imageUrl} size={36} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-fs-sm font-semibold text-[var(--fg)] truncate">{option.itemName}</span>
-            <span className="inline-flex items-center gap-1 text-fs-xs px-1.5 h-[18px] rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)]">
+        <div className="min-w-[120px] flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-fs-sm font-semibold text-[var(--fg)] break-words">{option.itemName}</span>
+            <span className="inline-flex items-center gap-1 text-fs-xs px-1.5 h-[18px] rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-ink)]">
               <Layers className="w-2.5 h-2.5" />
               {t('composeVariantsCount').replace('{n}', String(option.variants.length))}
             </span>
@@ -70,23 +70,20 @@ export default function OptionRowWithVariants({ option, basePrice, comboOnly, on
             )}
           </div>
           {comboOnly ? (
-            <label className="inline-flex items-center gap-1.5 mt-0.5 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
+            <>
+            <label className="inline-flex min-h-11 items-center gap-1.5 mt-0.5 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={option.forceOffCarte}
                 disabled={!canEdit}
                 onChange={(e) => onForceOffCarteToggle(e.target.checked)}
-                className="w-3 h-3 accent-[var(--brand-500)]"
+                className="w-4 h-4 accent-[var(--brand-500)]"
               />
               <span>{t('composeOffCarteForceLabel')}</span>
-              <span
-                title={t('composeOffCarteForceTooltip')}
-                aria-label={t('composeOffCarteForceTooltip')}
-                className="inline-flex"
-              >
-                <HelpCircle className="w-3 h-3 opacity-60 hover:opacity-100 transition-opacity" />
-              </span>
+
             </label>
+<details className="text-xs text-fg-secondary"><summary className="cursor-pointer min-h-11 py-3">{t('learnMore')}</summary><p className="pb-3 leading-relaxed">{t('composeOffCarteForceTooltip')}</p></details>
+</>
           ) : (
             <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
               {t('composeIncludedInCombo')}
@@ -96,8 +93,8 @@ export default function OptionRowWithVariants({ option, basePrice, comboOnly, on
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
-          className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]"
-          aria-label="Collapse"
+          className="w-11 h-11 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]"
+          aria-label={`${t('variants')} — ${option.itemName}`} aria-expanded={!collapsed}
         >
           {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
@@ -105,8 +102,8 @@ export default function OptionRowWithVariants({ option, basePrice, comboOnly, on
           <button
             type="button"
             onClick={onRemove}
-            className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--danger-500)]"
-            aria-label="Remove"
+            className="w-11 h-11 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--danger-500)]"
+            aria-label={`${t('remove')} — ${option.itemName}`}
           >
             <X className="w-3.5 h-3.5" />
           </button>

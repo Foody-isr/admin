@@ -10,13 +10,11 @@
 import { Info, AlertTriangle } from 'lucide-react';
 import type { MenuItem } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft } from './types';
 import { computeComboSavings } from './pricing';
 
 interface Props {
   basePrice: number;
-  onBasePriceChange: (next: number) => void;
   steps: ComboStepDraft[];
   itemsById: Map<number, MenuItem>;
   /** Optional drilldown — when set, the savings cell becomes a button that
@@ -24,11 +22,12 @@ interface Props {
   onShowSavingsDetail?: () => void;
 }
 
+/** Summarizes combo pricing; the continuous pricing section owns the editable base price. */
 export default function PricingCard({
-  basePrice, onBasePriceChange, steps, itemsById,
+  basePrice, steps, itemsById,
   onShowSavingsDetail,
 }: Props) {
-  const { money, symbol } = useCurrency();
+  const { money } = useCurrency();
   const { t } = useI18n();
   const summary = computeComboSavings(basePrice, steps, itemsById);
 
@@ -66,23 +65,14 @@ export default function PricingCard({
           <span className="text-fs-xs font-semibold uppercase tracking-[.04em] text-[var(--fg-subtle)]">
             {t('composeBasePriceLabel')}
           </span>
-          <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md bg-[var(--surface)] border border-[var(--line-strong)] focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
-            <NumberInput
-              min={0}
-              value={basePrice}
-              onChange={onBasePriceChange}
-              placeholder="0.00"
-              className="flex-1 bg-transparent border-none outline-none text-fs-sm tabular-nums"
-            />
-            <span className="text-fs-sm text-[var(--fg-muted)]">{symbol}</span>
-          </div>
+          <div className="flex min-h-11 items-center rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] px-3 text-sm font-medium tabular-nums">{money(basePrice)}</div>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <span className="text-fs-xs font-semibold uppercase tracking-[.04em] text-[var(--fg-subtle)]">
             {t('composePriceRange')}
           </span>
-          <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] tabular-nums text-fs-sm font-medium">
+          <div className="flex items-center min-h-11 px-[var(--s-3)] rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] tabular-nums text-fs-sm font-medium">
             {summary.comboMin === summary.comboMax
               ? <>{money(summary.comboMin)}</>
               : <>{money(summary.comboMin)} – {money(summary.comboMax)}</>
@@ -95,7 +85,7 @@ export default function PricingCard({
             {t('composeSavings')}
           </span>
           {(() => {
-            const cellClass = `flex items-center gap-1.5 h-9 px-[var(--s-3)] rounded-r-md tabular-nums text-fs-sm font-semibold ${
+            const cellClass = `flex items-center gap-1.5 min-h-11 px-[var(--s-3)] rounded-r-md tabular-nums text-fs-sm font-semibold ${
               detailable ? 'cursor-pointer hover:brightness-110' : ''
             }`;
             const cellStyle: React.CSSProperties = {
@@ -152,7 +142,7 @@ export default function PricingCard({
               <button
                 type="button"
                 onClick={onShowSavingsDetail}
-                title={t('savingsBreakdownDetailButton')}
+                title={t('savingsBreakdownDetailButton')} aria-label={t('savingsBreakdownDetailButton')}
                 className={cellClass}
                 style={cellStyle}
               >

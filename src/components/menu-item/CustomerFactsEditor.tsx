@@ -1,5 +1,6 @@
 'use client';
 
+import { SelectionIndicator } from '@/components/ds/Selection';
 import { AlertTriangle, BookOpen, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
@@ -89,7 +90,7 @@ export default function CustomerFactsEditor({
   };
 
   return (
-    <section className="max-w-4xl overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+    <section className="item-customer-facts max-w-4xl overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
       <div className="flex items-start gap-[var(--s-3)] border-b border-[var(--line)] px-[var(--s-5)] py-[var(--s-4)]">
         <span className="mt-0.5 h-6 w-[3px] shrink-0 rounded-e-md bg-[var(--brand-500)]" />
         <div>
@@ -283,16 +284,10 @@ function FactPicker<T extends string>({
               aria-pressed={active}
               disabled={disabled}
               onClick={() => onToggle(value)}
-              className={`min-h-9 rounded-full border px-3 text-fs-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                active
-                  ? warning
-                    ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                    : 'border-[var(--brand-500)] bg-[var(--brand-500)]/10 text-[var(--fg)]'
-                  : 'border-[var(--line)] bg-transparent text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]'
-              }`}
-            >
+              className="selection-button"
+            ><span className="choice-copy">
               {labelFor(value)}
-            </button>
+            </span><SelectionIndicator checked={active} multiple /></button>
           );
         })}
       </div>

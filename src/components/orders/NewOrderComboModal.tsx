@@ -428,11 +428,11 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                         className="flex flex-1 items-center gap-2 text-start text-fs-sm disabled:cursor-not-allowed"
                       >
                         {single && (
-                          <span className={cn('size-3.5 shrink-0 rounded-full border', selected ? 'border-[var(--brand-500)] bg-[var(--brand-500)]' : 'border-[var(--line-strong)]')} />
+                          <span className={cn('size-3.5 shrink-0 rounded-full border', selected ? 'border-[var(--action)] bg-[var(--action)]' : 'border-[var(--line-strong)]')} />
                         )}
                         <span className={cn(opt.soldOut && 'line-through')}>{opt.name}</span>
                         {opt.portion && (
-                          <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-fs-xs font-medium text-[var(--fg-muted)]">
+                          <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-fs-sm font-medium text-[var(--fg-muted)]">
                             {opt.portion}
                           </span>
                         )}

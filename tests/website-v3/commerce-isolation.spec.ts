@@ -1,6 +1,6 @@
 import {
   expect,
-  openInspectorTab,
+  openSectionPanel,
   openPublicPage,
   previewFrame,
   publishCurrentDraft,
@@ -15,13 +15,13 @@ websiteV3Test('order pages keep menu associations isolated and alias follows exp
   restaurantSlug,
 }) => {
   await selectBuilderPage(builderPage, 'Brunch Order');
-  await openInspectorTab(builderPage, 'Réglages');
+  await openSectionPanel(builderPage, 'settings');
   await setOnlyAssociation(builderPage, 'page.settings.menu_ids', 'Website V3 Brunch');
   await expect(previewFrame(builderPage).locator('[data-group-id]')).toContainText('Website V3 Brunch Plates');
   await expect(previewFrame(builderPage).getByText('Website V3 Dinner Plates')).toHaveCount(0);
 
   await selectBuilderPage(builderPage, 'Dinner Order');
-  await openInspectorTab(builderPage, 'Réglages');
+  await openSectionPanel(builderPage, 'settings');
   await setOnlyAssociation(builderPage, 'page.settings.menu_ids', 'Website V3 Dinner');
   await builderPage.locator('[data-field-id="page.is_default"]').check();
   await publishCurrentDraft(builderPage);
@@ -44,13 +44,13 @@ websiteV3Test('catering pages keep service associations isolated and alias follo
   restaurantSlug,
 }) => {
   await selectBuilderPage(builderPage, 'Office Catering');
-  await openInspectorTab(builderPage, 'Réglages');
+  await openSectionPanel(builderPage, 'settings');
   await setOnlyAssociation(builderPage, 'page.settings.service_ids', 'Website V3 Office Catering');
   await expect(previewFrame(builderPage).locator('[data-catering-service]')).toContainText('Website V3 Office Catering');
   await expect(previewFrame(builderPage).getByText('Website V3 Celebration Catering')).toHaveCount(0);
 
   await selectBuilderPage(builderPage, 'Celebration Catering');
-  await openInspectorTab(builderPage, 'Réglages');
+  await openSectionPanel(builderPage, 'settings');
   await setOnlyAssociation(builderPage, 'page.settings.service_ids', 'Website V3 Celebration Catering');
   await builderPage.locator('[data-field-id="page.is_default"]').check();
   await publishCurrentDraft(builderPage);

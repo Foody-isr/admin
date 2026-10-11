@@ -15,6 +15,7 @@ interface PrinterProfileJobSectionProps {
   children: ReactNode;
 }
 
+/** An accessible job-type toggle with its conditional category options. */
 export function PrinterProfileJobSection({
   type,
   title,
@@ -38,6 +39,7 @@ export function PrinterProfileJobSection({
           </div>
         </div>
         <Switch
+          className="rtl:[&_[data-slot=switch-thumb][data-state=checked]]:-translate-x-[calc(100%-2px)]"
           checked={active}
           onCheckedChange={onToggle}
           aria-label={title}
@@ -50,7 +52,7 @@ export function PrinterProfileJobSection({
           id={optionsId}
           role="region"
           aria-label={title}
-          className="ms-14 mt-5 rounded-r-lg border border-[var(--line)] bg-[var(--surface-2)] px-4 sm:px-5"
+          className="sm:ms-14 mt-5 rounded-r-lg border border-[var(--line)] bg-[var(--surface-2)] px-4 sm:px-5"
         >
           {children}
         </div>

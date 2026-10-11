@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   importRecipesFromFile, importRecipesFromText, confirmRecipes, confirmPrepRecipe,
   getRestaurantSettings,
-  RecipeExtraction, ConfirmRecipeItemInput, ConfirmPrepRecipeInput,
+  RecipeExtraction, ExtractedRecipe, ConfirmRecipeItemInput, ConfirmPrepRecipeInput,
   StockItem, MenuItem, PrepItem,
 } from '@/lib/api';
 import {
@@ -14,6 +14,8 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import SearchableSelect from '@/components/SearchableSelect';
+import Modal from '@/components/Modal';
+import { Button, ConfirmDialog, Field, Select, Textarea } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import StockQuantityForm, {
   StockInput, BaseUnit, defaultStockInput, deriveTotals,
@@ -24,6 +26,13 @@ import RecipeStepsEditor, { joinInstruction, type StepView } from '@/components/
 const BASE_SET: Set<string> = new Set(['g', 'kg', 'ml', 'l', 'unit']);
 function coerceBaseUnit(u: string): BaseUnit {
   return (BASE_SET.has(u) ? (u as BaseUnit) : 'kg');
+}
+
+function isolatedUnits(text: string, values: Record<string, string>) {
+  return text.split(/(\{(?:ingUnit|stockUnit|example|yield)\})/g).map((part,index) => {
+    const key = part.slice(1,-1);
+    return part.startsWith('{') && Object.prototype.hasOwnProperty.call(values,key) ? <bdi key={index} dir="ltr">{values[key]}</bdi> : part;
+  });
 }
 
 export type RecipeImportModalMode =
@@ -37,11 +46,12 @@ interface RecipeImportModalProps {
   stockItems: StockItem[];
   mode: RecipeImportModalMode;
   onClose: () => void;
-  onImported: () => void;
+  onImported: () => void | Promise<void>;
 }
 
+/** Review an extracted recipe and confirm its existing API transaction explicitly. */
 export default function RecipeImportModal({ rid, stockItems, mode, onClose, onImported }: RecipeImportModalProps) {
-  const { t, locale, direction } = useI18n();
+  const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('kitchen.manage');
   const [step, setStep] = useState<'input' | 'review'>('input');
@@ -74,36 +84,43 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
   const [editedSteps, setEditedSteps] = useState<StepView[]>([]);
   const [editedPrepTime, setEditedPrepTime] = useState(0);
   const [vatRate, setVatRate] = useState(18);
+  const [settingsReady, setSettingsReady] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
+  const [settingsAttempt, setSettingsAttempt] = useState(0);
+  const [selectedRecipe, setSelectedRecipe] = useState(0);
+  const [leaveAction, setLeaveAction] = useState<'close' | 'back' | null>(null);
+  const [saved, setSaved] = useState(false);
+  const savedRef = useRef(false);
+  const lock = useRef(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
 
-  // Load VAT rate
   useEffect(() => {
-    getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
-  }, [rid]);
+    let active = true;
+    setSettingsReady(false); setSettingsError('');
+    getRestaurantSettings(rid).then(settings => {
+      if (active) { setVatRate(settings.vat_rate ?? 18); setSettingsReady(true); }
+    }).catch(cause => { if (active) setSettingsError(cause instanceof Error ? cause.message : t('loadFailed')); });
+    return () => { active = false; };
+  }, [rid, settingsAttempt, t]);
 
-  // Cleanup blob URL on unmount
   useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
+    if (!file) { setPreviewUrl(null); return; }
+    const url = URL.createObjectURL(file); setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
-  const handleExtract = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      let result: RecipeExtraction;
-      if (tab === 'upload') {
-        if (!file) return;
-        result = await importRecipesFromFile(rid, file, locale);
-      } else {
-        if (!text.trim()) return;
-        result = await importRecipesFromText(rid, text, locale);
-      }
-      setExtraction(result);
-      // Auto-select first recipe
-      if (result.recipes.length > 0) {
-        const recipe = result.recipes[0];
-        const existingPrep = mode.kind === 'prep' ? mode.prepItem : undefined;
+  useEffect(() => { if (step === 'review') reviewHeading.current?.focus(); else inputRef.current?.focus(); }, [step]);
+
+  const requestLeave = (action: 'close' | 'back') => {
+    if (lock.current) return;
+    if (savedRef.current) { onClose(); return; }
+    if (text.trim() || file || step === 'review') setLeaveAction(action);
+    else onClose();
+  };
+
+  const seedRecipe = (recipe: ExtractedRecipe) => {
+    const existingPrep = mode.kind === 'prep' ? mode.prepItem : undefined;
         setEditedName(recipe.dish_name || existingPrep?.name || '');
         // Prefer the document's yield; fall back to the existing prep's batch yield.
         setEditedYield(recipe.total_yield || existingPrep?.yield_per_batch || 0);
@@ -112,7 +129,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
           const matched = ing.matched_item_id ? stockItems.find((s) => s.id === ing.matched_item_id) : null;
           const isNew = ing.is_new || !matched;
           return {
-            stock_item_id: ing.matched_item_id ?? null,
+            stock_item_id: matched?.id ?? null,
             name: ing.translated_name || ing.original_name,
             original_name: ing.original_name,
             quantity_needed: ing.quantity,
@@ -120,7 +137,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
             category: matched?.category || '',
             cost_per_unit: matched?.cost_per_unit || 0,
             price_includes_vat: matched?.price_includes_vat || false,
-            is_new: ing.is_new,
+            is_new: isNew,
             stockForm: isNew
               ? defaultStockInput({ type: 'simple', quantity: 0, unit: coerceBaseUnit(ing.unit), totalPrice: 0 })
               : undefined,
@@ -132,18 +149,25 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
           duration_mins: s.duration_mins ?? 0,
         })));
         setEditedPrepTime(existingPrep?.prep_time_mins ?? 0);
-      }
-      if (file) setPreviewUrl(URL.createObjectURL(file));
-      setStep('review');
-    } catch (err: any) {
-      setError(err.message || 'Extraction failed');
-    } finally {
-      setLoading(false);
-    }
+
+  };
+
+  const handleExtract = async () => {
+    if (!canManage || lock.current || !settingsReady || (tab === 'upload' ? !file : !text.trim())) return;
+    lock.current = true; setLoading(true); setError('');
+    try {
+      const result = tab === 'upload' && file
+        ? await importRecipesFromFile(rid, file, locale)
+        : await importRecipesFromText(rid, text, locale);
+      if (!result.recipes.length) throw new Error(t('recipeImportEmpty'));
+      setExtraction(result); setSelectedRecipe(0); seedRecipe(result.recipes[0]); setStep('review');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t('recipeImportExtractFailed')); }
+    finally { lock.current = false; setLoading(false); }
   };
 
   const handleConfirm = async () => {
-    setLoading(true);
+    if (!canManage || lock.current || !settingsReady || !editedIngredients.length) return;
+    lock.current = true; setLoading(true);
     setError('');
     try {
       const ingredients = editedIngredients.map((ing) => ({
@@ -156,6 +180,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
         cost_per_unit: ing.cost_per_unit,
         price_includes_vat: ing.price_includes_vat,
       }));
+      if (!savedRef.current) {
       if (mode.kind === 'menu-item') {
         const input: ConfirmRecipeItemInput = {
           menu_item_id: mode.menuItem.id,
@@ -185,12 +210,14 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
         };
         await confirmPrepRecipe(rid, input);
       }
-      onImported();
+      savedRef.current = true; setSaved(true);
+      }
+      await onImported();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Confirm failed');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t('saveFailed'));
     } finally {
-      setLoading(false);
+      lock.current = false; setLoading(false);
     }
   };
 
@@ -202,168 +229,64 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
   const existingCategories = Array.from(new Set(stockItems.map((s) => s.category).filter(Boolean)));
   const vatMultiplier = 1 + vatRate / 100;
 
-  // ─── Input Step (compact dialog) ──────────────────────────────────────
-
-  if (step === 'input') {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="rounded-modal shadow-xl p-6 w-full max-w-md mx-4" style={{ background: 'var(--surface)' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-fg-primary flex items-center gap-2">
-              <SparklesIcon className="w-5 h-5 text-brand-500" />
-              {t('importRecipe')}{mode.kind === 'menu-item' ? ` — ${mode.menuItem.name}` : (mode.prepItem ? ` — ${mode.prepItem.name}` : '')}
-            </h3>
-            <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
-          </div>
-
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 text-red-500 text-sm">{error}</div>
-          )}
-
-          <div className="space-y-4">
-            {/* Tabs */}
-            <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
-              <button onClick={() => setTab('text')}
-                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${tab === 'text' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
-                {t('pasteRecipeText')}
-              </button>
-              <button onClick={() => setTab('upload')}
-                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${tab === 'upload' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
-                {t('uploadRecipeFile')}
-              </button>
-            </div>
-
-            {tab === 'text' ? (
-              <textarea
-                className="input w-full py-3 text-sm"
-                rows={8}
-                placeholder={t('pasteRecipePlaceholder')}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-            ) : (
-              <>
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="input w-full py-2 text-sm"
-                />
-                {file && file.type.startsWith('image/') && (
-                  <div className="rounded-lg overflow-hidden border border-[var(--divider)] max-h-40">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
-                  </div>
-                )}
-                {file && file.type === 'application/pdf' && (
-                  <div className="flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] text-sm text-fg-secondary">
-                    <FileTextIcon className="w-5 h-5" />
-                    {file.name}
-                  </div>
-                )}
-              </>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-              {canManage && (
-                <button
-                  onClick={handleExtract}
-                  disabled={loading || (tab === 'text' ? !text.trim() : !file)}
-                  className="btn-primary text-sm flex items-center gap-2"
-                >
-                  {loading ? (
-                    <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> {t('extracting')}</>
-                  ) : (
-                    <><SparklesIcon className="w-4 h-4" /> {t('extractRecipe')}</>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Review Step (full-screen split) ──────────────────────────────────
-
-  const isRtl = direction === 'rtl';
+  const targetName = mode.kind === 'menu-item' ? mode.menuItem.name : mode.prepItem?.name;
   const hasDocumentPreview = tab === 'upload' && previewUrl;
-
-  return (
-    <div className="fixed inset-0 z-50 pt-safe-t pb-safe-b flex flex-col" style={{ background: 'var(--surface)' }}>
-      {/* ─ Header ─ */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-        <div className="flex items-center gap-3">
-          <SparklesIcon className="w-5 h-5 text-brand-500" />
-          <h3 className="font-semibold text-fg-primary">{t('importRecipe')}</h3>
-          {mode.kind === 'menu-item' && (
-            <span className="text-sm text-fg-secondary">— {mode.menuItem.name}</span>
-          )}
-          {mode.kind === 'prep' && mode.prepItem && (
-            <span className="text-sm text-fg-secondary">— {mode.prepItem.name}</span>
-          )}
-          <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
-            {editedIngredients.length} {t('ingredients')}
-          </span>
+  const confirmLabel = saved ? 'retry' : loading ? 'saving' : 'confirmImport';
+  const replacementHint = mode.kind === 'menu-item' ? 'recipeImportReplaceItem' : mode.prepItem ? 'recipeImportReplacePrep' : 'recipeImportCreatePrep';
+  return <>
+    <Modal title={t('importRecipe')} subtitle={targetName ? <bdi>{targetName}</bdi> : t('recipeImportCreatePrep')}
+      icon={<SparklesIcon/>} size={step === 'input' ? 'xl' : '5xl'} initialFocusRef={inputRef}
+      closeDisabled={loading} onClose={() => requestLeave('close')}
+      footer={<div className="space-y-3">
+        {step === 'review' && <p className="text-sm text-fg-secondary">{t(replacementHint)}</p>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button size="lg" variant="secondary" disabled={loading} onClick={() => requestLeave('close')}>{t('cancel')}</Button>
+          {step === 'review' && !saved && <Button size="lg" variant="secondary" disabled={loading} onClick={() => requestLeave('back')}>{t('back')}</Button>}
+          {canManage && (step === 'input'
+            ? <Button size="lg" onClick={() => void handleExtract()} disabled={loading || !settingsReady || (tab === 'text' ? !text.trim() : !file)}><SparklesIcon/>{t(loading ? 'extracting' : 'extractRecipe')}</Button>
+            : <Button size="lg" onClick={() => void handleConfirm()} disabled={loading || !settingsReady || !editedIngredients.length || editedIngredients.some(ing => !ing.stock_item_id && !ing.name.trim()) || (mode.kind === 'prep' && !mode.prepItem && !editedName.trim())}>{t(confirmLabel)}</Button>)}
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => { setStep('input'); setExtraction(null); }} className="btn-secondary text-sm">{t('back')}</button>
-          {canManage && (
-            <button
-              onClick={handleConfirm}
-              disabled={loading || editedIngredients.length === 0 || (mode.kind === 'prep' && !mode.prepItem && !editedName.trim())}
-              className="btn-primary text-sm"
-            >
-              {loading ? t('saving') : t('confirmImport')}
-            </button>
-          )}
-          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none px-2">&times;</button>
+      </div>}>
+      {settingsError && <div className="mb-4 space-y-2"><p role="alert" className="text-sm text-[var(--danger-500)]">{t('recipeImportSettingsFailed')} {settingsError}</p><Button variant="secondary" onClick={() => setSettingsAttempt(value => value + 1)}>{t('retry')}</Button></div>}
+      {!settingsReady && !settingsError && <p role="status" className="mb-4 text-sm text-fg-secondary">{t('loading')}</p>}
+      {error && <p role="alert" className="mb-4 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{error}</p>}
+      {saved && <p role="status" className="mb-4 rounded-r-md bg-[var(--info-50)] p-3 text-sm text-[var(--info-500)]">{t('recipeImportSavedRefresh')}</p>}
+      {step === 'input' ? <fieldset disabled={loading || !canManage} className="min-w-0 space-y-4">
+        <div role="group" aria-label={t('recipeImportSource')} className="flex flex-wrap gap-2">
+          {(['text', 'upload'] as const).map(value => <Button size="lg" key={value} variant="secondary" aria-pressed={tab === value} onClick={() => setTab(value)} className={tab === value ? 'border-[var(--action)] bg-[var(--brand-soft)] text-[var(--brand-ink)]' : ''}>{t(value === 'text' ? 'pasteRecipeText' : 'uploadRecipeFile')}</Button>)}
         </div>
-      </div>
-
-      {error && (
-        <div className="px-5 py-2 bg-red-500/10 text-red-500 text-sm">{error}</div>
-      )}
-
-      {/* ─ Main content ─ */}
-      <div className={`flex flex-1 min-h-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
-        {/* ─ Document preview (left) — only for file uploads ─ */}
-        {hasDocumentPreview && (
-          <div className={`w-1/2 border-[var(--divider)] overflow-auto p-4 flex flex-col ${isRtl ? 'border-l' : 'border-r'}`}>
-            <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">{t('originalDocument')}</h4>
-            <div className="flex-1 rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-              {file?.type.startsWith('image/') && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewUrl!} alt="Recipe document" className="w-full h-auto" />
-              )}
-              {file?.type === 'application/pdf' && (
-                <iframe src={previewUrl!} className="w-full h-full min-h-[70vh]" title="Recipe document" />
-              )}
-            </div>
+        {tab === 'text' ? <Field label={t('pasteRecipeText')}><Textarea ref={inputRef} aria-label={t('pasteRecipeText')} rows={8} dir="auto" placeholder={t('pasteRecipePlaceholder')} value={text} onChange={event => setText(event.target.value)}/></Field>
+          : <Field label={t('uploadRecipeFile')} hint={t('recipeImportFileHint')}>
+            <input aria-label={t('uploadRecipeFile')} type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" className="input min-h-11 w-full min-w-0 py-2 text-sm" onChange={event => {
+              const next = event.target.files?.[0] ?? null;
+              if (next && (!['image/jpeg','image/png','image/webp','image/gif','application/pdf'].includes(next.type) || next.size > 10 * 1024 * 1024)) { event.target.value = ''; setFile(null); setError(t('recipeImportFileHint')); return; }
+              setFile(next); setError('');
+            }}/>
+          </Field>}
+        {/* Local previews use object URLs, revoked when the file changes. */}
+        {/* eslint-disable @next/next/no-img-element */}
+        {tab === 'upload' && file && <div className="space-y-2 rounded-r-md border border-[var(--line)] p-3">
+          <p className="flex items-center gap-2 break-all text-sm"><FileTextIcon className="size-4 shrink-0"/><bdi>{file.name}</bdi></p>
+          {file.type.startsWith('image/') && previewUrl && <img src={previewUrl} alt={t('originalDocument')} className="max-h-40 w-full object-contain"/>}
+        </div>}
+      </fieldset> : <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <details open className="self-start rounded-r-lg border border-[var(--line)] bg-[var(--surface-2)]">
+          <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold">{t(hasDocumentPreview ? 'originalDocument' : 'originalText')}</summary>
+          <div className="max-h-64 overflow-auto border-t border-[var(--line)] p-4 lg:max-h-[60vh]">
+            {hasDocumentPreview ? file?.type.startsWith('image/') ? <img src={previewUrl!} alt={t('originalDocument')} className="h-auto w-full"/> : <iframe src={previewUrl!} title={t('originalDocument')} className="h-64 w-full lg:h-[55vh]"/> : <pre className="whitespace-pre-wrap break-words font-sans text-sm" dir="auto">{text}</pre>}
           </div>
-        )}
-
-        {/* ─ For text input, show the original text on the left ─ */}
-        {!hasDocumentPreview && tab === 'text' && (
-          <div className={`w-1/2 border-[var(--divider)] overflow-auto p-4 flex flex-col ${isRtl ? 'border-l' : 'border-r'}`}>
-            <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">{t('originalText')}</h4>
-            <pre className="flex-1 rounded-lg p-4 text-sm text-fg-primary whitespace-pre-wrap overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }} dir="auto">
-              {text}
-            </pre>
-          </div>
-        )}
-
-        {/* ─ Ingredients editor (right) ─ */}
-        <div className={`${hasDocumentPreview || tab === 'text' ? 'w-1/2' : 'w-full'} overflow-y-auto p-4`}>
+        </details>
+        <div className="min-w-0">
+          <h3 ref={reviewHeading} tabIndex={-1} className="mb-4 text-lg font-semibold">{t('ingredients')} · {editedIngredients.length}</h3>
+          <fieldset disabled={loading || saved || !canManage || !settingsReady} className="min-w-0">
+            {extraction && extraction.recipes.length > 1 && <Field className="mb-4" label={t('recipeImportSelection')} hint={t('recipeImportSelectionHint')}><Select className="min-h-11" aria-label={t('recipeImportSelection')} value={selectedRecipe} onChange={event => { const index = Number(event.target.value); setSelectedRecipe(index); seedRecipe(extraction.recipes[index]); }}>{extraction.recipes.map((recipe,index) => <option key={index} value={index}>{index + 1} · {recipe.dish_name}</option>)}</Select></Field>}
           {/* Prep name (only when creating a new prep item) */}
           {mode.kind === 'prep' && !mode.prepItem && (
-            <div className="flex items-center gap-3 mb-3 p-3 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+            <div className="flex flex-wrap items-center gap-3 mb-3 p-3 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
               <label className="text-sm text-fg-secondary font-medium shrink-0">{t('nameLabel')}:</label>
               <input
-                type="text"
-                className="input flex-1 py-1.5 text-sm"
+                aria-label={t('nameLabel')} type="text"
+                className="input min-h-11 flex-1 py-1.5 text-sm"
                 value={editedName}
                 onChange={(e) => setEditedName(e.target.value)}
                 placeholder={t('addPrepItem')}
@@ -372,19 +295,20 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
             </div>
           )}
 
-          {/* Recipe yield */}
-          <div className="flex items-center gap-3 mb-4 p-3 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+          {mode.kind === 'prep' ? <>
+          <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
             <label className="text-sm text-fg-secondary font-medium">
               {mode.kind === 'prep' ? t('yieldPerBatch') : t('recipeYield')}:
             </label>
-            <NumberInput min={0} className="input w-24 py-1.5 text-sm text-right"
-              value={editedYield} onChange={setEditedYield} />
-            <select className="input w-20 py-1.5 text-sm" value={editedYieldUnit} onChange={(e) => setEditedYieldUnit(e.target.value)}>
+            <NumberInput min={0} className="input min-h-11 w-24 py-1.5 text-sm text-end"
+              aria-label={mode.kind === 'prep' ? t('yieldPerBatch') : t('recipeYield')} value={editedYield} onChange={setEditedYield} />
+            <select aria-label={t('recipeImportYieldUnit')} className="input min-h-11 w-24 py-1.5 text-sm" value={editedYieldUnit} onChange={(e) => setEditedYieldUnit(e.target.value)}>
               <option value="kg">kg</option><option value="g">g</option>
               <option value="l">l</option><option value="ml">ml</option>
               <option value="unit">unit</option>
             </select>
           </div>
+          </> : <p className="mb-4 text-sm text-fg-secondary">{isolatedUnits(t('recipeImportItemYield'), {yield:`${editedYield} ${editedYieldUnit}`})}</p>}
 
           {/* Ingredients list */}
           <div className="space-y-3">
@@ -408,16 +332,16 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                 return `${ing.quantity_needed} ${ing.unit} = ${formatConverted(c, stockUnit)}`;
               })();
               return (
-                <div key={idx} className="p-4 rounded-lg space-y-3" style={{ background: 'var(--surface-subtle)' }}>
+                <div key={idx} className="min-w-0 rounded-r-lg border border-[var(--line)] p-4 space-y-4" style={{ background: 'var(--surface-subtle)' }}>
                   {/* Row 1: Name + badge + delete */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm font-medium text-fg-primary">{ing.name}</span>
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${matched ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${matched ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--warning-50)] text-[var(--warning-500)]'}`}>
                         {matched ? t('existing') : t('new')}
                       </span>
-                      <button onClick={() => setEditedIngredients(prev => prev.filter((_, i) => i !== idx))}
-                        className="p-1 text-red-400 hover:text-red-300">
+                      <button type="button" aria-label={`${t('itemRemoveIngredient')} — ${ing.name}`} onClick={() => setEditedIngredients(prev => prev.filter((_, i) => i !== idx))}
+                        className="grid size-11 shrink-0 place-items-center rounded-r-md text-[var(--danger-500)] hover:bg-[var(--danger-50)]">
                         <TrashIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -457,45 +381,41 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                           });
                         }
                       }}
-                      options={stockOptions}
-                      placeholder={`${t('newItem')}: ${ing.name}`}
+                      options={[{value:'',label:`${t('newItem')}: ${ing.name}`},...stockOptions]}
+                      placeholder={`${t('matchToStockItem')} — ${ing.name}`}
+                      className="min-h-11"
                     />
                   </div>
 
                   {/* Unit-compatibility hint (matched items with a unit difference) */}
                   {matched && compat === 'convertible' && (
-                    <div className="flex items-start gap-2 p-2 rounded-lg text-xs text-blue-500 bg-blue-500/10">
+                    <div className="flex items-start gap-2 p-2 rounded-lg text-sm text-[var(--info-500)] bg-[var(--info-50)]">
                       <InfoIcon className="w-4 h-4 shrink-0 mt-0.5" />
                       <span>
-                        {t('unitAutoConvertHint')
-                          .replace('{ingUnit}', ing.unit)
-                          .replace('{stockUnit}', stockUnit)
-                          .replace('{example}', convertedExample || `${ing.unit} → ${stockUnit}`)}
+                        {isolatedUnits(t('unitAutoConvertHint'), {ingUnit:ing.unit,stockUnit,example:convertedExample || `${ing.unit} → ${stockUnit}`})}
                       </span>
                     </div>
                   )}
                   {matched && compat === 'incompatible' && (
-                    <div className="flex items-start gap-2 p-2 rounded-lg text-xs text-amber-500 bg-amber-500/10">
+                    <div className="flex items-start gap-2 p-2 rounded-lg text-sm text-[var(--warning-500)] bg-[var(--warning-50)]">
                       <AlertTriangleIcon className="w-4 h-4 shrink-0 mt-0.5" />
                       <span>
-                        {t('unitIncompatibleHint')
-                          .replace('{ingUnit}', ing.unit)
-                          .replace('{stockUnit}', stockUnit)}
+                        {isolatedUnits(t('unitIncompatibleHint'), {ingUnit:ing.unit,stockUnit})}
                       </span>
                     </div>
                   )}
 
                   {/* Row 3: Category (new items only) */}
                   {!matched && (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
                         <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('name')}</label>
-                        <input className="input w-full py-1.5 text-sm" value={ing.name}
+                        <input aria-label={`${t('name')} — ${idx + 1}`} className="input min-h-11 w-full py-1.5 text-sm" value={ing.name}
                           onChange={(e) => updateIngredient(idx, { name: e.target.value })} />
                       </div>
                       <div>
                         <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
-                        <select className="input w-full py-1.5 text-sm" value={ing.category}
+                        <select aria-label={`${t('category')} — ${ing.name}`} className="input min-h-11 w-full py-1.5 text-sm" value={ing.category}
                           onChange={(e) => updateIngredient(idx, { category: e.target.value })}>
                           <option value="">{t('category')}</option>
                           {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -508,22 +428,22 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                   )}
 
                   {/* Quantity needed per serving */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="text-xs text-fg-secondary font-medium mb-1 block">
                         {t('quantityNeededPerServing') || `${t('quantity')} / ${t('recipeYield') || 'serving'}`}
                       </label>
                       <NumberInput
-                        min={0} className="input w-full py-1.5 text-sm text-right"
-                        value={ing.quantity_needed}
+                        min={0} className="input min-h-11 w-full py-1.5 text-sm text-end"
+                        aria-label={`${t('quantityNeededPerServing')} — ${ing.name}`} value={ing.quantity_needed}
                         onChange={(v) => updateIngredient(idx, { quantity_needed: v })}
                       />
                     </div>
                     <div>
                       <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unit')}</label>
                       <select
-                        className="input w-full py-1.5 text-sm"
-                        value={ing.unit}
+                        className="input min-h-11 w-full py-1.5 text-sm"
+                        aria-label={`${t('unit')} — ${ing.name}`} value={ing.unit}
                         onChange={(e) => updateIngredient(idx, { unit: e.target.value })}
                       >
                         <option value="g">g</option><option value="kg">kg</option>
@@ -539,14 +459,14 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                   {/* Matched: cost pulled from stock (converted to recipe unit) */}
                   {matched && costPerRecipeUnit != null && costPerRecipeUnit > 0 && (
                     <div className="p-3 rounded-lg text-xs text-fg-secondary" style={{ background: 'var(--surface)' }}>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <span>{t('costPerUnit')} ({t('fromStock') || 'from stock'})</span>
                         <span className="font-semibold text-fg-primary">
                           {costPerRecipeUnit.toFixed(4)} &#8362;/{ing.unit} {t('exVat')} | {(costPerRecipeUnit * vatMultiplier).toFixed(4)} &#8362;/{ing.unit} {t('incVat')}
                         </span>
                       </div>
                       {ing.quantity_needed > 0 && (
-                        <div className="flex items-center justify-between mt-1 pt-1 border-t border-[var(--divider)]">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mt-1 pt-1 border-t border-[var(--divider)]">
                           <span>{t('totalPrice')} ({ing.quantity_needed} {ing.unit})</span>
                           <span>
                             {(costPerRecipeUnit * ing.quantity_needed).toFixed(2)} &#8362; {t('exVat')} | {(costPerRecipeUnit * ing.quantity_needed * vatMultiplier).toFixed(2)} &#8362; {t('incVat')}
@@ -585,9 +505,6 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
           {/* Cooking instructions extracted by the AI — review before confirm (prep only) */}
           {mode.kind === 'prep' && (
             <div className="mt-6 pt-6 border-t border-[var(--divider)]">
-              <h4 className="text-sm font-semibold text-fg-primary mb-1">
-                {t('recipeInstructions') || 'Instructions'}
-              </h4>
               <p className="text-xs text-fg-secondary mb-4">
                 {t('importStepsReviewHint') || 'Vérifiez les étapes extraites avant de confirmer.'}
               </p>
@@ -595,13 +512,22 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                 steps={editedSteps}
                 prepTime={editedPrepTime}
                 showNotes={false}
+                readOnly={loading || saved || !canManage}
                 onStepsChange={setEditedSteps}
                 onPrepTimeChange={setEditedPrepTime}
               />
             </div>
           )}
+
+          </fieldset>
         </div>
-      </div>
-    </div>
-  );
+      </div>}
+    </Modal>
+    <ConfirmDialog open={leaveAction !== null} onOpenChange={open => { if (!open) setLeaveAction(null); }}
+      title={t('discardUnsavedChanges')} description={t(leaveAction === 'back' ? 'recipeImportBackHint' : 'recipeImportCloseHint')}
+      confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} danger onConfirm={() => {
+        if (leaveAction === 'back') { setStep('input'); setError(''); setLeaveAction(null); }
+        else onClose();
+      }}/>
+  </>;
 }

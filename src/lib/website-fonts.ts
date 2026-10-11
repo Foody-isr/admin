@@ -15,7 +15,15 @@ export interface CuratedFont {
   supportsHebrew: boolean;
 }
 
+// These template families use the same public font stylesheets as the reference theme.
+const TEMPLATE_FONT_STYLESHEETS: Record<string, string> = {
+  Recoleta: 'https://cdn3.editmysite.com/app/website/static/fonts/Recoleta/font.css',
+  Larsseit: 'https://cdn3.editmysite.com/app/website/static/fonts/Larsseit/font.css',
+};
+
 export const WEBSITE_FONTS: CuratedFont[] = [
+  { family: 'Recoleta', category: 'serif', weights: [600], supportsHebrew: false },
+  { family: 'Larsseit', category: 'sans', weights: [400, 700], supportsHebrew: false },
   // ── Sans ──────────────────────────────────────────────────────────
   { family: 'Inter', category: 'sans', weights: [400, 500, 600, 700, 800], supportsHebrew: false },
   { family: 'Poppins', category: 'sans', weights: [400, 500, 600, 700, 800], supportsHebrew: false },
@@ -306,7 +314,7 @@ export function loadFontPreview(family: string, hebrew: boolean, custom?: Custom
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&text=${encodeURIComponent(text)}&display=swap`;
+  link.href = TEMPLATE_FONT_STYLESHEETS[family] ?? `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&text=${encodeURIComponent(text)}&display=swap`;
   document.head.appendChild(link);
 }
 
@@ -331,6 +339,6 @@ export function loadWebsiteFont(family: string, weights?: number[], custom?: Cus
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = href;
+  link.href = TEMPLATE_FONT_STYLESHEETS[family] ?? href;
   document.head.appendChild(link);
 }

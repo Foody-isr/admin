@@ -1,5 +1,6 @@
 'use client';
 
+import { Switch } from '@/components/ui/switch';
 import { useCallback, useMemo, useState } from 'react';
 import {
   BUILTIN_DELIVERY_FIELDS,
@@ -73,6 +74,8 @@ interface CheckoutEditorProps {
   value: CheckoutConfig | null | undefined;
   onChange: (next: CheckoutConfig) => void;
   placesAvailable: boolean;
+  /** The V3 journey panel owns screen navigation and fulfillment rules. */
+  embedded?: boolean;
   subTab: CheckoutSubTab;
   onSubTabChange: (next: CheckoutSubTab) => void;
 }
@@ -88,7 +91,7 @@ interface CheckoutEditorProps {
  * orderType is controlled by the page so the live preview iframe can stay in
  * sync with the sub-tab the owner is editing.
  */
-export default function CheckoutEditor({ value, onChange, placesAvailable, subTab, onSubTabChange }: CheckoutEditorProps) {
+export default function CheckoutEditor({ value, onChange, placesAvailable, subTab, onSubTabChange, embedded = false }: CheckoutEditorProps) {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null);
   const orderType: OrderTypeKey = subTab === 'pickup' ? 'pickup' : 'delivery';
 
@@ -195,6 +198,7 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
 
   return (
     <div className="flex flex-col h-full">
+      {!embedded && <>
       {/* Sub-tabs: Livraison · Retrait · Confirmation */}
       <div className="px-4 pt-4">
         <div className="flex p-1 rounded-xl text-[13px]" style={{ background: 'var(--surface-subtle)' }}>
@@ -230,6 +234,7 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
         </Row>
       </div>
 
+      </>}
       {subTab === 'confirmation' ? (
         <div className="flex-1 overflow-y-auto">
           <ConfirmationEditor
@@ -244,7 +249,7 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
             title="Vérification par OTP"
             description="Demander un code SMS avant de finaliser la commande."
           >
-            <Toggle checked={form.require_auth} onChange={setRequireAuth} />
+            <Toggle title="Vérification par OTP" checked={form.require_auth} onChange={setRequireAuth} />
           </Row>
 
           {orderType === 'delivery' && (
@@ -490,23 +495,10 @@ function Toggle({
   checked, onChange, disabled, title,
 }: { checked: boolean; onChange: (b: boolean) => void; disabled?: boolean; title?: string }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => !disabled && onChange(!checked)}
-      disabled={disabled}
-      title={title}
-      className={`relative w-9 h-5 rounded-full transition flex-shrink-0 ${
-        checked ? 'bg-brand-500' : 'bg-divider'
-      } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-      style={!checked ? { background: 'var(--divider)' } : undefined}
-    >
-      <span
-        className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
-        style={{ transform: checked ? 'translateX(18px)' : 'translateX(2px)' }}
-      />
-    </button>
+    <Switch onCheckedChange={() => !disabled && onChange(!checked)}
+          disabled={disabled}
+          title={title}
+          aria-label={title} checked={checked} />
   );
 }
 
@@ -612,7 +604,7 @@ function FieldEditor({
 
       <div className="flex items-center justify-between p-2 rounded-md" style={{ background: 'var(--surface-subtle)' }}>
         <span className="text-[12px] text-fg-primary">Champ obligatoire</span>
-        <Toggle checked={field.required} onChange={(b) => onChange({ required: b })} />
+        <Toggle title="Champ obligatoire" checked={field.required} onChange={(b) => onChange({ required: b })} />
       </div>
 
       <div className="space-y-2">

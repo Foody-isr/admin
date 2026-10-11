@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { SelectionExamples } from './SelectionExamples';
 import { Search, Filter, Plus, Download } from 'lucide-react';
 import {
   Badge,
@@ -52,6 +53,7 @@ export default function DesignSystemPreviewPage() {
       />
 
       <div className="space-y-[var(--s-8)]">
+        <Section title="Selections" desc="Rows for choices; explicit yes/no segments for settings."><SelectionExamples /></Section>
         {/* TOKENS */}
         <Swatches title="Brand ramp">
           {BRAND_STEPS.map((k) => (

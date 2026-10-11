@@ -95,7 +95,7 @@ function HorizontalStepper({ stages, activeColor }: { stages: StepperStage[]; ac
               {stage.label}
             </div>
             {(stage.at || stage.note) && (
-              <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5 leading-tight truncate px-1">
+              <div className="text-fs-micro text-[var(--fg-subtle)] mt-0.5 leading-tight truncate px-1">
                 {stage.at && <span className="num">{formatTime(stage.at)}</span>}
                 {stage.at && stage.note && <span className="mx-1 opacity-40">·</span>}
                 {stage.note}

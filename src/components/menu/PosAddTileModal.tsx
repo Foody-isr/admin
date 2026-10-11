@@ -9,7 +9,7 @@ import {
 } from '@/lib/posDisplay';
 import type { Menu, MenuItem } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
-import { useCurrency } from '@/lib/i18n';
+import { useCurrency, useI18n } from '@/lib/i18n';
 
 export interface PosAddTileModalProps {
   open: boolean;
@@ -58,7 +58,9 @@ export function PosAddTileModal({
   onAdd,
 }: PosAddTileModalProps) {
   const { money } = useCurrency();
+  const { t } = useI18n();
   const [search, setSearch] = React.useState('');
+  const searchInput = React.useRef<HTMLInputElement>(null);
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
 
@@ -95,9 +97,10 @@ export function PosAddTileModal({
 
   return (
     <Drawer
+      initialFocusRef={searchInput}
       open={open}
       onOpenChange={onOpenChange}
-      title="Ajouter au système de caisse"
+      title={t('posAddToLayout')}
       width={420}
     >
       <div className="space-y-[var(--s-6)]">
@@ -105,11 +108,11 @@ export function PosAddTileModal({
         {isMenuLevel && (
           <section>
             <h3 className="text-fs-sm font-semibold text-[var(--fg-muted)] mb-[var(--s-3)]">
-              Groupes
+              {t('posGroups')}
             </h3>
             {availableGroups.length === 0 ? (
               <p className="text-fs-sm text-[var(--fg-subtle)]">
-                Tous les groupes sont déjà placés.
+                {t('posAllGroupsPlaced')}
               </p>
             ) : (
               <div className="space-y-[var(--s-1)]">
@@ -118,7 +121,7 @@ export function PosAddTileModal({
                     key={g.id}
                     type="button"
                     onClick={() => addGroupTile(g.id)}
-                    className="w-full flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start hover:bg-[var(--surface-subtle)] transition-colors"
+                    className="w-full min-h-11 flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start hover:bg-[var(--surface-subtle)] transition-colors"
                   >
                     {g.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -132,7 +135,7 @@ export function PosAddTileModal({
                         <Layers className="w-4 h-4" />
                       </span>
                     )}
-                    <span className="flex-1 min-w-0 truncate text-fs-sm font-medium text-[var(--fg)]">
+                    <span className="flex-1 min-w-0 break-words text-fs-sm font-medium text-[var(--fg)]">
                       {g.name}
                     </span>
                   </button>
@@ -145,19 +148,21 @@ export function PosAddTileModal({
         {/* ── Articles ── */}
         <section>
           <h3 className="text-fs-sm font-semibold text-[var(--fg-muted)] mb-[var(--s-3)]">
-            Articles
+            {t('items')}
           </h3>
           <div className="relative mb-[var(--s-3)]">
             <Search className="w-4 h-4 absolute start-3 top-1/2 -translate-y-1/2 text-[var(--fg-subtle)]" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un article"
-              className="w-full h-9 rounded-md border border-[var(--line)] bg-[var(--surface)] ps-9 pe-3 text-fs-sm text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--line-strong)]"
+              placeholder={t('search')}
+              aria-label={t('search')}
+              ref={searchInput}
+              className="input ps-9"
             />
           </div>
           {filteredItems.length === 0 ? (
-            <p className="text-fs-sm text-[var(--fg-subtle)]">Aucun résultat.</p>
+            <p className="text-fs-sm text-[var(--fg-subtle)]">{t('noResults')}</p>
           ) : (
             <div className="space-y-[var(--s-1)] max-h-[50vh] overflow-auto">
               {filteredItems.map((it) => (
@@ -165,7 +170,7 @@ export function PosAddTileModal({
                   key={it.id}
                   type="button"
                   onClick={() => addItemTile(it.id)}
-                  className="w-full flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start hover:bg-[var(--surface-subtle)] transition-colors"
+                  className="w-full min-h-11 flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start hover:bg-[var(--surface-subtle)] transition-colors"
                 >
                   {it.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -177,7 +182,7 @@ export function PosAddTileModal({
                   ) : (
                     <span className="w-9 h-9 rounded-md bg-[var(--surface-subtle)] shrink-0" />
                   )}
-                  <span className="flex-1 min-w-0 truncate text-fs-sm font-medium text-[var(--fg)]">
+                  <span className="flex-1 min-w-0 break-words text-fs-sm font-medium text-[var(--fg)]">
                     {it.name}
                   </span>
                   {it.price != null && (

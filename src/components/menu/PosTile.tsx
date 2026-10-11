@@ -3,7 +3,7 @@ import * as React from 'react';
 import { Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PosDisplayTile } from '@/lib/posDisplay';
-import { useCurrency } from '@/lib/i18n';
+import { useCurrency, useI18n } from '@/lib/i18n';
 
 export interface PosTileRef {
   name: string;
@@ -43,13 +43,14 @@ export function PosTile({
   ...rest
 }: PosTileProps) {
   const { money } = useCurrency();
+  const { t } = useI18n();
   const isImage = tile.bg_type === 'image' && !!tile.image_url;
   const isGroup = tile.tile_type === 'group';
   const isStacked = tile.size === 'grand';
 
   const subtitle = isGroup
     ? refData.itemCount != null
-      ? `${refData.itemCount} article${refData.itemCount > 1 ? 's' : ''}`
+      ? t('nArticles').replace('{n}', String(refData.itemCount))
       : null
     : refData.price != null
       ? money(refData.price)
@@ -59,7 +60,11 @@ export function PosTile({
     <button
       type="button"
       onClick={onClick}
+      disabled={!onClick}
       draggable={draggable}
+      aria-label={refData.name}
+      aria-pressed={selected}
+      title={refData.name}
       className={cn(
         'relative w-full h-full rounded-md overflow-hidden text-start p-2.5 transition select-none',
         isStacked ? 'flex flex-col justify-between' : 'flex items-center gap-2',

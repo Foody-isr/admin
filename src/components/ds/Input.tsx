@@ -10,12 +10,12 @@ const baseField = [
   'text-fs-sm font-[inherit]',
   'transition-colors duration-fast ease-out',
   'hover:border-[var(--fg-subtle)]',
-  'focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring',
+  'focus:outline-none focus:border-[var(--brand-ink)] focus:shadow-ring',
   'placeholder:text-[var(--fg-subtle)]',
   'disabled:opacity-50 disabled:cursor-not-allowed',
 ].join(' ');
 
-export const inputFieldClass = cn(baseField, 'h-9 px-[var(--s-3)]');
+export const inputFieldClass = cn(baseField, 'h-10 px-[var(--s-3)]');
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, type = 'text', ...props }, ref) => (
@@ -54,7 +54,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
   ({ className, children, ...props }, ref) => (
     <select
       ref={ref}
-      className={cn(baseField, 'h-9 px-[var(--s-3)]', className)}
+      className={cn(baseField, 'h-10 px-[var(--s-3)]', className)}
       {...props}
     >
       {children}
@@ -75,7 +75,7 @@ export const InputGroup = React.forwardRef<HTMLDivElement, InputGroupProps>(
     <div
       ref={ref}
       className={cn(
-        'flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-9',
+        'flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-10',
         'bg-[var(--surface)] text-[var(--fg)]',
         'border border-[var(--line-strong)] rounded-r-md',
         'transition-colors duration-fast ease-out',

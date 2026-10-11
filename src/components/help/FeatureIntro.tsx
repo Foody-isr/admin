@@ -13,7 +13,7 @@ import { LearnMore } from './LearnMore';
  * localStorage), and clicking the chip re-expands it — so it stays discoverable
  * without ever being a dead end.
  */
-export function FeatureIntro({ feature }: { feature: string }) {
+export function FeatureIntro({ feature, compactOnMobile = false }: { feature: string; compactOnMobile?: boolean }) {
   const { t } = useI18n();
   const f = FEATURE_HELP[feature];
   const storageKey = `foody.help.intro.${feature}`;
@@ -23,8 +23,10 @@ export function FeatureIntro({ feature }: { feature: string }) {
   const [collapsed, setCollapsed] = useState<boolean | null>(null);
 
   useEffect(() => {
-    setCollapsed(localStorage.getItem(storageKey) === 'collapsed');
-  }, [storageKey]);
+    let preference: string | null = null;
+    try { preference = localStorage.getItem(storageKey); } catch { /* An optional display preference must not block the page. */ }
+    setCollapsed(preference ? preference === 'collapsed' : compactOnMobile && window.matchMedia('(max-width: 767px)').matches);
+  }, [storageKey, compactOnMobile]);
 
   if (!f || collapsed === null) return null;
 
@@ -41,10 +43,11 @@ export function FeatureIntro({ feature }: { feature: string }) {
     return (
       <button
         type="button"
+        aria-expanded={false}
         onClick={() => setState(false)}
-        className="mb-4 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-fs-xs text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
+        className="mb-4 min-h-11 inline-flex items-center gap-2 rounded-r-md px-2 py-1 text-fs-xs text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
       >
-        <Info className="size-3.5 text-[var(--brand-500)]" />
+        <Info className="size-3.5 text-[var(--brand-ink)]" />
         {t(f.titleKey)}
       </button>
     );
@@ -53,9 +56,9 @@ export function FeatureIntro({ feature }: { feature: string }) {
   return (
     <div
       role="note"
-      className="mb-4 flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3"
+      className="mb-4 flex items-start gap-3 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3"
     >
-      <Info className="size-4 mt-0.5 shrink-0 text-[var(--brand-500)]" />
+      <Info className="size-4 mt-0.5 shrink-0 text-[var(--brand-ink)]" />
       <div className="min-w-0 flex-1">
         <div className="text-fs-sm font-semibold text-[var(--fg)]">{t(f.titleKey)}</div>
         <p className="mt-0.5 text-fs-sm text-[var(--fg-muted)]">{t(f.blurbKey)}</p>
@@ -67,7 +70,8 @@ export function FeatureIntro({ feature }: { feature: string }) {
         type="button"
         onClick={() => setState(true)}
         aria-label={t('helpDismiss')}
-        className="text-[var(--fg-muted)] hover:text-[var(--fg)]"
+        aria-expanded={true}
+        className="size-11 shrink-0 grid place-items-center rounded-r-md text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface)]"
       >
         <X className="size-4" />
       </button>

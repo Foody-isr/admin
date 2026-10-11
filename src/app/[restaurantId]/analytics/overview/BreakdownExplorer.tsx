@@ -44,6 +44,8 @@ export default function BreakdownExplorer({
   const [dimension, setDimension] = useState<BreakdownDimension>('month');
   const [data, setData] = useState<BreakdownResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('revenue');
 
@@ -58,21 +60,21 @@ export default function BreakdownExplorer({
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    setLoading(true); setError(false);
     getBreakdown(rid, { dimension, scope, basis, limit: dimension === 'customer' ? 50 : undefined })
       .then((r) => alive && setData(r))
-      .catch(() => alive && setData(null))
+      .catch(() => { if (alive) { setData(null); setError(true); } })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
     // scope is memoized by the parent, so it's stable unless the window changes.
-  }, [rid, dimension, scope, basis]);
+  }, [rid, dimension, scope, basis, attempt]);
 
   const locStr = locale === 'he' ? 'he-IL' : locale === 'en' ? 'en-US' : 'fr-FR';
   const fmtMoney = useCallback(
     (n: number) => money(n, { decimals: 0, grouped: true }),
-    [],
+    [money],
   );
 
   // Human label for a row, per dimension.
@@ -146,7 +148,7 @@ export default function BreakdownExplorer({
     const dimLabel = t(DIMENSIONS.find((d) => d.key === dimension)!.labelKey);
     const header = [dimLabel, t('orders'), t('revenue'), '% ' + t('revenue')];
     const body = rows.map((r) => [r.display, r.orders, Math.round(r.revenue), r.share.toFixed(1) + '%']);
-    downloadCsv(`mamie-${dimension}-${scope.from}_${scope.to}`, [header, ...body]);
+    downloadCsv(`foody-${dimension}-${scope.from}_${scope.to}`, [header, ...body]);
   }, [rows, dimension, scope, t]);
 
   return (
@@ -177,9 +179,9 @@ export default function BreakdownExplorer({
                   /* ignore */
                 }
               }}
-              className={`inline-flex items-center h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors ${
+              className={`inline-flex items-center min-h-9 px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors ${
                 active
-                  ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                  ? 'bg-[var(--surface)] text-[var(--fg)]'
                   : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
               }`}
             >
@@ -196,7 +198,8 @@ export default function BreakdownExplorer({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('breakdownSearch')}
-          className="w-full h-9 ps-9 pe-3 rounded-r-sm bg-[var(--surface-2)] border border-[var(--line)] text-fs-sm text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
+          aria-label={t('breakdownSearch')}
+          className="w-full h-10 ps-9 pe-3 rounded-r-sm bg-[var(--surface-2)] border border-[var(--line-strong)] text-fs-sm text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
         />
       </div>
 
@@ -204,8 +207,8 @@ export default function BreakdownExplorer({
         <div className="flex justify-center py-10">
           <div className="animate-spin w-6 h-6 border-2 border-[var(--brand-500)] border-t-transparent rounded-full" />
         </div>
-      ) : rows.length === 0 ? (
-        <p className="text-fs-sm text-[var(--fg-muted)] py-6">{t('noSalesDataYet')}</p>
+      ) : error ? <div role="alert" className="text-[var(--danger-500)]"><p>{t('workspaceLoadError')}</p><Button className="mt-3" onClick={() => setAttempt(n => n + 1)}>{t('retry')}</Button></div> : rows.length === 0 ? (
+        <p className="text-fs-sm text-[var(--fg-muted)] py-6">{search ? t('noResults') : t('noSalesDataYet')}</p>
       ) : (
         <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
           <TableShell className="rounded-none border-0 border-t border-[var(--line)]">
@@ -217,7 +220,7 @@ export default function BreakdownExplorer({
                   <th className="w-2/5 hidden md:table-cell" />
                   <SortHead label={t('orders')} k="orders" cur={sortKey} onSort={setSortKey} right />
                   <SortHead label={t('revenue')} k="revenue" cur={sortKey} onSort={setSortKey} right />
-                  <th style={{ textAlign: 'right', width: 64 }}>%</th>
+                  <th style={{ textAlign: 'end', width: 64 }}>%</th>
                 </tr>
               </Thead>
               <Tbody>
@@ -233,9 +236,9 @@ export default function BreakdownExplorer({
                         />
                       </div>
                     </td>
-                    <NumTd style={{ textAlign: 'right' }}>{r.orders}</NumTd>
-                    <NumTd style={{ textAlign: 'right' }}>{fmtMoney(r.revenue)}</NumTd>
-                    <NumTd style={{ textAlign: 'right' }} className="text-[var(--fg-muted)]">
+                    <NumTd style={{ textAlign: 'end' }}>{r.orders}</NumTd>
+                    <NumTd style={{ textAlign: 'end' }}>{fmtMoney(r.revenue)}</NumTd>
+                    <NumTd style={{ textAlign: 'end' }} className="text-[var(--fg-muted)]">
                       {r.share.toFixed(1)}%
                     </NumTd>
                   </tr>
@@ -263,7 +266,7 @@ function SortHead({
   right?: boolean;
 }) {
   return (
-    <th style={{ textAlign: right ? 'right' : 'left' }}>
+    <th style={{ textAlign: right ? 'end' : 'start' }}>
       <button
         type="button"
         onClick={() => onSort(k)}

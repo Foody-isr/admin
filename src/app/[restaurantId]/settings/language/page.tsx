@@ -1,283 +1,60 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Languages, AlertTriangle, RefreshCw } from 'lucide-react';
-import {
-  getRestaurant,
-  updateRestaurant,
-  retranslatePreview,
-  applyTranslations,
-  Restaurant,
-  TranslationReviewEntry,
-} from '@/lib/api';
+import { Languages, RefreshCw } from 'lucide-react';
+import { getRestaurant, updateRestaurant, retranslatePreview, applyTranslations, type TranslationReviewEntry } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Button, Field, PageHead, Section, Select } from '@/components/ds';
+import { Button, ConfirmDialog, Field, PageHead, Section, Select } from '@/components/ds';
 import TranslationReviewTable from '@/components/translations/TranslationReviewTable';
+import { LOCALE_LABELS, SUPPORTED_LOCALES, type Locale } from '@/components/translations/sections';
 
-const SUPPORTED_LOCALES: { value: 'en' | 'he' | 'fr'; labelKey: string; nativeLabel: string }[] = [
-  { value: 'en', labelKey: 'languageEnglish', nativeLabel: 'English' },
-  { value: 'fr', labelKey: 'languageFrench', nativeLabel: 'Français' },
-  { value: 'he', labelKey: 'languageHebrew', nativeLabel: 'עברית' },
-];
+function isLocale(value:unknown):value is Locale{return value==='en'||value==='fr'||value==='he';}
 
-type Locale = (typeof SUPPORTED_LOCALES)[number]['value'];
+/** Keep the saved source language and the reviewed translation draft in one restaurant scope. */
+export default function LanguageSettingsPage(){const {restaurantId}=useParams();const rid=Number(restaurantId);return <LanguageWorkspace key={rid} rid={rid}/>;}
 
-function isLocale(v: unknown): v is Locale {
-  return v === 'en' || v === 'he' || v === 'fr';
-}
-
-export default function LanguageSettingsPage() {
-  const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
-  const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canEdit = hasAnyPermission('settings.edit');
-
-  const [loading, setLoading] = useState(true);
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [locale, setLocale] = useState<Locale>('en');
-  const [savedLocale, setSavedLocale] = useState<Locale>('en');
-
-  const [savingLocale, setSavingLocale] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  const [retranslating, setRetranslating] = useState(false);
-  const [retranslateResult, setRetranslateResult] = useState<string | null>(null);
-  const [retranslateError, setRetranslateError] = useState<string | null>(null);
-  const [reviewEntries, setReviewEntries] = useState<TranslationReviewEntry[] | null>(null);
-  const [reviewSourceLocale, setReviewSourceLocale] = useState('');
-  const [applying, setApplying] = useState(false);
-
-  useEffect(() => {
-    getRestaurant(rid)
-      .then((r) => {
-        setRestaurant(r);
-        const initial: Locale = isLocale(r.default_locale) ? r.default_locale : 'en';
-        setLocale(initial);
-        setSavedLocale(initial);
-      })
-      .finally(() => setLoading(false));
-  }, [rid]);
-
-  const localeChanged = locale !== savedLocale;
-
-  const handleSave = async () => {
-    setSavingLocale(true);
-    setSaveError(null);
-    try {
-      const updated = await updateRestaurant(rid, { default_locale: locale } as Partial<Restaurant>);
-      setRestaurant(updated);
-      setSavedLocale(locale);
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 2500);
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : 'Failed to save');
-    } finally {
-      setSavingLocale(false);
-    }
-  };
-
-  // Step 1: compute fresh translations for the whole catalog. Writes nothing —
-  // the user reviews and edits them in the table before applying.
-  const handleOpenReview = async () => {
-    setRetranslating(true);
-    setRetranslateError(null);
-    setRetranslateResult(null);
-    try {
-      const { sourceLocale, entries } = await retranslatePreview(rid);
-      setReviewSourceLocale(sourceLocale);
-      setReviewEntries(entries);
-    } catch (e) {
-      setRetranslateError(e instanceof Error ? e.message : 'Re-translate failed');
-    } finally {
-      setRetranslating(false);
-    }
-  };
-
-  const handleTranslationEdit = (text: string, localeKey: string, value: string) => {
-    setReviewEntries((prev) =>
-      prev?.map((e) =>
-        e.text === text ? { ...e, translations: { ...e.translations, [localeKey]: value } } : e,
-      ) ?? prev,
-    );
-  };
-
-  // Step 2: write the reviewed values onto every matching entity.
-  const handleApply = async () => {
-    if (!reviewEntries) return;
-    setApplying(true);
-    setRetranslateError(null);
-    try {
-      const res = await applyTranslations(
-        rid,
-        Object.fromEntries(reviewEntries.map((e) => [e.text, e.translations])),
-      );
-      const total =
-        res.items + res.groups + res.modifier_sets + res.modifiers + res.variant_groups + res.variants;
-      setRetranslateResult(
-        t('languageRetranslateSummary')?.replace('{count}', String(total)) ||
-          `Re-translated ${total} entities.`,
-      );
-      setReviewEntries(null);
-    } catch (e) {
-      setRetranslateError(e instanceof Error ? e.message : 'Apply failed');
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-[760px]">
-      <PageHead
-        title={t('languageSettings') || 'Language'}
-        desc={
-          t('languageSettingsDesc') ||
-          "Choose the language you type your menu in. We'll automatically translate to other languages so guests can read your menu in their preferred language."
-        }
-      />
-
-      <Section
-        title={
-          <span className="inline-flex items-center gap-2">
-            <Languages className="w-4 h-4" />
-            {t('languageDefaultTitle') || 'Default menu language'}
-          </span>
-        }
-        desc={
-          t('languageDefaultDesc') ||
-          "This is the language you type your menu items in. Translations into the other supported languages are generated automatically when you save an item."
-        }
-      >
-        <Field label={t('languageFieldLabel') || 'Language'}>
-          <Select
-            value={locale}
-            onChange={(e) => setLocale(e.target.value as Locale)}
-            disabled={savingLocale || !canEdit}
-          >
-            {SUPPORTED_LOCALES.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.nativeLabel} ({l.value})
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        {localeChanged && (
-          <div
-            className="mt-[var(--s-4)] px-[var(--s-4)] py-[var(--s-3)] rounded-r-md text-fs-sm flex gap-2"
-            style={{
-              background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
-              color: 'var(--warning-500)',
-              border: '1px solid color-mix(in oklab, var(--warning-500) 35%, var(--line))',
-            }}
-          >
-            <AlertTriangle className="w-4 h-4 mt-[2px] shrink-0" />
-            <div>
-              {t('languageChangeWarning') ||
-                'Saving switches the language guests see by default. Your existing translations are kept and re-pointed to the new language, so nothing is re-translated or lost.'}
-            </div>
-          </div>
-        )}
-
-        <div className="mt-[var(--s-4)] flex items-center gap-3">
-          {canEdit && (
-            <Button
-              onClick={handleSave}
-              disabled={!localeChanged || savingLocale}
-              variant="primary"
-            >
-              {savingLocale ? t('saving') || 'Saving…' : t('save') || 'Save'}
-            </Button>
-          )}
-          {savedFlash && (
-            <span className="text-fs-sm text-[var(--success-500)]">
-              {t('saved') || 'Saved'}
-            </span>
-          )}
-          {saveError && (
-            <span className="text-fs-sm text-[var(--danger-500)]">{saveError}</span>
-          )}
-        </div>
-      </Section>
-
-      <Section
-        title={
-          <span className="inline-flex items-center gap-2">
-            <RefreshCw className="w-4 h-4" />
-            {t('languageRetranslateTitle') || 'Re-translate all menu content'}
-          </span>
-        }
-        desc={
-          t('languageRetranslateDesc') ||
-          'Erase auto-generated translations on every menu item, group, modifier and variant for this restaurant, then regenerate them from your default menu language.'
-        }
-      >
-        <div
-          className="mb-[var(--s-4)] px-[var(--s-4)] py-[var(--s-3)] rounded-r-md text-fs-sm flex gap-2"
-          style={{
-            background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
-            color: 'var(--warning-500)',
-            border: '1px solid color-mix(in oklab, var(--warning-500) 35%, var(--line))',
-          }}
-        >
-          <AlertTriangle className="w-4 h-4 mt-[2px] shrink-0" />
-          <div>
-            {t('languageRetranslateWarning') ||
-              "This overwrites every translation, including any you've manually edited. Run it after changing the default language above, or if auto-translations look wrong across the board. Source-language text (the values you type in) is never touched — only translations are regenerated."}
-          </div>
-        </div>
-
-        {reviewEntries === null ? (
-          <div className="flex items-center gap-3">
-            {canEdit && (
-              <Button onClick={handleOpenReview} disabled={retranslating} variant="secondary">
-                {retranslating
-                  ? t('languageRetranslating') || 'Re-translating…'
-                  : t('languageRetranslateAction') || 'Re-translate everything'}
-              </Button>
-            )}
-            {retranslateResult && (
-              <span className="text-fs-sm text-[var(--success-500)]">{retranslateResult}</span>
-            )}
-            {retranslateError && (
-              <span className="text-fs-sm text-[var(--danger-500)]">{retranslateError}</span>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-fs-sm text-[var(--fg-muted)]">{t('trReviewIntro')}</p>
-            <TranslationReviewTable
-              entries={reviewEntries}
-              sourceLocale={reviewSourceLocale}
-              onEdit={handleTranslationEdit}
-            />
-            {retranslateError && (
-              <span className="text-fs-sm text-[var(--danger-500)]">{retranslateError}</span>
-            )}
-            <div className="flex items-center gap-2">
-              <Button onClick={() => setReviewEntries(null)} variant="ghost" disabled={applying}>
-                {t('cancel') || 'Cancel'}
-              </Button>
-              {canEdit && (
-                <Button onClick={handleApply} variant="primary" disabled={applying}>
-                  {applying ? t('saving') || 'Saving…' : t('trReviewApply')}
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </Section>
-    </div>
-  );
+function LanguageWorkspace({rid}:{rid:number}) {
+ const {t}=useI18n();const {hasAnyPermission}=usePermissions();const canEdit=hasAnyPermission('settings.edit');const canTranslate=hasAnyPermission('menu.edit');
+ const [locale,setLocale]=useState<Locale>('en');const [savedLocale,setSavedLocale]=useState<Locale>('en');const [loading,setLoading]=useState(true);const [loadError,setLoadError]=useState('');
+ const [busy,setBusy]=useState<'locale'|'preview'|'apply'|null>(null);const [saveError,setSaveError]=useState('');const [saved,setSaved]=useState(false);
+ const [review,setReview]=useState<{entries:TranslationReviewEntry[];source:string}|null>(null);const [reviewError,setReviewError]=useState('');const [result,setResult]=useState('');const [discard,setDiscard]=useState(false);const [confirm,setConfirm]=useState(false);
+ const translations=useRef(t);translations.current=t;
+ const request=useRef({value:0});const lock=useRef(false);
+ const load=useCallback(async()=>{const sequence=++request.current.value;setLoading(true);setLoadError('');try{const restaurant=await getRestaurant(rid);if(sequence!==request.current.value)return;const value=isLocale(restaurant.default_locale)?restaurant.default_locale:'en';setLocale(value);setSavedLocale(value);}catch(cause){if(sequence===request.current.value)setLoadError(cause instanceof Error?cause.message:translations.current('loadFailed'));}finally{if(sequence===request.current.value)setLoading(false);}},[rid]);
+ useEffect(()=>{const scope=request.current;void load();return()=>{scope.value+=1;};},[load]);
+ const dirty=locale!==savedLocale||review!==null;
+ useEffect(()=>{const warn=(event:BeforeUnloadEvent)=>{if(dirty||lock.current){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
+ const saveLocale=async()=>{
+  if(lock.current||!canEdit||loading||loadError||review||locale===savedLocale)return;lock.current=true;setBusy('locale');setSaveError('');setSaved(false);
+  try{const updated=await updateRestaurant(rid,{default_locale:locale});const canonical=isLocale(updated.default_locale)?updated.default_locale:locale;setLocale(canonical);setSavedLocale(canonical);setSaved(true);}catch(cause){setSaveError(cause instanceof Error?cause.message:t('saveFailed'));}finally{lock.current=false;setBusy(null);}
+ };
+ const preview=async()=>{
+  if(lock.current||!canTranslate||loading||loadError||locale!==savedLocale||review)return;lock.current=true;setBusy('preview');setReviewError('');setResult('');
+  try{const response=await retranslatePreview(rid);setReview({entries:response.entries,source:response.sourceLocale});}catch(cause){setReviewError(cause instanceof Error?cause.message:t('languageRetranslateFailed'));}finally{lock.current=false;setBusy(null);}
+ };
+ const apply=async()=>{
+  if(lock.current||!canTranslate||!review?.entries.length)return;lock.current=true;setBusy('apply');setReviewError('');
+  try{const counts=await applyTranslations(rid,Object.fromEntries(review.entries.map(entry=>[entry.text,entry.translations])));const total=counts.items+counts.groups+counts.modifier_sets+counts.modifiers+counts.variant_groups+counts.variants+(counts.option_sets??0)+(counts.options??0);setResult(t('languageRetranslateSummary').replace('{count}',String(total)));setReview(null);}catch(cause){setReviewError(`${t('languageApplyPartialError')} ${cause instanceof Error?cause.message:t('saveFailed')}`);}finally{lock.current=false;setBusy(null);}
+ };
+ const edit=(text:string,target:string,value:string)=>{if(lock.current||!canTranslate)return;setReview(current=>current?{...current,entries:current.entries.map(entry=>entry.text===text?{...entry,translations:{...entry.translations,[target]:value}}:entry)}:null);};
+ return <div className="space-y-6">
+  <PageHead title={t('languageSettings')} desc={t('languageSettingsDesc')}/>
+  {loading?<p role="status" className="py-12 text-sm">{t('loading')}</p>:loadError?<div role="alert" className="rounded-xl border border-[var(--line)] p-5"><p className="text-sm text-[var(--danger-500)]">{loadError}</p><Button variant="secondary" className="mt-3" onClick={()=>void load()}>{t('retry')}</Button></div>:<>
+   <Section title={<span className="flex items-center gap-2"><Languages className="size-4" aria-hidden="true"/>{t('languageDefaultTitle')}</span>} desc={t('languageDefaultDesc')}>
+    <Field label={t('languageFieldLabel')} className="max-w-sm"><Select value={locale} disabled={!!busy||!canEdit||!!review} onChange={event=>{if(isLocale(event.target.value)){setLocale(event.target.value);setSaved(false);setSaveError('');}}}>{SUPPORTED_LOCALES.map(value=><option key={value} value={value}>{LOCALE_LABELS[value]}</option>)}</Select></Field>
+    {locale!==savedLocale&&<p className="mt-4 rounded-lg bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t('languageChangeWarning')}</p>}
+    <div className="mt-4 flex flex-wrap items-center gap-3">{canEdit&&<Button disabled={!!busy||locale===savedLocale||!!review} onClick={()=>void saveLocale()}>{t(busy==='locale'?'saving':'save')}</Button>}{saved&&<p role="status" className="text-sm text-[var(--success-500)]">{t('saved')}</p>}{saveError&&<p role="alert" className="text-sm text-[var(--danger-500)]">{saveError}</p>}</div>
+   </Section>
+   <Section title={<span className="flex items-center gap-2"><RefreshCw className="size-4" aria-hidden="true"/>{t('languageRetranslateTitle')}</span>} desc={t('languageReviewDescription')}>
+    <p className="mb-4 rounded-lg bg-[var(--surface-2)] p-4 text-sm leading-6 text-[var(--fg-muted)]">{t('languageReviewEffect')}</p>
+    {locale!==savedLocale&&<p className="mb-4 text-sm text-[var(--fg-muted)]">{t('languageSaveBeforeReview')}</p>}
+    {review?<div className="space-y-4"><p className="text-sm text-[var(--fg-muted)]">{t('trReviewIntro')}</p><TranslationReviewTable entries={review.entries} sourceLocale={review.source} onEdit={edit} disabled={!!busy||!canTranslate}/><div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" disabled={!!busy} onClick={()=>review.entries.length?setDiscard(true):setReview(null)}>{t('cancel')}</Button>{canTranslate&&<Button disabled={!!busy||!review.entries.length} onClick={()=>setConfirm(true)}>{t(busy==='apply'?'saving':'trReviewApply')}</Button>}</div></div>:canTranslate&&<Button variant="secondary" disabled={!!busy||locale!==savedLocale} onClick={()=>void preview()}>{t(busy==='preview'?'languageRetranslating':'languageReviewPreview')}</Button>}
+    {reviewError&&<p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">{reviewError}</p>}{result&&<p role="status" className="mt-4 text-sm text-[var(--success-500)]">{result}</p>}
+   </Section>
+  </>}
+  <ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} danger onConfirm={()=>{setReview(null);setReviewError('');}}/>
+  <ConfirmDialog open={confirm} onOpenChange={setConfirm} title={t('trReviewApply')} description={t('languageApplyConfirm').replace('{count}',String(review?.entries.length??0))} confirmLabel={t('trReviewApply')} cancelLabel={t('cancel')} onConfirm={()=>void apply()}/>
+ </div>;
 }

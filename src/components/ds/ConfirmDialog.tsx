@@ -1,5 +1,6 @@
 'use client';
 
+import { useDialogReturnFocus } from '@/lib/use-dialog-return-focus';
 import * as React from 'react';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,8 @@ export interface ConfirmDialogProps {
   /** Destructive confirmations get the danger button. */
   danger?: boolean;
   onConfirm: () => void;
+  /** Explicit trigger for confirmations opened from a closing menu. */
+  returnFocusRef?: React.RefObject<HTMLElement>;
 }
 
 export function ConfirmDialog({
@@ -38,18 +41,21 @@ export function ConfirmDialog({
   cancelLabel,
   danger,
   onConfirm,
+  returnFocusRef,
 }: ConfirmDialogProps) {
+  const focus = useDialogReturnFocus(returnFocusRef);
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay
           className={cn(
-            'fixed inset-0 z-[60] bg-black/55 backdrop-blur-[3px]',
+            'fixed inset-0 z-[60] bg-[var(--overlay)]',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
           )}
         />
-        <AlertDialog.Content
+        <AlertDialog.Content {...focus}
+          {...(!description ? { 'aria-describedby': undefined } : {})}
           className={cn(
             // Symmetric insets rather than left:50% + translateX, so the box
             // stays centred in both directions.

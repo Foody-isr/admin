@@ -1,10 +1,13 @@
 'use client';
 
+import { useDialogReturnFocus } from '@/lib/use-dialog-return-focus';
+
 import * as React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './Button';
+import { useI18n } from '@/lib/i18n';
 
 export interface FullScreenEditorProps {
   open: boolean;
@@ -15,6 +18,10 @@ export interface FullScreenEditorProps {
   saveLabel?: string;
   onSave?: () => void | Promise<void>;
   saveDisabled?: boolean;
+  /** Keep an in-flight save visible. */
+  closeDisabled?: boolean;
+  /** Initial focus inside the editor. */
+  initialFocusRef?: React.RefObject<HTMLElement>;
   showCancel?: boolean;
   cancelLabel?: string;
   /** Optional left rail (280px column) — e.g. image + summary. */
@@ -22,6 +29,9 @@ export interface FullScreenEditorProps {
   footer?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  /** Specialized workspaces can provide their own contained scrolling panels. */
+  bodyClassName?: string;
+  contentClassName?: string;
 }
 
 /**
@@ -34,21 +44,29 @@ export function FullScreenEditor({
   title,
   subtitle,
   status,
-  saveLabel = 'Enregistrer',
+  saveLabel,
   onSave,
   saveDisabled,
+  closeDisabled = false,
+  initialFocusRef,
   showCancel = true,
-  cancelLabel = 'Annuler',
+  cancelLabel,
   rail,
   footer,
   children,
   className,
+  bodyClassName,
+  contentClassName,
 }: FullScreenEditorProps) {
+  const focus = useDialogReturnFocus();
+  const { t } = useI18n();
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={value => { if (value || !closeDisabled) onOpenChange(value); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <Dialog.Content
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)] data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <Dialog.Content {...focus}
+          onOpenAutoFocus={event => { focus.onOpenAutoFocus(event); if(initialFocusRef?.current){event.preventDefault();initialFocusRef.current.focus();} }}
+          {...(!subtitle ? { 'aria-describedby': undefined } : {})}
           className={cn(
             // Edge-to-edge fullscreen on mobile, inset modal at md+ via
             // symmetric left/right insets so centering is direction-agnostic.
@@ -67,29 +85,28 @@ export function FullScreenEditor({
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98]',
             className,
           )}
-          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           {/* Head — close · title · actions. Cancel button collapses on mobile
               (the X icon already cancels) so the title has room to breathe. */}
           <div
             className={cn(
-              'h-[60px] shrink-0 px-[var(--s-4)] md:px-[var(--s-5)]',
+              'min-h-[64px] py-3 shrink-0 px-[var(--s-4)] md:px-[var(--s-5)]',
               'flex items-center gap-[var(--s-3)] md:gap-[var(--s-4)]',
               'bg-[var(--surface)] border-b border-[var(--line)]',
             )}
           >
             <Dialog.Close asChild>
-              <Button variant="ghost" size="md" icon aria-label="Fermer">
+              <Button variant="ghost" size="lg" disabled={closeDisabled} icon aria-label={t('close')}>
                 <X />
               </Button>
             </Dialog.Close>
 
             <div className="flex-1 text-center min-w-0">
-              <Dialog.Title className="text-fs-md font-semibold text-[var(--fg)] truncate">
+              <Dialog.Title className="text-fs-md font-semibold text-[var(--fg)] leading-snug">
                 {title}
               </Dialog.Title>
               {subtitle && (
-                <Dialog.Description className="text-fs-xs text-[var(--fg-subtle)] truncate">
+                <Dialog.Description className="sr-only md:not-sr-only text-fs-xs text-[var(--fg-muted)] leading-snug">
                   {subtitle}
                 </Dialog.Description>
               )}
@@ -99,19 +116,19 @@ export function FullScreenEditor({
               {status}
               {showCancel && (
                 <Dialog.Close asChild>
-                  <Button variant="secondary" size="md" className="hidden md:inline-flex">
-                    {cancelLabel}
+                  <Button variant="secondary" size="lg" disabled={closeDisabled} className="hidden md:inline-flex">
+                    {cancelLabel ?? t('cancel')}
                   </Button>
                 </Dialog.Close>
               )}
               {onSave && (
                 <Button
                   variant="primary"
-                  size="md"
+                  size="lg"
                   onClick={onSave}
                   disabled={saveDisabled}
                 >
-                  <Save /> {saveLabel}
+                  <Save /> {saveLabel ?? t('save')}
                 </Button>
               )}
             </div>
@@ -126,6 +143,7 @@ export function FullScreenEditor({
               rail
                 ? 'flex flex-col overflow-y-auto md:grid md:overflow-hidden md:[grid-template-columns:280px_1fr]'
                 : 'overflow-y-auto',
+              bodyClassName,
             )}
           >
             {rail && (
@@ -137,6 +155,7 @@ export function FullScreenEditor({
               className={cn(
                 'p-[var(--s-4)] md:p-[var(--s-6)_var(--s-8)] min-w-0',
                 rail && 'md:overflow-y-auto',
+                contentClassName,
               )}
             >
               {children}

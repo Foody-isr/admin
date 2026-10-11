@@ -41,14 +41,14 @@ export function OrderNotesDock({
       className="flex h-12 w-full min-w-0 items-center gap-[var(--s-2)] rounded-r-sm text-start focus-visible:outline-none focus-visible:shadow-ring"
     >
       <MessageSquareTextIcon aria-hidden className="size-4 shrink-0 text-[var(--fg-muted)]" />
-      <span className="text-fs-xs font-semibold uppercase tracking-[0.08em] text-[var(--fg-muted)]">
+      <span className="text-fs-xs font-semibold text-[var(--fg-muted)]">
         {t('orderNotesHeading') || 'Notes internes'}
       </span>
       {notes.status === 'ready' && (
-        <span className="tabular-nums text-[10px] text-[var(--fg-subtle)]">{notes.notes.length}</span>
+        <span className="tabular-nums text-fs-micro text-[var(--fg-subtle)]">{notes.notes.length}</span>
       )}
       {notes.status === 'loading' && (
-        <span aria-hidden className="text-[10px] text-[var(--fg-subtle)]">…</span>
+        <span aria-hidden className="text-fs-micro text-[var(--fg-subtle)]">…</span>
       )}
       {notes.status === 'error' && <FailedMark label={t('orderNotesLoadError')} />}
       {preview && (

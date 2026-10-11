@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Columns3Icon, GripVerticalIcon } from 'lucide-react';
+import { GripVerticalIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { OrdersTableColumns } from '@/lib/orders/useOrdersTableConfig';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ColumnPicker } from '@/components/data-table/ColumnPicker';
 import { Checkbox } from '@/components/ui/checkbox';
 
 /**
@@ -26,18 +26,8 @@ export function OrderColumnPicker({ columns }: { columns: OrdersTableColumns }) 
   };
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
-          aria-label={t('columns')}
-          title={t('columns')}
-        >
-          <Columns3Icon className="size-4" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="flex w-72 flex-col gap-[var(--s-3)] p-[var(--s-4)]">
+    <ColumnPicker>
+      <div className="flex flex-col gap-3 p-2">
         <div className="flex flex-col gap-1">
           <span className="text-fs-sm font-medium text-[var(--fg)]">{t('columns')}</span>
           <span className="text-fs-xs text-[var(--fg-muted)]">{t('columnsSharedHint')}</span>
@@ -88,7 +78,7 @@ export function OrderColumnPicker({ columns }: { columns: OrdersTableColumns }) 
             {t('resetColumns')}
           </button>
         )}
-      </PopoverContent>
-    </Popover>
+      </div>
+    </ColumnPicker>
   );
 }

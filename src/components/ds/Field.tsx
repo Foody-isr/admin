@@ -20,7 +20,7 @@ export function Field({ label, hint, grow, children, className, ...props }: Fiel
       {...props}
     >
       {label && (
-        <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+        <span className="text-fs-sm font-medium text-[var(--fg)]">
           {label}
         </span>
       )}

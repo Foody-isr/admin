@@ -31,7 +31,7 @@ export function ManualValidationPanel({
   const canSave = hasIngredients && !submitting;
 
   return (
-    <section className="overflow-hidden rounded-[18px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-2)]">
+    <section className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--surface)] ">
       <div className="border-b border-[var(--line)] px-5 py-5">
         <p className="text-sm font-semibold text-[var(--fg)]">{t('labManualValidationTitle')}</p>
         <div className="mt-4 flex items-end justify-between gap-4">
@@ -70,7 +70,7 @@ export function ManualValidationPanel({
           <Button size="lg" className="w-full" onClick={onSave} disabled={!canSave}>
             <SaveIcon /> {submitting ? t('labSaving') : t('labSaveManualRecipe')}
           </Button>
-          <p className="px-2 pt-2 text-center text-[11px] leading-4 text-[var(--fg-muted)]">{hasIngredients ? t('labManualSaveHelp') : t('labManualAddFirst')}</p>
+          <p className="px-2 pt-2 text-center text-xs leading-4 text-[var(--fg-muted)]">{hasIngredients ? t('labManualSaveHelp') : t('labManualAddFirst')}</p>
         </div>
       )}
     </section>

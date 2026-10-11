@@ -63,7 +63,7 @@ export function deviceForgetErrorMessage(error: unknown, fallback: string, t: Tr
     const translationKey = detail ? FORGET_ERROR_KEYS[detail] : undefined;
     return translationKey ? t(translationKey) : fallback;
   }
-  return error instanceof Error ? error.message : fallback;
+  return fallback;
 }
 
 function stringDetail(details: Record<string, unknown>, key: string): string | undefined {
@@ -157,4 +157,27 @@ export function latestDeviceApplication(device: ManagedDevice): ManagedDeviceApp
 /** Matches a functional category without duplicating the physical inventory row. */
 export function deviceMatchesKind(device: ManagedDevice, kind: ManagedDeviceKind): boolean {
   return device.kind === kind || device.capabilities.some((capability) => capability === kind);
+}
+
+/** Require every capability's permission, matching the device mutation handler. */
+export function deviceManagementPermissions(device: ManagedDevice): string[] | null {
+  const map: Record<string, string> = { printer: 'printers.manage', payment_terminal: 'payments.manage', kitchen_display: 'kitchen.manage', customer_display: 'settings.edit' };
+  if (device.capabilities.some(capability => !map[capability])) return null;
+  const permissions = device.capabilities.map(capability => map[capability]);
+  if (hasInstalledApplication(device, 'foody_pos')) permissions.push('shifts.manage');
+  return permissions.length ? Array.from(new Set(permissions)) : null;
+}
+
+/** Validate the tenant and inventory shape before it can confirm an uncertain device action. */
+export function checkedDeviceInventory(rows: RestaurantDevice[], restaurantId: number): RestaurantDevice[] {
+  if (!Array.isArray(rows) || rows.some(row => !row || typeof row.id !== 'string' || !row.id || row.restaurant_id !== restaurantId
+    || typeof row.system_name !== 'string' || typeof row.display_name !== 'string'
+    || !['unknown', 'tablet', 'phone', 'computer', 'display', 'printer', 'payment_terminal'].includes(row.kind)
+    || !['unknown', 'online', 'offline', 'attention', 'unconfigured'].includes(row.status)
+    || !Array.isArray(row.capabilities) || row.capabilities.some(capability => !capability || typeof capability.type !== 'string')
+    || !Array.isArray(row.components) || row.components.some(component => !component || typeof component.type !== 'string' || !component.details || typeof component.details !== 'object' || Array.isArray(component.details))
+    || !Array.isArray(row.connections) || row.connections.some(connection => !connection || typeof connection.id !== 'string' || typeof connection.system_name !== 'string' || typeof connection.display_name !== 'string')
+    || (row.profile_names != null && (!Array.isArray(row.profile_names) || row.profile_names.some(name => typeof name !== 'string'))))) throw new Error('Incomplete device inventory');
+  if (new Set(rows.map(row => row.id)).size !== rows.length) throw new Error('Duplicate inventory identity');
+  return rows;
 }

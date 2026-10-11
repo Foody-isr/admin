@@ -1,0 +1,112 @@
+/* Reference viewport: 1440 × 718 CSS px. Login stays white in either app theme. */
+.page {
+  --login-ink: #101010;
+  --login-muted: #757575;
+  --login-line: #dedede;
+  --login-subtle: #f0f0f0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 100dvh;
+  background: #fff;
+  color: var(--login-ink);
+  color-scheme: light;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+.page :is(a, button, select, input):focus-visible { outline: 2px solid var(--login-ink); outline-offset: 3px; }
+.authPanel { position: relative; display: flex; align-items: center; justify-content: center; min-height: 100dvh; padding: 146px 65px 96px; }
+.brand { position: absolute; inset-inline-start: 24px; top: 48px; }
+.formContent { width: 100%; max-width: 640px; min-height: 352px; }
+.formContent h1 { margin: 0 0 16px; font-size: 24px; font-weight: 700; line-height: 32px; letter-spacing: -.5px; }
+.intro { margin: 0 0 16px; line-height: 24px; }
+.intro a, .editEmail { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.emailField { position: relative; }
+.emailField input, .passwordField input {
+  display: block;
+  width: 100%;
+  height: 64px;
+  border: 1px solid var(--login-line);
+  border-radius: 8px;
+  padding: 25px 16px 7px;
+  background: #fff;
+  color: var(--login-ink);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  box-shadow: none;
+}
+.emailField input:focus, .passwordField input:focus { outline: 2px solid var(--login-ink); outline-offset: 2px; border-color: var(--login-line); box-shadow: none; }
+.emailField > label {
+  position: absolute;
+  inset-inline: 16px;
+  top: 9px;
+  width: fit-content;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  pointer-events: none;
+  transition: top 120ms ease, font-size 120ms ease;
+}
+.emailField input:placeholder-shown:not(:focus) + label { top: 20px; font-size: 16px; font-weight: 400; color: var(--login-muted); line-height: 24px; }
+.emailReadonly input { padding-right: 100px; }
+:global([dir="rtl"]) .emailReadonly input { padding-right: 16px; padding-left: 100px; }
+.editEmail { position: absolute; inset-inline-end: 16px; top: 10px; height: 44px; font-size: 14px; }
+.passwordField { margin-top: 16px; }
+.passwordField > div { position: relative; }
+.passwordField label { position: absolute; inset-inline-start: 16px; top: 9px; z-index: 1; margin: 0; color: var(--login-ink); font-size: 14px; line-height: 20px; font-weight: 600; pointer-events: none; }
+.passwordField input { padding-inline-end: 48px; }
+.passwordField button { color: var(--login-ink); }
+.remember { display: flex; align-items: center; gap: 12px; margin-top: 24px; cursor: pointer; }
+.remember input { width: 20px; height: 20px; accent-color: var(--login-ink); }
+.primaryButton, .passkeyButton {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+.primaryButton { margin-top: 32px; background: var(--login-ink); color: #fff; }
+.primaryButton:hover { background: #303030; }
+.passkeyButton { background: var(--login-subtle); color: var(--login-ink); }
+.passkeyButton:hover { background: #e5e5e5; }
+.page button:disabled { cursor: wait; opacity: .55; }
+.separator { display: flex; align-items: center; gap: 24px; margin: 24px 0; height: 24px; }
+.separator::before, .separator::after { content: ''; flex: 1; height: 1px; background: var(--login-subtle); }
+.passkeyIcon { position: relative; display: block; width: 20px; height: 22px; }
+.passkeyIcon svg:first-child { width: 19px; height: 22px; stroke-width: 2.5; }
+.passkeyIcon svg:last-child { position: absolute; width: 12px; height: 15px; right: -5px; bottom: 0; stroke-width: 3; background: var(--login-subtle); }
+.error { border-inline-start: 3px solid var(--login-ink); background: var(--login-subtle); padding: 12px 16px; margin-bottom: 24px; font-size: 14px; }
+.preferences { position: absolute; inset-inline-start: 24px; bottom: 16px; color: var(--login-muted); font-size: 14px; }
+.preferences select { min-height: 44px; padding: 8px 0; border: 0; background: transparent; color: inherit; }
+.promotion { position: relative; padding: 24px 64px 48px; }
+.promotion::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; width: 1px; background: var(--login-subtle); }
+.promotionVisual { position: relative; width: 100%; aspect-ratio: 592 / 437; overflow: hidden; background: var(--login-ink); container-type: inline-size; }
+.features { position: absolute; inset-inline: 12px 0; top: 12px; color: #303030; font-size: clamp(20px, 4.4cqw, 36px); line-height: 1.6; font-weight: 600; letter-spacing: -.7px; white-space: nowrap; }
+.features .highlight { color: #fff; }
+.promotionImage { position: absolute; inset-inline-start: 60%; top: 29%; width: 49%; height: 43.5%; max-width: none; object-fit: cover; object-position: center; border-radius: 6px; filter: grayscale(1); box-shadow: 0 12px 20px #0003; }
+.promotion h2 { margin: 32px 0 16px; font-size: 32px; line-height: 40px; letter-spacing: -.8px; font-weight: 700; }
+.promotion > p { color: var(--login-muted); font-size: 20px; line-height: 28px; margin: 0; }
+.learnMore { display: inline-flex; align-items: center; gap: 16px; min-height: 44px; margin-top: 20px; font-weight: 600; }
+.learnMore:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (min-width: 1600px) { .promotion { padding-inline: max(64px, calc((100% - 720px) / 2)); } }
+@media (max-width: 1199px) {
+  .authPanel { padding-inline: 40px; }
+  .promotion { padding-inline: 40px; }
+  .promotion h2 { font-size: 28px; line-height: 36px; }
+  .promotion > p { font-size: 18px; line-height: 28px; }
+}
+@media (max-width: 899px) {
+  .page { display: block; }
+  .promotion { display: none; }
+  .authPanel { padding: 128px 24px 96px; }
+  .formContent { max-width: 480px; }
+  .brand { top: 32px; }
+}
+@media (prefers-reduced-motion: reduce) { .emailField > label { transition: none; } }

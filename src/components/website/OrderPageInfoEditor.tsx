@@ -1,5 +1,6 @@
 'use client';
 
+import { Switch } from '@/components/ui/switch';
 import { useState } from 'react';
 import type {
   OrderPageInfo,
@@ -173,19 +174,9 @@ const MODAL_SECTIONS: { key: OrderPageModalSection; label: string }[] = [
   { key: 'custom_text', label: 'Texte personnalisé' },
 ];
 
-function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
+function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={onClick}
-      className={`relative w-9 h-5 rounded-full shrink-0 transition-colors ${on ? 'bg-brand-500' : 'bg-[var(--divider)]'}`}
-    >
-      <span
-        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-[18px]' : 'translate-x-0.5'}`}
-      />
-    </button>
+    <Switch aria-label={label} onCheckedChange={onClick} checked={on} />
   );
 }
 
@@ -193,7 +184,7 @@ function Row({ label, on, onToggle }: { label: string; on: boolean; onToggle: ()
   return (
     <div className="flex items-center justify-between py-2 border-t border-[var(--divider)] first:border-t-0">
       <span className="text-[13px]">{label}</span>
-      <Toggle on={on} onClick={onToggle} />
+      <Toggle label={label} on={on} onClick={onToggle} />
     </div>
   );
 }
@@ -600,7 +591,7 @@ export function OrderPageInfoEditor({
                       />
                     </label>
                   ))}
-                  <label className="flex items-center gap-2 text-[11px] font-medium text-fg-primary sm:col-span-2">
+                  <label className="flex items-center gap-2 text-[11px] font-medium text-fg-primary sm:col-span-2 selection-row">
                     <input
                       type="checkbox"
                       checked={appearance.uppercase === true}

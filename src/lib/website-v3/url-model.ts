@@ -21,7 +21,7 @@ export function canonicalAliasForType(
 export function publicAddressForPage(
   page: PublicAddressPage,
 ): string {
-  if (page.type === "landing" && page.is_homepage !== false) return "/";
+  if (page.is_homepage === true || (page.type === "landing" && page.is_homepage !== false)) return "/";
   const canonical = canonicalAliasForType(page.type);
   return page.is_default && canonical ? canonical : `/${normalizeSlug(page.slug)}`;
 }

@@ -1,7 +1,7 @@
 import type { Browser, FrameLocator, Locator, Page } from '@playwright/test';
 import {
   expect,
-  openInspectorTab,
+  openSectionPanel,
   openPublicPage,
   previewFrame,
   publishCurrentDraft,
@@ -70,7 +70,7 @@ websiteV3Test(
 
 async function configureHiddenGlobalRestaurantName(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Identité du site' }).click();
-  await openInspectorTab(page, 'Réglages');
+  await openSectionPanel(page, 'settings');
   await page.locator('[data-field-id="site.hide_navbar_name"]').check();
   await waitForDraftSaved(page);
   await waitForPreviewReady(page);
@@ -78,7 +78,7 @@ async function configureHiddenGlobalRestaurantName(page: Page): Promise<void> {
 
 async function configureHomepageCtaStates(page: Page): Promise<void> {
   await selectBuilderPage(page, 'Home');
-  await openInspectorTab(page, 'Réglages');
+  await openSectionPanel(page, 'settings');
   await expect(
     page.locator('[data-field-id="page.is_homepage"]'),
   ).toBeChecked();
@@ -134,7 +134,7 @@ async function configureHomepageCtaStates(page: Page): Promise<void> {
 
 async function configureOrderHomepage(page: Page): Promise<void> {
   await selectBuilderPage(page, 'Brunch Order');
-  await openInspectorTab(page, 'Réglages');
+  await openSectionPanel(page, 'settings');
 
   const defaultOrder = page.locator('[data-field-id="page.is_default"]');
   await expect(
@@ -151,7 +151,7 @@ async function configureOrderHomepage(page: Page): Promise<void> {
 }
 
 async function configureCategoryStates(page: Page): Promise<void> {
-  await openInspectorTab(page, 'Apparence');
+  await openSectionPanel(page, 'appearance');
   await fillColor(
     page,
     'page.appearance_overrides.section_colors.categoryBar.bg',
@@ -173,7 +173,7 @@ async function configureCategoryStates(page: Page): Promise<void> {
 
 async function configureMenuHighlights(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Menu highlights', exact: true }).click();
-  await openInspectorTab(page, 'Contenu');
+  await openSectionPanel(page, 'content');
   const seededItem = page.getByRole('button', {
     name: /Website V3 Shakshuka/,
   });
@@ -182,7 +182,7 @@ async function configureMenuHighlights(page: Page): Promise<void> {
   await waitForDraftSaved(page);
   await waitForPreviewReady(page);
 
-  await openInspectorTab(page, 'Apparence');
+  await openSectionPanel(page, 'appearance');
   await fillColor(page, 'section.settings.card_bg', colors.highlightCardBg);
   await waitForDraftSaved(page);
   await waitForPreviewReady(page);
@@ -190,11 +190,11 @@ async function configureMenuHighlights(page: Page): Promise<void> {
 
 async function configureFooter(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Identité du site' }).click();
-  await openInspectorTab(page, 'Contenu');
+  await openSectionPanel(page, 'content');
   await page
     .locator('[data-field-id="site.footer.content.custom_text"]')
     .fill('Website V3 state footer');
-  await openInspectorTab(page, 'Apparence');
+  await openSectionPanel(page, 'appearance');
   await page
     .locator('[data-field-id="site.footer.settings.color_style"]')
     .selectOption('custom');

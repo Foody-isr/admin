@@ -31,13 +31,13 @@ import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import { useOrderSeries } from '@/lib/series';
 import {
-  SearchIcon, Volume2Icon, VolumeXIcon,
-  ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon,
-  PlusIcon, XIcon, PauseIcon, PlayIcon,
-  ListFilterIcon, ClipboardListIcon,
+  PauseIcon, PlayIcon,
+  ClipboardListIcon, SearchIcon,
 } from 'lucide-react';
-import { Button, ConfirmDialog, PageHead } from '@/components/ds';
-import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
+import { Button, ConfirmDialog } from '@/components/ds';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { ListPagination } from '@/components/data-table';
+import { ListChoiceFilter } from '@/components/data-table/ListFilters';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
@@ -50,19 +50,10 @@ import { OrderColumnPicker } from '@/components/orders/OrderColumnPicker';
 import { useOrdersTableConfig } from '@/lib/orders/useOrdersTableConfig';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { OrdersOperationsRail } from '@/components/orders/OrdersOperationsRail';
-import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
-import {
-  getOrderTiming,
   OPERATIONS_QUEUES,
   type OperationsQueueKey,
 } from '@/lib/orders/operations-board';
+import styles from './orders.module.css';
 import { defaultOrdersTabForBasis } from '@/lib/orders/orders-list-preferences';
 import {
   PAYMENT_ATTENTION_FILTER,
@@ -101,18 +92,17 @@ interface Tab {
 // still-in-progress statuses so completed/cancelled scheduled orders live in
 // the Terminées / Annulées tabs, not here.
 const TABS: Tab[] = [
-  { key: 'active', labelKey: 'active', statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery', active: true },
+  { key: 'all', labelKey: 'all' },
+  { key: 'active', labelKey: 'ordersTabActive', statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery', active: true },
   { key: 'review', labelKey: 'ordersQueueReview', statuses: 'pending_review', active: true },
   { key: 'kitchen', labelKey: 'ordersQueueKitchen', statuses: 'accepted,in_kitchen', active: true },
   { key: 'ready', labelKey: 'ordersQueueReady', statuses: 'ready,ready_for_pickup,ready_for_delivery', active: true },
   { key: 'delivery', labelKey: 'ordersQueueDelivery', statuses: 'out_for_delivery', active: true },
-  { key: 'scheduled', labelKey: 'scheduled', isScheduled: true, statuses: 'scheduled,pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery' },
+  { key: 'scheduled', labelKey: 'ordersTabScheduled', isScheduled: true, statuses: 'scheduled,pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery' },
   { key: 'completed', labelKey: 'completed', statuses: 'served,received,picked_up,delivered' },
   { key: 'canceled', labelKey: 'canceled', statuses: 'rejected,cancelled' },
-  { key: 'all', labelKey: 'all', active: undefined },
 ];
 
-const ARCHIVE_TABS = TABS.filter((tab) => ['scheduled', 'completed', 'canceled', 'all'].includes(tab.key));
 
 const PAGE_SIZE = 25;
 
@@ -126,24 +116,11 @@ function defaultDateRange(): { from: Date; to: Date } {
   return { from, to };
 }
 
-function primaryActionLabel(action: PrimaryAction, order: Order, t: (key: string) => string): string {
-  if (action === 'markReady' && order.order_type === 'delivery') return t('markReadyForDelivery');
-  const keys: Record<PrimaryAction, string> = {
-    accept: 'accept',
-    sendToKitchen: 'sendToKitchen',
-    markReady: 'markReady',
-    markServed: 'markServed',
-    markOutForDelivery: 'markOutForDelivery',
-    markDelivered: 'markDelivered',
-  };
-  return t(keys[action]);
-}
-
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
   const { money } = useCurrency();
-  const { t } = useI18n();
+  const { t, locale, direction } = useI18n();
   const { hasAnyPermission, isOwner, roleName } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
   // Manual status correction is a management action — owner or manager only,
@@ -196,9 +173,6 @@ export default function OrdersPage() {
   const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
   const serieList = useOrderSeries(rid);
   const [page, setPage] = useState(0);
-  const [queueCounts, setQueueCounts] = useState<Partial<Record<OperationsQueueKey, number>>>({});
-  const [queueCountsLoading, setQueueCountsLoading] = useState(true);
-  const [, setClockTick] = useState(0);
 
   const orders = rawOrders;
   const setOrders = setRawOrders;
@@ -386,13 +360,6 @@ export default function OrdersPage() {
 
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
 
-  // Stage-age labels update even when the restaurant is quiet and no websocket
-  // event causes a render.
-  useEffect(() => {
-    const timer = window.setInterval(() => setClockTick((tick) => tick + 1), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
   // Search as staff type, with enough delay to avoid sending a request per
   // keystroke. Enter still submits immediately below.
   useEffect(() => {
@@ -428,6 +395,10 @@ export default function OrdersPage() {
     }
     if (tab.statuses) params.status = tab.statuses;
     else if (tab.active) params.active = true;
+    // Dashboard payment attention also includes preorders before acceptance.
+    if (activeTab === 'active' && paymentFilter === PAYMENT_ATTENTION_FILTER) {
+      params.status = `scheduled,${tab.statuses}`;
+    }
     if (tab.isScheduled) params.is_scheduled = true;
     if (searchSubmitted) params.q = searchSubmitted;
     if (typeFilter) params.type = typeFilter;
@@ -444,42 +415,6 @@ export default function OrdersPage() {
   }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page, setOrders, filtersReady]);
 
   useEffect(() => { void fetchOrders(); }, [fetchOrders]);
-
-  const fetchQueueCounts = useCallback(async () => {
-    if (!filtersReady) return;
-    setQueueCountsLoading(true);
-    const base: ListOrdersParams = {
-      from: isoDate(dateRange.from),
-      to: isoDate(dateRange.to),
-      limit: 1,
-      offset: 0,
-    };
-    if (dateField === 'serie') base.date_field = 'serie';
-    if (typeFilter) base.type = typeFilter;
-    if (paymentFilter) base.payment_status = paymentFilter;
-
-    try {
-      const stageQueues = OPERATIONS_QUEUES.filter((queue) => queue.key !== 'active');
-      const results = await Promise.all(
-        stageQueues.map((queue) => listOrders(rid, { ...base, status: queue.statuses })),
-      );
-      const next: Partial<Record<OperationsQueueKey, number>> = {};
-      let active = 0;
-      stageQueues.forEach((queue, index) => {
-        next[queue.key] = results[index].total;
-        active += results[index].total;
-      });
-      next.active = active;
-      setQueueCounts(next);
-    } catch {
-      // Keep the last trustworthy counts. The live connection indicator above
-      // already communicates connectivity without replacing counts with false 0s.
-    } finally {
-      setQueueCountsLoading(false);
-    }
-  }, [rid, dateRange, dateField, typeFilter, paymentFilter, filtersReady]);
-
-  useEffect(() => { void fetchQueueCounts(); }, [fetchQueueCounts]);
 
   // ─── WebSocket ────────────────────────────────────────────────────
 
@@ -508,7 +443,6 @@ export default function OrdersPage() {
     if (type === 'order.deleted') {
       setOrders((prev) => prev.filter((o) => o.id !== wsOrder.id));
       if (detailId === wsOrder.id) closeOrderDetail();
-      void fetchQueueCounts();
       return;
     }
 
@@ -524,7 +458,7 @@ export default function OrdersPage() {
     // day, and an update may have moved an existing row out of this série.
     // Re-read the filtered page instead of blindly upserting the websocket row.
     if (dateField === 'serie') {
-      void Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+      void fetchOrders(false);
       return;
     }
 
@@ -539,8 +473,7 @@ export default function OrdersPage() {
       next[idx] = { ...next[idx], ...liveOrder };
       return next;
     });
-    void fetchQueueCounts();
-  }, [lastEvent, isProcessing, playSound, notify, t, dateField, fetchOrders, fetchQueueCounts, setOrders, detailId, closeOrderDetail]);
+  }, [lastEvent, isProcessing, playSound, notify, t, dateField, fetchOrders, setOrders, detailId, closeOrderDetail]);
 
   // ─── Actions ──────────────────────────────────────────────────────
 
@@ -558,7 +491,7 @@ export default function OrdersPage() {
       // optimistic transition.
     } finally {
       removeProcessingGuard(orderId);
-      await Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+      await fetchOrders(false);
       setActionLoading(null);
     }
   };
@@ -580,7 +513,7 @@ export default function OrdersPage() {
       return undefined;
     } finally {
       removeProcessingGuard(orderId);
-      await Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+      await fetchOrders(false);
       setActionLoading(null);
     }
   };
@@ -772,7 +705,7 @@ export default function OrdersPage() {
       .catch(async () => { await fetchOrders(); })
       .finally(async () => {
         removeProcessingGuard(orderId);
-        await Promise.allSettled([fetchOrders(false), fetchQueueCounts()]);
+        await fetchOrders(false);
         setActionLoading(null);
       });
   };
@@ -798,34 +731,6 @@ export default function OrdersPage() {
     closeOrderDetail();
   };
 
-  const handleSearch = () => {
-    setSearchSubmitted(search.trim());
-    setPage(0);
-  };
-
-  const runPrimaryAction = (order: Order, action: PrimaryAction) => {
-    switch (action) {
-      case 'accept':
-        void handleAccept(order.id);
-        break;
-      case 'sendToKitchen':
-        void handleSendToKitchen(order.id);
-        break;
-      case 'markReady':
-        void handleMarkReady(order.id);
-        break;
-      case 'markServed':
-        void handleMarkServed(order.id);
-        break;
-      case 'markOutForDelivery':
-        void handleOutForDelivery(order.id);
-        break;
-      case 'markDelivered':
-        void handleMarkDelivered(order.id);
-        break;
-    }
-  };
-
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const today = isoDate(new Date());
   const hasDateFilter =
@@ -834,8 +739,6 @@ export default function OrdersPage() {
   const activeQueueKey = OPERATIONS_QUEUES.some((queue) => queue.key === activeTab)
     ? activeTab as OperationsQueueKey
     : null;
-  const visibleStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
-  const visibleEnd = Math.min((page + 1) * PAGE_SIZE, total);
 
   const resetFilters = () => {
     setSearch('');
@@ -844,7 +747,6 @@ export default function OrdersPage() {
     setPaymentFilter('');
     setDateRange(defaultDateRange());
     setDateField(defaultDateField);
-    setActiveTab(defaultOrdersTabForBasis(defaultDateField));
     setPage(0);
     router.replace(ordersListPath(rid));
   };
@@ -860,110 +762,69 @@ export default function OrdersPage() {
       .catch(() => setPreferenceSaveFailed(true));
   }, [rid, closeOrderDetail]);
 
+  const typeOptions = [{ value: '', label: t('all') }, { value: 'dine_in', label: t('dineIn') }, { value: 'pickup', label: t('pickup') }, { value: 'delivery', label: t('delivery') }];
+  const paymentOptions = [{ value: PAYMENT_ATTENTION_FILTER, label: t('ordersPaymentsToProcess') }, { value: 'paid', label: t('paid') }, { value: 'partially_paid', label: t('partiallyPaid') }, { value: 'pending', label: t('pending') }, { value: 'unpaid', label: t('unpaid') }, { value: 'refunded', label: t('refunded') }];
   // ─── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-[calc(100dvh-var(--topbar-total-h)-64px)]">
-      <div className="min-w-0 space-y-[var(--s-3)] md:space-y-[var(--s-4)]">
-        <PageHead
-          title={t('orders')}
-          className="mb-0 items-center"
-          desc={(
-            <span className="inline-flex flex-wrap items-center gap-1.5">
-              <span
-                className={`size-2 rounded-full ${
-                  wsStatus === 'connected'
-                    ? 'bg-[var(--success-500)]'
-                    : wsStatus === 'connecting'
-                      ? 'bg-[var(--warning-500)]'
-                      : 'bg-[var(--danger-500)]'
-                }`}
-                aria-hidden
-              />
-              <span>
-                {wsStatus === 'connected' ? t('live') : wsStatus === 'connecting' ? t('connecting') : t('offline')}
-              </span>
-              {lastUpdated && (
-                <>
-                  <span className="opacity-40">·</span>
-                  <span>
-                    {t('ordersUpdatedAt').replace(
-                      '{time}',
-                      lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    )}
-                  </span>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  const next = toggleSound();
-                  setSoundOn(next);
-                }}
-                className="ms-0.5 inline-flex size-7 items-center justify-center rounded-full text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
-                aria-label={t('ordersSound')}
-                aria-pressed={soundOn}
-                title={soundOn ? t('muteSound') : t('unmuteSound')}
-              >
-                {soundOn ? <Volume2Icon className="size-3.5" /> : <VolumeXIcon className="size-3.5" />}
-              </button>
-              {wsStatus === 'disconnected' && (
-                <button
-                  type="button"
-                  onClick={() => void Promise.allSettled([fetchOrders(), fetchQueueCounts()])}
-                  className="text-fs-xs font-medium text-[var(--brand-600)] hover:underline focus-visible:outline-none focus-visible:shadow-ring"
-                >
-                  {t('refresh')}
-                </button>
-              )}
-            </span>
-          )}
-          actions={
-            <>
-              {canManage && (
-                <Button
-                  variant="primary"
-                  size="lg"
-                  icon
-                  asChild
-                  className="rounded-full text-white shadow-sm"
-                >
-                  <Link
-                    href={`/${rid}/orders/new`}
-                    aria-label={t('newOrder')}
-                    title={t('newOrder')}
-                  >
-                    <PlusIcon className="!size-5" />
-                  </Link>
-                </Button>
-              )}
-              {canManage && (
-                <Button
-                  variant={paused ? 'secondary' : 'danger'}
-                  size="lg"
-                  icon
-                  disabled={pauseSaving}
-                  className={
-                    paused
-                      ? 'rounded-full border-transparent bg-[var(--success-500)] text-white shadow-sm hover:bg-[var(--success-600)]'
-                      : 'rounded-full shadow-sm'
-                  }
-                  onClick={() => {
-                    if (paused) {
-                      void togglePause(false);
-                    } else {
-                      setPauseConfirmationOpen(true);
-                    }
-                  }}
-                  aria-label={paused ? t('resumeOrders') : t('pauseOrders')}
-                  title={paused ? t('resumeOrders') : t('pauseOrders')}
-                >
-                  {paused ? <PlayIcon className="!size-5" /> : <PauseIcon className="!size-5" />}
-                </Button>
-              )}
-            </>
-          }
-        />
+    <div className={`${styles.workspace} min-h-[calc(100dvh-var(--topbar-total-h)-64px)]`}>
+      <div className="min-w-0">
+        <header className={styles.header}>
+          <h1>{t('allOrders')}</h1>
+          <div className={styles.commands}>
+            <ActionsDropdown actions={[
+              { label: t('refresh'), onClick: () => void fetchOrders() },
+              { label: t(soundOn ? 'muteSound' : 'unmuteSound'), onClick: () => setSoundOn(toggleSound()) },
+              ...(canManage ? [{ label: t(paused ? 'resumeOrders' : 'pauseOrders'), disabled: pauseSaving, onClick: () => { if (paused) void togglePause(false); else setPauseConfirmationOpen(true); } }] : []),
+              { label: t('ordersResetFilters'), onClick: resetFilters },
+            ]} />
+            {canManage && <Button asChild><Link href={`/${rid}/orders/new`}>{t('newOrder')}</Link></Button>}
+          </div>
+        </header>
+        <div className={styles.tabs} role="tablist" aria-label={t('listState')}>
+          {TABS.filter(tab => ['all', 'active', 'scheduled', 'completed', 'canceled'].includes(tab.key)).map(tab => (
+            <button key={tab.key} type="button" role="tab" id={`orders-tab-${tab.key}`}
+              aria-controls="orders-results"
+              aria-selected={activeTab === tab.key || (tab.key === 'active' && ['review', 'kitchen', 'ready', 'delivery'].includes(activeTab))}
+              tabIndex={activeTab === tab.key || (tab.key === 'active' && ['review', 'kitchen', 'ready', 'delivery'].includes(activeTab)) ? 0 : -1}
+              onClick={() => switchTab(tab.key)}
+              onKeyDown={event => {
+                const tabs = Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+                const index = tabs.indexOf(event.currentTarget);
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+                  : event.key === 'ArrowRight' ? (index + (direction === 'rtl' ? -1 : 1) + tabs.length) % tabs.length
+                  : event.key === 'ArrowLeft' ? (index + (direction === 'rtl' ? 1 : -1) + tabs.length) % tabs.length : null;
+                if (next !== null) { event.preventDefault(); tabs[next].focus(); tabs[next].click(); }
+              }}>
+              {t(tab.labelKey)}
+            </button>
+          ))}
+        </div>
+        <section data-list-toolbar aria-label={t('listTools')} className={styles.filters}>
+          <form className={styles.search} onSubmit={event => { event.preventDefault(); setSearchSubmitted(search.trim()); setPage(0); }}>
+            <div className="list-search">
+              <SearchIcon aria-hidden className="pointer-events-none absolute start-5 top-1/2 size-5 -translate-y-1/2" />
+              <input type="search" dir="auto" className="list-search-input" aria-label={t('search')} placeholder={t('search')} value={search} onChange={event => setSearch(event.target.value)} />
+            </div>
+            <Button type="submit" variant="ghost" className={styles.searchButton}>{t('search')}</Button>
+          </form>
+          <DateRangePicker value={dateRange} onChange={range => { setDateRange(range); setPage(0); }}
+            triggerClassName={`list-filter-button ${styles.dateFilter}`}
+            triggerContent={<span dir="ltr" title={t(dateField === 'created' ? 'orderDate' : 'dateBasisSerieOption')}>{[dateRange.from, dateRange.to].map(date => `${date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })} ${date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`).join(' - ')}</span>}
+            weekStartDay={weekStartDay} workdays={workdays}
+            restaurantId={rid} basis={dateField} onBasisChange={changeDateField} series={serieList} />
+          <ListChoiceFilter label={t('type')} options={typeOptions} value={typeFilter} onChange={value => { setTypeFilter(value); setPage(0); }} />
+          <div className={styles.secondaryFilters}>
+            <ListChoiceFilter label={t('paymentStatus')} options={[{ value: '', label: t('all') }, ...paymentOptions]} value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(0); }} />
+            <button type="button" className={styles.clearFilters} onClick={resetFilters}>{t('clearAll')}</button>
+          </div>
+        </section>
+        <div className={styles.listMeta}>
+          <p aria-live="polite">{lastUpdated && t('ordersUpdatedAt').replace('{time}', lastUpdated.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }))}</p>
+          <span>{t('total')}: {total}</span>
+        </div>
+        {wsStatus !== 'connected' && <p role="status" className="text-sm text-[var(--fg-muted)]">{t(wsStatus === 'connecting' ? 'connecting' : 'offline')}</p>}
+        {preferenceSaveFailed && <p role="status" className="text-sm text-[var(--warning-600)]">{t('displayPreferenceSaveFailed')}</p>}
 
         {paused && (
           <div
@@ -997,139 +858,11 @@ export default function OrdersPage() {
           </div>
         )}
 
-        <section aria-label={t('ordersLiveQueues')}>
-          <OrdersOperationsRail
-            activeKey={activeQueueKey}
-            counts={queueCounts}
-            loading={queueCountsLoading}
-            onSelect={switchTab}
-          />
-        </section>
-
-        <div className="flex min-w-0 items-center justify-between gap-4 border-b border-[var(--line)]">
-          <HorizontalScrollRail activeKey={activeTab} edgeFlush>
-            <div className="inline-flex items-center gap-5 pe-4">
-              <span className="hidden py-2.5 text-fs-xs font-medium text-[var(--fg-subtle)] md:inline">
-                {t('ordersHistory')}
-              </span>
-              {ARCHIVE_TABS.map((tab) => {
-                const selected = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => switchTab(tab.key)}
-                    aria-pressed={selected}
-                    data-rail-active={selected ? '' : undefined}
-                    className={`relative py-2.5 text-fs-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:shadow-ring ${
-                      selected
-                        ? 'text-[var(--fg)] after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-[var(--brand-500)]'
-                        : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-                    }`}
-                  >
-                    {tab.key === 'all' ? t('allOrders') : t(tab.labelKey)}
-                  </button>
-                );
-              })}
-            </div>
-          </HorizontalScrollRail>
-          <span className="hidden shrink-0 text-fs-xs text-[var(--fg-muted)] md:block">
-            {t('ordersShowingCompact')
-              .replace('{start}', String(visibleStart))
-              .replace('{end}', String(visibleEnd))
-              .replace('{total}', String(total))}
-          </span>
-        </div>
-
-        {/* The controls stick below the global top bar; the order rows scroll
-            independently on desktop so queue state never disappears. */}
-        <div className="sticky top-[var(--topbar-total-h)] z-10 -mx-1 flex flex-wrap items-center gap-2 border-b border-transparent bg-[var(--bg)] px-1 py-2 max-md:border-[var(--line)]">
-          <div className="relative w-full md:w-[300px]">
-            <SearchIcon className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
-            <input
-              type="search"
-              placeholder={t('ordersSearchPlaceholder')}
-              aria-label={t('ordersSearchPlaceholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSearch();
-                if (e.key === 'Escape') setSearch('');
-              }}
-              className="input h-11 w-full ps-10 pe-10 text-fs-sm"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute end-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring"
-                aria-label={t('ordersClearSearch')}
-              >
-                <XIcon className="size-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="no-scrollbar flex w-full items-center gap-2 overflow-x-auto pb-0.5 md:contents">
-            <DateRangePicker
-              value={dateRange}
-              onChange={(range) => { setDateRange(range); setPage(0); }}
-              weekStartDay={weekStartDay}
-              workdays={workdays}
-              restaurantId={rid}
-              basis={dateField}
-              onBasisChange={changeDateField}
-              series={serieList}
-            />
-
-          <FilterDropdown
-            label={t('type')}
-            value={typeFilter}
-            onChange={(v) => { setTypeFilter(v); setPage(0); }}
-            options={[
-              { value: '', label: t('ordersAllTypes') },
-              { value: 'dine_in', label: t('dineIn') },
-              { value: 'pickup', label: t('pickup') },
-              { value: 'delivery', label: t('delivery') },
-            ]}
-          />
-
-          <FilterDropdown
-            label={t('paymentStatus')}
-            value={paymentFilter}
-            onChange={(v) => { setPaymentFilter(v); setPage(0); }}
-            options={[
-              { value: '', label: t('ordersAllPayments') },
-              { value: PAYMENT_ATTENTION_FILTER, label: t('ordersPaymentsToProcess') },
-              { value: 'paid', label: t('paid') },
-              { value: 'partially_paid', label: t('partiallyPaid') },
-              { value: 'pending', label: t('pending') },
-              { value: 'unpaid', label: t('unpaid') },
-              { value: 'refunded', label: t('refunded') },
-            ]}
-          />
-
-          {activeFilterCount > 0 && (
-            <Button variant="ghost" size="md" onClick={resetFilters}>
-              <ListFilterIcon />
-              {t('ordersResetFiltersWithCount').replace('{n}', String(activeFilterCount))}
-            </Button>
-          )}
-
-          {hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}
-
-          {preferenceSaveFailed && (
-            <span className="text-fs-xs text-[var(--warning-600)]" role="status">
-              {t('displayPreferenceSaveFailed')}
-            </span>
-          )}
-          </div>
-        </div>
-
+        <section id="orders-results" role="tabpanel" aria-labelledby={`orders-tab-${['review', 'kitchen', 'ready', 'delivery'].includes(activeTab) ? 'active' : activeTab}`}>
         {/* Table */}
         {loading ? (
           <OrdersTableSkeleton
-            columns={columns.visible.length + (canManage ? 1 : 0)}
+            columns={columns.visible.length + 1}
             label={t('loading')}
           />
         ) : orders.length === 0 ? (
@@ -1156,32 +889,24 @@ export default function OrdersPage() {
         ) : (
           <>
             <DataTable
-              className="operational-table orders-operational-table md:max-h-[calc(100dvh-var(--topbar-total-h)-350px)] md:overflow-auto"
+              className={`list-table operational-table orders-operational-table ${styles.table}`}
               data-density="compact"
             >
               <DataTableHead className="sticky top-0 z-[2]">
                 {columns.visible.map((col) => (
                   <DataTableHeadCell
                     key={col.key}
+                    data-column={col.key}
                     align={col.align}
-                    className="bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]"
+                    className="bg-[var(--surface)] px-3 py-3 normal-case tracking-normal"
                   >
-                    {t(col.labelKey)}
+                    <span className={col.key === 'payment' ? styles.paymentHeading : undefined}>{t(col.labelKey)}</span>
                   </DataTableHeadCell>
                 ))}
-                {canManage && (
-                  <DataTableHeadCell
-                    align="right"
-                    className="sticky end-0 min-w-[150px] bg-neutral-50 px-3 py-2 normal-case tracking-normal dark:bg-[#0a0a0a]"
-                  >
-                    {t('ordersNextAction')}
-                  </DataTableHeadCell>
-                )}
+                <DataTableHeadCell align="right" className="w-12 px-2 !py-1.5">{hasAnyPermission('settings.edit') && <OrderColumnPicker columns={columns} />}</DataTableHeadCell>
               </DataTableHead>
               <DataTableBody>
                 {orders.map((order, index) => {
-                  const timing = getOrderTiming(order);
-                  const capabilities = deriveOrderCapabilities(order, { canManage });
                   return (
                     <DataTableRow
                       key={order.id}
@@ -1199,99 +924,31 @@ export default function OrdersPage() {
                       }}
                       className="group cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--brand-500)]"
                     >
-                      {columns.visible.map((col, columnIndex) => (
+                      {columns.visible.map((col) => (
                         <DataTableCell
                           key={col.key}
                           align={col.align}
-                          className={`${col.cellClassName ?? ''} px-3 py-2 ${
-                            columnIndex === 0 && timing.overdue
-                              ? 'relative before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--danger-500)]'
-                              : ''
-                          }`}
+                          className={`${col.cellClassName ?? ''} px-2 py-3`}
                           mobilePrimary={col.isMobilePrimary}
                           mobileLabel={col.isMobilePrimary ? undefined : t(col.labelKey)}
                           data-mobile-role={col.isMobilePrimary ? 'primary' : 'detail'}
                           data-mobile-column={col.key}
                         >
-                          {col.render(order, t, money)}
+                          {col.render(order, t, money, locale)}
                         </DataTableCell>
                       ))}
-                      {canManage && (
-                        <DataTableCell
-                          align="right"
-                          mobileLabel={t('ordersNextAction')}
-                          data-mobile-role="primary-action"
-                          className="bg-[var(--surface)] px-3 py-2 group-hover:bg-orange-50/50 md:sticky md:end-0 dark:group-hover:bg-orange-900/20"
-                        >
-                          {capabilities.primary ? (
-                            <Button
-                              variant={capabilities.primary === 'accept' ? 'primary' : 'secondary'}
-                              size="sm"
-                              disabled={actionLoading === order.id}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                if (capabilities.primary === 'accept') {
-                                  openOrder(order.id);
-                                } else {
-                                  runPrimaryAction(order, capabilities.primary!);
-                                }
-                              }}
-                            >
-                              {capabilities.primary === 'accept'
-                                ? t('ordersReview')
-                                : primaryActionLabel(capabilities.primary, order, t)}
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openOrder(order.id);
-                              }}
-                            >
-                              {t('ordersView')}
-                            </Button>
-                          )}
-                        </DataTableCell>
-                      )}
+                      <DataTableCell />
                     </DataTableRow>
                   );
                 })}
               </DataTableBody>
             </DataTable>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--divider)' }}>
-                <span className="text-xs text-fg-secondary">
-                  {t('showing').replace('{start}', String(visibleStart)).replace('{end}', String(visibleEnd)).replace('{total}', String(total))}
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    disabled={page === 0}
-                    onClick={() => setPage(page - 1)}
-                    className="p-1.5 rounded-standard text-fg-secondary hover:text-fg-primary disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronLeftIcon className="w-4 h-4" />
-                  </button>
-                  <span className="text-xs text-fg-secondary px-2">
-                    {t('pageOf').replace('{page}', String(page + 1)).replace('{total}', String(totalPages))}
-                  </span>
-                  <button
-                    disabled={page >= totalPages - 1}
-                    onClick={() => setPage(page + 1)}
-                    className="p-1.5 rounded-standard text-fg-secondary hover:text-fg-primary disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronRightIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+            <ListPagination page={page + 1} totalPages={Math.max(1, totalPages)} pageSize={PAGE_SIZE} onPageChange={value => setPage(value - 1)} />
           </>
         )}
+        </section>
       </div>
-
       {/* Clicking a row opens the complete order directly. */}
       {detailId != null && detailLoadFailed && !detailOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[3px]" role="dialog" aria-modal="true">
@@ -1472,7 +1129,7 @@ function OrdersTableSkeleton({
   label: string;
 }) {
   return (
-    <DataTable aria-busy="true" aria-label={label} data-density="compact">
+    <DataTable className={`list-table operational-table orders-operational-table ${styles.table}`} aria-busy="true" aria-label={label} data-density="compact">
       <DataTableHead>
         {Array.from({ length: columns }).map((_, index) => (
           <DataTableHeadCell key={index} className="px-3 py-2">
@@ -1492,42 +1149,5 @@ function OrdersTableSkeleton({
         ))}
       </DataTableBody>
     </DataTable>
-  );
-}
-
-// ─── Filter Dropdown ─────────────────────────────────────────────────────────
-
-function FilterDropdown({ label, value, onChange, options }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  const displayLabel = options.find((o) => o.value === value)?.label ?? 'All';
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="md">
-          <ListFilterIcon />
-          {value ? (
-            <>
-              <span className="text-[var(--fg-muted)]">{label}</span>
-              <span>{displayLabel}</span>
-            </>
-          ) : displayLabel}
-          <ChevronDownIcon />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-52">
-        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value || 'all'} value={option.value}>
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

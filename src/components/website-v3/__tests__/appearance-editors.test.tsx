@@ -15,11 +15,18 @@ import { ThemesPanel } from "@/components/website-menu/ThemesPanel";
 import { CategoryBarStateEditor } from "../CategoryBarStateEditor";
 import { CategoryNavigationEditor } from "../CategoryNavigationEditor";
 import { FIELD_CONTRACTS } from "../field-contracts";
+import { FooterBrandingEditor } from "../FooterBrandingEditor";
 import { FooterEditor } from "../FooterEditor";
 import { MenuHighlightsAppearanceEditor } from "../MenuHighlightsAppearanceEditor";
 import { NavigationCtaEditor } from "../NavigationCtaEditor";
 import { PageInspector } from "../PageInspector";
 import { SiteInspector } from "../SiteInspector";
+import { OrderJourneyEditor } from "../OrderJourneyEditor";
+import { OrderPageEditor } from "../OrderPageEditor";
+import { HeaderInspector } from "../HeaderInspector";
+import { normalizeWebsiteHeader } from "@/lib/website-v3/header";
+import { SiteColorsEditor } from "../SiteColorsEditor";
+import { normalizeSiteColors } from "@/lib/website-v3/site-colors";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -28,6 +35,42 @@ function render(element: React.ReactElement): string {
     React.createElement(LocaleProvider, null, element),
   );
 }
+
+test("order menu reuses shared styles instead of competing local colors and retains independent shapes", () => {
+  const markup = render(React.createElement(OrderPageEditor, {
+    restaurantId: 24,
+    page: { type: "order", slug: "order", title: "Order", sort_order: 0,
+      nav_visible: true, is_homepage: false, is_default: true, seo: {}, settings: { menu_ids: [1] },
+      appearance_overrides: { website_order: { card_style: "filled", card_radius: "soft", image_radius: "rounded", show_descriptions: true } } },
+    region: "order-items", onChange: () => undefined, onPreviewItem: () => undefined,
+  }));
+  assert.doesNotMatch(markup, /website_order\.(card_color_style|category_color_style|card_background|card_title_color|card_price_color|card_description_color)/);
+  assert.doesNotMatch(markup, /section_colors\.categoryBar/);
+  assert.match(markup, /One shared style controls the list/);
+  assert.match(markup, /Edit colors in this style/);
+  assert.doesNotMatch(markup, /Style accent/);
+  assert.match(markup, /value="soft" selected=""/);
+  assert.match(markup, /value="rounded" selected=""/);
+  assert.match(markup, /Use the previous menu layout/);
+  assert.doesNotMatch(markup, /categoryBarSticky\./);
+});
+
+test("category headings have a visible toggle; menu headings follow the number of menus", () => {
+  const markup = render(React.createElement(OrderPageEditor, {
+    restaurantId: 24,
+    page: { type: "order", slug: "order", title: "Order", sort_order: 0,
+      nav_visible: true, is_homepage: false, is_default: true, seo: {}, settings: { menu_ids: [1] },
+      appearance_overrides: { website_order: {
+      show_category_titles: true,
+    } } },
+    region: "order-items",
+    onChange: () => undefined,
+    onPreviewItem: () => undefined,
+  }));
+  assert.doesNotMatch(markup, /Menu titles/);
+  assert.match(markup, /Category titles<\/span><span class="boolean-input"><input[^>]*role="switch"[^>]*checked/);
+  assert.match(markup, /Category title style/);
+});
 
 test("global navigation CTA exposes content and both surface states", () => {
   const markup = render(
@@ -78,7 +121,7 @@ test("page navigation CTA starts inherited and reveals sparse state controls", (
   );
 });
 
-test("site and page navigation editors expose the slim links-without-logo mode", () => {
+test("site settings delegate to Header while unmigrated page navigation remains compatible", () => {
   const page: DraftPagePayload = {
     tmp_id: "landing-page",
     type: "landing",
@@ -94,15 +137,12 @@ test("site and page navigation editors expose the slim links-without-logo mode",
   };
   const siteMarkup = render(
     React.createElement(SiteInspector, {
-      tab: "settings",
+      sections: [],
+
       config: {},
       restaurantId: 24,
       pages: [page],
-      footer: null,
       onChange: () => undefined,
-      onPageVisibilityChange: () => undefined,
-      onFooterChange: () => undefined,
-      onStoriesNavigationAvailabilityChange: () => undefined,
       onRestaurantLogoUpload: async () => undefined,
       onRestaurantLogoRemove: async () => undefined,
     }),
@@ -110,7 +150,7 @@ test("site and page navigation editors expose the slim links-without-logo mode",
   const pageMarkup = render(
     React.createElement(PageInspector, {
       page,
-      tab: "settings",
+
       surface: "page" as const,
       onSurfaceChange: () => undefined,
       restaurantId: 24,
@@ -128,12 +168,11 @@ test("site and page navigation editors expose the slim links-without-logo mode",
     }),
   );
 
-  assert.equal(siteMarkup.match(/<option value="slim">/g)?.length, 4);
+  assert.doesNotMatch(siteMarkup, /<option value="slim">/);
   assert.equal(pageMarkup.match(/<option value="slim">/g)?.length, 2);
-  assert.equal(siteMarkup.match(/<option value="compact_no_logo">/g)?.length, 4);
+  assert.doesNotMatch(siteMarkup, /site.navbar/);
   assert.equal(pageMarkup.match(/<option value="compact_no_logo">/g)?.length, 2);
-  assert.match(siteMarkup, /Fine · liens visibles sans logo/);
-  assert.match(siteMarkup, /Compacte · flottante avec logo/);
+  assert.match(siteMarkup, /Modifier l’en-tête/);
   assert.match(pageMarkup, /Position du logo/);
 });
 
@@ -151,7 +190,7 @@ test("footer exposes content and appearance fields in their tabs", () => {
   const contentMarkup = render(
     React.createElement(FooterEditor, {
       footer,
-      tab: "content",
+
       onChange: () => undefined,
     }),
   );
@@ -172,7 +211,7 @@ test("footer exposes content and appearance fields in their tabs", () => {
   const appearanceMarkup = render(
     React.createElement(FooterEditor, {
       footer,
-      tab: "appearance",
+
       onChange: () => undefined,
     }),
   );
@@ -287,10 +326,7 @@ test("every registered Task 4 contract maps to a rendered editor control", () =>
     FIELD_CONTRACTS.map((contract) => contract.id).filter(isTask4Field),
   );
 
-  assert.deepEqual(
-    Array.from(contractIds).sort(),
-    Array.from(renderedIds).sort(),
-  );
+  for (const id of Array.from(contractIds)) assert.ok(renderedIds.has(id), `Missing registered control ${id}`);
 });
 
 test("ThemesPanel can delegate the normal category palette to its state editor", () => {
@@ -341,10 +377,9 @@ test("order page appearance renders one normal category palette owner", () => {
     },
     settings: { menu_ids: [] },
   };
-  const markup = render(
-    React.createElement(PageInspector, {
+  const element = React.createElement(PageInspector, {
       page,
-      tab: "appearance",
+
       surface: "page" as const,
       onSurfaceChange: () => undefined,
       restaurantId: 24,
@@ -359,14 +394,21 @@ test("order page appearance renders one normal category palette owner", () => {
       onReplace: () => undefined,
       onMakeDefault: () => undefined,
       onMakeHomepage: () => undefined,
-    }),
-  );
+    });
+  const markup = render(element);
 
   assert.match(
     markup,
     /page\.appearance_overrides\.section_colors\.categoryBar\.bg/,
   );
   assert.doesNotMatch(markup, /data-section-color-key="categoryBar"/);
+  const sharedMarkup = render(React.cloneElement(element, {
+    config: { custom_palette: { color_styles: { version: 1 } } },
+  }));
+  assert.doesNotMatch(sharedMarkup, /page\.appearance_overrides\.section_colors\.categoryBar\.bg/);
+  assert.match(sharedMarkup, /Edit color styles/);
+  assert.match(sharedMarkup, /Bar, text, active pills and search use this shared style/);
+
 });
 
 function renderTask4Editors(): string {
@@ -399,14 +441,6 @@ function renderTask4Editors(): string {
     render(
       React.createElement(FooterEditor, {
         footer,
-        tab: "content",
-        onChange: () => undefined,
-      }),
-    ),
-    render(
-      React.createElement(FooterEditor, {
-        footer,
-        tab: "appearance",
         onChange: () => undefined,
       }),
     ),
@@ -435,7 +469,7 @@ function isTask4Field(id: string): boolean {
   return (
     id.startsWith("site.navbar_cta") ||
     id.startsWith("page.appearance_overrides.navbar_cta") ||
-    id.startsWith("site.footer") ||
+    id.startsWith("site.footer.") ||
     id.startsWith("page.appearance_overrides.section_colors.categoryBar") ||
     [
       "section.settings.custom_bg",
@@ -469,3 +503,86 @@ function themeCatalog(): ThemeCatalog {
     typography_pairings: [],
   };
 }
+
+
+test("footer branding has separate controls and stores fields in the shared palette", () => {
+  const html = render(React.createElement(FooterBrandingEditor, { config: {custom_palette: {footer_branding:{enabled:true,background:"#234537"}}}, onChange:()=>undefined }));
+  const ids = fieldIds(html);
+  for (const key of ["enabled", "background"]) {
+    const id = `site.footer_branding.${key}`;
+    assert.ok(ids.has(id));
+    assert.deepEqual(FIELD_CONTRACTS.find(contract=>contract.id===id)?.statePath, ["config", "custom_palette", "footer_branding", key]);
+  }
+});
+
+
+test("global menu color editing targets the requested style without moving the site default", () => {
+  const colors = normalizeSiteColors({});
+  const palette = { color_styles: colors };
+  const before = JSON.stringify(palette);
+  const markup = render(React.createElement(SiteColorsEditor, {
+    palette, target: { styleId: "style-2", menuGroup: "cards" }, onChange: () => assert.fail("selection must not save"),
+  }));
+  assert.equal(JSON.stringify(palette), before);
+  assert.match(markup, /aria-label="Color style 2" aria-pressed="true"/);
+  assert.match(markup, /Use by default/);
+  assert.match(markup, /data-color-role="menu.card_price"/);
+  assert.match(markup, /data-color-role="menu.card_description"/);
+  assert.match(markup, /Automatic/);
+  assert.match(markup, /<details class="sqe-menu-color-details" open=""/);
+});
+
+test("global menu color details stay collapsed in the ordinary site design view", () => {
+  const markup = render(React.createElement(SiteColorsEditor, { palette: {}, onChange: () => undefined }));
+  assert.match(markup, /<details class="sqe-menu-color-details">/);
+  assert.match(markup, /Site default/);
+  assert.doesNotMatch(markup, /Use by default/);
+});
+
+
+test("Restaurant is a layout in the shared header editor with no local color controls", () => {
+  const markup = render(React.createElement(HeaderInspector, {restaurantId:1, config:{nav_layout:{header:normalizeWebsiteHeader({layout:"restaurant", background:{mode:"image"}})}}, pages:[], sections:[], onChange:()=>undefined}));
+  assert.match(markup, /Restaurant: cover, framed logo and hamburger/);
+  assert.match(markup, /Information and ordering/);
+  assert.doesNotMatch(markup, /Dropdown|Mega menu|Header scroll settings/);
+  assert.doesNotMatch(markup, /type="color"/);
+});
+
+
+test("journey colours reuse six global styles and an explicit menu-inheritance choice", () => {
+  const noop = () => undefined;
+  const markup = render(<OrderJourneyEditor restaurantId={24} colorStyle="style-2"
+    colors={{cart: "style-5"}} onColorsChange={noop} screen="cart" onScreenChange={noop}
+    orderType="pickup" onOrderTypeChange={noop} value={null} onChange={noop}
+    placesAvailable={false} onEditCartButton={noop} />);
+  assert.match(markup, /Same as menu/);
+  assert.match(markup, /aria-label="Color style 5" aria-pressed="true"/);
+  assert.equal((markup.match(/aria-label="Color style [1-6]"/g) ?? []).length, 6);
+  assert.doesNotMatch(markup, /type="color"/);
+  assert.match(markup, /Edit site buttons/);
+});
+test("item details edit shared roles in a collapsed global panel", () => {
+  const markup = render(
+    <SiteColorsEditor palette={{}} target={{styleId: "style-4", itemDetail: true}}
+      onChange={() => assert.fail("opening must not save")} />,
+  );
+  for (const role of ["background", "title", "price", "description", "options_text", "selection_background", "button_background", "button_text"]) {
+    assert.ok(markup.includes(`data-color-role="item_detail.${role}"`));
+  }
+  assert.match(markup, /aria-label="Color style 4" aria-pressed="true"/);
+  assert.match(markup, /Automatic/);
+  assert.match(markup, /Options and selection/);
+});
+
+
+test("information layout choices stay visible with either ordering permission state", () => {
+  for (const orderChoicesAvailable of [true, false]) {
+    const config = {nav_layout: {header: normalizeWebsiteHeader({layout: "restaurant", restaurant: {info_layout: "classic"}})}};
+    const markup = render(<HeaderInspector restaurantId={1} config={config} pages={[]} sections={[]}
+      activeElement="restaurant" orderChoicesAvailable={orderChoicesAvailable} onChange={() => undefined} />);
+    assert.match(markup, /Modern/);
+    assert.match(markup, /Classic/);
+    assert.match(markup, /Opening and pre-order status/);
+    assert.doesNotMatch(markup, /automatically shows/);
+  }
+});

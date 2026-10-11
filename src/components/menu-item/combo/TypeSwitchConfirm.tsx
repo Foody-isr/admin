@@ -6,6 +6,7 @@
 
 import { AlertTriangle, Info } from 'lucide-react';
 import type { ItemType } from '@/lib/api';
+import Modal from '@/components/Modal';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 
@@ -20,42 +21,34 @@ interface Props {
   fromType: ItemType;
   toType: ItemType;
   loss: TypeSwitchLossSummary;
+  existingItem?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
-export default function TypeSwitchConfirm({ fromType, toType, loss, onCancel, onConfirm }: Props) {
+export default function TypeSwitchConfirm({ fromType, toType, loss, existingItem = false, onCancel, onConfirm }: Props) {
   const { t } = useI18n();
 
   const lines: string[] = [];
   if (loss.recipeCount && loss.recipeCount > 0) {
-    lines.push(t('typeSwitchLossRecipe').replace('{count}', String(loss.recipeCount)));
+    lines.push(t(loss.recipeCount === 1 ? 'typeSwitchLossRecipeOne' : 'typeSwitchLossRecipe').replace('{count}', String(loss.recipeCount)));
   }
   if (loss.variantsCount && loss.variantsCount > 0) {
-    lines.push(t('typeSwitchLossVariants').replace('{count}', String(loss.variantsCount)));
+    lines.push(t(loss.variantsCount === 1 ? 'typeSwitchLossVariantsOne' : 'typeSwitchLossVariants').replace('{count}', String(loss.variantsCount)));
   }
   if (loss.modifiersCount && loss.modifiersCount > 0) {
-    lines.push(t('typeSwitchLossModifiers').replace('{count}', String(loss.modifiersCount)));
+    lines.push(t(loss.modifiersCount === 1 ? 'typeSwitchLossModifiersOne' : 'typeSwitchLossModifiers').replace('{count}', String(loss.modifiersCount)));
   }
   if (loss.stepsCount && loss.stepsCount > 0) {
-    lines.push(t('typeSwitchLossSteps').replace('{count}', String(loss.stepsCount)));
+    lines.push(t(loss.stepsCount === 1 ? 'typeSwitchLossStepsOne' : 'typeSwitchLossSteps').replace('{count}', String(loss.stepsCount)));
   }
 
   const fromLabel = fromType === 'combo' ? t('typeCombo') : t('typeArticle');
   const toLabel = toType === 'combo' ? t('typeCombo') : t('typeArticle');
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55"
-      onClick={onCancel}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="bg-[var(--bg)] border border-[var(--line)] rounded-r-lg shadow-3 w-full max-w-[560px] mx-4 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-[var(--s-5)] flex gap-[var(--s-3)] items-start">
+    <Modal title={t('typeSwitchTitle')} onClose={onCancel} footer={<div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" onClick={onCancel}>{t('cancel')}</Button><Button variant="danger" onClick={onConfirm}>{t(toType === 'combo' ? 'typeSwitchConfirmToCombo' : 'typeSwitchConfirmToArticle')}</Button></div>}>
+        <div className="flex gap-[var(--s-3)] items-start">
           <div
             className="w-9 h-9 rounded-r-md grid place-items-center shrink-0"
             style={{
@@ -67,9 +60,6 @@ export default function TypeSwitchConfirm({ fromType, toType, loss, onCancel, on
           </div>
 
           <div className="flex-1 min-w-0">
-            <h2 className="text-fs-lg font-semibold text-[var(--fg)] mb-1.5">
-              {t('typeSwitchTitle')}
-            </h2>
             <p className="text-fs-sm text-[var(--fg-muted)] mb-[var(--s-4)]">
               {t('typeSwitchSubtitleToCombo')
                 .replace('{from}', fromLabel)
@@ -88,7 +78,7 @@ export default function TypeSwitchConfirm({ fromType, toType, loss, onCancel, on
                   className="text-fs-xs font-bold uppercase tracking-[.04em] mb-1.5"
                   style={{ color: 'var(--danger-500)' }}
                 >
-                  {t('typeSwitchWillBeRemoved')}
+                  {t(existingItem ? 'itemTypeSwitchAffected' : 'typeSwitchWillBeRemoved')}
                 </div>
                 <ul className="m-0 ps-[var(--s-4)] text-fs-sm leading-[1.6] list-disc">
                   {lines.map((line) => (
@@ -102,18 +92,10 @@ export default function TypeSwitchConfirm({ fromType, toType, loss, onCancel, on
               <Info className="w-3 h-3" />
               <span>{t('typeSwitchPreserved')}</span>
             </p>
+            {existingItem && <p className="mt-3 text-sm text-fg-secondary">{t(toType === 'combo' ? 'itemTypeSwitchExistingCombo' : 'itemTypeSwitchExistingArticle')}</p>}
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-[var(--s-2)] px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] bg-[var(--surface)]">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            {t('cancel') || 'Annuler'}
-          </Button>
-          <Button variant="danger" size="sm" onClick={onConfirm}>
-            {toType === 'combo' ? t('typeSwitchConfirmToCombo') : t('typeSwitchConfirmToArticle')}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

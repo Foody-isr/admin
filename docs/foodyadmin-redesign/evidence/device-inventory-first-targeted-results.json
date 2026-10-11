@@ -1,0 +1,858 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/device-inventory.spec.ts"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "device-inventory.spec.ts",
+      "file": "device-inventory.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "device inventory responsive filters, physical devices and detail fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11774,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:26.643Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-88ff75fc7aafe2243dcd",
+          "file": "device-inventory.spec.ts",
+          "line": 40,
+          "column": 40
+        },
+        {
+          "title": "device inventory responsive filters, physical devices and detail he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2255,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:38.749Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-481b0bf3034443bd80f7",
+          "file": "device-inventory.spec.ts",
+          "line": 40,
+          "column": 40
+        },
+        {
+          "title": "device inventory filtering, search and column visibility preserve physical identity",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2436,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:41.015Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-264067e2561417c1aa5b",
+          "file": "device-inventory.spec.ts",
+          "line": 43,
+          "column": 5
+        },
+        {
+          "title": "device inventory pagination selection and sorting remain usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1910,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:43.459Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-3d3ff524167a6c2cb3ea",
+          "file": "device-inventory.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "device inventory initial error, malformed data and empty inventory are distinct",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1808,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:45.375Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-e8be6f5b80bdefd7d8e5",
+          "file": "device-inventory.spec.ts",
+          "line": 49,
+          "column": 5
+        },
+        {
+          "title": "device inventory name save serializes, scopes and permits clearing an alias",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2257,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:47.189Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-fee4289e041013c76179",
+          "file": "device-inventory.spec.ts",
+          "line": 52,
+          "column": 5
+        },
+        {
+          "title": "device inventory polling and locale do not replace a name draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2578,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:49.452Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-98c21bec896fd28de6b9",
+          "file": "device-inventory.spec.ts",
+          "line": 55,
+          "column": 5
+        },
+        {
+          "title": "device inventory name length validates before a request",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2099,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:52.035Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-6aae5a9c1f3e5d8255c6",
+          "file": "device-inventory.spec.ts",
+          "line": 58,
+          "column": 5
+        },
+        {
+          "title": "device inventory uncertain rename recovers without repeating PATCH true",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2269,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:54.139Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-6f520a1a783171f608ea",
+          "file": "device-inventory.spec.ts",
+          "line": 61,
+          "column": 42
+        },
+        {
+          "title": "device inventory uncertain rename recovers without repeating PATCH false",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2316,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:56.417Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-13627abff70213e5071f",
+          "file": "device-inventory.spec.ts",
+          "line": 61,
+          "column": 42
+        },
+        {
+          "title": "device inventory read-only details and mixed capabilities require all permissions",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 16573,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Victa démo', exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Victa démo', exact: true })\u001b[22m\n\n    at open (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts:36:173)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts:65:93",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts",
+                      "column": 173,
+                      "line": 36
+                    },
+                    "snippet": "  34 | const save = (page: Page) => renameModal(page).getByRole('button', { name: 'Enregistrer', exact: true });\n  35 | const verify = (page: Page) => page.getByRole('button', { name: 'Vérifier l’inventaire', exact: true });\n> 36 | async function open(page: Page, n = 0, rid = 1) { await page.goto(`/${rid}/settings/devices`); await page.getByRole('button', { name: device(n).system_name, exact: true }).click(); }\n     |                                                                                                                                                                             ^\n  37 | async function editName(page: Page) { await drawer(page).getByRole('button', { name: 'Modifier', exact: true }).click(); }\n  38 | async function rename(page: Page, name = 'Nom modifié') { await editName(page); await renameModal(page).getByRole('textbox').fill(name); await save(page).click(); }\n  39 | async function action(page: Page, name: string) { await drawer(page).getByRole('button', { name: 'Actions', exact: true }).click(); await page.getByRole('menuitem', { name, exact: true }).click(); }"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts",
+                        "column": 173,
+                        "line": 36
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Victa démo', exact: true })\u001b[22m\n\n\n  34 | const save = (page: Page) => renameModal(page).getByRole('button', { name: 'Enregistrer', exact: true });\n  35 | const verify = (page: Page) => page.getByRole('button', { name: 'Vérifier l’inventaire', exact: true });\n> 36 | async function open(page: Page, n = 0, rid = 1) { await page.goto(`/${rid}/settings/devices`); await page.getByRole('button', { name: device(n).system_name, exact: true }).click(); }\n     |                                                                                                                                                                             ^\n  37 | async function editName(page: Page) { await drawer(page).getByRole('button', { name: 'Modifier', exact: true }).click(); }\n  38 | async function rename(page: Page, name = 'Nom modifié') { await editName(page); await renameModal(page).getByRole('textbox').fill(name); await save(page).click(); }\n  39 | async function action(page: Page, name: string) { await drawer(page).getByRole('button', { name: 'Actions', exact: true }).click(); await page.getByRole('menuitem', { name, exact: true }).click(); }\n    at open (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts:36:173)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts:65:93"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:39:58.742Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/device-inventory-device-in-0373b-ies-require-all-permissions/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/device-inventory-device-in-0373b-ies-require-all-permissions/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/device-inventory-device-in-0373b-ies-require-all-permissions/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts",
+                    "column": 173,
+                    "line": 36
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-abedb0ae153a72ce9435",
+          "file": "device-inventory.spec.ts",
+          "line": 64,
+          "column": 5
+        },
+        {
+          "title": "device inventory read-only role cannot test, cancel, rename or forget a printer",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 16806,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Imprimante de démonstration', exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Imprimante de démonstration', exact: true })\u001b[22m\n\n    at open (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts:36:173)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts:68:74",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts",
+                      "column": 173,
+                      "line": 36
+                    },
+                    "snippet": "  34 | const save = (page: Page) => renameModal(page).getByRole('button', { name: 'Enregistrer', exact: true });\n  35 | const verify = (page: Page) => page.getByRole('button', { name: 'Vérifier l’inventaire', exact: true });\n> 36 | async function open(page: Page, n = 0, rid = 1) { await page.goto(`/${rid}/settings/devices`); await page.getByRole('button', { name: device(n).system_name, exact: true }).click(); }\n     |                                                                                                                                                                             ^\n  37 | async function editName(page: Page) { await drawer(page).getByRole('button', { name: 'Modifier', exact: true }).click(); }\n  38 | async function rename(page: Page, name = 'Nom modifié') { await editName(page); await renameModal(page).getByRole('textbox').fill(name); await save(page).click(); }\n  39 | async function action(page: Page, name: string) { await drawer(page).getByRole('button', { name: 'Actions', exact: true }).click(); await page.getByRole('menuitem', { name, exact: true }).click(); }"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts",
+                        "column": 173,
+                        "line": 36
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Imprimante de démonstration', exact: true })\u001b[22m\n\n\n  34 | const save = (page: Page) => renameModal(page).getByRole('button', { name: 'Enregistrer', exact: true });\n  35 | const verify = (page: Page) => page.getByRole('button', { name: 'Vérifier l’inventaire', exact: true });\n> 36 | async function open(page: Page, n = 0, rid = 1) { await page.goto(`/${rid}/settings/devices`); await page.getByRole('button', { name: device(n).system_name, exact: true }).click(); }\n     |                                                                                                                                                                             ^\n  37 | async function editName(page: Page) { await drawer(page).getByRole('button', { name: 'Modifier', exact: true }).click(); }\n  38 | async function rename(page: Page, name = 'Nom modifié') { await editName(page); await renameModal(page).getByRole('textbox').fill(name); await save(page).click(); }\n  39 | async function action(page: Page, name: string) { await drawer(page).getByRole('button', { name: 'Actions', exact: true }).click(); await page.getByRole('menuitem', { name, exact: true }).click(); }\n    at open (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts:36:173)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts:68:74"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:40:15.781Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/device-inventory-device-in-d3b43--rename-or-forget-a-printer/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/device-inventory-device-in-d3b43--rename-or-forget-a-printer/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/device-inventory-device-in-d3b43--rename-or-forget-a-printer/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/device-inventory.spec.ts",
+                    "column": 173,
+                    "line": 36
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-6d66d22590b55cf65478",
+          "file": "device-inventory.spec.ts",
+          "line": 67,
+          "column": 5
+        },
+        {
+          "title": "device inventory test ticket sends locale once and does not claim physical print",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2337,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:40:33.114Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-ac3ea6bcdcbd1e627d91",
+          "file": "device-inventory.spec.ts",
+          "line": 70,
+          "column": 5
+        },
+        {
+          "title": "device inventory lost test response asks for hardware inspection before another explicit test",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2641,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:40:35.571Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-e4f4bb35837089bedef7",
+          "file": "device-inventory.spec.ts",
+          "line": 73,
+          "column": 5
+        },
+        {
+          "title": "device inventory cancel queue distinguishes confirmed action from failed refresh",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2754,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:40:38.218Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-1c2dcb068c5634c51ea5",
+          "file": "device-inventory.spec.ts",
+          "line": 76,
+          "column": 5
+        },
+        {
+          "title": "device inventory uncertain cancellation reads the current queue without repeating POST",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2617,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:40:40.981Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-24d0f28ade49314bf9d5",
+          "file": "device-inventory.spec.ts",
+          "line": 79,
+          "column": 5
+        },
+        {
+          "title": "device inventory bulk forget retains successful removals and retries only remaining devices",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4324,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:40:43.603Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-8657193b0858ebaff49c",
+          "file": "device-inventory.spec.ts",
+          "line": 82,
+          "column": 5
+        },
+        {
+          "title": "device inventory lost delete response verifies absence without another DELETE",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3303,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:40:47.936Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-60d7073d862d7c60df1a",
+          "file": "device-inventory.spec.ts",
+          "line": 85,
+          "column": 5
+        },
+        {
+          "title": "device inventory English empty and connect help retain scoped POS access link",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1860,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:40:51.246Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-ddeb9e6880d999f625c9",
+          "file": "device-inventory.spec.ts",
+          "line": 88,
+          "column": 5
+        },
+        {
+          "title": "device inventory locale changes do not refetch data",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2267,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:40:53.119Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e56c06cf031d86f76ad5-d8d9ad35135ffffefdbb",
+          "file": "device-inventory.spec.ts",
+          "line": 91,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T14:39:25.347Z",
+    "duration": 90482.909,
+    "expected": 18,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}

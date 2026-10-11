@@ -1,0 +1,1080 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/discounts.spec.ts"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "discounts.spec.ts",
+      "file": "discounts.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "discounts responsive list and editor fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11672,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:06.364Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-cec42acb0d7799ece629",
+          "file": "discounts.spec.ts",
+          "line": 41,
+          "column": 40
+        },
+        {
+          "title": "discounts responsive list and editor he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1951,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:18.404Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-4b99bea4bdf3404c298f",
+          "file": "discounts.spec.ts",
+          "line": 41,
+          "column": 40
+        },
+        {
+          "title": "discounts retain null start, historic zero cap, unknown selections and all fields on rename",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1947,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:20.362Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-679f28691a297ba27d1b",
+          "file": "discounts.spec.ts",
+          "line": 44,
+          "column": 5
+        },
+        {
+          "title": "discounts preserve each scope selection when changing scope and free-delivery type",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 16755,
+                  "error": {
+                    "message": "TimeoutError: locator.selectOption: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('S\\'applique à', { exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.selectOption: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('S\\'applique à', { exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:48:140",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                      "column": 140,
+                      "line": 48
+                    },
+                    "snippet": "  46 | });\n  47 | test('discounts preserve each scope selection when changing scope and free-delivery type', async ({ page }) => {\n> 48 |   const state = await install(page); await open(page); const scope = editor(page).getByLabel(\"S'applique à\", { exact: true }); await scope.selectOption('specific_item'); await editor(page).getByRole('checkbox', { name: 'Salade méditerranéenne', exact: true }).check(); await scope.selectOption('category'); await expect(editor(page).getByRole('checkbox', { name: 'Cuisine', exact: true })).toBeChecked(); await editor(page).getByLabel('Type', { exact: true }).selectOption('free_delivery'); await editor(page).getByLabel('Type', { exact: true }).selectOption('percent'); await expect(editor(page).getByRole('checkbox', { name: 'Référence 99', exact: true })).toBeChecked(); await scope.selectOption('specific_item'); await expect(editor(page).getByRole('checkbox', { name: 'Salade méditerranéenne', exact: true })).toBeChecked(); await save(page).click(); await expect(editor(page)).toHaveCount(0); expect(state.writes[0].body.scope_ids).toEqual([1]); expect(state.writes[0].body.scope).toBe('specific_item');\n     |                                                                                                                                            ^\n  49 | });\n  50 | test('discounts validate percentages, caps and date order without a request', async ({ page }) => {\n  51 |   const state = await install(page); await open(page); await editor(page).locator('#discount-value').fill('101'); await save(page).click(); await expect(editor(page).locator('#discount-value')).toBeFocused(); await expect(editor(page).getByText(/inférieur ou égal à 100/)).toBeVisible(); await editor(page).locator('#discount-value').fill('12.5'); await editor(page).locator('#discount-totalCap').fill('2.5'); await save(page).click(); await expect(editor(page).locator('#discount-totalCap')).toBeFocused(); await editor(page).locator('#discount-totalCap').fill('2'); await editor(page).locator('#discount-start').fill('2026-10-05'); await save(page).click(); await expect(editor(page).locator('#discount-end')).toBeFocused(); await expect(editor(page).getByText(/égale ou postérieure/)).toBeVisible(); expect(state.writes).toHaveLength(0);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                        "column": 140,
+                        "line": 48
+                      },
+                      "message": "TimeoutError: locator.selectOption: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('S\\'applique à', { exact: true })\u001b[22m\n\n\n  46 | });\n  47 | test('discounts preserve each scope selection when changing scope and free-delivery type', async ({ page }) => {\n> 48 |   const state = await install(page); await open(page); const scope = editor(page).getByLabel(\"S'applique à\", { exact: true }); await scope.selectOption('specific_item'); await editor(page).getByRole('checkbox', { name: 'Salade méditerranéenne', exact: true }).check(); await scope.selectOption('category'); await expect(editor(page).getByRole('checkbox', { name: 'Cuisine', exact: true })).toBeChecked(); await editor(page).getByLabel('Type', { exact: true }).selectOption('free_delivery'); await editor(page).getByLabel('Type', { exact: true }).selectOption('percent'); await expect(editor(page).getByRole('checkbox', { name: 'Référence 99', exact: true })).toBeChecked(); await scope.selectOption('specific_item'); await expect(editor(page).getByRole('checkbox', { name: 'Salade méditerranéenne', exact: true })).toBeChecked(); await save(page).click(); await expect(editor(page)).toHaveCount(0); expect(state.writes[0].body.scope_ids).toEqual([1]); expect(state.writes[0].body.scope).toBe('specific_item');\n     |                                                                                                                                            ^\n  49 | });\n  50 | test('discounts validate percentages, caps and date order without a request', async ({ page }) => {\n  51 |   const state = await install(page); await open(page); await editor(page).locator('#discount-value').fill('101'); await save(page).click(); await expect(editor(page).locator('#discount-value')).toBeFocused(); await expect(editor(page).getByText(/inférieur ou égal à 100/)).toBeVisible(); await editor(page).locator('#discount-value').fill('12.5'); await editor(page).locator('#discount-totalCap').fill('2.5'); await save(page).click(); await expect(editor(page).locator('#discount-totalCap')).toBeFocused(); await editor(page).locator('#discount-totalCap').fill('2'); await editor(page).locator('#discount-start').fill('2026-10-05'); await save(page).click(); await expect(editor(page).locator('#discount-end')).toBeFocused(); await expect(editor(page).getByText(/égale ou postérieure/)).toBeVisible(); expect(state.writes).toHaveLength(0);\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:48:140"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:22.318Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-preser-6dccd-cope-and-free-delivery-type/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-preser-6dccd-cope-and-free-delivery-type/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-preser-6dccd-cope-and-free-delivery-type/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                    "column": 140,
+                    "line": 48
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-530f6d89581f2818e816",
+          "file": "discounts.spec.ts",
+          "line": 47,
+          "column": 5
+        },
+        {
+          "title": "discounts validate percentages, caps and date order without a request",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2685,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:39.568Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-ab3988a55262391e4018",
+          "file": "discounts.spec.ts",
+          "line": 50,
+          "column": 5
+        },
+        {
+          "title": "discounts optional end date toggle preserves draft and can clear the saved bound",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2105,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:42.379Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-768bbfc6003d668883b0",
+          "file": "discounts.spec.ts",
+          "line": 53,
+          "column": 5
+        },
+        {
+          "title": "discounts catalog retry preserves unavailable IDs and supports safe search",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1860,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:44.498Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-040da8c94c63605f0358",
+          "file": "discounts.spec.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "discounts uncertain applied save reads the record without repeating PUT",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1976,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:46.366Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-3c43d4667553ac99d38c",
+          "file": "discounts.spec.ts",
+          "line": 59,
+          "column": 5
+        },
+        {
+          "title": "discounts unapplied save preserves the draft and allows an explicit retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1858,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:48.348Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-fd81f51b900b9248d63c",
+          "file": "discounts.spec.ts",
+          "line": 62,
+          "column": 5
+        },
+        {
+          "title": "discounts divergent saved version is reviewed and adopted only after confirmation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3005,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:50.214Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-3a0c95842ccd43089d5f",
+          "file": "discounts.spec.ts",
+          "line": 65,
+          "column": 5
+        },
+        {
+          "title": "discounts draft leave confirmation cancels without erasing and restores trigger focus",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2495,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:53.227Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-e47f924bfd0a38c1892b",
+          "file": "discounts.spec.ts",
+          "line": 68,
+          "column": 5
+        },
+        {
+          "title": "discounts read-only role can inspect but cannot modify or remove",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 6654,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog').getByLabel('Type', { exact: true })\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    14 × locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog').getByLabel('Type', { exact: true })\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    14 × locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:72:346",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                      "column": 346,
+                      "line": 72
+                    },
+                    "snippet": "  70 | });\n  71 | test('discounts read-only role can inspect but cannot modify or remove', async ({ page }) => {\n> 72 |   const state = await install(page, { readOnly: true }); await open(page); await expect(editor(page).getByText(/Votre rôle ne permet pas/)).toBeVisible(); await expect(save(page)).toHaveCount(0); await expect(editor(page).locator('#discount-name')).toHaveAttribute('readonly', ''); await expect(editor(page).getByLabel('Type', { exact: true })).toBeDisabled(); await expect(editor(page).getByRole('checkbox', { name: 'Cuisine', exact: true })).toBeDisabled(); await page.keyboard.press('Escape'); await expect(page.getByRole('button', { name: 'Créer une réduction', exact: true })).toHaveCount(0); await expect(page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true })).toHaveCount(0); expect(state.writes).toHaveLength(0);\n     |                                                                                                                                                                                                                                                                                                                                                          ^\n  73 | });\n  74 | test('discounts delete requires confirmation and serializes repeated clicks', async ({ page }, info) => {\n  75 |   const state = await install(page); await page.goto('/2/marketing/discounts'); await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await expect(page.getByRole('alertdialog')).toHaveCSS('opacity', '1'); await page.screenshot({ path: info.outputPath('discounts-delete-fr.png'), animations: 'disabled' }); await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click(); expect(state.writes).toHaveLength(0); let release!: () => void; state.control.gate = new Promise<void>(resolve => { release = resolve; }); await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); }); await expect(page.getByRole('button', { name: 'LIVRAISON', exact: true })).toBeDisabled(); release(); state.control.gate = null; await expect(page.getByRole('button', { name: 'BIENVENUE10', exact: true })).toHaveCount(0); expect(state.writes).toEqual([{ method: 'DELETE', body: {}, rid: '2', query: '2', path: '/api/v1/discounts/1' }]);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                        "column": 346,
+                        "line": 72
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog').getByLabel('Type', { exact: true })\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    14 × locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n\n\n  70 | });\n  71 | test('discounts read-only role can inspect but cannot modify or remove', async ({ page }) => {\n> 72 |   const state = await install(page, { readOnly: true }); await open(page); await expect(editor(page).getByText(/Votre rôle ne permet pas/)).toBeVisible(); await expect(save(page)).toHaveCount(0); await expect(editor(page).locator('#discount-name')).toHaveAttribute('readonly', ''); await expect(editor(page).getByLabel('Type', { exact: true })).toBeDisabled(); await expect(editor(page).getByRole('checkbox', { name: 'Cuisine', exact: true })).toBeDisabled(); await page.keyboard.press('Escape'); await expect(page.getByRole('button', { name: 'Créer une réduction', exact: true })).toHaveCount(0); await expect(page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true })).toHaveCount(0); expect(state.writes).toHaveLength(0);\n     |                                                                                                                                                                                                                                                                                                                                                          ^\n  73 | });\n  74 | test('discounts delete requires confirmation and serializes repeated clicks', async ({ page }, info) => {\n  75 |   const state = await install(page); await page.goto('/2/marketing/discounts'); await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await expect(page.getByRole('alertdialog')).toHaveCSS('opacity', '1'); await page.screenshot({ path: info.outputPath('discounts-delete-fr.png'), animations: 'disabled' }); await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click(); expect(state.writes).toHaveLength(0); let release!: () => void; state.control.gate = new Promise<void>(resolve => { release = resolve; }); await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); }); await expect(page.getByRole('button', { name: 'LIVRAISON', exact: true })).toBeDisabled(); release(); state.control.gate = null; await expect(page.getByRole('button', { name: 'BIENVENUE10', exact: true })).toHaveCount(0); expect(state.writes).toEqual([{ method: 'DELETE', body: {}, rid: '2', query: '2', path: '/api/v1/discounts/1' }]);\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:72:346"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:20:55.731Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-read-o-8f25e-but-cannot-modify-or-remove/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-read-o-8f25e-but-cannot-modify-or-remove/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-read-o-8f25e-but-cannot-modify-or-remove/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                    "column": 346,
+                    "line": 72
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-d2b6b2f28a688a7b4bfe",
+          "file": "discounts.spec.ts",
+          "line": 71,
+          "column": 5
+        },
+        {
+          "title": "discounts delete requires confirmation and serializes repeated clicks",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2878,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:02.859Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-54f0664451d8f87bcf04",
+          "file": "discounts.spec.ts",
+          "line": 74,
+          "column": 5
+        },
+        {
+          "title": "discounts uncertain deletion verifies absence or presence without a second DELETE true",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2451,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:05.871Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-4198227ed1d2b105fbf3",
+          "file": "discounts.spec.ts",
+          "line": 77,
+          "column": 42
+        },
+        {
+          "title": "discounts uncertain deletion verifies absence or presence without a second DELETE false",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2280,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:08.329Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-8056754fe0456b31f94d",
+          "file": "discounts.spec.ts",
+          "line": 77,
+          "column": 42
+        },
+        {
+          "title": "discounts list load failure, malformed response and empty state remain distinct",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1640,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:10.615Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-3a2a49b100c489c87f0c",
+          "file": "discounts.spec.ts",
+          "line": 80,
+          "column": 5
+        },
+        {
+          "title": "discounts create serializes submit and preserves decimal amounts and normalized code",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2033,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:12.260Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-be06de20eb3619b23512",
+          "file": "discounts.spec.ts",
+          "line": 83,
+          "column": 5
+        },
+        {
+          "title": "discounts uncertain creation reconciles by normalized code true",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1728,
+                  "error": {
+                    "message": "Error: locator.selectOption: Error: Element is not a <select> element\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    - waiting for element to be visible and enabled\u001b[22m\n",
+                    "stack": "Error: locator.selectOption: Error: Element is not a <select> element\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    - waiting for element to be visible and enabled\u001b[22m\n\n    at create (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:39:292)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:87:108",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                      "column": 292,
+                      "line": 39
+                    },
+                    "snippet": "  37 | async function open(page: Page, rid = 1) { await page.goto(`/${rid}/marketing/discounts`); await page.getByRole('button', { name: 'BIENVENUE10', exact: true }).click(); }\n  38 | async function rename(page: Page) { await editor(page).locator('#discount-name').fill('Nom modifié'); await save(page).click(); }\n> 39 | async function create(page: Page, code: string) { await page.goto('/1/marketing/discounts'); await page.getByRole('button', { name: 'Créer une réduction', exact: true }).click(); await editor(page).locator('#discount-code').fill(code); await editor(page).getByLabel('Type', { exact: true }).selectOption('free_delivery'); }\n     |                                                                                                                                                                                                                                                                                                    ^\n  40 | async function remove(page: Page) { await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).click(); }\n  41 | for (const locale of ['fr', 'he']) test(`discounts responsive list and editor ${locale}`, async ({ page }, info) => {\n  42 |   const state = await install(page, { locale }); await page.setViewportSize({ width: locale === 'fr' ? 375 : 1440, height: 1000 }); await open(page); await expect(editor(page).getByText(locale === 'fr' ? 'Référence 99' : 'הפניה 99', { exact: true })).toBeVisible(); await page.screenshot({ path: info.outputPath(`discounts-editor-${locale}.png`) }); await editor(page).locator('#discount-start').scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`discounts-conditions-${locale}.png`) }); await page.keyboard.press('Escape'); await expect(editor(page)).toHaveCount(0); await page.screenshot({ path: info.outputPath(`discounts-list-${locale}.png`) }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(state.fixture.unhandled).toEqual([]);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                        "column": 292,
+                        "line": 39
+                      },
+                      "message": "Error: locator.selectOption: Error: Element is not a <select> element\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    - waiting for element to be visible and enabled\u001b[22m\n\n\n  37 | async function open(page: Page, rid = 1) { await page.goto(`/${rid}/marketing/discounts`); await page.getByRole('button', { name: 'BIENVENUE10', exact: true }).click(); }\n  38 | async function rename(page: Page) { await editor(page).locator('#discount-name').fill('Nom modifié'); await save(page).click(); }\n> 39 | async function create(page: Page, code: string) { await page.goto('/1/marketing/discounts'); await page.getByRole('button', { name: 'Créer une réduction', exact: true }).click(); await editor(page).locator('#discount-code').fill(code); await editor(page).getByLabel('Type', { exact: true }).selectOption('free_delivery'); }\n     |                                                                                                                                                                                                                                                                                                    ^\n  40 | async function remove(page: Page) { await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).click(); }\n  41 | for (const locale of ['fr', 'he']) test(`discounts responsive list and editor ${locale}`, async ({ page }, info) => {\n  42 |   const state = await install(page, { locale }); await page.setViewportSize({ width: locale === 'fr' ? 375 : 1440, height: 1000 }); await open(page); await expect(editor(page).getByText(locale === 'fr' ? 'Référence 99' : 'הפניה 99', { exact: true })).toBeVisible(); await page.screenshot({ path: info.outputPath(`discounts-editor-${locale}.png`) }); await editor(page).locator('#discount-start').scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`discounts-conditions-${locale}.png`) }); await page.keyboard.press('Escape'); await expect(editor(page)).toHaveCount(0); await page.screenshot({ path: info.outputPath(`discounts-list-${locale}.png`) }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(state.fixture.unhandled).toEqual([]);\n    at create (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:39:292)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:87:108"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:14.299Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-uncert-f1477-les-by-normalized-code-true/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-uncert-f1477-les-by-normalized-code-true/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-uncert-f1477-les-by-normalized-code-true/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                    "column": 292,
+                    "line": 39
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-06e32a013b466605d638",
+          "file": "discounts.spec.ts",
+          "line": 86,
+          "column": 42
+        },
+        {
+          "title": "discounts uncertain creation reconciles by normalized code false",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1848,
+                  "error": {
+                    "message": "Error: locator.selectOption: Error: Element is not a <select> element\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    - waiting for element to be visible and enabled\u001b[22m\n",
+                    "stack": "Error: locator.selectOption: Error: Element is not a <select> element\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    - waiting for element to be visible and enabled\u001b[22m\n\n    at create (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:39:292)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:87:108",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                      "column": 292,
+                      "line": 39
+                    },
+                    "snippet": "  37 | async function open(page: Page, rid = 1) { await page.goto(`/${rid}/marketing/discounts`); await page.getByRole('button', { name: 'BIENVENUE10', exact: true }).click(); }\n  38 | async function rename(page: Page) { await editor(page).locator('#discount-name').fill('Nom modifié'); await save(page).click(); }\n> 39 | async function create(page: Page, code: string) { await page.goto('/1/marketing/discounts'); await page.getByRole('button', { name: 'Créer une réduction', exact: true }).click(); await editor(page).locator('#discount-code').fill(code); await editor(page).getByLabel('Type', { exact: true }).selectOption('free_delivery'); }\n     |                                                                                                                                                                                                                                                                                                    ^\n  40 | async function remove(page: Page) { await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).click(); }\n  41 | for (const locale of ['fr', 'he']) test(`discounts responsive list and editor ${locale}`, async ({ page }, info) => {\n  42 |   const state = await install(page, { locale }); await page.setViewportSize({ width: locale === 'fr' ? 375 : 1440, height: 1000 }); await open(page); await expect(editor(page).getByText(locale === 'fr' ? 'Référence 99' : 'הפניה 99', { exact: true })).toBeVisible(); await page.screenshot({ path: info.outputPath(`discounts-editor-${locale}.png`) }); await editor(page).locator('#discount-start').scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`discounts-conditions-${locale}.png`) }); await page.keyboard.press('Escape'); await expect(editor(page)).toHaveCount(0); await page.screenshot({ path: info.outputPath(`discounts-list-${locale}.png`) }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(state.fixture.unhandled).toEqual([]);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                        "column": 292,
+                        "line": 39
+                      },
+                      "message": "Error: locator.selectOption: Error: Element is not a <select> element\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    - waiting for element to be visible and enabled\u001b[22m\n\n\n  37 | async function open(page: Page, rid = 1) { await page.goto(`/${rid}/marketing/discounts`); await page.getByRole('button', { name: 'BIENVENUE10', exact: true }).click(); }\n  38 | async function rename(page: Page) { await editor(page).locator('#discount-name').fill('Nom modifié'); await save(page).click(); }\n> 39 | async function create(page: Page, code: string) { await page.goto('/1/marketing/discounts'); await page.getByRole('button', { name: 'Créer une réduction', exact: true }).click(); await editor(page).locator('#discount-code').fill(code); await editor(page).getByLabel('Type', { exact: true }).selectOption('free_delivery'); }\n     |                                                                                                                                                                                                                                                                                                    ^\n  40 | async function remove(page: Page) { await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).click(); }\n  41 | for (const locale of ['fr', 'he']) test(`discounts responsive list and editor ${locale}`, async ({ page }, info) => {\n  42 |   const state = await install(page, { locale }); await page.setViewportSize({ width: locale === 'fr' ? 375 : 1440, height: 1000 }); await open(page); await expect(editor(page).getByText(locale === 'fr' ? 'Référence 99' : 'הפניה 99', { exact: true })).toBeVisible(); await page.screenshot({ path: info.outputPath(`discounts-editor-${locale}.png`) }); await editor(page).locator('#discount-start').scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`discounts-conditions-${locale}.png`) }); await page.keyboard.press('Escape'); await expect(editor(page)).toHaveCount(0); await page.screenshot({ path: info.outputPath(`discounts-list-${locale}.png`) }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(state.fixture.unhandled).toEqual([]);\n    at create (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:39:292)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:87:108"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:16.453Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-uncert-31bc6-es-by-normalized-code-false/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-uncert-31bc6-es-by-normalized-code-false/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-uncert-31bc6-es-by-normalized-code-false/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                    "column": 292,
+                    "line": 39
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-68cdefbfbf483133f27b",
+          "file": "discounts.spec.ts",
+          "line": 86,
+          "column": 42
+        },
+        {
+          "title": "discounts uncertain duplicate creation does not overwrite an existing code",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1654,
+                  "error": {
+                    "message": "Error: locator.selectOption: Error: Element is not a <select> element\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    - waiting for element to be visible and enabled\u001b[22m\n",
+                    "stack": "Error: locator.selectOption: Error: Element is not a <select> element\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    - waiting for element to be visible and enabled\u001b[22m\n\n    at create (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:39:292)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:90:70",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                      "column": 292,
+                      "line": 39
+                    },
+                    "snippet": "  37 | async function open(page: Page, rid = 1) { await page.goto(`/${rid}/marketing/discounts`); await page.getByRole('button', { name: 'BIENVENUE10', exact: true }).click(); }\n  38 | async function rename(page: Page) { await editor(page).locator('#discount-name').fill('Nom modifié'); await save(page).click(); }\n> 39 | async function create(page: Page, code: string) { await page.goto('/1/marketing/discounts'); await page.getByRole('button', { name: 'Créer une réduction', exact: true }).click(); await editor(page).locator('#discount-code').fill(code); await editor(page).getByLabel('Type', { exact: true }).selectOption('free_delivery'); }\n     |                                                                                                                                                                                                                                                                                                    ^\n  40 | async function remove(page: Page) { await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).click(); }\n  41 | for (const locale of ['fr', 'he']) test(`discounts responsive list and editor ${locale}`, async ({ page }, info) => {\n  42 |   const state = await install(page, { locale }); await page.setViewportSize({ width: locale === 'fr' ? 375 : 1440, height: 1000 }); await open(page); await expect(editor(page).getByText(locale === 'fr' ? 'Référence 99' : 'הפניה 99', { exact: true })).toBeVisible(); await page.screenshot({ path: info.outputPath(`discounts-editor-${locale}.png`) }); await editor(page).locator('#discount-start').scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`discounts-conditions-${locale}.png`) }); await page.keyboard.press('Escape'); await expect(editor(page)).toHaveCount(0); await page.screenshot({ path: info.outputPath(`discounts-list-${locale}.png`) }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(state.fixture.unhandled).toEqual([]);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                        "column": 292,
+                        "line": 39
+                      },
+                      "message": "Error: locator.selectOption: Error: Element is not a <select> element\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Type', { exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Type\" class=\"space-y-4 border-t border-[var(--line)] pt-5\">…</section>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    - waiting for element to be visible and enabled\u001b[22m\n\n\n  37 | async function open(page: Page, rid = 1) { await page.goto(`/${rid}/marketing/discounts`); await page.getByRole('button', { name: 'BIENVENUE10', exact: true }).click(); }\n  38 | async function rename(page: Page) { await editor(page).locator('#discount-name').fill('Nom modifié'); await save(page).click(); }\n> 39 | async function create(page: Page, code: string) { await page.goto('/1/marketing/discounts'); await page.getByRole('button', { name: 'Créer une réduction', exact: true }).click(); await editor(page).locator('#discount-code').fill(code); await editor(page).getByLabel('Type', { exact: true }).selectOption('free_delivery'); }\n     |                                                                                                                                                                                                                                                                                                    ^\n  40 | async function remove(page: Page) { await page.getByRole('button', { name: 'Supprimer BIENVENUE10', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).click(); }\n  41 | for (const locale of ['fr', 'he']) test(`discounts responsive list and editor ${locale}`, async ({ page }, info) => {\n  42 |   const state = await install(page, { locale }); await page.setViewportSize({ width: locale === 'fr' ? 375 : 1440, height: 1000 }); await open(page); await expect(editor(page).getByText(locale === 'fr' ? 'Référence 99' : 'הפניה 99', { exact: true })).toBeVisible(); await page.screenshot({ path: info.outputPath(`discounts-editor-${locale}.png`) }); await editor(page).locator('#discount-start').scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`discounts-conditions-${locale}.png`) }); await page.keyboard.press('Escape'); await expect(editor(page)).toHaveCount(0); await page.screenshot({ path: info.outputPath(`discounts-list-${locale}.png`) }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(state.fixture.unhandled).toEqual([]);\n    at create (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:39:292)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts:90:70"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:18.759Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-uncert-f946f--overwrite-an-existing-code/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-uncert-f946f--overwrite-an-existing-code/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/discounts-discounts-uncert-f946f--overwrite-an-existing-code/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/discounts.spec.ts",
+                    "column": 292,
+                    "line": 39
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-b94810882a6e1ea4c8c7",
+          "file": "discounts.spec.ts",
+          "line": 89,
+          "column": 5
+        },
+        {
+          "title": "discounts malformed save acknowledgement requires readback",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1873,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:20.889Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-54b3346dc2a729dca06a",
+          "file": "discounts.spec.ts",
+          "line": 92,
+          "column": 5
+        },
+        {
+          "title": "discounts English currency, search and restaurant day are independent from browser day",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1655,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:22.883Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-af6fc8cea48446618cb2",
+          "file": "discounts.spec.ts",
+          "line": 95,
+          "column": 5
+        },
+        {
+          "title": "discounts locale change preserves loaded data without another discount read",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2186,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T14:21:24.545Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "dde6e65877666efbd8e5-bb3b561140a1afbaf10d",
+          "file": "discounts.spec.ts",
+          "line": 98,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T14:20:05.078Z",
+    "duration": 81733.058,
+    "expected": 18,
+    "skipped": 0,
+    "unexpected": 5,
+    "flaky": 0
+  }
+}

@@ -36,7 +36,7 @@ export function CommerceSelector({
         {brokenIds.map((id) => (
           <label
             key={`broken-${id}`}
-            className="flex cursor-pointer items-center gap-3 rounded-xl bg-red-50 px-2 py-2.5 text-sm text-red-800"
+            className="flex cursor-pointer items-center gap-3 rounded-xl bg-red-50 px-2 py-2.5 text-sm text-red-800 selection-row"
           >
             <input
               type="checkbox"
@@ -59,7 +59,7 @@ export function CommerceSelector({
           options.map((option) => (
             <label
               key={option.id}
-              className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 selection-row"
             >
               <input
                 type="checkbox"

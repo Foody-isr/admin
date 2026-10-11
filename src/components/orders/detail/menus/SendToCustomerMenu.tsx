@@ -10,10 +10,10 @@
 
 import { useState } from 'react';
 import {
-  SendIcon, ChevronDownIcon, ClipboardListIcon, MessageCircleIcon,
+  ClipboardListIcon, MessageCircleIcon,
   MailIcon, LinkIcon, CheckIcon,
 } from 'lucide-react';
-import { Button, Menu, MenuTrigger, MenuContent, MenuItem, MenuSeparator } from '@/components/ds';
+import { MenuItem, MenuSeparator } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
 import {
@@ -23,7 +23,8 @@ import {
   buildMailtoUrl,
 } from '@/lib/receipt-share';
 
-export function SendToCustomerMenu({
+/** Receipt-sharing entries embedded in the order action menu. */
+export function SendToCustomerItems({
   order,
   onSendConfirmation,
 }: {
@@ -58,14 +59,7 @@ export function SendToCustomerMenu({
   };
 
   return (
-    <Menu>
-      <MenuTrigger asChild>
-        <Button variant="secondary" size="md" className="h-11 flex-1 md:flex-none justify-center font-semibold">
-          <SendIcon /> {t('sendToCustomer') || 'Envoyer au client'}
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        </Button>
-      </MenuTrigger>
-      <MenuContent side="top" align="start" className="order-detail-menu">
+    <>
         {/* The full order recap (type, items, slot, totals, payment) is the
             message staff actually want to send. The receipt link below stays as
             the short "here is your receipt" share. */}
@@ -99,7 +93,6 @@ export function SendToCustomerMenu({
           {copied ? <CheckIcon /> : <LinkIcon />}
           {copied ? t('linkCopied') || 'Lien copié' : t('copyLink') || 'Copier le lien'}
         </MenuItem>
-      </MenuContent>
-    </Menu>
+    </>
   );
 }

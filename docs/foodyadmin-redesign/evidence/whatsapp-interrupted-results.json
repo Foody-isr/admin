@@ -1,0 +1,670 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/whatsapp.spec.ts"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "whatsapp.spec.ts",
+      "file": "whatsapp.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "whatsapp connection and phone policy responsive fr",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 31188,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T10:38:59.158Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-2b0ce357daac0905b58d",
+          "file": "whatsapp.spec.ts",
+          "line": 67,
+          "column": 40
+        },
+        {
+          "title": "whatsapp connection and phone policy responsive he",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 13006,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T10:39:31.506Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-928d5ff49edfad8e39f2",
+          "file": "whatsapp.spec.ts",
+          "line": 67,
+          "column": 40
+        },
+        {
+          "title": "whatsapp sender load failure does not masquerade as disconnected and retries independently",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6808,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T10:39:44.534Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-f47c440e3eecdbb8104e",
+          "file": "whatsapp.spec.ts",
+          "line": 78,
+          "column": 5
+        },
+        {
+          "title": "whatsapp failed phone-policy load never invents a default",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9630,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T10:39:51.369Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-368e3ddde3a81a7c9ee0",
+          "file": "whatsapp.spec.ts",
+          "line": 90,
+          "column": 5
+        },
+        {
+          "title": "whatsapp ignores unsolicited, deceptive-origin and stale signup messages",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6941,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T10:40:01.024Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-8f6858baee6c034d09ba",
+          "file": "whatsapp.spec.ts",
+          "line": 99,
+          "column": 5
+        },
+        {
+          "title": "whatsapp registration preserves reviewed identity and serializes the confirmed request",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 20585,
+                  "error": {
+                    "message": "TimeoutError: locator.fill: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: 'Connexion', exact: true }).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.fill: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: 'Connexion', exact: true }).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true })\u001b[22m\n\n    at prepare (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:62:165)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:112:159",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts",
+                      "column": 165,
+                      "line": 62
+                    },
+                    "snippet": "  60 | const emit = (page: Page, origin = 'https://www.facebook.com', event = 'FINISH', identity = { waba_id: '123', phone_number_id: '456' }) => page.evaluate(({ origin, event, identity }) => window.dispatchEvent(new MessageEvent('message', { origin, data: JSON.stringify({ type: 'WA_EMBEDDED_SIGNUP', event, data: identity }) })), { origin, event, identity });\n  61 | const launch = async (page: Page) => { await connection(page).getByRole('button', { name: 'Connecter WhatsApp', exact: true }).click(); await expect(connection(page)).toContainText('fenêtre Meta'); };\n> 62 | const prepare = async (page: Page) => { await launch(page); await emit(page); await connection(page).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true }).fill('+972 (50) 000-0000'); await connection(page).getByRole('textbox', { name: 'Nom public', exact: true }).fill('  Service démo  '); };\n     |                                                                                                                                                                     ^\n  63 | const submit = (page: Page) => connection(page).getByRole('button', { name: 'Confirmer la connexion', exact: true });\n  64 | const notice = (page: Page) => page.locator('main [role=status]').filter({ hasNotText: /^Chargement/ });\n  65 | const guarded = (page: Page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts",
+                        "column": 165,
+                        "line": 62
+                      },
+                      "message": "TimeoutError: locator.fill: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: 'Connexion', exact: true }).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true })\u001b[22m\n\n\n  60 | const emit = (page: Page, origin = 'https://www.facebook.com', event = 'FINISH', identity = { waba_id: '123', phone_number_id: '456' }) => page.evaluate(({ origin, event, identity }) => window.dispatchEvent(new MessageEvent('message', { origin, data: JSON.stringify({ type: 'WA_EMBEDDED_SIGNUP', event, data: identity }) })), { origin, event, identity });\n  61 | const launch = async (page: Page) => { await connection(page).getByRole('button', { name: 'Connecter WhatsApp', exact: true }).click(); await expect(connection(page)).toContainText('fenêtre Meta'); };\n> 62 | const prepare = async (page: Page) => { await launch(page); await emit(page); await connection(page).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true }).fill('+972 (50) 000-0000'); await connection(page).getByRole('textbox', { name: 'Nom public', exact: true }).fill('  Service démo  '); };\n     |                                                                                                                                                                     ^\n  63 | const submit = (page: Page) => connection(page).getByRole('button', { name: 'Confirmer la connexion', exact: true });\n  64 | const notice = (page: Page) => page.locator('main [role=status]').filter({ hasNotText: /^Chargement/ });\n  65 | const guarded = (page: Page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });\n    at prepare (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:62:165)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:112:159"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T10:40:07.989Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/whatsapp-whatsapp-registra-89c36-lizes-the-confirmed-request/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/whatsapp-whatsapp-registra-89c36-lizes-the-confirmed-request/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/whatsapp-whatsapp-registra-89c36-lizes-the-confirmed-request/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts",
+                    "column": 165,
+                    "line": 62
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-c4d0468d671afadf1b28",
+          "file": "whatsapp.spec.ts",
+          "line": 111,
+          "column": 5
+        },
+        {
+          "title": "whatsapp invalid phone cannot submit and cancelling a draft requires confirmation",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 37968,
+                  "error": {
+                    "message": "TimeoutError: locator.fill: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: 'Connexion', exact: true }).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.fill: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: 'Connexion', exact: true }).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true })\u001b[22m\n\n    at prepare (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:62:165)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:126:101",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts",
+                      "column": 165,
+                      "line": 62
+                    },
+                    "snippet": "  60 | const emit = (page: Page, origin = 'https://www.facebook.com', event = 'FINISH', identity = { waba_id: '123', phone_number_id: '456' }) => page.evaluate(({ origin, event, identity }) => window.dispatchEvent(new MessageEvent('message', { origin, data: JSON.stringify({ type: 'WA_EMBEDDED_SIGNUP', event, data: identity }) })), { origin, event, identity });\n  61 | const launch = async (page: Page) => { await connection(page).getByRole('button', { name: 'Connecter WhatsApp', exact: true }).click(); await expect(connection(page)).toContainText('fenêtre Meta'); };\n> 62 | const prepare = async (page: Page) => { await launch(page); await emit(page); await connection(page).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true }).fill('+972 (50) 000-0000'); await connection(page).getByRole('textbox', { name: 'Nom public', exact: true }).fill('  Service démo  '); };\n     |                                                                                                                                                                     ^\n  63 | const submit = (page: Page) => connection(page).getByRole('button', { name: 'Confirmer la connexion', exact: true });\n  64 | const notice = (page: Page) => page.locator('main [role=status]').filter({ hasNotText: /^Chargement/ });\n  65 | const guarded = (page: Page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts",
+                        "column": 165,
+                        "line": 62
+                      },
+                      "message": "TimeoutError: locator.fill: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: 'Connexion', exact: true }).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true })\u001b[22m\n\n\n  60 | const emit = (page: Page, origin = 'https://www.facebook.com', event = 'FINISH', identity = { waba_id: '123', phone_number_id: '456' }) => page.evaluate(({ origin, event, identity }) => window.dispatchEvent(new MessageEvent('message', { origin, data: JSON.stringify({ type: 'WA_EMBEDDED_SIGNUP', event, data: identity }) })), { origin, event, identity });\n  61 | const launch = async (page: Page) => { await connection(page).getByRole('button', { name: 'Connecter WhatsApp', exact: true }).click(); await expect(connection(page)).toContainText('fenêtre Meta'); };\n> 62 | const prepare = async (page: Page) => { await launch(page); await emit(page); await connection(page).getByRole('textbox', { name: 'Numéro WhatsApp', exact: true }).fill('+972 (50) 000-0000'); await connection(page).getByRole('textbox', { name: 'Nom public', exact: true }).fill('  Service démo  '); };\n     |                                                                                                                                                                     ^\n  63 | const submit = (page: Page) => connection(page).getByRole('button', { name: 'Confirmer la connexion', exact: true });\n  64 | const notice = (page: Page) => page.locator('main [role=status]').filter({ hasNotText: /^Chargement/ });\n  65 | const guarded = (page: Page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });\n    at prepare (/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:62:165)\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:126:101"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T10:40:30.478Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/whatsapp-whatsapp-invalid--6b8f6-draft-requires-confirmation/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/whatsapp-whatsapp-invalid--6b8f6-draft-requires-confirmation/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/whatsapp-whatsapp-invalid--6b8f6-draft-requires-confirmation/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts",
+                    "column": 165,
+                    "line": 62
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-f1a8fb52cd24c54d46e8",
+          "file": "whatsapp.spec.ts",
+          "line": 125,
+          "column": 5
+        },
+        {
+          "title": "whatsapp SDK initialization failure is recoverable without opening a real Meta window",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "interrupted",
+                  "duration": 8545,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('region', { name: 'Connexion', exact: true }).getByRole('alert')\nExpected substring: \u001b[32m\"fenêtre de connexion Meta\"\u001b[39m\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('region', { name: 'Connexion', exact: true }).getByRole('alert')\u001b[22m\n\u001b[2m  - Test ended.\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('region', { name: 'Connexion', exact: true }).getByRole('alert')\nExpected substring: \u001b[32m\"fenêtre de connexion Meta\"\u001b[39m\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('region', { name: 'Connexion', exact: true }).getByRole('alert')\u001b[22m\n\u001b[2m  - Test ended.\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:138:53",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts",
+                      "column": 53,
+                      "line": 138
+                    },
+                    "snippet": "  136 | test('whatsapp SDK initialization failure is recoverable without opening a real Meta window', async ({ page }) => {\n  137 |   const state = await install(page, { connected: false, sdkFailure: true }); await page.goto('/1/settings/whatsapp');\n> 138 |   await expect(connection(page).getByRole('alert')).toContainText('fenêtre de connexion Meta');\n      |                                                     ^\n  139 |   await page.evaluate(() => { (window as any).__wa.sdkFailure = false; });\n  140 |   await connection(page).getByRole('button', { name: 'Réessayer', exact: true }).click();\n  141 |   await launch(page);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts",
+                        "column": 53,
+                        "line": 138
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('region', { name: 'Connexion', exact: true }).getByRole('alert')\nExpected substring: \u001b[32m\"fenêtre de connexion Meta\"\u001b[39m\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('region', { name: 'Connexion', exact: true }).getByRole('alert')\u001b[22m\n\u001b[2m  - Test ended.\u001b[22m\n\n\n  136 | test('whatsapp SDK initialization failure is recoverable without opening a real Meta window', async ({ page }) => {\n  137 |   const state = await install(page, { connected: false, sdkFailure: true }); await page.goto('/1/settings/whatsapp');\n> 138 |   await expect(connection(page).getByRole('alert')).toContainText('fenêtre de connexion Meta');\n      |                                                     ^\n  139 |   await page.evaluate(() => { (window as any).__wa.sdkFailure = false; });\n  140 |   await connection(page).getByRole('button', { name: 'Réessayer', exact: true }).click();\n  141 |   await launch(page);\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts:138:53"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T10:41:10.348Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/whatsapp-whatsapp-SDK-init-33a3a--opening-a-real-Meta-window/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/whatsapp-whatsapp-SDK-init-33a3a--opening-a-real-Meta-window/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/whatsapp-whatsapp-SDK-init-33a3a--opening-a-real-Meta-window/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/whatsapp.spec.ts",
+                    "column": 53,
+                    "line": 138
+                  }
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-e5d00ede9e592354cb7a",
+          "file": "whatsapp.spec.ts",
+          "line": 136,
+          "column": 5
+        },
+        {
+          "title": "whatsapp does not register again after a lost response when GET recovers the saved sender",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-408e8ed6b365b795979f",
+          "file": "whatsapp.spec.ts",
+          "line": 148,
+          "column": 5
+        },
+        {
+          "title": "whatsapp failed registration keeps details and requires confirmation before a second attempt",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-9b402902d01daff2994b",
+          "file": "whatsapp.spec.ts",
+          "line": 156,
+          "column": 5
+        },
+        {
+          "title": "whatsapp uncertain registration retries only verification until the saved state is known",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-90eb0e3ca5ebf0e114fb",
+          "file": "whatsapp.spec.ts",
+          "line": 169,
+          "column": 5
+        },
+        {
+          "title": "whatsapp disconnect explains local scope, supports cancellation and preserves the sender after failure",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-028f016ddb052b4e30a5",
+          "file": "whatsapp.spec.ts",
+          "line": 181,
+          "column": 5
+        },
+        {
+          "title": "whatsapp phone policy preserves confirmed values on failure and writes only otp_mode",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-2aad6ba48bd4f8517161",
+          "file": "whatsapp.spec.ts",
+          "line": 193,
+          "column": 5
+        },
+        {
+          "title": "whatsapp saving OTP while the sender loads does not invent a disconnected state",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-30ade21fd8cc660422fd",
+          "file": "whatsapp.spec.ts",
+          "line": 204,
+          "column": 5
+        },
+        {
+          "title": "whatsapp polling failure keeps the sender visible and can be refreshed",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-4463556c90d64a687bba",
+          "file": "whatsapp.spec.ts",
+          "line": 214,
+          "column": 5
+        },
+        {
+          "title": "whatsapp ignores a late poll after the sender has been disconnected",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-1bb9aae8c8bad4e2f11d",
+          "file": "whatsapp.spec.ts",
+          "line": 225,
+          "column": 5
+        },
+        {
+          "title": "whatsapp read-only users can inspect status and policy without starting signup or changing either",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "332b80892b6a002ebde9-aa6945539240f40460d9",
+          "file": "whatsapp.spec.ts",
+          "line": 235,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T10:38:55.128Z",
+    "duration": 144705.935,
+    "expected": 5,
+    "skipped": 10,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}

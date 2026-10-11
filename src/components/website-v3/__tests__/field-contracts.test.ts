@@ -31,7 +31,7 @@ test("every statically rendered field ID has a registered contract", () => {
   assert.equal(ids.size, FIELD_CONTRACTS.length, "field IDs must be unique");
   FIELD_CONTRACTS.forEach((contract) => {
     assert.notEqual(contract.testValue, undefined, `${contract.id}: testValue`);
-    assert.ok(contract.editor.tab, `${contract.id}: editor tab`);
+    if (contract.editor.scope === "section") assert.ok(contract.editor.sectionPanel, `${contract.id}: section panel`);
     assert.ok(contract.preview.expected.length > 0, `${contract.id}: preview expected`);
     assert.ok(contract.public.expected.length > 0, `${contract.id}: public expected`);
   });
@@ -67,6 +67,15 @@ test("every custom contract selector is backed by a foodyweb renderer hook", () 
       return;
     }
     if (contract.id === "section.is_visible") return;
+    if (contract.id === "site.footer.is_visible") {
+      assert.match(webSources, /data-editor-region="footer"/);
+      for (const output of [contract.preview, contract.public]) {
+        assert.equal(output.selector, '[data-editor-region="footer"]');
+        assert.equal(output.assertion, "visible");
+        assert.equal(output.expected, "false");
+      }
+      return;
+    }
     [contract.preview.selector, contract.public.selector].forEach((selector) => {
       if (contract.editor.kind === "action") return;
       const expected = `data-field-${contract.id
@@ -113,21 +122,15 @@ test("every contract is reachable on the page type and surface it declares", () 
     // the contract claims, on the surface it claims.
     const groupId = groupForField(contract.id);
     if (!groupId) return;
-    const tab =
-      contract.editor.tab === "Contenu"
-        ? "content"
-        : contract.editor.tab === "Apparence"
-          ? "appearance"
-          : "settings";
     const pageTypes =
       contract.pageTypes === "all"
         ? (["landing", "content", "order", "catering"] as const)
         : contract.pageTypes;
     pageTypes.forEach((pageType) => {
       assert.equal(
-        showsInspectorGroup(groupId, { pageType, tab, surface }),
+        showsInspectorGroup(groupId, { pageType, surface }),
         true,
-        `${contract.id}: ${groupId} does not render on ${pageType}/${tab}/${surface}`,
+        `${contract.id}: ${groupId} does not render on ${pageType}/${surface}`,
       );
     });
   });
@@ -137,10 +140,6 @@ test("every contract is reachable on the page type and surface it declares", () 
  *  whose visibility this change moved need an entry; anything else is skipped
  *  rather than guessed. */
 function groupForField(id: string): InspectorGroupId | null {
-  if (id.startsWith("page.appearance_overrides.checkout_text_colors."))
-    return "checkout.text_colors";
-  if (id.startsWith("page.appearance_overrides.cart_text_colors."))
-    return "cart.text";
   if (id.startsWith("page.appearance_overrides.section_colors.categoryBar"))
     return "page.category_bar";
   if (id.startsWith("page.appearance_overrides.order_type_selector."))
@@ -168,6 +167,27 @@ test("navigation text colors have editor-to-renderer contracts", () => {
   ]);
 });
 
+test("animated text contracts target its content controls and persisted phrase list", () => {
+  const contracts = new Map(FIELD_CONTRACTS.map((contract) => [contract.id, contract]));
+  for (const id of [
+    "section.content.phrases",
+    "section.settings.show_text",
+    "section.settings.rotating_color",
+    "section.settings.speed",
+  ]) {
+    const contract = contracts.get(id)!;
+    assert.deepEqual(contract.statePath, id.split(".").slice(1));
+    assert.equal(contract.editor.pageTitle, "Home");
+    assert.equal(contract.editor.sectionLabel, "Animated text");
+    assert.equal(contract.editor.sectionPanel, "content");
+  }
+  const phrases = contracts.get("section.content.phrases")!;
+  assert.deepEqual(
+    JSON.parse(phrases.preview.expected),
+    String(phrases.testValue).split("\n").map((text) => ({ text })),
+  );
+});
+
 test("page navigation visuals have editor-to-renderer contracts", () => {
   const contracts = new Map(
     FIELD_CONTRACTS.map((contract) => [contract.id, contract]),
@@ -187,7 +207,7 @@ test("page navigation visuals have editor-to-renderer contracts", () => {
   expected.forEach(([id, field, testValue]) => {
     const contract = contracts.get(id);
     assert.deepEqual(contract?.statePath, ["appearance_overrides", field]);
-    assert.equal(contract?.editor.tab, "Apparence");
+    assert.equal(contract?.editor.sectionPanel, undefined);
     assert.equal(contract?.editor.commit, "change");
     assert.equal(contract?.testValue, testValue);
   });
@@ -282,6 +302,7 @@ function task4FieldPaths(): Map<string, readonly (string | number)[]> {
     ]);
   }
   paths.set("site.footer.layout", ["layout"]);
+  paths.set("site.footer.is_visible", ["is_visible"]);
   for (const field of [
     "color_style",
     "custom_bg",
@@ -329,7 +350,7 @@ function isTask4Field(id: string): boolean {
   return (
     id.startsWith("site.navbar_cta") ||
     id.startsWith("page.appearance_overrides.navbar_cta") ||
-    id.startsWith("site.footer") ||
+    id.startsWith("site.footer.") ||
     id.startsWith("page.appearance_overrides.section_colors.categoryBar") ||
     [
       "section.settings.custom_bg",
@@ -364,25 +385,19 @@ test("builder exposes system links without inventing rail pages", () => {
     "config",
     "show_orders_link",
   ]);
-  assert.deepEqual(contracts.get("site.stories_enabled")?.statePath, [
-    "live",
-    "stories_enabled",
-  ]);
+  assert.equal(contracts.has("site.stories_enabled"), false);
 
   const html = renderToStaticMarkup(
     React.createElement(
       LocaleProvider,
       null,
       React.createElement(SiteInspector, {
-        tab: "settings",
+      sections: [],
+
         config: { show_orders_link: true, stories_enabled: true },
         restaurantId: 24,
         pages: [],
-        footer: null,
         onChange: () => undefined,
-        onPageVisibilityChange: () => undefined,
-        onFooterChange: () => undefined,
-        onStoriesNavigationAvailabilityChange: () => undefined,
         onRestaurantLogoUpload: async () => undefined,
         onRestaurantLogoRemove: async () => undefined,
       }),
@@ -390,52 +405,21 @@ test("builder exposes system links without inventing rail pages", () => {
   );
 
   assert.match(html, /Liens système/);
-  assert.match(html, /Instagram non connecté/);
   assert.match(html, /data-field-id="site.show_orders_link"/);
-  const storiesToggle = html.match(
-    /<input[^>]*data-field-id="site.stories_enabled"[^>]*>/,
-  )?.[0];
-  assert.ok(storiesToggle, "Stories toggle is rendered");
-  assert.match(storiesToggle, /disabled/);
-  assert.match(html, /href="\/24\/reels"/);
+  assert.doesNotMatch(html, /data-field-id="site.stories_enabled"/);
+  assert.match(html, /href="\/24\/settings\/stories"/);
   assert.doesNotMatch(html, /site\.navigation-page\.(?:home|stories)/);
 });
 
-test("builder and Reels share the live Instagram Stories owner", () => {
-  const inspector = readFileSync(
-    resolve(process.cwd(), "src/components/website-v3/SiteInspector.tsx"),
-    "utf8",
-  );
-  const reels = readFileSync(
-    resolve(process.cwd(), "src/app/[restaurantId]/reels/page.tsx"),
-    "utf8",
-  );
-
-  assert.match(inspector, /loadInstagramStoriesSettings/);
-  assert.match(inspector, /updateInstagramStoriesWithRefresh/);
-  assert.match(reels, /loadInstagramStoriesSettings/);
-  assert.match(reels, /updateInstagramStoriesEnabled/);
-  assert.doesNotMatch(inspector, /onChange\(\["stories_enabled"\]/);
-});
-
-test("builder refreshes and injects server-owned Stories preview eligibility", () => {
-  const inspector = readFileSync(
-    resolve(process.cwd(), "src/components/website-v3/SiteInspector.tsx"),
-    "utf8",
-  );
-  const builder = readFileSync(
-    resolve(process.cwd(), "src/components/website-v3/WebsiteV3Builder.tsx"),
-    "utf8",
-  );
-
-  assert.match(inspector, /await updateInstagramStoriesWithRefresh/);
-  assert.match(inspector, /setStoriesEnabled\(result\.storiesEnabled\)/);
-  assert.match(inspector, /onStoriesNavigationAvailabilityChange\(undefined\)/);
-  assert.match(inspector, /Réessayer la vérification/);
-  assert.match(inspector, /onStoriesNavigationAvailabilityChange/);
+test("Stories settings own live social mutations outside the draft editor", () => {
+  const inspector = readFileSync(resolve(process.cwd(), "src/components/website-v3/SiteInspector.tsx"), "utf8");
+  const stories = readFileSync(resolve(process.cwd(), "src/app/[restaurantId]/settings/stories/page.tsx"), "utf8");
+  const builder = readFileSync(resolve(process.cwd(), "src/components/website-v3/WebsiteV3Builder.tsx"), "utf8");
+  assert.doesNotMatch(inspector, /updateInstagramStories|loadInstagramStories|JsonField/);
+  assert.match(stories, /loadInstagramStoriesSettings/);
+  assert.match(stories, /updateInstagramStoriesEnabled/);
   assert.match(builder, /withWebsiteV3PreviewNavigationState/);
   assert.match(builder, /getPublicRestaurantNavigationState/);
-  assert.match(builder, /onStoriesNavigationAvailabilityChange/);
 });
 
 function sourceFiles(directory: string): string[] {

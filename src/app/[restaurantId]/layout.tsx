@@ -9,7 +9,9 @@ import { useIdleTimeout } from '@/lib/use-idle-timeout';
 import { useI18n } from '@/lib/i18n';
 import { SidebarProvider, useSidebar } from '@/lib/sidebar-context';
 import Sidebar from '@/components/Sidebar';
+import { SettingsBreadcrumb } from '@/components/settings/SettingsBreadcrumb';
 import TopBar from '@/components/TopBar';
+import { useDesktopNavigation } from '@/components/common/NavigationFrame';
 import PermissionRouteGuard from '@/components/PermissionRouteGuard';
 import { PushResync } from '@/components/common/PushResync';
 import IdleModal from '@/components/IdleModal';
@@ -35,7 +37,6 @@ const PAGE_SLUGS = [
   'customers',
   'analytics',
   'settings',
-  'website',
   'billing',
   'marketing',
 ] as const;
@@ -48,11 +49,8 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const { direction, t, setCurrency } = useI18n();
   const restaurantId = Number(params.restaurantId);
   const isFullscreen =
-    pathname.endsWith('/website') ||
-    pathname.endsWith('/website-v2') ||
     pathname.endsWith('/website-v3') ||
     pathname.endsWith('/table-qr/print');
-  const isWideLayout = pathname.includes('/orders');
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [restaurantLoading, setRestaurantLoading] = useState(true);
@@ -87,12 +85,14 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
       router.push('/select-restaurant');
       return;
     }
+    let active = true;
     setRestaurantLoading(true);
     setRestaurantError(false);
     getRestaurant(restaurantId)
-      .then((r) => { setRestaurant(r); setCurrency(r.currency); setRestaurantError(false); })
-      .catch(() => setRestaurantError(true))
-      .finally(() => setRestaurantLoading(false));
+      .then((r) => { if (active) { setRestaurant(r); setCurrency(r.currency); setRestaurantError(false); } })
+      .catch(() => { if (active) setRestaurantError(true); })
+      .finally(() => { if (active) setRestaurantLoading(false); });
+    return () => { active = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, isLoggedIn, restaurantId, restaurantIds, retryCount]);
 
@@ -107,12 +107,12 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   if (restaurantError) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-fg-secondary">Unable to load restaurant. Check your connection.</p>
+        <p className="text-fg-secondary">{t('workspaceLoadError')}</p>
         <button
           className="text-sm text-brand-500 underline"
           onClick={() => setRetryCount((c) => c + 1)}
         >
-          Retry
+          {t('retry')}
         </button>
       </div>
     );
@@ -147,7 +147,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
           toggleSidebar={toggleSidebar}
           closeSidebar={closeSidebar}
           isRtl={isRtl}
-          isWideLayout={isWideLayout}
           pageName={pageName}
         >
           <PermissionRouteGuard>{children}</PermissionRouteGuard>
@@ -166,7 +165,6 @@ function RestaurantExperience({
   toggleSidebar,
   closeSidebar,
   isRtl,
-  isWideLayout,
   pageName,
 }: {
   children: React.ReactNode;
@@ -176,7 +174,6 @@ function RestaurantExperience({
   toggleSidebar: () => void;
   closeSidebar: () => void;
   isRtl: boolean;
-  isWideLayout: boolean;
   pageName: string;
 }) {
   const { roleName, loading } = usePermissions();
@@ -204,8 +201,7 @@ function RestaurantExperience({
             toggleSidebar={toggleSidebar}
             closeSidebar={closeSidebar}
             isRtl={isRtl}
-            isWideLayout={isWideLayout}
-            pageName={pageName}
+              pageName={pageName}
           >
             {children}
           </RestaurantShell>
@@ -225,7 +221,6 @@ function RestaurantShell({
   toggleSidebar,
   closeSidebar,
   isRtl,
-  isWideLayout,
   pageName,
 }: {
   children: React.ReactNode;
@@ -235,10 +230,11 @@ function RestaurantShell({
   toggleSidebar: () => void;
   closeSidebar: () => void;
   isRtl: boolean;
-  isWideLayout: boolean;
   pageName: string;
 }) {
   const { collapsed } = useSidebar();
+  const desktop = useDesktopNavigation();
+  const { t } = useI18n();
   // Sidebar widths come from tokens (260 / 72) — keep these arbitrary classes
   // in sync with --sidebar-w / --sidebar-w-collapsed in globals.css.
   const marginClass = collapsed
@@ -250,6 +246,7 @@ function RestaurantShell({
       : 'lg:ml-[var(--sidebar-w)]';
   return (
     <div className="h-dvh flex">
+      <a href="#workspace-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[100] focus:bg-[var(--surface)] focus:p-3">{t('skipToContent')}</a>
       <div className="flex flex-1 min-w-0">
         <Sidebar
           restaurantId={restaurantId}
@@ -257,22 +254,19 @@ function RestaurantShell({
           isOpen={sidebarOpen}
           onClose={closeSidebar}
         />
-        <main
+        <main data-workspace-shell
           className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden transition-[margin] duration-200 ${marginClass}`}
         >
-          <TopBar
+          {!desktop && <TopBar
             restaurantId={restaurantId}
             restaurantName={restaurant.name}
             pageName={pageName}
             onToggleSidebar={toggleSidebar}
-          />
-          <div
-            className={`min-w-0 pb-[max(var(--s-6),var(--safe-bottom))] ${
-              isWideLayout
-                ? 'px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8'
-                : 'px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8'
-            }`}
+          />}
+          <div id="workspace-content" tabIndex={-1}
+            className="min-w-0 px-4 pt-6 pb-[max(var(--s-6),var(--safe-bottom))] sm:px-6 lg:px-8 lg:pt-8"
           >
+            <SettingsBreadcrumb restaurantId={restaurantId} />
             {children}
           </div>
         </main>
@@ -282,9 +276,10 @@ function RestaurantShell({
 }
 
 export default function RestaurantLayout({ children }: { children: React.ReactNode }) {
+  const { restaurantId } = useParams();
   return (
     <AuthProvider>
-      <RestaurantGuard>{children}</RestaurantGuard>
+      <RestaurantGuard key={String(restaurantId)}>{children}</RestaurantGuard>
     </AuthProvider>
   );
 }

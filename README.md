@@ -10,6 +10,22 @@ Self-service web portal for restaurant owners and managers. Used to manage day-t
 | **Development** | `dev-admin.foody-pos.co.il` | `dev-api.foody-pos.co.il` | `develop` |
 | **Local** | `localhost:3003` | `localhost:8080` | any branch |
 
+## Selection controls
+
+Admin selections follow the Square reference: white option rows with separators,
+a trailing filled radio for one choice, and a trailing checkbox for multiple
+choices. Use `ChoiceRow` from `components/ds/Selection` with a shared native radio
+`name` for exclusive groups. Existing labelled rows use `selection-row`; compact
+table selection keeps its column placement and shares the same checkbox styling.
+Use `Switch` from `components/ui/switch` for explicit localized yes/no segments,
+or `BooleanInput` when retaining native input events and form submission. Clicking
+the active segment is a no-op; Space still toggles the accessible switch. Native
+and Radix controls preserve disabled, indeterminate, focus, dark and RTL states.
+Long searchable pickers retain their search and keyboard behavior.
+
+The dev-only `/design-system` page includes interactive examples. Browser checks:
+`npx playwright test -c playwright.redesign.config.ts tests/redesign/selection-controls.spec.ts`.
+
 ## Quick Start
 
 ```bash
@@ -68,10 +84,13 @@ Restaurant owners and managers use this portal to:
 
 ### Dashboard (`/[restaurantId]/dashboard`)
 
-Today's snapshot at a glance:
-- **Revenue today** and **Orders today** — KPI cards
-- **Top Sellers** — top 5 selling items by revenue today
-- **Recent Orders** — last 10 orders with status badge, type, and amount
+Home prioritizes the selected service or order-date period. A compact contextual notice highlights the next action, such as a payment that needs attention, with a direct shortcut. Order totals appear once in the performance summary. Date presets and the order/fulfillment date basis retain their per-user and restaurant persistence.
+
+In série mode, the main chart shows when the selected service's orders were placed. Upcoming and same-day services hide comparisons with completed services; historical service charts align comparison days relative to the service date. In order-date mode, today's hourly volume remains independent of the selected performance period. The right rail provides permitted shortcuts and the five most recent orders for the selection. Production links carry the selected single-service date, and payment attention retains the date basis, including preorders awaiting acceptance.
+
+The revenue-scope control explains which orders contribute to performance and links to the restaurant settings. Empty and unavailable data remain distinct; missing comparisons produce no N/A badges or fabricated growth.
+
+To preview the service dashboard with synthetic preorders, run `node tests/redesign/dashboard-preview-server.mjs`, then `NEXT_PUBLIC_API_URL=http://127.0.0.1:18080 npx next dev --port 3103`. Open `http://localhost:3103/1/dashboard`. If sign-in is required, the local fixture accepts `demo@foody.test` / `demo-local`. This API keeps all data in memory and never proxies a real service. Dashboard browser checks run with `npx playwright test -c playwright.redesign.config.ts tests/redesign/dashboard-service.spec.ts`.
 
 ### Orders (`/[restaurantId]/orders`)
 
@@ -96,6 +115,12 @@ Full menu management:
 - **Revenue today** and **Orders today** — same KPIs as dashboard
 - **Top Selling Items** table — ranked list with quantity sold and revenue per item
 
+### Item editor (`/[restaurantId]/menu/items/new`, `/items/[itemId]`)
+
+Creation and editing use one continuous form: identity and photo, pricing and variants, personalizations or combo composition, customer facts, availability, recipe/cost, and assistant context. The full-page editor uses Cash Sans, inset field labels and a centered two-column layout. Status, internal categories and menu groups have separate cards alongside the form; on mobile they follow it. Translations open beside the item name. The fixed header shows unsaved changes and keeps Save/Cancel reachable, with the title appearing in the header after scrolling.
+
+Existing `?tab=recipe`, `?tab=availability` and legacy links scroll to the corresponding section. New articles expose **Save and configure** for stock and recipe settings that need a saved item. Form fields, variants, recipe instructions and availability commit with Save; existing explicit image, modifier and ingredient operations retain their immediate persistence.
+
 ### Staff (`/[restaurantId]/staff`)
 
 - Table of all staff members: name, email, role badge
@@ -118,28 +143,71 @@ Two sections, saved separately:
 - `tips_enabled` — show tips prompt at checkout
 - `rush_mode` — disable optional features under high load
 
-### Website (`/[restaurantId]/website`)
+### Website (`/[restaurantId]/website-v3`)
 
-White-label website customizer for the restaurant's guest-facing QR ordering site (foodyweb).
+**Foody online** opens the restaurant website editor directly, without a submenu or beta badge. It manages pages, sections, appearance and checkout settings with a live iframe preview. Draft autosaves remain separate from publication; the existing guest website and stored website data are unaffected by removal of the old admin editors.
 
-**Left column — Form sections:**
-1. **Branding** — Primary and secondary color pickers (hex input + visual picker)
-2. **Typography** — Font family dropdown (Nunito Sans, Inter, Poppins, Rubik, Open Sans, Playfair Display)
-3. **Content** — Welcome text and tagline fields
-4. **Hero Layout** — Radio selection: Standard / Minimal / Fullscreen
-5. **Visibility** — Toggle switches: show address, phone, opening hours
-6. **Social Links** — Instagram, Facebook, TikTok URL inputs
+The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementations have been removed. Their URLs redirect to Website V3, preserving the restaurant and query parameters. Components shared with V3 and QR customization remain in use.
 
-**Right column — Live Preview:**
-- Static preview card mimicking the restaurant hero (no iframe)
-- Updates in real-time as the form changes
-- Shows logo, cover image, name, tagline, info pills, and social links
+Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
 
-**API endpoints used:**
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/restaurants/:id/website-config` | Get current website config |
-| `PUT` | `/restaurants/:id/website-config` | Update website config (partial updates supported) |
+The editor uses contextual panels for shared elements and sections; the former Content / Appearance / Settings tab strip and unused page rail are removed. Footer content, layout and styling remain together in its accordions. Existing draft reconciliation and components shared with QR customization are retained.
+
+**Stories** lives in **Settings → Communications** at `/[restaurantId]/settings/stories`, with read access for `settings.view` and editing for `settings.edit`. Existing `/[restaurantId]/reels` bookmarks redirect there. The website editor links to this single owner of Instagram settings.
+
+The **Footer** panel offers **Add footer** when none exists. It creates a shared
+`_site` section through draft autosave and undo/redo. Existing hidden or legacy
+footers retain their identity and content; retired theme sections are ignored.
+The footer visibility switch is independent of **Footer branding** and preserves
+page-level visibility overrides. The inspector targets the footer selected by
+the public renderer. Run the isolated browser regression with
+`npx playwright test -c playwright.website-editor.config.ts`; it uses the sibling
+`foodyweb` checkout and an in-memory API on ports 3000, 3003 and 18081.
+
+The order page's **Item list** selects one global color style for its list,
+category bar, pills and item cards. In **Site design → Colors**, each of the six
+styles has optional menu colors in three collapsed groups. Unset roles remain
+automatic; resetting a role restores live inheritance. Item prices have their
+own color and portions follow it. Editing a style does not select it as the site
+default; **Use by default** is a separate action. Shape, spacing and images remain
+in the item-list panels, whose color shortcuts open the assigned global style.
+
+**Header → Layout → Restaurant** adds a cover, a logo in a white frame,
+the restaurant name and a hamburger using the existing navigation links.
+**Information and ordering → Layout** offers two exclusive presentations:
+**Modern** (service blocks) and **Classic** (status, delivery minimum and social
+links). Both use the same global style selector. The selected layout is saved
+in `header.restaurant.info_layout` and does not change ordering permissions.
+A batch date stays read-only in Modern; Classic stays available even when the
+restaurant allows choices. Older saved headers keep their previous presentation
+until a layout is selected. The order page delegates its banner to this layout
+to avoid duplicate covers. Delivery/pickup availability and batch calendars remain
+owned by restaurant settings throughout menu, cart and checkout.
+For standard headers, **Pickup, delivery and scheduling → Color style** assigns
+the bar independently of header/navigation colors. **Same as header** preserves
+inheritance. This reuses `header.restaurant.info_color_style`, including order-page
+presentation overrides, draft autosave, preview and publication. The global
+color editor reports the bar's assignment separately from the header.
+Deploy the API support for `nav_layout.header.layout = "restaurant"` and its
+optional `restaurant` settings before deploying the editor.
+
+For a local Mamie menu color check, run
+`FOODY_MENU_STYLES=1 node tests/redesign/website-editor-server.mjs`, then run
+the admin with `NEXT_PUBLIC_API_URL=http://127.0.0.1:18081`
+and `NEXT_PUBLIC_WEB_URL=http://localhost:3000`, and the guest web with
+`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081`. Open `/1/website-v3` in the
+admin and `/r/atelier-foody/order?lang=fr` in the guest web. The fixture contains
+public menu photos, copy and appearance only; draft/publication writes stay in
+the local server's memory. It does not proxy production requests. The existing
+`FOODY_MENU_APPEARANCE=1` fixture exercises the legacy presentation.
+Use `FOODY_RESTAURANT_HEADER=1` to include the Restaurant layout with a synthetic
+delivery-only batch calendar. Saved entry prompts cannot restore mode or time
+choices. Test an old pickup/scheduling URL through cart and checkout as well.
+Use `FOODY_HEADER_CHOICES=1` for a shared Restaurant header with pickup, delivery
+and scheduling, to verify the single bar, style changes and independent order
+header edits against the home page.
+Use `FOODY_HEADER_CHOICES=batch` to keep mode selection with an imposed batch
+date, or `FOODY_HEADER_CHOICES=scheduled-pickup` to allow only time selection.
 
 ### Billing (`/[restaurantId]/billing`)
 
@@ -314,7 +382,7 @@ src/
   components/
     Sidebar.tsx                 # Nav sidebar with restaurant name + links (includes Website nav item)
     [restaurantId]/
-      website/page.tsx          # Website customizer (colors, fonts, layout, content)
+      website-v3/page.tsx       # Website V3 draft editor and live preview
 ```
 
 ## Authentication
@@ -425,6 +493,75 @@ record is visible under payment terminals and printers. Native printers display
 an integrated connection instead of network connection settings. Receipt profile
 configuration remains attached to the owning POS device. The matching API and
 FoodyPOS versions provide enrollment, native discovery, and local dispatch.
+
+
+Order-page headers inherit `nav_layout.header` until their first presentation
+edit. The header inspector then writes `appearance_overrides.order_header` (version 1),
+containing only layout, scroll, color style, background, restaurant information
+presentation and `logo_size`. Logo content, navigation and fulfillment remain
+shared. Presentation edits on the order page never update the site's header.
+Returning to the site header stores `null`; undo restores the override.
+The first override materializes a legacy shared header in the same draft update.
+Deploy API support before releasing the editor. Global color editing now reports
+the actual uses on the previewed page, including header/navigation and restaurant
+information, without applying a style just by selecting its editor tile.
+
+The order inspector's **Fiche article** controls the item-detail layout, bounded
+width and corner presets, image ratio and fit. **Retrouver l’ancienne fiche**
+sets a compact, rounded cover presentation without changing colors or ordering
+rules. Its color style follows the menu by default. **Modifier les styles de
+couleurs** opens the shared style's item-detail roles, grouped into content,
+options and action bar (`custom_palette.color_styles.styles[].item_detail`).
+Resetting a role restores its automatic color; changing it affects every sheet
+using that style. Opening these global controls keeps the item preview visible.
+
+Website V3 accepts every valid hex color without contrast restrictions or warnings.
+Authored title, paragraph and outline colors are preserved during normalization,
+saving and rendering. Menu and item-detail inheritance passes those colors through
+without correcting them against a new background. Defaults are generated only
+for unset values; changing the header layout does not change its color style.
+
+
+## Animated website text
+
+The **Scrolling text** panel opens directly on a stable text input; the canvas wraps the complete phrase while editing. **Animated text** adds a fixed prefix and up to 20 rotating phrases (one per line), separate text/phrase colors, typography, speed, spacing and alignment. Preview plays the animation; editing keeps the first phrase still.
+
+The storefront advertises `animated_text: true` in its V3 capabilities. Deploy the API, then Foody Web, then the admin; the editor rejects an older renderer before creating or publishing an unsupported section.
+
+## Per-component website animations
+
+Every section inspector exposes **Animations**, including featured items and
+text element editing. Effects are optional and stored in `settings.motion`.
+The Lovely preset chooses fade for banners, zoom for featured items/gallery/
+animated text, and opposing reveals + image wobble + desktop scroll movement
+for text/image blocks. Users can independently choose entry style, duration,
+delay, replay, image/button hover, scroll direction/amplitude and mobile behavior.
+Animated text offers letter rotation, fade, slide or no rotation and an optional
+fixed width. Testimonials can rotate automatically with configurable timings.
+All controls use the same draft/preview/publication state; no site is automatically
+restyled. Deploy API then the web renderer advertising `component_animations: 1`
+before this editor.
+
+For an isolated browser check, run `FOODY_COMPONENT_MOTION=1 node
+tests/redesign/website-editor-server.mjs` with the local web/admin environment
+variables described above. The fixture includes entry effects, image wobble,
+parallax, variable-width text and two rotating reviews; all writes stay in memory.
+
+## Unified order intake
+
+`/[restaurantId]/settings/orders` starts with Immediate orders, Preorders only,
+or Both, followed by slot/weekly-lot organization, services and the relevant
+calendar. The old `/orders/preorders` route redirects here. Strict weekly lots
+hide classic pickup/delivery hours; slots retain receiving hours. Hidden values
+are kept, and policy/services/calendar edits share one save. Table service remains
+independent under Restaurant → Hours. The live lot status uses the server calendar
+and the restaurant timezone; pause controls remain available on the same page.
+
+Requires the API's `preorders_only` contract (migration 226). Existing scheduled
+restaurants are shown as Both until the operator explicitly selects Preorders
+only. Browser regressions: `npx playwright test -c playwright.redesign.config.ts
+tests/redesign/order-preorders.spec.ts tests/redesign/order-availability.spec.ts`.
+
 
 ## Floor-plan editor
 

@@ -1,279 +1,168 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Plus, Trash2, Pencil, Ruler, ChevronDown } from 'lucide-react';
 import {
-  listCustomUnits, createCustomUnit, updateCustomUnit, deleteCustomUnit,
-  listStockItems,
-  CustomUnit, CustomUnitInput, StockItem,
+  listCustomUnits, createCustomUnit, updateCustomUnit, deleteCustomUnit, listStockItems,
+  type CustomUnit, type StockItem,
 } from '@/lib/api';
-import Modal from '@/components/Modal';
-import { PlusIcon, TrashIcon, PencilIcon, RulerIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
+import Modal from '@/components/Modal';
+import { Button, ConfirmDialog, Field, Input, PageHead } from '@/components/ds';
 import StockSettingsNav from '@/components/settings/StockSettingsNav';
 
-// Units screen: manage the restaurant's library of custom measurement units
-// (e.g. "piece", "slice"). The concrete size of one custom unit is set per
-// stock item on the Stock screen, so this screen only owns the unit names.
+/** Custom unit names and their per-stock conversion usage, scoped to the active restaurant. */
 export default function UnitsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  const canManage = hasAnyPermission('kitchen.manage');
+  return <UnitsWorkspace key={rid} rid={rid}/>;
+}
 
+function UnitsWorkspace({rid}: {rid:number}) {
+  const {t} = useI18n();
+  const {hasAnyPermission} = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   const [units, setUnits] = useState<CustomUnit[]>([]);
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [modal, setModal] = useState<{ open: boolean; editing?: CustomUnit }>({ open: false });
+  const [error, setError] = useState('');
+  const [usageError, setUsageError] = useState('');
+  const [editing, setEditing] = useState<CustomUnit | 'new' | null>(null);
+  const [removing, setRemoving] = useState<CustomUnit | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [notice, setNotice] = useState('');
+  const deleteLock = useRef(false);
+  const guard = useRef(new RestaurantRequestGuard());
+  guard.current.enterRestaurant(rid);
 
   const reload = useCallback(async () => {
+    const request = guard.current.begin(rid);
+    setLoading(true); setError(''); setUsageError('');
+    const [unitResult, stockResult] = await Promise.allSettled([listCustomUnits(rid),listStockItems(rid)]);
+    if (!guard.current.isCurrent(request)) return;
+    if (unitResult.status === 'fulfilled') setUnits(unitResult.value);
+    else setError(unitResult.reason instanceof Error ? unitResult.reason.message : t('workspaceLoadError'));
+    if (stockResult.status === 'fulfilled') setItems(stockResult.value);
+    else setUsageError(stockResult.reason instanceof Error ? stockResult.reason.message : t('workspaceLoadError'));
+    setLoading(false);
+  }, [rid,t]);
+  useEffect(() => { const current = guard.current; void reload(); return () => current.invalidate(); },[reload]);
+
+  const usage = useMemo(() => {
+    const result = new Map<number,StockItem[]>();
+    for (const item of items) for (const conversion of item.unit_conversions ?? []) {
+      if (conversion.base_quantity <= 0) continue;
+      const used = result.get(conversion.custom_unit_id) ?? [];
+      if (!used.some(value => value.id === item.id)) used.push(item);
+      result.set(conversion.custom_unit_id,used);
+    }
+    return result;
+  }, [items]);
+
+  const remove = async () => {
+    if (!canManage || !removing || deleteLock.current || usageError) return;
+    const unit = removing;
+    deleteLock.current = true; setDeleting(true); setDeleteError('');
     try {
-      const [us, is] = await Promise.all([listCustomUnits(rid), listStockItems(rid).catch(() => [])]);
-      setUnits(us);
-      setItems(is);
-    } finally {
-      setLoading(false);
-    }
-  }, [rid]);
+      await deleteCustomUnit(rid,unit.id);
+      setUnits(previous => previous.filter(value => value.id !== unit.id));
+      setItems(previous => previous.map(value => ({...value,unit_conversions:value.unit_conversions?.filter(conversion => conversion.custom_unit_id !== unit.id)})));
+      setRemoving(null); setNotice(t('unitsDeletedNotice').replace('{name}',unit.name));
+    } catch (cause) { setDeleteError(cause instanceof Error ? cause.message : t('saveFailed')); }
+    finally { deleteLock.current = false; setDeleting(false); }
+  };
 
-  useEffect(() => { reload(); }, [reload]);
-
-  // Map each library unit id -> the stock items that have a positive
-  // per-item conversion configured. Drives the "Used on N items" chip and
-  // the per-unit usage popover.
-  const usageByUnitId = new Map<number, StockItem[]>();
-  for (const item of items) {
-    for (const conv of item.unit_conversions ?? []) {
-      if (conv.base_quantity > 0) {
-        const list = usageByUnitId.get(conv.custom_unit_id) ?? [];
-        list.push(item);
-        usageByUnitId.set(conv.custom_unit_id, list);
-      }
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-fg-primary">{t('units')}</h1>
-          <p className="text-sm text-fg-secondary mt-1 max-w-xl">
-            {t('unitsLibrarySubtitle')}{' '}
-            <Link href={`/${rid}/kitchen/stock`} className="text-brand-500 hover:underline">
-              {t('unitsGoToStock')}
-            </Link>
-          </p>
-        </div>
-        {canManage && (
-          <button
-            onClick={() => setModal({ open: true })}
-            className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors shrink-0"
-          >
-            <PlusIcon className="w-4 h-4" /> {t('addUnit')}
-          </button>
-        )}
-      </div>
-
-      <StockSettingsNav />
-
-      {units.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center py-16 rounded-xl border border-dashed" style={{ borderColor: 'var(--divider)' }}>
-          <RulerIcon className="w-8 h-8 text-fg-tertiary mb-3" />
-          <p className="text-sm font-medium text-fg-primary">{t('noCustomUnits')}</p>
-          <p className="text-sm text-fg-secondary mt-1 max-w-sm">{t('noCustomUnitsHint')}</p>
-        </div>
-      ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--divider)' }}>
-          {units.map((u, i) => {
-            const usingItems = usageByUnitId.get(u.id) ?? [];
-            return (
-              <div
-                key={u.id}
-                className="flex items-center justify-between px-4 py-3"
-                style={i > 0 ? { borderTop: '1px solid var(--divider)' } : {}}
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <RulerIcon className="w-4 h-4 text-fg-tertiary shrink-0" />
-                  <span className="text-sm font-medium text-fg-primary truncate">{u.name}</span>
-                  {u.abbreviation && (
-                    <span className="text-xs text-fg-tertiary px-1.5 py-0.5 rounded" style={{ background: 'var(--surface-subtle)' }}>
-                      {u.abbreviation}
-                    </span>
-                  )}
-                </div>
-                <UnitUsageChip rid={rid} unit={u} items={usingItems} t={t} />
-                {canManage && (
-                  <div className="flex items-center gap-1 shrink-0 ms-2">
-                    <button
-                      onClick={() => setModal({ open: true, editing: u })}
-                      className="p-2 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-                      aria-label={t('edit')}
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={async () => {
-                        const inUseCount = usingItems.length;
-                        const confirmMsg = inUseCount > 0
-                          ? `${t('deleteUnitConfirm')}\n\n${t('unitsUsageCount').replace('{count}', String(inUseCount))}.`
-                          : t('deleteUnitConfirm');
-                        if (!window.confirm(confirmMsg)) return;
-                        await deleteCustomUnit(rid, u.id);
-                        reload();
-                      }}
-                      className="p-2 rounded-md text-fg-secondary hover:text-red-600 hover:bg-red-50 transition-colors"
-                      aria-label={t('delete')}
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {modal.open && (
-        <UnitFormModal
-          editing={modal.editing}
-          error={error}
-          onClose={() => { setModal({ open: false }); setError(null); }}
-          onSave={async (input) => {
-            try {
-              if (modal.editing) {
-                await updateCustomUnit(rid, modal.editing.id, input);
-              } else {
-                await createCustomUnit(rid, input);
-              }
-              setModal({ open: false });
-              setError(null);
-              reload();
-            } catch (e) {
-              setError(e instanceof Error ? e.message : String(e));
-            }
-          }}
-          t={t}
-        />
-      )}
-    </div>
-  );
+  return <div className="space-y-5">
+    <PageHead title={t('units')} desc={<>{t('unitsLibrarySubtitle')} <Link href={`/${rid}/kitchen/stock`} className="text-[var(--brand-ink)] underline underline-offset-4">{t('unitsGoToStock')}</Link></>}
+      actions={canManage ? <Button size="lg" disabled={loading || !!error} onClick={() => {setNotice('');setEditing('new');}}><Plus/>{t('addUnit')}</Button> : undefined}/>
+    <StockSettingsNav/>
+    {notice && <p role="status" className="text-sm text-[var(--success-500)]">{notice}</p>}
+    {loading ? <p role="status" className="py-12 text-center text-fg-secondary">{t('loading')}</p>
+    : error ? <div role="alert" className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5 space-y-4"><p className="text-[var(--danger-500)]">{error}</p><Button size="lg" variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>
+    : <>
+      {usageError && <div role="alert" className="rounded-r-lg border border-[var(--line)] bg-[var(--warning-50)] p-4 text-sm space-y-3"><p className="text-[var(--warning-500)]">{t('unitsUsageUnavailable')}</p><p>{usageError}</p><Button size="lg" variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>}
+      {units.length === 0 ? <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-10 text-center space-y-3"><Ruler aria-hidden className="mx-auto size-8 text-fg-secondary"/><h2 className="text-lg font-semibold">{t('noCustomUnits')}</h2><p className="mx-auto max-w-md text-sm text-fg-secondary">{t('noCustomUnitsHint')}</p></div>
+      : <div className="max-w-5xl divide-y divide-[var(--line)] rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+        {units.map(unit => <section key={unit.id} aria-label={unit.name} className="p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="break-words text-base font-semibold">{unit.name}</h2>{unit.abbreviation && <bdi className="rounded-r-sm bg-[var(--surface-2)] px-2 py-1 text-xs text-fg-secondary">{unit.abbreviation}</bdi>}</div>
+              {usageError ? <p className="mt-2 text-sm text-fg-secondary">{t('unitsUsageUnknown')}</p> : <UnitUsage rid={rid} unit={unit} items={usage.get(unit.id) ?? []}/>}
+            </div>
+            {canManage && <div className="flex shrink-0 gap-1"><Button size="lg" icon variant="ghost" aria-label={`${t('edit')} — ${unit.name}`} onClick={() => {setNotice('');setEditing(unit);}}><Pencil/></Button><Button size="lg" icon variant="ghost" disabled={!!usageError || deleting} aria-label={`${t('delete')} — ${unit.name}`} onClick={() => {setDeleteError('');setRemoving(unit);}}><Trash2/></Button></div>}
+          </div>
+        </section>)}
+      </div>}
+    </>}
+    {editing && <UnitForm key={editing === 'new' ? 'new' : editing.id} rid={rid} editing={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={unit => {
+      setUnits(previous => previous.some(value => value.id === unit.id) ? previous.map(value => value.id === unit.id ? unit : value) : [...previous,unit]);
+      setEditing(null); setNotice(t('saved'));
+    }}/>}
+    {removing && <Modal title={t('delete')} subtitle={removing.name} closeDisabled={deleting} onClose={() => {if (!deleteLock.current) setRemoving(null);}}
+      footer={<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={deleting} onClick={() => setRemoving(null)}>{t('cancel')}</Button><Button size="lg" variant="danger" disabled={deleting} onClick={() => void remove()}>{t(deleting ? 'saving' : 'delete')}</Button></div>}>
+      <p className="text-sm leading-relaxed text-fg-secondary">{t('deleteUnitConfirm')}</p><p className="mt-3 text-sm">{t('unitsUsageCount').replace('{count}',String(usage.get(removing.id)?.length ?? 0))}</p>
+      {deleteError && <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">{deleteError}</p>}
+    </Modal>}
+  </div>;
 }
 
-// Renders the "Used on N items" affordance for a library unit. Empty state
-// is muted text; populated state expands into a list of links straight to
-// each stock item's editor (via the existing `?edit=<id>` deep-link).
-function UnitUsageChip({ rid, unit, items, t }: {
-  rid: number;
-  unit: CustomUnit;
-  items: StockItem[];
-  t: (k: string) => string;
-}) {
-  if (items.length === 0) {
-    return <span className="text-xs text-fg-tertiary italic shrink-0">{t('unitsUsageNone')}</span>;
-  }
-  const label = items.length === 1
-    ? t('unitsUsageOne')
-    : t('unitsUsageCount').replace('{count}', String(items.length));
-  return (
-    <details className="relative shrink-0">
-      <summary
-        className="cursor-pointer text-xs text-fg-secondary px-2 py-1 rounded hover:bg-[var(--surface-subtle)] list-none select-none"
-        aria-label={`${unit.name}: ${label}`}
-      >
-        {label}
-      </summary>
-      <div
-        className="absolute end-0 top-full mt-1 z-10 rounded-md border shadow-lg min-w-[220px] py-1"
-        style={{ borderColor: 'var(--divider)', background: 'var(--surface)' }}
-      >
-        {items.map((item) => {
-          const conv = item.unit_conversions?.find((c) => c.custom_unit_id === unit.id);
-          return (
-            <Link
-              key={item.id}
-              href={`/${rid}/kitchen/stock?edit=${item.id}`}
-              className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm hover:bg-[var(--surface-subtle)]"
-            >
-              <span className="truncate">{item.name}</span>
-              {conv && (
-                <span className="text-xs text-fg-tertiary font-mono tabular-nums shrink-0">
-                  {conv.base_quantity} {item.unit}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </div>
-    </details>
-  );
+function UnitUsage({rid,unit,items}: {rid:number; unit:CustomUnit; items:StockItem[]}) {
+  const {t} = useI18n();
+  if (items.length === 0) return <p className="mt-2 text-sm text-fg-secondary">{t('unitsUsageNone')}</p>;
+  const label = items.length === 1 ? t('unitsUsageOne') : t('unitsUsageCount').replace('{count}',String(items.length));
+  return <details className="group mt-1">
+    <summary aria-label={`${unit.name} — ${label}`} className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-r-sm text-sm text-[var(--brand-ink)]"><ChevronDown aria-hidden className="size-4 shrink-0 transition-transform group-open:rotate-180"/>{label}</summary>
+    <ul className="space-y-1 border-s border-[var(--line)] ps-3">
+      {items.map(item => {
+        const conversion = item.unit_conversions?.find(value => value.custom_unit_id === unit.id);
+        return <li key={item.id}><Link href={`/${rid}/kitchen/stock?edit=${item.id}`} className="flex min-h-11 flex-wrap items-center justify-between gap-x-5 gap-y-1 rounded-r-sm py-2 text-sm hover:text-[var(--brand-ink)]"><span className="break-words underline underline-offset-4">{item.name}</span>{conversion && <bdi dir="ltr" className="text-xs tabular-nums text-fg-secondary">{conversion.base_quantity} {item.unit}</bdi>}</Link></li>;
+      })}
+    </ul>
+  </details>;
 }
 
-function UnitFormModal({ editing, error, onClose, onSave, t }: {
-  editing?: CustomUnit;
-  error: string | null;
-  onClose: () => void;
-  onSave: (input: CustomUnitInput) => void;
-  t: (k: string) => string;
-}) {
-  const [name, setName] = useState(editing?.name ?? '');
-  const [abbreviation, setAbbreviation] = useState(editing?.abbreviation ?? '');
-
-  const canSave = name.trim().length > 0;
-
-  return (
-    <Modal title={editing ? t('editUnit') : t('addUnit')} onClose={onClose}>
-      <div className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('unitNameLabel')} *</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t('unitNamePlaceholder')}
-            autoFocus
-            className="w-full px-3 py-2 rounded-lg border text-sm"
-            style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('unitAbbrLabel')}</label>
-          <input
-            value={abbreviation}
-            onChange={(e) => setAbbreviation(e.target.value)}
-            placeholder={t('unitAbbrPlaceholder')}
-            className="w-full px-3 py-2 rounded-lg border text-sm"
-            style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
-          />
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-fg-secondary hover:bg-[var(--surface-subtle)] transition-colors"
-          >
-            {t('cancel')}
-          </button>
-          <button
-            disabled={!canSave}
-            onClick={() => onSave({ name: name.trim(), abbreviation: abbreviation.trim() })}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
-          >
-            {t('save')}
-          </button>
-        </div>
-      </div>
+function UnitForm({rid,editing,onClose,onSaved}: {rid:number; editing?:CustomUnit; onClose:()=>void; onSaved:(unit:CustomUnit)=>void}) {
+  const {t} = useI18n();
+  const {hasAnyPermission} = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
+  const [name,setName] = useState(editing?.name ?? '');
+  const [abbreviation,setAbbreviation] = useState(editing?.abbreviation ?? '');
+  const [saving,setSaving] = useState(false);
+  const [error,setError] = useState('');
+  const [discard,setDiscard] = useState(false);
+  const lock = useRef(false);
+  const firstInput = useRef<HTMLInputElement>(null);
+  const formId = useId();
+  const dirty = name !== (editing?.name ?? '') || abbreviation !== (editing?.abbreviation ?? '');
+  const close = () => { if (!lock.current) { if (dirty) setDiscard(true); else onClose(); } };
+  useEffect(() => {
+    const warn = (event:BeforeUnloadEvent) => {if (dirty || lock.current) {event.preventDefault();event.returnValue='';}};
+    window.addEventListener('beforeunload',warn);return () => window.removeEventListener('beforeunload',warn);
+  },[dirty]);
+  const submit = async (event:React.FormEvent) => {
+    event.preventDefault();if (!canManage || !name.trim() || lock.current) return;
+    lock.current = true;setSaving(true);setError('');
+    try {
+      const payload = {name:name.trim(),abbreviation:abbreviation.trim()};
+      const saved = editing ? await updateCustomUnit(rid,editing.id,payload) : await createCustomUnit(rid,payload);
+      onSaved(saved);
+    } catch (cause) {setError(cause instanceof Error ? cause.message : t('saveFailed'));}
+    finally {lock.current = false;setSaving(false);}
+  };
+  return <>
+    <Modal title={t(editing ? 'editUnit' : 'addUnit')} initialFocusRef={firstInput} closeDisabled={saving} onClose={close}
+      footer={<div className="flex flex-wrap justify-end gap-2"><Button size="lg" variant="secondary" disabled={saving} onClick={close}>{t('cancel')}</Button><Button size="lg" type="submit" form={formId} disabled={!canManage || !name.trim() || saving}>{t(saving ? 'saving' : 'save')}</Button></div>}>
+      <form id={formId} onSubmit={submit}><fieldset disabled={saving || !canManage} className="min-w-0 space-y-4">
+        <Field label={t('unitNameLabel')}><Input required ref={firstInput} className="min-h-11" value={name} onChange={event => setName(event.target.value)} placeholder={t('unitNamePlaceholder')}/></Field>
+        <Field label={t('unitAbbrLabel')} hint={t('optional')}><Input aria-label={t('unitAbbrLabel')} className="min-h-11" value={abbreviation} onChange={event => setAbbreviation(event.target.value)} placeholder={t('unitAbbrPlaceholder')}/></Field>
+      </fieldset></form>
+      {editing && name !== editing.name && <p className="mt-4 text-sm text-[var(--warning-500)]">{t('unitsRenameHint')}</p>}
+      {error && <p role="alert" className="mt-4 text-sm text-[var(--danger-500)]">{error}</p>}
     </Modal>
-  );
+    <ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={onClose}/>
+  </>;
 }

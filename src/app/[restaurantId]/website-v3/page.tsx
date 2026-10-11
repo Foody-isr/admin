@@ -1,3 +1,4 @@
+import "@/components/website-v3/editor.css";
 import { WebsiteV3Builder } from "@/components/website-v3/WebsiteV3Builder";
 
 export default async function WebsiteV3Page({

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ApiError, type RestaurantDevice } from '@/lib/api';
-import { buildManagedDevices, deviceForgetErrorMessage, deviceMatchesKind } from '@/lib/device-management';
+import { buildManagedDevices, deviceForgetErrorMessage, deviceMatchesKind, deviceManagementPermissions, checkedDeviceInventory } from '@/lib/device-management';
 
 const tablet: RestaurantDevice = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -162,4 +162,21 @@ test('Victa remains one physical terminal in both functional filters', () => {
   assert.equal(deviceMatchesKind(devices[0], 'tablet'), false);
   assert.equal(devices[0].printerConnectionType, 'integrated');
   assert.equal(devices[0].printerResourceId, 'native-printer');
+});
+
+test('device mutation permissions require all capabilities and the FoodyPOS application', () => {
+  const device = buildManagedDevices({ devices: [{ ...tablet, capabilities: [{ type: 'printer', status: 'online' }, { type: 'payment_terminal', status: 'online' }] }] })[0];
+  assert.deepEqual(deviceManagementPermissions(device), ['printers.manage', 'payments.manage', 'shifts.manage']);
+  assert.equal(deviceManagementPermissions({ ...device, capabilities: ['future' as any] }), null);
+  assert.equal(deviceManagementPermissions({ ...device, capabilities: [], applications: [{ name: 'unknown', status: 'active' }] }), null);
+});
+test('inventory verification rejects malformed, cross-restaurant and duplicate identities', () => {
+  assert.equal(checkedDeviceInventory([tablet, printer], 19).length, 2);
+  assert.throws(() => checkedDeviceInventory([tablet], 2));
+  assert.throws(() => checkedDeviceInventory([tablet, tablet], 19));
+  assert.throws(() => checkedDeviceInventory([{ ...tablet, components: null } as any], 19));
+  assert.throws(() => checkedDeviceInventory([{ ...tablet, components: [{ type: 'printer', details: null }] } as any], 19));
+});
+test('ordinary device errors do not expose transport or internal details', () => {
+  assert.equal(deviceForgetErrorMessage(new Error('internal transport detail'), 'Retry inventory', key => key), 'Retry inventory');
 });

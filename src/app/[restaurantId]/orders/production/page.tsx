@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   SearchIcon,
   PrinterIcon,
@@ -47,6 +47,7 @@ import { orderDetailPath } from '@/lib/orders/routes';
 export default function ProductionPage() {
   const params = useParams<{ restaurantId: string }>();
   const restaurantId = Number(params.restaurantId);
+  const requestedDate = useSearchParams().get('date');
   const router = useRouter();
   const { t } = useI18n();
   // A clients × items matrix can't be read on a phone, so instead of shrinking
@@ -91,10 +92,10 @@ export default function ProductionPage() {
     fetchProductionDays(restaurantId).then((d) => {
       setDays(d);
       const today = new Date().toISOString().slice(0, 10);
-      const upcoming = d.find((x) => x.date >= today) ?? d[d.length - 1];
+      const upcoming = d.find((x) => x.date === requestedDate) ?? d.find((x) => x.date >= today) ?? d[d.length - 1];
       setDate(upcoming ? upcoming.date : today);
     });
-  }, [restaurantId]);
+  }, [restaurantId, requestedDate]);
 
   // Load each article's available portion sizes (from its size variants) so the
   // box-packing dropdowns can offer only the article's existing portions.

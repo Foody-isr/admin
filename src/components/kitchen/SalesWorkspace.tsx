@@ -147,7 +147,7 @@ export default function SalesWorkspace({
         </select>
       </div>
       <div className={styles.selectionBar}>
-        <label>
+        <label className="selection-row">
           <input
             type="checkbox"
             checked={unmapped}

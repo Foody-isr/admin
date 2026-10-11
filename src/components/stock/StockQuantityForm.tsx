@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
-import { ChevronDownIcon, InfoIcon } from 'lucide-react';
+import { useCurrency, useI18n } from '@/lib/i18n';
+import { ChevronDownIcon } from 'lucide-react';
+import { Button, Menu, MenuContent, MenuItem } from '@/components/ds';
+import { MenuTrigger } from '@/components/ds/Menu';
 import VatRateSelect from '@/components/stock/VatRateSelect';
 import { NumberInput } from '@/components/ui/NumberInput';
 
@@ -424,20 +426,15 @@ export default function StockQuantityForm({
           The "−" link replaces the old XIcon next to the inner pair, which
           read as multiplication in a sentence already full of × semantics. */}
       {value.type === 'packaged-direct' && (
-        <div className="flex items-center gap-1.5">
+        <div className="space-y-2">
           <button
             type="button"
             onClick={() => onChange(promoteToNested(value))}
-            className="text-[13px] font-medium text-brand-500 hover:text-brand-400 transition-colors"
+            className="min-h-11 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--brand-ink)] hover:bg-[var(--surface-2)]"
           >
             + {t('addIntermediateLevel') || 'Ajouter un niveau intermédiaire'}
           </button>
-          <div className="relative group/tip">
-            <InfoIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-60" />
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
-              {t('intermediateLevelHelp') || 'Ajoutez une couche entre le contenant extérieur et le contenu — par exemple un carton (extérieur) contenant des conserves (intermédiaire) de 400 g chacune.'}
-            </div>
-          </div>
+          <p className="text-xs leading-relaxed text-fg-secondary">{t('intermediateLevelHelp')}</p>
         </div>
       )}
 
@@ -456,18 +453,18 @@ export default function StockQuantityForm({
 // it pins `width: 100%` and large padding via @apply, which would force every
 // segment onto its own line and defeat the sentence layout.
 // Field treatment: subtle fill, light border, 10px radius, 15px medium type.
-const fieldBase = 'rounded-[10px] border px-3 py-2 text-[15px] font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors';
+const fieldBase = 'min-h-11 rounded-r-md border px-3 py-2 text-[15px] font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors';
 const fieldStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.02)',
+  background: 'var(--surface)',
   color: 'var(--text-primary)',
-  borderColor: 'rgba(255,255,255,0.08)',
+  borderColor: 'var(--line-strong)',
 };
 const numCls = `${fieldBase} w-16 text-center tabular-nums`;
 // Content quantities are commonly 3–4 digits (400, 500, 1000, 1500), so the
 // content-pair number gets a wider field than the outer/inner pairs.
 const numClsWide = `${fieldBase} w-24 text-center tabular-nums`;
-const priceNumCls = `${fieldBase} w-24 text-center text-[15px] font-semibold tabular-nums`;
-const selectCls = `${fieldBase} pr-7 max-w-[9rem]`;
+const priceNumCls = `${fieldBase} w-32 text-center text-[15px] font-semibold tabular-nums`;
+const selectCls = `${fieldBase} pe-7 max-w-[9rem]`;
 const connectorCls = 'text-[13px] text-fg-secondary whitespace-nowrap';
 // Each [number][unit] pair wraps atomically so the unit never drops alone.
 // 6px inside a pair (tight coupling), 8px between pairs/connectors (sentence rhythm).
@@ -492,6 +489,7 @@ function SentenceBuilder({
     <span className={pairCls}>
       <NumberInput
         integer min={0} className={numCls} style={fieldStyle}
+        aria-label={t('stockOuterQuantity')}
         value={value.outerQuantity}
         onChange={(q) => {
           const total = d.pricePerOuter > 0 ? d.pricePerOuter * q : value.totalPrice;
@@ -507,6 +505,7 @@ function SentenceBuilder({
     <span className={pairCls}>
       <NumberInput
         integer min={0} className={numCls} style={fieldStyle}
+        aria-label={t('stockInnerQuantity')}
         value={value.innerQuantity}
         onChange={(q) => onChange({ ...value, innerQuantity: q })}
         placeholder="0"
@@ -514,6 +513,7 @@ function SentenceBuilder({
       <select
         className={selectCls}
         style={fieldStyle}
+        aria-label={t('stockInnerUnit')}
         value={value.innerUnit}
         onChange={(e) => {
           const v = e.target.value;
@@ -544,6 +544,7 @@ function SentenceBuilder({
     <span className={pairCls}>
       <NumberInput
         min={0} className={numClsWide} style={fieldStyle}
+        aria-label={t('stockContentQuantity')}
         value={value.contentQuantity}
         onChange={(q) => onChange({ ...value, contentQuantity: q })}
         placeholder="0"
@@ -552,6 +553,7 @@ function SentenceBuilder({
       <select
         className={selectCls}
         style={fieldStyle}
+        aria-label={t('stockContentUnit')}
         value={value.contentUnit}
         onChange={(e) => onChange({ ...value, contentUnit: e.target.value as BaseUnit })}
       >
@@ -562,12 +564,13 @@ function SentenceBuilder({
 
   return (
     <div>
-      <label className={labelCls}>{t('youBought') || 'Vous avez acheté'}</label>
+      <p className={labelCls}>{t('youBought') || 'Vous avez acheté'}</p>
       {value.type === 'simple' && (
         <div className={rowCls}>
           <span className={pairCls}>
             <NumberInput
               min={0} className={numCls} style={fieldStyle}
+              aria-label={t('quantity')}
               value={value.quantity}
               onChange={(q) => onChange({ ...value, quantity: q })}
               placeholder="0"
@@ -622,7 +625,7 @@ function Step1UnitSelect({
   const containerOptions = withCurrent(CONTAINER_UNITS, currentPackaging && !OUTER_UNITS.includes(currentPackaging) ? currentPackaging : undefined);
   const outerOptions = withCurrent(OUTER_UNITS, currentPackaging && OUTER_UNITS.includes(currentPackaging) ? currentPackaging : undefined);
   return (
-    <select className={selectCls} style={fieldStyle} value={unit} onChange={(e) => onChange(e.target.value)}>
+    <select aria-label={t('unit')} className={selectCls} style={fieldStyle} value={unit} onChange={(e) => onChange(e.target.value)}>
       <optgroup label={t('measurableUnits') || 'Mesurables'}>
         {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
       </optgroup>
@@ -665,6 +668,7 @@ function PriceSentence({
   /** When true, collapse the per-pack TTC and per-base hint into one summary row. */
   compact?: boolean;
 }) {
+  const {symbol}=useCurrency();
   const isInc = vatDisplayMode === 'inc';
   // value.totalPrice is stored ex-VAT. When the user is typing in TTC mode,
   // inflate the displayed cell by effMult on the way out and deflate the
@@ -690,23 +694,6 @@ function PriceSentence({
   const defaultLevel: PriceLevel = cycle[0];
   const [level, setLevel] = useState<PriceLevel>(defaultLevel);
   const effective: PriceLevel = cycle.includes(level) ? level : defaultLevel;
-
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
 
   // Brief highlight on the price input when the display level changes, so the
   // user sees the number has been recomputed, not just renamed.
@@ -764,58 +751,12 @@ function PriceSentence({
     return `${par} ${labelForLevel(l).toLowerCase()}`;
   };
   const levelLabel = (label: React.ReactNode) => canCycle ? (
-    <span className="relative inline-block" ref={menuRef}>
-      <button
-        type="button"
-        onClick={() => setMenuOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-        className={`inline-flex items-center gap-0.5 text-[13px] font-semibold rounded-md px-1.5 py-0.5 -mx-1 -my-0.5 transition-colors ${
-          menuOpen
-            ? 'text-brand-500 bg-brand-500/10'
-            : 'text-fg-primary hover:text-brand-500 hover:bg-[var(--surface-subtle)]'
-        }`}
-      >
-        {label}
-        <ChevronDownIcon
-          className={`w-3.5 h-3.5 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {menuOpen && (
-        <div
-          role="menu"
-          className="absolute left-0 top-full mt-1.5 z-20 min-w-[11rem] rounded-lg border shadow-lg py-1"
-          style={{ background: 'var(--surface)', borderColor: 'var(--divider)' }}
-        >
-          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wider text-fg-tertiary">
-            {t('displayPriceIn') || 'Afficher le prix en'}
-          </div>
-          {cycle.map((l) => {
-            const active = l === effective;
-            return (
-              <button
-                key={l}
-                type="button"
-                role="menuitemradio"
-                aria-checked={active}
-                onClick={() => { setLevel(l); setMenuOpen(false); }}
-                className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-[13px] transition-colors ${
-                  active
-                    ? 'text-brand-500 font-semibold'
-                    : 'text-fg-primary hover:bg-[var(--surface-subtle)]'
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-brand-500' : 'bg-transparent'}`} />
-                {menuRowLabel(l)}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </span>
-  ) : (
-    <span className="text-[13px] font-semibold text-fg-primary">{label}</span>
-  );
+    <Menu><MenuTrigger asChild><Button type="button" size="lg" variant="secondary" aria-label={t('displayPriceIn')}>{label}<ChevronDownIcon/></Button></MenuTrigger>
+      <MenuContent collisionPadding={12} className="max-w-[calc(100vw-24px)]" aria-label={t('displayPriceIn')}>
+        {cycle.map(item=><MenuItem key={item} role="menuitemradio" aria-checked={item===effective} className="h-auto min-h-11 py-2" onSelect={()=>setLevel(item)}>{menuRowLabel(item)}</MenuItem>)}
+      </MenuContent>
+    </Menu>
+  ) : <span className="text-sm font-semibold">{label}</span>;
 
   const renderLeading = () => {
     const name = labelForLevel(effective);
@@ -838,8 +779,8 @@ function PriceSentence({
   const flashStyle: React.CSSProperties = flash
     ? {
         ...fieldStyle,
-        background: 'rgba(241,138,71,0.12)',
-        borderColor: 'rgba(241,138,71,0.45)',
+        background: 'var(--brand-soft)',
+        borderColor: 'var(--brand-ink)',
       }
     : fieldStyle;
 
@@ -861,7 +802,7 @@ function PriceSentence({
   // typing on. Matches the stock table's display toggle.
   const sideTag = (
     <span
-      className="text-[11px] font-semibold uppercase tracking-wider text-fg-tertiary px-1.5 py-0.5 rounded-md"
+      className="text-xs font-semibold uppercase tracking-wider text-fg-tertiary px-1.5 py-0.5 rounded-md"
       style={{ background: 'rgba(255,255,255,0.04)' }}
     >
       {isInc ? t('incVat') : t('exVat')}
@@ -875,12 +816,13 @@ function PriceSentence({
         <span className="inline-flex items-center gap-1.5">
           <NumberInput
             min={0} className={priceNumCls} style={flashStyle}
+            aria-label={`${t('pricePer').replace('{name}',labelForLevel(effective))} · ${t(isInc?'incVat':'exVat')}`}
             value={displayed}
             onChange={setFromInput}
             placeholder="0.00"
             format={fmtNum}
           />
-          <span className="text-[15px] font-semibold text-fg-secondary">&#8362;</span>
+          <span className="text-[15px] font-semibold text-fg-secondary">{symbol}</span>
           {sideTag}
         </span>
         {onVatRateChange && (
@@ -893,40 +835,40 @@ function PriceSentence({
         )}
         {showSecondary && !compact && (
           <span className="text-[12px] text-fg-tertiary tabular-nums">
-            ({t('equivalentTo') || 'soit'} {fmtPrice(secondaryBase)} &#8362;&nbsp;/&nbsp;{d.baseUnit})
+            ({t('equivalentTo') || 'soit'} {fmtPrice(secondaryBase)} {symbol}&nbsp;/&nbsp;{d.baseUnit})
           </span>
         )}
       </div>
       {displayedEx > 0 && effMult !== 1 && !compact && (
         <div className="text-[12px] tabular-nums text-fg-tertiary pt-0.5">
-          {t('equivalentTo') || 'soit'} {fmtPrice(otherSideValue)} &#8362; {otherSideLabel}
+          {t('equivalentTo') || 'soit'} {fmtPrice(otherSideValue)} {symbol} {otherSideLabel}
         </div>
       )}
       {d.totalPrice > 0 && (compact ? (
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-2 mt-1 border-t border-[var(--divider)]/40">
-          <span className="text-[10px] uppercase tracking-wider text-fg-tertiary font-semibold">
+          <span className="text-xs uppercase tracking-wider text-fg-tertiary font-semibold">
             {t('totalPrice') || 'Prix total'}
           </span>
           <span className="tabular-nums">
-            <span className="text-[14px] font-semibold text-fg-primary">{fmtPrice(d.totalPrice)}&nbsp;&#8362;</span>
-            <span className="text-[11px] text-fg-tertiary ml-1">{t('exVat')}</span>
+            <span className="text-[14px] font-semibold text-fg-primary">{fmtPrice(d.totalPrice)}&nbsp;{symbol}</span>
+            <span className="text-xs text-fg-tertiary ms-1">{t('exVat')}</span>
             <span className="text-fg-tertiary mx-2">·</span>
-            <span className="text-[14px] font-semibold text-fg-primary">{fmtPrice(d.totalPrice * effMult)}&nbsp;&#8362;</span>
-            <span className="text-[11px] text-fg-tertiary ml-1">{t('incVat')}</span>
+            <span className="text-[14px] font-semibold text-fg-primary">{fmtPrice(d.totalPrice * effMult)}&nbsp;{symbol}</span>
+            <span className="text-xs text-fg-tertiary ms-1">{t('incVat')}</span>
           </span>
           {showSecondary && (
-            <span className="ml-auto text-[12px] text-fg-tertiary tabular-nums">
-              {fmtPrice(secondaryBase)}&nbsp;&#8362;&nbsp;/&nbsp;{d.baseUnit}
+            <span className="ms-auto text-[12px] text-fg-tertiary tabular-nums">
+              {fmtPrice(secondaryBase)}&nbsp;{symbol}&nbsp;/&nbsp;{d.baseUnit}
             </span>
           )}
         </div>
       ) : (
         <div className="text-[12px] tabular-nums pt-0.5">
           <span className="text-fg-tertiary">{t('totalPrice') || 'Prix total'} · </span>
-          <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice)} &#8362;</span>
+          <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice)} {symbol}</span>
           <span className="text-fg-tertiary"> {t('exVat')}</span>
           <span className="text-fg-tertiary"> · </span>
-          <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice * effMult)} &#8362;</span>
+          <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice * effMult)} {symbol}</span>
           <span className="text-fg-tertiary"> {t('incVat')}</span>
         </div>
       ))}

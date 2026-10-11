@@ -16,7 +16,7 @@ import type {
 } from "@/lib/website-v3/types";
 import type { InspectorSurface } from "@/lib/website-v3/inspector-scope";
 import { Inspector } from "../Inspector";
-import type { RailSelection } from "../PageRail";
+import type { RailSelection } from "@/lib/website-v3/editor-selection";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -42,11 +42,12 @@ function render(
   pages: DraftPagePayload[],
   selection: RailSelection,
   surface: InspectorSurface = "page",
+  sections: DraftStatePayload["sections"] = [],
 ): string {
   const state: DraftStatePayload = {
     config: {},
     pages,
-    sections: [],
+    sections,
     deleted_page_ids: [],
     deleted_section_ids: [],
   };
@@ -59,21 +60,22 @@ function render(
         restaurant: { name: "Lovely Patisserie" } as Restaurant,
         state,
         selection,
-        tab: "appearance" as const,
+
+        sectionPanel: "appearance",
         surface,
         menus: [] as Menu[],
         services: [] as CateringService[],
         catalog: { themes: [], typography_pairings: [] } as ThemeCatalog,
         errors: [],
-        onTabChange: () => undefined,
         onSurfaceChange: () => undefined,
         onConfigChange: () => undefined,
+        onOrderHeaderChange: () => undefined,
         onPageChange: () => undefined,
         onPageReplace: () => undefined,
         onSectionChange: () => undefined,
+        onCreateFooter: () => undefined,
         onMakeDefault: () => undefined,
         onMakeHomepage: () => undefined,
-        onStoriesNavigationAvailabilityChange: () => undefined,
         onRestaurantLogoUpload: async () => undefined,
         onRestaurantLogoRemove: async () => undefined,
       }),
@@ -132,16 +134,33 @@ test("the site selection offers no surface switcher", () => {
   const markup = render([page("order", "order-1")], { kind: "site" });
 
   assert.doesNotMatch(markup, /data-inspector-surface=/);
-  assert.match(markup, /Éléments partagés/);
+  assert.match(markup, /site.tagline/);
 });
 
-test("the three inspector tabs are still present alongside it", () => {
-  const markup = render([page("order", "order-1")], {
-    kind: "page",
-    key: "order-1",
-  });
-
-  for (const label of ["Contenu", "Apparence", "Réglages"]) {
-    assert.match(markup, new RegExp(`>${label}</button>`), label);
+test("shared elements and pages expose no obsolete inspector tab strip", () => {
+  for (const selection of [{ kind: "page", key: "order-1" }, { kind: "site", region: "footer" }, { kind: "site", region: "footer-branding" }, { kind: "site" }] as const) {
+    const markup = render([page("order", "order-1")], selection);
+    assert.doesNotMatch(markup, /data-inspector-tabs|role="tablist"|role="tab"/);
   }
+});
+
+test("missing footers offer creation in the dedicated and shared site panels", () => {
+  for (const region of ["footer"] as const) {
+    const markup = render([page("landing", "home")], { kind: "site", region });
+    assert.match(markup, />Add footer<\/button>/);
+    assert.doesNotMatch(markup, /from Add section/);
+  }
+});
+
+test("hidden footers stay editable and branding needs no footer section", () => {
+  const markup = render([page("landing", "home")], { kind: "site", region: "footer" }, "page", [{
+    id: 42, section_type: "footer", page: "_site", sort_order: 0,
+    is_visible: false, layout: "columns", content: {}, settings: {},
+  }]);
+  assert.match(markup, /data-footer-editor/);
+  assert.match(markup, /data-field-id="site.footer.is_visible"/);
+  assert.doesNotMatch(markup, />Add footer<\/button>/);
+  const branding = render([page("landing", "home")], { kind: "site", region: "footer-branding" });
+  assert.match(branding, /site.footer_branding.enabled/);
+  assert.doesNotMatch(branding, />Add footer<\/button>/);
 });

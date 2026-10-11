@@ -584,7 +584,7 @@ test("Hebrew imports can be linked to the full library, with retry and unchanged
   await editor.getByRole("radio", { name: /Cola Zero/ }).click();
   await editor.getByRole("button", { name: "Enregistrer le lien" }).click();
   await expect(editor.getByRole("alert")).toContainText("Votre sélection est conservée");
-  await expect(editor.getByRole("radio", { name: /Cola Zero/ })).toHaveAttribute("aria-checked", "true");
+  await expect(editor.getByRole("radio", { name: /Cola Zero/ })).toBeChecked();
   fail = false;
   await page.screenshot({ path: "test-results/kitchen/sales-link-library.png", fullPage: true });
   await editor.getByRole("button", { name: "Enregistrer le lien" }).click();

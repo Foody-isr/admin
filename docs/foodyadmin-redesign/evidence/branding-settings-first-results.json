@@ -1,0 +1,586 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/25.2.0/bin/node",
+      "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.redesign.config.ts",
+      "tests/redesign/branding-settings.spec.ts"
+    ],
+    "configFile": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/playwright.redesign.config.ts",
+    "rootDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/redesign/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev --port 3103",
+      "port": 3103,
+      "reuseExistingServer": true,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:18080",
+        "NEXT_PUBLIC_META_APP_ID": "synthetic-meta-app",
+        "NEXT_PUBLIC_WA_CONFIG_ID": "synthetic-wa-config",
+        "NEXT_PUBLIC_TWILIO_SOLUTION_ID": "synthetic-partner-solution"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "branding-settings.spec.ts",
+      "file": "branding-settings.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "restaurant branding responsive fr and uncropped logo",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18851,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:28:17.055Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-b69fb2c9e66bdc69177a",
+          "file": "branding-settings.spec.ts",
+          "line": 37,
+          "column": 40
+        },
+        {
+          "title": "restaurant branding responsive he and uncropped logo",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5567,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:28:36.491Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-4bbcb44c515a00abd710",
+          "file": "branding-settings.spec.ts",
+          "line": 37,
+          "column": 40
+        },
+        {
+          "title": "branding read failure after entry offers retry without default editable identity",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 10481,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('main [role=alert]')\nExpected substring: \u001b[32m\"Impossible de charger l’identité\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('main [role=alert]')\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('main [role=alert]')\nExpected substring: \u001b[32m\"Impossible de charger l’identité\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('main [role=alert]')\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts:47:131",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts",
+                      "column": 131,
+                      "line": 47
+                    },
+                    "snippet": "  45 |   const state = await install(page); await page.goto('/1/settings/branding'); await expect(name(page)).toHaveValue(state.control.name);\n  46 |   await page.getByRole('link', { name: 'Sécurité', exact: true }).click(); state.control.failReads = true;\n> 47 |   await page.getByRole('link', { name: 'Image de marque', exact: true }).click(); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger l’identité'); await expect(name(page)).toHaveCount(0); await expect(save(page)).toBeDisabled();\n     |                                                                                                                                   ^\n  48 |   state.control.failReads = false; await page.getByRole('button', { name: 'Réessayer', exact: true }).click(); await expect(name(page)).toHaveValue(state.control.name); expect(state.writes).toHaveLength(0);\n  49 | });\n  50 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts",
+                        "column": 131,
+                        "line": 47
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('main [role=alert]')\nExpected substring: \u001b[32m\"Impossible de charger l’identité\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('main [role=alert]')\u001b[22m\n\n\n  45 |   const state = await install(page); await page.goto('/1/settings/branding'); await expect(name(page)).toHaveValue(state.control.name);\n  46 |   await page.getByRole('link', { name: 'Sécurité', exact: true }).click(); state.control.failReads = true;\n> 47 |   await page.getByRole('link', { name: 'Image de marque', exact: true }).click(); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger l’identité'); await expect(name(page)).toHaveCount(0); await expect(save(page)).toBeDisabled();\n     |                                                                                                                                   ^\n  48 |   state.control.failReads = false; await page.getByRole('button', { name: 'Réessayer', exact: true }).click(); await expect(name(page)).toHaveValue(state.control.name); expect(state.writes).toHaveLength(0);\n  49 | });\n  50 |\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts:47:131"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:28:42.078Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/branding-settings-branding-92bd8-t-default-editable-identity/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/branding-settings-branding-92bd8-t-default-editable-identity/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/branding-settings-branding-92bd8-t-default-editable-identity/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts",
+                    "column": 131,
+                    "line": 47
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-dce0f50d66b2cea4ec6a",
+          "file": "branding-settings.spec.ts",
+          "line": 44,
+          "column": 5
+        },
+        {
+          "title": "branding saves only changed restaurant properties and preserves long descriptions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9151,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:28:54.232Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-cbf37283283d0007d34f",
+          "file": "branding-settings.spec.ts",
+          "line": 51,
+          "column": 5
+        },
+        {
+          "title": "branding serializes saves, freezes inputs and preserves the failed draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4477,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:29:03.789Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-57524aea37ca1d7323ab",
+          "file": "branding-settings.spec.ts",
+          "line": 57,
+          "column": 5
+        },
+        {
+          "title": "branding validates an empty name and unsafe replacement URL without mutation",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 9907,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('textbox', { name: 'Nom', exact: true })\nExpected: \u001b[32m\"true\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('textbox', { name: 'Nom', exact: true })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('textbox', { name: 'Nom', exact: true })\nExpected: \u001b[32m\"true\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('textbox', { name: 'Nom', exact: true })\u001b[22m\n\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts:66:159",
+                    "location": {
+                      "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts",
+                      "column": 159,
+                      "line": 66
+                    },
+                    "snippet": "  64 |\n  65 | test('branding validates an empty name and unsafe replacement URL without mutation', async ({ page }) => {\n> 66 |   const state = await install(page); await page.goto('/1/settings/branding'); await name(page).fill('  '); await save(page).click(); await expect(name(page)).toHaveAttribute('aria-invalid', 'true'); await expect(name(page)).toBeFocused();\n     |                                                                                                                                                               ^\n  67 |   await name(page).fill(state.control.name); await logoUrl(page).fill('javascript:alert(1)'); await save(page).click(); await expect(logoUrl(page)).toHaveAttribute('aria-invalid', 'true'); await expect(logoUrl(page)).toBeFocused();\n  68 |   await expect(page.locator('main img')).toHaveCount(0); expect(state.writes).toHaveLength(0);\n  69 | });"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts",
+                        "column": 159,
+                        "line": 66
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('textbox', { name: 'Nom', exact: true })\nExpected: \u001b[32m\"true\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('textbox', { name: 'Nom', exact: true })\u001b[22m\n\n\n  64 |\n  65 | test('branding validates an empty name and unsafe replacement URL without mutation', async ({ page }) => {\n> 66 |   const state = await install(page); await page.goto('/1/settings/branding'); await name(page).fill('  '); await save(page).click(); await expect(name(page)).toHaveAttribute('aria-invalid', 'true'); await expect(name(page)).toBeFocused();\n     |                                                                                                                                                               ^\n  67 |   await name(page).fill(state.control.name); await logoUrl(page).fill('javascript:alert(1)'); await save(page).click(); await expect(logoUrl(page)).toHaveAttribute('aria-invalid', 'true'); await expect(logoUrl(page)).toBeFocused();\n  68 |   await expect(page.locator('main img')).toHaveCount(0); expect(state.writes).toHaveLength(0);\n  69 | });\n    at /Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts:66:159"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:29:08.282Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/branding-settings-branding-05c85-cement-URL-without-mutation/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/branding-settings-branding-05c85-cement-URL-without-mutation/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/test-results/redesign/branding-settings-branding-05c85-cement-URL-without-mutation/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/zanamickael/Workspace/foody/foodyadmin-redesign/tests/redesign/branding-settings.spec.ts",
+                    "column": 159,
+                    "line": 66
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-9345fc3bd42449be0fb2",
+          "file": "branding-settings.spec.ts",
+          "line": 65,
+          "column": 5
+        },
+        {
+          "title": "branding image failure preserves the URL and offers a preview-only retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5784,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:29:19.381Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-95dac03ae3995b81be5e",
+          "file": "branding-settings.spec.ts",
+          "line": 71,
+          "column": 5
+        },
+        {
+          "title": "branding logo removal is a confirmed local change until saving",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6597,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:29:25.466Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-e87025047ec46a655a3d",
+          "file": "branding-settings.spec.ts",
+          "line": 76,
+          "column": 5
+        },
+        {
+          "title": "branding keeps unsupported historical image values when editing unrelated text",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8010,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:29:32.086Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-95f0d493ab02abb3351d",
+          "file": "branding-settings.spec.ts",
+          "line": 83,
+          "column": 5
+        },
+        {
+          "title": "branding saves a valid new logo path without changing website drafts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5680,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:29:40.118Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-8ba07801dc8c3cca8de2",
+          "file": "branding-settings.spec.ts",
+          "line": 88,
+          "column": 5
+        },
+        {
+          "title": "branding draft survives language changes and guarded navigation before reset",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5349,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:29:45.821Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-6a20361dadba38442bbc",
+          "file": "branding-settings.spec.ts",
+          "line": 93,
+          "column": 5
+        },
+        {
+          "title": "branding read-only identity remains copyable and exposes no mutation action",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7430,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T11:29:51.189Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9cc5c31f6dd68efa420c-643bb7ad868504fcf2ee",
+          "file": "branding-settings.spec.ts",
+          "line": 100,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T11:28:13.515Z",
+    "duration": 105374.234,
+    "expected": 10,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}

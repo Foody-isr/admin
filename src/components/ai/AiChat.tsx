@@ -1,16 +1,15 @@
 'use client';
 
-import { useRef, useEffect, useState, FormEvent } from 'react';
+import { useRef, useEffect, FormEvent } from 'react';
 import { useAi } from '@/lib/ai-context';
 import { useI18n } from '@/lib/i18n';
 import AiMessage from './AiMessage';
 import AiWelcome from './AiWelcome';
 import { SendIcon } from 'lucide-react';
 
-export default function AiChat() {
+export default function AiChat({ input, onInputChange }: { input: string; onInputChange: (value: string) => void }) {
   const { messages, isStreaming, sendMessage } = useAi();
   const { t, direction } = useI18n();
-  const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isRtl = direction === 'rtl';
@@ -22,16 +21,11 @@ export default function AiChat() {
     }
   }, [messages, isStreaming]);
 
-  // Focus input when drawer opens
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text || isStreaming) return;
-    setInput('');
+    onInputChange('');
     await sendMessage(text);
     inputRef.current?.focus();
   };
@@ -60,13 +54,14 @@ export default function AiChat() {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-3 border-t" style={{ borderColor: 'var(--divider)' }}>
+      <form onSubmit={handleSubmit} className="shrink-0 p-3 border-t" style={{ borderColor: 'var(--divider)' }}>
         <div className="flex items-center gap-2">
           <input
             ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => onInputChange(e.target.value)}
+            aria-label={t('aiPlaceholder')}
             placeholder={t('aiPlaceholder')}
             disabled={isStreaming}
             className="input flex-1 text-sm"
@@ -74,8 +69,9 @@ export default function AiChat() {
           />
           <button
             type="submit"
+            aria-label={t('send')}
             disabled={!input.trim() || isStreaming}
-            className="p-2 rounded-lg bg-brand-500 text-white disabled:opacity-40 hover:bg-brand-600 transition-colors"
+            className="h-10 w-10 flex items-center justify-center rounded-r-md bg-[var(--action)] text-[var(--action-fg)] disabled:opacity-40 hover:bg-[var(--action-hover)] transition-colors"
           >
             <SendIcon className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
           </button>

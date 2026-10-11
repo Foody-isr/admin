@@ -1,6 +1,21 @@
 "use client";
+import { EditorialAppearanceFields } from "./EditorialAppearanceFields";
+import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
+import { ColorStylePicker } from "./ColorStylePicker";
 
-import { LAYOUT_OPTIONS, SECTION_TYPE_META } from "@/components/website/SectionEditors";
+import { useI18n } from "@/lib/i18n";
+import {
+  LayoutTemplate,
+  Columns2,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  GalleryHorizontal,
+} from "lucide-react";
+import {
+  SQUARE_COMPONENTS,
+  squareLayouts,
+} from "@/lib/website-v3/square-components";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import {
   ColorField,
@@ -9,25 +24,33 @@ import {
   ToggleField,
   controlClass,
 } from "./controls";
-import { SectionContentEditors } from "./SectionContentEditors";
+import {
+  ImageUploadField,
+  SectionContentEditors,
+} from "./SectionContentEditors";
 import { FeatureCardsAppearanceEditor } from "./FeatureCardsAppearanceEditor";
-import { MenuHighlightsAppearanceEditor } from "./MenuHighlightsAppearanceEditor";
+import { FeaturedItemsEditor } from "./FeaturedItemsEditor";
 import { OrderDiscoveryAppearanceEditor } from "./OrderDiscoveryAppearanceEditor";
 
+/** Contextual section screens opened by content and section-settings actions. */
+export type SectionPanel = "content" | "appearance" | "settings";
+
+/** Edits the selected section without a global tab strip. */
 export function SectionInspector({
   restaurantId,
   section,
-  tab,
+  sectionPanel,
   placementGroups = [],
   onChange,
 }: {
   restaurantId: number;
   section: DraftSectionPayload;
-  tab: "content" | "appearance" | "settings";
+  sectionPanel: SectionPanel;
   placementGroups?: Array<{ id: string; name: string }>;
   onChange: (path: StatePath, value: unknown) => void;
 }) {
-  const meta = SECTION_TYPE_META[section.section_type];
+  const { t } = useI18n();
+  const meta = SQUARE_COMPONENTS[section.section_type];
   const configuredPlacementGroupId = stableId(
     section.settings.placement_group_id,
   );
@@ -37,17 +60,31 @@ export function SectionInspector({
   const placementGroupId = placementGroupIsAvailable
     ? configuredPlacementGroupId
     : "";
-  if (tab === "content") {
+  if (
+    section.section_type === "menu_highlights" ||
+    section.section_type === "featured_menu"
+  )
+    return (
+      <FeaturedItemsEditor
+        restaurantId={restaurantId}
+        section={section}
+        onChange={onChange}
+      />
+    );
+  if (sectionPanel === "content") {
     return (
       <InspectorGroup
         title={
           section.section_type === "order_discovery"
             ? "Découverte & publicité"
-            : meta?.labelKey
-              ? humanize(section.section_type)
+            : meta?.label
+              ? ["text_and_image", "scrolling_text", "animated_text"].includes(
+                  section.section_type,
+                )
+                ? t(meta.label)
+                : humanize(section.section_type)
               : "Section"
         }
-        description="Chaque valeur est envoyée au même renderer que la page publique."
       >
         <SectionContentEditors
           restaurantId={restaurantId}
@@ -58,41 +95,168 @@ export function SectionInspector({
     );
   }
 
-  if (tab === "appearance") {
+  if (sectionPanel === "appearance") {
     return (
       <>
-        <InspectorGroup title="Style du bloc">
-          <InspectorField label="Variation">
-            <select
-              data-field-id="section.layout"
-              value={section.layout}
-              onChange={(event) => onChange(["layout"], event.target.value)}
-              className={controlClass}
-            >
-              <option value="default">Par défaut</option>
-              {(LAYOUT_OPTIONS[section.section_type] ?? []).map((layout) => (
-                <option key={layout.value} value={layout.value}>
-                  {humanize(layout.value)}
-                </option>
-              ))}
-            </select>
-          </InspectorField>
+        <InspectorGroup title={t("editorLayoutColor")}>
+          <div
+            className="sqe-layout-picker"
+            role="group"
+            aria-label={t("editorLayout")}
+          >
+            <span>{t("editorLayout")}</span>
+            <div className="sqe-layout-choices">
+              {squareLayouts(section.section_type).map((layout) => {
+                const Icon =
+                  layout.value === "split"
+                    ? Columns2
+                    : layout.value.includes("left")
+                      ? AlignLeft
+                      : layout.value === "centered"
+                        ? AlignCenter
+                        : layout.value.includes("grid")
+                          ? GalleryHorizontal
+                          : LayoutTemplate;
+                return (
+                  <button
+                    type="button"
+                    key={layout.value}
+                    className="sqe-layout-choice"
+                    data-field-id="section.layout"
+                    aria-label={t(layout.labelKey)}
+                    aria-pressed={
+                      (section.settings.image_only &&
+                      section.section_type === "text_and_image"
+                        ? layout.value === "full_width"
+                        : section.layout === layout.value) ||
+                      (section.layout === "default" &&
+                        layout.value === "centered")
+                    }
+                    onClick={() =>
+                      section.section_type === "text_and_image"
+                        ? onChange([], {
+                            ...section,
+                            layout: layout.value,
+                            settings: {
+                              ...section.settings,
+                              image_only: false,
+                            },
+                          })
+                        : onChange(["layout"], layout.value)
+                    }
+                  >
+                    {section.section_type === "text_and_image" ? (
+                      <>
+                        <EditorialLayoutPreview layout={layout.value} />
+                        <span>{t(layout.labelKey)}</span>
+                      </>
+                    ) : section.section_type === "hero_banner" ? (
+                      <span
+                        aria-hidden="true"
+                        className={`sqe-layout-mini sqe-layout-mini--${layout.value}`}
+                      >
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                    ) : (
+                      <>
+                        <Icon strokeWidth={1.5} />
+                        <span>{t(layout.labelKey)}</span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {section.section_type !== "order_discovery" ? (
             <>
-              <InspectorField label="Ambiance">
-                <select
-                  data-field-id="section.settings.color_style"
-                  value={string(section.settings.color_style) || "light"}
-                  onChange={(event) =>
-                    onChange(["settings", "color_style"], event.target.value)
-                  }
-                  className={controlClass}
-                >
-                  <option value="light">Claire</option>
-                  <option value="dark">Sombre</option>
-                  <option value="custom">Personnalisée</option>
-                </select>
-              </InspectorField>
+              {section.section_type === "hero_banner" && (
+                <>
+                  <div
+                    className="sqe-choice-field"
+                    role="group"
+                    aria-label={t("editorAlignment")}
+                  >
+                    <span>{t("editorAlignment")}</span>
+                    <div className="sqe-segmented">
+                      {(["left", "center", "right"] as const).map((align) => {
+                        const Icon =
+                          align === "left"
+                            ? AlignLeft
+                            : align === "right"
+                              ? AlignRight
+                              : AlignCenter;
+                        return (
+                          <button
+                            key={align}
+                            type="button"
+                            aria-label={t(`editorAlign_${align}`)}
+                            aria-pressed={
+                              (section.settings.text_align ??
+                                section.settings.text_alignment ??
+                                (section.layout === "left_aligned"
+                                  ? "left"
+                                  : "center")) === align
+                            }
+                            onClick={() =>
+                              onChange(["settings"], {
+                                ...section.settings,
+                                text_align: align,
+                                text_alignment: align,
+                              })
+                            }
+                          >
+                            <Icon size={20} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div
+                    className="sqe-choice-field"
+                    role="group"
+                    aria-label={t("editorSectionHeight")}
+                  >
+                    <span>{t("editorSectionHeight")}</span>
+                    <div className="sqe-segmented">
+                      {[
+                        ["compact", "XS"],
+                        ["auto", "S"],
+                        ["medium", "M"],
+                        ["tall", "L"],
+                      ].map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-pressed={
+                            (section.settings.height ?? "medium") === value
+                          }
+                          onClick={() =>
+                            onChange(["settings", "height"], value)
+                          }
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              {["text_and_image", "scrolling_text", "animated_text"].includes(
+                section.section_type,
+              ) && (
+                <EditorialAppearanceFields
+                  section={section}
+                  onChange={onChange}
+                />
+              )}
+              <ColorStylePicker
+                custom
+                value={String(section.settings.color_style ?? "default")}
+                onChange={(id) => onChange(["settings", "color_style"], id)}
+              />
               {section.settings.color_style === "custom" &&
               section.section_type !== "menu_highlights" ? (
                 <>
@@ -116,18 +280,30 @@ export function SectionInspector({
                   />
                 </>
               ) : null}
-              <InspectorField label="Image de fond">
-                <input
-                  type="url"
-                  data-field-id="section.settings.bg_image"
-                  value={string(section.settings.bg_image)}
-                  onChange={(event) =>
-                    onChange(["settings", "bg_image"], event.target.value)
-                  }
-                  className={controlClass}
-                  placeholder="https://..."
+              {["text_and_image", "scrolling_text", "animated_text"].includes(
+                section.section_type,
+              ) ? (
+                <ImageUploadField
+                  restaurantId={restaurantId}
+                  label={t("editorBackgroundMedia")}
+                  currentUrl={string(section.settings.bg_image)}
+                  onUploaded={(url) => onChange(["settings", "bg_image"], url)}
+                  onRemove={() => onChange(["settings", "bg_image"], "")}
                 />
-              </InspectorField>
+              ) : (
+                <InspectorField label="Image de fond">
+                  <input
+                    type="url"
+                    data-field-id="section.settings.bg_image"
+                    value={string(section.settings.bg_image)}
+                    onChange={(event) =>
+                      onChange(["settings", "bg_image"], event.target.value)
+                    }
+                    className={controlClass}
+                    placeholder="https://..."
+                  />
+                </InspectorField>
+              )}
               <ToggleField
                 fieldId="section.settings.bg_overlay"
                 label="Voile sur l’image"
@@ -143,12 +319,6 @@ export function SectionInspector({
             </>
           ) : null}
         </InspectorGroup>
-        {section.section_type === "menu_highlights" ? (
-          <MenuHighlightsAppearanceEditor
-            value={section.settings}
-            onChange={onChange}
-          />
-        ) : null}
         {section.section_type === "feature_cards" ? (
           <FeatureCardsAppearanceEditor
             value={section.settings}
@@ -265,13 +435,6 @@ export function SectionInspector({
           checked={section.is_visible}
           onChange={(value) => onChange(["is_visible"], value)}
         />
-        <p
-          data-field-id="section.page_id"
-          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[11px] leading-5 text-slate-500"
-        >
-          La section reste attachée à sa page par son identifiant canonique,
-          même si l’adresse de la page change.
-        </p>
       </InspectorGroup>
     </>
   );
@@ -282,9 +445,7 @@ function string(value: unknown): string {
 }
 
 function numeric(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : fallback;
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function stableId(value: unknown): string {

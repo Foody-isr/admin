@@ -1,253 +1,122 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getSubscription, changePlan, SubscriptionDetail, PlanTier } from '@/lib/api';
-import { useI18n, useCurrency } from '@/lib/i18n';
-import { CreditCardIcon, CheckCircleIcon, AlertTriangleIcon } from 'lucide-react';
-import { PageHead } from '@/components/ds';
+import { Check, CreditCard, Mail } from 'lucide-react';
+import { changePlan, getSubscription, type PlanTier, type SubscriptionDetail, type SubscriptionEvent } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
+import { usePermissions } from '@/lib/permissions-context';
+import { useI18n } from '@/lib/i18n';
+import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
 
-const STATUS_CONFIG = {
-  trial: { labelKey: 'freeTrial' as const, color: 'badge-accepted', icon: CheckCircleIcon },
-  active: { labelKey: 'active' as const, color: 'badge-ready', icon: CheckCircleIcon },
-  past_due: { labelKey: 'pastDue' as const, color: 'badge-in-kitchen', icon: AlertTriangleIcon },
-  deactivated: { labelKey: 'deactivated' as const, color: 'badge-rejected', icon: AlertTriangleIcon },
-  cancelled: { labelKey: 'cancelled' as const, color: 'badge-neutral', icon: AlertTriangleIcon },
-};
-
-const PLANS: { tier: PlanTier; nameKey: string; priceKey: string; featureKeys: string[] }[] = [
-  {
-    tier: 'starter',
-    nameKey: 'starter',
-    priceKey: '₪299/mo',
-    featureKeys: ['posScreen', 'menuManagement', 'receiptPrinting', 'pickupAndTakeaway', 'pushNotifications'],
-  },
-  {
-    tier: 'premium',
-    nameKey: 'premium',
-    priceKey: '₪799/mo',
-    featureKeys: ['everythingInStarter', 'qrDineIn', 'onlinePayments', 'delivery', 'stockManagement', 'advancedAnalytics', 'whatsappNotifications'],
-  },
-  {
-    tier: 'enterprise',
-    nameKey: 'enterprise',
-    priceKey: 'custom',
-    featureKeys: ['everythingInPremium', 'multiRestaurant', 'customApiAccess', 'prioritySupport'],
-  },
+const PLANS: { tier: PlanTier; price: number | null; features: string[] }[] = [
+  { tier: 'starter', price: 299, features: ['posScreen', 'menuManagement', 'receiptPrinting', 'pickupAndTakeaway', 'pushNotifications'] },
+  { tier: 'premium', price: 799, features: ['everythingInStarter', 'qrDineIn', 'onlinePayments', 'delivery', 'stockManagement', 'advancedAnalytics', 'whatsappNotifications'] },
+  { tier: 'enterprise', price: null, features: ['everythingInPremium', 'multiRestaurant', 'customApiAccess', 'prioritySupport'] },
 ];
+const statusLabels: Record<string, string> = { trial: 'freeTrial', active: 'active', past_due: 'pastDue', deactivated: 'deactivated', cancelled: 'cancelled' };
+const eventLabels: Record<string, string> = { payment_succeeded: 'billingEventPaid', payment_failed: 'billingEventFailed', activated: 'billingEventActivated', deactivated: 'billingEventDeactivated', trial_started: 'billingEventTrial', card_updated: 'billingEventCard', reactivated: 'billingEventReactivated', plan_changed: 'billingEventPlan', cancelled: 'billingEventCancelled' };
+function checkedSubscription(value: SubscriptionDetail, rid: number): SubscriptionDetail {
+  if (!value || value.restaurant_id !== rid || typeof value.plan_tier !== 'string' || typeof value.status !== 'string' || (value.events != null && !Array.isArray(value.events))) throw new Error('Incomplete subscription');
+  return { ...value, events: value.events ?? [] };
+}
 
+/** Review this restaurant's subscription and confirm owner-only plan changes. */
 export default function BillingPage() {
-  const { money } = useCurrency();
   const { restaurantId } = useParams();
-  const rid = Number(restaurantId);
-  const { t } = useI18n();
-
-  const [sub, setSub] = useState<SubscriptionDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [planLoading, setPlanLoading] = useState(false);
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    getSubscription(rid).then(setSub).finally(() => setLoading(false));
+  return <BillingWorkspace key={String(restaurantId)} rid={Number(restaurantId)} />;
+}
+function BillingWorkspace({ rid }: { rid: number }) {
+  const { t, locale } = useI18n(), { user } = useAuth(), { isOwner, loading: permissionsLoading } = usePermissions();
+  // Both the scoped role middleware and the handler's account-role check apply.
+  const canEdit = !permissionsLoading && isOwner && (user?.role === 'owner' || user?.role === 'superadmin');
+  const [subscription, setSubscription] = useState<SubscriptionDetail | null>(null);
+  const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false);
+  const [busy, setBusy] = useState(false), [pending, setPending] = useState<PlanTier | null>(null), [confirmation, setConfirmation] = useState<PlanTier | null>(null);
+  const [notice, setNotice] = useState<string | null>(null), [readError, setReadError] = useState(false);
+  const lock = useRef(false), lifetime = useRef({ generation: 0, sequence: 0 });
+  const load = useCallback(async () => {
+    const generation = lifetime.current.generation, sequence = ++lifetime.current.sequence;
+    const current = () => generation === lifetime.current.generation && sequence === lifetime.current.sequence;
+    setLoading(true); setLoadError(false);
+    try { const next = checkedSubscription(await getSubscription(rid), rid); if (current()) setSubscription(next); }
+    catch { if (current()) setLoadError(true); }
+    finally { if (current()) setLoading(false); }
   }, [rid]);
-
-  const handleChangePlan = async (tier: PlanTier) => {
-    if (sub?.plan_tier === tier) return;
-    if (!confirm(t('switchPlanConfirm').replace('{plan}', tier))) return;
-    setPlanLoading(true);
-    try {
-      await changePlan(rid, tier);
-      const updated = await getSubscription(rid);
-      setSub(updated);
-      setMessage(t('planUpdated'));
-    } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : t('couldNotChangePlan'));
-    } finally {
-      setPlanLoading(false);
-    }
+  useEffect(() => { const current = lifetime.current; void load(); return () => { current.generation++; }; }, [load]);
+  useEffect(() => {
+    const unload = (event: BeforeUnloadEvent) => { if (lock.current) { event.preventDefault(); event.returnValue = ''; } };
+    window.addEventListener('beforeunload', unload); return () => window.removeEventListener('beforeunload', unload);
+  }, []);
+  const readAfterChange = async (target: PlanTier, generation: number) => {
+    const next = checkedSubscription(await getSubscription(rid), rid);
+    if (generation !== lifetime.current.generation) return;
+    setSubscription(next); setPending(null); setReadError(false);
+    setNotice(next.plan_tier === target ? 'billingPlanVerified' : 'billingPlanDifferent');
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  const statusCfg = sub ? STATUS_CONFIG[sub.status] : null;
-  return (
-    <div className="space-y-[var(--s-5)] max-w-3xl">
-      <PageHead
-        title={t('billing') || 'Facturation'}
-        desc={t('billingDesc') || 'Gérez votre abonnement et vos moyens de paiement'}
-      />
-      {message && (
-        <div className={`p-4 rounded-standard text-sm font-medium ${
-          message.startsWith('✓') ? 'bg-green-500/10 border border-green-500/20 text-status-ready'
-          : message.startsWith('✗') ? 'bg-red-500/10 border border-red-500/20 text-status-rejected'
-          : 'bg-blue-500/10 border border-blue-500/20 text-status-accepted'
-        }`}>
-          {message}
-        </div>
-      )}
-
-      {/* Subscription status card */}
-      {sub && (
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-fg-primary">{t('subscription')}</h2>
-            {statusCfg && (
-              <span className={`badge ${statusCfg.color}`}>{t(statusCfg.labelKey)}</span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <div className="text-fg-secondary">{t('currentPlan')}</div>
-              <div className="font-semibold text-fg-primary capitalize">{sub.plan_tier}</div>
-            </div>
-            {sub.trial_ends_at && sub.status === 'trial' && (
-              <div>
-                <div className="text-fg-secondary">{t('trialEnds')}</div>
-                <div className="font-semibold text-fg-primary">
-                  {new Date(sub.trial_ends_at).toLocaleDateString('he-IL')}
-                </div>
-              </div>
-            )}
-            {sub.current_period_end && sub.status === 'active' && (
-              <div>
-                <div className="text-fg-secondary">{t('nextBilling')}</div>
-                <div className="font-semibold text-fg-primary">
-                  {new Date(sub.current_period_end).toLocaleDateString('he-IL')}
-                </div>
-              </div>
-            )}
-            {sub.grace_period_until && sub.status === 'past_due' && (
-              <div>
-                <div className="text-fg-secondary">{t('gracePeriod')}</div>
-                <div className="font-semibold text-red-600">
-                  {new Date(sub.grace_period_until).toLocaleDateString('he-IL')}
-                </div>
-              </div>
-            )}
-            {sub.card_last_four && (
-              <div>
-                <div className="text-fg-secondary">{t('paymentMethod')}</div>
-                <div className="flex items-center gap-2 font-medium text-fg-primary">
-                  <CreditCardIcon className="w-4 h-4" />
-                  {sub.card_brand} •••• {sub.card_last_four}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* PayPlus recurring billing is disabled; support handles billing until a replacement ships. */}
-          {(sub.status === 'trial' || sub.status === 'past_due' || sub.status === 'active') && (
-            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-standard text-sm text-fg-secondary">
-              {t('billingManagedBySupport')}{' '}
-              <a className="font-medium text-brand-500 hover:text-brand-600" href="mailto:support@foody-pos.co.il?subject=Billing">
-                support@foody-pos.co.il
-              </a>
-            </div>
-          )}
-
-          {sub.status === 'deactivated' && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
-              {t('accountDeactivated')}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Plan selection — only when a subscription exists */}
-      {!loading && !sub && (
-        <div className="card text-sm text-fg-secondary text-center py-8">
-          {t('noActiveSubscription')}
-        </div>
-      )}
-      {sub && (
-      <div>
-        <h2 className="font-semibold text-fg-primary mb-4">{t('plans')}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {PLANS.map((plan) => {
-            const isCurrent = sub.plan_tier === plan.tier;
-            const planName = t(plan.nameKey);
-            return (
-              <div
-                key={plan.tier}
-                className={`card relative flex flex-col ${isCurrent ? 'border-brand-500 ring-2 ring-brand-500' : ''}`}
-              >
-                {isCurrent && (
-                  <span className="absolute -top-2.5 left-4 bg-brand-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                    {t('current')}
-                  </span>
-                )}
-                <div className="mb-4">
-                  <div className="font-bold text-fg-primary text-lg">{planName}</div>
-                  <div className="text-brand-500 font-semibold">
-                    {plan.tier === 'enterprise' ? t('custom') : plan.priceKey}
-                  </div>
-                </div>
-                <ul className="space-y-1.5 flex-1 mb-6">
-                  {plan.featureKeys.map((fk) => (
-                    <li key={fk} className="flex items-center gap-2 text-sm text-fg-secondary">
-                      <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
-                      {t(fk)}
-                    </li>
-                  ))}
-                </ul>
-                {!isCurrent && plan.tier !== 'enterprise' && (
-                  <button
-                    onClick={() => handleChangePlan(plan.tier)}
-                    disabled={planLoading}
-                    className="btn-secondary w-full justify-center disabled:opacity-50"
-                  >
-                    {planLoading ? t('switching') : t('switchToPlan').replace('{plan}', planName)}
-                  </button>
-                )}
-                {plan.tier === 'enterprise' && !isCurrent && (
-                  <a
-                    href="mailto:support@foody-pos.co.il?subject=Enterprise Plan"
-                    className="btn-secondary w-full justify-center text-center"
-                  >
-                    {t('contactSales')}
-                  </a>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      )}
-
-      {/* Payment history */}
-      {sub && sub.events && sub.events.length > 0 && (
-        <div className="card">
-          <h2 className="font-semibold text-fg-primary mb-4">{t('paymentHistory')}</h2>
-          <div className="space-y-2">
-            {sub.events.map((evt) => (
-              <div key={evt.id} className="flex items-center justify-between text-sm py-2 border-b border-divider last:border-0">
-                <div className="flex items-center gap-3">
-                  <span className={`badge ${
-                    evt.event_type === 'payment_succeeded' ? 'badge-ready'
-                    : evt.event_type === 'payment_failed' ? 'badge-rejected'
-                    : 'badge-neutral'
-                  }`}>
-                    {evt.event_type.replace(/_/g, ' ')}
-                  </span>
-                </div>
-                <div className="flex items-center gap-4 text-fg-secondary">
-                  {evt.amount != null && (
-                    <span className="font-medium text-fg-primary">{money(evt.amount, { decimals: 0 })}</span>
-                  )}
-                  <span>{new Date(evt.created_at).toLocaleDateString('he-IL')}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const apply = async () => {
+    const target = confirmation; setConfirmation(null);
+    if (!canEdit || !target || lock.current || pending || subscription?.plan_tier === target) return;
+    lock.current = true; setBusy(true); setNotice(null); setReadError(false);
+    const generation = lifetime.current.generation;
+    try {
+      await changePlan(rid, target);
+      if (generation !== lifetime.current.generation) return;
+      setPending(target);
+      try { await readAfterChange(target, generation); }
+      catch { if (generation === lifetime.current.generation) setReadError(true); }
+    } catch { if (generation === lifetime.current.generation) setPending(target); }
+    finally { if (generation === lifetime.current.generation) { lock.current = false; setBusy(false); } }
+  };
+  const verify = async () => {
+    if (!pending || lock.current) return;
+    lock.current = true; setBusy(true); setReadError(false);
+    const generation = lifetime.current.generation;
+    try { await readAfterChange(pending, generation); }
+    catch { if (generation === lifetime.current.generation) setReadError(true); }
+    finally { if (generation === lifetime.current.generation) { lock.current = false; setBusy(false); } }
+  };
+  const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : t('billingDateUnknown');
+  const planName = (tier: string) => PLANS.some(plan => plan.tier === tier) ? t(tier) : tier;
+  const amount = (event: SubscriptionEvent) => {
+    if (event.amount == null) return null;
+    if (!Number.isFinite(event.amount)) return t('billingAmountUnknown');
+    if (/^[A-Za-z]{3}$/.test(event.currency ?? '')) return new Intl.NumberFormat(locale, { style: 'currency', currency: event.currency!.toUpperCase() }).format(event.amount);
+    return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(event.amount)} · ${t('billingCurrencyUnknown')}`;
+  };
+  const statusTone = subscription?.status === 'active' ? 'success' : subscription?.status === 'deactivated' ? 'danger' : subscription?.status === 'past_due' ? 'warning' : 'neutral';
+  return <div className="mx-auto max-w-[980px] space-y-6">
+    <PageHead title={t('billing')} desc={t('billingDesc')} />
+    {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3 rounded-r-lg border border-[var(--line)] p-5"><p className="text-sm text-[var(--danger-500)]">{t('billingLoadError')}</p><Button onClick={() => void load()}>{t('retry')}</Button></div> : subscription && <>
+      <Section title={t('subscription')}>
+        <div className="flex flex-wrap items-start justify-between gap-4 rounded-r-lg bg-[var(--summary-bg)] p-5 text-[var(--summary-fg)]"><div><p className="text-sm">{t('currentPlan')}</p><p className="mt-2 text-2xl font-semibold">{planName(subscription.plan_tier)}</p></div><Badge tone={statusTone}>{statusLabels[subscription.status] ? t(statusLabels[subscription.status]) : subscription.status}</Badge></div>
+        <dl className="mt-5 grid gap-5 sm:grid-cols-2">
+          {[[subscription.status === 'trial' && subscription.trial_ends_at, 'trialEnds'], [subscription.status === 'active' && subscription.current_period_end, 'nextBilling'], [subscription.status === 'past_due' && subscription.grace_period_until, 'gracePeriod']].map(([value, label]) => typeof value === 'string' && <div key={String(label)}><dt className="text-sm text-[var(--fg-muted)]">{t(String(label))}</dt><dd className="mt-1 text-sm font-semibold"><bdi>{date(value)}</bdi></dd></div>)}
+          {subscription.card_last_four && <div><dt className="text-sm text-[var(--fg-muted)]">{t('paymentMethod')}</dt><dd className="mt-1 flex items-center gap-2 text-sm font-semibold"><CreditCard className="size-4 shrink-0" aria-hidden="true" /><bdi>{subscription.card_brand} •••• {subscription.card_last_four}</bdi></dd></div>}
+        </dl>
+        {subscription.status === 'deactivated' && <p className="mt-4 text-sm leading-6 text-[var(--danger-500)]">{t('accountDeactivated')}</p>}
+      </Section>
+      {pending && <div role="alert" className="space-y-3 rounded-r-lg border border-[var(--danger-500)] p-5"><p className="text-sm font-semibold">{t('billingChangeUnconfirmed').replace('{plan}', planName(pending))}</p><p className="text-sm leading-6 text-[var(--fg-muted)]">{t('billingVerifyHint')}</p>{readError && <p className="text-sm text-[var(--danger-500)]">{t('billingReadError')}</p>}<Button variant="secondary" disabled={busy} onClick={() => void verify()}>{t('billingReadSubscription')}</Button></div>}
+      {notice && <p role="status" className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t(notice)}</p>}
+      <section aria-label={t('plans')} className="space-y-4">
+        <div><h2 className="text-lg font-semibold">{t('plans')}</h2>{!canEdit && <p className="mt-2 text-sm text-[var(--fg-muted)]">{t('billingOwnerOnly')}</p>}</div>
+        <div className="grid gap-4 lg:grid-cols-3">{PLANS.map(plan => {
+          const current = subscription.plan_tier === plan.tier;
+          return <article key={plan.tier} className={`flex min-w-0 flex-col rounded-r-lg border bg-[var(--surface)] p-5 ${current ? 'border-[var(--brand-ink)]' : 'border-[var(--line)]'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-semibold">{planName(plan.tier)}</h3>{current && <Badge>{t('current')}</Badge>}</div>
+            <p className="mt-3 text-xl font-semibold">{plan.price == null ? t('custom') : <><bdi>{new Intl.NumberFormat(locale, { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(plan.price)}</bdi><span className="ms-1 text-sm font-normal text-[var(--fg-muted)]">{t('billingPerMonth')}</span></>}</p>
+            <ul className="my-5 flex-1 space-y-3">{plan.features.map(feature => <li key={feature} className="flex items-start gap-2 text-sm leading-5 text-[var(--fg-muted)]"><Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><span>{t(feature)}</span></li>)}</ul>
+            {!current && plan.tier !== 'enterprise' && canEdit && <Button variant="secondary" disabled={busy || !!pending} className="w-full whitespace-normal py-2 leading-5" onClick={() => setConfirmation(plan.tier)}>{t('switchToPlan').replace('{plan}', planName(plan.tier))}</Button>}
+            {!current && plan.tier === 'enterprise' && <Button asChild variant="secondary" className="w-full whitespace-normal py-2 leading-5"><a href="mailto:support@foody-pos.co.il?subject=Enterprise%20Plan">{t('contactSales')}</a></Button>}
+          </article>;
+        })}</div>
+      </section>
+      <Section title={t('paymentHistory')}>
+        {subscription.events.length === 0 ? <p className="text-sm text-[var(--fg-muted)]">{t('billingHistoryEmpty')}</p> : <ol className="divide-y divide-[var(--line)]">{subscription.events.map(event => <li key={event.id} className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="min-w-0"><p dir="auto" className="break-words text-sm font-medium">{eventLabels[event.event_type] ? t(eventLabels[event.event_type]) : event.event_type.replace(/_/g, ' ')}</p><p className="mt-1 text-xs text-[var(--fg-muted)]"><bdi>{date(event.created_at)}</bdi></p></div>{event.amount != null && <span className="shrink-0 text-sm font-semibold tabular-nums"><bdi>{amount(event)}</bdi></span>}</li>)}</ol>}
+        <p className="mt-5 text-xs leading-5 text-[var(--fg-muted)]">{t('billingDatesZone')} <bdi>{Intl.DateTimeFormat().resolvedOptions().timeZone}</bdi></p>
+      </Section>
+    </>}
+    {!loading && <div className="flex items-start gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5"><Mail className="mt-1 size-5 shrink-0 text-[var(--brand-ink)]" aria-hidden="true" /><p className="min-w-0 text-sm leading-6 text-[var(--fg-muted)]">{t('billingManagedBySupport')} <a className="break-words font-medium text-[var(--brand-ink)] underline underline-offset-4" href="mailto:support@foody-pos.co.il?subject=Billing"><bdi>support@foody-pos.co.il</bdi></a></p></div>}
+    <ConfirmDialog open={!!confirmation} onOpenChange={open => { if (!open) setConfirmation(null); }} title={t('switchToPlan').replace('{plan}', planName(confirmation ?? 'starter'))} description={t('billingPlanChangeHint')} confirmLabel={t('confirm')} cancelLabel={t('cancel')} onConfirm={() => void apply()} />
+  </div>;
 }

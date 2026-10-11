@@ -34,7 +34,7 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
       value: String(total),
       detail: `${categoriesCount} ${t('categoriesCount') || 'catégories'}`,
       icon: PackageIcon,
-      tone: 'text-[var(--brand-600)] bg-[var(--brand-50)]',
+      tone: 'text-[var(--summary-fg)] bg-[var(--summary-bg)]',
     },
     {
       key: 'disponibles',
@@ -50,7 +50,7 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
       value: money(avgPrice, { decimals: 2, grouped: true }),
       detail: t('perItem') || 'par article',
       icon: ReceiptTextIcon,
-      tone: 'text-[var(--info-500)] bg-[var(--info-50)]',
+      tone: 'text-[var(--summary-fg)] bg-[var(--summary-bg)]',
     },
     {
       key: 'rupture-stock',
@@ -67,7 +67,7 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
   ];
 
   return (
-      <div className="grid min-w-full grid-cols-2 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 md:flex">
+      <div className="grid min-w-full grid-cols-2 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)] md:flex">
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
           return (
@@ -87,14 +87,14 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
                 <Icon className="size-4" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block whitespace-nowrap text-fs-xs font-medium text-[var(--fg-muted)]">
+                <span className="block text-fs-xs font-medium text-[var(--fg-muted)]">
                   {metric.label}
                 </span>
                 <span className="flex items-baseline gap-2 whitespace-nowrap">
                   <span className="num text-fs-lg font-semibold leading-tight text-[var(--fg)] sm:text-fs-xl">
                     {metric.value}
                   </span>
-                  <span className="hidden text-[11px] text-[var(--fg-subtle)] sm:inline">
+                  <span className="hidden text-fs-micro text-[var(--fg-subtle)] sm:inline">
                     {metric.detail}
                   </span>
                 </span>
