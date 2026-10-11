@@ -41,7 +41,8 @@ export function TicketComboBlock({
   showRule: boolean;
   t: (k: string) => string;
 }) {
-  const showUnpaidChip = hasBalance && comboItems.some((ci) => ci.billed_at == null);
+  const adjustment = comboItems.find((item) => item.adjustment)?.adjustment;
+  const showUnpaidChip = !adjustment && hasBalance && comboItems.some((ci) => ci.billed_at == null);
 
   return (
     <div
@@ -65,6 +66,7 @@ export function TicketComboBlock({
           >
             {comboLabel}
           </span>
+          {adjustment && <span className="basis-full text-fs-xs text-[var(--fg-muted)]">{t(adjustment.kind === 'comp' ? 'orderLineComped' : 'orderLineVoided')} · {adjustment.reason}</span>}
           {showUnpaidChip && <Badge tone="warning">{t('notPaidChip')}</Badge>}
         </span>
 
@@ -75,7 +77,7 @@ export function TicketComboBlock({
       <div className="ms-[52px] ps-[var(--s-3)] border-s border-[var(--line)] mt-[var(--s-1)]">
         <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-x-[var(--s-3)] items-baseline">
           {comboItems.map((ci) => {
-            const delta = ci.price * ci.quantity;
+            const delta = adjustment ? 0 : ci.price * ci.quantity;
             const subVariant = variantChipText(ci);
             return (
               <Fragment key={ci.id}>

@@ -282,7 +282,7 @@ export function buildRecapContext({
   for (const item of g.regularItems) {
     const variant = (item.selected_variant_name || '').trim();
     const name = variant ? `${item.name} (${variant})` : item.name;
-    itemLines.push(`• ${item.quantity}× ${name} · ${money(item.price * item.quantity, currency)}`);
+    itemLines.push(`• ${item.quantity}× ${name} · ${money(item.adjustment ? 0 : item.price * item.quantity, currency)}`);
 
     const mods = modifierLine(item.modifiers, currency);
     if (mods) itemLines.push(`   ↳ ${mods}`);

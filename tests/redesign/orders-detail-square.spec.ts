@@ -101,3 +101,29 @@ test('delivery facts and the settled payment method remain truthful in the compa
   expect(await page.locator('[data-order-detail-scroll]').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   expect(fixture.writes).toEqual([]);
 });
+
+for (const variant of [
+  { locale: 'fr', width: 1440, height: 1000 },
+  { locale: 'fr', width: 375, height: 812 },
+  { locale: 'he', width: 1024, height: 900 },
+]) test(`adjusted lines retain their identity without payable supplements: ${variant.locale}-${variant.width}`, async ({ page }, info) => {
+  const fixture = await install(page, variant.locale);
+  const row = fixture.orders[0];
+  Object.assign(row.items[0], {
+    adjustment: { kind: 'comp', reason: 'Configured comp reason', at: '2026-10-11T12:00:00Z' },
+    modifiers: [{ id: 101, name: 'Extra preserved', action: 'add', price_delta: 8 }],
+  });
+  Object.assign(row.items[1], { adjustment: { kind: 'void', reason: 'Configured void reason', at: '2026-10-11T12:00:00Z' } });
+  row.total_amount = row.total = row.subtotal_amount = 0;
+  await page.setViewportSize(variant);
+  await page.goto('/1/orders/1048');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Configured comp reason', { exact: false })).toBeVisible();
+  await expect(dialog.getByText('Configured void reason', { exact: false })).toBeVisible();
+  await expect(dialog.getByText('Extra preserved', { exact: false })).toBeVisible();
+  await expect(dialog.getByText(variant.locale === 'he' ? /במתנה/ : /Offert/)).toBeVisible();
+  await expect(dialog.getByText(variant.locale === 'he' ? /בוטל/ : /Annulé/)).toBeVisible();
+  expect(await page.locator('[data-order-detail-scroll]').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('adjusted-lines.png') });
+  expect(fixture.writes).toEqual([]);
+});

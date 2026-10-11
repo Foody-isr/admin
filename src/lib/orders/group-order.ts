@@ -101,9 +101,9 @@ export function groupOrder(order: Order, labels: GroupOrderLabels): GroupedOrder
   }));
 
   // ─── Combo pricing ──────────────────────────────────────────────────────────
-  const regularTotal = regularItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const regularTotal = regularItems.reduce((s, i) => s + (i.adjustment ? 0 : i.price * i.quantity), 0);
   const comboDeltasTotal = comboEntries.reduce(
-    (s, [, items]) => s + items.reduce((gs, i) => gs + i.price * i.quantity, 0),
+    (s, [, items]) => s + items.reduce((gs, i) => gs + (i.adjustment ? 0 : i.price * i.quantity), 0),
     0,
   );
   // Fallback for orders created before the server sent combo_price: split what's
@@ -111,13 +111,14 @@ export function groupOrder(order: Order, labels: GroupOrderLabels): GroupedOrder
   const remainingForCombos = Math.max(0, (order.total_amount ?? 0) - regularTotal - comboDeltasTotal);
   const comboCount = comboEntries.length;
   const basePriceFor = (items: OrderItem[]): number => {
+    if (items.some((item) => item.adjustment)) return 0;
     const fromServer = items[0]?.combo_price;
     if (fromServer && fromServer > 0) return fromServer;
     return comboCount > 0 ? remainingForCombos / comboCount : 0;
   };
 
   const comboGroups: OrderComboGroup[] = comboEntries.map(([key, items]) => {
-    const deltas = items.reduce((gs, i) => gs + i.price * i.quantity, 0);
+    const deltas = items.reduce((gs, i) => gs + (i.adjustment ? 0 : i.price * i.quantity), 0);
     return {
       key,
       name: items[0]?.combo_name || labels.comboFallback,
@@ -148,6 +149,6 @@ export function groupOrder(order: Order, labels: GroupOrderLabels): GroupedOrder
     discountAmount,
     total,
     displayedLineCount: regularItems.length + comboGroups.length,
-    totalUnits: allItems.reduce((s, i) => s + i.quantity, 0),
+    totalUnits: allItems.reduce((s, i) => s + (i.adjustment?.kind === 'void' ? 0 : i.quantity), 0),
   };
 }

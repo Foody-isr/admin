@@ -50,6 +50,7 @@ interface EditModifier {
 }
 
 interface EditLine {
+  adjustment?: OrderItem['adjustment'];
   uid: string;
   /** Set for lines that already exist on the order; undefined for newly added. */
   orderItemId?: number;
@@ -104,12 +105,13 @@ function orderItemToLine(item: OrderItem): EditLine {
     .map((m) => ({ modifier_id: m.menu_item_modifier_id, name: m.name, price_delta: m.price_delta || 0 }));
   return {
     uid: `existing-${item.id}`,
+    adjustment: item.adjustment,
     orderItemId: item.id,
     menuItemId: item.menu_item_id,
     name: item.name,
     variantName: item.selected_variant_name || undefined,
     selectedVariantId: item.selected_variant_id,
-    unitPrice: item.selected_variant_price || item.price,
+    unitPrice: item.adjustment ? 0 : item.selected_variant_price || item.price,
     quantity: item.quantity,
     notes: item.notes ?? '',
     modifiers,
@@ -252,7 +254,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
         group,
         name: items[0]?.combo_name || t('comboMenuFallback') || 'Combo',
         items,
-        price: items[0]?.combo_price || items.reduce((s, i) => s + i.price * i.quantity, 0),
+        price: items.some((item) => item.adjustment) ? 0 : items[0]?.combo_price || items.reduce((s, i) => s + i.price * i.quantity, 0),
       })),
     );
     setRemovedCombos(new Set());
@@ -431,18 +433,18 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
 
   function changeQty(uid: string, delta: number) {
     setLines((prev) =>
-      prev.map((l) => (l.uid === uid ? { ...l, quantity: Math.max(1, l.quantity + delta) } : l)),
+      prev.map((l) => (l.uid === uid && !l.adjustment ? { ...l, quantity: Math.max(1, l.quantity + delta) } : l)),
     );
   }
 
   function setNotes(uid: string, notes: string) {
-    setLines((prev) => prev.map((l) => (l.uid === uid ? { ...l, notes } : l)));
+    setLines((prev) => prev.map((l) => (l.uid === uid && !l.adjustment ? { ...l, notes } : l)));
   }
 
   function removeLine(uid: string) {
     setLines((prev) =>
       prev.flatMap((l) => {
-        if (l.uid !== uid) return [l];
+        if (l.uid !== uid || l.adjustment) return [l];
         // Existing lines soft-delete (struck through + restorable) so the
         // removal is reviewable before save; just-added lines simply go away.
         return l.orderItemId ? [{ ...l, removed: true }] : [];
@@ -456,6 +458,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   }
 
   function toggleCombo(group: string) {
+    if (combos.find((combo) => combo.group === group)?.items.some((item) => item.adjustment)) return;
     setRemovedCombos((prev) => {
       const next = new Set(prev);
       if (next.has(group)) next.delete(group);
@@ -506,7 +509,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   function pickCatalogItem(it: MenuItem) {
     if (isSimpleItem(it)) {
       const existing = lines.find(
-        (l) => !l.removed && l.menuItemId === it.id && !l.selectedVariantId && l.modifiers.length === 0,
+        (l) => !l.removed && l.menuItemId === it.id && !l.adjustment && !l.selectedVariantId && l.modifiers.length === 0,
       );
       if (existing) {
         changeQty(existing.uid, 1);
@@ -535,7 +538,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   // closing the search, for rapid repeat additions. Shown only when the match
   // is unambiguous (exactly one active line for that item).
   function quickAddMatch(it: MenuItem): EditLine | undefined {
-    const matches = activeLines.filter((l) => l.menuItemId === it.id);
+    const matches = activeLines.filter((l) => l.menuItemId === it.id && !l.adjustment);
     return matches.length === 1 ? matches[0] : undefined;
   }
 
@@ -877,7 +880,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                           <button
                             type="button"
                             onClick={() => changeQty(line.uid, -1)}
-                            disabled={line.quantity <= 1}
+                            disabled={!!line.adjustment || line.quantity <= 1}
                             aria-label="-"
                             className="flex h-7 w-6 items-center justify-center disabled:opacity-40"
                           >
@@ -895,6 +898,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                           <button
                             type="button"
                             onClick={() => changeQty(line.uid, 1)}
+                            disabled={!!line.adjustment}
                             aria-label="+"
                             className="flex h-7 w-6 items-center justify-center"
                           >
@@ -914,6 +918,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                           >
                             {line.name}
                           </span>
+                          {line.adjustment && <span className="text-fs-xs text-[var(--fg-muted)]">{t(line.adjustment.kind === 'comp' ? 'orderLineComped' : 'orderLineVoided')} · {line.adjustment.reason}</span>}
                           {isNew && !line.removed && (
                             <span
                               className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]"
@@ -950,6 +955,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                             {line.notes && !editingNotes && (
                               <button
                                 type="button"
+                                disabled={!!line.adjustment}
                                 onClick={() => setEditingNotesUid(line.uid)}
                                 className="inline-flex items-center gap-1 text-[11px] italic text-[var(--fg-muted)] hover:text-[var(--fg)]"
                               >
@@ -965,7 +971,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                       {!line.removed && !line.notes && !editingNotes && (
                         <button
                           type="button"
-                          onClick={() => setEditingNotesUid(line.uid)}
+                          disabled={!!line.adjustment}
+                                onClick={() => setEditingNotesUid(line.uid)}
                           aria-label={t('addNote')}
                           title={t('addNote')}
                           className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--fg)] transition-colors"
@@ -996,6 +1003,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                       ) : (
                         <button
                           type="button"
+                          disabled={!!line.adjustment}
                           onClick={() => removeLine(line.uid)}
                           aria-label={t('remove')}
                           className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--danger-600)] transition-colors"
@@ -1081,6 +1089,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                     {!removed && (
                       <button
                         type="button"
+                        disabled={combo.items.some((item) => !!item.adjustment)}
                         onClick={() => openComboEditor(combo)}
                         aria-label={t('editCombo')}
                         title={t('editCombo')}
@@ -1092,6 +1101,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                     {removed ? (
                       <button
                         type="button"
+                        disabled={combo.items.some((item) => !!item.adjustment)}
                         onClick={() => toggleCombo(combo.group)}
                         className="shrink-0 text-fs-xs font-medium text-[var(--brand-600)] hover:underline"
                       >
@@ -1100,6 +1110,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                     ) : (
                       <button
                         type="button"
+                        disabled={combo.items.some((item) => !!item.adjustment)}
                         onClick={() => toggleCombo(combo.group)}
                         aria-label={t('remove')}
                         className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--danger-600)] transition-colors"
