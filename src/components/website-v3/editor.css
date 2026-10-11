@@ -933,11 +933,11 @@
 .sqe-settings-top { display:flex; justify-content:space-between; }
 .sqe-settings-top .sqe-button--primary { background:#111; color:#fff; }
 .sqe-page-settings h2 { font-size:28px; margin:28px 0; }
-.sqe-settings-layout { display:grid; grid-template-columns:180px 1fr; flex:1; gap:32px; }
+.sqe-settings-layout { display:grid; grid-template-columns:180px 1fr; flex:1; min-height:0; gap:32px; }
 .sqe-settings-layout [role=tablist] { display:flex; flex-direction:column; gap:8px; }
 .sqe-settings-layout [role=tab] { padding:14px; text-align:start; font-weight:600; border-radius:6px; }
 .sqe-settings-layout [aria-selected=true] { background:#f0f0f0; }
-.sqe-settings-fields { display:flex; flex-direction:column; gap:24px; overflow-y:auto; }
+.sqe-settings-fields { display:flex; flex-direction:column; min-width:0; min-height:0; gap:24px; overflow-y:auto; }
 .sqe-settings-fields label { display:flex; flex-direction:column; gap:8px; font-weight:600; }
 .sqe-settings-fields input:not([type=checkbox]):not([type=file]), .sqe-settings-fields textarea { width:100%; border:1px solid #d5d5d5; border-radius:6px; min-height:56px; padding:12px; font-weight:400; }
 .sqe-settings-fields input:disabled { background:#f7f7f7; color:#777; }

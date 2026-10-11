@@ -48,7 +48,7 @@ test("order menu reuses shared styles instead of competing local colors and reta
   assert.doesNotMatch(markup, /Style accent/);
   assert.match(markup, /value="soft" selected=""/);
   assert.match(markup, /value="rounded" selected=""/);
-  assert.match(markup, /Use the previous menu layout/);
+  assert.doesNotMatch(markup, /Use the previous menu layout|Uses your existing colors and fonts/);
   assert.doesNotMatch(markup, /categoryBarSticky\./);
 });
 
