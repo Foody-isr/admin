@@ -591,3 +591,31 @@ FoodyPOS before releasing this editor. It refuses writes to an API without
 
 Run isolated browser checks with `npx playwright test -c playwright.floor-plan.config.ts`.
 All API calls in this suite use synthetic in-memory fixtures.
+
+## Full service and kitchen stations
+
+`/[restaurantId]/settings/full-service` edits the restaurant's covers, optional
+seats, Send & Stay, courses and check sorting policy. A separate Kitchen stations
+editor on that page configures registered tablets, phones, computers or displays:
+Prep/Expo role, completion scope, columns, text size, timers, held courses and
+routing by source, dining option and library category. Both editors require an
+explicit save and protect unsaved changes when navigating away.
+
+Deploy the matching API with migrations 228–230 and 232 before using these settings.
+Admin and POS consume the same persisted policy; kitchen progress remains separate
+from payments, table occupancy and inventory. Comp/void reasons are configuration
+only until the corresponding operational actions are implemented.
+
+## Delivery address autocomplete
+
+The Website V3 delivery checkout editor discovers server-side Geoapify availability
+via `/api/v1/public/address-autocomplete/config?restaurant_id=...`. Configure
+`GEOAPIFY_API_KEY` on the API, then enable **Address autocomplete** and publish the
+website draft. The key is never sent to the admin or its preview iframe. Enabling
+the toggle makes the delivery address field enabled, required and unconditional.
+The API refuses a published autocomplete form that hides its address field.
+
+The public fulfillment dialog, checkout and customer correction form use the same
+provider. Staff customer/order/courier address editors retain their existing
+manual correction tools. Provider setup and deployment remain explicit operations;
+no account, subscription or deployment is created by this change.

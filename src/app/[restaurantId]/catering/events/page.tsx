@@ -7,7 +7,9 @@ import {
   DataTable, DataTableHead, DataTableHeadCell,
   DataTableBody, DataTableRow, DataTableCell,
 } from '@/components/data-table';
-import { PageHead, Badge } from '@/components/ds';
+import { PageHead, Badge, Button } from '@/components/ds';
+import { usePermissions } from '@/lib/permissions-context';
+import CateringBalanceHoldDialog from '@/components/catering/CateringBalanceHoldDialog';
 import { listCateringEvents, type CateringEvent } from '@/lib/api';
 
 function formatEventDate(d: string | null): string {
@@ -21,14 +23,20 @@ export default function CateringEventsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
 
   const [events, setEvents] = useState<CateringEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CateringEvent | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       setEvents(await listCateringEvents(rid));
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -48,7 +56,7 @@ export default function CateringEventsPage() {
     <div className="space-y-[var(--s-5)]">
       <PageHead title={t('catering_events_title')} desc={t('catering_events_desc')} />
 
-      {events.length === 0 ? (
+      {error ? <p role="alert" className="text-red-600">{t('catering_balance_load_error')} <Button variant="secondary" size="sm" onClick={() => void reload()}>{t('catering_balance_refresh')}</Button></p> : events.length === 0 ? (
         <p className="text-fg-secondary mt-6">{t('catering_events_empty')}</p>
       ) : (
         <DataTable>
@@ -59,6 +67,7 @@ export default function CateringEventsPage() {
             <DataTableHeadCell>{t('catering_events_service')}</DataTableHeadCell>
             <DataTableHeadCell>{t('catering_events_branch')}</DataTableHeadCell>
             <DataTableHeadCell align="right">{t('catering_deposit')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('catering_balance_title')}</DataTableHeadCell>
           </DataTableHead>
           <DataTableBody>
             {events.map((ev, index) => (
@@ -84,11 +93,15 @@ export default function CateringEventsPage() {
                 <DataTableCell align="right" mobileLabel={t('catering_deposit')}>
                   {money(ev.deposit_amount)}
                 </DataTableCell>
+                <DataTableCell mobileLabel={t('catering_balance_title')}>
+                  {ev.balance_hold_enabled ? <Button variant="secondary" size="sm" onClick={() => setSelectedEvent(ev)}>{t('catering_balance_manage')}</Button> : <span className="text-fg-tertiary">—</span>}
+                </DataTableCell>
               </DataTableRow>
             ))}
           </DataTableBody>
         </DataTable>
       )}
+      {selectedEvent && <CateringBalanceHoldDialog restaurantId={rid} event={selectedEvent} canEdit={hasAnyPermission('catering.manage')} onClose={() => setSelectedEvent(null)} />}
     </div>
   );
 }
