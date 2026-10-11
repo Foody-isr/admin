@@ -535,6 +535,12 @@ paragraph presets keep their preset typography. Sparse historical menus inherit
 `typography.roles` instead of replacing them with new text presets. Page changes
 merge with the site's roles and font sources, without changing global defaults.
 
+**Liste des articles** exposes **Fixer le menu des catégories en haut (sticky)**
+above the collapsed category settings. It defaults to enabled when unset, preserves
+explicit disabled values, and updates the same `website_order.sticky_categories`
+value for autosave, preview and publication. Browser regression:
+`npx playwright test -c playwright.website-editor.config.ts category-menu.spec.ts`.
+
 Website V3 accepts every valid hex color without contrast restrictions or warnings.
 Authored title, paragraph and outline colors are preserved during normalization,
 saving and rendering. Menu and item-detail inheritance passes those colors through
