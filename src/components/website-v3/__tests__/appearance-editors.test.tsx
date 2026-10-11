@@ -69,6 +69,23 @@ test("category headings have a visible toggle; menu headings follow the number o
   assert.match(markup, /Category title style/);
 });
 
+test("sticky category control stays visible outside the collapsed category settings", () => {
+  for (const sticky of [undefined, false, true]) {
+    const markup = render(React.createElement(OrderPageEditor, {
+      restaurantId: 24,
+      page: { type: "order", slug: "order", title: "Order", sort_order: 0,
+        nav_visible: true, is_homepage: false, is_default: true, seo: {}, settings: { menu_ids: [1] },
+        appearance_overrides: { website_order: { sticky_categories: sticky } } },
+      region: "order-items", onChange: () => undefined, onPreviewItem: () => undefined,
+    }));
+    const content = markup.slice(markup.indexOf("<h3>Content</h3>"));
+    const beforeDetails = content.slice(0, content.indexOf("<details"));
+    assert.match(beforeDetails, /Pin the category menu to the top \(sticky\)/);
+    assert.match(beforeDetails, /Off: it scrolls with the page/);
+    assert.equal(/role="switch"[^>]*checked/.test(beforeDetails), sticky !== false);
+  }
+});
+
 test("global navigation CTA exposes content and both surface states", () => {
   const markup = render(
     React.createElement(NavigationCtaEditor, {
