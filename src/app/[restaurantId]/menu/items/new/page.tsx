@@ -90,6 +90,8 @@ function NewItemEditor() {
   const [categoryId, setCategoryId] = useState(defaultCatId);
   const [isActive, setIsActive] = useState(true);
   const [allowNotes, setAllowNotes] = useState(true);
+  const [posAutoSelectFirstVariant, setPosAutoSelectFirstVariant] = useState(true);
+  const [posSkipCustomization, setPosSkipCustomization] = useState(false);
   const [comboAllowQuantity, setComboAllowQuantity] = useState(true);
   const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
   const [pendingImage, setPendingImage] = useState<File | null>(null);
@@ -143,8 +145,8 @@ function NewItemEditor() {
     selectedGroupIds: Array.from(selectedGroupIds),
     selectedModifierSetIds: Array.from(selectedModifierSetIds),
     variantGroups,
-    activeTab: initialSection, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity,
-  }), [name, price, description, portion, categoryId, isActive, itemType, comboSteps, selectedGroupIds, selectedModifierSetIds, variantGroups, initialSection, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity]);
+    activeTab: initialSection, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity, posAutoSelectFirstVariant, posSkipCustomization,
+  }), [name, price, description, portion, categoryId, isActive, itemType, comboSteps, selectedGroupIds, selectedModifierSetIds, variantGroups, initialSection, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity, posAutoSelectFirstVariant, posSkipCustomization]);
 
   // First meaningful edit while the banner is up = "starting fresh."
   // Auto-dismiss the banner and turn autosave on so the new typing is captured.
@@ -171,6 +173,8 @@ function NewItemEditor() {
     setAiContext(bannerDraft.aiContext ?? '');
     setCustomerFacts(normalizeMenuItemCustomerFacts(bannerDraft.customerFacts));
     setAllowNotes(bannerDraft.allowNotes ?? true);
+    setPosAutoSelectFirstVariant(bannerDraft.posAutoSelectFirstVariant ?? true);
+    setPosSkipCustomization(bannerDraft.posSkipCustomization ?? false);
     setComboAllowQuantity(bannerDraft.comboAllowQuantity ?? true);
     setName(bannerDraft.name);
     setPrice(bannerDraft.price);
@@ -254,6 +258,8 @@ function NewItemEditor() {
         estimated_weight_grams: pricingMode === 'by_weight' ? estimatedWeightGrams : 0,
         is_active: isActive,
         allow_notes: allowNotes,
+        pos_auto_select_first_variant: posAutoSelectFirstVariant,
+        pos_skip_customization: posSkipCustomization,
         combo_allow_quantity: comboAllowQuantity,
         item_type: itemType,
         category_id: categoryId || categories[0]?.id,
@@ -483,6 +489,10 @@ function NewItemEditor() {
               portion={portion}
               setPortion={setPortion}
               allowNotes={allowNotes}
+              posAutoSelectFirstVariant={posAutoSelectFirstVariant}
+              setPosAutoSelectFirstVariant={setPosAutoSelectFirstVariant}
+              posSkipCustomization={posSkipCustomization}
+              setPosSkipCustomization={setPosSkipCustomization}
               setAllowNotes={setAllowNotes}
               vatRate={vatRate}
               itemType={itemType}
