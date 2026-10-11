@@ -515,6 +515,16 @@ options and action bar (`custom_palette.color_styles.styles[].item_detail`).
 Resetting a role restores its automatic color; changing it affects every sheet
 using that style. Opening these global controls keeps the item preview visible.
 
+Website typography is available under **Design du site → Polices**, including the
+existing font library and `.woff2`, `.woff`, `.ttf`, and `.otf` imports. Imported
+families retain their variants. In **Liste des articles**, **Menu des catégories**
+and **Style des titres de catégories** expose the inherited font, weight and size
+(50–400%), navigation title spacing (0–80px), and category spacing (0–160px).
+Font/size controls appear when **Style du site** is selected; explicit title and
+paragraph presets keep their preset typography. Sparse historical menus inherit
+`typography.roles` instead of replacing them with new text presets. Page changes
+merge with the site's roles and font sources, without changing global defaults.
+
 Website V3 accepts every valid hex color without contrast restrictions or warnings.
 Authored title, paragraph and outline colors are preserved during normalization,
 saving and rendering. Menu and item-detail inheritance passes those colors through

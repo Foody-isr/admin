@@ -7,6 +7,9 @@ import {
   previousItemPresentation,
 } from "@/lib/website-v3/order-design";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+import { OrderTypographyFields } from "./OrderTypographyFields";
+import type { TypographyOverrides, TypographyRoleKey } from "@/lib/api";
 import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { DraftPagePayload, StatePath } from "@/lib/website-v3/types";
@@ -17,6 +20,7 @@ import { ImageUploadField } from "./SectionContentEditors";
 /** Edits the same page-local order blocks rendered by the public order page. */
 export function OrderPageEditor({
   restaurantId,
+  config = {},
   page,
   region,
   onChange,
@@ -27,6 +31,7 @@ export function OrderPageEditor({
   onEditHeader,
 }: {
   restaurantId: number;
+  config?: Record<string, unknown>;
   page: DraftPagePayload;
   region: OrderEditorRegion;
   onChange: (path: StatePath, value: unknown) => void;
@@ -78,12 +83,18 @@ export function OrderPageEditor({
       </select>
     </label>
   );
-  const typography = (prefix: string, fallback: string) => (
+  const spacing = (key: string, label: string, fallback: number, max: number) => (
+    <label className="sqe-field">{t(label)}
+      <NumberInput min={0} max={max} format={String} value={Number(value[key] ?? fallback)}
+        onChange={next => set(key, next)} />
+    </label>
+  );
+  const typography = (prefix: string, role: TypographyRoleKey) => (
     <>
       <label className="sqe-field">
         {t("editorTextStyle")}
         <select
-          value={String(value[`${prefix}_style`] ?? fallback)}
+          value={String(value[`${prefix}_style`] ?? "inherit")}
           onChange={(event) => set(`${prefix}_style`, event.target.value)}
         >
           <option value="inherit">{t("editorOrderInherited")}</option>
@@ -100,7 +111,7 @@ export function OrderPageEditor({
         </select>
       </label>
       {!(
-        prefix === "category_title" && value[`${prefix}_style`] === "inherit"
+        prefix === "category_title" && (value[`${prefix}_style`] ?? "inherit") === "inherit"
       ) && (
         <>
           {select(`${prefix}_alignment`, "editorAlignment", "start", [
@@ -111,11 +122,15 @@ export function OrderPageEditor({
           {toggle(`${prefix}_caps`, "editorOrderAllCaps", false)}
         </>
       )}
-      {value[`${prefix}_style`] !== "inherit" &&
+      {(value[`${prefix}_style`] ?? "inherit") === "inherit" && <OrderTypographyFields
+        restaurantId={restaurantId} role={role} base={record(config.typography) as TypographyOverrides}
+        value={record(page.appearance_overrides.typography) as TypographyOverrides}
+        onChange={next => onChange(["appearance_overrides", "typography"], next)} />}
+      {(value[`${prefix}_style`] ?? "inherit") !== "inherit" &&
         select(
           `${prefix}_weight`,
           "editorOrderTextWeight",
-          String(value[`${prefix}_style`] ?? fallback).startsWith("title")
+          String(value[`${prefix}_style`] ?? "inherit").startsWith("title")
             ? "semibold"
             : "regular",
           [
@@ -253,12 +268,13 @@ export function OrderPageEditor({
         <details>
           <summary>{t("editorCategoryMenu")}</summary>
           {toggle("show_categories", "editorCategoryMenu")}
-          {typography("category", "paragraph-3")}
-          {select("category_shape", "editorShape", "plain", [
+          {typography("category", "categoryBar")}
+          {select("category_shape", "editorShape", value.card_style === "filled" ? "pill" : "plain", [
             ["plain", "editorNone"],
             ["rounded", "editorShapeRound"],
             ["pill", "editorOrderShapePill"],
           ])}
+          {spacing("category_gap", "editorCategoryGap", 20, 80)}
           {toggle("sticky_categories", "editorOrderStickyCategories", false)}
           {editMenuColors("categories")}
           <p>{t("editorOrderCategoryColorsHint")}</p>
@@ -269,7 +285,8 @@ export function OrderPageEditor({
         {value.show_category_titles !== false && (
           <details>
             <summary>{t("editorCategoryTitleStyle")}</summary>
-            {typography("category_title", "title-3")}
+            {typography("category_title", "categoryTitle")}
+            {spacing("category_spacing", "editorCategorySpacing", 48, 160)}
           </details>
         )}
         <details>
@@ -315,7 +332,7 @@ export function OrderPageEditor({
         <details>
           <summary>{t("editorItemTitles")}</summary>
           {toggle("show_item_titles", "editorItemTitles")}
-          {typography("item_title", "paragraph-2")}
+          {typography("item_title", "itemName")}
         </details>
         <details>
           <summary>{t("editorItemPrices")}</summary>
@@ -324,7 +341,7 @@ export function OrderPageEditor({
             ["range", "editorOrderPriceRange"],
             ["starting", "editorOrderPriceStarting"],
           ])}
-          {typography("item_price", "paragraph-3")}
+          {typography("item_price", "itemPrice")}
           {editMenuColors("cards")}
         </details>
         {toggle("show_badges", "editorBadges")}
