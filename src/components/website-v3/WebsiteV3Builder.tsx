@@ -18,6 +18,7 @@ import {
   getPublicRestaurantNavigationState,
   getChainBranches,
   getRestaurant,
+  getAddressAutocompleteConfig,
   getThemeCatalog,
   getWebsiteDraft,
   getWebsitePages,
@@ -218,6 +219,15 @@ function DesktopWebsiteV3Builder({
   chainOverview: ChainOverview;
 }) {
   const { t } = useI18n();
+  const [addressAutocompleteAvailable, setAddressAutocompleteAvailable] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setAddressAutocompleteAvailable(false);
+    getAddressAutocompleteConfig(restaurantId)
+      .then(config => { if (active) setAddressAutocompleteAvailable(config.available); })
+      .catch(() => { if (active) setAddressAutocompleteAvailable(false); });
+    return () => { active = false; };
+  }, [restaurantId]);
   const webOrigin = resolveWebsiteV3PreviewOrigin(
     process.env.NEXT_PUBLIC_WEB_URL,
     typeof window === "undefined" ? undefined : window.location.origin,
@@ -1417,7 +1427,7 @@ function DesktopWebsiteV3Builder({
               onColorsChange={value => updatePage(pageKey(activePage), ["appearance_overrides", "order_journey"], value)}
               orderType={journeyOrderType} onOrderTypeChange={setJourneyOrderType}
               value={state.config.checkout_config as CheckoutConfig | null}
-              placesAvailable={Boolean(loaded.restaurant.google_places_api_key)}
+              placesAvailable={addressAutocompleteAvailable}
               onChange={value => updateConfig(["checkout_config"], value)}
               onEditCartButton={() => window.dispatchEvent(new Event("foody-edit-site-buttons"))}
             /> : <OrderPageEditor config={state.config} restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={websiteOrderChoicesAvailable(loaded.restaurant, state.config.checkout_config)} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => {

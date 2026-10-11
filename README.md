@@ -605,3 +605,17 @@ Deploy the matching API with migrations 228–230 and 232 before using these set
 Admin and POS consume the same persisted policy; kitchen progress remains separate
 from payments, table occupancy and inventory. Comp/void reasons are configuration
 only until the corresponding operational actions are implemented.
+
+## Delivery address autocomplete
+
+The Website V3 delivery checkout editor discovers server-side Geoapify availability
+via `/api/v1/public/address-autocomplete/config?restaurant_id=...`. Configure
+`GEOAPIFY_API_KEY` on the API, then enable **Address autocomplete** and publish the
+website draft. The key is never sent to the admin or its preview iframe. Enabling
+the toggle makes the delivery address field enabled, required and unconditional.
+The API refuses a published autocomplete form that hides its address field.
+
+The public fulfillment dialog, checkout and customer correction form use the same
+provider. Staff customer/order/courier address editors retain their existing
+manual correction tools. Provider setup and deployment remain explicit operations;
+no account, subscription or deployment is created by this change.

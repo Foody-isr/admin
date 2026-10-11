@@ -120,6 +120,10 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    addressAutocompleteTitle: "Address autocomplete",
+    addressAutocompleteDescription: "Suggests complete addresses with Geoapify and fills the city. The customer must select a suggestion.",
+    addressAutocompleteUnavailable: "Unavailable — check the server’s Geoapify configuration.",
+
     intakePolicyUnavailable: "Preorders only is not available yet. Please try again after the service has been updated.",
     intakeCustomSlots: "Specific booking windows are active. They replace regular pickup/delivery times on service days.",
     intakeUseServiceHours: "Use service hours",
@@ -7874,6 +7878,10 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    addressAutocompleteTitle: "השלמה אוטומטית של כתובת",
+    addressAutocompleteDescription: "מציע כתובות מלאות באמצעות Geoapify וממלא את העיר. הלקוח חייב לבחור כתובת מהרשימה.",
+    addressAutocompleteUnavailable: "לא זמין — בדקו את הגדרות Geoapify בשרת.",
+
     intakePolicyUnavailable: "הזמנות מראש בלבד עדיין אינן זמינות. נסו שוב לאחר עדכון השירות.",
     intakeCustomSlots: "חלונות הזמנה ייעודיים פעילים. הם מחליפים את שעות האיסוף והמשלוח הרגילות בימי השירות.",
     intakeUseServiceHours: "שימוש בשעות השירות",
@@ -15619,6 +15627,10 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    addressAutocompleteTitle: "Autocomplétion d’adresse",
+    addressAutocompleteDescription: "Suggère des adresses complètes via Geoapify et remplit la ville. Le client doit choisir une suggestion.",
+    addressAutocompleteUnavailable: "Indisponible — vérifiez la configuration Geoapify du serveur.",
+
     intakePolicyUnavailable: "Le mode précommandes uniquement n’est pas encore disponible. Réessayez après la mise à jour du service.",
     intakeCustomSlots: "Des plages de réservation spécifiques sont actives. Elles remplacent les heures habituelles de retrait et livraison les jours de service.",
     intakeUseServiceHours: "Utiliser les horaires par service",
