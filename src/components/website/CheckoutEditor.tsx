@@ -1,5 +1,6 @@
 'use client';
 
+import { useI18n } from '@/lib/i18n';
 import { Switch } from '@/components/ui/switch';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -92,6 +93,7 @@ interface CheckoutEditorProps {
  * sync with the sub-tab the owner is editing.
  */
 export default function CheckoutEditor({ value, onChange, placesAvailable, subTab, onSubTabChange, embedded = false }: CheckoutEditorProps) {
+  const { t } = useI18n();
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null);
   const orderType: OrderTypeKey = subTab === 'pickup' ? 'pickup' : 'delivery';
 
@@ -119,7 +121,13 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
   }, [form, writeForm]);
 
   const setAutocomplete = useCallback((b: boolean) => {
-    writeForm({ ...form, address_autocomplete: b });
+    const fields: CheckoutFieldConfig[] = b ? form.fields.map(field => field.id === 'delivery_address'
+      ? { ...field, enabled: true, required: true, visible_when: undefined }
+      : field) : form.fields;
+    if (b && !fields.some(field => field.id === "delivery_address")) {
+      fields.push({ id: "delivery_address", kind: "builtin", enabled: true, required: true });
+    }
+    writeForm({ ...form, fields, address_autocomplete: b });
   }, [form, writeForm]);
 
   const updateField = useCallback((idx: number, patch: Partial<CheckoutFieldConfig>) => {
@@ -254,16 +262,16 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
 
           {orderType === 'delivery' && (
             <Row
-              title="Autocomplétion d'adresse"
+              title={t("addressAutocompleteTitle")}
               description={placesAvailable
-                ? 'Suggère des adresses via Google Places et remplit la ville.'
-                : 'Indisponible — clé Google Places non configurée.'}
-              disabled={!placesAvailable}
+                ? t('addressAutocompleteDescription')
+                : t('addressAutocompleteUnavailable')}
+              disabled={!placesAvailable && !form.address_autocomplete}
             >
               <Toggle
                 checked={!!form.address_autocomplete}
                 onChange={setAutocomplete}
-                disabled={!placesAvailable}
+                disabled={!placesAvailable && !form.address_autocomplete}
               />
             </Row>
           )}
