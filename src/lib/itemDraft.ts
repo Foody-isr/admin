@@ -29,6 +29,8 @@ export interface ItemDraft {
   aiContext?: string;
   customerFacts?: MenuItemCustomerFacts;
   allowNotes?: boolean;
+  posAutoSelectFirstVariant?: boolean;
+  posSkipCustomization?: boolean;
   comboAllowQuantity?: boolean;
 }
 
@@ -42,6 +44,7 @@ export function isMeaningfulDraft(input: ItemDraftInput): boolean {
   return (
     input.pricingMode === 'by_weight' || (input.pricePerKg ?? 0) > 0 || !!input.aiContext?.trim() ||
     input.allowNotes === false || input.comboAllowQuantity === false ||
+    input.posAutoSelectFirstVariant === false || input.posSkipCustomization === true ||
     !!input.customerFacts?.ingredients?.some(ingredient => ingredient.name.trim()) ||
     !!input.customerFacts?.allergens?.length || !!input.customerFacts?.may_contain?.length ||
     !!input.customerFacts?.dietary_tags?.length || !!input.customerFacts?.complete ||

@@ -121,6 +121,16 @@ Creation and editing use one continuous form: identity and photo, pricing and va
 
 Existing `?tab=recipe`, `?tab=availability` and legacy links scroll to the corresponding section. New articles expose **Save and configure** for stock and recipe settings that need a saved item. Form fields, variants, recipe instructions and availability commit with Save; existing explicit image, modifier and ingredient operations retain their immediate persistence.
 
+Regular articles also expose **Customization at checkout** for Foody POS:
+automatic first-variant selection and skipping optional customization. Both
+preferences follow the item’s explicit Save and new-item draft recovery. Legacy
+items keep first-variant selection on and skip-customization off. Automatic
+progression between sections after single-choice selections is a separate restaurant
+setting under **Settings → Full service → Fast order entry**. Reopening an item
+keeps its editor open. These settings do not change guest web checkout or combo
+composition. Deploy the matching API and POS support before enabling them.
+Isolated browser checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/item-checkout.spec.ts`.
+
 ### Staff (`/[restaurantId]/staff`)
 
 - Table of all staff members: name, email, role badge
