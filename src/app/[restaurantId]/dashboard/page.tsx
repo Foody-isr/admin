@@ -231,7 +231,7 @@ export default function DashboardPage() {
   const shortDate = (date: Date) => date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' });
   const modeLabel = t(`dashboardMode_${revenueMode}`);
   const dateControl =
-    <DateRangePicker value={dateRange} onChange={onPickRange} weekStartDay={wsd} workdays={workdays} restaurantId={rid}
+    <DateRangePicker value={dateRange} onChange={onPickRange} weekStartDay={wsd} workdays={workdays} restaurantId={rid} align="right"
       basis={basis} onBasisChange={onChangeBasis} series={serieList} triggerClassName="dashboard-filter"
       triggerContent={<><span>{serieMode ? t('dateBasisSerieShort') : t('date')}</span><strong>{shortDate(dateRange.from)}{!singleDay && ` – ${shortDate(dateRange.to)}`}</strong><ChevronDown size={16} /></>} />;
   const filterControls = <>

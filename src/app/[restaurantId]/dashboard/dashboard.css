@@ -93,6 +93,10 @@ main[data-workspace-shell]:has(.dashboard-home) #workspace-content { padding: 32
 .dashboard-error button { text-decoration: underline; }
 .dashboard-home button:focus-visible, .dashboard-home a:focus-visible, .dashboard-chart-bar:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 [dir="rtl"] .dashboard-action > svg { transform: scaleX(-1); }
+@media (min-width: 640px) and (max-width: 767px) {
+  /* The stacked header places the trigger at the start of the row. */
+  .dashboard-header-actions [role="dialog"] { inset-inline-start: 0; inset-inline-end: auto; }
+}
 @media (max-width: 1279px) {
   main[data-workspace-shell]:has(.dashboard-home) #workspace-content { padding: 24px; }
   .dashboard-grid { grid-template-columns: minmax(0,1fr) 260px; gap: 16px; }

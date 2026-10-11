@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CircleCheck, CircleAlert, ArrowRight } from 'lucide-react';
+import { CircleAlert, ArrowRight } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { ListOrdersResult } from '@/lib/api';
 import { orderDetailPath, ordersPaymentAttentionPath, type OrdersPaymentAttentionScope } from '@/lib/orders/routes';
@@ -21,11 +21,13 @@ export default function OperationalSummary({ restaurantId, review, readyOrders, 
       message: t(payments.total === 1 ? 'dashboardUrgentPayment' : 'dashboardUrgentPayments').replace('{count}', String(payments.total)) }
     : readyOrder ? { label: t('dashboardActionReady'), href: orderDetailPath(restaurantId, readyOrder.id),
       message: t('dashboardUrgentReady').replace('{count}', String(readyOrders.total)) } : null;
+  if (loading || (!unavailable && !action)) return null;
+
   return <section className="dashboard-operations" aria-label={t('dashboardNow')}>
     <div className="dashboard-attention">
-      <span className={`dashboard-attention-icon${action ? ' needs-attention' : ''}`}>{action ? <CircleAlert size={20} /> : <CircleCheck size={20} />}</span>
-      <div><h2>{t('dashboardNow')}</h2><p>{unavailable ? t(loading ? 'loading' : 'dashboardNowUnavailable') : action?.message ?? t('dashboardNoUrgent')}</p></div>
-      {action && <Link className="dashboard-action" href={action.href}>{action.label}<ArrowRight size={16} /></Link>}
+      <span className={`dashboard-attention-icon${action && !unavailable ? ' needs-attention' : ''}`}><CircleAlert size={20} /></span>
+      <div><h2>{t('dashboardNow')}</h2><p>{unavailable ? t('dashboardNowUnavailable') : action?.message}</p></div>
+      {!unavailable && action && <Link className="dashboard-action" href={action.href}>{action.label}<ArrowRight size={16} /></Link>}
     </div>
   </section>;
 }
