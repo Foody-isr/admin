@@ -168,7 +168,20 @@ export interface BatchFulfillmentDay {
 export type PricingMode = 'standard' | 'by_weight';
 export type TableAssignmentMode = 'free' | 'collaborative' | 'strict';
 
+/** Restaurant POS policy, independent of online/QR checkout payment requirements. */
+export interface FullServiceSettings {
+ seating_mode: 'disabled' | 'coversOnly' | 'optionalSeats' | 'requiredSeats';
+ send_and_stay: boolean;
+ coursing_enabled: boolean;
+ courses: string[];
+ show_held_on_kds: boolean;
+ sort_cart: 'course' | 'seat' | 'entry';
+ comp_reasons: string[];
+ void_reasons: string[];
+}
+
 export interface RestaurantSettings {
+ full_service?: FullServiceSettings;
   /** Require the configured calendar for guest pickup and delivery. */
   preorders_only?: boolean;
   pickup_enabled?: boolean;
@@ -714,6 +727,8 @@ export interface OrderItemModifier {
 }
 
 export interface OrderItem {
+  /** Numbered table seat; absent/null means shared by the table. */
+  seat_number?: number | null;
   id: number;
   menu_item_id: number;
   name: string;
@@ -754,6 +769,10 @@ export interface OrderItem {
 }
 
 export interface Order {
+  check_id?: string | null;
+  course_name?: string;
+  kitchen_held?: boolean;
+  assigned_staff_id?: number | null;
   id: number;
   restaurant_id: number;
   order_type: 'dine_in' | 'pickup' | 'delivery';
@@ -4898,6 +4917,7 @@ export interface CreateOrderModifierInput {
 /** One line on a manually-built order. Price is recomputed server-side from the
  *  menu item, selected variant, and modifiers — the client value is ignored. */
 export interface CreateOrderItemInput {
+  seat_number?: number | null;
   menu_item_id: number;
   quantity: number;
   selected_variant_id?: number;
@@ -4917,6 +4937,7 @@ export interface CreateOrderComboSelectionInput {
 /** One combo (meal-deal) on a manually-built order. The server validates the
  *  step picks (min/max, availability) and computes the price. */
 export interface CreateOrderComboInput {
+  seat_number?: number | null;
   combo_item_id: number;
   selections: CreateOrderComboSelectionInput[];
   notes?: string;
@@ -5024,6 +5045,7 @@ export async function removeOrderItem(
  *  rotating/batch cartes (omit for non-rotating — the server falls back to the
  *  order's scheduled date, else today). */
 export interface ReplaceComboInput {
+  seat_number?: number | null;
   combo_item_id: number;
   selections: CreateOrderComboSelectionInput[];
   serie_date?: string; // "YYYY-MM-DD"
@@ -7687,6 +7709,11 @@ export interface TableSection {
 }
 
 export interface RestaurantTableRef {
+  /** Actual covers in this service, separate from configured capacity. */
+  cover_count?: number | null;
+  active_session_id?: string | null;
+  service_started_at?: string | null;
+  checkout_requested_at?: string | null;
   id: number;
   code: string;
   name: string;
@@ -10458,4 +10485,29 @@ export async function parseKitchenData(rid: number, files: File[], retried = fal
 /** Responses to a published website form, scoped to the active restaurant. */
 export function listWebsiteFormResponses(restaurantId: number, sectionId: number, before?: number) {
   return apiFetch<Array<{ id: number; created_at: string; values: Record<string, string> }>>(`/api/v1/restaurants/${restaurantId}/website-forms/${sectionId}/submissions${before ? `?before=${before}` : ""}`, restaurantId);
+}
+
+/** Kitchen profile owned by a registered device, shared by Admin and POS. */
+export interface KitchenStationSettings {
+  role: 'prep'|'expo'; completion_scope: 'all'|'device'; columns: number;
+  text_size: 'small'|'medium'|'large'; yellow_minutes: number; red_minutes: number;
+  show_held: boolean; separate_held_counts: boolean; sort_items: 'entry'|'seat'|'alpha';
+  order_types: string[]; category_ids: number[]; show_pos: boolean; show_online: boolean;
+}
+export interface KitchenStation { device_id: string; restaurant_id: number; name?: string; settings: KitchenStationSettings }
+export const defaultKitchenSettings: KitchenStationSettings = {
+  role:'expo',completion_scope:'all',columns:6,text_size:'medium',yellow_minutes:5,red_minutes:10,
+  show_held:false,separate_held_counts:false,sort_items:'entry',order_types:['dine_in','pickup','delivery'],category_ids:[],show_pos:true,show_online:true,
+};
+/** Lists only configured, non-forgotten kitchen devices in the active restaurant. */
+export async function listKitchenStations(rid:number):Promise<KitchenStation[]> {
+  const data=await apiFetch<{stations:KitchenStation[]}>('/api/v1/orders/kds/stations',rid);
+  if(!Array.isArray(data?.stations)) throw new Error('Incomplete kitchen station list');
+  return data.stations;
+}
+/** Saves the profile only after server ownership and settings validation. */
+export async function saveKitchenStation(rid:number,id:string,settings:KitchenStationSettings):Promise<KitchenStation> {
+  const data=await apiFetch<{station:KitchenStation}>(`/api/v1/orders/kds/stations/${encodeURIComponent(id)}`,rid,{method:'PUT',body:JSON.stringify(settings)});
+  if(!data?.station?.settings) throw new Error('Incomplete kitchen settings response');
+  return data.station;
 }

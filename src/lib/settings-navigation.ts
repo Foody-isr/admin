@@ -33,6 +33,7 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
       { href: `${base}/restaurant/sections`, labelKey: 'sections' },
       { href: `${base}/settings/table-assistance`, labelKey: 'tableServiceSettings' },
       { href: `${base}/restaurant/table-status`, labelKey: 'tableStatus' },
+      { href: `${base}/settings/full-service`, labelKey: 'fullServiceTitle' },
       { href: `${base}/restaurant/table-qr`, labelKey: 'tableQrCodes' },
     ] },
     { labelKey: 'settingsGroupOrdering', items: [
