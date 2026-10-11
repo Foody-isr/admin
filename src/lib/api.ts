@@ -21,7 +21,9 @@ import {
 } from '@simplewebauthn/browser';
 import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { RUNTIME_API_URL } from './runtime-origins';
+
+export const API_URL = RUNTIME_API_URL;
 const TOKEN_KEY = 'foody_restaurant_token';
 const USER_KEY = 'foody_restaurant_user';
 const RIDS_KEY = 'foody_restaurant_ids';

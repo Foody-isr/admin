@@ -1,5 +1,7 @@
 'use client';
 
+import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
+
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -13,7 +15,7 @@ import { Plus, ExternalLink, Network, ShieldCheck, MapPin, Clock, Check, Pencil,
 
 type BranchInput = Parameters<typeof updateChainBranch>[2];
 type Editor = { kind: 'chain' } | { kind: 'branch'; branch: ChainBranch } | { kind: 'setup' } | { kind: 'create' };
-const webBase = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+const webBase = RUNTIME_WEB_URL;
 
 /** Restaurant-scoped chain management; changing restaurants discards stale request state. */
 export default function ChainBranchesPage() {

@@ -1,4 +1,6 @@
 "use client";
+
+import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
 import { OrderJourneyEditor, type OrderJourneyScreen } from "./OrderJourneyEditor";
 import type { CheckoutConfig } from "@/lib/api";
 
@@ -229,7 +231,7 @@ function DesktopWebsiteV3Builder({
     return () => { active = false; };
   }, [restaurantId]);
   const webOrigin = resolveWebsiteV3PreviewOrigin(
-    process.env.NEXT_PUBLIC_WEB_URL,
+    RUNTIME_WEB_URL,
     typeof window === "undefined" ? undefined : window.location.origin,
   );
   const showBranchSelector =
