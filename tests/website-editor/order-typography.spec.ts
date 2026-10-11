@@ -240,8 +240,15 @@ test("uploaded fonts, inherited menu typography and spacing survive preview, rel
   const beforeSettings = await draft();
   await page.getByRole("button", { name: "Paramètres de la page", exact: true }).click();
   const settings = page.getByRole("dialog", { name: "Paramètres de la page", exact: true });
+  const menuRows = settings.getByRole("group", { name: "Cartes affichées sur cette page" }).locator("label");
+  expect(await menuRows.count()).toBeGreaterThan(0);
+  expect(await menuRows.evaluateAll((rows) => rows.every((row) => {
+    const checkbox = row.querySelector("input")!.getBoundingClientRect();
+    const text = row.querySelector("span")!.getBoundingClientRect();
+    return Math.abs((checkbox.top + checkbox.height / 2) - (text.top + text.height / 2)) < 1;
+  }))).toBe(true);
   await settings.getByRole("textbox", { name: "Nom de la page", exact: true }).fill("Cancelled title");
-  await settings.getByRole("group", { name: "Cartes associées" }).getByRole("checkbox").first().uncheck();
+  await settings.getByRole("group", { name: "Cartes affichées sur cette page" }).getByRole("checkbox").first().uncheck();
   await settings.getByRole("button", { name: "Annuler", exact: true }).click();
   expect((await draft()).pages).toEqual(beforeSettings.pages);
 

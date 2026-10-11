@@ -3,7 +3,6 @@ import { BooleanInput } from '@/components/ds/Selection';
 import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./ColorStylePicker";
 import {
   selectOrderColorStyle,
-  previousOrderPresentation,
   previousItemPresentation,
 } from "@/lib/website-v3/order-design";
 
@@ -194,19 +193,6 @@ export function OrderPageEditor({
         >
           {t("editorViewItems")}
         </a>
-        <button
-          type="button"
-          className="sqe-button sqe-button--outline"
-          onClick={() =>
-            onChange(
-              ["appearance_overrides", "website_order"],
-              previousOrderPresentation(value),
-            )
-          }
-        >
-          {t("editorOrderUseExistingStyle")}
-        </button>
-        <p>{t("editorOrderUseExistingStyleHint")}</p>
       </div>
       <div className="sqe-order-customize">
         <h3>{t("editorCustomize")}</h3>
