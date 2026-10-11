@@ -17,6 +17,9 @@ async function install(page: Page, locale = 'fr', canEdit = true) {
     localStorage.setItem('foody-admin-locale', locale);
     localStorage.setItem('foody_admin_theme', 'light');
   }, { locale });
+  // Playwright runs the newest matching route first. Install the network guard
+  // before API fixtures so even a dev-URL production build stays fully mocked.
+  await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname, method = request.method();
     if (path === '/api/v1/users/me') return route.fulfill({ json: { role_name: 'Custom', permissions: canEdit ? ['catering.view', 'catering.manage'] : ['catering.view'], user: { id: 1, role: 'manager' } } });
@@ -43,7 +46,6 @@ async function install(page: Page, locale = 'fr', canEdit = true) {
     const result = fixture.response(request.url(), method, request.postDataJSON() ?? {}, 1);
     return route.fulfill({ status: result.status ?? 200, json: result.json ?? {} });
   });
-  await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   return state;
 }
 
