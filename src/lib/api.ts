@@ -9698,6 +9698,7 @@ export interface CateringOffer {
   max_sessions: number;
   min_guests: number;
   deposit_pct: number;
+  balance_hold_enabled?: boolean;
   flow_config?: CateringFlowConfig | Record<string, never>;
   is_active: boolean;
   sort_order: number;
@@ -9715,6 +9716,7 @@ export interface CateringOfferInput {
   max_sessions?: number;
   min_guests?: number;
   deposit_pct?: number;
+  balance_hold_enabled?: boolean;
   flow_config?: CateringFlowConfig | Record<string, never>;
   is_active?: boolean;
   sort_order?: number;
@@ -9861,6 +9863,36 @@ export interface CateringEvent {
   customer_phone: string;
   service_name: string;
   assigned_location_name: string;
+  balance_hold_enabled?: boolean;
+}
+
+/** Financial state of the balance; a hold is not a collected payment. */
+export interface CateringBalanceHold {
+  enabled: boolean;
+  status: string;
+  total: number;
+  deposit_paid: number;
+  balance_due: number;
+  held_amount: number;
+  captured: number;
+  can_create: boolean;
+  checkout_url?: string;
+  last_checked_at?: string;
+}
+
+/** Read an event's tenant-scoped balance guarantee without contacting the gateway. */
+export function getCateringBalanceHold(restaurantId: number, eventId: number): Promise<CateringBalanceHold> {
+  return apiFetch(`/api/v1/catering/events/${eventId}/balance-hold`, restaurantId);
+}
+
+/** Explicitly create the client authorization link; this does not capture money. */
+export function createCateringBalanceHold(restaurantId: number, eventId: number): Promise<CateringBalanceHold> {
+  return apiFetch(`/api/v1/catering/events/${eventId}/balance-hold`, restaurantId, { method: 'POST', body: JSON.stringify({ confirm: true }) });
+}
+
+/** Manually verify, collect or release an existing guarantee. */
+export function actOnCateringBalanceHold(restaurantId: number, eventId: number, action: 'refresh' | 'capture' | 'release'): Promise<CateringBalanceHold> {
+  return apiFetch(`/api/v1/catering/events/${eventId}/balance-hold/${action}`, restaurantId, { method: 'POST', body: JSON.stringify({ confirm: true }) });
 }
 
 /** List catering events (deposit paid, routed), optionally filtered by status. */
@@ -9892,6 +9924,7 @@ export interface CateringQuote {
   review_note: string;
   deposit_status: CateringDepositStatus;
   deposit_amount: number;
+  balance_hold_enabled?: boolean;
   /** Non-empty when a second successful charge landed on an already-paid quote (customer charged twice) and needs refunding. */
   deposit_overcharge_txn_uid: string;
   deposit_refund_txn_uid: string;

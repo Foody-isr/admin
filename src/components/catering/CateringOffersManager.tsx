@@ -182,13 +182,15 @@ function OfferEditor({ restaurantId, serviceId, position, editing, onClose, onSa
   const [selectionMode, setSelectionMode] = useState<'single' | 'multiple'>(editing?.selection_mode === 'single' ? 'single' : 'multiple');
   const [minGuests, setMinGuests] = useState(String(editing?.min_guests ?? 0));
   const [depositPct, setDepositPct] = useState(String(editing?.deposit_pct ?? 0));
+  const [balanceHoldEnabled, setBalanceHoldEnabled] = useState(editing?.balance_hold_enabled ?? false);
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const valid = name.trim().length > 0
     && Number.isFinite(Number(minGuests)) && Number(minGuests) >= 0
-    && Number.isFinite(Number(depositPct)) && Number(depositPct) >= 0 && Number(depositPct) <= 100;
+    && Number.isFinite(Number(depositPct)) && Number(depositPct) >= 0 && Number(depositPct) <= 100
+    && (!balanceHoldEnabled || (Number(depositPct) > 0 && Number(depositPct) < 100));
 
   const save = async () => {
     if (!valid) return;
@@ -205,7 +207,8 @@ function OfferEditor({ restaurantId, serviceId, position, editing, onClose, onSa
       allow_extra_sessions: editing?.allow_extra_sessions ?? false,
       max_sessions: Math.max(2, editing?.max_sessions ?? 3),
       min_guests: Math.max(0, Math.floor(Number(minGuests))),
-      deposit_pct: pricingModel === 'custom_quote' ? 0 : Number(depositPct),
+      deposit_pct: Number(depositPct),
+      balance_hold_enabled: balanceHoldEnabled,
       flow_config: editing?.flow_config ?? {},
       is_active: isActive,
       sort_order: editing?.sort_order ?? position,
@@ -254,9 +257,15 @@ function OfferEditor({ restaurantId, serviceId, position, editing, onClose, onSa
             <fieldset><legend className="text-sm font-semibold text-fg-secondary">{t('catering_configurable_offer_validation')}</legend><div className="mt-2 space-y-2">{(['review', 'auto'] as const).map((mode) => <label key={mode} className="flex items-start gap-2 text-sm text-fg-primary selection-row"><input type="radio" name="offer-quote-mode" checked={quoteMode === mode} onChange={() => setQuoteMode(mode)} /><span><span className="font-semibold">{t(mode === 'review' ? 'catering_quote_mode_review' : 'catering_quote_mode_auto')}</span><span className="block text-xs text-fg-tertiary">{t(mode === 'review' ? 'catering_quote_mode_review_hint' : 'catering_quote_mode_auto_hint')}</span></span></label>)}</div></fieldset>
             <fieldset><legend className="text-sm font-semibold text-fg-secondary">{t('catering_offer_group_selection_title')}</legend><div className="mt-2 space-y-2">{(['multiple', 'single'] as const).map((mode) => <label key={mode} className="flex items-center gap-2 text-sm text-fg-primary selection-row"><input type="radio" name="offer-selection-mode" checked={selectionMode === mode} onChange={() => setSelectionMode(mode)} /><span>{t(mode === 'multiple' ? 'catering_offer_group_selection_multiple' : 'catering_offer_group_selection_single')}</span></label>)}</div></fieldset>
             <label><span className="text-sm font-semibold text-fg-secondary">{t('catering_offer_group_date_timing')}</span><select className="input mt-1" value={dateTiming} onChange={(event) => setDateTiming(event.target.value as CateringDateSelectionTiming)}><option value="before_catalog">{t('catering_offer_group_date_before_catalog')}</option><option value="checkout">{t('catering_offer_group_date_checkout')}</option></select></label>
-            <label><span className="text-sm font-semibold text-fg-secondary">{t('catering_field_deposit_pct')}</span><div className="relative mt-1"><input type="number" min="0" max="100" className="input pe-8" value={depositPct} onChange={(event) => setDepositPct(event.target.value)} /><span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-fg-tertiary">%</span></div></label>
           </div>
         )}
+
+        <fieldset className="space-y-4 border-t border-[var(--divider)] pt-4">
+          <legend className="text-sm font-semibold text-fg-primary">{t('catering_balance_settings')}</legend>
+          <label className="block max-w-48"><span className="text-sm font-semibold text-fg-secondary">{t('catering_field_deposit_pct')}</span><input type="number" min="0" max="100" className="input mt-1" value={depositPct} onChange={event => setDepositPct(event.target.value)} /></label>
+          <label className="flex items-start gap-3 selection-row"><input type="checkbox" className="mt-1" checked={balanceHoldEnabled} onChange={event => setBalanceHoldEnabled(event.target.checked)} /><span><span className="block font-semibold">{t('catering_balance_enable')}</span><span className="mt-1 block text-sm leading-6 text-fg-secondary">{t('catering_balance_enable_hint')}</span></span></label>
+          {balanceHoldEnabled && (Number(depositPct) <= 0 || Number(depositPct) >= 100) && <p role="alert" className="text-sm text-red-600">{t('catering_balance_deposit_required')}</p>}
+        </fieldset>
 
         <label className="flex items-start gap-3 rounded-xl border border-brand-500/20 bg-brand-500/5 p-4 selection-row"><input type="checkbox" className="mt-1" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} /><span><span className="block font-semibold text-fg-primary">{t('catering_offer_group_visible')}</span><span className="mt-1 block text-sm text-fg-secondary">{t('catering_offer_group_visible_hint')}</span></span></label>
       </div>
