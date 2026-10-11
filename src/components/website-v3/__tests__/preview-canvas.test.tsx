@@ -213,8 +213,8 @@ test("the preview does not own the surface state", async () => {
     resolve(process.cwd(), "src/components/website-v3/Inspector.tsx"),
     "utf8",
   );
-  assert.match(inspector, /onSurfaceChange\(value\)/);
-  assert.match(inspector, /data-inspector-surface/);
+  assert.doesNotMatch(inspector, /data-inspector-surface/);
+  assert.doesNotMatch(inspector, /PageInspector/);
 });
 
 test("the builder owns the surface and clamps it before rendering", async () => {

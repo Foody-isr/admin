@@ -1,109 +1,8 @@
-// Website Builder v3 — which inspector groups belong to which page and
-// preview surface.
-//
-// An order page has TWO preview surfaces: the menu itself ("page") and the
-// payment route ("checkout"). They are different foodyweb routes that consume
-// different CSS variables, so most settings apply to exactly one of them:
-//
-//   Cart and checkout inherit the shared theme, fonts and button shape.
-//   Historical cart/checkout color overrides round-trip but are no longer edited.
-//   section_colors.categoryBar* → CategoryTabs
-//   cover / hero_*        → RestaurantHero, imported only by OrderExperience
-//   navbar / footer       → SiteNavbar / SiteFooter, neither of which the
-//                           checkout route mounts (it has its own header)
-//
-// The scope table keeps menu-only controls away from the system checkout.
-// Checkout form settings remain configurable; appearance belongs to the shared
-// website design and the handoff leads the editor back to that owner.
-
 import type { WebsitePageType } from "./types";
 
-/** The preview surface an inspector group applies to. */
+/** The public preview surface shown by the current editor. */
 export type InspectorSurface = "branches" | "page" | "checkout";
-
-/** Stable identity of an inspector group, independent of its (localised) title. */
-export type InspectorGroupId =
-  | "page.identity"
-  | "page.catering_content"
-  | "page.sections"
-  | "page.theme"
-  | "page.typography"
-  | "page.quick_colors"
-  | "page.fonts"
-  | "page.category_bar"
-  | "page.cover"
-  | "page.order_type_selector"
-  | "page.catalog"
-  | "page.category_visuals"
-  | "page.address"
-  | "page.commerce"
-  | "page.navigation"
-  | "page.order_info"
-  | "page.seo"
-  | "checkout.form"
-  | "page.handoff";
-
-export type InspectorGroupScope = {
-  readonly id: InspectorGroupId;
-  readonly pageTypes: readonly WebsitePageType[] | "all";
-  readonly surfaces: readonly InspectorSurface[];
-};
-
-export type InspectorScopeContext = {
-  readonly pageType: WebsitePageType;
-  readonly surface: InspectorSurface;
-};
-
-const ALL_PAGE_TYPES = "all" as const;
 const PAGE_ONLY = ["page"] as const;
-const CHECKOUT_ONLY = ["checkout"] as const;
-
-/** Ordered — the array order IS the render order inside the inspector. */
-export const INSPECTOR_GROUP_SCOPES: readonly InspectorGroupScope[] = [
-  // ── Contenu ──────────────────────────────────────────────────────────────
-  { id: "page.identity", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.catering_content", pageTypes: ["catering"], surfaces: PAGE_ONLY },
-  { id: "page.sections", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-
-  // ── Apparence ────────────────────────────────────────────────────────────
-  // Theme, typography and the base tokens reach the checkout too (through
-  // foodyweb's OrderThemeBridge for the theme, and --bg-page/--text/--brand/
-  // --font-* for the rest), but the PAGE owns them: one setting, one owner.
-  // The handoff card sends the user back with a single click.
-  { id: "page.theme", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.typography", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.quick_colors", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.fonts", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.category_bar", pageTypes: ["order"], surfaces: PAGE_ONLY },
-  // Catering uses the same page-local cover asset and focal point as order,
-  // but renders it in its editorial left panel rather than RestaurantHero.
-  { id: "page.cover", pageTypes: ["order", "catering"], surfaces: PAGE_ONLY },
-  { id: "page.order_type_selector", pageTypes: ["order"], surfaces: PAGE_ONLY },
-  { id: "page.catalog", pageTypes: ["order"], surfaces: PAGE_ONLY },
-  { id: "page.category_visuals", pageTypes: ["order"], surfaces: PAGE_ONLY },
-
-  // ── Réglages ─────────────────────────────────────────────────────────────
-  { id: "page.address", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.commerce", pageTypes: ["order", "catering"], surfaces: PAGE_ONLY },
-  { id: "page.navigation", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  { id: "page.order_info", pageTypes: ["order"], surfaces: PAGE_ONLY },
-  { id: "page.seo", pageTypes: ALL_PAGE_TYPES, surfaces: PAGE_ONLY },
-  // checkout_config is SITE-level: it is written through onConfigChange, never
-  // through the page-scoped onChange, and it applies to every order page.
-  { id: "checkout.form", pageTypes: ["order"], surfaces: CHECKOUT_ONLY },
-
-  // ── Renvoi ───────────────────────────────────────────────────────────────
-  // Last: it explains what the checkout surface does NOT own.
-  {
-    id: "page.handoff",
-    pageTypes: ["order"],
-    surfaces: CHECKOUT_ONLY,
-  },
-];
-
-const SCOPES_BY_ID: ReadonlyMap<InspectorGroupId, InspectorGroupScope> = new Map(
-  INSPECTOR_GROUP_SCOPES.map((scope) => [scope.id, scope]),
-);
 
 /** Surfaces a page type can present. Only order pages have a checkout. */
 export function surfacesForPageType(
@@ -130,24 +29,4 @@ export function effectiveSurface(
   return surfacesForPageType(type, includeBranchSelector).includes(requested)
     ? requested
     : "page";
-}
-
-/** Throws on an unregistered id: a typo must fail loudly, not hide a group. */
-export function showsInspectorGroup(
-  id: InspectorGroupId,
-  ctx: InspectorScopeContext,
-): boolean {
-  const scope = SCOPES_BY_ID.get(id);
-  if (!scope) throw new Error(`Unknown inspector group: ${id}`);
-  if (!scope.surfaces.includes(ctx.surface)) return false;
-  return scope.pageTypes === "all" || scope.pageTypes.includes(ctx.pageType);
-}
-
-/** Every group visible for this context, in render order. The whole spec. */
-export function visibleInspectorGroups(
-  ctx: InspectorScopeContext,
-): readonly InspectorGroupId[] {
-  return INSPECTOR_GROUP_SCOPES.filter((scope) =>
-    showsInspectorGroup(scope.id, ctx),
-  ).map((scope) => scope.id);
 }

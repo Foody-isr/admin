@@ -86,6 +86,7 @@ import {
 } from "@/lib/website-v3/section-operations";
 import type { PageTemplate } from "./PageLibrary";
 import { normalizeSlug } from "@/lib/website-v3/state";
+import { applyPageSettings } from "@/lib/website-v3/page-settings";
 import { PageSettingsDialog } from "./PageSettingsDialog";
 import { OrderPageEditor } from "./OrderPageEditor";
 import { EditorSidebar } from "./EditorSidebar";
@@ -262,6 +263,7 @@ function DesktopWebsiteV3Builder({
   const [busy, setBusy] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingDeleteSection, setPendingDeleteSection] = useState<string | null>(null);
+  const [sidebarResetRevision, setSidebarResetRevision] = useState(0);
   const [settingsPageKey, setSettingsPageKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [previewRevision, setPreviewRevision] = useState(0);
@@ -702,19 +704,6 @@ function DesktopWebsiteV3Builder({
     setLocalState(linked);
   };
 
-  const replacePage = (key: string, replacement: DraftPagePayload) => {
-    if (!state) return;
-    const index = state.pages.findIndex((page) => pageKey(page) === key);
-    if (index < 0) return;
-    setLocalState(
-      retargetNavigationPage(
-        updateDraftAtPath(state, ["pages", index], replacement),
-        state.pages[index].slug,
-        replacement.slug,
-      ),
-    );
-  };
-
   const updateSection = (key: string, path: StatePath, value: unknown) => {
     if (!state) return;
     const index = state.sections.findIndex(
@@ -1028,6 +1017,7 @@ function DesktopWebsiteV3Builder({
       }
     } else if (error.pageKey) {
       setSelection({ kind: "page", key: error.pageKey });
+      setSettingsPageKey(error.pageKey);
     }
     setSectionPanel(error.sectionPanel ?? "settings");
     bumpPreview();
@@ -1108,6 +1098,8 @@ function DesktopWebsiteV3Builder({
       );
       setSaveStatus("saved");
       setNotice("Le site est publié.");
+      setRequestedSurface("page");
+      setSidebarResetRevision(revision => revision + 1);
       setSelection(
         selectionAfterReload(response.state, activePageBeforePublish),
       );
@@ -1157,6 +1149,8 @@ function DesktopWebsiteV3Builder({
       setSelection(
         selectionAfterReload(response.state, activePageBeforeDiscard),
       );
+      setRequestedSurface("page");
+      setSidebarResetRevision(revision => revision + 1);
       const revision = bumpPreview();
       setDiscardAwaitRevision(revision);
     } catch (error: unknown) {
@@ -1319,6 +1313,9 @@ function DesktopWebsiteV3Builder({
           <EditorSidebar
             restaurantId={restaurantId}
             state={state}
+            resetRevision={sidebarResetRevision}
+            showBranchSelector={showBranchSelector}
+            onSelectPageRegion={region => { setRequestedSurface(region === "branch-selector" ? "branches" : "page"); setSelection({kind: "page", key: pageKey(activePage), region}); }}
             activePage={activePage}
             selection={selection}
             sectionPanel={sectionPanel}
@@ -1438,14 +1435,8 @@ function DesktopWebsiteV3Builder({
                 state={state}
                 selection={selection}
                 sectionPanel={sectionPanel}
-                surface={surface}
-                showBranchSelector={showBranchSelector}
                 menus={loaded.menus}
                 services={loaded.services}
-                catalog={loaded.catalog}
-                catalogWarning={loaded.catalogWarning}
-                errors={allErrors}
-                onSurfaceChange={changeSurface}
                 onOpenOrderJourney={activePage.type === "order" ? () => openOrderJourney() : undefined}
                 onConfigChange={updateConfig}
                 onOrderHeaderChange={(key, header, shared) => {
@@ -1457,15 +1448,8 @@ function DesktopWebsiteV3Builder({
                   } : next);
                 }}
                 onPageChange={updatePage}
-                onPageReplace={replacePage}
                 onSectionChange={updateSection}
                 onCreateFooter={createFooter}
-                onMakeDefault={(key) =>
-                  setLocalState(makeDefaultPage(state, key))
-                }
-                onMakeHomepage={(key) =>
-                  setLocalState(makeHomepagePage(state, key))
-                }
                 onRestaurantLogoUpload={uploadMainLogo}
                 onRestaurantLogoRemove={removeMainLogo}
               />
@@ -1489,7 +1473,7 @@ function DesktopWebsiteV3Builder({
               selection.kind === "section" ? selection.field : undefined
             }
             activeRegion={
-              selection.kind === "site" ? selection.region : selection.kind === "page" ? selection.region === "order-journey" ? undefined : selection.region : undefined
+              selection.kind === "site" ? selection.region : selection.kind === "page" && (selection.region === "order-banner" || selection.region === "order-items" || selection.region === "order-fulfillment") ? selection.region : undefined
             }
             orderDialog={selection.kind === "page" && selection.region === "order-fulfillment" ? "fulfillment" : selection.kind === "page" && selection.region === "order-items" && previewOrderItem ? "item" : undefined}
             onSelectRegion={(region, headerElement) => {
@@ -1555,25 +1539,12 @@ function DesktopWebsiteV3Builder({
             )!}
             pages={state.pages}
             restaurantId={restaurantId}
+            menus={loaded.menus}
+            errors={allErrors.filter(error => error.pageKey === settingsPageKey)}
             onClose={() => setSettingsPageKey(null)}
             onSave={(page) => {
-              let next = state;
-              for (const field of [
-                "title",
-                "slug",
-                "nav_visible",
-                "seo",
-              ] as const) {
-                next = updateWebsitePageAtPath(
-                  next,
-                  settingsPageKey,
-                  [field],
-                  page[field],
-                  { slugManuallyEdited: true },
-                );
-              }
               slugManualRef.current.add(settingsPageKey);
-              setLocalState(next);
+              setLocalState(applyPageSettings(state, settingsPageKey, page));
               setSettingsPageKey(null);
             }}
           />

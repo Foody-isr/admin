@@ -11,15 +11,12 @@ import type {
   WebsiteConfig,
 } from "@/lib/api";
 import type { DraftPagePayload } from "@/lib/website-v3/types";
-import { ThemesPanel } from "@/components/website-menu/ThemesPanel";
-import { CategoryBarStateEditor } from "../CategoryBarStateEditor";
 import { CategoryNavigationEditor } from "../CategoryNavigationEditor";
 import { FIELD_CONTRACTS } from "../field-contracts";
 import { FooterBrandingEditor } from "../FooterBrandingEditor";
 import { FooterEditor } from "../FooterEditor";
 import { MenuHighlightsAppearanceEditor } from "../MenuHighlightsAppearanceEditor";
 import { NavigationCtaEditor } from "../NavigationCtaEditor";
-import { PageInspector } from "../PageInspector";
 import { SiteInspector } from "../SiteInspector";
 import { OrderJourneyEditor } from "../OrderJourneyEditor";
 import { OrderPageEditor } from "../OrderPageEditor";
@@ -121,60 +118,7 @@ test("page navigation CTA starts inherited and reveals sparse state controls", (
   );
 });
 
-test("site settings delegate to Header while unmigrated page navigation remains compatible", () => {
-  const page: DraftPagePayload = {
-    tmp_id: "landing-page",
-    type: "landing",
-    slug: "home",
-    title: "Accueil",
-    sort_order: 0,
-    nav_visible: true,
-    is_homepage: true,
-    is_default: false,
-    seo: {},
-    appearance_overrides: {},
-    settings: {},
-  };
-  const siteMarkup = render(
-    React.createElement(SiteInspector, {
-      sections: [],
 
-      config: {},
-      restaurantId: 24,
-      pages: [page],
-      onChange: () => undefined,
-      onRestaurantLogoUpload: async () => undefined,
-      onRestaurantLogoRemove: async () => undefined,
-    }),
-  );
-  const pageMarkup = render(
-    React.createElement(PageInspector, {
-      page,
-
-      surface: "page" as const,
-      onSurfaceChange: () => undefined,
-      restaurantId: 24,
-      restaurant: {} as Restaurant,
-      config: {},
-      onConfigChange: () => undefined,
-      catalog: themeCatalog(),
-      menus: [] as Menu[],
-      services: [] as CateringService[],
-      errors: [],
-      onChange: () => undefined,
-      onReplace: () => undefined,
-      onMakeDefault: () => undefined,
-      onMakeHomepage: () => undefined,
-    }),
-  );
-
-  assert.doesNotMatch(siteMarkup, /<option value="slim">/);
-  assert.equal(pageMarkup.match(/<option value="slim">/g)?.length, 2);
-  assert.doesNotMatch(siteMarkup, /site.navbar/);
-  assert.equal(pageMarkup.match(/<option value="compact_no_logo">/g)?.length, 2);
-  assert.match(siteMarkup, /Modifier l’en-tête/);
-  assert.match(pageMarkup, /Position du logo/);
-});
 
 test("footer exposes content and appearance fields in their tabs", () => {
   const footer = {
@@ -222,40 +166,7 @@ test("footer exposes content and appearance fields in their tabs", () => {
   assert.match(appearanceMarkup, /site\.footer\.settings\.custom_divider/);
 });
 
-test("category bar editor exposes one consistent palette", () => {
-  const markup = render(
-    React.createElement(CategoryBarStateEditor, {
-      value: {
-        categoryBar: { bg: "#ffffff", text: "#111827" },
-        categoryBarSticky: {},
-      },
-      onChange: () => undefined,
-    }),
-  );
 
-  assert.match(
-    markup,
-    /page\.appearance_overrides\.section_colors\.categoryBar\.bg/,
-  );
-  for (const field of [
-    "activeBg",
-    "activeText",
-    "searchBg",
-    "searchText",
-    "iconBg",
-    "icon",
-    "cartBg",
-    "cartText",
-  ]) {
-    assert.match(
-      markup,
-      new RegExp(
-        `page\\.appearance_overrides\\.section_colors\\.categoryBar\\.${field}`,
-      ),
-    );
-  }
-  assert.doesNotMatch(markup, /categoryBarSticky/);
-});
 
 test("category navigation editor exposes responsive layouts and logical sides", () => {
   const automaticMarkup = render(
@@ -329,87 +240,9 @@ test("every registered Task 4 contract maps to a rendered editor control", () =>
   for (const id of Array.from(contractIds)) assert.ok(renderedIds.has(id), `Missing registered control ${id}`);
 });
 
-test("ThemesPanel can delegate the normal category palette to its state editor", () => {
-  const defaultMarkup = render(
-    React.createElement(ThemesPanel, {
-      config: {
-        theme_id: "editorial-light",
-        brand_color: null,
-        custom_palette: null,
-        section_colors: { categoryBar: { bg: "#ffffff" } },
-      } as WebsiteConfig,
-      catalog: themeCatalog(),
-      onUpdate: () => undefined,
-    }),
-  );
-  const delegatedMarkup = render(
-    React.createElement(ThemesPanel, {
-      config: {
-        theme_id: "editorial-light",
-        brand_color: null,
-        custom_palette: null,
-        section_colors: { categoryBar: { bg: "#ffffff" } },
-      } as WebsiteConfig,
-      catalog: themeCatalog(),
-      excludedSectionColors: ["categoryBar"],
-      onUpdate: () => undefined,
-    }),
-  );
 
-  assert.match(defaultMarkup, /data-section-color-key="categoryBar"/);
-  assert.doesNotMatch(delegatedMarkup, /data-section-color-key="categoryBar"/);
-});
 
-test("order page appearance renders one normal category palette owner", () => {
-  const page: DraftPagePayload = {
-    tmp_id: "order-page",
-    type: "order",
-    slug: "order",
-    title: "Order",
-    sort_order: 0,
-    nav_visible: true,
-    is_homepage: false,
-    is_default: true,
-    seo: {},
-    appearance_overrides: {
-      theme_id: "editorial-light",
-      section_colors: { categoryBar: { bg: "#ffffff" } },
-    },
-    settings: { menu_ids: [] },
-  };
-  const element = React.createElement(PageInspector, {
-      page,
 
-      surface: "page" as const,
-      onSurfaceChange: () => undefined,
-      restaurantId: 24,
-      restaurant: {} as Restaurant,
-      config: {},
-      onConfigChange: () => undefined,
-      catalog: themeCatalog(),
-      menus: [] as Menu[],
-      services: [] as CateringService[],
-      errors: [],
-      onChange: () => undefined,
-      onReplace: () => undefined,
-      onMakeDefault: () => undefined,
-      onMakeHomepage: () => undefined,
-    });
-  const markup = render(element);
-
-  assert.match(
-    markup,
-    /page\.appearance_overrides\.section_colors\.categoryBar\.bg/,
-  );
-  assert.doesNotMatch(markup, /data-section-color-key="categoryBar"/);
-  const sharedMarkup = render(React.cloneElement(element, {
-    config: { custom_palette: { color_styles: { version: 1 } } },
-  }));
-  assert.doesNotMatch(sharedMarkup, /page\.appearance_overrides\.section_colors\.categoryBar\.bg/);
-  assert.match(sharedMarkup, /Edit color styles/);
-  assert.match(sharedMarkup, /Bar, text, active pills and search use this shared style/);
-
-});
 
 function renderTask4Editors(): string {
   const footer = {
@@ -445,12 +278,6 @@ function renderTask4Editors(): string {
       }),
     ),
     render(
-      React.createElement(CategoryBarStateEditor, {
-        value: { categoryBar: {}, categoryBarSticky: {} },
-        onChange: () => undefined,
-      }),
-    ),
-    render(
       React.createElement(MenuHighlightsAppearanceEditor, {
         value: {},
         onChange: () => undefined,
@@ -470,7 +297,6 @@ function isTask4Field(id: string): boolean {
     id.startsWith("site.navbar_cta") ||
     id.startsWith("page.appearance_overrides.navbar_cta") ||
     id.startsWith("site.footer.") ||
-    id.startsWith("page.appearance_overrides.section_colors.categoryBar") ||
     [
       "section.settings.custom_bg",
       "section.settings.custom_text",

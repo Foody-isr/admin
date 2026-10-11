@@ -151,7 +151,7 @@ The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementa
 
 Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
 
-The editor uses contextual panels for shared elements and sections; the former Content / Appearance / Settings tab strip and unused page rail are removed. Footer content, layout and styling remain together in its accordions. Existing draft reconciliation and components shared with QR customization are retained.
+The editor uses contextual panels for shared elements and sections; the former Content / Appearance / Settings tab strip and unused page rail are removed. Footer content, layout and styling remain together in its accordions. Existing draft reconciliation and components shared with QR customization are retained. Publishing or discarding returns the sidebar to the section outline, including when the server replaces temporary IDs. The former generic `PageInspector`, theme and typography panels are removed. Page identity, primary/homepage flags, menu associations, SEO and social settings live in **Page settings**; catering copy and imagery have a dedicated outline entry. **Site design** owns fonts and colors, and contextual order blocks own menu typography and spacing. Historical saved appearance and uploaded fonts are preserved.
 
 **Stories** lives in **Settings → Communications** at `/[restaurantId]/settings/stories`, with read access for `settings.view` and editing for `settings.edit`. Existing `/[restaurantId]/reels` bookmarks redirect there. The website editor links to this single owner of Instagram settings.
 
