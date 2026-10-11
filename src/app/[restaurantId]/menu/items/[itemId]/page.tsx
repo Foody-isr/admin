@@ -139,6 +139,8 @@ function EditItemEditor() {
   const [categoryId, setCategoryId] = useState(() => item?.category_id ?? 0);
   const [isActive, setIsActive] = useState(() => item?.is_active ?? true);
   const [allowNotes, setAllowNotes] = useState<boolean>(() => item?.allow_notes ?? true);
+  const [posAutoSelectFirstVariant, setPosAutoSelectFirstVariant] = useState(() => item?.pos_auto_select_first_variant ?? true);
+  const [posSkipCustomization, setPosSkipCustomization] = useState(() => item?.pos_skip_customization ?? false);
   const [comboAllowQuantity, setComboAllowQuantity] = useState<boolean>(() => item?.combo_allow_quantity ?? true);
   const [itemType, setItemType] = useState<ItemType>(
     () => (item?.item_type as ItemType) || 'food_and_beverage',
@@ -234,7 +236,7 @@ function EditItemEditor() {
 
   const formSnapshot = JSON.stringify({ name, price, pricingMode, pricePerKg, estimatedWeightGrams,
     description, imageUrl, aiContext, customerFacts, portion, translations, categoryId, isActive, allowNotes,
-    comboAllowQuantity, itemType, comboSteps, variantGroups, groups: Array.from(selectedGroupIds).sort((a,b) => a-b) });
+    comboAllowQuantity, posAutoSelectFirstVariant, posSkipCustomization, itemType, comboSteps, variantGroups, groups: Array.from(selectedGroupIds).sort((a,b) => a-b) });
   const initialSnapshot = useRef<string | null>(null);
   useEffect(() => {
     if (initialized.current && !loading && !loadError && initialSnapshot.current === null) initialSnapshot.current = formSnapshot;
@@ -310,6 +312,8 @@ function EditItemEditor() {
           setCategoryId(found.category_id);
           setIsActive(found.is_active);
           setAllowNotes(found.allow_notes ?? true);
+          setPosAutoSelectFirstVariant(found.pos_auto_select_first_variant ?? true);
+          setPosSkipCustomization(found.pos_skip_customization ?? false);
           setComboAllowQuantity(found.combo_allow_quantity ?? true);
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
@@ -503,6 +507,8 @@ function EditItemEditor() {
         estimated_weight_grams: pricingMode === 'by_weight' ? estimatedWeightGrams : 0,
         is_active: isActive,
         allow_notes: allowNotes,
+        pos_auto_select_first_variant: posAutoSelectFirstVariant,
+        pos_skip_customization: posSkipCustomization,
         combo_allow_quantity: comboAllowQuantity,
         item_type: itemType,
         category_id: categoryId,
@@ -760,6 +766,10 @@ function EditItemEditor() {
               portion={portion}
               setPortion={setPortion}
               allowNotes={allowNotes}
+              posAutoSelectFirstVariant={posAutoSelectFirstVariant}
+              setPosAutoSelectFirstVariant={setPosAutoSelectFirstVariant}
+              posSkipCustomization={posSkipCustomization}
+              setPosSkipCustomization={setPosSkipCustomization}
               setAllowNotes={setAllowNotes}
               vatRate={vatRate}
               itemType={itemType}

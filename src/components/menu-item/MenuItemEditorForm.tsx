@@ -63,6 +63,10 @@ interface Props {
    *  (shown). The control only renders when setAllowNotes is provided. */
   allowNotes?: boolean;
   setAllowNotes?: (v: boolean) => void;
+  posAutoSelectFirstVariant: boolean;
+  setPosAutoSelectFirstVariant: (value: boolean) => void;
+  posSkipCustomization: boolean;
+  setPosSkipCustomization: (value: boolean) => void;
   vatRate: number;
   itemType: ItemType;
   /** Request a type change. The parent decides whether to confirm or apply
@@ -127,6 +131,10 @@ export default function MenuItemEditorForm({
   setPortion,
   allowNotes = true,
   setAllowNotes,
+  posAutoSelectFirstVariant,
+  setPosAutoSelectFirstVariant,
+  posSkipCustomization,
+  setPosSkipCustomization,
   vatRate,
   itemType,
   onTypeChange,
@@ -748,6 +756,33 @@ export default function MenuItemEditorForm({
           {personalizationContent}
         </ItemEditorSection>
       )}
+      <ItemEditorSection
+        id="checkout"
+        title={t('itemCheckoutCustomization')}
+        hidden={isCombo}
+      >
+        <p className="text-fs-sm text-[var(--fg-muted)]">{t('itemCheckoutCustomizationHint')}</p>
+        <div className="divide-y divide-[var(--line)]">
+          {([
+            ['itemCheckoutFirstVariant', 'itemCheckoutFirstVariantHint', posAutoSelectFirstVariant, setPosAutoSelectFirstVariant],
+            ['itemCheckoutSkip', 'itemCheckoutSkipHint', posSkipCustomization, setPosSkipCustomization],
+          ] as const).map(([label, hint, checked, onChange]) => (
+            <label key={label} className="flex items-start justify-between gap-6 py-5">
+              <span className="min-w-0">
+                <span className="block">{t(label)}</span>
+                <span className="mt-1 block text-fs-sm text-[var(--fg-muted)]">{t(hint)}</span>
+              </span>
+              <Switch
+                checked={checked}
+                onCheckedChange={(value) => canEdit && onChange(value)}
+                disabled={!canEdit}
+                aria-label={t(label)}
+                className="shrink-0"
+              />
+            </label>
+          ))}
+        </div>
+      </ItemEditorSection>
       <ItemEditorSection
         id="customer-facts"
         hideTitle

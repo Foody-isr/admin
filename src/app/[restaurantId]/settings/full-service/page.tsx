@@ -63,6 +63,12 @@ function FullServiceWorkspace({rid}:{rid:number}) {
     ['send_and_stay','fullServiceSendStay'],['coursing_enabled','fullServiceCoursing'],
    ] as const).map(([key,label])=><label key={key} className="flex items-center justify-between gap-6 py-5"><span>{t(label)}</span><BooleanInput aria-label={t(label)} checked={draft[key]} disabled={!editable||saving} onChange={event=>patch({[key]:event.target.checked})}/></label>)}</div>
    <Field label={t('fullServiceSort')}><select className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4" value={draft.sort_cart} disabled={!editable||saving} onChange={event=>patch({sort_cart:event.target.value as FullServiceSettings['sort_cart']})}>{(['course','seat','entry'] as const).map((key,index)=><option key={key} value={key}>{t(['fullServiceSortCourse','fullServiceSortSeat','fullServiceSortEntry'][index])}</option>)}</select></Field></Section>
+   <Section title={t('fullServiceFastEntry')} desc={t('fullServiceFastEntryHint')}>
+    <label className="flex items-start justify-between gap-6 py-2">
+     <span className="min-w-0"><span className="block">{t('fullServiceAutoProgression')}</span><span className="mt-1 block text-fs-sm text-[var(--fg-muted)]">{t('fullServiceAutoProgressionHint')}</span></span>
+     <BooleanInput aria-label={t('fullServiceAutoProgression')} checked={draft.auto_progression ?? false} disabled={!editable||saving} onChange={event=>patch({auto_progression:event.target.checked})}/>
+    </label>
+   </Section>
    {([
     ['courses','fullServiceCourses'],['comp_reasons','fullServiceCompReasons'],['void_reasons','fullServiceVoidReasons'],
    ] as const).map(([key,label])=><Section key={key} title={t(label)} desc={key==='courses'?t('fullServiceListHint'):undefined}><textarea aria-label={t(label)} value={draft[key].join('\n')} rows={Math.max(3,draft[key].length)} disabled={!editable||saving} onChange={event=>patch({[key]:event.target.value.split('\n')})} className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 leading-8"/></Section>)}

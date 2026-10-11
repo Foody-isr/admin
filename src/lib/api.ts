@@ -173,6 +173,8 @@ export interface FullServiceSettings {
  seating_mode: 'disabled' | 'coversOnly' | 'optionalSeats' | 'requiredSeats';
  send_and_stay: boolean;
  coursing_enabled: boolean;
+ /** Advance to the next required selection during POS item entry. Defaults to false. */
+ auto_progression?: boolean;
  courses: string[];
  show_held_on_kds: boolean;
  sort_cart: 'course' | 'seat' | 'entry';
@@ -641,6 +643,10 @@ export interface MenuItem {
   /** Per-item toggle for the guest "special instructions" field (guest web only).
    *  null/undefined = default (shown); true = shown; false = hidden. */
   allow_notes?: boolean | null;
+  /** POS checkout: select the first active variant automatically. Defaults to true. */
+  pos_auto_select_first_variant?: boolean;
+  /** POS checkout: add new items once their required selections are satisfied. Defaults to false. */
+  pos_skip_customization?: boolean;
   /** Combo-level toggle: allow guests to order several of this combo at once.
    *  null/undefined = default (allowed = true); false = single combo only. */
   combo_allow_quantity?: boolean | null;
