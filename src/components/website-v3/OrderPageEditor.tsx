@@ -251,6 +251,8 @@ export function OrderPageEditor({
           )}
         </details>
         <h3>{t("editorContent")}</h3>
+        {toggle("sticky_categories", "editorOrderStickyCategories")}
+        <p>{t("editorOrderStickyCategoriesHint")}</p>
         <details>
           <summary>{t("editorCategoryMenu")}</summary>
           {toggle("show_categories", "editorCategoryMenu")}
@@ -261,7 +263,6 @@ export function OrderPageEditor({
             ["pill", "editorOrderShapePill"],
           ])}
           {spacing("category_gap", "editorCategoryGap", 20, 80)}
-          {toggle("sticky_categories", "editorOrderStickyCategories", false)}
           {editMenuColors("categories")}
           <p>{t("editorOrderCategoryColorsHint")}</p>
         </details>
