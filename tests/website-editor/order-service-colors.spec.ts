@@ -30,7 +30,7 @@ test("service colors edit independently, survive publication, and the availabili
   await expect(page.getByRole("button", {name: "En-tête", exact: true})).toBeVisible({timeout: 60_000});
   await page.getByRole("button", {name: "En-tête", exact: true}).click();
   await page.getByRole("button", {name: "Retrait, livraison et planification", exact: true}).click();
-  const picker = page.locator('[data-field-id="header.restaurant.info_color_style"]');
+  const picker = page.locator('[data-header-panel="fulfillment"] .sqe-shared-colors');
   await picker.getByRole("button", {name: "Style de couleurs 2", exact: true}).click();
   const preview = page.frameLocator('iframe[title="Aperçu de Home"]');
   await expect(preview.locator(".website-header")).toHaveCSS("background-color", "rgb(21, 32, 14)");
