@@ -168,6 +168,20 @@ test("fulfillment retires saved color overrides while preserving visibility and 
 });
 
 
+test("the service bar style survives normalization and order-page presentation independently", async () => {
+  const { headerInformationColorStyle } = await import("../header");
+  const shared = normalizeWebsiteHeader({ color_style: "style-4" });
+  assert.equal(headerInformationColorStyle(shared), "style-4");
+  const independent = normalizeWebsiteHeader({...shared, restaurant: {info_color_style: "style-2"}});
+  assert.equal(independent.color_style, "style-4");
+  assert.equal(headerInformationColorStyle(independent), "style-2");
+  assert.deepEqual(normalizeWebsiteHeader(JSON.parse(JSON.stringify(independent))), independent);
+  const local = orderHeaderPresentation(independent);
+  assert.equal(headerInformationColorStyle(resolvePageHeader(shared, "order", {order_header: local})), "style-2");
+  assert.equal(headerInformationColorStyle(resolvePageHeader(shared, "landing", {order_header: local})), "style-4");
+  assert.equal(headerInformationColorStyle(normalizeWebsiteHeader({...shared, layout: "restaurant"})), "default");
+});
+
 test("Restaurant header round-trips presentation without introducing fulfillment rules", () => {
   const header = normalizeWebsiteHeader({layout:"restaurant", restaurant:{height:"large", show_name:false, info_color_style:"style-2", show_social:false}});
   assert.equal(header.layout, "restaurant");

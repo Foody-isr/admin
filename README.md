@@ -183,6 +183,11 @@ restaurant allows choices. Older saved headers keep their previous presentation
 until a layout is selected. The order page delegates its banner to this layout
 to avoid duplicate covers. Delivery/pickup availability and batch calendars remain
 owned by restaurant settings throughout menu, cart and checkout.
+For standard headers, **Pickup, delivery and scheduling → Color style** assigns
+the bar independently of header/navigation colors. **Same as header** preserves
+inheritance. This reuses `header.restaurant.info_color_style`, including order-page
+presentation overrides, draft autosave, preview and publication. The global
+color editor reports the bar's assignment separately from the header.
 Deploy the API support for `nav_layout.header.layout = "restaurant"` and its
 optional `restaurant` settings before deploying the editor.
 
