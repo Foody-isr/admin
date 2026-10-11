@@ -591,3 +591,17 @@ FoodyPOS before releasing this editor. It refuses writes to an API without
 
 Run isolated browser checks with `npx playwright test -c playwright.floor-plan.config.ts`.
 All API calls in this suite use synthetic in-memory fixtures.
+
+## Full service and kitchen stations
+
+`/[restaurantId]/settings/full-service` edits the restaurant's covers, optional
+seats, Send & Stay, courses and check sorting policy. A separate Kitchen stations
+editor on that page configures registered tablets, phones, computers or displays:
+Prep/Expo role, completion scope, columns, text size, timers, held courses and
+routing by source, dining option and library category. Both editors require an
+explicit save and protect unsaved changes when navigating away.
+
+Deploy the matching API with migrations 228–230 and 232 before using these settings.
+Admin and POS consume the same persisted policy; kitchen progress remains separate
+from payments, table occupancy and inventory. Comp/void reasons are configuration
+only until the corresponding operational actions are implemented.
