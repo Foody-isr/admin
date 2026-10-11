@@ -10511,3 +10511,11 @@ export async function saveKitchenStation(rid:number,id:string,settings:KitchenSt
   if(!data?.station?.settings) throw new Error('Incomplete kitchen settings response');
   return data.station;
 }
+
+/** Reports server-side Geoapify availability for the restaurant's delivery form. */
+export function getAddressAutocompleteConfig(restaurantId: number) {
+  return apiFetch<{ available: boolean; enabled: boolean; provider: 'geoapify' }>(
+    `/api/v1/public/address-autocomplete/config?restaurant_id=${restaurantId}`,
+    restaurantId,
+  );
+}
