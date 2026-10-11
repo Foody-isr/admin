@@ -38,7 +38,7 @@ import {
   type DraftSectionPayload,
   type DraftStatePayload,
 } from "@/lib/website-v3/types";
-import type { RailSelection } from "@/lib/website-v3/editor-selection";
+import { selectedOrderRegion, type RailSelection } from "@/lib/website-v3/editor-selection";
 import type { SectionPanel } from "./SectionInspector";
 import { PageLibrary, type PageTemplate } from "./PageLibrary";
 import {
@@ -66,6 +66,9 @@ export function EditorSidebar({
   busy,
   inspector,
   orderEditor,
+  onSelectPageRegion,
+  showBranchSelector = false,
+  resetRevision = 0,
   onSelectOrderRegion,
   onOpenOrderJourney,
   design,
@@ -102,6 +105,9 @@ export function EditorSidebar({
   busy: boolean;
   inspector: ReactNode;
   orderEditor?: (region: OrderEditorRegion) => ReactNode;
+  onSelectPageRegion: (region: "catering-content" | "branch-selector") => void;
+  showBranchSelector?: boolean;
+  resetRevision?: number;
   onSelectOrderRegion?: (region: OrderEditorRegion) => void;
   onOpenOrderJourney?: (pageKey: string, screen: OrderJourneyScreen) => void;
   design: (onEditShared: () => void, initialScreen?: "root" | "colors" | "buttons", colorTarget?: SiteColorEditTarget) => ReactNode;
@@ -152,6 +158,13 @@ export function EditorSidebar({
     };
   }, []);
   const [panel, setPanel] = useState<Panel>("outline");
+  useEffect(() => {
+    setPanel("outline");
+    setRowMenu(null);
+    setPageMenu(null);
+    setPendingSection(null);
+    setPendingLayout(null);
+  }, [resetRevision]);
   const [sectionContentOpen, setSectionContentOpen] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(true);
   const [sectionMenu, setSectionMenu] = useState(false);
@@ -171,9 +184,13 @@ export function EditorSidebar({
   const motionTextSection = selectedSection?.section_type === "scrolling_text" || selectedSection?.section_type === "animated_text";
   const activeField =
     selection.kind === "section" ? selection.field : undefined;
-  const orderRegion = selection.kind === "page" ? selection.region : undefined;
+  const orderRegion = selectedOrderRegion(selection);
   const activeKey = pageKey(activePage);
-  useEffect(() => { if (orderRegion) setPanel("inspector"); }, [orderRegion]);
+  useEffect(() => {
+    if (selection.kind !== "page") return;
+    if (selection.region) setPanel("inspector");
+    else setPanel(current => current === "inspector" ? "outline" : current);
+  }, [selection]);
   const sections = sectionsForPage(state, activePage);
   const groups = componentGroupsForPage(activePage.type);
   const lastSectionKey = useRef<string | null>(null);
@@ -339,6 +356,8 @@ export function EditorSidebar({
             ? t("editorDesign")
             : panel === "library"
               ? t("editorAddSection")
+              : selection.kind === "page" && selection.region === "catering-content" ? t("websiteV3CateringContentTitle")
+              : selection.kind === "page" && selection.region === "branch-selector" ? t("chain_selector_surface")
               : selectedSection
                 ? activeField
                   ? editorElementLabel(activeField, t)
@@ -489,6 +508,8 @@ export function EditorSidebar({
             onMouseEnter={() => onHoverSection(`site:${region}`)} onMouseLeave={() => onHoverSection(null)}>
             <button onClick={() => { onSelectOrderRegion?.(region); setPanel("inspector"); }}><Icon size={20} />{t(label)}</button>
           </div>)}
+          {activePage.type === "catering" && <div className="sqe-section-row"><button onClick={() => onSelectPageRegion("catering-content")}><Utensils size={20} />{t("websiteV3CateringContentTitle")}</button></div>}
+          {activePage.type === "order" && showBranchSelector && <div className="sqe-section-row"><button onClick={() => onSelectPageRegion("branch-selector")}><Columns3 size={20} />{t("chain_selector_surface")}</button></div>}
           {sections
             .filter((s) => s.section_type !== "footer")
             .map((s, index) => (

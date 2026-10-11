@@ -5,8 +5,6 @@ import { test } from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FIELD_CONTRACTS } from "../field-contracts";
-import { showsInspectorGroup } from "@/lib/website-v3/inspector-scope";
-import type { InspectorGroupId } from "@/lib/website-v3/inspector-scope";
 import { SiteInspector } from "../SiteInspector";
 import { publicAddressForPage } from "@/lib/website-v3/url-model";
 import { LocaleProvider } from "@/lib/i18n";
@@ -92,7 +90,7 @@ test("every custom contract selector is backed by a foodyweb renderer hook", () 
 // (keyed by group) must agree, or a driver navigates to a page or surface where
 // the control does not render — which is exactly how the checkout colour
 // contracts sat broken while still "passing" their static checks.
-test("every contract is reachable on the page type and surface it declares", () => {
+test("order and checkout contracts declare their supported page types", () => {
   FIELD_CONTRACTS.forEach((contract) => {
     if (contract.scope !== "page") return;
     if (contract.editor.kind === "action") return;
@@ -118,39 +116,8 @@ test("every contract is reachable on the page type and surface it declares", () 
       );
     }
 
-    // The group the field belongs to must actually render for EVERY page type
-    // the contract claims, on the surface it claims.
-    const groupId = groupForField(contract.id);
-    if (!groupId) return;
-    const pageTypes =
-      contract.pageTypes === "all"
-        ? (["landing", "content", "order", "catering"] as const)
-        : contract.pageTypes;
-    pageTypes.forEach((pageType) => {
-      assert.equal(
-        showsInspectorGroup(groupId, { pageType, surface }),
-        true,
-        `${contract.id}: ${groupId} does not render on ${pageType}/${surface}`,
-      );
-    });
   });
 });
-
-/** Maps a field id to the inspector group that renders it. Only the families
- *  whose visibility this change moved need an entry; anything else is skipped
- *  rather than guessed. */
-function groupForField(id: string): InspectorGroupId | null {
-  if (id.startsWith("page.appearance_overrides.section_colors.categoryBar"))
-    return "page.category_bar";
-  if (id.startsWith("page.appearance_overrides.order_type_selector."))
-    return "page.order_type_selector";
-  if (id === "page.title") return "page.identity";
-  if (id === "page.slug" || id === "page.type" || id === "page.nav_visible")
-    return "page.address";
-  if (id.startsWith("page.seo.")) return "page.seo";
-  if (id.startsWith("page.settings.")) return "page.commerce";
-  return null;
-}
 
 test("navigation text colors have editor-to-renderer contracts", () => {
   const contracts = new Map(

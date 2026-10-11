@@ -223,6 +223,7 @@ test("uploaded fonts, inherited menu typography and spacing survive preview, rel
   await page.screenshot({
     path: "test-results/website-editor/restored-fonts.png",
   });
+  await page.getByRole("button", { name: "Liste des articles", exact: true }).click();
   const published = page.waitForResponse(
     (response) =>
       response.url().endsWith("/website-publish") &&
@@ -230,6 +231,37 @@ test("uploaded fonts, inherited menu typography and spacing survive preview, rel
   );
   await page.getByRole("button", { name: "Publier", exact: true }).click();
   expect((await published).ok()).toBe(true);
+  const sidebar = page.getByRole("complementary");
+  await expect(sidebar.getByRole("button", { name: "Liste des articles", exact: true })).toBeVisible();
+  await expect(sidebar).not.toContainText("Identité de la page");
+  await expect(sidebar).not.toContainText("Direction visuelle de la page");
+
+  // Page settings retain their staged Save/Cancel behavior after retiring PageInspector.
+  const beforeSettings = await draft();
+  await page.getByRole("button", { name: "Paramètres de la page", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Paramètres de la page", exact: true });
+  await settings.getByRole("textbox", { name: "Nom de la page", exact: true }).fill("Cancelled title");
+  await settings.getByRole("group", { name: "Cartes associées" }).getByRole("checkbox").first().uncheck();
+  await settings.getByRole("button", { name: "Annuler", exact: true }).click();
+  expect((await draft()).pages).toEqual(beforeSettings.pages);
+
+  // Shared selection and the design panel must also reset to the outline.
+  for (const context of ["header", "fonts"]) {
+    if (context === "header") {
+      await page.getByRole("button", { name: "En-tête", exact: true }).click();
+    } else {
+      await page.getByRole("button", { name: "Design du site", exact: true }).click();
+      await page.getByRole("button", { name: /^Polices/ }).click();
+    }
+    const response = page.waitForResponse((item) =>
+      item.url().endsWith("/website-publish") && item.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Publier", exact: true }).click();
+    expect((await response).ok()).toBe(true);
+    await expect(sidebar.getByRole("button", { name: "Liste des articles", exact: true })).toBeVisible();
+    await expect(sidebar).not.toContainText("Direction visuelle de la page");
+  }
+  await page.screenshot({ path: "test-results/website-editor/publication-current-outline.png" });
   const storefront = await context.newPage();
   for (const [width, language] of [
     [1280, "fr"],
