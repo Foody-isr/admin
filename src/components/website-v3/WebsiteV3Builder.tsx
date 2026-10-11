@@ -1423,7 +1423,7 @@ function DesktopWebsiteV3Builder({
               placesAvailable={Boolean(loaded.restaurant.google_places_api_key)}
               onChange={value => updateConfig(["checkout_config"], value)}
               onEditCartButton={() => window.dispatchEvent(new Event("foody-edit-site-buttons"))}
-            /> : <OrderPageEditor restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={websiteOrderChoicesAvailable(loaded.restaurant, state.config.checkout_config)} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => {
+            /> : <OrderPageEditor config={state.config} restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={websiteOrderChoicesAvailable(loaded.restaurant, state.config.checkout_config)} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => {
               const header = resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides);
               setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : header.layout === "restaurant" ? "restaurant" : "fulfillment"});
               setSectionPanel("content");

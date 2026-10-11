@@ -59,7 +59,7 @@ test('switching to today changes operational scope and persists the chosen basis
   await expect(page.locator('.dashboard-volume')).toBeVisible();
   await expect(page.locator('.dashboard-metrics > div').first()).toContainText('0');
   await expect(page.locator('.dashboard-revenue strong')).toContainText('0,00');
-  await expect(page.getByText('Aucune action urgente en attente.')).toBeVisible();
+  await expect(page.locator('.dashboard-operations')).toHaveCount(0);
   const current = requests.filter(url => url.pathname === '/api/v1/orders').slice(-4);
   expect(current.every(url => url.searchParams.get('from') === '2026-10-08' && !url.searchParams.has('date_field'))).toBe(true);
   await page.reload();
@@ -102,7 +102,26 @@ test('empty service has zero totals without invented comparisons', async ({ page
   await install(page, { empty: true }); await open(page);
   await expect(page.locator('.dashboard-metrics > div').first()).toContainText('0');
   await expect(page.locator('.dashboard-change, .dashboard-chart-bar')).toHaveCount(0);
-  await expect(page.getByText('Aucune action urgente en attente.')).toBeVisible();
+  await expect(page.locator('.dashboard-operations')).toHaveCount(0);
+});
+
+test('a populated service only shows the notice while an action is pending', async ({ page }) => {
+  const { fixture } = await install(page);
+  fixture.orders.forEach(order => { order.payment_status = 'paid'; });
+  await open(page);
+  await expect(page.locator('.dashboard-metrics > div').first()).toContainText('14');
+  await expect(page.locator('.dashboard-operations')).toHaveCount(0);
+
+  const order = fixture.orders.find(order => order.id === 2213)!;
+  order.payment_status = 'unpaid';
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(page.locator('.dashboard-attention')).toContainText('1 paiement demande votre attention.');
+  await expect(page.locator('.dashboard-attention').getByRole('link')).toBeVisible();
+
+  order.payment_status = 'paid';
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(page.locator('.dashboard-home')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('.dashboard-operations')).toHaveCount(0);
 });
 
 test('payment shortcut includes an unpaid preorder before acceptance', async ({ page }) => {
@@ -116,6 +135,9 @@ test('payment shortcut includes an unpaid preorder before acceptance', async ({ 
 
 for (const variant of [
   { name: 'fr-mobile', locale: 'fr', theme: 'light', width: 375 },
+  { name: 'fr-small-tablet', locale: 'fr', theme: 'light', width: 640 },
+  { name: 'fr-desktop', locale: 'fr', theme: 'light', width: 1440 },
+  { name: 'he-small-tablet', locale: 'he', theme: 'light', width: 640 },
   { name: 'he-dark', locale: 'he', theme: 'dark', width: 1440 },
   { name: 'en-tablet', locale: 'en', theme: 'light', width: 768 },
 ]) test(`service dashboard fits ${variant.name}`, async ({ page }, info) => {
@@ -126,6 +148,22 @@ for (const variant of [
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
   await page.screenshot({ path: info.outputPath(`${variant.name}.png`), fullPage: true });
+  const trigger = page.locator('.dashboard-header button[aria-haspopup="dialog"]');
+  await trigger.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '9', exact: true })).toBeVisible();
+  const bounds = await dialog.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(variant.width);
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(1000);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`${variant.name}-dates.png`), fullPage: true });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('Square-style tooltip shows the dated metric on hover and keyboard focus', async ({ page }, info) => {

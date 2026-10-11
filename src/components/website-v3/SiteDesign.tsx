@@ -5,7 +5,8 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowLeft, ChevronRight, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { loadWebsiteFont } from "@/lib/website-fonts";
-import type { ThemeCatalog } from "@/lib/api";
+import { SiteFontsEditor } from "./SiteFontsEditor";
+import type { TypographyOverrides, ThemeCatalog } from "@/lib/api";
 import type { SiteColorEditTarget } from "./ColorStylePicker";
 import { SiteColorsEditor } from "./SiteColorsEditor";
 import { PreviewCanvas } from "./PreviewCanvas";
@@ -84,13 +85,9 @@ export function SiteDesign({
   const typography = record(state.config.typography),
     site = record(typography.site);
   const heading = String(
-    site.headingFont ?? state.config.hero_name_font ?? "Manrope",
+    site.headingFont || state.config.hero_name_font || "Manrope",
   );
   const body = String(site.bodyFont ?? "Manrope");
-  useEffect(() => {
-    loadWebsiteFont(heading);
-    loadWebsiteFont(body);
-  }, [heading, body]);
   useEffect(() => {
     if (screen === "themes" || screen === "styles" || screen === "detail") {
       [...RESTAURANT_THEMES, ...SITE_STYLES].forEach((theme) => loadWebsiteFont(theme.heading));
@@ -116,8 +113,6 @@ export function SiteDesign({
   useEffect(() => onPreview(candidateDraft), [candidateDraft, onPreview]);
   const patch = (value: Record<string, unknown>) =>
     onChange({ ...state, config: { ...state.config, ...value } });
-  const patchSite = (value: Record<string, unknown>) =>
-    patch({ typography: { ...typography, site: { ...site, ...value } } });
   const previewTheme = (theme: RestaurantTheme, withLayout = false) => {
     setApplied(false);
     if (!withLayout) setOrdering(false);
@@ -156,26 +151,6 @@ export function SiteDesign({
         <strong>Aa</strong><i style={{background: style.accent, borderRadius: style.shape === "pill" ? 24 : style.shape === "rounded" ? 6 : 0}} />
       </button>)}
     </div>
-  );
-  const fontOptions = Array.from(
-    new Set([
-      heading,
-      body,
-      "Manrope",
-      "Dela Gothic One",
-      "DM Serif Display",
-      "Bagel Fat One",
-      "Inter",
-      "Heebo",
-      "Assistant",
-      "Noto Sans Hebrew",
-      ...catalog.typography_pairings.flatMap((p) => [
-        p.pairing.displayLatin.family,
-        p.pairing.bodyLatin.family,
-        p.pairing.displayHebrew.family,
-        p.pairing.bodyHebrew.family,
-      ]),
-    ]),
   );
   return (
     <>
@@ -276,24 +251,8 @@ export function SiteDesign({
       {screen === "fonts" && (
         <div className="sqe-panel-body">
           <h3>{t("editorFonts")}</h3>
-          {(
-            [
-              ["headingFont", "editorHeadings", heading],
-              ["bodyFont", "editorBody", body],
-            ] as const
-          ).map(([key, label, value]) => (
-            <label key={key} className="sqe-field">
-              <span>{t(label)}</span>
-              <select
-                value={value}
-                onChange={(e) => patchSite({ [key]: e.target.value })}
-              >
-                {fontOptions.map((font) => (
-                  <option key={font}>{font}</option>
-                ))}
-              </select>
-            </label>
-          ))}
+          <SiteFontsEditor restaurantId={previewContext.restaurantId} typography={typography as TypographyOverrides}
+            heading={heading} body={body} onChange={value => patch({typography: value})} />
           <p
             style={{
               fontFamily: heading,

@@ -147,8 +147,7 @@ export function hasCustomFace(s?: CustomFontSource): boolean {
 }
 
 /** Remove a custom family's injected @font-face so the next load re-injects it
- *  with fresh faces — call after a font's variants or name change, since
- *  loadCustomFont is otherwise idempotent per family. */
+ *  after a font is removed or renamed. Updated sources refresh in place. */
 export function unloadCustomFont(family: string): void {
   if (typeof document === 'undefined' || !family) return;
   document.getElementById(`cf-${family.replace(/\s+/g, '-')}`)?.remove();
@@ -181,7 +180,6 @@ export function loadCustomFont(family: string, source: CustomFontSource): void {
       : [];
   if (faces.length === 0) return;
   const id = `cf-${family.replace(/\s+/g, '-')}`;
-  if (document.getElementById(id)) return;
   const css = faces
     .map((f) => {
       const fmt = f.format ? ` format("${f.format}")` : '';
@@ -190,10 +188,11 @@ export function loadCustomFont(family: string, source: CustomFontSource): void {
       return `@font-face{font-family:"${family}";src:url("${fontSrcUrl(f.url)}")${fmt};${w}${st}font-display:swap;}`;
     })
     .join('');
-  const style = document.createElement('style');
+  const style = document.getElementById(id) ?? document.createElement('style');
+  if (style.textContent === css) return;
   style.id = id;
   style.textContent = css;
-  document.head.appendChild(style);
+  if (!style.isConnected) document.head.appendChild(style);
 }
 
 // ── Filename-based variant detection (multi-file custom-font upload) ─────────

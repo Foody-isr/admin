@@ -9,7 +9,7 @@ const nodeOptions = [
 // The fixture holds all draft/publication writes in memory.
 export default defineConfig({
   testDir: "./tests/website-editor",
-  testMatch: ["footer-recovery.spec.ts", "order-service-colors.spec.ts"],
+  testMatch: ["footer-recovery.spec.ts", "order-service-colors.spec.ts", "order-typography.spec.ts"],
   outputDir: "test-results/website-editor",
   workers: 1,
   timeout: 120_000,
@@ -29,7 +29,8 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: "cd ../foodyweb && npx next dev --port 3000",
+      command: "npx next dev --port 3000",
+      cwd: process.env.FOODY_WEB_DIR || "../foodyweb",
       port: 3000,
       reuseExistingServer: !process.env.CI,
       env: {
