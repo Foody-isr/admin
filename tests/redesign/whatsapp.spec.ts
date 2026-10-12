@@ -41,6 +41,12 @@ async function install(page: Page, options: { locale?: string; connected?: boole
       if (method === 'DELETE') { if (control.disconnectFailure-- > 0) return fail(); control.sender = null; return send({ disconnected: true }); }
       if (control.connectFailure-- > 0) { if (control.failConnectReadback) control.senderFailure = 100; return fail(); }
       control.sender = { ...senderExample, restaurant_id: Number(restaurant), waba_id: body.waba_id, phone_number_id: body.phone_number_id, sender_number: body.phone_number, display_name: body.display_name };
+      if (path.endsWith('/whatsapp/personal')) control.sender = {
+        ...control.sender, display_name: displayName, connection_mode: 'personal', sender_sid: body.sender_sid,
+        twilio_account_sid: body.account_sid, twilio_api_key_sid: body.api_key_sid,
+        content_sid_order_confirmed: body.content_sid_order_confirmed, content_sid_order_ready: body.content_sid_order_ready,
+        content_sid_scheduled_confirmed: body.content_sid_scheduled_confirmed, content_sid_receipt: body.content_sid_receipt, content_sid_delivery_eta: body.content_sid_delivery_eta,
+      };
       if (control.connectLostResponse) return fail();
       return send(control.sender);
     }
@@ -63,6 +69,87 @@ const prepare = async (page: Page) => { await launch(page); await emit(page); aw
 const submit = (page: Page) => connection(page).getByRole('button', { name: 'Confirmer la connexion', exact: true });
 const notice = (page: Page) => page.locator('main [role=status]').filter({ hasNotText: /^Chargement/ });
 const guarded = (page: Page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
+
+async function preparePersonal(page: Page) {
+  await connection(page).getByRole('radio', { name: 'Mon propre compte Twilio', exact: true }).check();
+  const fields = {
+    'Twilio Account SID': `AC${'1'.repeat(32)}`, 'API Key SID': `SK${'2'.repeat(32)}`,
+    'Secret de la clé API': 'synthetic-personal-secret-only', 'WhatsApp Sender SID': `XE${'3'.repeat(32)}`,
+    'Numéro WhatsApp': '+972 (50) 000-0000', 'Identifiant Meta WhatsApp Business Account (WABA)': '123', 'Meta Phone Number ID': '456',
+    'Confirmation de commande *': `HX${'4'.repeat(32)}`, 'Statut de commande *': `HX${'5'.repeat(32)}`,
+  };
+  for (const [label, value] of Object.entries(fields)) await connection(page).getByLabel(label, { exact: true }).fill(value);
+}
+
+test('personal WhatsApp connects the selected restaurant without Meta signup and never redisplays its secret', async ({ page }, info) => {
+  const state = await install(page, { connected: false }); await page.setViewportSize({ width: 375, height: 1000 });
+  await page.goto('/2/settings/whatsapp'); await preparePersonal(page);
+  await expect(connection(page).getByRole('radio', { name: 'Géré par Foody', exact: true })).toBeDisabled();
+  await expect(connection(page).getByLabel('Secret de la clé API', { exact: true })).toHaveAttribute('type', 'password');
+  await page.screenshot({ path: info.outputPath('whatsapp-personal-fr.png') });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true }).click();
+  await expect(connection(page)).toContainText('Twilio vous facture directement');
+  expect(state.writes).toHaveLength(1);
+  expect(state.writes[0]).toMatchObject({ path: '/api/v1/restaurants/2/whatsapp/personal', method: 'PUT', restaurant: '2', body: { account_sid: `AC${'1'.repeat(32)}`, api_key_sid: `SK${'2'.repeat(32)}`, secret: 'synthetic-personal-secret-only', phone_number: '+972500000000' } });
+  expect(await page.evaluate(() => (window as any).__wa.logins.length)).toBe(0);
+  await connection(page).getByRole('button', { name: 'Modifier ma configuration', exact: true }).click();
+  await expect(connection(page).getByLabel('Secret de la clé API', { exact: true })).toHaveValue('');
+  await expect(connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true })).toBeEnabled();
+  await connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true }).click();
+  await expect(connection(page).getByRole('button', { name: 'Modifier ma configuration', exact: true })).toBeVisible();
+  expect(state.writes[1].body.secret).toBe('');
+  expect(await guarded(page)).toBe(false);
+});
+
+test('personal WhatsApp rejects invalid IDs and requires a fresh secret for a different account', async ({ page }) => {
+  const state = await install(page, { connected: false }); await page.goto('/1/settings/whatsapp'); await preparePersonal(page);
+  const save = connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true });
+  await connection(page).getByLabel('Twilio Account SID', { exact: true }).fill('ACinvalid'); await expect(save).toBeDisabled();
+  await connection(page).getByLabel('Twilio Account SID', { exact: true }).fill(`AC${'1'.repeat(32)}`); await save.click();
+  await connection(page).getByRole('button', { name: 'Modifier ma configuration', exact: true }).click();
+  await connection(page).getByLabel('Twilio Account SID', { exact: true }).fill(`AC${'9'.repeat(32)}`); await expect(save).toBeDisabled();
+  expect(state.writes).toHaveLength(1);
+});
+
+test('personal WhatsApp failed verification clears the secret and lost responses never resubmit automatically', async ({ page }) => {
+  const state = await install(page, { connected: false }); state.control.connectFailure = 1;
+  await page.goto('/1/settings/whatsapp'); await preparePersonal(page);
+  await connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true }).click();
+  await expect(connection(page).getByRole('alert')).toContainText('vérifiée ou enregistrée');
+  await expect(connection(page).getByLabel('Secret de la clé API', { exact: true })).toHaveValue('');
+  await connection(page).getByLabel('Secret de la clé API', { exact: true }).fill('synthetic-personal-secret-only');
+  state.control.connectLostResponse = true;
+  await connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true }).click();
+  await expect(connection(page).getByRole('status')).toContainText('configuration a pu être enregistrée');
+  await expect(connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true })).toBeDisabled();
+  expect(state.writes).toHaveLength(2);
+  await connection(page).getByRole('button', { name: 'Fermer et vérifier la connexion', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Quitter la configuration', exact: true }).click();
+  await expect(connection(page)).toContainText('Twilio vous facture directement');
+});
+
+test('personal WhatsApp revoked credentials remain editable while their live status is explicitly unverified', async ({ page }) => {
+  const state = await install(page, { connected: false }); await page.goto('/1/settings/whatsapp'); await preparePersonal(page);
+  await connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true }).click();
+  await expect(connection(page).getByRole('button', { name: 'Modifier ma configuration', exact: true })).toBeVisible();
+  state.control.sender!.status_refresh_failed = true;
+  await page.reload();
+  await expect(connection(page)).toContainText('État non vérifié');
+  await expect(connection(page).getByRole('alert')).toContainText('remplacez vos identifiants');
+  await connection(page).getByRole('button', { name: 'Modifier ma configuration', exact: true }).click();
+  await expect(connection(page).getByLabel('Secret de la clé API', { exact: true })).toBeEditable();
+});
+
+test('personal WhatsApp setup remains usable in Hebrew on mobile', async ({ page }, info) => {
+  await install(page, { connected: false, locale: 'he' }); await page.setViewportSize({ width: 375, height: 1000 });
+  await page.goto('/1/settings/whatsapp');
+  await page.getByRole('radio', { name: 'חשבון Twilio שלי', exact: true }).check();
+  await expect(page.getByLabel('Twilio Account SID', { exact: true })).toBeEditable();
+  await expect(page.getByRole('button', { name: 'אימות ושמירה', exact: true })).toBeDisabled();
+  await page.screenshot({ path: info.outputPath('whatsapp-personal-he.png') });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+});
 
 for (const locale of ['fr', 'he']) test(`whatsapp connection and phone policy responsive ${locale}`, async ({ page }, info) => {
   const state = await install(page, { locale });

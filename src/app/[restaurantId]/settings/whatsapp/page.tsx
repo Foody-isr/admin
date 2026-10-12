@@ -10,6 +10,7 @@ import { useI18n } from '@/lib/i18n';
 import { loadMetaSdk } from '@/lib/meta-sdk';
 import { Badge, Button, ConfirmDialog, Field, Input, PageHead, Section } from '@/components/ds';
 import { normalizeWhatsAppPhone, parseWhatsAppSignupEvent, type WhatsAppSignupIdentity } from '@/lib/whatsapp-embedded';
+import { PersonalWhatsAppForm } from '@/components/settings/PersonalWhatsAppForm';
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || '';
 const WA_CONFIG_ID = process.env.NEXT_PUBLIC_WA_CONFIG_ID || '';
@@ -27,6 +28,9 @@ function WhatsAppWorkspace({ rid }: { rid: number }) {
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
   const [sender, setSender] = useState<WhatsAppSender | null>(null);
+  const [connectionMode, setConnectionMode] = useState<'foody' | 'personal'>('foody');
+  const [editingPersonal, setEditingPersonal] = useState(false);
+  const [personalLocked, setPersonalLocked] = useState(false);
   const [senderLoading, setSenderLoading] = useState(true);
   const [senderError, setSenderError] = useState(false);
   const [otpMode, setOtpMode] = useState<'required' | 'skip' | null>(null);
@@ -194,13 +198,14 @@ function WhatsAppWorkspace({ rid }: { rid: number }) {
     <Section role="region" aria-label={t('waConnection')} title={<span className="flex items-center gap-2"><MessageSquareText aria-hidden="true" className="size-5" />{t('waConnection')}</span>}>
       {senderLoading ? <p role="status" className="py-4 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : <div className="space-y-4">
         {senderError && <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('waSenderLoadFailed')}</p><Button variant="secondary" disabled={disabled} onClick={() => void loadSender()}>{t('retry')}</Button></div>}
-        {sender ? <>
+        {editingPersonal && canEdit ? <PersonalWhatsAppForm rid={rid} sender={sender} onLockChange={setPersonalLocked} onSaved={row => { setSender(row); setEditingPersonal(false); setNotice(t('waConnectionSaved')); }} onCancel={() => { setEditingPersonal(false); void loadSender(); }} /> : sender ? <>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0"><h3 dir="auto" className="break-words font-semibold">{sender.display_name || sender.sender_number}</h3><p className="mt-1 text-sm text-[var(--fg-muted)]"><bdi dir="ltr">{sender.sender_number}</bdi></p></div>
-            <Badge tone={sender.status === 'ONLINE' ? 'success' : sender.status === 'FAILED' ? 'danger' : 'neutral'}>{t(statuses[sender.status] || 'waStatusPending')}</Badge>
+            <Badge tone={sender.status_refresh_failed ? 'neutral' : sender.status === 'ONLINE' ? 'success' : sender.status === 'FAILED' ? 'danger' : 'neutral'}>{t(sender.status_refresh_failed ? 'waStatusUnverified' : statuses[sender.status] || 'waStatusPending')}</Badge>
           </div>
-          <p className="text-sm leading-6 text-[var(--fg-muted)]">{t(senderError ? 'waSenderLoadFailed' : !terminal ? 'waPollingHint' : sender.status === 'ONLINE' ? 'waOnlineHint' : 'waUnavailableHint')}</p>
-          <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={disabled} onClick={() => void loadSender()}>{t('refresh')}</Button>{canEdit && <Button variant="ghost" disabled={disabled || senderError} onClick={() => setConfirm('disconnect')}><Unplug aria-hidden="true" />{t('waDisconnect')}</Button>}</div>
+          <p className="text-sm leading-6 text-[var(--fg-muted)]">{t(sender.connection_mode === 'personal' ? 'waPersonalBilling' : 'waFoodyBilling')}</p>
+          <p role={sender.status_refresh_failed ? 'alert' : undefined} className="text-sm leading-6 text-[var(--fg-muted)]">{t(sender.status_refresh_failed ? 'waPersonalStatusUnverified' : senderError ? 'waSenderLoadFailed' : !terminal ? 'waPollingHint' : sender.status === 'ONLINE' ? 'waOnlineHint' : 'waUnavailableHint')}</p>
+          <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={disabled} onClick={() => void loadSender()}>{t('refresh')}</Button>{canEdit && sender.connection_mode === 'personal' && <Button variant="secondary" disabled={disabled || senderError} onClick={() => setEditingPersonal(true)}>{t('waPersonalEdit')}</Button>}{canEdit && <Button variant="ghost" disabled={disabled || senderError} onClick={() => setConfirm('disconnect')}><Unplug aria-hidden="true" />{t('waDisconnect')}</Button>}</div>
         </> : pending ? <form className="space-y-4" onSubmit={event => { event.preventDefault(); if (!uncertain) submitConnect(); }}>
           <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waConfirmIdentity')}</p>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -213,8 +218,17 @@ function WhatsAppWorkspace({ rid }: { rid: number }) {
             <Button type="button" variant="ghost" disabled={!!busy} onClick={() => setConfirm('discard')}>{t('cancel')}</Button>
           </div>
         </form> : !senderError && <>
+          {canEdit && <fieldset className="grid gap-3 sm:grid-cols-2" disabled={disabled || personalLocked}>
+            <legend className="mb-3 text-sm font-semibold">{t('waConnectionMode')}</legend>
+            {(['foody', 'personal'] as const).map(mode => <label key={mode} className="selection-row rounded-r-md border border-[var(--line)] p-4">
+              <input type="radio" name="whatsapp_connection_mode" checked={connectionMode === mode} onChange={() => setConnectionMode(mode)} aria-label={t(mode === 'foody' ? 'waModeFoody' : 'waModePersonal')} />
+              <span><span className="block text-sm font-semibold">{t(mode === 'foody' ? 'waModeFoody' : 'waModePersonal')}</span><span className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t(mode === 'foody' ? 'waFoodyBilling' : 'waPersonalBilling')}</span></span>
+            </label>)}
+          </fieldset>}
+          {connectionMode === 'personal' && canEdit ? <PersonalWhatsAppForm rid={rid} sender={null} onLockChange={setPersonalLocked} onSaved={row => { setSender(row); setNotice(t('waConnectionSaved')); }} onCancel={() => { setConnectionMode('foody'); void loadSender(); }} /> : <>
           <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waConnectHint')}</p>
           {!CONFIGURED ? <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t('waNotConfigured')}</p> : canEdit && <div className="flex flex-wrap gap-2">{signupActive ? <><p role="status" className="w-full text-sm text-[var(--fg-muted)]">{t('waSignupWaiting')}</p><Button variant="secondary" disabled={!!busy} onClick={cancelSignup}>{t('cancel')}</Button></> : <><Button disabled={disabled || sdkStatus !== 'ready'} onClick={launchSignup}>{t(sdkStatus === 'loading' ? 'loading' : 'waConnect')}</Button>{sdkStatus === 'error' && <div role="alert" className="w-full space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('waSdkFailed')}</p><Button variant="secondary" onClick={() => void prepareSdk()}>{t('retry')}</Button></div>}</>}</div>}
+          </>}
         </>}
       </div>}
     </Section>
