@@ -120,6 +120,11 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    deliveryRouteApproximate: "Approximate distance and travel time",
+    deliveryRoutingQuota: "The location service quota has been reached. Try again later. Your existing routes are saved.",
+    deliveryRoutingUnavailable: "Road routing is temporarily unavailable. Try again shortly.",
+    deliveryRoutingInfeasible: "Some deliveries could not be routed. Check the addresses, departure time and delivery windows.",
+
     addressAutocompleteTitle: "Address autocomplete",
     addressAutocompleteDescription: "Suggests complete addresses with Geoapify and fills the city. The customer must select a suggestion.",
     addressAutocompleteUnavailable: "Unavailable — check the server’s Geoapify configuration.",
@@ -1938,6 +1943,18 @@ const translations: Record<Locale, Record<string, string>> = {
     confirmReadyBody: 'The {n} selected order(s) will be marked “Ready for delivery” and dispatched to {courier}. Continue?',
     deliveryPlanEyebrow: 'Smart dispatch',
     deliveryPlanTitle: 'Delivery plan',
+    deliveryPlanWorkspaceIntro: 'Plan deliveries, follow courier progress and review completed routes.',
+    deliveryPlanInProgress: 'In progress',
+    deliveryPlanHistory: 'History',
+    deliveryPlanDate: 'Route date',
+    deliveryPlanShowMap: 'Map',
+    deliveryPlanShowList: 'List',
+    deliveryPlanRemaining: 'remaining',
+    deliveryPlanProgress: '{done} of {total} delivered',
+    deliveryPlanNoActiveRoutes: 'No deliveries in progress',
+    deliveryPlanActiveHint: 'Completed deliveries are in History. Select unplanned deliveries to build a new route.',
+    deliveryPlanNoHistory: 'No completed routes for this date',
+    deliveryPlanHistoryHint: 'Choose another route date to review previous deliveries.',
     deliveryPlanSubtitle: '{count} deliveries selected for planning.',
     deliveryPlanIntro: 'Choose the deliveries first, then decide how they should be shared across the courier team.',
     deliveryPlanStepOne: 'Build the delivery pool',
@@ -8035,6 +8052,11 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    deliveryRouteApproximate: "מרחק וזמן נסיעה משוערים",
+    deliveryRoutingQuota: "מכסת שירות המיקום מוצתה. נסו שוב מאוחר יותר. המסלולים הקיימים נשמרו.",
+    deliveryRoutingUnavailable: "חישוב מסלולי הנסיעה אינו זמין כרגע. נסו שוב בעוד רגע.",
+    deliveryRoutingInfeasible: "לא ניתן לתכנן חלק מהמשלוחים. בדקו את הכתובות, שעת היציאה וחלונות המשלוח.",
+
     addressAutocompleteTitle: "השלמה אוטומטית של כתובת",
     addressAutocompleteDescription: "מציע כתובות מלאות באמצעות Geoapify וממלא את העיר. הלקוח חייב לבחור כתובת מהרשימה.",
     addressAutocompleteUnavailable: "לא זמין — בדקו את הגדרות Geoapify בשרת.",
@@ -9850,6 +9872,18 @@ const translations: Record<Locale, Record<string, string>> = {
     confirmReadyBody: '{n} ההזמנות שנבחרו יסומנו כ״מוכן למשלוח״ וישויכו ל-{courier}. להמשיך?',
     deliveryPlanEyebrow: 'שיבוץ חכם',
     deliveryPlanTitle: 'תוכנית משלוחים',
+    deliveryPlanWorkspaceIntro: 'תכנון משלוחים, מעקב אחר התקדמות השליחים וצפייה במסלולים שהושלמו.',
+    deliveryPlanInProgress: 'בתהליך',
+    deliveryPlanHistory: 'היסטוריה',
+    deliveryPlanDate: 'תאריך המסלול',
+    deliveryPlanShowMap: 'מפה',
+    deliveryPlanShowList: 'רשימה',
+    deliveryPlanRemaining: 'נותרו',
+    deliveryPlanProgress: '{done} מתוך {total} נמסרו',
+    deliveryPlanNoActiveRoutes: 'אין משלוחים בתהליך',
+    deliveryPlanActiveHint: 'משלוחים שהושלמו מופיעים בהיסטוריה. בחרו משלוחים שלא שובצו כדי ליצור מסלול חדש.',
+    deliveryPlanNoHistory: 'אין מסלולים שהושלמו בתאריך זה',
+    deliveryPlanHistoryHint: 'בחרו תאריך מסלול אחר לצפייה במשלוחים קודמים.',
     deliveryPlanSubtitle: '{count} משלוחים נבחרו לתכנון.',
     deliveryPlanIntro: 'תחילה בוחרים את המשלוחים, ואז מחליטים כיצד לחלק אותם בין השליחים.',
     deliveryPlanStepOne: 'בניית מאגר המשלוחים',
@@ -15941,6 +15975,11 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    deliveryRouteApproximate: "Distance et durée approximatives",
+    deliveryRoutingQuota: "Le quota du service de localisation est atteint. Réessayez plus tard. Vos tournées existantes sont conservées.",
+    deliveryRoutingUnavailable: "Le calcul des itinéraires est temporairement indisponible. Réessayez dans un instant.",
+    deliveryRoutingInfeasible: "Certaines livraisons ne peuvent pas être planifiées. Vérifiez les adresses, le départ et les créneaux de livraison.",
+
     addressAutocompleteTitle: "Autocomplétion d’adresse",
     addressAutocompleteDescription: "Suggère des adresses complètes via Geoapify et remplit la ville. Le client doit choisir une suggestion.",
     addressAutocompleteUnavailable: "Indisponible — vérifiez la configuration Geoapify du serveur.",
@@ -17761,6 +17800,18 @@ const translations: Record<Locale, Record<string, string>> = {
     confirmReadyBody: 'Les {n} commande(s) sélectionnée(s) seront marquées « Prête à livrer » et assignées à {courier}. Continuer ?',
     deliveryPlanEyebrow: 'Répartition intelligente',
     deliveryPlanTitle: 'Plan de livraison',
+    deliveryPlanWorkspaceIntro: 'Planifiez les livraisons, suivez les livreurs et consultez les tournées terminées.',
+    deliveryPlanInProgress: 'En cours',
+    deliveryPlanHistory: 'Historique',
+    deliveryPlanDate: 'Date des tournées',
+    deliveryPlanShowMap: 'Carte',
+    deliveryPlanShowList: 'Liste',
+    deliveryPlanRemaining: 'à livrer',
+    deliveryPlanProgress: '{done} sur {total} livrés',
+    deliveryPlanNoActiveRoutes: 'Aucune livraison en cours',
+    deliveryPlanActiveHint: 'Les livraisons terminées sont dans l’historique. Sélectionnez les livraisons à planifier pour créer une tournée.',
+    deliveryPlanNoHistory: 'Aucune tournée terminée à cette date',
+    deliveryPlanHistoryHint: 'Choisissez une autre date pour consulter les livraisons précédentes.',
     deliveryPlanSubtitle: '{count} livraisons sélectionnées pour la planification.',
     deliveryPlanIntro: 'Sélectionnez d’abord les livraisons, puis choisissez comment les répartir entre les livreurs.',
     deliveryPlanStepOne: 'Créer le lot de livraisons',

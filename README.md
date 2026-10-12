@@ -118,6 +118,19 @@ Full order list with:
 - Status update buttons on each order (accept, send to kitchen, mark ready, mark served/delivered)
 - Real-time: page re-fetches automatically to stay current
 
+### Deliveries (`/[restaurantId]/orders/deliveries`)
+
+The dispatcher uses the shared monochrome workspace components, an explicit route
+date, and In progress/History tabs. Delivered and skipped stops leave the active
+list and map; completed routes remain available by date in History. Mobile users
+can switch between list and map and open stop details. Only unfinished deliveries
+return to planning when a draft route is unassigned.
+
+Deploy the matching API completion synchronization first. It also reads historic
+route stops against their orders so old delivered orders do not reappear as work.
+Browser regressions use synthetic data only:
+`npx playwright test -c playwright.redesign.config.ts delivery-planner.spec.ts`.
+
 ### Menu (`/[restaurantId]/menu`)
 
 Full menu management:
@@ -675,3 +688,20 @@ The public fulfillment dialog, checkout and customer correction form use the sam
 provider. Staff customer/order/courier address editors retain their existing
 manual correction tools. Provider setup and deployment remain explicit operations;
 no account, subscription or deployment is created by this change.
+
+## Geoapify delivery maps and road itineraries
+
+Deploy the API with migration 238 before this client. Delivery, courier and zone
+maps load restaurant-scoped map configuration and use the API's credential-free
+Geoapify tile proxy. Light mode uses Positron; dark mode uses Dark Matter. The
+provider key stays on the API. No new Admin environment variable is needed.
+Road geometry is rendered per stop so completed deliveries disappear from the
+operational map. Approximate historic/unconfigured routes are labelled and keep
+dashed straight-line paths until recalculated. Quota, infeasible plans and provider
+outages have localized feedback; a failed map background leaves stops/actions usable.
+Waze/Google Maps navigation links remain available.
+
+Checks: `npx tsx --test src/lib/__tests__/delivery-planning.test.ts` and
+`npx playwright test -c playwright.redesign.config.ts delivery-planner.spec.ts delivery-zones.spec.ts`.
+The browser fixtures use synthetic road geometry and tiles; no provider credentials
+or customer data are used.

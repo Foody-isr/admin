@@ -24,6 +24,13 @@ import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 import { RUNTIME_API_URL } from './runtime-origins';
 
 export const API_URL = RUNTIME_API_URL;
+
+/** Credential-free basemap configuration for the active restaurant. */
+export async function getDeliveryMapConfig(restaurantId: number): Promise<{ provider: 'geoapify' | 'openstreetmap'; tile_url: string }> {
+  const config = await apiFetch<{ provider: 'geoapify' | 'openstreetmap'; tile_url: string }>(`/api/v1/public/delivery/map-config?restaurant_id=${restaurantId}`, restaurantId);
+  if (!['geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map configuration unavailable');
+  return config;
+}
 const TOKEN_KEY = 'foody_restaurant_token';
 const USER_KEY = 'foody_restaurant_user';
 const RIDS_KEY = 'foody_restaurant_ids';
@@ -9618,16 +9625,16 @@ export async function validateDiscount(restaurantId: number, req: ValidateDiscou
 }
 
 /**
- * Geocode an address or city name via the server's free Nominatim-backed endpoint.
+ * Geocode an address or city name through the configured server provider.
  * Distinguishes a genuine no-result from a temporary provider/network failure
  * so address editors do not tell staff to rewrite a valid address during an outage.
  */
 export async function geocodeAddress(
-  _restaurantId: number,
+  restaurantId: number,
   address: string,
   city?: string,
 ): Promise<{ found: boolean; lat?: number; lng?: number; unavailable?: boolean }> {
-  const q = new URLSearchParams({ address });
+  const q = new URLSearchParams({ address, restaurant_id: String(restaurantId) });
   if (city) q.set('city', city);
   try {
     const res = await fetch(`${API_URL}/api/v1/public/geocode?${q.toString()}`);

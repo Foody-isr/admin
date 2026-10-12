@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useI18n } from '@/lib/i18n';
-import { TileLayer, Marker, Polygon, Circle, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
+import { Marker, Polygon, Circle, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { createLeafletContext, LeafletProvider, type LeafletContextInterface } from '@react-leaflet/core';
+import { DeliveryTiles } from '@/components/delivery/DeliveryTiles';
+import { LeafletSurface } from '@/components/delivery/LeafletSurface';
 import 'leaflet/dist/leaflet.css';
 import type { DeliveryZone } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,7 @@ export interface CityMarker {
 }
 
 export interface ZoneMapProps {
+  restaurantId: number;
   center: { lat: number; lng: number };
   /** Actual restaurant location; the viewport center can be a fallback only. */
   restaurantCenter?: { lat: number; lng: number } | null;
@@ -59,21 +61,6 @@ function ClickCapture({ onMapClick }: { onMapClick: (lat: number, lng: number) =
   return null;
 }
 
-// Own the imperative map in an effect. react-leaflet 4's MapContainer ref
-// callback captures a null context and can initialise a reattached node twice.
-// Pair each concrete instance with its cleanup, including Strict Mode replay.
-function LeafletSurface({ center, children }: { center: {lat:number;lng:number}; children: ReactNode }) {
-  const container=useRef<HTMLDivElement>(null), initialCenter=useRef(center);
-  const [context,setContext]=useState<LeafletContextInterface|null>(null);
-  useEffect(()=>{
-    if(!container.current)return;
-    const map=L.map(container.current,{zoomControl:false,scrollWheelZoom:false,dragging:false,doubleClickZoom:false,touchZoom:false,keyboard:false,boxZoom:false}).setView([initialCenter.current.lat,initialCenter.current.lng],13);
-    setContext(createLeafletContext(map));
-    return()=>{map.remove();};
-  },[]);
-  return <div ref={container} className="h-full w-full">{context&&<LeafletProvider value={context}>{children}</LeafletProvider>}</div>;
-}
-
 function MapBehavior({ center, interactive }: { center: {lat:number;lng:number}; interactive:boolean }) {
   const map=useMap();
   const {t}=useI18n();
@@ -90,18 +77,17 @@ function toLatLng(ring: [number, number][]): [number, number][] {
 
 /** Draw saved geometry and a separately identified restaurant origin. */
 export default function ZoneMap({
-  center, restaurantCenter, zones, activeZoneId, drawMode, draftPolygon, draftCenter, draftRadiusM, onMapClick, className, cityMarkers,
+  restaurantId, center, restaurantCenter, zones, activeZoneId, drawMode, draftPolygon, draftCenter, draftRadiusM, onMapClick, className, cityMarkers,
   interactive = true,
 }: ZoneMapProps) {
   const {t}=useI18n();
-  const [tileError,setTileError]=useState(false);
   const draftLatLng = useMemo(() => toLatLng(draftPolygon), [draftPolygon]);
 
   return (
     <div className={cn('relative isolate', className)}>
-      <LeafletSurface center={center}>
+      <LeafletSurface center={center} options={{zoomControl:false,scrollWheelZoom:false,dragging:false,doubleClickZoom:false,touchZoom:false,keyboard:false,boxZoom:false}}>
         <MapBehavior center={center} interactive={interactive} />
-        <TileLayer eventHandlers={{tileerror:()=>setTileError(true)}} attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <DeliveryTiles restaurantId={restaurantId} />
         {restaurantCenter && <Marker position={[restaurantCenter.lat, restaurantCenter.lng]} icon={HOME_ICON} />}
 
         {/* Saved zones */}
@@ -147,7 +133,6 @@ export default function ZoneMap({
 
         {drawMode !== 'none' && <ClickCapture onMapClick={onMapClick} />}
       </LeafletSurface>
-      {tileError && <p role="status" className="absolute bottom-7 start-3 end-3 z-[500] rounded-r-md bg-[var(--surface)] p-2 text-fs-xs text-[var(--fg)]">{t('deliveryZoneTilesUnavailable')}</p>}
     </div>
   );
 }
