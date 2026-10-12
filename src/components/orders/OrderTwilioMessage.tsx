@@ -52,6 +52,7 @@ export function OrderTwilioMessage({ restaurantId, orderId, kind }: {
   return <section aria-label={t('waOrderTwilio')} className="mt-5 space-y-3 rounded-r-md border border-[var(--line)] p-3">
     <p className="font-semibold text-sm">{t('waOrderTwilio')}</p>
     <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waOrderTwilioHint')}</p>
+    {kind === 'delivery_reminder' && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waOrderReminderTomorrowHint')}</p>}
     {error && <p role="alert" className="text-sm leading-6 text-[var(--danger-500)]">{error}</p>}
     {preview && <>
       <p className="text-sm break-words"><span>{t('waOrderFrom')}: <bdi dir="ltr">{preview.from}</bdi></span><br /><span>{t('waOrderTo')}: <bdi dir="ltr">{preview.recipient}</bdi></span><br /><span>{t('whatsappRecapLanguage')}: {preview.language.toUpperCase()}</span></p>

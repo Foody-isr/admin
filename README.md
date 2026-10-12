@@ -34,6 +34,11 @@ manual WhatsApp message. Delivery reminders require an assigned courier and save
 delivery date/window. Only the saved order supplies recipient and variables.
 An accepted or uncertain attempt is never submitted twice.
 
+The four-variable reminder announces tomorrow's delivery and can only be prepared
+and sent the day before, using the restaurant's timezone. Its variables are customer
+full name, time window, courier full name and phone, and restaurant name. Existing
+five-variable reminder templates retain their original mapping and date handling.
+
 Deploy the API and migration 239 before these new controls. Template contracts
 and French texts are documented in the matching server's
 `docs/WHATSAPP_ORDER_MESSAGES.md`. Regression checks:

@@ -76,6 +76,7 @@ test('delivery action prepares its dedicated courier reminder', async ({ page })
   await page.getByRole('button', { name: 'Actions', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Envoyer les infos de livraison', exact: true }).click();
   const region = page.getByRole('region', { name: 'Envoyer avec Twilio', exact: true });
+  await expect(region).toContainText('préparez et envoyez le rappel la veille de la livraison');
   await region.getByRole('button', { name: 'Préparer le message Twilio', exact: true }).click();
   await expect(region.getByRole('textbox')).toHaveValue(/Livreur démo/);
   expect(state.writes[0].body).toEqual({ kind: 'delivery_reminder' });

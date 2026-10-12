@@ -342,6 +342,11 @@ test('personal Twilio accepts the dedicated pair without legacy templates and sh
   await expect(save).toBeEnabled();
   await connection(page).getByText('Texte suggéré à créer dans Twilio', { exact: true }).first().click();
   await expect(connection(page).locator('pre').first()).toContainText('récapitulatif complet ici : {{8}}');
+  await connection(page).getByText('Texte suggéré à créer dans Twilio', { exact: true }).nth(1).click();
+  await expect(connection(page).locator('pre').nth(1)).toContainText('Boker tov {{1}} 🧡');
+  await expect(connection(page).locator('pre').nth(1)).toContainText('le livreur ({{3}})');
+  await expect(connection(page).locator('pre').nth(1)).toContainText('choisi {{4}} pour votre Shabbat ✨');
+  await expect(connection(page)).toContainText('3 nom complet et téléphone du livreur · 4 restaurant');
   await save.click();
   expect(state.writes[0].body).toMatchObject({
     content_sid_order_recap: `HX${'6'.repeat(32)}`, content_sid_delivery_reminder: `HX${'7'.repeat(32)}`,
