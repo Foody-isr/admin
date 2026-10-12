@@ -9080,6 +9080,38 @@ export interface WhatsAppSender {
   sender_number: string;
   display_name: string;
   status: string; // CREATING | ONLINE | OFFLINE | PENDING_VERIFICATION | ...
+  connection_mode?: 'foody' | 'personal';
+  status_refresh_failed?: boolean;
+  twilio_account_sid?: string;
+  twilio_api_key_sid?: string;
+  content_sid_order_confirmed?: string | null;
+  content_sid_scheduled_confirmed?: string | null;
+  content_sid_order_ready?: string | null;
+  content_sid_receipt?: string | null;
+  content_sid_delivery_eta?: string | null;
+}
+
+/** Write-only credentials and notification templates for a restaurant-owned Twilio account. */
+export interface PersonalWhatsAppInput {
+  account_sid: string;
+  api_key_sid: string;
+  secret: string;
+  sender_sid: string;
+  waba_id: string;
+  phone_number_id: string;
+  phone_number: string;
+  content_sid_order_confirmed: string;
+  content_sid_scheduled_confirmed: string;
+  content_sid_order_ready: string;
+  content_sid_receipt: string;
+  content_sid_delivery_eta: string;
+}
+
+/** Verifies an existing personal sender and saves encrypted credentials without sending a message. */
+export async function connectPersonalWhatsApp(restaurantId: number, input: PersonalWhatsAppInput): Promise<WhatsAppSender> {
+  return apiFetch<WhatsAppSender>(`/api/v1/restaurants/${restaurantId}/whatsapp/personal`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
 }
 
 /** Returns the restaurant's connected WhatsApp sender (with live-refreshed status), or null. */

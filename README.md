@@ -10,6 +10,24 @@ Self-service web portal for restaurant owners and managers. Used to manage day-t
 | **Development** | `dev-admin.foody-pos.co.il` | `dev-api.foody-pos.co.il` | `develop` |
 | **Local** | `localhost:3003` | `localhost:8080` | any branch |
 
+## WhatsApp accounts
+
+WhatsApp settings (`/[restaurantId]/settings/whatsapp`) support either Foody-managed
+onboarding or **My own Twilio account**. The personal mode accepts an Account SID,
+API Key SID and secret (or an Auth Token), an already registered WhatsApp Sender
+SID, Meta WABA/Phone Number IDs, the international number, and Utility Content
+SIDs for notifications. Confirmation and status templates are required. Twilio
+bills the restaurant's account directly for WhatsApp; phone verification codes
+retain their existing billing. No Meta access token is needed for this Twilio flow.
+
+The API verifies the account, online sender, number/WABA match and approved Utility
+templates without sending a test message. Secrets are write-only, cleared from
+the form after submission, and never restored from the API. Personal connections
+can be edited to rotate credentials and update templates; switching billing modes
+requires disconnecting first. Deploy the API and migration 237 before this UI.
+
+Regression checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/whatsapp.spec.ts`.
+
 ## Selection controls
 
 Admin selections follow the Square reference: white option rows with separators,
