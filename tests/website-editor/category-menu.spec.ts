@@ -127,7 +127,7 @@ test("desktop category styles and sticky choices survive preview, reload and pub
     await assertPinned(publicNavigation);
     await publicNavigation.locator("nav a").first().click();
     await expect.poll(() => publicNavigation.evaluate(element => {
-      const target = document.querySelector(element.querySelector("a")!.getAttribute("href")!)!;
+      const target = document.querySelector(element.querySelector("nav a")!.getAttribute("href")!)!;
       return target.getBoundingClientRect().top - element.getBoundingClientRect().bottom;
     })).toBeGreaterThanOrEqual(23);
     expect(await storefront.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
