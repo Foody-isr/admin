@@ -165,6 +165,12 @@ export function OrderPageEditor({
   if (region === "order-fulfillment")
     return (
       <div className="sqe-panel-body sqe-order-settings">
+        <ColorStylePicker
+          value={String(value.fulfillment_color_style ?? "default")}
+          inheritedStyle={String(value.color_style ?? "default")}
+          defaultLabel={t("editorJourneyInheritMenu")}
+          onChange={id => set("fulfillment_color_style", id)} />
+        <p>{t("editorOrderModalColorsHint")}</p>
         {sharedHeader ? (
           <button className="sqe-button" onClick={onEditHeader}>
             {t("editorHeader")}
