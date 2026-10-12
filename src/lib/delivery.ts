@@ -48,11 +48,17 @@ export interface DeliveryRoute {
   end_lng?: number | null;
   planned_departure_at?: string | null;
   started_at?: string | null;
+  eta_reference_at?: string | null;
   total_distance_m: number;
   est_duration_s: number;
   stops: RouteStop[];
   last_location?: CourierLocationDTO | null;
+  routing_provider?: 'geoapify' | 'approximate';
+  route_geometry?: RoadLeg[];
 }
+
+/** Road path coordinates use [latitude, longitude]; order_id zero is the final leg. */
+export interface RoadLeg { order_id: number; path: [number, number][] }
 
 export interface RouteSettingsInput {
   planned_departure_at: string;
