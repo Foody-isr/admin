@@ -253,15 +253,17 @@ export function OrderPageEditor({
         <h3>{t("editorContent")}</h3>
         {toggle("sticky_categories", "editorOrderStickyCategories")}
         <p>{t("editorOrderStickyCategoriesHint")}</p>
+        {select("category_shape", "editorOrderCategoryStyleDesktop", value.card_style === "filled" ? "pill" : "plain", [
+          ["plain", "editorOrderCategoryStylePlain"],
+          ["underline", "editorOrderCategoryStyleUnderline"],
+          ["rounded", "editorShapeRound"],
+          ["pill", "editorOrderShapePill"],
+        ])}
+        <p>{t("editorOrderCategoryStyleDesktopHint")}</p>
         <details>
           <summary>{t("editorCategoryMenu")}</summary>
           {toggle("show_categories", "editorCategoryMenu")}
           {typography("category", "categoryBar")}
-          {select("category_shape", "editorShape", value.card_style === "filled" ? "pill" : "plain", [
-            ["plain", "editorNone"],
-            ["rounded", "editorShapeRound"],
-            ["pill", "editorOrderShapePill"],
-          ])}
           {spacing("category_gap", "editorCategoryGap", 20, 80)}
           {editMenuColors("categories")}
           <p>{t("editorOrderCategoryColorsHint")}</p>
