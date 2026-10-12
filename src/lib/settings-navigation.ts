@@ -25,16 +25,22 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
     ] },
     { labelKey: 'settingsGroupRestaurant', items: [
       { href: `${base}/settings`, labelKey: 'general', exact: true },
-      { href: `${base}/settings/orders/availability`, labelKey: 'settingsHours' },
       { href: `${base}/settings/orders/processing`, labelKey: 'ordersProcessingShort' },
       { href: `${base}/settings/orders/workflow`, labelKey: 'orderWorkflow' },
       { href: `${base}/settings/stock`, labelKey: 'stockSettings' },
       { href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', desktopOnly: true },
       { href: `${base}/restaurant/sections`, labelKey: 'sections' },
-      { href: `${base}/settings/table-assistance`, labelKey: 'tableServiceSettings' },
-      { href: `${base}/restaurant/table-status`, labelKey: 'tableStatus' },
-      { href: `${base}/settings/full-service`, labelKey: 'fullServiceTitle' },
       { href: `${base}/restaurant/table-qr`, labelKey: 'tableQrCodes' },
+    ] },
+    { labelKey: 'posServiceSettings', items: [
+      { href: `${base}/restaurant/table-status`, labelKey: 'tableStatus' },
+      { href: `${base}/settings/menu-behavior`, labelKey: 'posMenuBehavior' },
+      { href: `${base}/settings/services`, labelKey: 'posServices' },
+      { href: `${base}/settings/adjustments`, labelKey: 'posAdjustmentReasons' },
+      { href: `${base}/settings/table-assistance`, labelKey: 'posTableAssistance' },
+    ] },
+    { labelKey: 'posFulfillment', items: [
+      { href: `${base}/settings/fulfillment`, labelKey: 'posPointOfSale' },
     ] },
     { labelKey: 'settingsGroupOrdering', items: [
       { href: `${base}/settings/orders`, labelKey: 'settingsOrderTaking', exact: true },
@@ -47,6 +53,8 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
     ] },
     { labelKey: 'settingsGroupDevices', items: [
       { href: `${base}/settings/devices`, labelKey: 'deviceManagementTitle' },
+      { href: `${base}/settings/modes`, labelKey: 'posModes' },
+      { href: `${base}/settings/kitchen-displays`, labelKey: 'kdsSettingsTitle' },
       { href: `${base}/settings/printers`, labelKey: 'printerProfilesTitle' },
     ] },
     { labelKey: 'settingsGroupCommunications', items: [

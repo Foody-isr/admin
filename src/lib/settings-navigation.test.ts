@@ -12,14 +12,16 @@ test('each settings destination has one group, scoped to the active restaurant',
   }
 });
 
-test('restaurant-wide hours, processing and workflow are separate from ordering settings', () => {
+test('processing and workflow stay under Restaurant while availability has one ordering entry', () => {
   const groups = settingsNavigation(2);
   const restaurant = groups.find(group => group.labelKey === 'settingsGroupRestaurant')!;
   const ordering = groups.find(group => group.labelKey === 'settingsGroupOrdering')!;
-  for (const section of ['availability','processing','workflow']) {
+  for (const section of ['processing','workflow']) {
     assert.ok(restaurant.items.some(item => item.href.endsWith(`/orders/${section}`)));
     assert.ok(!ordering.items.some(item => item.href.endsWith(`/orders/${section}`)));
   }
+  assert.ok(ordering.items.some(item => item.href === '/2/settings/orders'));
+  assert.ok(!groups.flatMap(group => group.items).some(item => item.href.endsWith('/orders/availability')));
   assert.ok(!groups.flatMap(group => group.items).some(item => item.href.includes('/tours')));
 });
 
@@ -31,7 +33,7 @@ test('a printer reader only sees printer and physical-device destinations', () =
 test('a settings reader cannot follow staff-management destinations without their page permission', () => {
   const nav = visibleSettingsNavigation(7, (...permissions) => permissions.includes('settings.view'));
   assert.ok(!nav.flatMap(group => group.items).some(item => item.href.endsWith('/team')));
-  assert.ok(nav.flatMap(group => group.items).some(item => item.href.endsWith('/orders/availability')));
+  assert.ok(nav.flatMap(group => group.items).some(item => item.href.endsWith('/settings/orders')));
 });
 
 test('preorder configuration has one entry under order intake', () => {

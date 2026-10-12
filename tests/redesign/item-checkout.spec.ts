@@ -39,7 +39,12 @@ async function install(page: Page, options: { locale?: string; theme?: string; p
     const result = fixture.response(request.url(), request.method(), body, 1);
     await route.fulfill({ status: result.status ?? 200, json: result.json ?? {} });
   });
-  await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
+  await page.route('**/*', route => {
+    const url = new URL(route.request().url());
+    // Production bundles keep their build-time API origin; every API path is
+    // still handled by the isolated fixture registered above.
+    return ['localhost', '127.0.0.1'].includes(url.hostname) || url.pathname.startsWith('/api/v1/') ? route.fallback() : route.abort();
+  });
   return { fixture, serviceWrites };
 }
 
@@ -93,14 +98,14 @@ test('new checkout preferences survive draft recovery and are saved on creation'
 
 test('automatic progression saves independently with the restaurant service policy', async ({ page }) => {
   const { serviceWrites } = await install(page);
-  await page.goto('/1/settings/full-service');
+  await page.goto('/1/settings/modes/default/order-entry');
   const progression = page.getByRole('switch', { name: 'Automatic progression', exact: true });
   await expect(progression).not.toBeChecked();
   await progression.check();
   expect(serviceWrites).toEqual([]);
-  await page.locator('#full-service button[type=submit]').click();
+  await page.locator('.pos-editor-head button[type=submit]').click();
   await expect(progression).toBeChecked();
-  await expect(page.locator('#full-service button[type=submit]')).toBeDisabled();
+  await expect(page.locator('.pos-editor-head button[type=submit]')).toBeDisabled();
   expect(serviceWrites).toEqual([{ restaurant: '1', value: {
     seating_mode: 'optionalSeats', send_and_stay: false, coursing_enabled: true,
     courses: ['Starters', 'Mains'], show_held_on_kds: false, sort_cart: 'course',
@@ -113,7 +118,7 @@ test('read-only roles cannot change either checkout preference or progression', 
   await page.goto('/1/menu/items/1');
   await expect(page.getByRole('switch', { name: firstLabel, exact: true })).toBeDisabled();
   await expect(page.getByRole('switch', { name: skipLabel, exact: true })).toBeDisabled();
-  await page.goto('/1/settings/full-service');
+  await page.goto('/1/settings/modes/default/order-entry');
   await expect(page.getByRole('switch', { name: 'Automatic progression', exact: true })).toBeDisabled();
   expect(fixture.writes).toEqual([]);
   expect(serviceWrites).toEqual([]);

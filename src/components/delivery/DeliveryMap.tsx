@@ -1,13 +1,17 @@
 'use client';
 
 import { Fragment, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { Marker, Polyline, useMap } from 'react-leaflet';
+import { DeliveryTiles } from '@/components/delivery/DeliveryTiles';
+import { LeafletSurface } from '@/components/delivery/LeafletSurface';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { RouteStop } from '@/lib/delivery';
+import type { RoadLeg, RouteStop } from '@/lib/delivery';
 import { cn } from '@/lib/utils';
 
 export interface RouteLayer {
+  geometry?: RoadLeg[];
+  routingProvider?: string;
   routeId?: number;
   courierId: number;
   color: string;
@@ -25,6 +29,9 @@ export interface CourierMarker {
 }
 
 export interface DeliveryMapProps {
+  restaurantId: number;
+  geometry?: RoadLeg[];
+  routingProvider?: string;
   /** Single-route convenience (courier view). Ignored if `routes` is provided. */
   stops?: RouteStop[];
   /** Optional endpoints for the single courier route. */
@@ -40,7 +47,7 @@ export interface DeliveryMapProps {
   className?: string;
 }
 
-const BRAND = '#F18A47';
+const BRAND = '#525252';
 const RESTAURANT_GREEN = '#5BBF84';
 
 function located(stops: RouteStop[]): RouteStop[] {
@@ -75,9 +82,9 @@ function numberedIcon(label: string, color: string): L.DivIcon {
   if (!icon) {
     icon = L.divIcon({
       className: 'foody-stop-pin',
-      html: `<div style="background:${color};color:#1a1a1a;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">${label}</div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+      html: `<div style="background:${color};color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.25);border:2px solid #fff">${label}</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
     });
     numberedIconCache.set(key, icon);
   }
@@ -149,13 +156,13 @@ function FitBounds({ points }: { points: [number, number][] }) {
 }
 
 export default function DeliveryMap({
-  stops, start, end, routes, couriers, restaurant, highlightCourierId, onStopClick, className,
+  restaurantId, geometry, routingProvider, stops, start, end, routes, couriers, restaurant, highlightCourierId, onStopClick, className,
 }: DeliveryMapProps) {
   const layers: RouteLayer[] = useMemo(() => {
     if (routes && routes.length) return routes;
-    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops, start, end }];
+    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops, start, end, geometry, routingProvider }];
     return [];
-  }, [end, routes, start, stops]);
+  }, [end, routes, start, stops, geometry, routingProvider]);
 
   const points = useMemo<[number, number][]>(() => {
     const pts: [number, number][] = [];
@@ -163,6 +170,9 @@ export default function DeliveryMap({
     for (const layer of layers) {
       if (layer.start) pts.push([layer.start.lat, layer.start.lng]);
       for (const s of located(layer.stops)) pts.push([s.lat as number, s.lng as number]);
+      for (const leg of layer.geometry ?? []) {
+        if (leg.order_id === 0 ? !!layer.end : layer.stops.some(stop => stop.order_id === leg.order_id)) pts.push(...leg.path);
+      }
       if (layer.end) pts.push([layer.end.lat, layer.end.lng]);
     }
     return pts;
@@ -172,12 +182,9 @@ export default function DeliveryMap({
   const center: [number, number] = points[0] ?? [32.0853, 34.7818]; // Tel Aviv fallback
 
   return (
-    <div className={cn('isolate', className)}>
-      <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+    <div className={cn('relative isolate', className)}>
+      <LeafletSurface center={{ lat: center[0], lng: center[1] }}>
+        <DeliveryTiles restaurantId={restaurantId} />
         {restaurant && <Marker position={[restaurant.lat, restaurant.lng]} icon={HOME_ICON} />}
         {layers.map((layer) => {
           const dim = highlightCourierId != null && layer.courierId !== highlightCourierId;
@@ -189,7 +196,9 @@ export default function DeliveryMap({
           if (layer.end) line.push([layer.end.lat, layer.end.lng]);
           return (
             <Fragment key={layer.routeId ?? layer.courierId}>
-              {line.length > 1 && (
+              {layer.geometry?.length ? layer.geometry.filter(leg => leg.order_id === 0 ? !!layer.end : seq.some(stop => stop.order_id === leg.order_id)).map((leg, index) => (
+                <Polyline key={`${leg.order_id}-${index}`} positions={leg.path} pathOptions={{ color: layer.color, opacity: dim ? 0.2 : 0.85, weight: 4 }} />
+              )) : layer.routingProvider !== 'geoapify' && line.length > 1 && (
                 <Polyline positions={line} pathOptions={{ color: layer.color, opacity: dim ? 0.2 : 0.7, dashArray: '6 8' }} />
               )}
               {layer.start && <Marker position={[layer.start.lat, layer.start.lng]} icon={START_ICON} />}
@@ -209,7 +218,7 @@ export default function DeliveryMap({
           <Marker key={`courier-${c.courierId}`} position={[c.lat, c.lng]} icon={courierIcon(c.color, !!c.stale)} />
         ))}
         <FitBounds points={points} />
-      </MapContainer>
+      </LeafletSurface>
     </div>
   );
 }

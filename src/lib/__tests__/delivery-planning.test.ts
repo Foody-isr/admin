@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow } from '@/lib/delivery-planning';
+import { buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow, deliveryRoutingError, isOpenDeliveryRoute } from '@/lib/delivery-planning';
+import type { DeliveryRoute } from '@/lib/delivery';
+
+test('completed, skipped and empty routes do not remain operational plans', () => {
+  const route = (status: DeliveryRoute['status'], statuses: string[]) => ({ status, stops: statuses.map(status => ({ status })) }) as DeliveryRoute;
+  assert.equal(isOpenDeliveryRoute(route('draft', [])), false);
+  assert.equal(isOpenDeliveryRoute(route('draft', ['delivered', 'skipped'])), false);
+  assert.equal(isOpenDeliveryRoute(route('active', ['delivered'])), false);
+  assert.equal(isOpenDeliveryRoute(route('draft', ['delivered', 'pending'])), true);
+  assert.equal(isOpenDeliveryRoute(route('active', ['arrived'])), true);
+  assert.equal(isOpenDeliveryRoute(route('completed', ['pending'])), false);
+  assert.equal(isOpenDeliveryRoute(route('cancelled', ['pending'])), false);
+});
 
 test('deliveryEtaWindow anchors cumulative ETA to the planned departure', () => {
   const window = deliveryEtaWindow(
@@ -56,4 +68,16 @@ test('buildDeliveryEtaLabel includes the localized day and time range', () => {
   );
   assert.match(label, /^Arrivée prévue : .+, entre .+ et .+$/);
   assert.doesNotMatch(label, /\{(?:day|start|end)\}/);
+});
+
+test('remaining ETA uses the recalculation reference after an active route starts', () => {
+  const window = deliveryEtaWindow({ started_at: '2026-10-12T05:00:00Z', eta_reference_at: '2026-10-12T06:00:00Z' }, { eta_seconds: 600 }, 'en');
+  assert.equal(window?.startAt.toISOString(), '2026-10-12T06:05:00.000Z');
+});
+
+test('routing failures have localized, bounded feedback', () => {
+  assert.equal(deliveryRoutingError(new Error('location service quota exceeded'), key => key), 'deliveryRoutingQuota');
+  assert.equal(deliveryRoutingError(new Error('routing service unavailable'), key => key), 'deliveryRoutingUnavailable');
+  assert.equal(deliveryRoutingError(new Error('some deliveries could not be routed'), key => key), 'deliveryRoutingInfeasible');
+  assert.equal(deliveryRoutingError(new Error('unknown error'), key => key), null);
 });

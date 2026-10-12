@@ -1,5 +1,7 @@
 'use client';
 
+import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
+
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import {
@@ -31,7 +33,7 @@ type TFn = (k: string) => string;
 
 // Guest-facing foodyweb base URL — used to open the live order page for a
 // future-week preview. Matches the env contract used by the website editor.
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+const WEB_URL = RUNTIME_WEB_URL;
 
 function hoursRange(menu: Menu, locale: string): string | null {
   if (menu.follows_restaurant_hours) return null;

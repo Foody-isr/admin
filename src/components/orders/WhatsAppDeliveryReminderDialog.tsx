@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { CheckIcon, CopyIcon, MessageCircleIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ds';
+import { OrderTwilioMessage } from '@/components/orders/OrderTwilioMessage';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { buildWhatsAppUrl } from '@/lib/receipt-share';
@@ -150,6 +151,8 @@ export function WhatsAppDeliveryReminderDialog({
               rows={13}
               className="w-full rounded-r-md border border-[var(--line)] bg-[var(--surface)] text-[var(--fg)] text-fs-sm leading-relaxed px-[var(--s-3)] py-[var(--s-3)] font-mono focus:outline-none focus:border-[var(--brand-500)]"
             />
+
+            <OrderTwilioMessage key={`${order.restaurant_id}:${order.id}`} restaurantId={order.restaurant_id} orderId={order.id} kind="delivery_reminder" />
 
             <div className="flex items-center gap-[var(--s-3)] mt-[var(--s-5)]">
               <Button variant="ghost" onClick={copy}>

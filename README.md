@@ -10,6 +10,46 @@ Self-service web portal for restaurant owners and managers. Used to manage day-t
 | **Development** | `dev-admin.foody-pos.co.il` | `dev-api.foody-pos.co.il` | `develop` |
 | **Local** | `localhost:3003` | `localhost:8080` | any branch |
 
+## WhatsApp accounts
+
+WhatsApp settings (`/[restaurantId]/settings/whatsapp`) support either Foody-managed
+onboarding or **My own Twilio account**. The personal mode accepts an Account SID,
+API Key SID and secret (or an Auth Token), an already registered WhatsApp Sender
+SID, Meta WABA/Phone Number IDs, the international number, and Utility Content
+SIDs for notifications. Configure the detailed confirmation/courier reminder pair
+or the legacy confirmation/status pair. Twilio
+bills the restaurant's account directly for WhatsApp; phone verification codes
+retain their existing billing. No Meta access token is needed for this Twilio flow.
+
+The API verifies the account, online sender, number/WABA match and approved Utility
+templates without sending a test message. Secrets are write-only, cleared from
+the form after submission, and never restored from the API. Personal connections
+can be edited to rotate credentials and update templates; switching billing modes
+requires disconnecting first. Deploy the API and migration 237 before this UI.
+
+Personal-connection errors identify the failing verification and template field in
+French, Hebrew or English. Pending WhatsApp templates must reach Approved in
+Twilio before saving. Recognized failed checks keep the form editable and clear
+the secret; lost or unrecognized responses still require checking the saved
+connection before retrying. Provider error text is never displayed.
+
+The detailed templates have separate fields and copyable French, Hebrew and English
+examples. Confirmation is automatic when configured; order dialogs also expose
+a read-only Twilio preview and a confirmed send, alongside the existing editable
+manual WhatsApp message. Delivery reminders require an assigned courier and saved
+delivery date/window. Only the saved order supplies recipient and variables.
+An accepted or uncertain attempt is never submitted twice.
+
+The four-variable reminder announces tomorrow's delivery and can only be prepared
+and sent the day before, using the restaurant's timezone. Its variables are customer
+full name, time window, courier full name and phone, and restaurant name. Existing
+five-variable reminder templates retain their original mapping and date handling.
+
+Deploy the API and migration 239 before these new controls. Template contracts
+and French texts are documented in the matching server's
+`docs/WHATSAPP_ORDER_MESSAGES.md`. Regression checks:
+`npx playwright test -c playwright.whatsapp.config.ts`.
+
 ## Selection controls
 
 Admin selections follow the Square reference: white option rows with separators,
@@ -100,6 +140,19 @@ Full order list with:
 - Status update buttons on each order (accept, send to kitchen, mark ready, mark served/delivered)
 - Real-time: page re-fetches automatically to stay current
 
+### Deliveries (`/[restaurantId]/orders/deliveries`)
+
+The dispatcher uses the shared monochrome workspace components, an explicit route
+date, and In progress/History tabs. Delivered and skipped stops leave the active
+list and map; completed routes remain available by date in History. Mobile users
+can switch between list and map and open stop details. Only unfinished deliveries
+return to planning when a draft route is unassigned.
+
+Deploy the matching API completion synchronization first. It also reads historic
+route stops against their orders so old delivered orders do not reappear as work.
+Browser regressions use synthetic data only:
+`npx playwright test -c playwright.redesign.config.ts delivery-planner.spec.ts`.
+
 ### Menu (`/[restaurantId]/menu`)
 
 Full menu management:
@@ -126,7 +179,7 @@ automatic first-variant selection and skipping optional customization. Both
 preferences follow the item’s explicit Save and new-item draft recovery. Legacy
 items keep first-variant selection on and skip-customization off. Automatic
 progression between sections after single-choice selections is a separate restaurant
-setting under **Settings → Full service → Fast order entry**. Reopening an item
+setting under **Settings → Device management → Modes → Checkout → Fast order entry**. Reopening an item
 keeps its editor open. These settings do not change guest web checkout or combo
 composition. Deploy the matching API and POS support before enabling them.
 Isolated browser checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/item-checkout.spec.ts`.
@@ -575,13 +628,21 @@ parallax, variable-width text and two rotating reviews; all writes stay in memor
 
 ## Unified order intake
 
-`/[restaurantId]/settings/orders` starts with Immediate orders, Preorders only,
+`/[restaurantId]/settings/orders` is the single **Orders & availability** editor
+under Ordering & delivery. It starts with Immediate orders, Preorders only,
 or Both, followed by slot/weekly-lot organization, services and the relevant
-calendar. The old `/orders/preorders` route redirects here. Strict weekly lots
+calendar. The old `/orders/availability`, `/orders/preorders`, `/settings/opening-hours`
+and `/settings/scheduled-orders` routes redirect here; the separate Hours entry
+has been removed. Strict weekly lots
 hide classic pickup/delivery hours; slots retain receiving hours. Hidden values
 are kept, and policy/services/calendar edits share one save. Table service remains
-independent under Restaurant → Hours. The live lot status uses the server calendar
+independent in its own section on the same page. The live lot status uses the server calendar
 and the restaurant timezone; pause controls remain available on the same page.
+
+Week start/workdays and catering-only mode are retained under Restaurant → General.
+They use the existing restaurant endpoint and only changed fields are saved.
+Strict weekly lots are governed by order opening, cutoff and fulfillment days/windows;
+classic pickup/delivery opening hours are retained without constraining this mode.
 
 Requires the API's `preorders_only` contract (migration 226). Existing scheduled
 restaurants are shown as Both until the operator explicitly selects Preorders
@@ -610,17 +671,39 @@ All API calls in this suite use synthetic in-memory fixtures.
 
 ## Full service and kitchen stations
 
-`/[restaurantId]/settings/full-service` edits the restaurant's covers, optional
-seats, Send & Stay, courses and check sorting policy. A separate Kitchen stations
-editor on that page configures registered tablets, phones, computers or displays:
+Settings now separates the restaurant policy from device checkout profiles:
+
+- Service settings → **Services** (`/settings/services`): ordered course names,
+  immediate-send library categories and fired/held paper-ticket policy.
+- Service settings → **Menu behavior** (`/settings/menu-behavior`): return home
+  or remain in the current menu group after adding an item.
+- Fulfillment methods → **POS** (`/settings/fulfillment`): enabled existing order
+  types, default and staff prompt at order start or Pay/Send.
+- Device management → **Modes** (`/settings/modes`): reusable full-service
+  profiles assigned to registered devices. Checkout sections control entry tile
+  size/progression, covers/seats, coursing and cart sorting; Open checks controls
+  Send & Stay. Unsaved changes persist across sections of the same profile.
+- Device management → **Kitchen displays** (`/settings/kitchen-displays`):
+  registered tablets, phones, computers or displays with
 Prep/Expo role, completion scope, columns, text size, timers, held courses and
-routing by source, dining option and library category. Both editors require an
-explicit save and protect unsaved changes when navigating away.
+routing by source, dining option and library category.
+
+Editors require explicit Save and protect unsaved changes on close/link navigation
+and reload. The legacy `/settings/full-service` route redirects to restaurant
+checkout defaults. A device can belong to only one checkout mode; forgotten and
+foreign devices cannot be assigned. Item opening/variant defaults remain in the
+item editor rather than a global force-open switch.
 
 Deploy the matching API with migrations 228–230 and 232 before using these settings.
 Admin and POS consume the same persisted policy; kitchen progress remains separate
 from payments, table occupancy and inventory. Comp/void reasons are configuration
-only until the corresponding operational actions are implemented.
+only until the corresponding operational actions are implemented. Additive
+mode/fulfillment/menu/printing policies reuse `full_service` JSONB and need no new
+migration. POS reloads settings explicitly; changing Admin does not push a live
+mode update. Fired/held printing currently adds held context to fired tickets;
+standalone held-only printing and custom fulfillment labels remain unsupported.
+
+Isolated checks: `npx playwright test -c playwright.redesign.config.ts pos-settings.spec.ts item-checkout.spec.ts`.
 
 ## Delivery address autocomplete
 
@@ -635,3 +718,20 @@ The public fulfillment dialog, checkout and customer correction form use the sam
 provider. Staff customer/order/courier address editors retain their existing
 manual correction tools. Provider setup and deployment remain explicit operations;
 no account, subscription or deployment is created by this change.
+
+## Geoapify delivery maps and road itineraries
+
+Deploy the API with migration 238 before this client. Delivery, courier and zone
+maps load restaurant-scoped map configuration and use the API's credential-free
+Geoapify tile proxy. Light mode uses Positron; dark mode uses Dark Matter. The
+provider key stays on the API. No new Admin environment variable is needed.
+Road geometry is rendered per stop so completed deliveries disappear from the
+operational map. Approximate historic/unconfigured routes are labelled and keep
+dashed straight-line paths until recalculated. Quota, infeasible plans and provider
+outages have localized feedback; a failed map background leaves stops/actions usable.
+Waze/Google Maps navigation links remain available.
+
+Checks: `npx tsx --test src/lib/__tests__/delivery-planning.test.ts` and
+`npx playwright test -c playwright.redesign.config.ts delivery-planner.spec.ts delivery-zones.spec.ts`.
+The browser fixtures use synthetic road geometry and tiles; no provider credentials
+or customer data are used.

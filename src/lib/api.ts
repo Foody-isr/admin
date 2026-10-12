@@ -21,7 +21,16 @@ import {
 } from '@simplewebauthn/browser';
 import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { RUNTIME_API_URL } from './runtime-origins';
+
+export const API_URL = RUNTIME_API_URL;
+
+/** Credential-free basemap configuration for the active restaurant. */
+export async function getDeliveryMapConfig(restaurantId: number): Promise<{ provider: 'geoapify' | 'openstreetmap'; tile_url: string }> {
+  const config = await apiFetch<{ provider: 'geoapify' | 'openstreetmap'; tile_url: string }>(`/api/v1/public/delivery/map-config?restaurant_id=${restaurantId}`, restaurantId);
+  if (!['geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map configuration unavailable');
+  return config;
+}
 const TOKEN_KEY = 'foody_restaurant_token';
 const USER_KEY = 'foody_restaurant_user';
 const RIDS_KEY = 'foody_restaurant_ids';
@@ -168,13 +177,46 @@ export interface BatchFulfillmentDay {
 export type PricingMode = 'standard' | 'by_weight';
 export type TableAssignmentMode = 'free' | 'collaborative' | 'strict';
 
+/** Reusable checkout policy assigned to physical devices in this restaurant. */
+/** Restaurant-wide names for predefined POS checks. */
+export interface TicketGroup {
+ id: string; restaurant_id: number; name: string; naming: 'automatic' | 'custom'; names: string[];
+ created_at: string; updated_at: string;
+}
+/** A named open bill, independent of individual kitchen batches. */
+export interface OpenTicket {
+ id: string; restaurant_id: number; group_id: string | null; name: string; order_type: 'pickup' | 'delivery';
+ closed_at: string | null; created_at: string; updated_at: string;
+}
+
+export interface POSCheckBehavior {
+ allow_hold_fire: boolean; collapse_sent: boolean; open_checks_enabled: boolean; open_checks_home: boolean; predefined_tickets: boolean;
+}
+export interface POSMode {
+ check_behavior?: POSCheckBehavior;
+ id: string; name: string; device_ids: string[];
+ seating_mode: FullServiceSettings['seating_mode']; send_and_stay: boolean;
+ coursing_enabled: boolean; auto_progression: boolean;
+ tile_size: 'tall' | 'wide'; sort_cart: FullServiceSettings['sort_cart'];
+}
+/** Staff fulfillment prompts are independent from guest checkout. */
+export interface POSFulfillment {
+ prompt: 'never' | 'start' | 'checkout'; default: 'dine_in' | 'pickup' | 'delivery';
+ enabled: ('dine_in' | 'pickup' | 'delivery')[];
+}
 /** Restaurant POS policy, independent of online/QR checkout payment requirements. */
 export interface FullServiceSettings {
+ check_behavior?: POSCheckBehavior;
  seating_mode: 'disabled' | 'coversOnly' | 'optionalSeats' | 'requiredSeats';
  send_and_stay: boolean;
  coursing_enabled: boolean;
  /** Advance to the next required selection during POS item entry. Defaults to false. */
  auto_progression?: boolean;
+ order_entry?: { tile_size: 'tall' | 'wide'; return_to_menu: 'home' | 'previous' };
+ fulfillment?: POSFulfillment;
+ immediate_category_ids?: number[];
+ course_ticket_policy?: 'fired_only' | 'fired_and_held';
+ modes?: POSMode[];
  courses: string[];
  show_held_on_kds: boolean;
  sort_cart: 'course' | 'seat' | 'entry';
@@ -733,6 +775,8 @@ export interface OrderItemModifier {
 }
 
 export interface OrderItem {
+  /** Immutable financial/production adjustment; original price snapshots remain. */
+  adjustment?: { kind: 'comp' | 'void'; reason: string; at: string } | null;
   /** Numbered table seat; absent/null means shared by the table. */
   seat_number?: number | null;
   id: number;
@@ -9043,6 +9087,42 @@ export interface WhatsAppSender {
   sender_number: string;
   display_name: string;
   status: string; // CREATING | ONLINE | OFFLINE | PENDING_VERIFICATION | ...
+  connection_mode?: 'foody' | 'personal';
+  status_refresh_failed?: boolean;
+  twilio_account_sid?: string;
+  twilio_api_key_sid?: string;
+  content_sid_order_confirmed?: string | null;
+  content_sid_scheduled_confirmed?: string | null;
+  content_sid_order_ready?: string | null;
+  content_sid_receipt?: string | null;
+  content_sid_delivery_eta?: string | null;
+  content_sid_order_recap?: string | null;
+  content_sid_delivery_reminder?: string | null;
+}
+
+/** Write-only credentials and notification templates for a restaurant-owned Twilio account. */
+export interface PersonalWhatsAppInput {
+  account_sid: string;
+  api_key_sid: string;
+  secret: string;
+  sender_sid: string;
+  waba_id: string;
+  phone_number_id: string;
+  phone_number: string;
+  content_sid_order_confirmed: string;
+  content_sid_scheduled_confirmed: string;
+  content_sid_order_ready: string;
+  content_sid_receipt: string;
+  content_sid_delivery_eta: string;
+  content_sid_order_recap: string;
+  content_sid_delivery_reminder: string;
+}
+
+/** Verifies an existing personal sender and saves encrypted credentials without sending a message. */
+export async function connectPersonalWhatsApp(restaurantId: number, input: PersonalWhatsAppInput): Promise<WhatsAppSender> {
+  return apiFetch<WhatsAppSender>(`/api/v1/restaurants/${restaurantId}/whatsapp/personal`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
 }
 
 /** Returns the restaurant's connected WhatsApp sender (with live-refreshed status), or null. */
@@ -9549,16 +9629,16 @@ export async function validateDiscount(restaurantId: number, req: ValidateDiscou
 }
 
 /**
- * Geocode an address or city name via the server's free Nominatim-backed endpoint.
+ * Geocode an address or city name through the configured server provider.
  * Distinguishes a genuine no-result from a temporary provider/network failure
  * so address editors do not tell staff to rewrite a valid address during an outage.
  */
 export async function geocodeAddress(
-  _restaurantId: number,
+  restaurantId: number,
   address: string,
   city?: string,
 ): Promise<{ found: boolean; lat?: number; lng?: number; unavailable?: boolean }> {
-  const q = new URLSearchParams({ address });
+  const q = new URLSearchParams({ address, restaurant_id: String(restaurantId) });
   if (city) q.set('city', city);
   try {
     const res = await fetch(`${API_URL}/api/v1/public/geocode?${q.toString()}`);
@@ -10524,4 +10604,29 @@ export function getAddressAutocompleteConfig(restaurantId: number) {
     `/api/v1/public/address-autocomplete/config?restaurant_id=${restaurantId}`,
     restaurantId,
   );
+}
+
+/** Exact approved, server-derived order message reviewed before a Twilio dispatch. */
+export interface OrderWhatsAppPreview {
+  id: string;
+  kind: 'order_recap' | 'delivery_reminder';
+  status: 'ready' | 'sending' | 'accepted' | 'unknown';
+  language: 'fr' | 'he' | 'en';
+  message: string;
+  recipient: string;
+  from: string;
+}
+
+/** Prepares a message using the active restaurant's saved order and configured template. */
+export async function previewOrderWhatsApp(restaurantId: number, orderId: number, kind: OrderWhatsAppPreview['kind']): Promise<OrderWhatsAppPreview> {
+  return apiFetch<OrderWhatsAppPreview>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/preview`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ kind }),
+  });
+}
+
+/** Confirms a reviewed dispatch; repeated requests with the same preview never resend it. */
+export async function sendOrderWhatsApp(restaurantId: number, orderId: number, previewId: string): Promise<{ status: 'accepted' }> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/send`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ preview_id: previewId }),
+  });
 }

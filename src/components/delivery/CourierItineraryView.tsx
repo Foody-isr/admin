@@ -9,6 +9,7 @@ import {
   listAvailableDeliveries, addStops, updateRouteSettings, updateMyStopAddress,
   type DeliveryRoute, type RouteSettingsInput, type RouteStop, type StopAddressInput,
 } from '@/lib/delivery';
+import { deliveryRoutingError } from '@/lib/delivery-planning';
 import { ApiError, type Order } from '@/lib/api';
 import { callUrl, whatsappUrl } from '@/lib/delivery-links';
 import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
@@ -563,8 +564,8 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
     try {
       return await fn();
     } catch (e) {
-      setError((e as Error)?.message || 'action failed');
       await load();
+      setError(deliveryRoutingError(e,t) ?? t('deliveryPlanFailed'));
     } finally {
       setBusy(false);
     }
@@ -800,6 +801,9 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
                 </div>
                 <div className={`overflow-hidden transition-[height] duration-slow ease-out ${mapExpanded ? 'h-[42vh] min-h-[280px] sm:min-h-[320px]' : 'h-0 sm:h-52'}`}>
                   <DeliveryMap
+                    restaurantId={rid}
+                    geometry={route.route_geometry}
+                    routingProvider={route.routing_provider}
                     stops={stops}
                     start={route.start_lat != null && route.start_lng != null ? { lat: route.start_lat, lng: route.start_lng } : undefined}
                     end={route.end_lat != null && route.end_lng != null ? { lat: route.end_lat, lng: route.end_lng } : undefined}

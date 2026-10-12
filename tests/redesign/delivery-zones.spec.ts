@@ -16,8 +16,9 @@ async function install(page:Page,opts:{locale?:string;permissions?:string[]}={})
  await page.addInitScript(({locale})=>{localStorage.setItem('foody_restaurant_token','isolated-ui-fixture');localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Équipe démo',role:'manager',email:'demo@foody.test'}));localStorage.setItem('foody_restaurant_ids','[1,2]');localStorage.setItem('foody-admin-locale',locale);localStorage.setItem('foody_admin_theme',locale==='he'?'dark':'light');},{locale:opts.locale??'fr'});
  await page.route('**/api/v1/**',async route=>{
   const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method(),body=req.postDataJSON()??{},rid=req.headers()['x-restaurant-id'];
+  if(path==='/api/v1/public/delivery/map-config')return route.fulfill({json:{provider:'openstreetmap',tile_url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}});
   if(path==='/api/v1/users/me')return route.fulfill({json:{role_name:'Custom',permissions:opts.permissions??['orders.manage','settings.view','settings.edit'],user:{id:1,full_name:'Équipe démo',role:'manager'}}});
-  if(path==='/api/v1/public/geocode'){control.geoReads++;return route.fulfill({status:control.geoUnavailable?503:200,json:control.geoUnavailable?{error:'Synthetic geocode outage'}:control.geoFound?{found:true,lat:32.08,lng:34.82}:{found:false}});}
+  if(path==='/api/v1/public/geocode'){expect(url.searchParams.get('restaurant_id')).toMatch(/^[12]$/);control.geoReads++;return route.fulfill({status:control.geoUnavailable?503:200,json:control.geoUnavailable?{error:'Synthetic geocode outage'}:control.geoFound?{found:true,lat:32.08,lng:34.82}:{found:false}});}
   if(path.startsWith('/api/v1/delivery/zones')){
    if(method==='GET'){control.zoneReads++;return route.fulfill({status:control.failRead?503:200,json:control.failRead?{error:'Synthetic read failure'}:control.malformed?{}:{zones:control.zones.map(row=>({...row,restaurant_id:Number(rid)}))}});}
    writes.push({method,path,body,rid,query:url.search});if(control.gate)await control.gate;const id=Number(path.split('/')[5]);let result=control.zones.find(row=>row.id===id);
@@ -32,7 +33,7 @@ async function install(page:Page,opts:{locale?:string;permissions?:string[]}={})
   }
   const result=fixture.response(req.url(),method,body,Number(rid)||1);if(/^\/api\/v1\/restaurants\/[12]$/.test(path)&&result.json&&'restaurant'in result.json&&result.json.restaurant)Object.assign(result.json.restaurant,{address:'Adresse de démonstration',currency:'ILS'});return route.fulfill({status:result.status??200,json:result.json??{}});
  });
- await page.route('**/*',route=>{const url=new URL(route.request().url());if(['localhost','127.0.0.1'].includes(url.hostname))return route.fallback();if(url.hostname.endsWith('.tile.openstreetmap.org'))return control.tileFailure?route.abort():route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#edf1f3"/><path d="M0 80H256M90 0V256" stroke="#c4cdd3" stroke-width="8"/><text x="110" y="180" font-size="10" fill="#526575">Carte simulée</text></svg>'});return route.abort();});
+ await page.route('**/*',route=>{const url=new URL(route.request().url());if(['localhost','127.0.0.1'].includes(url.hostname)||url.pathname.startsWith('/api/v1/'))return route.fallback();if(url.hostname.endsWith('.tile.openstreetmap.org'))return control.tileFailure?route.abort():route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#edf1f3"/><path d="M0 80H256M90 0V256" stroke="#c4cdd3" stroke-width="8"/><text x="110" y="180" font-size="10" fill="#526575">Carte simulée</text></svg>'});return route.abort();});
  return {control,writes,fixture};
 }
 const dialog=(page:Page)=>page.getByRole('dialog');
