@@ -13,6 +13,7 @@ async function install(page: Page, options: { locale?: string; connected?: boole
     otp: options.otp ?? 'required', senderReads: 0,
     senderFailure: 0, settingsFailure: 0, connectFailure: 0, disconnectFailure: 0, otpFailure: 0,
     connectLostResponse: false, failConnectReadback: false,
+    personalFailure: null as { error: string; details: string; status: number } | null,
     gate: null as Promise<void> | null, senderGate: null as Promise<void> | null,
   };
   await page.addInitScript(({ locale, sdkFailure }) => {
@@ -39,6 +40,7 @@ async function install(page: Page, options: { locale?: string; connected?: boole
       }
       writes.push({ path, method, body, restaurant }); if (control.gate) await control.gate;
       if (method === 'DELETE') { if (control.disconnectFailure-- > 0) return fail(); control.sender = null; return send({ disconnected: true }); }
+      if (path.endsWith('/whatsapp/personal') && control.personalFailure) return send({ error: control.personalFailure.error, details: control.personalFailure.details }, control.personalFailure.status);
       if (control.connectFailure-- > 0) { if (control.failConnectReadback) control.senderFailure = 100; return fail(); }
       control.sender = { ...senderExample, restaurant_id: Number(restaurant), waba_id: body.waba_id, phone_number_id: body.phone_number_id, sender_number: body.phone_number, display_name: body.display_name };
       if (path.endsWith('/whatsapp/personal')) control.sender = {
@@ -128,6 +130,35 @@ test('personal WhatsApp failed verification clears the secret and lost responses
   await connection(page).getByRole('button', { name: 'Fermer et vérifier la connexion', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Quitter la configuration', exact: true }).click();
   await expect(connection(page)).toContainText('Twilio vous facture directement');
+});
+
+test('personal WhatsApp identifies a pending template and keeps a rejected edit retryable', async ({ page }) => {
+  const state = await install(page, { connected: false });
+  await page.goto('/1/settings/whatsapp'); await preparePersonal(page);
+  await connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true }).click();
+  await connection(page).getByRole('button', { name: 'Modifier ma configuration', exact: true }).click();
+  state.control.personalFailure = { error: 'whatsapp_personal_template_pending', details: 'content_sid_order_confirmed', status: 422 };
+  const readsBefore = state.control.senderReads;
+  await connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true }).click();
+  await expect(connection(page).getByRole('alert')).toContainText('Confirmation de commande : L’approbation WhatsApp est encore Pending');
+  await expect(connection(page).getByRole('alert')).toContainText('Approved');
+  await expect(connection(page).getByLabel('Secret de la clé API', { exact: true })).toHaveValue('');
+  await expect(connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true })).toBeEnabled();
+  expect(state.control.senderReads).toBe(readsBefore);
+  expect(state.writes).toHaveLength(2);
+  state.control.personalFailure = null;
+  await connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true }).click();
+  await expect(connection(page).getByRole('button', { name: 'Modifier ma configuration', exact: true })).toBeVisible();
+});
+
+test('personal WhatsApp never displays unknown provider text or field names', async ({ page }) => {
+  const state = await install(page, { connected: false });
+  state.control.personalFailure = { error: 'synthetic-private-provider-text', details: 'synthetic-private-field', status: 502 };
+  await page.goto('/1/settings/whatsapp'); await preparePersonal(page);
+  await connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true }).click();
+  await expect(connection(page).getByRole('alert')).toContainText('vérifiée ou enregistrée');
+  await expect(connection(page)).not.toContainText('synthetic-private');
+  expect(state.writes).toHaveLength(1);
 });
 
 test('personal WhatsApp revoked credentials remain editable while their live status is explicitly unverified', async ({ page }) => {

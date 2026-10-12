@@ -27,6 +27,12 @@ the form after submission, and never restored from the API. Personal connections
 can be edited to rotate credentials and update templates; switching billing modes
 requires disconnecting first. Deploy the API and migration 237 before this UI.
 
+Personal-connection errors identify the failing verification and template field in
+French, Hebrew or English. Pending WhatsApp templates must reach Approved in
+Twilio before saving. Recognized failed checks keep the form editable and clear
+the secret; lost or unrecognized responses still require checking the saved
+connection before retrying. Provider error text is never displayed.
+
 The detailed templates have separate fields and copyable French, Hebrew and English
 examples. Confirmation is automatic when configured; order dialogs also expose
 a read-only Twilio preview and a confirmed send, alongside the existing editable
