@@ -7,8 +7,11 @@ import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
 import { currencySymbol } from '@/lib/currency';
+import { clampWeekStartDay, getEffectiveWorkdays } from '@/lib/weeks';
+import { ServiceToggle } from './orders/_components';
 
 const LOCALE_LABELS: Record<Locale, string> = { en: 'English', he: 'עברית', fr: 'Français' };
+const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
 
 type SettingsDraft = {
   name: string;
@@ -19,6 +22,9 @@ type SettingsDraft = {
   orders_default_date_basis: DateBasis;
   dashboard_default_date_basis: DateBasis;
   dashboard_revenue_mode: DashboardRevenueMode;
+  week_start_day?: number;
+  workdays?: number[];
+  catering_only?: boolean;
 };
 
 function fromRestaurant(r: Restaurant): SettingsDraft {
@@ -28,6 +34,7 @@ function fromRestaurant(r: Restaurant): SettingsDraft {
     orders_default_date_basis: r.orders_default_date_basis ?? 'created',
     dashboard_default_date_basis: r.dashboard_default_date_basis ?? 'created',
     dashboard_revenue_mode: r.dashboard_revenue_mode ?? 'paid_only',
+    week_start_day: r.week_start_day, workdays: r.workdays, catering_only: r.catering_only,
   };
 }
 
@@ -37,7 +44,8 @@ export default function SettingsPage() {
   const rid = Number(restaurantId);
   const { t, locale, setLocale, setCurrency } = useI18n();
   const { hasAnyPermission } = usePermissions();
-  const canEdit = hasAnyPermission('settings.edit');
+  const canEdit = hasAnyPermission('settings.edit'), canCatering = hasAnyPermission('catering.manage');
+  const [automaticWorkdays, setAutomaticWorkdays] = useState<number[]>([]);
   const [draft, setDraft] = useState<SettingsDraft | null>(null);
   const [baseline, setBaseline] = useState<SettingsDraft | null>(null);
   const [loadedId, setLoadedId] = useState<number | null>(null);
@@ -55,6 +63,7 @@ export default function SettingsPage() {
     getRestaurant(rid).then(r => {
       if (!active) return;
       const values = fromRestaurant(r);
+      setAutomaticWorkdays(getEffectiveWorkdays({ ...r, workdays: [] }));
       setDraft(values); setBaseline(values); setLoadedId(rid);
     }).catch(() => { if (active) setLoadError(true); })
       .finally(() => { if (active) setLoading(false); });
@@ -81,10 +90,12 @@ export default function SettingsPage() {
   }
 
   async function save() {
-    if (!draft || !canEdit || !dirty || saving) return;
+    if (!draft || !baseline || !canEdit || !dirty || saving) return;
     setSaving(true); setSaveError(null); setSaved(false);
     try {
-      await updateRestaurant(rid, draft);
+      const input = Object.fromEntries(Object.entries(draft).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(baseline[key as keyof SettingsDraft]))) as Partial<Restaurant>;
+      if (!canCatering) delete input.catering_only;
+      await updateRestaurant(rid, input);
       setBaseline(draft);
       setCurrency(draft.currency);
       setSaved(true);
@@ -119,6 +130,16 @@ export default function SettingsPage() {
               </Select></Field>
             </div>
           </Section>
+          <Section title={t('weekSectionTitle')} desc={t('availabilityWorkdaysHint')}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t('weekStartFieldLabel')}><Select value={clampWeekStartDay(draft.week_start_day)} onChange={event => change('week_start_day', Number(event.target.value))}>{DAYS.map((day, index) => <option key={day} value={index}>{t(day)}</option>)}</Select></Field>
+              <Field label={t('workdaysFieldLabel')}><Select value={draft.workdays?.length ? 'custom' : 'auto'} onChange={event => change('workdays', event.target.value === 'auto' ? [] : automaticWorkdays)}><option value="auto">{t('workdaysModeAuto')}</option><option value="custom">{t('workdaysModeCustom')}</option></Select></Field>
+            </div>
+            {draft.workdays?.length ? <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label={t('workdaysFieldLabel')}>{DAYS.map((day, index) => <Button key={day} type="button" aria-pressed={draft.workdays!.includes(index)} variant={draft.workdays!.includes(index) ? 'primary' : 'secondary'} onClick={() => change('workdays', draft.workdays!.includes(index) ? draft.workdays!.filter(value => value !== index) : [...draft.workdays!, index].sort((a, b) => a - b))}>{t(day)}</Button>)}</div> : <p className="mt-4 text-sm text-[var(--fg-muted)]">{t('workdaysAutoPreview').replace('{days}', automaticWorkdays.map(index => t(DAYS[index])).join(' · '))}</p>}
+          </Section>
+          {canCatering && <Section title={t('cateringOnlyMode')}>
+            <ServiceToggle label={t('cateringOnlyMode')} sub={t('cateringOnlyModeDesc')} checked={draft.catering_only ?? false} disabled={!canEdit || saving} onChange={value => change('catering_only', value)} />
+          </Section>}
           <Section title={t('displayDefaults')} desc={t('displayDefaultsDesc')}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t('ordersDefaultDateBasis')}><Select value={draft.orders_default_date_basis} onChange={e => change('orders_default_date_basis', e.target.value as DateBasis)}>

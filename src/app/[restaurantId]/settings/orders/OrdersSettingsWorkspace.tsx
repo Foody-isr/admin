@@ -6,17 +6,14 @@ import { usePermissions } from '@/lib/permissions-context';
 import { Section } from '@/components/ds';
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace';
 import { OrderWorkflowBuilder } from './OrderWorkflowBuilder';
-import AvailabilitySettings from './AvailabilitySettings';
 import ProcessingSettings from './ProcessingSettings';
 import PreorderSettings from './PreorderSettings';
 
-export type OrdersSettingsView = 'overview' | 'availability' | 'preorders' | 'processing' | 'workflow';
+export type OrdersSettingsView = 'overview' | 'processing' | 'workflow';
 
 /** Route each ordering settings task to its dedicated editor. */
 export default function OrdersSettingsPage({ view = 'overview' }: { view?: OrdersSettingsView }) {
-  if (view === 'availability') return <AvailabilitySettings />;
   if (view === 'processing') return <ProcessingSettings />;
-  if (view === 'preorders') return <PreorderSettings />;
   if (view === 'workflow') return <WorkflowSettings />;
   return <PreorderSettings />;
 }

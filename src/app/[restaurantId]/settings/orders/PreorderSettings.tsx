@@ -10,7 +10,7 @@ import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, Input, Section, Select } from '@/components/ds';
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace';
 import { ModeChoice, ServiceToggle } from './_components';
-import OrderingServices, { orderingServicesFrom, invalidOrderingHours, type OrderingServicesDraft } from './OrderingServices';
+import OrderingServices, { DineInSettings, orderingServicesFrom, invalidOrderingHours, type OrderingServicesDraft } from './OrderingServices';
 import OrdersOverview from './OrdersOverview';
 
 const DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as const;
@@ -113,7 +113,8 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     }
     const invalidHour = invalidOrderingHours(draft.opening_hours_config, baseline.opening_hours_config);
     if (invalidHour) { reject({ id: invalidHour, group: 'services', key: 'availabilityInvalidTime' }); return; }
-    if (draft.mode !== 'off' && !draft.pickup_enabled && !draft.delivery_enabled) { reject({ id: 'intake-services', group: 'services', key: 'intakeNeedsService' }); return; }
+    const onlinePolicyChanged = draft.mode !== baseline.mode || draft.preordersOnly !== baseline.preordersOnly || draft.pickup_enabled !== baseline.pickup_enabled || draft.delivery_enabled !== baseline.delivery_enabled;
+    if (onlinePolicyChanged && draft.mode !== 'off' && !draft.pickup_enabled && !draft.delivery_enabled) { reject({ id: 'intake-services', group: 'services', key: 'intakeNeedsService' }); return; }
     if (draft.mode !== baseline.mode) { input.scheduling_enabled = draft.mode === 'slots'; input.batch_fulfillment_enabled = draft.mode === 'batch'; }
     for (const [field, key, min, step] of [['lead','scheduling_lead_time_minutes',0,1],['horizon','scheduling_max_days_ahead',1,1],['duration','scheduling_slot_duration_minutes',5,5]] as const) {
       const changed = draft[field] !== baseline[field], value = Number(draft[field]);
@@ -167,7 +168,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
         {!policySupported && <p className="mt-4 text-sm text-[var(--fg-muted)]">{t('intakePolicyUnavailable')}</p>}
         <p className="mt-4 text-sm leading-6 text-[var(--fg-muted)]">{t('intakeRetainedSettings')}</p>
       </Section>
-      <div id="intake-services" tabIndex={-1} className="space-y-6"><OrderingServices rid={rid} draft={draft} patch={patch} strict={draft.preordersOnly && invalid?.group !== 'services'} batch={draft.mode === 'batch'} customSlots={draft.mode === 'slots' && draft.slotHours.length > 0} timezone={timezone} disabled={!canEdit || saving} invalid={invalid?.id} /></div>
+      <div id="intake-services" tabIndex={-1} className="space-y-6"><OrderingServices draft={draft} patch={patch} strict={draft.preordersOnly && invalid?.group !== 'services'} batch={draft.mode === 'batch'} customSlots={draft.mode === 'slots' && draft.slotHours.length > 0} timezone={timezone} disabled={!canEdit || saving} invalid={invalid?.id} /></div>
       {(draft.mode === 'slots' || invalid?.group === 'slots') && <details open className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
         <summary className="cursor-pointer py-1 text-base font-semibold">{t('preorderModeSlots')}</summary>
         <div className="mt-5 space-y-5">
@@ -193,6 +194,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
           <section aria-label={t('batchPreviewTitle')} className="rounded-r-lg bg-[var(--summary-bg)] p-4 text-[var(--summary-fg)]"><h2 className="flex items-center gap-2 text-base font-semibold"><CalendarDays className="size-5 shrink-0" aria-hidden="true" />{t('batchPreviewTitle')}</h2><p className="mt-2 text-sm leading-6">{t('preorderPreviewHint')}</p>{preview.status === 'loading' ? <p role="status" className="mt-4 text-sm">{t('loading')}</p> : preview.status === 'error' ? <div role="alert" className="mt-4 space-y-3"><p className="text-sm">{t('preorderPreviewFailed')}</p><Button type="button" variant="secondary" onClick={() => setPreviewRetry(value => value+1)}>{t('retry')}</Button></div> : preview.status === 'idle' ? <p className="mt-4 text-sm">{t('preorderPreviewIncomplete')}</p> : !preview.cycles.length ? <p className="mt-4 text-sm">{t('preorderPreviewEmpty')}</p> : <ol className="mt-4 space-y-3">{preview.cycles.map((cycle,index) => <li key={index} className="rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-4 text-[var(--fg)]"><p className="text-xs font-semibold text-[var(--fg-muted)]">{t('batchPreviewOrdering')} · {index+1}</p><p className="mt-1 text-sm leading-6"><bdi>{formatDate(cycle.open_at)}</bdi> — <bdi>{formatDate(cycle.cutoff_at)}</bdi></p><p className="mt-3 text-xs font-semibold text-[var(--fg-muted)]">{t('batchPreviewDelivery')}</p><ul className="mt-1 space-y-1">{cycle.fulfillment_days.map((value, i) => <li key={i} className="text-sm leading-6"><bdi>{formatDate(value.date)}</bdi></li>)}</ul></li>)}</ol>}</section>
         </div>
       </details>}
+      <DineInSettings draft={draft} patch={patch} timezone={timezone} disabled={!canEdit || saving} invalid={invalid?.id} />
       {draft.mode !== 'off' && <Section title={t('productExceptionsTitle')} desc={t(draft.preordersOnly ? 'intakeStrictProducts' : 'productExceptionsDesc')}><Link href={`/${rid}/menu`} className="inline-flex min-h-10 items-center text-sm font-semibold text-[var(--brand-ink)]">{t('manageProducts')}</Link></Section>}
       {invalid && <p id="preorder-validation" role="alert" className="text-sm text-[var(--danger-500)]">{t(invalid.key)}</p>}
       {saveError && <p role="alert" className="text-sm text-[var(--danger-500)]">{t('processingSaveFailed')}</p>}

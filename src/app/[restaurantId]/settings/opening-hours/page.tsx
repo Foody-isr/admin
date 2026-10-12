@@ -8,5 +8,5 @@ export default async function OpeningHoursRedirect({
   params: Promise<{ restaurantId: string }>;
 }) {
   const { restaurantId } = await params;
-  redirect(`/${restaurantId}/settings/orders/availability`);
+  redirect(`/${restaurantId}/settings/orders`);
 }
