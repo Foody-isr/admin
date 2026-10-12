@@ -422,6 +422,17 @@ test("journey colours reuse six global styles and an explicit menu-inheritance c
   assert.doesNotMatch(markup, /type="color"/);
   assert.match(markup, /Edit site buttons/);
 });
+
+test("service windows expose their own shared color assignment", () => {
+  const markup = render(<OrderPageEditor restaurantId={24}
+    page={{type:"order", slug:"order", title:"Order", sort_order:0, nav_visible:true, is_homepage:false, is_default:true, seo:{}, settings:{menu_ids:[1]},
+      appearance_overrides:{website_order:{color_style:"style-2", fulfillment_color_style:"style-4"}}}}
+    region="order-fulfillment" onChange={() => undefined} onPreviewItem={() => undefined} />);
+  assert.match(markup, /Same as menu/);
+  assert.match(markup, /aria-label="Color style 4" aria-pressed="true"/);
+  assert.match(markup, /pickup, delivery and scheduling windows/);
+  assert.equal((markup.match(/aria-label="Color style [1-6]"/g) ?? []).length, 6);
+});
 test("item details edit shared roles in a collapsed global panel", () => {
   const markup = render(
     <SiteColorsEditor palette={{}} target={{styleId: "style-4", itemDetail: true}}

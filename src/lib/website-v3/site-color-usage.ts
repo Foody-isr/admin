@@ -4,7 +4,7 @@ import { normalizeSiteColors, sectionSiteColorId } from "./site-colors";
 import { sectionBelongs } from "./section-operations";
 import { pageKey, type DraftConfigPayload, type DraftPagePayload, type DraftSectionPayload } from "./types";
 
-export type ColorUsagePart = "header" | "info" | "menu" | "sections" | "cart" | "checkout" | "confirmation" | "item";
+export type ColorUsagePart = "header" | "info" | "menu" | "sections" | "cart" | "checkout" | "confirmation" | "item" | "fulfillment";
 
 /** Lists actual style assignments, including shared chrome and order-page overrides. */
 export function siteColorUsage(
@@ -32,6 +32,8 @@ export function siteColorUsage(
       const order = page.appearance_overrides.website_order;
       const itemStyle = /^style-[1-6]$/.test(String(order?.item_color_style)) ? order?.item_color_style : order?.color_style;
       if (matches(itemStyle)) parts.add("item");
+      const fulfillmentStyle = /^style-[1-6]$/.test(String(order?.fulfillment_color_style)) ? order?.fulfillment_color_style : order?.color_style;
+      if (matches(fulfillmentStyle)) parts.add("fulfillment");
       for (const screen of ["cart", "checkout", "confirmation"] as const) {
         if (matches(orderJourneyColorStyle(page.appearance_overrides.order_journey, screen,
           String(page.appearance_overrides.website_order?.color_style ?? "default")))) parts.add(screen);

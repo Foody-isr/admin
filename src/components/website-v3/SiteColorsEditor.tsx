@@ -297,6 +297,7 @@ export function SiteColorsEditor({
     header: t("editorHeaderAndNavigation"), info: t("editorRestaurantInformationBar"),
     item: t("editorItemView"), menu: t("editorItemList"), sections: t("editorColorUsageSections"),
     cart: t("editorJourneyCart"), checkout: t("editorJourneyCheckout"), confirmation: t("editorJourneyConfirmation"),
+    fulfillment: t("editorOrderFulfillment"),
   };
   return (
     <div className="sqe-panel-body sqe-site-colors">
