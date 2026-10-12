@@ -4,7 +4,8 @@ import { normalizeWebsiteHeader } from "../../src/lib/website-v3/header";
 import { normalizeSiteColors } from "../../src/lib/website-v3/site-colors";
 
 // All API writes stay in the isolated fixture's memory.
-test("category pills keep their initial size and sticky choices survive preview, reload and publication", async ({ page, context, request }) => {
+test("desktop category styles and sticky choices survive preview, reload and publication without changing mobile chrome", async ({ page, context, request }) => {
+  test.setTimeout(240_000);
   await page.addInitScript(() => {
     localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
@@ -48,6 +49,7 @@ test("category pills keep their initial size and sticky choices survive preview,
   const navigation = preview.locator(".website-order-navigation");
   await expect(navigation).toHaveAttribute("data-sticky", "true", { timeout: 60_000 });
   await expect(navigation).toHaveAttribute("data-shape", "pill");
+  await expect(navigation).toBeVisible({ timeout: 60_000 });
   const dimensions = async () => navigation.locator("nav a").first().evaluate(element => {
     const box = element.getBoundingClientRect();
     const css = getComputedStyle(element);
@@ -58,9 +60,18 @@ test("category pills keep their initial size and sticky choices survive preview,
   expect(initial.width).toBeGreaterThan(44);
   expect(initial.padding).toBe("10px 16px");
   expect(initial.gap).toBe("20px");
+  await expect(navigation.locator(".order-menu-more")).toBeHidden();
+  await assertDesktopRow(navigation);
   await page.locator(".sqe-order-settings .sqe-shared-colors").first()
     .getByRole("button", { name: "Style de couleurs 2", exact: true }).click();
   await expect.poll(dimensions).toEqual(initial);
+  const categoryStyle = page.getByRole("combobox", { name: "Style du menu des catégories (bureau)", exact: true });
+  await expect(categoryStyle).toBeVisible();
+  await categoryStyle.selectOption("underline");
+  await expect(navigation).toHaveAttribute("data-shape", "underline");
+  await expect(navigation.locator("nav a").first()).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect.poll(() => navigation.locator("nav a").first().evaluate(element =>
+    getComputedStyle(element, "::after").height)).toBe("3px");
   await page.locator("summary").filter({ hasText: "Disposition et couleurs" }).click();
   await page.screenshot({ path: "test-results/website-editor/category-menu-setting.png" });
   const categorySettings = page.locator("details").filter({ has: page.locator("summary", { hasText: "Menu des catégories" }) });
@@ -71,10 +82,11 @@ test("category pills keep their initial size and sticky choices survive preview,
   await sticky.uncheck();
   await expect(navigation).toHaveCSS("position", "static");
   await expect.poll(async () => (await draft()).pages.find(item => item.type === "order")?.appearance_overrides.website_order)
-    .toMatchObject({ sticky_categories: false, color_style: "style-2" });
+    .toMatchObject({ sticky_categories: false, color_style: "style-2", category_shape: "underline" });
   await page.reload();
   await page.getByRole("button", { name: "Liste des articles", exact: true }).click();
   await expect(sticky).not.toBeChecked();
+  await expect(categoryStyle).toHaveValue("underline");
   const publish = async () => {
     const button = page.getByRole("button", { name: "Publier", exact: true });
     await expect(button).not.toHaveAttribute("title", /.+/, { timeout: 60_000 });
@@ -98,16 +110,42 @@ test("category pills keep their initial size and sticky choices survive preview,
     await storefront.setViewportSize({ width, height: 480 });
     await storefront.goto(`http://localhost:3000/r/atelier-foody/order?lang=${language}`);
     await expect(publicNavigation).toHaveAttribute("data-sticky", "true");
+    await expect(publicNavigation).toHaveAttribute("data-shape", "underline");
+    if (width >= 768) {
+      await assertDesktopRow(publicNavigation);
+      await expect(publicNavigation.locator(".order-menu-more")).toBeHidden();
+    } else {
+      await expect(publicNavigation.locator(".order-menu-more")).toBeVisible();
+      const geometry = await publicNavigation.evaluate(element => ({
+        height: element.getBoundingClientRect().height,
+        toolbar: element.querySelector(".order-menu-toolbar")!.getBoundingClientRect().height,
+        categories: element.querySelector("nav")!.getBoundingClientRect().width,
+        search: element.querySelector("input")!.getBoundingClientRect().height,
+      }));
+      expect(geometry).toEqual({ height: 104, toolbar: 56, categories: width, search: 40 });
+    }
     await assertPinned(publicNavigation);
     await publicNavigation.locator("nav a").first().click();
     await expect.poll(() => publicNavigation.evaluate(element => {
-      const target = document.querySelector(element.querySelector("a")!.getAttribute("href")!)!;
+      const target = document.querySelector(element.querySelector("nav a")!.getAttribute("href")!)!;
       return target.getBoundingClientRect().top - element.getBoundingClientRect().bottom;
     })).toBeGreaterThanOrEqual(23);
     expect(await storefront.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await storefront.screenshot({ path: `test-results/website-editor/category-menu-${width}-${language}.png` });
   }
 });
+
+async function assertDesktopRow(navigation: Locator) {
+  const geometry = await navigation.evaluate(element => {
+    const search = element.querySelector("input")!.getBoundingClientRect();
+    const categories = element.querySelector("nav")!.getBoundingClientRect();
+    return { center: Math.abs(search.top + search.height / 2 - categories.top - categories.height / 2),
+      gap: search.left - categories.right, width: search.width };
+  });
+  expect(geometry.center).toBeLessThan(1);
+  expect(geometry.gap).toBeGreaterThanOrEqual(15);
+  expect(geometry.width).toBeLessThanOrEqual(280);
+}
 
 async function assertPinned(navigation: Locator) {
   await navigation.evaluate(element => window.scrollTo(0, scrollY + element.getBoundingClientRect().top + 100));

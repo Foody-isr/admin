@@ -86,6 +86,24 @@ test("sticky category control stays visible outside the collapsed category setti
   }
 });
 
+test("desktop category style is visible and keeps explicit choices independent of card styling", () => {
+  for (const shape of [undefined, "plain", "underline", "rounded", "pill"]) {
+    const markup = render(React.createElement(OrderPageEditor, {
+      restaurantId: 24,
+      page: { type: "order", slug: "order", title: "Order", sort_order: 0,
+        nav_visible: true, is_homepage: false, is_default: true, seo: {}, settings: { menu_ids: [1] },
+        appearance_overrides: { website_order: { card_style: "filled", category_shape: shape } } },
+      region: "order-items", onChange: () => undefined, onPreviewItem: () => undefined,
+    }));
+    const content = markup.slice(markup.indexOf("<h3>Content</h3>"));
+    const beforeDetails = content.slice(0, content.indexOf("<details"));
+    assert.match(beforeDetails, /Category menu style \(desktop\)/);
+    assert.match(beforeDetails, /Mobile keeps its full-width underlined tabs/);
+    assert.match(beforeDetails, /value="underline"/);
+    assert.match(beforeDetails, new RegExp(`value="${shape ?? "pill"}" selected=""`));
+  }
+});
+
 test("global navigation CTA exposes content and both surface states", () => {
   const markup = render(
     React.createElement(NavigationCtaEditor, {
