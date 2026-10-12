@@ -16,7 +16,8 @@ WhatsApp settings (`/[restaurantId]/settings/whatsapp`) support either Foody-man
 onboarding or **My own Twilio account**. The personal mode accepts an Account SID,
 API Key SID and secret (or an Auth Token), an already registered WhatsApp Sender
 SID, Meta WABA/Phone Number IDs, the international number, and Utility Content
-SIDs for notifications. Confirmation and status templates are required. Twilio
+SIDs for notifications. Configure the detailed confirmation/courier reminder pair
+or the legacy confirmation/status pair. Twilio
 bills the restaurant's account directly for WhatsApp; phone verification codes
 retain their existing billing. No Meta access token is needed for this Twilio flow.
 
@@ -26,7 +27,17 @@ the form after submission, and never restored from the API. Personal connections
 can be edited to rotate credentials and update templates; switching billing modes
 requires disconnecting first. Deploy the API and migration 237 before this UI.
 
-Regression checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/whatsapp.spec.ts`.
+The detailed templates have separate fields and copyable French, Hebrew and English
+examples. Confirmation is automatic when configured; order dialogs also expose
+a read-only Twilio preview and a confirmed send, alongside the existing editable
+manual WhatsApp message. Delivery reminders require an assigned courier and saved
+delivery date/window. Only the saved order supplies recipient and variables.
+An accepted or uncertain attempt is never submitted twice.
+
+Deploy the API and migration 239 before these new controls. Template contracts
+and French texts are documented in the matching server's
+`docs/WHATSAPP_ORDER_MESSAGES.md`. Regression checks:
+`npx playwright test -c playwright.whatsapp.config.ts`.
 
 ## Selection controls
 

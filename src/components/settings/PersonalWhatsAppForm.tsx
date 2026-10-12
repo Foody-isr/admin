@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 import { connectPersonalWhatsApp, getWhatsAppSender, type PersonalWhatsAppInput, type WhatsAppSender } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { normalizeWhatsAppPhone } from '@/lib/whatsapp-embedded';
+import { orderTwilioTemplate } from '@/lib/orders/twilio-templates';
 import { Button, ConfirmDialog, Field, Input } from '@/components/ds';
 
 const sid = (prefix: string, value: string) => new RegExp(`^${prefix}[0-9a-fA-F]{32}$`).test(value.trim());
 const templateFields = [
-  ['content_sid_order_confirmed', 'waPersonalConfirmed', true],
-  ['content_sid_order_ready', 'waPersonalReady', true],
+  ['content_sid_order_recap', 'waPersonalRecap', false],
+  ['content_sid_delivery_reminder', 'waPersonalReminder', false],
+  ['content_sid_order_confirmed', 'waPersonalConfirmed', false],
+  ['content_sid_order_ready', 'waPersonalReady', false],
   ['content_sid_scheduled_confirmed', 'waPersonalScheduled', false],
   ['content_sid_receipt', 'waPersonalReceipt', false],
   ['content_sid_delivery_eta', 'waPersonalEta', false],
@@ -19,7 +22,7 @@ const templateFields = [
 export function PersonalWhatsAppForm({ rid, sender, onSaved, onCancel, onLockChange }: {
   rid: number; sender: WhatsAppSender | null; onSaved: (sender: WhatsAppSender) => void; onCancel: () => void; onLockChange: (locked: boolean) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [authType, setAuthType] = useState<'api_key' | 'auth_token'>(sender && !sender.twilio_api_key_sid ? 'auth_token' : 'api_key');
   const [values, setValues] = useState<PersonalWhatsAppInput>(() => ({
     account_sid: sender?.twilio_account_sid ?? '', api_key_sid: sender?.twilio_api_key_sid ?? '', secret: '',
@@ -27,7 +30,9 @@ export function PersonalWhatsAppForm({ rid, sender, onSaved, onCancel, onLockCha
     phone_number: sender?.sender_number ?? '', content_sid_order_confirmed: sender?.content_sid_order_confirmed ?? '',
     content_sid_order_ready: sender?.content_sid_order_ready ?? '', content_sid_scheduled_confirmed: sender?.content_sid_scheduled_confirmed ?? '',
     content_sid_receipt: sender?.content_sid_receipt ?? '', content_sid_delivery_eta: sender?.content_sid_delivery_eta ?? '',
+    content_sid_order_recap: sender?.content_sid_order_recap ?? '', content_sid_delivery_reminder: sender?.content_sid_delivery_reminder ?? '',
   }));
+  const [copiedTemplate, setCopiedTemplate] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [discard, setDiscard] = useState(false);
@@ -50,6 +55,7 @@ export function PersonalWhatsAppForm({ rid, sender, onSaved, onCancel, onLockCha
   const valid = sid('AC', values.account_sid) && (authType === 'auth_token' || sid('SK', keySID)) &&
     (keepSecret && !values.secret || values.secret.trim().length >= 16 && values.secret.trim().length <= 256 && !/\s/.test(values.secret.trim())) &&
     sid('XE', values.sender_sid) && /^[0-9]{1,32}$/.test(values.waba_id.trim()) && /^[0-9]{1,32}$/.test(values.phone_number_id.trim()) && !!phone &&
+    (!!values.content_sid_order_confirmed.trim() && !!values.content_sid_order_ready.trim() || !!values.content_sid_order_recap.trim() && !!values.content_sid_delivery_reminder.trim()) &&
     templateFields.every(([field, , required]) => !values[field].trim() ? !required : sid('HX', values[field]));
   const update = (field: keyof PersonalWhatsAppInput, value: string) => { setValues(current => ({ ...current, [field]: value })); setDirty(true); setError(''); };
   const input = (field: keyof PersonalWhatsAppInput, label: string, placeholder?: string, required = true, hint?: string) => <Field label={label} hint={hint}>
@@ -94,7 +100,13 @@ export function PersonalWhatsAppForm({ rid, sender, onSaved, onCancel, onLockCha
       <div className="space-y-4 border-t border-[var(--line)] pt-5">
         <h3 className="font-semibold">{t('waPersonalTemplates')}</h3>
         <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waPersonalTemplatesHint')}</p>
-        <div className="grid gap-4 sm:grid-cols-2">{templateFields.map(([field, label, required]) => <div key={field}>{input(field, t(label), 'HX…', required, t(`${label}Hint`))}</div>)}</div>
+        <div className="grid gap-4 sm:grid-cols-2">{templateFields.map(([field, label, required]) => <div key={field}>{input(field, t(label), 'HX…', required, t(`${label}Hint`))}
+          {(field === 'content_sid_order_recap' || field === 'content_sid_delivery_reminder') && <details className="mt-2 text-sm">
+            <summary className="cursor-pointer underline">{t('waTemplateExample')}</summary>
+            <pre dir={locale === 'he' ? 'rtl' : 'ltr'} className="mt-3 whitespace-pre-wrap break-words rounded-r-md bg-[var(--surface-2)] p-3 font-sans leading-6">{orderTwilioTemplate(field === 'content_sid_order_recap' ? 'order_recap' : 'delivery_reminder', locale)}</pre>
+            <Button type="button" variant="ghost" onClick={async () => { try { await navigator.clipboard.writeText(orderTwilioTemplate(field === 'content_sid_order_recap' ? 'order_recap' : 'delivery_reminder', locale)); setCopiedTemplate(field); } catch { setError(t('waCopyFailed')); } }}>{t(copiedTemplate === field ? 'copied' : 'copy')}</Button>
+          </details>}
+        </div>)}</div>
       </div>
     </fieldset>
     <div className="flex flex-wrap gap-2">

@@ -46,6 +46,7 @@ async function install(page: Page, options: { locale?: string; connected?: boole
         twilio_account_sid: body.account_sid, twilio_api_key_sid: body.api_key_sid,
         content_sid_order_confirmed: body.content_sid_order_confirmed, content_sid_order_ready: body.content_sid_order_ready,
         content_sid_scheduled_confirmed: body.content_sid_scheduled_confirmed, content_sid_receipt: body.content_sid_receipt, content_sid_delivery_eta: body.content_sid_delivery_eta,
+        content_sid_order_recap: body.content_sid_order_recap, content_sid_delivery_reminder: body.content_sid_delivery_reminder,
       };
       if (control.connectLostResponse) return fail();
       return send(control.sender);
@@ -76,7 +77,7 @@ async function preparePersonal(page: Page) {
     'Twilio Account SID': `AC${'1'.repeat(32)}`, 'API Key SID': `SK${'2'.repeat(32)}`,
     'Secret de la clé API': 'synthetic-personal-secret-only', 'WhatsApp Sender SID': `XE${'3'.repeat(32)}`,
     'Numéro WhatsApp': '+972 (50) 000-0000', 'Identifiant Meta WhatsApp Business Account (WABA)': '123', 'Meta Phone Number ID': '456',
-    'Confirmation de commande *': `HX${'4'.repeat(32)}`, 'Statut de commande *': `HX${'5'.repeat(32)}`,
+    'Confirmation de commande': `HX${'4'.repeat(32)}`, 'Statut de commande': `HX${'5'.repeat(32)}`,
   };
   for (const [label, value] of Object.entries(fields)) await connection(page).getByLabel(label, { exact: true }).fill(value);
 }
@@ -326,4 +327,24 @@ test('whatsapp read-only users can inspect status and policy without starting si
   await expect(connection(page).getByRole('button', { name: 'Déconnecter de Foody', exact: true })).toHaveCount(0);
   await emit(page); expect(state.writes).toHaveLength(0);
   expect(await page.evaluate(() => (window as any).__wa.initializations)).toBe(0);
+});
+
+test('personal Twilio accepts the dedicated pair without legacy templates and shows copyable contracts', async ({ page }) => {
+  const state = await install(page, { connected: false });
+  await page.goto('/1/settings/whatsapp'); await preparePersonal(page);
+  await connection(page).getByLabel('Confirmation de commande', { exact: true }).fill('');
+  await connection(page).getByLabel('Statut de commande', { exact: true }).fill('');
+  const save = connection(page).getByRole('button', { name: 'Vérifier et enregistrer', exact: true });
+  await expect(save).toBeDisabled();
+  await connection(page).getByLabel('Confirmation détaillée de commande', { exact: true }).fill(`HX${'6'.repeat(32)}`);
+  await expect(save).toBeDisabled();
+  await connection(page).getByLabel('Rappel de livraison avec livreur', { exact: true }).fill(`HX${'7'.repeat(32)}`);
+  await expect(save).toBeEnabled();
+  await connection(page).getByText('Texte suggéré à créer dans Twilio', { exact: true }).first().click();
+  await expect(connection(page).locator('pre').first()).toContainText('récapitulatif complet ici : {{8}}');
+  await save.click();
+  expect(state.writes[0].body).toMatchObject({
+    content_sid_order_recap: `HX${'6'.repeat(32)}`, content_sid_delivery_reminder: `HX${'7'.repeat(32)}`,
+    content_sid_order_confirmed: '', content_sid_order_ready: '',
+  });
 });

@@ -9096,6 +9096,8 @@ export interface WhatsAppSender {
   content_sid_order_ready?: string | null;
   content_sid_receipt?: string | null;
   content_sid_delivery_eta?: string | null;
+  content_sid_order_recap?: string | null;
+  content_sid_delivery_reminder?: string | null;
 }
 
 /** Write-only credentials and notification templates for a restaurant-owned Twilio account. */
@@ -9112,6 +9114,8 @@ export interface PersonalWhatsAppInput {
   content_sid_order_ready: string;
   content_sid_receipt: string;
   content_sid_delivery_eta: string;
+  content_sid_order_recap: string;
+  content_sid_delivery_reminder: string;
 }
 
 /** Verifies an existing personal sender and saves encrypted credentials without sending a message. */
@@ -10600,4 +10604,29 @@ export function getAddressAutocompleteConfig(restaurantId: number) {
     `/api/v1/public/address-autocomplete/config?restaurant_id=${restaurantId}`,
     restaurantId,
   );
+}
+
+/** Exact approved, server-derived order message reviewed before a Twilio dispatch. */
+export interface OrderWhatsAppPreview {
+  id: string;
+  kind: 'order_recap' | 'delivery_reminder';
+  status: 'ready' | 'sending' | 'accepted' | 'unknown';
+  language: 'fr' | 'he' | 'en';
+  message: string;
+  recipient: string;
+  from: string;
+}
+
+/** Prepares a message using the active restaurant's saved order and configured template. */
+export async function previewOrderWhatsApp(restaurantId: number, orderId: number, kind: OrderWhatsAppPreview['kind']): Promise<OrderWhatsAppPreview> {
+  return apiFetch<OrderWhatsAppPreview>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/preview`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ kind }),
+  });
+}
+
+/** Confirms a reviewed dispatch; repeated requests with the same preview never resend it. */
+export async function sendOrderWhatsApp(restaurantId: number, orderId: number, previewId: string): Promise<{ status: 'accepted' }> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/send`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ preview_id: previewId }),
+  });
 }
