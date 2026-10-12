@@ -99,7 +99,7 @@ function ProcessingWorkspace({ rid }: { rid: number }) {
               <Field label={t('ordersFlowKitchenLabel')}><Select aria-label={`${title} · ${t('ordersFlowKitchenLabel')}`} value={inherited ? 'inherited' : String(policy.kitchen)} aria-describedby={`processing-${channel}-hint`} onChange={event => patchPolicy(channel, { kitchen: event.target.value === 'inherited' ? baseline?.policies[channel].kitchen : event.target.value === 'true' })}>{baseline?.policies[channel].kitchen == null && <option value="inherited">{t('processingInherited')}</option>}<option value="true">{t('ordersFlowKitchenAutomatic')}</option><option value="false">{t('ordersFlowKitchenManual')}</option></Select></Field>
               <p id={`processing-${channel}-hint`} className="text-sm leading-6 text-[var(--fg-muted)]">{t(inherited ? 'processingInheritedHint' : policy.prepayment ? policy.kitchen ? 'ordersFlowResultPaidAuto' : 'ordersFlowResultPaidManual' : policy.kitchen ? 'ordersFlowResultLaterAuto' : 'ordersFlowResultLaterManual')}</p>
               {baseline?.policies[channel].kitchen == null && <p className="text-xs leading-5 text-[var(--fg-muted)]">{t('processingOverrideHint')}</p>}
-              {!enabled[channel] && <Link href={`/${rid}/settings/orders/availability`} className={linkStyle}>{t('ordersProcessingManage')}</Link>}
+              {!enabled[channel] && <Link href={`/${rid}/settings/orders`} className={linkStyle}>{t('ordersProcessingManage')}</Link>}
             </div>
           </fieldset>;
         })}</div>

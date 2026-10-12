@@ -103,13 +103,13 @@ test('settings expand without navigation and retain the global app destinations'
   const settings = nav.getByRole('button',{name:'Paramètres',exact:true});
   await settings.click();
   await expect(page).toHaveURL(/\/menu\/items$/);
-  await nav.getByRole('button',{name:'Restaurant',exact:true}).click();
+  await nav.getByRole('button',{name:'Commandes et livraison',exact:true}).click();
   await expect(page).toHaveURL(/\/menu\/items$/);
-  await nav.getByRole('link',{name:'Horaires et disponibilité',exact:true}).click();
-  await expect(page).toHaveURL(/\/settings\/orders\/availability$/);
-  await expect(nav.getByRole('link',{name:'Tableau de bord',exact:true})).toBeVisible();
+  await nav.getByRole('link',{name:'Commandes et disponibilité',exact:true}).click();
+  await expect(page).toHaveURL(/\/settings\/orders$/);
+  await expect(nav.getByRole('link',{name:'Accueil',exact:true})).toBeVisible();
   await expect(nav.getByRole('button',{name:'Articles et cartes',exact:true})).toBeVisible();
-  await expect(nav.getByRole('link',{name:'Horaires et disponibilité',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(nav.getByRole('link',{name:'Commandes et disponibilité',exact:true})).toHaveAttribute('aria-current','page');
   await settings.click();
   await expect(settings).toHaveAttribute('aria-expanded','false');
   await settings.click();

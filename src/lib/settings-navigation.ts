@@ -25,7 +25,6 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
     ] },
     { labelKey: 'settingsGroupRestaurant', items: [
       { href: `${base}/settings`, labelKey: 'general', exact: true },
-      { href: `${base}/settings/orders/availability`, labelKey: 'settingsHours' },
       { href: `${base}/settings/orders/processing`, labelKey: 'ordersProcessingShort' },
       { href: `${base}/settings/orders/workflow`, labelKey: 'orderWorkflow' },
       { href: `${base}/settings/stock`, labelKey: 'stockSettings' },

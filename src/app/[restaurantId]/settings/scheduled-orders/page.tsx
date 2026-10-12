@@ -8,5 +8,5 @@ export default async function ScheduledOrdersRedirect({
   params: Promise<{ restaurantId: string }>;
 }) {
   const { restaurantId } = await params;
-  redirect(`/${restaurantId}/settings/orders/preorders`);
+  redirect(`/${restaurantId}/settings/orders`);
 }

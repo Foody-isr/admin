@@ -622,13 +622,21 @@ parallax, variable-width text and two rotating reviews; all writes stay in memor
 
 ## Unified order intake
 
-`/[restaurantId]/settings/orders` starts with Immediate orders, Preorders only,
+`/[restaurantId]/settings/orders` is the single **Orders & availability** editor
+under Ordering & delivery. It starts with Immediate orders, Preorders only,
 or Both, followed by slot/weekly-lot organization, services and the relevant
-calendar. The old `/orders/preorders` route redirects here. Strict weekly lots
+calendar. The old `/orders/availability`, `/orders/preorders`, `/settings/opening-hours`
+and `/settings/scheduled-orders` routes redirect here; the separate Hours entry
+has been removed. Strict weekly lots
 hide classic pickup/delivery hours; slots retain receiving hours. Hidden values
 are kept, and policy/services/calendar edits share one save. Table service remains
-independent under Restaurant → Hours. The live lot status uses the server calendar
+independent in its own section on the same page. The live lot status uses the server calendar
 and the restaurant timezone; pause controls remain available on the same page.
+
+Week start/workdays and catering-only mode are retained under Restaurant → General.
+They use the existing restaurant endpoint and only changed fields are saved.
+Strict weekly lots are governed by order opening, cutoff and fulfillment days/windows;
+classic pickup/delivery opening hours are retained without constraining this mode.
 
 Requires the API's `preorders_only` contract (migration 226). Existing scheduled
 restaurants are shown as Both until the operator explicitly selects Preorders
