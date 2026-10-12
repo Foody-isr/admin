@@ -1,13 +1,29 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { connectPersonalWhatsApp, getWhatsAppSender, type PersonalWhatsAppInput, type WhatsAppSender } from '@/lib/api';
+import { ApiError, connectPersonalWhatsApp, getWhatsAppSender, type PersonalWhatsAppInput, type WhatsAppSender } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { normalizeWhatsAppPhone } from '@/lib/whatsapp-embedded';
 import { orderTwilioTemplate } from '@/lib/orders/twilio-templates';
 import { Button, ConfirmDialog, Field, Input } from '@/components/ds';
 
 const sid = (prefix: string, value: string) => new RegExp(`^${prefix}[0-9a-fA-F]{32}$`).test(value.trim());
+const personalErrors = {
+  whatsapp_personal_invalid_input: 'waPersonalInvalidInput',
+  whatsapp_personal_connection_exists: 'waPersonalConnectionExists',
+  whatsapp_personal_connection_changed: 'waPersonalConnectionChanged',
+  whatsapp_personal_credentials: 'waPersonalCredentialsFailed',
+  whatsapp_personal_credentials_unavailable: 'waPersonalEncryptionFailed',
+  whatsapp_personal_provider_unavailable: 'waPersonalProviderFailed',
+  whatsapp_personal_sender_unavailable: 'waPersonalSenderFailed',
+  whatsapp_personal_sender_mismatch: 'waPersonalSenderMismatch',
+  whatsapp_personal_template_unavailable: 'waPersonalTemplateUnavailable',
+  whatsapp_personal_template_pending: 'waPersonalTemplatePending',
+  whatsapp_personal_template_not_approved: 'waPersonalTemplateNotApproved',
+  whatsapp_personal_template_category: 'waPersonalTemplateCategory',
+  whatsapp_personal_template_format: 'waPersonalTemplateFormat',
+} as const;
+
 const templateFields = [
   ['content_sid_order_recap', 'waPersonalRecap', false],
   ['content_sid_delivery_reminder', 'waPersonalReminder', false],
@@ -69,11 +85,19 @@ export function PersonalWhatsAppForm({ rid, sender, onSaved, onCancel, onLockCha
     try {
       const row = await connectPersonalWhatsApp(rid, payload);
       if (alive.current) { setDirty(false); setValues(current => ({ ...current, secret: '' })); onSaved(row); }
-    } catch {
+    } catch (cause) {
       if (!alive.current) return;
       // A lost response may follow a successful save. Verify only public metadata;
       // never restore secret values from the server or repeat the write automatically.
       setValues(current => ({ ...current, secret: '' }));
+      // These allowlisted errors occur before persistence (or after a rollback).
+      // Never display arbitrary provider text; a rejected edit remains retryable.
+      const reason = cause instanceof ApiError && Object.prototype.hasOwnProperty.call(personalErrors, cause.message) ? personalErrors[cause.message as keyof typeof personalErrors] : undefined;
+      if (reason) {
+        const field = templateFields.find(([name]) => cause instanceof ApiError && name === cause.details);
+        setError(`${field ? `${t(field[1])} : ` : ''}${t(reason)}`);
+        return;
+      }
       setError(t('waPersonalSaveFailed'));
       try {
         const row = await getWhatsAppSender(rid);
