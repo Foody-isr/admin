@@ -1,14 +1,18 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
-import type { WhatsAppSender } from '../../src/lib/api';
+import type { MetaWhatsAppStatus, MetaWhatsAppTemplate, WhatsAppSender } from '../../src/lib/api';
+import { orderNotificationTemplate } from '../../src/lib/orders/twilio-templates';
 
 const displayName = 'Atelier Foody — service de commande de démonstration';
 const senderExample: WhatsAppSender = { id: 1, restaurant_id: 1, waba_id: '123', phone_number_id: '456', sender_sid: 'synthetic-sender', sender_number: '+972500000000', display_name: displayName, status: 'ONLINE' };
-async function install(page: Page, options: { locale?: string; connected?: boolean; permissions?: string[]; status?: string; sdkFailure?: boolean; otp?: 'required' | 'skip' } = {}) {
+async function install(page: Page, options: { locale?: string; connected?: boolean; permissions?: string[]; status?: string; sdkFailure?: boolean; otp?: 'required' | 'skip'; coexistence?: boolean; metaReady?: boolean } = {}) {
   const fixtureOptions = { empty: false, permissions: options.permissions };
   const fixture = createFixture(fixtureOptions);
   const writes: { path: string; method: string; body: any; restaurant?: string }[] = [];
   const control = {
+    meta: { configured: !!options.coexistence, app_id: '100', config_id: '200', graph_version: 'v26.0', outbound_enabled: true, notifications_active: false, connection: options.metaReady ? { waba_id: '123', phone_number_id: '456', phone_number: '+12025550123', status: 'ready', subscribed: true, contacts_sync: 'requested', history_sync: 'complete', history_progress: 100, last_error: '', token_expires_at: null, notifications_enabled: false } : null } as MetaWhatsAppStatus,
+    catalogue: ['order_recap', 'delivery_reminder', 'order_status', 'receipt'].map((kind, i) => ({ id: String(700 + i), name: kind, language: 'fr', status: 'APPROVED', category: 'UTILITY', parameter_format: 'POSITIONAL', components: [{ type: 'BODY', text: orderNotificationTemplate(kind as 'order_recap', 'fr') }] })) as MetaWhatsAppTemplate[],
+    metaLostResponse: false,
     sender: options.connected === false ? null : { ...senderExample, status: options.status ?? 'ONLINE' } as WhatsAppSender | null,
     otp: options.otp ?? 'required', senderReads: 0,
     senderFailure: 0, settingsFailure: 0, connectFailure: 0, disconnectFailure: 0, otpFailure: 0,
@@ -24,12 +28,33 @@ async function install(page: Page, options: { locale?: string; connected?: boole
     localStorage.setItem('foody_admin_theme', locale === 'he' ? 'dark' : 'light');
     const state = { sdkFailure, logins: [] as unknown[], initializations: 0 };
     (window as any).__wa = state;
-    (window as any).FB = { init: () => { state.initializations++; if (state.sdkFailure) throw new Error('Synthetic SDK failure'); }, login: (_callback: unknown, options: unknown) => { state.logins.push(options); }, getLoginStatus: () => {} };
+    (window as any).FB = { init: () => { state.initializations++; if (state.sdkFailure) throw new Error('Synthetic SDK failure'); }, login: (callback: unknown, options: unknown) => { state.logins.push(options); (window as any).__waCallback = callback; }, getLoginStatus: () => {} };
   }, { locale: options.locale ?? 'fr', sdkFailure: options.sdkFailure ?? false });
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), url = new URL(request.url()), path = url.pathname, method = request.method(), body = request.postDataJSON() ?? {}, restaurant = request.headers()['x-restaurant-id'];
     const send = (json: unknown, status = 200) => route.fulfill({ json, status });
     const fail = () => send({ error: 'Synthetic WhatsApp failure' }, 503);
+    if (/\/whatsapp\/meta(?:\/|$)/.test(path)) {
+      if (path.endsWith('/templates') && method === 'GET') return send({ templates: control.catalogue });
+      if (method === 'GET') return send(control.meta);
+      writes.push({ path, method, body, restaurant });
+      if (path.endsWith('/templates')) {
+        const template: MetaWhatsAppTemplate = { id: String(900 + control.catalogue.length), name: body.name, language: body.language, status: 'PENDING', category: 'UTILITY', components: [{ type: 'BODY', text: body.body }] };
+        control.catalogue.push(template); return send(template, 201);
+      }
+      if (path.endsWith('/notifications')) {
+        control.meta.connection!.notifications_enabled = body.enabled;
+        control.meta.notifications_active = body.enabled;
+        for (const [kind, value] of Object.entries(body.templates ?? {})) {
+          (control.meta.connection as any)[`${kind}_name`] = (value as any).name;
+          (control.meta.connection as any)[`${kind}_language`] = (value as any).language;
+        }
+        if (control.metaLostResponse) return fail(); return send(control.meta);
+      }
+      if (path.endsWith('/signup')) return send({ state: 'a'.repeat(64), expires_at: new Date(Date.now() + 15 * 60_000).toISOString() });
+      if (path.endsWith('/connect')) control.meta.connection = { waba_id: body.waba_id, phone_number_id: '456', phone_number: '+12025550123', status: 'syncing', subscribed: true, contacts_sync: 'requested', history_sync: 'requested', history_progress: 0, last_error: '', token_expires_at: null };
+      return send(control.meta);
+    }
     if (/\/restaurants\/\d+\/whatsapp\//.test(path)) {
       if (method === 'GET') {
         control.senderReads++;
@@ -72,6 +97,88 @@ const prepare = async (page: Page) => { await launch(page); await emit(page); aw
 const submit = (page: Page) => connection(page).getByRole('button', { name: 'Confirmer la connexion', exact: true });
 const notice = (page: Page) => page.locator('main [role=status]').filter({ hasNotText: /^Chargement/ });
 const guarded = (page: Page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
+
+const coexistence = (page: Page) => page.getByRole('region', { name: 'Conserver l’application WhatsApp Business · pilote', exact: true });
+for (const order of ['code-first', 'event-first']) test(`Meta coexistence joins ${order} without activating Twilio routing`, async ({ page }) => {
+  const state = await install(page, { connected: false, coexistence: true });
+  await page.goto('/2/settings/whatsapp');
+  await coexistence(page).getByRole('textbox', { name: 'Numéro WhatsApp Business actuel' }).fill('+1 (202) 555-0123');
+  await coexistence(page).getByRole('button', { name: 'Préparer la connexion' }).click();
+  await coexistence(page).getByRole('button', { name: 'Continuer avec Meta' }).click();
+  const code = () => page.evaluate(() => (window as any).__waCallback({ authResponse: { code: 'one-use-code' } }));
+  const identity = () => page.evaluate(() => window.dispatchEvent(new MessageEvent('message', { origin: 'https://www.facebook.com', data: { type: 'WA_EMBEDDED_SIGNUP', event: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', data: { waba_id: '123' } } })));
+  if (order === 'code-first') await code(); else await identity();
+  expect(state.writes).toHaveLength(1);
+  if (order === 'code-first') await identity(); else await code();
+  await expect(coexistence(page)).toContainText('Synchronisation en cours');
+  await expect(coexistence(page)).toContainText('Les notifications automatiques ne sont pas encore activées');
+  expect(state.writes).toEqual([
+    expect.objectContaining({ path: '/api/v1/restaurants/2/whatsapp/meta/signup', restaurant: '2', body: { phone_number: '+12025550123' } }),
+    expect.objectContaining({ path: '/api/v1/restaurants/2/whatsapp/meta/connect', restaurant: '2', body: { state: 'a'.repeat(64), code: 'one-use-code', waba_id: '123' } }),
+  ]);
+  const login = await page.evaluate(() => (window as any).__wa.logins[0]);
+  expect(login).toMatchObject({ config_id: '200', extras: { setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' } });
+  expect(JSON.stringify(login)).not.toContain('solutionID');
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('one-use-code');
+  expect(state.control.sender).toBeNull();
+});
+
+test('Meta coexistence cancellation ignores late authorization and spoofed events', async ({ page }) => {
+  const state = await install(page, { connected: false, coexistence: true }); await page.goto('/1/settings/whatsapp');
+  await coexistence(page).getByRole('textbox', { name: 'Numéro WhatsApp Business actuel' }).fill('+12025550123');
+  await coexistence(page).getByRole('button', { name: 'Préparer la connexion' }).click();
+  await coexistence(page).getByRole('button', { name: 'Continuer avec Meta' }).click();
+  await emit(page, 'https://evil.test', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING');
+  await coexistence(page).getByRole('button', { name: 'Annuler', exact: true }).click();
+  await page.evaluate(() => (window as any).__waCallback({ authResponse: { code: 'late' } }));
+  await emit(page, 'https://www.facebook.com', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING');
+  expect(state.writes).toHaveLength(1);
+  await expect(coexistence(page).getByRole('button', { name: 'Préparer la connexion' })).toBeVisible();
+});
+
+test('native Meta templates are reviewed and require explicit activation for the selected restaurant', async ({ page }, info) => {
+  const state = await install(page, { coexistence: true, metaReady: true });
+  await page.setViewportSize({ width: 375, height: 1000 });
+  await page.goto('/2/settings/whatsapp');
+  const region = page.getByRole('region', { name: 'Modèles de notifications Meta', exact: true });
+  const activate = region.getByRole('button', { name: 'Activer les notifications Meta' });
+  await expect(activate).toBeDisabled();
+  await region.getByLabel('Confirmation détaillée de commande', { exact: true }).selectOption('order_recap|fr');
+  await region.getByLabel('Rappel de livraison avec livreur', { exact: true }).selectOption('delivery_reminder|fr');
+  await expect(activate).toBeEnabled();
+  await activate.click();
+  await expect(region).toContainText('Fournisseur sélectionné : Meta direct');
+  expect(state.writes).toHaveLength(1);
+  expect(state.writes[0]).toMatchObject({ path: '/api/v1/restaurants/2/whatsapp/meta/notifications', method: 'PUT', restaurant: '2', body: { enabled: true, templates: { order_recap: { name: 'order_recap', language: 'fr' }, delivery_reminder: { name: 'delivery_reminder', language: 'fr' } } } });
+  await page.screenshot({ path: info.outputPath('whatsapp-meta-templates-fr.png') });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await region.getByRole('button', { name: 'Utiliser les réglages Twilio existants' }).click();
+  await expect(region).toContainText('Les notifications Meta sont inactives');
+  expect(state.writes[1].body).toEqual({ enabled: false });
+});
+
+test('native Meta submission preserves reviewed text and pending templates cannot activate sending', async ({ page }) => {
+  const state = await install(page, { coexistence: true, metaReady: true }); await page.goto('/1/settings/whatsapp');
+  const region = page.getByRole('region', { name: 'Modèles de notifications Meta', exact: true });
+  await region.getByText('Créer un modèle Meta', { exact: true }).click();
+  await region.getByLabel('Type de notification', { exact: true }).selectOption('delivery_reminder');
+  await expect(region.getByLabel('Texte du modèle')).toHaveValue(orderNotificationTemplate('delivery_reminder', 'fr'));
+  await region.getByRole('button', { name: 'Soumettre à Meta', exact: true }).click();
+  await expect(region).toContainText('Modèle soumis à Meta');
+  expect(state.writes[0]).toMatchObject({ body: { kind: 'delivery_reminder', name: 'foody_delivery_reminder_fr', language: 'fr', body: orderNotificationTemplate('delivery_reminder', 'fr') } });
+  await expect(region.getByLabel('Rappel de livraison avec livreur', { exact: true }).locator('option[value="foody_delivery_reminder_fr|fr"]')).toHaveAttribute('disabled', '');
+  await expect(region.getByRole('button', { name: 'Activer les notifications Meta' })).toBeDisabled();
+});
+
+test('lost Meta activation response is read back without repeating the write', async ({ page }) => {
+  const state = await install(page, { coexistence: true, metaReady: true }); state.control.metaLostResponse = true;
+  await page.goto('/1/settings/whatsapp'); const region = page.getByRole('region', { name: 'Modèles de notifications Meta', exact: true });
+  await region.getByLabel('Confirmation détaillée de commande', { exact: true }).selectOption('order_recap|fr');
+  await region.getByLabel('Rappel de livraison avec livreur', { exact: true }).selectOption('delivery_reminder|fr');
+  await region.getByRole('button', { name: 'Activer les notifications Meta' }).click();
+  await expect(region).toContainText('Fournisseur sélectionné : Meta direct');
+  expect(state.writes).toHaveLength(1);
+});
 
 async function preparePersonal(page: Page) {
   await connection(page).getByRole('radio', { name: 'Mon propre compte Twilio', exact: true }).check();

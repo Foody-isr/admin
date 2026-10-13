@@ -50,6 +50,21 @@ and French texts are documented in the matching server's
 `docs/WHATSAPP_ORDER_MESSAGES.md`. Regression checks:
 `npx playwright test -c playwright.whatsapp.config.ts`.
 
+## Direct Meta coexistence pilot
+
+Settings → WhatsApp also includes a direct Meta coexistence pilot for an existing
+WhatsApp Business app number. Deploy API migrations 240–241 first and configure its
+distinct v4 Login configuration and signed webhook; the Admin obtains public SDK
+settings from the scoped API and needs no new public environment variable. This
+flow verifies connection and synchronization. Native Meta Utility templates can
+then be submitted, checked for approval and explicitly selected for automatic
+confirmation and optional status/receipt notifications. Courier reminders retain
+the reviewed order action. A Meta failure never triggers a Twilio send. The order
+dialog displays delivery/read evidence separately from acceptance and can refresh
+the same dispatch without resending. The matching server's `docs/WHATSAPP_COEXISTENCE.md` documents
+setup and real-phone acceptance. Isolated checks use
+`npx tsx --test src/lib/whatsapp-coexistence.test.ts` and the WhatsApp Playwright suite.
+
 ## Selection controls
 
 Admin selections follow the Square reference: white option rows with separators,

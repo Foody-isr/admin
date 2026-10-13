@@ -11,6 +11,7 @@ import { loadMetaSdk } from '@/lib/meta-sdk';
 import { Badge, Button, ConfirmDialog, Field, Input, PageHead, Section } from '@/components/ds';
 import { normalizeWhatsAppPhone, parseWhatsAppSignupEvent, type WhatsAppSignupIdentity } from '@/lib/whatsapp-embedded';
 import { PersonalWhatsAppForm } from '@/components/settings/PersonalWhatsAppForm';
+import { MetaWhatsAppCoexistence } from '@/components/settings/MetaWhatsAppCoexistence';
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || '';
 const WA_CONFIG_ID = process.env.NEXT_PUBLIC_WA_CONFIG_ID || '';
@@ -31,6 +32,7 @@ function WhatsAppWorkspace({ rid }: { rid: number }) {
   const [connectionMode, setConnectionMode] = useState<'foody' | 'personal'>('foody');
   const [editingPersonal, setEditingPersonal] = useState(false);
   const [personalLocked, setPersonalLocked] = useState(false);
+  const [coexistenceLocked, setCoexistenceLocked] = useState(false);
   const [senderLoading, setSenderLoading] = useState(true);
   const [senderError, setSenderError] = useState(false);
   const [otpMode, setOtpMode] = useState<'required' | 'skip' | null>(null);
@@ -187,11 +189,12 @@ function WhatsAppWorkspace({ rid }: { rid: number }) {
   const discard = () => { setPending(null); setPhoneNumber(''); setDisplayName(''); setUncertain(false); setVerifiedAbsent(false); setError(''); };
   const terminal = sender && ['ONLINE', 'OFFLINE', 'FAILED'].includes(sender.status);
   const statuses: Record<string, string> = { ONLINE: 'waStatusOnline', OFFLINE: 'waStatusOffline', FAILED: 'waStatusFailed', CREATING: 'waStatusCreating', PENDING_VERIFICATION: 'waStatusVerifying' };
-  const disabled = !!busy || signupActive;
+  const disabled = !!busy || signupActive || coexistenceLocked;
   const phone = normalizeWhatsAppPhone(phoneNumber);
 
   return <div className="max-w-4xl space-y-6">
     <PageHead title="WhatsApp Business" desc={t('waSettingsIntro')} actions={<Button variant="secondary" asChild><Link href={`/${rid}/settings/message-templates`}><MessageSquareText aria-hidden="true" />{t('messageTemplatesFromWhatsApp')}</Link></Button>} />
+    <MetaWhatsAppCoexistence key={rid} rid={rid} canEdit={canEdit} disabled={!!busy || signupActive || editingPersonal || personalLocked} onLockChange={setCoexistenceLocked} />
     {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
     {error && <p role="alert" className="rounded-r-md border border-[var(--line)] p-4 text-sm leading-6 text-[var(--danger-500)]">{error}</p>}
     {notice && <p role="status" className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{notice}</p>}
