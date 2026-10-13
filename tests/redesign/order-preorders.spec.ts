@@ -10,6 +10,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
     settings: { preorders_only: false, pickup_enabled: true, delivery_enabled: true, dine_in_enabled: false, opening_hours_config: {}, orders_paused: false, rush_mode: false, scheduling_enabled: !options.batch, batch_fulfillment_enabled: !!options.batch, scheduling_lead_time_minutes: 90, scheduling_min_days_ahead: 1, scheduling_max_days_ahead: 7, scheduling_slot_duration_minutes: 30, scheduling_require_prepayment: false, batch_order_open_day: 0, batch_order_open_time: '00:30', batch_cutoff_day: 3, batch_cutoff_time: '22:00', batch_fulfillment_days: [{ day: 5, pickup_start: '10:00', pickup_end: '14:00', delivery_start: '14:00', delivery_end: '18:00' }], batch_require_prepayment: true, scheduling_available_hours: [{ start: '11:00', end: '14:00', days: [0,1] }], scheduling_cutoff_hour: 18 } as Record<string, any>,
     reads: 0, failRead: false, failSave: 0, gate: null as Promise<void> | null, previewFail: false, previewGate: null as Promise<void> | null, previewCompleted: 0, cycles: [cycle()],
   };
+  const timingPreviews: any[] = [];
   const writes: { body: any; restaurant?: string; path: string }[] = [], previews: any[] = [];
   await page.addInitScript(({ locale }) => {
     localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture'); localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner', email: 'demo@foody.test' })); localStorage.setItem('foody_restaurant_ids', '[1,2]'); localStorage.setItem('foody-admin-locale', locale); localStorage.setItem('foody_admin_theme', locale === 'he' ? 'dark' : 'light');
@@ -22,6 +23,13 @@ async function install(page: Page, options: { locale?: string; permissions?: str
       return route.fulfill({ json: { settings: control.settings } });
     }
     if (/\/batch-fulfillment-config$/.test(path)) return route.fulfill({ json: { enabled: true, ordering_open: true, current_batch_open_at: '2026-10-04T00:30:00+03:00', current_batch_cutoff: '2026-10-07T22:00:00+03:00', next_batch_open_at: '2026-10-11T00:30:00+03:00' } });
+    if (/\/preparation-preview$/.test(path)) {
+      timingPreviews.push({ body, restaurant });
+      const hours = body.opening_hours_config ?? {};
+      return route.fulfill({ json: { ordered_at: '2026-10-13T23:00:00+02:00', timezone: 'Europe/Paris', lead_time_minutes: body.scheduling_lead_time_minutes, preparation_time_basis: body.scheduling_preparation_time_basis, preparation_start_time: body.scheduling_preparation_start_time, preparation_splittable: body.scheduling_preparation_splittable,
+        services: ['pickup','delivery'].map(channel => { const day = hours[channel]?.wednesday; const base = day?.open ?? '09:00'; const startMinutes = Number(base.slice(0,2))*60 + Number(base.slice(3)) + (body.scheduling_preparation_time_basis === 'elapsed' ? 0 : body.scheduling_lead_time_minutes); const start = `${String(Math.floor(startMinutes/60)).padStart(2,'0')}:${String(startMinutes%60).padStart(2,'0')}`; return { order_type: channel, enabled: body[`${channel}_enabled`], first_slot: day && !day.closed ? { date: '2026-10-14', start, end: `${String(Math.floor((startMinutes+body.scheduling_slot_duration_minutes)/60)).padStart(2,'0')}:${String((startMinutes+body.scheduling_slot_duration_minutes)%60).padStart(2,'0')}` } : null, service_hours: day ?? null, hours_defaulted: false }; })
+      } });
+    }
     if (/\/batch-preview$/.test(path)) {
       previews.push({ body, restaurant }); const cycles = structuredClone(control.cycles), gate = control.previewGate; control.previewGate = null;
       if (gate) await gate;
@@ -31,7 +39,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
     const result = fixture.response(req.url(), method, body, Number(restaurant) || 1); return route.fulfill({ json: result.json ?? {}, status: result.status ?? 200 });
   });
   await page.route('**/*', route => ['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
-  return { fixture, control, writes, previews };
+  return { fixture, control, writes, previews, timingPreviews };
 }
 const save = (page: Page) => page.getByRole('button', { name: 'Enregistrer les modifications', exact: true });
 const lead = (page: Page) => page.locator('#preorder-lead');
@@ -169,9 +177,9 @@ test('preparation clock, custom start and continuity save as a sparse restaurant
   await page.goto('/1/settings/orders');
   await page.getByRole('radio', { name: /^Pendant les horaires du service/ }).click();
   await expect(page.getByRole('switch', { name: 'Répartir la préparation sur plusieurs services' })).not.toBeChecked();
-  await expect(page.getByText(/demain à 15 h/)).toBeVisible();
+  await expect(page.locator('[data-preparation-preview]')).not.toContainText('6 h');
   await page.getByRole('switch', { name: 'Répartir la préparation sur plusieurs services' }).click();
-  await expect(page.getByText(/demain à 13 h/)).toBeVisible();
+  await expect.poll(() => state.timingPreviews.at(-1)?.body.scheduling_preparation_splittable).toBe(true);
   await save(page).click();
   await expect(notice(page)).toContainText('Enregistré');
   expect(state.writes[0].body).toEqual({ scheduling_preparation_time_basis: 'opening_hours', scheduling_preparation_splittable: true });
@@ -210,4 +218,67 @@ test('missing delivery days can copy pickup hours without replacing existing day
   const saved = state.writes[0].body.opening_hours_config;
   expect(saved.delivery.monday).toEqual(pickup.monday);
   expect(saved.delivery.friday).toEqual(hours.delivery.friday);
+});
+
+
+test('preparation preview follows actual delay, service hours and saved versus unsaved values', async ({ page }, info) => {
+  const state = await install(page);
+  state.control.settings.scheduling_preparation_time_basis = 'opening_hours';
+  state.control.settings.scheduling_lead_time_minutes = 180;
+  state.control.settings.scheduling_available_hours = [];
+  const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  const hours = { pickup: Object.fromEntries(days.map(day => [day,{open:'09:00',close:'22:00',closed:false}])), delivery: Object.fromEntries(days.map(day => [day,{open:'10:00',close:'21:00',closed:false}])) };
+  state.control.settings.opening_hours_config = hours;
+  await page.route('**/api/v1/restaurants/1', route => route.fulfill({json:{restaurant:{id:1,name:'Atelier Foody',timezone:'Europe/Paris',pickup_enabled:true,delivery_enabled:true,dine_in_enabled:false,opening_hours_config:hours}}}));
+  await page.goto('/1/settings/orders');
+  const panel = page.locator('[data-preparation-preview]');
+  await expect(panel).toContainText('paramètres enregistrés');
+  await expect(panel).toContainText('3 heures');
+  await expect(panel).toContainText('12:00–12:30');
+  await expect(panel).toContainText('13:00–13:30');
+  await expect(panel).toContainText('Europe/Paris');
+  await expect(panel).not.toContainText('6 h');
+  await lead(page).fill('90');
+  await expect(panel).toContainText('1 heure 30 minutes');
+  await expect(panel).toContainText('10:30–11:00');
+  await expect(panel).toContainText('pas encore enregistrées');
+  await page.locator('#intake-pickup-wednesday-open').fill('11:00');
+  await expect(panel).toContainText('12:30–13:00');
+  await expect(panel).toContainText('11:00–22:00');
+  expect(state.writes).toHaveLength(0);
+  expect(state.timingPreviews.at(-1).restaurant).toBe('1');
+  await save(page).click();
+  await expect(panel).toContainText('paramètres enregistrés');
+  await expect(panel).toContainText('12:30–13:00');
+  await panel.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath('dynamic-preparation-preview-fr.png') });
+});
+
+test('preparation preview discards a retired response, reports failure and retries without saving', async ({ page }) => {
+  const state = await install(page);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let requests = 0, fail = false;
+  await page.route('**/preparation-preview', async route => {
+    const body = route.request().postDataJSON(); requests++;
+    if (body.scheduling_lead_time_minutes === 90) await gate;
+    if (fail) return route.fulfill({status:503,json:{}});
+    return route.fulfill({json:{ordered_at:'2026-10-13T23:00:00+02:00',timezone:'Europe/Paris',lead_time_minutes:body.scheduling_lead_time_minutes,preparation_time_basis:body.scheduling_preparation_time_basis,preparation_splittable:body.scheduling_preparation_splittable,services:[{order_type:'pickup',enabled:true,first_slot:{date:'2026-10-14',start:'15:00',end:'15:30'},service_hours:{open:'12:00',close:'20:00'},hours_defaulted:false},{order_type:'delivery',enabled:false,first_slot:null,service_hours:null,hours_defaulted:false}]}});
+  });
+  await page.goto('/1/settings/orders');
+  await expect.poll(() => requests).toBeGreaterThan(0);
+  await lead(page).fill('180');
+  const panel = page.locator('[data-preparation-preview]');
+  await expect(panel).toContainText('3 heures');
+  release();
+  await expect(panel).not.toContainText('1 heure 30 minutes');
+  fail = true;
+  await lead(page).fill('240');
+  await expect(panel.getByRole('alert')).toBeVisible();
+  await expect(panel).not.toContainText('15:00');
+  fail = false;
+  await panel.getByRole('button', {name:'Réessayer',exact:true}).click();
+  await expect(panel).toContainText('4 heures');
+  await expect(panel).toContainText('Service désactivé');
+  expect(state.writes).toHaveLength(0);
 });

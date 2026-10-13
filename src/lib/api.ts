@@ -3237,6 +3237,36 @@ export async function previewBatchFulfillment(
   );
 }
 
+/** Scheduling values currently displayed in the restaurant editor. */
+export interface PreparationPreviewInput {
+  scheduling_lead_time_minutes: number;
+  scheduling_preparation_time_basis: 'elapsed' | 'opening_hours' | 'custom_start';
+  scheduling_preparation_start_time: string;
+  scheduling_preparation_splittable: boolean;
+  scheduling_max_days_ahead: number;
+  scheduling_slot_duration_minutes: number;
+  scheduling_available_hours: NonNullable<RestaurantSettings['scheduling_available_hours']>;
+  opening_hours_config?: OpeningHoursConfig;
+  pickup_enabled: boolean;
+  delivery_enabled: boolean;
+}
+
+/** Actual restaurant-local results from the production preparation resolver. */
+export interface PreparationPreviewResponse {
+  ordered_at: string;
+  timezone: string;
+  lead_time_minutes: number;
+  preparation_time_basis: PreparationPreviewInput['scheduling_preparation_time_basis'];
+  preparation_start_time: string;
+  preparation_splittable: boolean;
+  services: { order_type: 'pickup' | 'delivery'; enabled: boolean; first_slot: { date: string; start: string; end: string } | null; service_hours: DayHours | null; hours_defaulted: boolean }[];
+}
+
+/** Previews draft scheduling settings without saving or placing an order. */
+export function previewPreparation(restaurantId: number, input: PreparationPreviewInput): Promise<PreparationPreviewResponse> {
+  return apiFetch<PreparationPreviewResponse>(`/api/v1/restaurants/${restaurantId}/preparation-preview`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
+}
+
 // ─── Menu translations backfill ──────────────────────────────────────────────
 
 /**

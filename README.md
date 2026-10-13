@@ -794,3 +794,10 @@ the API does not confirm the changed fields. Unrelated saves preserve the policy
 Suggested 09:00–22:00 values are not treated as saved delivery hours. Owners can
 explicitly apply the suggestions or copy saved pickup hours for missing delivery
 days, then save. Neither action replaces already configured delivery days.
+
+The preparation example is a read-only live preview from the API's actual slot
+resolver. It sends the displayed delay, clock, split policy, booking horizon,
+slot duration, custom windows and service hours. Saved and unsaved values are
+identified separately; stale responses are discarded, errors remain visible,
+and an unavailable service never borrows another service's hours. Deploy the
+API's `preparation-preview` endpoint before Admin.
