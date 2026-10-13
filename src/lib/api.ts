@@ -85,6 +85,8 @@ export interface Restaurant {
   slug: string;
   address: string;
   timezone: string;
+  /** ISO 3166-1 alpha-2 country used for address lookup. Legacy restaurants use IL. */
+  country_code?: string;
   logo_url: string;
   cover_url: string;
   background_color: string;

@@ -208,6 +208,13 @@ Isolated browser checks: `npx playwright test -c playwright.redesign.config.ts t
 
 ### Settings (`/[restaurantId]/settings`)
 
+**Restaurant → General** includes **Country**, saved explicitly as the restaurant's
+ISO 3166-1 alpha-2 `country_code`. The country scopes delivery address suggestions
+and geocoding without changing currency, language, timezone or delivery zones.
+Legacy restaurants retain Israel until explicitly updated. Deploy server migration
+242 first. Browser regression: `npx playwright test -c playwright.redesign.config.ts
+restaurant-country.spec.ts`.
+
 Two sections, saved separately:
 
 **Restaurant Info:**
