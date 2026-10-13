@@ -8,6 +8,7 @@ import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import { InspectorField, ToggleField, controlClass } from "./controls";
 import { ElementInspector } from "./ElementInspector";
 import { VideoUploadField } from "./VideoUploadField";
+import { VideoSettingsFields } from "./VideoSettingsFields";
 
 export const SQUARE_CONTENT_TYPES = new Set([
   "text",
@@ -89,14 +90,17 @@ export function SquareContentEditor({
         </InspectorField>
       ))}
       {type === "video" && (
-        <VideoUploadField
-          restaurantId={restaurantId}
-          currentUrl={String(c.video_url ?? "")}
-          posterUrl={String(c.poster_url ?? "")}
-          cover={false}
-          onUploaded={(url) => update("video_url", url)}
-          onRemove={() => update("video_url", "")}
-        />
+        <>
+          <VideoUploadField
+            restaurantId={restaurantId}
+            currentUrl={String(c.video_url ?? "")}
+            posterUrl={String(c.poster_url ?? "")}
+            cover={false}
+            onUploaded={(url) => update("video_url", url)}
+            onRemove={() => update("video_url", "")}
+          />
+          <VideoSettingsFields section={section} onChange={onChange} />
+        </>
       )}
       {type === "donation" && (
         <ElementInspector

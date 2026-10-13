@@ -1,6 +1,7 @@
 "use client";
 import { EditorialAppearanceFields } from "./EditorialAppearanceFields";
 import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
+import { VideoSettingsFields } from "./VideoSettingsFields";
 import { ColorStylePicker } from "./ColorStylePicker";
 
 import { useI18n } from "@/lib/i18n";
@@ -172,6 +173,7 @@ export function SectionInspector({
           </div>
           {section.section_type !== "order_discovery" ? (
             <>
+              {section.section_type === "video" && <VideoSettingsFields section={section} onChange={onChange} showLayout={false} />}
               {section.section_type === "hero_banner" && (
                 <>
                   <div
