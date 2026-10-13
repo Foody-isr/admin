@@ -9155,6 +9155,73 @@ export async function disconnectWhatsApp(restaurantId: number): Promise<void> {
   );
 }
 
+/** Direct Meta coexistence pilot. Credentials remain exclusively on the API. */
+export interface MetaWhatsAppConnection {
+  waba_id: string;
+  phone_number_id: string;
+  phone_number: string;
+  status: 'onboarding' | 'syncing' | 'ready' | 'action_required' | 'reconnect_required';
+  subscribed: boolean;
+  contacts_sync: string;
+  history_sync: string;
+  history_progress: number;
+  last_error: string;
+  token_expires_at: string | null;
+  notifications_enabled?: boolean;
+  order_recap_name?: string;
+  order_recap_language?: string;
+  delivery_reminder_name?: string;
+  delivery_reminder_language?: string;
+  order_status_name?: string;
+  order_status_language?: string;
+  receipt_name?: string;
+  receipt_language?: string;
+}
+export interface MetaWhatsAppStatus {
+  configured: boolean;
+  app_id: string;
+  config_id: string;
+  graph_version: string;
+  notifications_active: boolean;
+  outbound_enabled?: boolean;
+  connection: MetaWhatsAppConnection | null;
+}
+/** Read the active restaurant's pilot status and public SDK configuration. */
+export function getMetaWhatsAppStatus(restaurantId: number): Promise<MetaWhatsAppStatus> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta`, restaurantId);
+}
+/** Prepare a short-lived attempt for the owner-confirmed existing Business App number. */
+export function beginMetaWhatsAppSignup(restaurantId: number, phone: string): Promise<{ state: string; expires_at: string }> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/signup`, restaurantId, { method: 'POST', body: JSON.stringify({ phone_number: phone }) });
+}
+/** Exchange a code server-side and verify the selected number before requesting synchronization. */
+export function completeMetaWhatsAppSignup(restaurantId: number, input: { state: string; code: string; waba_id: string; phone_number_id?: string }): Promise<MetaWhatsAppStatus> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/connect`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
+}
+/** Resume persisted setup without replaying an uncertain one-shot synchronization. */
+export function resumeMetaWhatsAppSignup(restaurantId: number): Promise<MetaWhatsAppStatus> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/resume`, restaurantId, { method: 'POST' });
+}
+
+export type MetaTemplateKind = 'order_recap' | 'delivery_reminder' | 'order_status' | 'receipt';
+export interface MetaTemplateRef { name: string; language: string }
+export interface MetaWhatsAppTemplate extends MetaTemplateRef {
+  id: string; status: string; category: string; parameter_format?: string;
+  components: { type: string; text?: string }[];
+}
+/** Lists the restaurant's native Meta templates, including pending and rejected entries. */
+export function getMetaWhatsAppTemplates(restaurantId: number): Promise<{ templates: MetaWhatsAppTemplate[] }> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/templates`, restaurantId);
+}
+/** Submits the staff-reviewed Utility template; the API supplies synthetic variable examples. */
+export function createMetaWhatsAppTemplate(restaurantId: number, input: MetaTemplateRef & { kind: MetaTemplateKind; body: string }): Promise<Omit<MetaWhatsAppTemplate, 'components'>> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/templates`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
+}
+/** Explicitly selects Meta notifications after live template checks, or restores existing Twilio routing. */
+export function configureMetaWhatsAppNotifications(restaurantId: number, input: { enabled: boolean; templates?: Record<MetaTemplateKind, MetaTemplateRef> }): Promise<MetaWhatsAppStatus> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/notifications`, restaurantId, { method: 'PUT', body: JSON.stringify(input) });
+}
+
 // ─── Social reels (Instagram/TikTok Stories page) ────────────────────────────
 
 export type SocialProvider = 'instagram' | 'tiktok';
@@ -10610,8 +10677,9 @@ export function getAddressAutocompleteConfig(restaurantId: number) {
 export interface OrderWhatsAppPreview {
   id: string;
   kind: 'order_recap' | 'delivery_reminder';
-  status: 'ready' | 'sending' | 'accepted' | 'unknown';
-  language: 'fr' | 'he' | 'en';
+  status: 'ready' | 'sending' | 'accepted' | 'unknown' | 'sent' | 'delivered' | 'read' | 'failed';
+  language: string;
+  provider?: 'twilio' | 'meta';
   message: string;
   recipient: string;
   from: string;
@@ -10625,8 +10693,13 @@ export async function previewOrderWhatsApp(restaurantId: number, orderId: number
 }
 
 /** Confirms a reviewed dispatch; repeated requests with the same preview never resend it. */
-export async function sendOrderWhatsApp(restaurantId: number, orderId: number, previewId: string): Promise<{ status: 'accepted' }> {
+export async function sendOrderWhatsApp(restaurantId: number, orderId: number, previewId: string): Promise<{ status: OrderWhatsAppPreview['status'] }> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/send`, restaurantId, {
     method: 'POST', body: JSON.stringify({ preview_id: previewId }),
   });
+}
+
+/** Reads delivery evidence for an existing scoped dispatch without resending or rebuilding its preview. */
+export function getOrderWhatsAppStatus(restaurantId: number, orderId: number, messageId: string): Promise<{ id: string; status: OrderWhatsAppPreview['status']; provider: 'twilio' | 'meta'; failure_code?: number; updated_at: string }> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages/${encodeURIComponent(messageId)}`, restaurantId);
 }
