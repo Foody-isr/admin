@@ -21,9 +21,9 @@ import {
 } from "./controls";
 import {
   ImageUploadField,
-  VideoUploadField,
   heroImageReplacement,
 } from "./SectionContentEditors";
+import { VideoUploadField } from "./VideoUploadField";
 import { squareDefaultContent as getDefaultContent } from "@/lib/website-v3/square-components";
 
 const labels: Record<string, string> = {

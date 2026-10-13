@@ -233,6 +233,12 @@ The editor uses contextual panels for shared elements and sections; the former C
 
 **Stories** lives in **Settings → Communications** at `/[restaurantId]/settings/stories`, with read access for `settings.view` and editing for `settings.edit`. Existing `/[restaurantId]/reels` bookmarks redirect there. The website editor links to this single owner of Instagram settings.
 
+The **Video** section supports MP4/WebM uploads up to 50 MB, replacement and
+removal, alongside the existing URL field. It reuses the restaurant-scoped cover
+video upload endpoint and preserves normal playback with sound and controls.
+Draft autosave, iframe preview and publication share `content.video_url`.
+Isolated browser regression: `npx playwright test -c playwright.website-editor.config.ts video-upload.spec.ts`.
+
 The **Footer** panel offers **Add footer** when none exists. It creates a shared
 `_site` section through draft autosave and undo/redo. Existing hidden or legacy
 footers retain their identity and content; retired theme sections are ignored.

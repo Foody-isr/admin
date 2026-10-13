@@ -6,6 +6,7 @@ import { listWebsiteFormResponses } from "@/lib/api";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import { InspectorField, ToggleField, controlClass } from "./controls";
 import { ElementInspector } from "./ElementInspector";
+import { VideoUploadField } from "./VideoUploadField";
 
 export const SQUARE_CONTENT_TYPES = new Set([
   "text",
@@ -46,7 +47,7 @@ export function SquareContentEditor({
     type === "button"
       ? ["cta_text", "cta_link"]
       : type === "video"
-        ? ["title", "video_url"]
+        ? ["title"]
         : type === "pdf"
           ? ["title", "file_url"]
           : type === "embed"
@@ -86,6 +87,16 @@ export function SquareContentEditor({
           )}
         </InspectorField>
       ))}
+      {type === "video" && (
+        <VideoUploadField
+          restaurantId={restaurantId}
+          currentUrl={String(c.video_url ?? "")}
+          posterUrl={String(c.poster_url ?? "")}
+          cover={false}
+          onUploaded={(url) => update("video_url", url)}
+          onRemove={() => update("video_url", "")}
+        />
+      )}
       {type === "donation" && (
         <ElementInspector
           restaurantId={restaurantId}
