@@ -34,6 +34,19 @@ export function VideoSettingsFields({
           }
         />
       )}
+      <InspectorField label={t("editorSectionHeight")}>
+        <select
+          className={controlClass}
+          data-field-id="section.settings.video_height"
+          value={String(settings.video_height ?? "original")}
+          onChange={(event) => set("video_height", event.target.value)}
+        >
+          <option value="original">{t("editorVideoOriginalHeight")}</option>
+          {["xs", "s", "m", "l"].map((value) => (
+            <option key={value} value={value}>{value.toUpperCase()}</option>
+          ))}
+        </select>
+      </InspectorField>
       <InspectorField label={t("editorSectionSpacing")}>
         <select
           className={controlClass}

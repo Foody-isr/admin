@@ -9,7 +9,7 @@ import type { DraftStatePayload } from "../types";
 const compatible = {
   protocol: "foody.website-v3",
   editor_catalog: 2,
-  animated_text: true, component_animations: 1, video_playback: 1,
+  animated_text: true, component_animations: 1, video_playback: 1, video_height: 1,
   version: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
@@ -146,4 +146,8 @@ test("rejects renderers that cannot show component animations", async () => {
 
 test("rejects renderers that cannot apply video playback settings", async () => {
   await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://app.foody-pos.co.il", async () => Response.json({...compatible, video_playback: undefined})), /site public n’est pas compatible/);
+});
+
+test("rejects renderers that cannot apply video height settings", async () => {
+  await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://app.foody-pos.co.il", async () => Response.json({...compatible, video_height: undefined})), /site public n’est pas compatible/);
 });

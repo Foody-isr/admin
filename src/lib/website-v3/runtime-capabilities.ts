@@ -19,6 +19,7 @@ export type WebsiteV3RuntimeCapabilities = {
   animated_text: true;
   component_animations: 1;
   video_playback: 1;
+  video_height: 1;
   page_types: string[];
   surfaces: string[];
   publication: {
@@ -60,7 +61,7 @@ function isCompatible(value: unknown): value is WebsiteV3RuntimeCapabilities {
     value.protocol !== REQUIRED_PROTOCOL ||
     value.version !== REQUIRED_VERSION ||
     value.editor_catalog !== 2 ||
-    value.animated_text !== true || value.component_animations !== 1 || value.video_playback !== 1
+    value.animated_text !== true || value.component_animations !== 1 || value.video_playback !== 1 || value.video_height !== 1
   ) {
     return false;
   }

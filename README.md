@@ -249,7 +249,12 @@ player controls, autoplay, looping and muting. Autoplay starts muted; the sound
 preference becomes editable again when autoplay is disabled. Existing videos
 retain manual playback and controls until edited. For a seamless video, select
 full page width, no spacing, controls off and autoplay on.
-Deploy the API, then the renderer advertising `video_playback: 1`, then this editor.
+The section height selector offers XS/S/M/L, matching the main banner's
+250/300/400/550 px presets. Uploaded video fills the frame without distortion;
+Original preserves natural proportions and is the default for existing videos.
+Height is shared by the live preview and publication, including hosted players.
+Deploy the API, then the renderer advertising `video_playback: 1` and
+`video_height: 1`, then this editor.
 Isolated browser regression: `npx playwright test -c playwright.website-editor.config.ts video-upload.spec.ts`.
 
 The **Footer** panel offers **Add footer** when none exists. It creates a shared

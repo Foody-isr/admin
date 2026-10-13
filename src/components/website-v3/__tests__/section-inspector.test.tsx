@@ -100,12 +100,14 @@ test("standalone video exposes upload and URL controls without cover playback se
 
 test("video playback and spacing settings are editable from content and appearance", () => {
   for (const sectionPanel of ["content", "appearance"] as const) {
-    const markup = renderSection({ section_type: "video", layout: "full_width", settings: { video_autoplay: true, video_controls: false, video_loop: true, video_muted: false, padding: "none" } }, sectionPanel);
-    for (const key of ["video_autoplay", "video_controls", "video_loop", "video_muted", "padding"]) {
+    const markup = renderSection({ section_type: "video", layout: "full_width", settings: { video_autoplay: true, video_controls: false, video_loop: true, video_muted: false, video_height: "m", padding: "none" } }, sectionPanel);
+    for (const key of ["video_autoplay", "video_controls", "video_loop", "video_muted", "video_height", "padding"]) {
       assert.match(markup, new RegExp(`data-field-id="section\\.settings\\.${key}"`));
     }
     assert.match(markup, /Automatic playback starts muted/);
     assert.match(markup, /value="none" selected=""/);
+    assert.match(markup, /value="m" selected=""/);
+    for (const size of ["XS", "S", "M", "L"]) assert.match(markup, new RegExp(`>${size}</option>`));
   }
 });
 
