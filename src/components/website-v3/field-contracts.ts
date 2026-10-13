@@ -227,6 +227,7 @@ function contract(
 }
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
+  "page.appearance_overrides.website_order.modal_cover_url": "https://example.com/modal.jpg",
   "section.settings.motion.parallax_target": "text",
   "section.settings.motion.mobile_parallax": "up",
   "section.settings.motion.mobile_parallax_target": "text",
@@ -629,6 +630,7 @@ function expectedFor(id: string, value: TestValue): string {
 }
 
 export const FIELD_CONTRACTS: readonly FieldContract[] = [
+  page("page.appearance_overrides.website_order.modal_cover_url", ["appearance_overrides", "website_order", "modal_cover_url"], ".website-fulfillment-cover", "attribute", ["order"]),
   site("site.tagline", ["tagline"], "[data-website-v3-page]", "text"),
   site("site.navbar_style", ["navbar_style"], "nav", "style"),
   site("site.navbar_color", ["navbar_color"], "nav", "style"),

@@ -1,4 +1,5 @@
 "use client";
+import { ImageFramingControl } from "./ImageFramingControl";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -308,6 +309,7 @@ export function SquareContentEditor({
           {(Array.isArray(c.cards) ? c.cards : []).map(
             (card: Record<string, unknown>, index: number) => (
               <div key={index} className="border-b py-4 space-y-3">
+                {typeof card.image_url === "string" && <ImageFramingControl src={card.image_url} value={card.image_framing} onChange={framing => update("cards", (c.cards as unknown[]).map((value, i) => i === index ? {...card, image_framing: framing} : value))} />}
                 {[
                   "title",
                   "body",

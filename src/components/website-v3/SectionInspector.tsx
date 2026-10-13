@@ -280,30 +280,16 @@ export function SectionInspector({
                   />
                 </>
               ) : null}
-              {["text_and_image", "scrolling_text", "animated_text"].includes(
-                section.section_type,
-              ) ? (
-                <ImageUploadField
-                  restaurantId={restaurantId}
-                  label={t("editorBackgroundMedia")}
-                  currentUrl={string(section.settings.bg_image)}
-                  onUploaded={(url) => onChange(["settings", "bg_image"], url)}
-                  onRemove={() => onChange(["settings", "bg_image"], "")}
-                />
-              ) : (
-                <InspectorField label="Image de fond">
-                  <input
-                    type="url"
-                    data-field-id="section.settings.bg_image"
-                    value={string(section.settings.bg_image)}
-                    onChange={(event) =>
-                      onChange(["settings", "bg_image"], event.target.value)
-                    }
-                    className={controlClass}
-                    placeholder="https://..."
-                  />
-                </InspectorField>
-              )}
+              <ImageUploadField
+                restaurantId={restaurantId}
+                label={t("editorBackgroundMedia")}
+                fieldId="section.settings.bg_image"
+                framing={section.settings.bg_image_framing}
+                onFramingChange={value => onChange(["settings", "bg_image_framing"], value)}
+                currentUrl={string(section.settings.bg_image)}
+                onUploaded={url => onChange(["settings", "bg_image"], url)}
+                onRemove={() => onChange(["settings", "bg_image"], "")}
+              />
               <ToggleField
                 fieldId="section.settings.bg_overlay"
                 label="Voile sur l’image"

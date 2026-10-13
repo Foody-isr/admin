@@ -3,6 +3,9 @@
 import { MotionTextContentFields } from "./MotionTextContentFields";
 import { TextImageContentEditor } from "./TextImageContentEditor";
 import { useRef, useState } from "react";
+import { ImageFramingControl } from "./ImageFramingControl";
+import { normalizeImageFraming } from "@/lib/website-v3/image-framing";
+import type { ImageFraming } from "@/lib/website-v3/image-framing";
 import {
   SquareContentEditor,
   SQUARE_CONTENT_TYPES,
@@ -100,11 +103,22 @@ export function SectionContentEditors({
       );
     case "about":
       return (
-        <AboutBlocksEditor
-          restaurantId={restaurantId}
-          content={section.content}
-          updateContent={updateContent}
-        />
+        <div className="space-y-4">
+          {section.layout === "split" && <ImageUploadField
+            restaurantId={restaurantId}
+            label="Image"
+            currentUrl={text(section.settings.image_url)}
+            framing={section.settings.image_framing}
+            onFramingChange={value => updateSettings("image_framing", value)}
+            onUploaded={url => updateSettings("image_url", url)}
+            onRemove={() => updateSettings("image_url", "")}
+          />}
+          <AboutBlocksEditor
+            restaurantId={restaurantId}
+            content={section.content}
+            updateContent={updateContent}
+          />
+        </div>
       );
     case "featured_menu":
     case "menu_highlights":
@@ -168,6 +182,8 @@ export function SectionContentEditors({
             restaurantId={restaurantId}
             label="Image"
             fieldId="section.content.image_url"
+            framing={section.content.image_framing}
+            onFramingChange={value => updateContent("image_framing", value)}
             currentUrl={text(section.content.image_url)}
             onUploaded={(url) => updateContent("image_url", url)}
             onRemove={() => updateContent("image_url", "")}
@@ -258,6 +274,8 @@ function HeroEditor({
         restaurantId={restaurantId}
         label="Image principale"
         fieldId="section.content.image_url"
+        framing={content.image_framing}
+        onFramingChange={value => updateContent("image_framing", value)}
         currentUrl={currentImage}
         onUploaded={replaceImage}
         onRemove={removeImage}
@@ -291,8 +309,8 @@ function GalleryEditor({
   onChange,
 }: {
   restaurantId: number;
-  images: Array<{ url: string; alt?: string }>;
-  onChange: (images: Array<{ url: string; alt?: string }>) => void;
+  images: Array<{ url: string; alt?: string; image_framing?: ImageFraming }>;
+  onChange: (images: Array<{ url: string; alt?: string; image_framing?: ImageFraming }>) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -309,6 +327,7 @@ function GalleryEditor({
                 className="aspect-square w-full object-cover"
               />
               <div className="space-y-2 p-2">
+                <ImageFramingControl src={image.url} desktopRatio={1} mobileRatio={1} value={image.image_framing} onChange={value => onChange(images.map((candidate, i) => i === index ? {...candidate, image_framing: value} : candidate))} />
                 <input
                   aria-label={`Texte alternatif ${index + 1}`}
                   value={image.alt ?? ""}
@@ -413,6 +432,8 @@ function FeatureCardsEditor({
           <ImageUploadField
             restaurantId={restaurantId}
             label="Image"
+            framing={card.image_framing}
+            onFramingChange={value => updateCard(index, "image_framing", value)}
             currentUrl={text(card.image_url)}
             onUploaded={(url) => updateCard(index, "image_url", url)}
             onRemove={() => updateCard(index, "image_url", "")}
@@ -556,6 +577,8 @@ function OrderDiscoveryEditor({
           <ImageUploadField
             restaurantId={restaurantId}
             label="Image du service"
+            framing={promotion.image_framing}
+            onFramingChange={value => updatePromotion(index, "image_framing", value)}
             currentUrl={text(promotion.image_url)}
             onUploaded={(url) => updatePromotion(index, "image_url", url)}
             onRemove={() => updatePromotion(index, "image_url", "")}
@@ -858,9 +881,13 @@ export function ImageUploadField({
   currentUrl,
   onUploaded,
   onRemove,
+  framing,
+  onFramingChange,
 }: {
   restaurantId: number;
   label: string;
+  framing?: unknown;
+  onFramingChange?: (value: ImageFraming | undefined) => void;
   fieldId?: string;
   currentUrl: string;
   onUploaded: (url: string) => void;
@@ -933,6 +960,7 @@ export function ImageUploadField({
         onChange={(event) => void upload(event.target.files?.[0])}
         className="hidden"
       />
+      {currentUrl && onFramingChange && <ImageFramingControl src={currentUrl} value={framing} onChange={onFramingChange} />}
       {fieldId ? (
         <input
           type="url"
@@ -1011,13 +1039,13 @@ function move<T>(items: T[], from: number, to: number): T[] {
   return next;
 }
 
-function imageList(value: unknown): Array<{ url: string; alt?: string }> {
+function imageList(value: unknown): Array<{ url: string; alt?: string; image_framing?: ImageFraming }> {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const record = item as Record<string, unknown>;
     const url = text(record.url);
-    return url ? [{ url, alt: text(record.alt) }] : [];
+    return url ? [{ url, alt: text(record.alt), image_framing: normalizeImageFraming(record.image_framing) }] : [];
   });
 }
 

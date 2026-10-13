@@ -1,3 +1,5 @@
+import { normalizeImageFraming, type ImageFraming } from "./image-framing";
+
 /** Persisted Header component contract. Kept identical in Admin, Web and the server validator. */
 export type WebsiteHeader = {
   version: 1;
@@ -11,6 +13,7 @@ export type WebsiteHeader = {
     angle: number;
     image: string;
     overlay: number;
+    framing?: ImageFraming;
   };
   navigation: {
     enabled: boolean;
@@ -26,6 +29,7 @@ export type WebsiteHeader = {
     size: number;
     background: string;
     custom_background: boolean;
+    framing?: ImageFraming;
     link: HeaderTarget;
   };
   button: {
@@ -177,6 +181,7 @@ export function normalizeWebsiteHeader(value: unknown): WebsiteHeader {
       end: color(bg.end) || "#ffffff",
       angle: range(bg.angle, 0, 360, 90),
       image: headerSafeUrl(bg.image, true),
+      ...(normalizeImageFraming(bg.framing) ? {framing: normalizeImageFraming(bg.framing)} : {}),
       overlay: range(bg.overlay, 0, 100, 0),
     },
     navigation: {
@@ -189,6 +194,7 @@ export function normalizeWebsiteHeader(value: unknown): WebsiteHeader {
     logo: {
       type: choice(logo.type, ["image", "text"] as const, "image"),
       image: headerSafeUrl(logo.image, true),
+      ...(normalizeImageFraming(logo.framing) ? {framing: normalizeImageFraming(logo.framing)} : {}),
       text: text(logo.text),
       size: range(logo.size, 24, 160, 64),
       background: color(logo.background) || "#ffffff",

@@ -390,6 +390,8 @@ export function HeaderInspector({
                 <>
                   <HeaderMedia
                     restaurantId={restaurantId}
+                    framing={header.background.framing}
+                    onFramingChange={framing => patch("background", {framing})}
                     value={header.background.image || (restaurantLayout ? restaurantCoverUrl || "" : "")}
                     onChange={(image) => patch("background", { image, ...(restaurantLayout && !image ? {mode: "style" as const} : {}) })}
                     copy={c}
@@ -453,6 +455,8 @@ export function HeaderInspector({
               {header.logo.type === "image" ? (
                 <HeaderMedia
                   restaurantId={restaurantId}
+                  framing={header.logo.framing}
+                  onFramingChange={framing => patch("logo", {framing})}
                   value={header.logo.image || (restaurantLayout ? restaurantLogoUrl || "" : "")}
                   onChange={(image) => patch("logo", { image, ...(restaurantLayout && !image ? {type: "text" as const} : {}) })}
                   copy={c}

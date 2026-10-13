@@ -763,3 +763,11 @@ Checks: `npx tsx --test src/lib/__tests__/delivery-planning.test.ts` and
 `npx playwright test -c playwright.redesign.config.ts delivery-planner.spec.ts delivery-zones.spec.ts`.
 The browser fixtures use synthetic road geometry and tiles; no provider credentials
 or customer data are used.
+
+### Website image framing
+
+Website V3 image controls include non-destructive pan, 50–300% zoom, and fill/entire-image modes. Desktop and mobile frames are stored independently; the mobile control can explicitly inherit desktop framing. Header backgrounds/logos, section images/backgrounds/galleries, catering/chain imagery and per-item website photos use the same control. Framing affects website presentation without replacing catalogue assets.
+
+Order mode settings accept an independent `website_order.modal_cover_url` and `modal_cover_framing`, shared by fulfillment and scheduling windows. An empty URL inherits the restaurant cover; the cover toggle hides it. Optional frame objects live beside their media in the existing draft JSON, including `background.framing`/`logo.framing` in headers and `image_framing` in section content. Item overrides use `item_image_frames` keyed by item ID.
+
+The isolated image suite runs with `FOODY_WEB_DIR=/path/to/foodyweb npx playwright test -c playwright.image-framing.config.ts`; its API writes are in memory only.
