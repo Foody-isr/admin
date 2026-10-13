@@ -107,8 +107,18 @@ test("video files can be uploaded, replaced, saved, published and removed", asyn
   const autoplay = panel.locator('[data-field-id="section.settings.video_autoplay"]');
   const controls = panel.locator('[data-field-id="section.settings.video_controls"]');
   const muted = panel.locator('[data-field-id="section.settings.video_muted"]');
+  const height = panel.getByRole("combobox", { name: "Hauteur de la section", exact: true });
+  await expect(height).toHaveValue("original");
   await fullWidth.check();
   await panel.locator('[data-field-id="section.settings.padding"]').selectOption("none");
+  for (const [size, pixels] of [["xs", 250], ["s", 300], ["m", 400], ["l", 550]] as const) {
+    await height.selectOption(size);
+    await expect.poll(() => previewVideo.evaluate(video => video.getBoundingClientRect().height)).toBe(pixels);
+    await expect.poll(async () => (await draft()).sections[0].settings.video_height).toBe(size);
+  }
+  await height.selectOption("original");
+  await expect(previewVideo).not.toHaveAttribute("style", /height:/);
+  await height.selectOption("m");
   await controls.uncheck();
   await panel.locator('[data-field-id="section.settings.video_loop"]').check();
   await autoplay.check();
@@ -118,13 +128,14 @@ test("video files can be uploaded, replaced, saved, published and removed", asyn
   await expect(previewVideo).toHaveAttribute("autoplay");
   await expect(previewVideo).toHaveAttribute("loop");
   await expect.poll(() => previewVideo.evaluate(video => ({ muted: (video as HTMLVideoElement).muted, paused: (video as HTMLVideoElement).paused }))).toEqual({ muted: true, paused: false });
-  await expect.poll(async () => (await draft()).sections[0]).toMatchObject({ layout: "full_width", settings: { padding: "none", video_controls: false, video_autoplay: true, video_loop: true } });
+  await expect.poll(async () => (await draft()).sections[0]).toMatchObject({ layout: "full_width", settings: { padding: "none", video_controls: false, video_autoplay: true, video_loop: true, video_height: "m" } });
   await page.reload();
   await page.getByRole("button", { name: "Vidéo", exact: true }).click();
   await panel.getByRole("button", { name: "Cliquez ici pour modifier", exact: true }).click();
   await expect(fullWidth).toBeChecked();
   await expect(controls).not.toBeChecked();
   await expect(autoplay).toBeChecked();
+  await expect(height).toHaveValue("m");
   await autoplay.uncheck();
   await expect(muted).not.toBeChecked();
   await expect(muted).toBeEnabled();
@@ -158,6 +169,8 @@ test("video files can be uploaded, replaced, saved, published and removed", asyn
     expect(geometry.topPadding).toBe("0px");
     expect(geometry.bottomPadding).toBe("0px");
     expect(geometry.overflow).toBe(false);
+    await expect(publicVideo).toHaveCSS("height", "400px");
+    await expect(publicVideo).toHaveCSS("object-fit", "cover");
   }
 
   await page.getByRole("button", { name: "Vidéo", exact: true }).click();
@@ -172,4 +185,5 @@ test("video files can be uploaded, replaced, saved, published and removed", asyn
   const embedded = preview.locator('[data-section-type="video"] iframe');
   await expect(embedded).toHaveAttribute("src", /autoplay=1&controls=0&loop=1&mute=1/);
   await expect(embedded).toHaveAttribute("allow", /autoplay/);
+  await expect(embedded).toHaveCSS("height", "400px");
 });

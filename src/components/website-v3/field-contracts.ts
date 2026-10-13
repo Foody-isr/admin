@@ -227,6 +227,7 @@ function contract(
 }
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
+  "section.settings.video_height": "m",
   "section.settings.video_controls": false,
   "section.settings.video_autoplay": true,
   "section.settings.video_loop": true,
@@ -932,6 +933,7 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.content.image_url", ["content", "image_url"], "[data-website-section] img", "value"),
   section("section.content.video_url", ["content", "video_url"], "[data-website-section] video", "value"),
   section("section.settings.video_controls", ["settings", "video_controls"], "[data-website-section] video", "value"),
+  section("section.settings.video_height", ["settings", "video_height"], "[data-website-section] video", "style"),
   section("section.settings.video_autoplay", ["settings", "video_autoplay"], "[data-website-section] video", "value"),
   section("section.settings.video_loop", ["settings", "video_loop"], "[data-website-section] video", "value"),
   section("section.settings.video_muted", ["settings", "video_muted"], "[data-website-section] video", "value"),
