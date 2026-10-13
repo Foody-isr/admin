@@ -1,5 +1,7 @@
 "use client";
 
+import { ImageFramingControl } from "./ImageFramingControl";
+import type { ImageFraming } from "@/lib/website-v3/image-framing";
 import { useState, useRef } from "react";
 import { useI18n } from "@/lib/i18n";
 import { uploadSectionImage } from "@/lib/api";
@@ -38,7 +40,7 @@ export function AboutBlocksEditor({ content, updateContent, restaurantId }: {
     updateContent('blocks', newBlocks);
   }
 
-  function updateBlock(index: number, key: string, value: string) {
+  function updateBlock(index: number, key: string, value: unknown) {
     const updated = blocks.map((b, i) => i === index ? { ...b, [key]: value } : b);
     setBlocks(updated);
   }
@@ -64,6 +66,8 @@ export function AboutBlocksEditor({ content, updateContent, restaurantId }: {
           </div>
           <SectionImageUploader
             restaurantId={restaurantId}
+            framing={block.image_framing}
+            onFramingChange={value => updateBlock(idx, 'image_framing', value)}
             currentUrl={block.image_url || ''}
             onUploaded={(url) => updateBlock(idx, 'image_url', url)}
             onRemove={() => updateBlock(idx, 'image_url', '')}
@@ -218,6 +222,8 @@ export function PicnicBasketEditor({ content, settings, updateContent, updateSet
       </div>
       <SectionImageUploader
         restaurantId={restaurantId}
+        framing={content.basket_framing}
+        onFramingChange={value => updateContent('basket_framing', value)}
         currentUrl={content.basket_image || ''}
         onUploaded={(url) => updateContent('basket_image', url)}
         onRemove={() => updateContent('basket_image', '')}
@@ -277,7 +283,7 @@ export function PicnicBasketEditor({ content, settings, updateContent, updateSet
 
 
 /** Uploads an image for the current restaurant and reports upload failures. */
-export function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onRemove, label, className, alwaysShowActions = false, mediaField, actionLabels }: {
+export function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onRemove, label, className, alwaysShowActions = false, mediaField, actionLabels, framing, onFramingChange }: {
   restaurantId: number;
   currentUrl?: string;
   onUploaded: (url: string) => void;
@@ -286,6 +292,8 @@ export function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onR
   className?: string;
   alwaysShowActions?: boolean;
   mediaField?: string;
+  framing?: unknown;
+  onFramingChange?: (value: ImageFraming | undefined) => void;
   actionLabels?: { upload: string; replace: string; remove: string; uploading: string };
 }) {
   const [uploading, setUploading] = useState(false);
@@ -338,6 +346,7 @@ export function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onR
           )}
         </button>
       )}
+      {currentUrl && onFramingChange && <ImageFramingControl src={currentUrl} value={framing} onChange={onFramingChange} />}
       <input ref={inputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" data-media-field={mediaField} />
     </div>
   );
@@ -346,8 +355,8 @@ export function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onR
 
 function SectionMultiImageUploader({ restaurantId, images, onUpdate, label, hint }: {
   restaurantId: number;
-  images: { url: string; alt?: string }[];
-  onUpdate: (images: { url: string; alt?: string }[]) => void;
+  images: { url: string; alt?: string; image_framing?: ImageFraming }[];
+  onUpdate: (images: { url: string; alt?: string; image_framing?: ImageFraming }[]) => void;
   label?: string;
   hint?: string;
 }) {
@@ -389,7 +398,7 @@ function SectionMultiImageUploader({ restaurantId, images, onUpdate, label, hint
     <div>
       {label && <label className="text-xs text-fg-secondary mb-1 block">{label}</label>}
       {images.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 mb-2">
+        <div className="grid grid-cols-1 gap-2 mb-2">
           {images.map((img, i) => (
             <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-[var(--divider)]">
               <img src={img.url} alt={img.alt || ''} className="w-full h-full object-cover" />
@@ -410,6 +419,7 @@ function SectionMultiImageUploader({ restaurantId, images, onUpdate, label, hint
               </div>
             </div>
           ))}
+          {images.map((img, i) => <ImageFramingControl key={`${img.url}-${i}`} src={img.url} value={img.image_framing} desktopRatio={1} mobileRatio={1} onChange={value => onUpdate(images.map((candidate, index) => index === i ? {...candidate, image_framing: value} : candidate))} />)}
         </div>
       )}
       <button

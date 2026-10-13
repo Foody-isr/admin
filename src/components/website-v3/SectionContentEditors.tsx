@@ -3,6 +3,9 @@
 import { MotionTextContentFields } from "./MotionTextContentFields";
 import { TextImageContentEditor } from "./TextImageContentEditor";
 import { useRef, useState } from "react";
+import { ImageFramingControl } from "./ImageFramingControl";
+import { normalizeImageFraming } from "@/lib/website-v3/image-framing";
+import type { ImageFraming } from "@/lib/website-v3/image-framing";
 import {
   SquareContentEditor,
   SQUARE_CONTENT_TYPES,
@@ -12,7 +15,8 @@ import {
   ActionButtonsEditor,
   PicnicBasketEditor,
 } from "./SupportingContentEditors";
-import { uploadSectionImage, uploadSectionVideo } from "@/lib/api";
+import { uploadSectionImage } from "@/lib/api";
+import { VideoUploadField } from "./VideoUploadField";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import { FeaturedItemsEditor } from "./FeaturedItemsEditor";
 import { InspectorField, ToggleField, controlClass } from "./controls";
@@ -99,11 +103,22 @@ export function SectionContentEditors({
       );
     case "about":
       return (
-        <AboutBlocksEditor
-          restaurantId={restaurantId}
-          content={section.content}
-          updateContent={updateContent}
-        />
+        <div className="space-y-4">
+          {section.layout === "split" && <ImageUploadField
+            restaurantId={restaurantId}
+            label="Image"
+            currentUrl={text(section.settings.image_url)}
+            framing={section.settings.image_framing}
+            onFramingChange={value => updateSettings("image_framing", value)}
+            onUploaded={url => updateSettings("image_url", url)}
+            onRemove={() => updateSettings("image_url", "")}
+          />}
+          <AboutBlocksEditor
+            restaurantId={restaurantId}
+            content={section.content}
+            updateContent={updateContent}
+          />
+        </div>
       );
     case "featured_menu":
     case "menu_highlights":
@@ -167,6 +182,8 @@ export function SectionContentEditors({
             restaurantId={restaurantId}
             label="Image"
             fieldId="section.content.image_url"
+            framing={section.content.image_framing}
+            onFramingChange={value => updateContent("image_framing", value)}
             currentUrl={text(section.content.image_url)}
             onUploaded={(url) => updateContent("image_url", url)}
             onRemove={() => updateContent("image_url", "")}
@@ -257,6 +274,8 @@ function HeroEditor({
         restaurantId={restaurantId}
         label="Image principale"
         fieldId="section.content.image_url"
+        framing={content.image_framing}
+        onFramingChange={value => updateContent("image_framing", value)}
         currentUrl={currentImage}
         onUploaded={replaceImage}
         onRemove={removeImage}
@@ -284,123 +303,14 @@ function HeroEditor({
   );
 }
 
-/** Uploads a hero video while preserving its poster image. */
-export function VideoUploadField({
-  restaurantId,
-  currentUrl,
-  posterUrl,
-  onUploaded,
-  onRemove,
-}: {
-  restaurantId: number;
-  currentUrl: string;
-  posterUrl: string;
-  onUploaded: (url: string) => void;
-  onRemove: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function upload(file: File | undefined) {
-    if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      setError("La vidéo ne doit pas dépasser 50 Mo.");
-      return;
-    }
-    setUploading(true);
-    setError(null);
-    try {
-      onUploaded(await uploadSectionVideo(restaurantId, file));
-    } catch (uploadError) {
-      setError(
-        uploadError instanceof Error
-          ? uploadError.message
-          : "Le téléversement a échoué.",
-      );
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <div>
-        <p className="text-xs font-semibold text-slate-600">
-          Vidéo de couverture
-        </p>
-        <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-          MP4 ou WebM, 50 Mo maximum. La vidéo sera muette et jouée en boucle.
-        </p>
-      </div>
-      {currentUrl ? (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
-          <video
-            src={currentUrl}
-            poster={posterUrl || undefined}
-            muted
-            loop
-            playsInline
-            controls
-            className="max-h-44 w-full object-cover"
-          />
-          <div className="flex gap-2 bg-white p-2">
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={() => inputRef.current?.click()}
-              className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-            >
-              {uploading ? "Téléversement…" : "Remplacer"}
-            </button>
-            <button
-              type="button"
-              onClick={onRemove}
-              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
-            >
-              Supprimer
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          disabled={uploading}
-          onClick={() => inputRef.current?.click()}
-          className="w-full rounded-xl border-2 border-dashed border-slate-200 px-3 py-6 text-sm font-semibold text-slate-600 hover:border-[#315fce] hover:text-[#315fce] disabled:opacity-50"
-        >
-          {uploading ? "Téléversement…" : "Ajouter une vidéo"}
-        </button>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="video/mp4,video/webm"
-        onChange={(event) => void upload(event.target.files?.[0])}
-        className="hidden"
-      />
-      <input
-        type="url"
-        data-field-id="section.content.video_url"
-        value={currentUrl}
-        onChange={(event) => onUploaded(event.target.value)}
-        className={controlClass}
-        placeholder="Ou collez l’URL de la vidéo"
-      />
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
-    </div>
-  );
-}
-
 function GalleryEditor({
   restaurantId,
   images,
   onChange,
 }: {
   restaurantId: number;
-  images: Array<{ url: string; alt?: string }>;
-  onChange: (images: Array<{ url: string; alt?: string }>) => void;
+  images: Array<{ url: string; alt?: string; image_framing?: ImageFraming }>;
+  onChange: (images: Array<{ url: string; alt?: string; image_framing?: ImageFraming }>) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -417,6 +327,7 @@ function GalleryEditor({
                 className="aspect-square w-full object-cover"
               />
               <div className="space-y-2 p-2">
+                <ImageFramingControl src={image.url} desktopRatio={1} mobileRatio={1} value={image.image_framing} onChange={value => onChange(images.map((candidate, i) => i === index ? {...candidate, image_framing: value} : candidate))} />
                 <input
                   aria-label={`Texte alternatif ${index + 1}`}
                   value={image.alt ?? ""}
@@ -521,6 +432,8 @@ function FeatureCardsEditor({
           <ImageUploadField
             restaurantId={restaurantId}
             label="Image"
+            framing={card.image_framing}
+            onFramingChange={value => updateCard(index, "image_framing", value)}
             currentUrl={text(card.image_url)}
             onUploaded={(url) => updateCard(index, "image_url", url)}
             onRemove={() => updateCard(index, "image_url", "")}
@@ -664,6 +577,8 @@ function OrderDiscoveryEditor({
           <ImageUploadField
             restaurantId={restaurantId}
             label="Image du service"
+            framing={promotion.image_framing}
+            onFramingChange={value => updatePromotion(index, "image_framing", value)}
             currentUrl={text(promotion.image_url)}
             onUploaded={(url) => updatePromotion(index, "image_url", url)}
             onRemove={() => updatePromotion(index, "image_url", "")}
@@ -966,9 +881,13 @@ export function ImageUploadField({
   currentUrl,
   onUploaded,
   onRemove,
+  framing,
+  onFramingChange,
 }: {
   restaurantId: number;
   label: string;
+  framing?: unknown;
+  onFramingChange?: (value: ImageFraming | undefined) => void;
   fieldId?: string;
   currentUrl: string;
   onUploaded: (url: string) => void;
@@ -1041,6 +960,7 @@ export function ImageUploadField({
         onChange={(event) => void upload(event.target.files?.[0])}
         className="hidden"
       />
+      {currentUrl && onFramingChange && <ImageFramingControl src={currentUrl} value={framing} onChange={onFramingChange} />}
       {fieldId ? (
         <input
           type="url"
@@ -1119,13 +1039,13 @@ function move<T>(items: T[], from: number, to: number): T[] {
   return next;
 }
 
-function imageList(value: unknown): Array<{ url: string; alt?: string }> {
+function imageList(value: unknown): Array<{ url: string; alt?: string; image_framing?: ImageFraming }> {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const record = item as Record<string, unknown>;
     const url = text(record.url);
-    return url ? [{ url, alt: text(record.alt) }] : [];
+    return url ? [{ url, alt: text(record.alt), image_framing: normalizeImageFraming(record.image_framing) }] : [];
   });
 }
 

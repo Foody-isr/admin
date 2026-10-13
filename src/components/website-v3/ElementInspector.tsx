@@ -21,9 +21,9 @@ import {
 } from "./controls";
 import {
   ImageUploadField,
-  VideoUploadField,
   heroImageReplacement,
 } from "./SectionContentEditors";
+import { VideoUploadField } from "./VideoUploadField";
 import { squareDefaultContent as getDefaultContent } from "@/lib/website-v3/square-components";
 
 const labels: Record<string, string> = {
@@ -135,6 +135,8 @@ export function ElementInspector({
         <ImageUploadField
           restaurantId={restaurantId}
           label={t("editorBackgroundMedia")}
+          framing={section.content.image_framing}
+          onFramingChange={value => onChange(["content", "image_framing"], value)}
           currentUrl={String(
             section.content.image_url || section.settings.bg_image || "",
           )}

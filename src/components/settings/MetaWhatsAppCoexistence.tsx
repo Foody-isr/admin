@@ -1,0 +1,175 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Badge, Button, Field, Input, Section } from '@/components/ds';
+import { ApiError, beginMetaWhatsAppSignup, completeMetaWhatsAppSignup, getMetaWhatsAppStatus, resumeMetaWhatsAppSignup, type MetaWhatsAppStatus } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { loadMetaSdk } from '@/lib/meta-sdk';
+import { normalizeWhatsAppPhone } from '@/lib/whatsapp-embedded';
+import { CoexistenceAttempt, coexistenceCode, parseCoexistenceEvent } from '@/lib/whatsapp-coexistence';
+import { MetaWhatsAppTemplates } from './MetaWhatsAppTemplates';
+
+/** Pilot onboarding for a restaurant retaining its existing WhatsApp Business app. */
+export function MetaWhatsAppCoexistence({ rid, canEdit, disabled = false, onLockChange }: { rid: number; canEdit: boolean; disabled?: boolean; onLockChange?: (locked: boolean) => void }) {
+  const { t } = useI18n();
+  const [status, setStatus] = useState<MetaWhatsAppStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [phone, setPhone] = useState('');
+  const [phase, setPhase] = useState<'idle' | 'preparing' | 'prepared' | 'authorizing' | 'saving'>('idle');
+  const [prepared, setPrepared] = useState<{ state: string; expires_at: string } | null>(null);
+  const [error, setError] = useState('');
+  const [templatesLocked, setTemplatesLocked] = useState(false);
+  const active = useRef<CoexistenceAttempt | null>(null);
+  const generation = useRef(0);
+  const busy = useRef(false);
+  const copy = useRef(t); copy.current = t;
+  const request = useRef(0);
+  const permitted = useRef(canEdit); permitted.current = canEdit;
+
+  useEffect(() => { onLockChange?.(phase !== 'idle' || templatesLocked); return () => onLockChange?.(false); }, [phase, templatesLocked, onLockChange]);
+
+  const refresh = useCallback(async () => {
+    const life = generation.current, sequence = ++request.current;
+    try {
+      const next = await getMetaWhatsAppStatus(rid);
+      if (life === generation.current && sequence === request.current) { setStatus(next); setLoading(false); }
+    } catch {
+      if (life === generation.current && sequence === request.current) { setLoading(false); setError(copy.current('waCoexLoadFailed')); }
+    }
+  }, [rid]);
+  useEffect(() => {
+    void refresh();
+    return () => { generation.current += 1; active.current?.cancel(); active.current = null; };
+  }, [refresh]);
+  useEffect(() => {
+    if (status?.connection?.status !== 'syncing' || phase !== 'idle') return;
+    const timer = setTimeout(() => void refresh(), 10000);
+    return () => clearTimeout(timer);
+  }, [status, phase, refresh]);
+  useEffect(() => {
+    if (phase === 'idle') return;
+    const guard = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [phase]);
+  useEffect(() => {
+    if (!prepared || (phase !== 'prepared' && phase !== 'authorizing')) return;
+    const timer = setTimeout(() => {
+      active.current?.cancel(); active.current = null; setPrepared(null); setPhase('idle'); setError(copy.current('waCoexExpired'));
+    }, Math.max(0, Date.parse(prepared.expires_at) - Date.now()));
+    return () => clearTimeout(timer);
+  }, [prepared, phase]);
+
+  const message = useCallback((cause: unknown) => {
+    const known: Record<string, string> = {
+      wa_meta_signup_expired: 'waCoexExpired', wa_meta_number_not_coexisting: 'waCoexNumberRejected',
+      wa_meta_authorization_invalid: 'waCoexAuthorizationRejected', wa_meta_connection_exists: 'waCoexConflict',
+    };
+    return copy.current(cause instanceof ApiError && known[cause.message] ? known[cause.message] : 'waCoexFailed');
+  }, []);
+
+  const submitIfReady = useCallback(async (attempt: CoexistenceAttempt) => {
+    if (active.current !== attempt || !canEdit) return;
+    const input = attempt.take(); if (!input) return;
+    active.current = null;
+    const life = generation.current;
+    request.current += 1;
+    busy.current = true; setPhase('saving'); setError('');
+    try {
+      const next = await completeMetaWhatsAppSignup(rid, input);
+      if (life === generation.current) setStatus(next);
+    } catch (cause) {
+      if (life === generation.current) { setError(message(cause)); await refresh(); }
+    } finally {
+      if (life === generation.current) { active.current = null; busy.current = false; setPrepared(null); setPhase('idle'); }
+    }
+  }, [rid, canEdit, message, refresh]);
+  useEffect(() => {
+    const receive = (event: MessageEvent) => {
+      const attempt = active.current;
+      if (!attempt || !canEdit) return;
+      const result = parseCoexistenceEvent(event.origin, event.data); if (!result) return;
+      if (result.kind === 'finished') { attempt.acceptIdentity(result.identity); void submitIfReady(attempt); }
+      else { attempt.cancel(); active.current = null; setPrepared(null); setPhase('idle'); setError(copy.current(result.kind === 'cancelled' ? 'waSignupCancelled' : 'waSignupFailed')); }
+    };
+    window.addEventListener('message', receive);
+    return () => window.removeEventListener('message', receive);
+  }, [canEdit, submitIfReady]);
+  useEffect(() => {
+    if (canEdit) return;
+    active.current?.cancel(); active.current = null; busy.current = false; setPrepared(null); setPhase('idle');
+  }, [canEdit]);
+
+  const prepare = async () => {
+    const normalized = normalizeWhatsAppPhone(phone);
+    if (!canEdit || disabled || busy.current || !normalized || !status?.configured) return;
+    const life = generation.current;
+    request.current += 1;
+    busy.current = true; setPhase('preparing'); setError('');
+    try {
+      const session = await beginMetaWhatsAppSignup(rid, normalized);
+      await loadMetaSdk(status.app_id, status.graph_version);
+      if (life === generation.current && permitted.current) { setPrepared(session); setPhase('prepared'); }
+    } catch (cause) { if (life === generation.current) { setError(message(cause)); setPhase('idle'); } }
+    finally { if (life === generation.current) busy.current = false; }
+  };
+  const launch = () => {
+    if (!canEdit || disabled || !prepared || !status?.configured || !window.FB || active.current || busy.current) return;
+    if (Date.parse(prepared.expires_at) <= Date.now()) { setPrepared(null); setPhase('idle'); setError(t('waCoexExpired')); return; }
+    const attempt = new CoexistenceAttempt(prepared.state); active.current = attempt;
+    setPhase('authorizing'); setError('');
+    try {
+      // Synchronous user click preserves popup authorization. Reinitialize after other Meta flows.
+      window.FB.init({ appId: status.app_id, version: status.graph_version, autoLogAppEvents: false, xfbml: false });
+      window.FB.login(response => {
+        if (active.current !== attempt) return;
+        const code = coexistenceCode(response);
+        if (code) { attempt.acceptCode(code); void submitIfReady(attempt); }
+        else { attempt.cancel(); active.current = null; setPrepared(null); setPhase('idle'); setError(copy.current('waSignupCancelled')); }
+      }, {
+        config_id: status.config_id, response_type: 'code', override_default_response_type: true,
+        extras: { setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' },
+      });
+    } catch { attempt.cancel(); active.current = null; setPrepared(null); setPhase('idle'); setError(t('waSdkFailed')); }
+  };
+  const cancel = () => { active.current?.cancel(); active.current = null; setPrepared(null); setPhase('idle'); setError(''); };
+  const resume = async () => {
+    if (!canEdit || disabled || busy.current) return;
+    const life = generation.current; request.current += 1; busy.current = true; setPhase('saving'); setError('');
+    try { const next = await resumeMetaWhatsAppSignup(rid); if (life === generation.current) setStatus(next); }
+    catch (cause) { if (life === generation.current) { setError(message(cause)); await refresh(); } }
+    finally { if (life === generation.current) { busy.current = false; setPhase('idle'); } }
+  };
+  const connection = status?.connection;
+  const labels: Record<string, string> = { onboarding: 'waCoexOnboarding', syncing: 'waCoexSyncing', ready: 'waCoexReady', action_required: 'waCoexActionRequired', reconnect_required: 'waCoexReconnect' };
+  const canBegin = !connection || connection.status === 'reconnect_required';
+  const locked = disabled || phase !== 'idle' || templatesLocked;
+
+  return <Section title={t('waCoexTitle')} role="region" aria-label={t('waCoexTitle')}>
+    <div className="space-y-4">
+      <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waCoexIntro')}</p>
+      <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t(connection?.notifications_enabled ? 'waCoexActiveHint' : 'waCoexPilotHint')}</p>
+      {error && <p role="alert" className="text-sm text-[var(--danger-500)]">{error}</p>}
+      {loading ? <p role="status">{t('loading')}</p> : <>
+        {!status?.configured && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waCoexNotConfigured')}</p>}
+        {connection && <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3"><bdi dir="ltr">{connection.phone_number}</bdi><Badge tone={connection.status === 'ready' ? 'success' : 'neutral'}>{t(labels[connection.status] || 'waCoexActionRequired')}</Badge></div>
+          <p className="text-sm text-[var(--fg-muted)]">{t('waCoexAccount')}: <bdi dir="ltr">{connection.waba_id}</bdi></p>
+          {connection.status === 'syncing' && <p role="status" className="text-sm">{t('waCoexSyncHint')} {connection.history_progress}%</p>}
+          {connection.status === 'action_required' && <p role="alert" className="text-sm leading-6">{t('waCoexUnknownHint')}</p>}
+          {connection.status === 'reconnect_required' && <p role="alert" className="text-sm leading-6">{t('waCoexReconnectHint')}</p>}
+          {canEdit && status?.configured && connection.status === 'onboarding' && <Button variant="secondary" disabled={locked} onClick={() => void resume()}>{t('waCoexResume')}</Button>}
+        </div>}
+        {canEdit && status?.configured && canBegin && <div className="space-y-3">
+          <Field label={t('waPhone')} hint={t('waCoexPhoneHint')}><Input type="tel" dir="ltr" autoComplete="tel" aria-label={t('waCoexExistingNumber')} disabled={locked} value={phone} onChange={event => setPhone(event.target.value)} placeholder="+972500000000" /></Field>
+          {phase === 'idle' && <Button disabled={disabled || !normalizeWhatsAppPhone(phone)} onClick={() => void prepare()}>{t('waCoexPrepare')}</Button>}
+          {phase === 'prepared' && <Button disabled={disabled} onClick={launch}>{t('waCoexOpenMeta')}</Button>}
+          {phase === 'authorizing' && <p role="status" className="text-sm leading-6">{t('waCoexWaiting')}</p>}
+          {phase === 'preparing' || phase === 'saving' ? <p role="status">{t('waConnecting')}</p> : phase !== 'idle' && <Button variant="ghost" onClick={cancel}>{t('cancel')}</Button>}
+        </div>}
+        <Button variant="secondary" disabled={locked} onClick={() => { setError(''); void refresh(); }}>{t('refresh')}</Button>
+        {connection && status?.configured && connection.status !== 'reconnect_required' && <MetaWhatsAppTemplates key={`${rid}-${connection.phone_number_id}`} rid={rid} status={status} canEdit={canEdit} disabled={disabled || phase !== 'idle'} onChanged={setStatus} onLockChange={setTemplatesLocked} />}
+      </>}
+    </div>
+  </Section>;
+}

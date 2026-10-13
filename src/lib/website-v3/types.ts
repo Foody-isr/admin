@@ -45,6 +45,7 @@ export type ChainOrderEntryLocaleCopy = {
 };
 
 export type ChainOrderEntryOverride = {
+  logo_framing?: import("./image-framing").ImageFraming;
   logo_url?: string;
   layout?: "list" | "cards";
   show_search?: boolean;
@@ -57,6 +58,7 @@ export type ChainOrderEntryOverride = {
 };
 
 export type CateringPageOverride = {
+  cover_framing?: import("./image-framing").ImageFraming;
   cover_url?: string;
   cover_focal_x?: number;
   cover_focal_y?: number;
@@ -124,6 +126,7 @@ export type DraftAppearanceOverrides = {
   hero_logo_bg?: "white" | "black";
   hero_cover_layout?: "card" | "logo" | "bare";
   hero_logo_size?: number;
+  cover_framing?: import("./image-framing").ImageFraming;
   cover_url?: string;
   background_color?: string;
   category_navigation?: {

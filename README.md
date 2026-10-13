@@ -50,6 +50,21 @@ and French texts are documented in the matching server's
 `docs/WHATSAPP_ORDER_MESSAGES.md`. Regression checks:
 `npx playwright test -c playwright.whatsapp.config.ts`.
 
+## Direct Meta coexistence pilot
+
+Settings → WhatsApp also includes a direct Meta coexistence pilot for an existing
+WhatsApp Business app number. Deploy API migrations 240–241 first and configure its
+distinct v4 Login configuration and signed webhook; the Admin obtains public SDK
+settings from the scoped API and needs no new public environment variable. This
+flow verifies connection and synchronization. Native Meta Utility templates can
+then be submitted, checked for approval and explicitly selected for automatic
+confirmation and optional status/receipt notifications. Courier reminders retain
+the reviewed order action. A Meta failure never triggers a Twilio send. The order
+dialog displays delivery/read evidence separately from acceptance and can refresh
+the same dispatch without resending. The matching server's `docs/WHATSAPP_COEXISTENCE.md` documents
+setup and real-phone acceptance. Isolated checks use
+`npx tsx --test src/lib/whatsapp-coexistence.test.ts` and the WhatsApp Playwright suite.
+
 ## Selection controls
 
 Admin selections follow the Square reference: white option rows with separators,
@@ -193,6 +208,13 @@ Isolated browser checks: `npx playwright test -c playwright.redesign.config.ts t
 
 ### Settings (`/[restaurantId]/settings`)
 
+**Restaurant → General** includes **Country**, saved explicitly as the restaurant's
+ISO 3166-1 alpha-2 `country_code`. The country scopes delivery address suggestions
+and geocoding without changing currency, language, timezone or delivery zones.
+Legacy restaurants retain Israel until explicitly updated. Deploy server migration
+242 first. Browser regression: `npx playwright test -c playwright.redesign.config.ts
+restaurant-country.spec.ts`.
+
 Two sections, saved separately:
 
 **Restaurant Info:**
@@ -217,6 +239,12 @@ Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/
 The editor uses contextual panels for shared elements and sections; the former Content / Appearance / Settings tab strip and unused page rail are removed. Footer content, layout and styling remain together in its accordions. Existing draft reconciliation and components shared with QR customization are retained. Publishing or discarding returns the sidebar to the section outline, including when the server replaces temporary IDs. The former generic `PageInspector`, theme and typography panels are removed. Page identity, primary/homepage flags, menu associations, SEO and social settings live in **Page settings**; catering copy and imagery have a dedicated outline entry. **Site design** owns fonts and colors, and contextual order blocks own menu typography and spacing. Historical saved appearance and uploaded fonts are preserved. In **Page settings**, menu rows keep their labels and checkboxes aligned horizontally. Enable a menu’s **Web** channel in **Items and menus → Menus**, then select it for the order page; **POS** controls the till independently. The historical menu-layout restoration action has been removed; current layout, color and typography controls remain available.
 
 **Stories** lives in **Settings → Communications** at `/[restaurantId]/settings/stories`, with read access for `settings.view` and editing for `settings.edit`. Existing `/[restaurantId]/reels` bookmarks redirect there. The website editor links to this single owner of Instagram settings.
+
+The **Video** section supports MP4/WebM uploads up to 50 MB, replacement and
+removal, alongside the existing URL field. It reuses the restaurant-scoped cover
+video upload endpoint and preserves normal playback with sound and controls.
+Draft autosave, iframe preview and publication share `content.video_url`.
+Isolated browser regression: `npx playwright test -c playwright.website-editor.config.ts video-upload.spec.ts`.
 
 The **Footer** panel offers **Add footer** when none exists. It creates a shared
 `_site` section through draft autosave and undo/redo. Existing hidden or legacy
@@ -735,3 +763,11 @@ Checks: `npx tsx --test src/lib/__tests__/delivery-planning.test.ts` and
 `npx playwright test -c playwright.redesign.config.ts delivery-planner.spec.ts delivery-zones.spec.ts`.
 The browser fixtures use synthetic road geometry and tiles; no provider credentials
 or customer data are used.
+
+### Website image framing
+
+Website V3 image controls include non-destructive pan, 50–300% zoom, and fill/entire-image modes. Desktop and mobile frames are stored independently; the mobile control can explicitly inherit desktop framing. Header backgrounds/logos, section images/backgrounds/galleries, catering/chain imagery and per-item website photos use the same control. Framing affects website presentation without replacing catalogue assets.
+
+Order mode settings accept an independent `website_order.modal_cover_url` and `modal_cover_framing`, shared by fulfillment and scheduling windows. An empty URL inherits the restaurant cover; the cover toggle hides it. Optional frame objects live beside their media in the existing draft JSON, including `background.framing`/`logo.framing` in headers and `image_framing` in section content. Item overrides use `item_image_frames` keyed by item ID.
+
+The isolated image suite runs with `FOODY_WEB_DIR=/path/to/foodyweb npx playwright test -c playwright.image-framing.config.ts`; its API writes are in memory only.

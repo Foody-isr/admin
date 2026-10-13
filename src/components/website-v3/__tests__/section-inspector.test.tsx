@@ -61,7 +61,7 @@ test("hero content exposes CTA fields and configured cover media", () => {
   assert.match(markup, /Lien du bouton/);
   assert.match(markup, /src="https:\/\/cdn\.example\.com\/current-hero\.jpg"/);
   assert.match(markup, /src="https:\/\/cdn\.example\.com\/current-hero\.mp4"/);
-  assert.match(markup, /Vidéo de couverture/);
+  assert.match(markup, /Cover video/);
   assert.match(markup, /data-field-id="section\.content\.video_url"/);
   assert.match(markup, /Téléverser|Remplacer/);
 });
@@ -77,6 +77,25 @@ test("gallery content exposes existing images and an add-images action", () => {
   assert.match(markup, /src="https:\/\/cdn\.example\.com\/gallery-1\.jpg"/);
   assert.match(markup, /Ajouter des images/);
   assert.doesNotMatch(markup, /structure composée/);
+});
+
+test("standalone video exposes upload and URL controls without cover playback settings", () => {
+  const empty = renderSection({ section_type: "video", content: { title: "Notre cuisine", video_url: "" } });
+  assert.match(empty, /Add a video/);
+  assert.match(empty, /accept="video\/mp4,video\/webm"/);
+  assert.match(empty, /up to 50 MB/);
+  assert.equal((empty.match(/data-field-id="section\.content\.video_url"/g) ?? []).length, 1);
+  assert.doesNotMatch(empty, /Cover video|muted|looped/);
+
+  const configured = renderSection({
+    section_type: "video",
+    content: { title: "Notre cuisine", video_url: "https://cdn.example.com/kitchen.webm", poster_url: "https://cdn.example.com/poster.jpg" },
+  });
+  assert.match(configured, /src="https:\/\/cdn\.example\.com\/kitchen\.webm"/);
+  assert.match(configured, /poster="https:\/\/cdn\.example\.com\/poster\.jpg"/);
+  assert.match(configured, /Replace/);
+  assert.match(configured, /Delete/);
+  assert.doesNotMatch(configured, / loop=""| muted=""/);
 });
 
 test("feature cards content exposes every card field and add action", () => {

@@ -60,6 +60,8 @@ export function TextImageContentEditor({
           <ImageUploadField
             restaurantId={restaurantId}
             label={t("editorBackgroundMedia")}
+            framing={group.image_framing}
+            onFramingChange={value => update(index, "image_framing", value)}
             currentUrl={String(group.image_url ?? "")}
             onUploaded={(url) => update(index, "image_url", url)}
             onRemove={() => update(index, "image_url", "")}
