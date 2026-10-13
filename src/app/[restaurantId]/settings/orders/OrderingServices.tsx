@@ -79,11 +79,19 @@ function WeeklyServiceHours({ channel, draft, patch, customSlots, disabled, inva
   const { t } = useI18n();
   const label = t(channel === 'dine_in' ? 'dineIn' : channel);
   const weekly = Object.fromEntries(DAYS.map(day => [day, draft.opening_hours_config?.[channel]?.[day] ?? { ...DEFAULT_DAY }])) as WeeklyHours;
+  const missingDays = DAYS.filter(day => !draft.opening_hours_config?.[channel]?.[day]);
+  const pickupHours = draft.opening_hours_config?.pickup;
   const editDay = (day: typeof DAYS[number], value: Partial<DayHours>) => patch({ opening_hours_config: {
     ...draft.opening_hours_config, [channel]: { ...weekly, [day]: { ...weekly[day], ...value } },
   } });
   return <>
-    {DAYS.some(day => !draft.opening_hours_config?.[channel]?.[day]) && <p className="mb-4 text-sm text-[var(--fg-muted)]">{t('availabilityProposedHours')}</p>}
+    {missingDays.length > 0 && <div className="mb-4 space-y-3 rounded-r-md border border-[var(--line)] p-4">
+      <p className="text-sm text-[var(--fg-muted)]">{t('availabilityProposedHours')}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" disabled={disabled} onClick={() => patch({ opening_hours_config: { ...draft.opening_hours_config, [channel]: weekly } })}>{t('availabilityApplyProposed')}</Button>
+        {channel === 'delivery' && pickupHours && missingDays.every(day => pickupHours[day]) && <Button type="button" variant="secondary" disabled={disabled} onClick={() => patch({ opening_hours_config: { ...draft.opening_hours_config, delivery: { ...weekly, ...Object.fromEntries(missingDays.map(day => [day, { ...pickupHours[day] }])) } } })}>{t('availabilityCopyPickup')}</Button>}
+      </div>
+    </div>}
     <div className="divide-y divide-[var(--line)]">{DAYS.map(day => {
           const value = weekly[day];
           return <fieldset key={day} disabled={disabled} className="grid gap-3 py-3 sm:grid-cols-[minmax(8rem,1fr)_2fr]" aria-label={`${label} · ${t(day)}`}>

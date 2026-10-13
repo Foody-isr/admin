@@ -163,3 +163,51 @@ test('an invalid delivery draft remains correctable after disabling delivery', a
   await save(page).click();
   await expect(notice(page)).toContainText('Enregistré');
 });
+
+test('preparation clock, custom start and continuity save as a sparse restaurant-scoped patch', async ({ page }, info) => {
+  const state = await install(page);
+  await page.goto('/1/settings/orders');
+  await page.getByRole('radio', { name: /^Pendant les horaires du service/ }).click();
+  await expect(page.getByRole('switch', { name: 'Répartir la préparation sur plusieurs services' })).not.toBeChecked();
+  await expect(page.getByText(/demain à 15 h/)).toBeVisible();
+  await page.getByRole('switch', { name: 'Répartir la préparation sur plusieurs services' }).click();
+  await expect(page.getByText(/demain à 13 h/)).toBeVisible();
+  await save(page).click();
+  await expect(notice(page)).toContainText('Enregistré');
+  expect(state.writes[0].body).toEqual({ scheduling_preparation_time_basis: 'opening_hours', scheduling_preparation_splittable: true });
+  await page.getByRole('radio', { name: /^Horaire de début de production personnalisé/ }).click();
+  await page.locator('#preorder-preparation-start').fill('07:00');
+  await save(page).click();
+  await expect(notice(page)).toContainText('Enregistré');
+  expect(state.writes[1].body).toEqual({ scheduling_preparation_time_basis: 'custom_start', scheduling_preparation_start_time: '07:00' });
+  await page.getByRole('radiogroup', { name: 'Quand compte le délai de préparation ?' }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath('preparation-settings-fr.png') });
+});
+
+test('suggested delivery hours require an explicit apply and can copy saved pickup hours', async ({ page }) => {
+  const state = await install(page);
+  await page.goto('/1/settings/orders');
+  await page.getByRole('button', { name: 'Livraison', exact: true }).click();
+  await expect(page.locator('#intake-services').getByText(/pas encore enregistrés/)).toBeVisible();
+  await expect(save(page)).toBeDisabled();
+  await page.getByRole('button', { name: 'Utiliser les horaires proposés', exact: true }).first().click();
+  await save(page).click();
+  await expect(notice(page)).toContainText('Enregistré');
+  expect(state.writes[0].body.opening_hours_config.delivery.monday).toEqual({open:'09:00',close:'22:00',closed:false});
+});
+
+test('missing delivery days can copy pickup hours without replacing existing days', async ({ page }) => {
+  const state = await install(page);
+  const pickup = Object.fromEntries(['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].map(day => [day,{open:'10:00',close:'18:00',closed:false}]));
+  const hours = { pickup, delivery:{friday:{open:'11:00',close:'16:00',closed:false}} };
+  state.control.settings.opening_hours_config = hours;
+  await page.route('**/api/v1/restaurants/1', route => route.fulfill({json:{restaurant:{id:1,name:'Atelier Foody',timezone:'Europe/Paris',pickup_enabled:true,delivery_enabled:true,dine_in_enabled:false,opening_hours_config:hours}}}));
+  await page.goto('/1/settings/orders');
+  await page.getByRole('button', {name:'Livraison',exact:true}).click();
+  await page.getByRole('button', {name:'Copier les horaires de retrait pour les jours manquants',exact:true}).click();
+  await save(page).click();
+  await expect(notice(page)).toContainText('Enregistré');
+  const saved = state.writes[0].body.opening_hours_config;
+  expect(saved.delivery.monday).toEqual(pickup.monday);
+  expect(saved.delivery.friday).toEqual(hours.delivery.friday);
+});

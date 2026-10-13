@@ -777,3 +777,15 @@ Website V3 image controls include non-destructive pan, 50–300% zoom, and fill/
 Order mode settings accept an independent `website_order.modal_cover_url` and `modal_cover_framing`, shared by fulfillment and scheduling windows. An empty URL inherits the restaurant cover; the cover toggle hides it. Optional frame objects live beside their media in the existing draft JSON, including `background.framing`/`logo.framing` in headers and `image_framing` in section content. Item overrides use `item_image_frames` keyed by item ID.
 
 The isolated image suite runs with `FOODY_WEB_DIR=/path/to/foodyweb npx playwright test -c playwright.image-framing.config.ts`; its API writes are in memory only.
+
+### Preparation timing and suggested service hours
+
+Orders and availability exposes continuous elapsed preparation, saved service
+hours, or a custom daily production start. For service/custom hours, owners can
+require one uninterrupted service or allow work to accumulate across services.
+This requires API migration `242_preparation_clock.sql`; the save is rejected if
+the API does not confirm the changed fields. Unrelated saves preserve the policy.
+
+Suggested 09:00–22:00 values are not treated as saved delivery hours. Owners can
+explicitly apply the suggestions or copy saved pickup hours for missing delivery
+days, then save. Neither action replaces already configured delivery days.

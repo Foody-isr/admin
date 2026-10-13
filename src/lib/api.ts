@@ -252,6 +252,9 @@ export interface RestaurantSettings {
   scheduling_min_days_ahead?: number;
   /** Precise default preparation promise. Supersedes the legacy day field. */
   scheduling_lead_time_minutes?: number;
+  scheduling_preparation_time_basis?: 'elapsed' | 'opening_hours' | 'custom_start';
+  scheduling_preparation_start_time?: string;
+  scheduling_preparation_splittable?: boolean;
   scheduling_max_days_ahead?: number;
   scheduling_slot_duration_minutes?: number;
   scheduling_require_prepayment?: boolean;
