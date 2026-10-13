@@ -426,7 +426,7 @@ test("header pan and zoom remain separate on mobile; gallery framing survives a 
       expect(r.top).toBeCloseTo(r.height - r.imageHeight, 0);
     }
     const gallery = live.locator(
-      '[data-section-type="gallery"] img[alt="Updated gallery"]',
+      '[data-section-type="gallery"] img[alt="Updated gallery"]:visible',
     );
     await expect(gallery).toBeVisible();
     expect(
@@ -446,7 +446,7 @@ test("header pan and zoom remain separate on mobile; gallery framing survives a 
   );
   await live.reload();
   const masonryMedia = live
-    .locator('[data-section-type="gallery"] [data-image-framed]')
+    .locator('[data-section-type="gallery"] [data-image-framed]:visible')
     .last();
   await expect
     .poll(async () => (await rectangle(masonryMedia)).imageWidth)
