@@ -312,6 +312,8 @@ export function FooterEditor({
             <ImageUploadField
               restaurantId={restaurantId}
               label={c.image}
+              framing={settings.bg_image_framing}
+              onFramingChange={value => setting("bg_image_framing", value)}
               currentUrl={String(settings.bg_image ?? "")}
               onUploaded={(value) => setting("bg_image", value)}
               onRemove={() => setting("bg_image", "")}
@@ -362,6 +364,8 @@ export function FooterEditor({
             <ImageUploadField
               restaurantId={restaurantId}
               label={c.logo}
+              framing={content.logo_framing}
+              onFramingChange={value => set("logo_framing", value)}
               currentUrl={String(content.logo_image ?? "")}
               onUploaded={(value) => set("logo_image", value)}
               onRemove={() => set("logo_image", "")}

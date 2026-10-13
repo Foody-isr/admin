@@ -125,6 +125,8 @@ export function ChainOrderEntryEditor({
         <div data-field-id="page.appearance_overrides.chain_order_entry.logo_url">
           <SectionImageUploader
             restaurantId={restaurantId}
+            framing={selector.logo_framing}
+            onFramingChange={value => updateSelector({logo_framing: value})}
             currentUrl={selector.logo_url ?? ""}
             onUploaded={(url) => updateSelector({ logo_url: url })}
             onRemove={() => updateSelector({ logo_url: "" })}
@@ -133,6 +135,8 @@ export function ChainOrderEntryEditor({
         </div>
         <SectionImageUploader
           restaurantId={restaurantId}
+          framing={appearance.cover_framing}
+          onFramingChange={value => onChange(["appearance_overrides", "cover_framing"], value)}
           currentUrl={appearance.cover_url ?? ""}
           onUploaded={(url) =>
             onChange(["appearance_overrides", "cover_url"], url)

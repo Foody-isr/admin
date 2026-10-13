@@ -1,5 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
+import { ImageFramingControl } from "./ImageFramingControl";
+import type { ImageFraming } from "@/lib/website-v3/image-framing";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { uploadSectionImage } from "@/lib/api";
 import type { HeaderCopy } from "./header-copy";
@@ -10,11 +12,15 @@ export function HeaderMedia({
   value,
   onChange,
   copy: c,
+  framing,
+  onFramingChange,
 }: {
   restaurantId: number;
   value: string;
   onChange: (url: string) => void;
   copy: HeaderCopy;
+  framing?: unknown;
+  onFramingChange?: (value: ImageFraming | undefined) => void;
 }) {
   const input = useRef<HTMLInputElement>(null),
     [busy, setBusy] = useState(false),
@@ -56,6 +62,7 @@ export function HeaderMedia({
           }
         }}
       />
+      {value && onFramingChange && <ImageFramingControl src={value} value={framing} onChange={onFramingChange} />}
       {error && <p role="alert">{c.uploadError}</p>}
     </div>
   );

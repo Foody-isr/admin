@@ -42,6 +42,8 @@ export function CateringPageEditor({
     >
       <SectionImageUploader
         restaurantId={restaurantId}
+        framing={content.cover_framing}
+        onFramingChange={value => update({cover_framing: value})}
         currentUrl={Object.hasOwn(content, "cover_url") ? text(content.cover_url) : text(page.appearance_overrides.cover_url)}
         onUploaded={(url) => update({ cover_url: url })}
         onRemove={() => update({ cover_url: "" })}
@@ -50,17 +52,6 @@ export function CateringPageEditor({
         mediaField="page.appearance_overrides.catering_page.cover_url"
         actionLabels={{ upload: t("websiteV3CateringCoverUpload"), replace: t("websiteV3CateringCoverReplace"), remove: t("websiteV3CateringCoverRemove"), uploading: t("websiteV3CateringCoverUploading") }}
       />
-      {["cover_focal_x", "cover_focal_y"].map((key) => (
-        <InspectorField key={key} label={t(key === "cover_focal_x" ? "editorImageFocalHorizontal" : "editorImageFocalVertical")}>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={Number(content[key] ?? 50)}
-            onChange={(event) => update({ [key]: Number(event.target.value) })}
-          />
-        </InspectorField>
-      ))}
       <p>{t("websiteV3CateringVisibilityDescription").replace("{n}", String(activeServices.length))}</p>
       <Link href={`/${restaurantId}/catering/services`} className="sqe-button">{t("websiteV3CateringVisibilityAction")}</Link>
       <CateringCopyField

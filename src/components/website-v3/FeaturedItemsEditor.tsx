@@ -1,4 +1,5 @@
 "use client";
+import { ItemImageFramingEditor } from "./ItemImageFramingEditor";
 import { ColorStylePicker } from "./ColorStylePicker";
 
 import { useEffect, useState } from "react";
@@ -438,6 +439,7 @@ export function FeaturedItemsEditor({
                     <option value="contain">{t("featuredContain")}</option>
                   </select>
                 </InspectorField>
+                <ItemImageFramingEditor items={items} value={settings.item_image_frames} onChange={value => set("item_image_frames", value)} />
               </>
             )}
             {toggle("show_item_titles", "featuredItemTitles", true)}

@@ -1,4 +1,6 @@
 "use client";
+import { ItemImageFramingEditor } from "./ItemImageFramingEditor";
+import type { MenuItem } from "@/lib/api";
 import { BooleanInput } from '@/components/ds/Selection';
 import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./ColorStylePicker";
 import {
@@ -20,6 +22,7 @@ import { ImageUploadField } from "./SectionContentEditors";
 export function OrderPageEditor({
   restaurantId,
   config = {},
+  items = [],
   page,
   region,
   onChange,
@@ -27,10 +30,12 @@ export function OrderPageEditor({
   sharedHeader = false,
   restaurantHeader = false,
   orderChoicesAvailable = true,
+  restaurantCoverUrl = "",
   onEditHeader,
 }: {
   restaurantId: number;
   config?: Record<string, unknown>;
+  items?: MenuItem[];
   page: DraftPagePayload;
   region: OrderEditorRegion;
   onChange: (path: StatePath, value: unknown) => void;
@@ -38,6 +43,7 @@ export function OrderPageEditor({
   sharedHeader?: boolean;
   restaurantHeader?: boolean;
   orderChoicesAvailable?: boolean;
+  restaurantCoverUrl?: string;
   onEditHeader?: () => void;
 }) {
   const { t } = useI18n();
@@ -148,6 +154,8 @@ export function OrderPageEditor({
         <ImageUploadField
           restaurantId={restaurantId}
           label={t("editorBackgroundMedia")}
+          framing={page.appearance_overrides.cover_framing}
+          onFramingChange={value => onChange(["appearance_overrides", "cover_framing"], value)}
           currentUrl={String(page.appearance_overrides.cover_url ?? "")}
           onUploaded={(url) =>
             onChange(["appearance_overrides", "cover_url"], url)
@@ -178,11 +186,20 @@ export function OrderPageEditor({
         ) : (
           toggle("show_fulfillment", "editorOrderShowService")
         )}
-        {orderChoicesAvailable && <>
-        {toggle("prompt_on_entry", "editorOrderPrompt")}
+        {orderChoicesAvailable && toggle("prompt_on_entry", "editorOrderPrompt")}
         {toggle("modal_cover", "editorOrderModalCover")}
+        {value.modal_cover !== false && <ImageUploadField
+          restaurantId={restaurantId}
+          label={t("editorOrderModalImage")}
+          fieldId="page.appearance_overrides.website_order.modal_cover_url"
+          currentUrl={String(value.modal_cover_url || restaurantCoverUrl)}
+          framing={value.modal_cover_framing}
+          onFramingChange={value => set("modal_cover_framing", value)}
+          onUploaded={url => set("modal_cover_url", url)}
+          onRemove={() => set("modal_cover_url", "")}
+        />}
+        <p>{t("editorOrderModalImageHint")}</p>
         {toggle("modal_logo", "editorLogo")}
-        </>}
         <p>{t("editorOrderServicesHint")}</p>
         <a className="sqe-button" href={`/${restaurantId}/settings`}>
           {t("editorSettings")}
@@ -201,6 +218,7 @@ export function OrderPageEditor({
         </a>
       </div>
       <div className="sqe-order-customize">
+        <ItemImageFramingEditor items={items} value={value.item_image_frames} onChange={value => set("item_image_frames", value)} />
         <h3>{t("editorCustomize")}</h3>
         <details open>
           <summary>{t("editorLayoutColor")}</summary>
@@ -250,6 +268,8 @@ export function OrderPageEditor({
             <ImageUploadField
               restaurantId={restaurantId}
               label={t("editorBackgroundMedia")}
+              framing={value.background_image_framing}
+              onFramingChange={value => set("background_image_framing", value)}
               currentUrl={String(value.background_image ?? "")}
               onUploaded={(url) => set("background_image", url)}
               onRemove={() => set("background_image", "")}
