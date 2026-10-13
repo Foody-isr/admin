@@ -1,11 +1,19 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { test, expect, type Locator } from "@playwright/test";
 import { normalizeWebsiteHeader } from "../../src/lib/website-v3/header";
 import type { DraftStatePayload } from "../../src/lib/website-v3/types";
 
-const imageA = "http://localhost:3003/framing-landscape.svg";
-const imageB = "http://localhost:3003/framing-modal.svg";
-const svg = (color: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="${color}"/><rect x="0" y="0" width="160" height="600" fill="#e7bc35"/><rect x="640" width="160" height="600" fill="#315fce"/><circle cx="400" cy="300" r="110" fill="#ffffff"/></svg>`;
+const imageA = "http://localhost:3003/framing-landscape.png";
+const imageB = "http://localhost:3003/framing-modal.png";
+const photo = (modal: boolean) =>
+  readFileSync(
+    resolve(
+      __dirname,
+      "../redesign/fixtures",
+      `image-framing-${modal ? "modal" : "landscape"}.png`,
+    ),
+  );
 const setSlider = async (control: Locator, label: string, value: string) =>
   control.getByRole("slider", { name: label, exact: true }).fill(value);
 const rectangle = (control: Locator) =>
@@ -47,13 +55,25 @@ test("modal photo and responsive framing survive autosave, reload and publicatio
       ? route.continue()
       : route.abort(),
   );
-  await context.route("**/framing-*.svg", (route) =>
+  await context.route("**/framing-*.png", (route) =>
     route.fulfill({
-      contentType: "image/svg+xml",
-      body: svg(
-        route.request().url().includes("modal") ? "#ab3456" : "#224422",
-      ),
+      contentType: "image/png",
+      body: photo(route.request().url().includes("modal")),
     }),
+  );
+  await context.route(
+    "**/api/v1/public/address-autocomplete/config?**",
+    (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "access-control-allow-origin": "*" },
+        contentType: "application/json",
+        body: JSON.stringify({
+          available: false,
+          enabled: false,
+          provider: "geoapify",
+        }),
+      }),
   );
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -181,6 +201,7 @@ test("modal photo and responsive framing survive autosave, reload and publicatio
     await expect
       .poll(async () => (await rectangle(viewport)).imageWidth)
       .toBeGreaterThan(0);
+    await expect(viewport).toHaveAttribute("data-image-ready", "true");
     const r = await rectangle(viewport);
     if (width === 1440) {
       expect(r.imageHeight).toBeCloseTo(120, 0);
@@ -235,8 +256,22 @@ test("header pan and zoom remain separate on mobile; gallery framing survives a 
       ? route.continue()
       : route.abort(),
   );
-  await context.route("**/framing-*.svg", (route) =>
-    route.fulfill({ contentType: "image/svg+xml", body: svg("#224422") }),
+  await context.route("**/framing-*.png", (route) =>
+    route.fulfill({ contentType: "image/png", body: photo(false) }),
+  );
+  await context.route(
+    "**/api/v1/public/address-autocomplete/config?**",
+    (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "access-control-allow-origin": "*" },
+        contentType: "application/json",
+        body: JSON.stringify({
+          available: false,
+          enabled: false,
+          provider: "geoapify",
+        }),
+      }),
   );
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -381,6 +416,7 @@ test("header pan and zoom remain separate on mobile; gallery framing survives a 
     await expect
       .poll(async () => (await rectangle(cover)).imageWidth)
       .toBeGreaterThan(0);
+    await expect(cover).toHaveAttribute("data-image-ready", "true");
     const r = await rectangle(cover);
     if (width === 1440) {
       expect(r.imageHeight / r.height).toBeCloseTo(0.6, 2);
