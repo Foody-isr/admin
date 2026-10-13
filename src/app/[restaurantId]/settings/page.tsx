@@ -8,6 +8,7 @@ import { Button, Field, Input, PageHead, Section, Select } from '@/components/ds
 import { usePermissions } from '@/lib/permissions-context';
 import { currencySymbol } from '@/lib/currency';
 import { clampWeekStartDay, getEffectiveWorkdays } from '@/lib/weeks';
+import { countryOptions } from '@/lib/countries';
 import { ServiceToggle } from './orders/_components';
 
 const LOCALE_LABELS: Record<Locale, string> = { en: 'English', he: 'עברית', fr: 'Français' };
@@ -16,6 +17,7 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
 type SettingsDraft = {
   name: string;
   address: string;
+  country_code: string;
   phone: string;
   timezone: string;
   currency: string;
@@ -30,6 +32,7 @@ type SettingsDraft = {
 function fromRestaurant(r: Restaurant): SettingsDraft {
   return {
     name: r.name ?? '', address: r.address ?? '', phone: r.phone ?? '',
+    country_code: r.country_code || 'IL',
     timezone: r.timezone || 'Asia/Jerusalem', currency: r.currency || 'ILS',
     orders_default_date_basis: r.orders_default_date_basis ?? 'created',
     dashboard_default_date_basis: r.dashboard_default_date_basis ?? 'created',
@@ -118,6 +121,11 @@ export default function SettingsPage() {
               <Field label={t('name')}><Input required value={draft.name} onChange={e => change('name', e.target.value)} /></Field>
               <Field label={t('phone')}><Input type="tel" dir="ltr" value={draft.phone} onChange={e => change('phone', e.target.value)} /></Field>
               <Field className="sm:col-span-2" label={t('address')}><Input value={draft.address} onChange={e => change('address', e.target.value)} /></Field>
+              <Field className="sm:col-span-2" label={t('restaurantCountry')} hint={<span id="restaurant-country-hint">{t('restaurantCountryHint')}</span>}>
+                <Select required aria-label={t('restaurantCountry')} aria-describedby="restaurant-country-hint" value={draft.country_code} onChange={e => change('country_code', e.target.value)}>
+                  {countryOptions(locale).map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
+                </Select>
+              </Field>
             </div>
           </Section>
           <Section title={t('preferences')} desc={t('settingsRegionalDesc')}>
