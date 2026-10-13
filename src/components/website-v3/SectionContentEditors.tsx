@@ -12,7 +12,8 @@ import {
   ActionButtonsEditor,
   PicnicBasketEditor,
 } from "./SupportingContentEditors";
-import { uploadSectionImage, uploadSectionVideo } from "@/lib/api";
+import { uploadSectionImage } from "@/lib/api";
+import { VideoUploadField } from "./VideoUploadField";
 import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import { FeaturedItemsEditor } from "./FeaturedItemsEditor";
 import { InspectorField, ToggleField, controlClass } from "./controls";
@@ -281,115 +282,6 @@ function HeroEditor({
         </p>
       ) : null}
     </>
-  );
-}
-
-/** Uploads a hero video while preserving its poster image. */
-export function VideoUploadField({
-  restaurantId,
-  currentUrl,
-  posterUrl,
-  onUploaded,
-  onRemove,
-}: {
-  restaurantId: number;
-  currentUrl: string;
-  posterUrl: string;
-  onUploaded: (url: string) => void;
-  onRemove: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function upload(file: File | undefined) {
-    if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      setError("La vidéo ne doit pas dépasser 50 Mo.");
-      return;
-    }
-    setUploading(true);
-    setError(null);
-    try {
-      onUploaded(await uploadSectionVideo(restaurantId, file));
-    } catch (uploadError) {
-      setError(
-        uploadError instanceof Error
-          ? uploadError.message
-          : "Le téléversement a échoué.",
-      );
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <div>
-        <p className="text-xs font-semibold text-slate-600">
-          Vidéo de couverture
-        </p>
-        <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-          MP4 ou WebM, 50 Mo maximum. La vidéo sera muette et jouée en boucle.
-        </p>
-      </div>
-      {currentUrl ? (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
-          <video
-            src={currentUrl}
-            poster={posterUrl || undefined}
-            muted
-            loop
-            playsInline
-            controls
-            className="max-h-44 w-full object-cover"
-          />
-          <div className="flex gap-2 bg-white p-2">
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={() => inputRef.current?.click()}
-              className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-            >
-              {uploading ? "Téléversement…" : "Remplacer"}
-            </button>
-            <button
-              type="button"
-              onClick={onRemove}
-              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
-            >
-              Supprimer
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          disabled={uploading}
-          onClick={() => inputRef.current?.click()}
-          className="w-full rounded-xl border-2 border-dashed border-slate-200 px-3 py-6 text-sm font-semibold text-slate-600 hover:border-[#315fce] hover:text-[#315fce] disabled:opacity-50"
-        >
-          {uploading ? "Téléversement…" : "Ajouter une vidéo"}
-        </button>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="video/mp4,video/webm"
-        onChange={(event) => void upload(event.target.files?.[0])}
-        className="hidden"
-      />
-      <input
-        type="url"
-        data-field-id="section.content.video_url"
-        value={currentUrl}
-        onChange={(event) => onUploaded(event.target.value)}
-        className={controlClass}
-        placeholder="Ou collez l’URL de la vidéo"
-      />
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
-    </div>
   );
 }
 
