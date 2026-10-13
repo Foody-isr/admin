@@ -15,7 +15,7 @@ import OrdersOverview from './OrdersOverview';
 
 const DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as const;
 type Mode = 'off' | 'slots' | 'batch';
-type Draft = OrderingServicesDraft & { preordersOnly: boolean; slotHours: NonNullable<RestaurantSettings['scheduling_available_hours']>; mode: Mode; lead: string; horizon: string; duration: string; slotPay: boolean; batchPay: boolean; openDay: number; openTime: string; cutoffDay: number; cutoffTime: string; days: BatchFulfillmentDay[] };
+type Draft = OrderingServicesDraft & { preordersOnly: boolean; slotHours: NonNullable<RestaurantSettings['scheduling_available_hours']>; mode: Mode; preparationBasis: NonNullable<RestaurantSettings['scheduling_preparation_time_basis']>; preparationStart: string; preparationSplit: boolean; lead: string; horizon: string; duration: string; slotPay: boolean; batchPay: boolean; openDay: number; openTime: string; cutoffDay: number; cutoffTime: string; days: BatchFulfillmentDay[] };
 type Invalid = { id: string; group: 'slots' | 'batch' | 'services'; key: string };
 const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const validTime = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -23,7 +23,7 @@ function draftFrom(settings: RestaurantSettings, services: OrderingServicesDraft
   if (['scheduling_enabled','batch_fulfillment_enabled','scheduling_require_prepayment','batch_require_prepayment'].some(key => typeof settings[key as keyof RestaurantSettings] !== 'boolean') || [settings.scheduling_max_days_ahead, settings.scheduling_slot_duration_minutes].some(value => !Number.isFinite(value))) throw new Error('Incomplete preorder settings');
   const lead = (settings.scheduling_lead_time_minutes ?? 0) > 0 ? settings.scheduling_lead_time_minutes! : Math.max(0, settings.scheduling_min_days_ahead ?? 0) * 1440;
   if (!Number.isFinite(lead) || (settings.batch_fulfillment_days != null && !Array.isArray(settings.batch_fulfillment_days))) throw new Error('Incomplete preorder schedule');
-  return { ...orderingServicesFrom(services), preordersOnly: settings.preorders_only ?? false, slotHours: settings.scheduling_available_hours ?? [], mode: settings.batch_fulfillment_enabled ? 'batch' : settings.scheduling_enabled ? 'slots' : 'off', lead: String(lead), horizon: String(settings.scheduling_max_days_ahead), duration: String(settings.scheduling_slot_duration_minutes), slotPay: settings.scheduling_require_prepayment!, batchPay: settings.batch_require_prepayment!, openDay: settings.batch_order_open_day ?? 0, openTime: settings.batch_order_open_time || '', cutoffDay: settings.batch_cutoff_day ?? 0, cutoffTime: settings.batch_cutoff_time || '', days: settings.batch_fulfillment_days ?? [] };
+  return { ...orderingServicesFrom(services), preordersOnly: settings.preorders_only ?? false, slotHours: settings.scheduling_available_hours ?? [], mode: settings.batch_fulfillment_enabled ? 'batch' : settings.scheduling_enabled ? 'slots' : 'off', preparationBasis: settings.scheduling_preparation_time_basis ?? 'elapsed', preparationStart: settings.scheduling_preparation_start_time ?? '09:00', preparationSplit: settings.scheduling_preparation_splittable ?? false, lead: String(lead), horizon: String(settings.scheduling_max_days_ahead), duration: String(settings.scheduling_slot_duration_minutes), slotPay: settings.scheduling_require_prepayment!, batchPay: settings.batch_require_prepayment!, openDay: settings.batch_order_open_day ?? 0, openTime: settings.batch_order_open_time || '', cutoffDay: settings.batch_cutoff_day ?? 0, cutoffTime: settings.batch_cutoff_time || '', days: settings.batch_fulfillment_days ?? [] };
 }
 function batchInput(draft: Draft): BatchPreviewInput {
   return { batch_order_open_day: draft.openDay, batch_order_open_time: draft.openTime, batch_cutoff_day: draft.cutoffDay, batch_cutoff_time: draft.cutoffTime, batch_fulfillment_days: draft.days };
@@ -121,6 +121,12 @@ function PreorderWorkspace({ rid }: { rid: number }) {
       if ((changed || (draft.mode === 'slots' && baseline.mode !== 'slots')) && (!/^\d+$/.test(draft[field]) || !Number.isSafeInteger(value) || value < min || value % step !== 0)) { reject({ id: `preorder-${field}`, group: 'slots', key: field === 'duration' ? 'preorderInvalidDuration' : field === 'horizon' ? 'preorderInvalidHorizon' : 'preorderInvalidLead' }); return; }
       if (changed) { input[key] = value; if (field === 'lead') input.scheduling_min_days_ahead = Math.ceil(value / 1440); }
     }
+    if (draft.preparationBasis !== baseline.preparationBasis) input.scheduling_preparation_time_basis = draft.preparationBasis;
+    if (draft.preparationSplit !== baseline.preparationSplit) input.scheduling_preparation_splittable = draft.preparationSplit;
+    if (draft.preparationStart !== baseline.preparationStart || (draft.preparationBasis === 'custom_start' && baseline.preparationBasis !== 'custom_start')) {
+      if (!validTime(draft.preparationStart)) { reject({ id: 'preorder-preparation-start', group: 'slots', key: 'availabilityInvalidTime' }); return; }
+      input.scheduling_preparation_start_time = draft.preparationStart;
+    }
     if ((draft.openTime !== baseline.openTime && !validTime(draft.openTime)) || (draft.openDay !== baseline.openDay && !draft.openTime)) { reject({ id: 'preorder-open-time', group: 'batch', key: 'preorderOpeningRequired' }); return; }
     if (draft.cutoffTime !== baseline.cutoffTime && !validTime(draft.cutoffTime)) { reject({ id: 'preorder-cutoff-time', group: 'batch', key: 'availabilityInvalidTime' }); return; }
     const batchChanged = !equal(batchInput(draft), batchInput(baseline));
@@ -143,6 +149,9 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     try { const response = await updateRestaurantSettings(rid, input);
       // A response from an older API must never confirm a strict policy it ignored.
       if (input.preorders_only !== undefined && response.preorders_only !== input.preorders_only) throw new Error('Ordering policy not confirmed');
+      for (const key of ['scheduling_preparation_time_basis','scheduling_preparation_start_time','scheduling_preparation_splittable'] as const) {
+        if (input[key] !== undefined && response[key] !== input[key]) throw new Error('Preparation policy not confirmed');
+      }
       const next = draftFrom(response, { pickup_enabled: response.pickup_enabled!, delivery_enabled: response.delivery_enabled!, dine_in_enabled: response.dine_in_enabled!, opening_hours_config: response.opening_hours_config }); if (current()) { setDraft(next); setBaseline(next); setSaved(true); setSavedOrdering(response); } }
     catch { if (current()) setSaveError(true); }
     finally { if (current()) { lock.current = false; setSaving(false); } }
@@ -176,6 +185,11 @@ function PreorderWorkspace({ rid }: { rid: number }) {
           {draft.slotHours.length > 0 && <div className="space-y-3 rounded-r-md border border-[var(--line)] p-4"><p className="text-sm leading-6">{t('intakeCustomSlots')}</p><ul className="space-y-1 text-sm">{draft.slotHours.map((hours, index) => <li key={index}>{(hours.days?.length ? hours.days : [0,1,2,3,4,5,6]).map(dayLabel).join(' · ')} : <bdi>{hours.start}–{hours.end}</bdi></li>)}</ul><Button type="button" variant="secondary" disabled={!canEdit || saving} onClick={() => patch({ slotHours: [] })}>{t('intakeUseServiceHours')}</Button></div>}
           <div className="grid gap-5 md:grid-cols-3">{(['lead','horizon','duration'] as const).map(field => <Field key={field} label={t(field === 'lead' ? 'preorderLeadMinutes' : field === 'horizon' ? 'slotMaxDaysAhead' : 'slotDuration')}><Input {...fieldProps(`preorder-${field}`)} type="number" dir="ltr" value={draft[field]} readOnly={!canEdit || saving} onChange={event => patch({ [field]: event.target.value })} /></Field>)}</div>
           <div className="flex flex-wrap gap-2" role="group" aria-label={t('preorderLeadPresets')}>{[0,360,1440,2880,4320].map(minutes => <Button key={minutes} type="button" variant={draft.lead === String(minutes) ? 'primary' : 'secondary'} aria-pressed={draft.lead === String(minutes)} disabled={!canEdit || saving} onClick={() => patch({ lead: String(minutes) })}>{minutes === 0 ? t('itemPreparationSameDay') : `${minutes / 60} ${t('hours')}`}</Button>)}</div>
+          <fieldset className="space-y-3"><legend className="mb-3 text-sm font-semibold">{t('preparationClockTitle')}</legend>
+            <div role="radiogroup" aria-label={t('preparationClockTitle')} className="choice-group">{(['elapsed','opening_hours','custom_start'] as const).map(basis => <ModeChoice key={basis} name="preparation-clock" title={t(`preparationClock_${basis}`)} desc={t(`preparationClock_${basis}Desc`)} selected={draft.preparationBasis === basis} disabled={!canEdit || saving} onClick={() => patch({ preparationBasis: basis })} />)}</div>
+            {draft.preparationBasis === 'custom_start' && <Field label={t('preparationStartTime')}><Input {...fieldProps('preorder-preparation-start')} type="time" dir="ltr" value={draft.preparationStart} readOnly={!canEdit || saving} onChange={event => patch({ preparationStart: event.target.value })} /></Field>}
+            {draft.preparationBasis !== 'elapsed' && <><ServiceToggle label={t('preparationSplitTitle')} sub={t('preparationSplitDesc')} checked={draft.preparationSplit} disabled={!canEdit || saving} onChange={preparationSplit => patch({ preparationSplit })} /><p className="text-sm leading-6 text-[var(--fg-muted)]">{t(draft.preparationSplit ? 'preparationSplitExample' : 'preparationContinuousExample')}</p></>}
+          </fieldset>
           <ServiceToggle label={t('slotRequirePrepayment')} sub={t('slotRequirePrepaymentDesc')} checked={draft.slotPay} onChange={slotPay => patch({ slotPay })} disabled={!canEdit || saving} />
           {draft.slotPay && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('cashPrepaymentNote')}</p>}
         </div>
