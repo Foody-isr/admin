@@ -85,7 +85,7 @@ test("standalone video exposes upload and URL controls without cover playback se
   assert.match(empty, /accept="video\/mp4,video\/webm"/);
   assert.match(empty, /up to 50 MB/);
   assert.equal((empty.match(/data-field-id="section\.content\.video_url"/g) ?? []).length, 1);
-  assert.doesNotMatch(empty, /Cover video|muted|looped/);
+  assert.doesNotMatch(empty, /Cover video|The video will be muted and looped/);
 
   const configured = renderSection({
     section_type: "video",
@@ -96,6 +96,17 @@ test("standalone video exposes upload and URL controls without cover playback se
   assert.match(configured, /Replace/);
   assert.match(configured, /Delete/);
   assert.doesNotMatch(configured, / loop=""| muted=""/);
+});
+
+test("video playback and spacing settings are editable from content and appearance", () => {
+  for (const sectionPanel of ["content", "appearance"] as const) {
+    const markup = renderSection({ section_type: "video", layout: "full_width", settings: { video_autoplay: true, video_controls: false, video_loop: true, video_muted: false, padding: "none" } }, sectionPanel);
+    for (const key of ["video_autoplay", "video_controls", "video_loop", "video_muted", "padding"]) {
+      assert.match(markup, new RegExp(`data-field-id="section\\.settings\\.${key}"`));
+    }
+    assert.match(markup, /Automatic playback starts muted/);
+    assert.match(markup, /value="none" selected=""/);
+  }
 });
 
 test("feature cards content exposes every card field and add action", () => {

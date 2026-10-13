@@ -227,6 +227,11 @@ function contract(
 }
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
+  "section.settings.video_controls": false,
+  "section.settings.video_autoplay": true,
+  "section.settings.video_loop": true,
+  "section.settings.video_muted": true,
+  "section.settings.padding": "none",
   "page.appearance_overrides.website_order.modal_cover_url": "https://example.com/modal.jpg",
   "section.settings.motion.parallax_target": "text",
   "section.settings.motion.mobile_parallax": "up",
@@ -448,6 +453,7 @@ function editorFor(
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
   const action = isAction ? "action" : "field";
+  if (id.startsWith("section.settings.video_") || id === "section.settings.padding") return { kind: action, scope: "section", sectionPanel: "content", pageTitle: "About", sectionLabel: "Video", publicSlug: "about", commit: "change", prerequisite: id.endsWith("video_muted") ? { id: "section.settings.video_autoplay", value: false } : undefined };
   if (id.startsWith("section.settings.motion.")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text and image", publicSlug: "about", commit: "change", prerequisite: id.endsWith(".enabled") ? undefined : { id: "section.settings.motion.enabled", value: true } };
   if (id.startsWith("section.settings.carousel_")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "Home", sectionLabel: "Testimonials", publicSlug: "", commit: "change" };
 
@@ -925,6 +931,11 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.content.cta_link", ["content", "cta_link"], "[data-website-section] a", "value"),
   section("section.content.image_url", ["content", "image_url"], "[data-website-section] img", "value"),
   section("section.content.video_url", ["content", "video_url"], "[data-website-section] video", "value"),
+  section("section.settings.video_controls", ["settings", "video_controls"], "[data-website-section] video", "value"),
+  section("section.settings.video_autoplay", ["settings", "video_autoplay"], "[data-website-section] video", "value"),
+  section("section.settings.video_loop", ["settings", "video_loop"], "[data-website-section] video", "value"),
+  section("section.settings.video_muted", ["settings", "video_muted"], "[data-website-section] video", "value"),
+  section("section.settings.padding", ["settings", "padding"], "[data-website-section]", "style"),
   section("section.content.custom_text", ["content", "custom_text"], "[data-footer-text]", "text"),
   section("section.content.show_address", ["content", "show_address"], "[data-contact-address]", "visible"),
   section("section.content.show_phone", ["content", "show_phone"], "[data-contact-phone]", "visible"),

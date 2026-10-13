@@ -244,6 +244,12 @@ The **Video** section supports MP4/WebM uploads up to 50 MB, replacement and
 removal, alongside the existing URL field. It reuses the restaurant-scoped cover
 video upload endpoint and preserves normal playback with sound and controls.
 Draft autosave, iframe preview and publication share `content.video_url`.
+Its content and appearance panels also expose full page width, section spacing,
+player controls, autoplay, looping and muting. Autoplay starts muted; the sound
+preference becomes editable again when autoplay is disabled. Existing videos
+retain manual playback and controls until edited. For a seamless video, select
+full page width, no spacing, controls off and autoplay on.
+Deploy the API, then the renderer advertising `video_playback: 1`, then this editor.
 Isolated browser regression: `npx playwright test -c playwright.website-editor.config.ts video-upload.spec.ts`.
 
 The **Footer** panel offers **Add footer** when none exists. It creates a shared
