@@ -412,7 +412,7 @@ test("header pan and zoom remain separate on mobile; gallery framing survives a 
   for (const width of [1440, 390]) {
     await live.setViewportSize({ width, height: 1000 });
     await live.goto("http://localhost:3000/r/atelier-foody?lang=fr");
-    const cover = live.locator(".website-restaurant-cover [data-image-framed]");
+    const cover = live.locator(".website-restaurant-cover:visible [data-image-framed]:visible");
     await expect
       .poll(async () => (await rectangle(cover)).imageWidth)
       .toBeGreaterThan(0);
