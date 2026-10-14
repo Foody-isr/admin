@@ -14,6 +14,7 @@ import { useTheme } from '@/lib/theme-context';
 import { getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
   Home,
+  CalendarDays,
   Menu as MenuIcon,
   ClipboardList,
   Users,
@@ -110,6 +111,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
   const allNav: NavItem[] = [
     { href: `${base}/dashboard`, labelKey: 'dashboardHome', icon: Home },
+    { href: `${base}/calendar`, labelKey: 'restaurantCalendar', icon: CalendarDays, perm: ['settings.view', 'settings.edit'] },
     {
       href: `${base}/menu`,
       labelKey: 'menu',

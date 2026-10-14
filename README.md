@@ -901,3 +901,25 @@ like their other row settings. New legacy modifiers expose the same controls.
 The guest field appears only for that selected choice, independently of the
 article's general notes switch. Deploy API migration 245 and the matching Web
 renderer before enabling these settings.
+
+
+## Restaurant calendar
+
+`/[restaurantId]/calendar` is the restaurant's private agenda, available with
+`settings.view` or `settings.edit`. Editing requires `settings.edit`. Month and
+agenda views show manual catering events, other events and full-day closures.
+Confirmed events from the catering module appear as read-only references when
+the user also has catering permission; creating an agenda entry does not create
+a commercial catering booking or quote.
+
+Dates and optional event times use the restaurant timezone. Closure end dates
+are inclusive and apply only to the selected pickup, delivery or dine-in services.
+The API blocks new fulfillment on those dates, including scheduling, weekly
+batches and immediate-stock orders. Orders for dates after reopening remain
+possible. Existing orders and catering events are retained; the closure editor
+shows their counts. Private event titles, locations and notes are never exposed
+to guests. Only closure dates and affected services reach the public API.
+
+Deploy the API with migration `246_restaurant_calendar.sql`, then Web and Admin.
+Checks: `npx tsx --test src/lib/__tests__/restaurant-calendar.test.ts` and
+`npx playwright test -c playwright.redesign.config.ts tests/redesign/restaurant-calendar.spec.ts`.

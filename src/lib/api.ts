@@ -277,6 +277,7 @@ export interface RestaurantSettings {
   // manually reopened).
   orders_paused?: boolean;
   orders_paused_until?: string | null;
+  calendar_closures?: { start_date: string; end_date: string; services: ('pickup' | 'delivery' | 'dine_in')[] }[];
   floor_plan_color_indicators: boolean;
   table_in_service_color: string;
   table_yellow_after_minutes: number;
@@ -10784,4 +10785,45 @@ export async function sendOrderWhatsApp(restaurantId: number, orderId: number, p
 /** Reads delivery evidence for an existing scoped dispatch without resending or rebuilding its preview. */
 export function getOrderWhatsAppStatus(restaurantId: number, orderId: number, messageId: string): Promise<{ id: string; status: OrderWhatsAppPreview['status']; provider: 'twilio' | 'meta'; failure_code?: number; updated_at: string }> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages/${encodeURIComponent(messageId)}`, restaurantId);
+}
+
+
+/** A private agenda entry; closure dates include both their first and last day. */
+export interface RestaurantCalendarEvent {
+  id: string;
+  title: string;
+  kind: 'catering' | 'closure' | 'other';
+  start_date: string;
+  end_date: string;
+  all_day: boolean;
+  start_time: string;
+  end_time: string;
+  location: string;
+  notes: string;
+  closed_services: ('pickup' | 'delivery' | 'dine_in')[];
+  updated_at?: string;
+}
+
+export interface CalendarConflicts { orders: number; catering: number }
+
+/** Loads the restaurant's private calendar in its effective timezone. */
+export async function getRestaurantCalendar(restaurantId: number): Promise<{ events: RestaurantCalendarEvent[]; timezone: string; week_start_day?: number }> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/calendar`, restaurantId);
+}
+
+/** Saves one event; updates carry its last acknowledged version. */
+export async function saveRestaurantCalendarEvent(restaurantId: number, event: RestaurantCalendarEvent): Promise<RestaurantCalendarEvent> {
+  const editing = !!event.updated_at;
+  const result = await apiFetch<{ event: RestaurantCalendarEvent }>(`/api/v1/restaurants/${restaurantId}/calendar${editing ? `/${encodeURIComponent(event.id)}` : ''}`, restaurantId, { method: editing ? 'PUT' : 'POST', body: JSON.stringify(event) });
+  return result.event;
+}
+
+/** Removes the matching version without cancelling any orders or catering events. */
+export async function deleteRestaurantCalendarEvent(restaurantId: number, event: RestaurantCalendarEvent): Promise<void> {
+  await apiFetch(`/api/v1/restaurants/${restaurantId}/calendar/${encodeURIComponent(event.id)}`, restaurantId, { method: 'DELETE', body: JSON.stringify({ updated_at: event.updated_at }) });
+}
+
+/** Counts commitments overlapping a proposed full-day closure. */
+export async function getCalendarConflicts(restaurantId: number, event: RestaurantCalendarEvent): Promise<CalendarConflicts> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/calendar/conflicts`, restaurantId, { method: 'POST', body: JSON.stringify(event) });
 }

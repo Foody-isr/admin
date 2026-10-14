@@ -6,6 +6,7 @@
 //
 // Keep this in sync with the nav permission gates in components/Sidebar.tsx.
 const SECTION_PERMISSIONS: Record<string, string[]> = {
+  calendar: ['settings.view', 'settings.edit'],
   menu: ['menu.view', 'menu.edit'],
   kitchen: ['kitchen.view', 'kitchen.manage'],
   orders: ['orders.view', 'orders.manage'],
