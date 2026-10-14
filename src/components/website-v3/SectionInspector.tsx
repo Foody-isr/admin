@@ -247,7 +247,7 @@ export function SectionInspector({
                   </div>
                 </>
               )}
-              {["text_and_image", "scrolling_text", "animated_text"].includes(
+              {["text", "text_and_image", "scrolling_text", "animated_text"].includes(
                 section.section_type,
               ) && (
                 <EditorialAppearanceFields

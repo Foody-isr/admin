@@ -308,6 +308,25 @@ test("text and image exposes the twelve Square layouts and reproducible full-wid
   assert.match(content, /Add group/);
 });
 
+test("text exposes geometry without image controls and retains historical defaults", () => {
+  const markup = renderSection({ section_type: "text" }, "appearance");
+  for (const key of ["padding", "height", "width"]) {
+    assert.match(markup, new RegExp(`data-field-id="section.settings.${key}"`));
+  }
+  assert.match(markup, /Section spacing/);
+  assert.match(markup, /Section height/);
+  assert.match(markup, /Section width/);
+  assert.match(markup, /value="auto" selected=""/);
+  assert.match(markup, /value="normal" selected=""/);
+  assert.doesNotMatch(markup, /section.settings.(image_fit|image_position|image_only)/);
+  const authored = renderSection({ section_type: "text", layout: "split", settings: {
+    padding: "none", height: "tall", width: "full",
+  } }, "appearance");
+  for (const value of ["none", "tall", "full"]) {
+    assert.match(authored, new RegExp(`value="${value}" selected=""`));
+  }
+});
+
 test("scrolling text has motion controls and a correct layout name", () => {
   const markup = renderSection(
     {

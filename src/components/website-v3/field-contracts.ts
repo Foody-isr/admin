@@ -235,6 +235,8 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.video_loop": true,
   "section.settings.video_muted": true,
   "section.settings.padding": "none",
+  "section.settings.height": "tall",
+  "section.settings.width": "wide",
   "page.appearance_overrides.website_order.modal_cover_url": "https://example.com/modal.jpg",
   "section.settings.motion.parallax_target": "text",
   "section.settings.motion.mobile_parallax": "up",
@@ -455,6 +457,7 @@ function editorFor(
   isAction: boolean,
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
+  if (id === "section.settings.width") return { kind: "field", scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text", publicSlug: "about", commit: "change" };
   const action = isAction ? "action" : "field";
   if (id.startsWith("section.settings.video_") || id === "section.settings.padding") return { kind: action, scope: "section", sectionPanel: "content", pageTitle: "About", sectionLabel: "Video", publicSlug: "about", commit: "change", prerequisite: id.endsWith("video_muted") ? { id: "section.settings.video_autoplay", value: false } : undefined };
   if (id.startsWith("section.settings.motion.")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text and image", publicSlug: "about", commit: "change", prerequisite: id.endsWith(".enabled") ? undefined : { id: "section.settings.motion.enabled", value: true } };
@@ -940,6 +943,8 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.video_loop", ["settings", "video_loop"], "[data-website-section] video", "value"),
   section("section.settings.video_muted", ["settings", "video_muted"], "[data-website-section] video", "value"),
   section("section.settings.padding", ["settings", "padding"], "[data-website-section]", "style"),
+  section("section.settings.height", ["settings", "height"], "[data-website-section]", "style"),
+  section("section.settings.width", ["settings", "width"], "text", "style"),
   section("section.content.custom_text", ["content", "custom_text"], "[data-footer-text]", "text"),
   section("section.content.show_address", ["content", "show_address"], "[data-contact-address]", "visible"),
   section("section.content.show_phone", ["content", "show_phone"], "[data-contact-phone]", "visible"),
