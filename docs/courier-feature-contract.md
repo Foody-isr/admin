@@ -66,5 +66,13 @@ the owner opts in and a courier is assigned.
 - The delivery note is a single string (not yet per-locale).
 - ETA is **passed through** from `external_metadata` (e.g. a dispatch
   integration); the server does not compute it.
-- A dedicated courier-only screen (couriers see just their assigned orders) is
-  not included here.
+- The courier-only screen uses `GET /api/v1/delivery/routes/mine/all` for every
+  unfinished assigned route. It does not request or expose the Available pool.
+- `POST /api/v1/delivery/routes/{id}/my-navigation-check` checks the caller owns
+  the route and returns `{ checks: [{ stop_id, verified, reason }] }`. It compares
+  precise country-scoped geocoding with the saved point (100 m tolerance), without
+  replacing coordinates. Manual corrections are trusted only while a private
+  address/point fingerprint still matches. The public customer contract is unchanged.
+- `stop_service_minutes` is additive on routes, plan requests and settings updates.
+  It is an integer from 0 to 60, default 3. Arrival precedes the stop's own handover;
+  later arrivals and total duration include each configured handover.
