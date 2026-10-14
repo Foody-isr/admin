@@ -55,6 +55,7 @@ import {
 } from '@/lib/orders/operations-board';
 import styles from './orders.module.css';
 import { defaultOrdersTabForBasis } from '@/lib/orders/orders-list-preferences';
+import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import {
   PAYMENT_ATTENTION_FILTER,
   orderDetailPath,
@@ -118,7 +119,8 @@ function defaultDateRange(): { from: Date; to: Date } {
 
 // ─── Main ──────────────────────────────────────────────────────────────────
 
-export default function OrdersPage() {
+/** Restaurant orders list and route-driven detail drawer, sharing one list lifetime. */
+export default function OrdersWorkspace() {
   const { money } = useCurrency();
   const { t, locale, direction } = useI18n();
   const { hasAnyPermission, isOwner, roleName } = usePermissions();
@@ -147,14 +149,17 @@ export default function OrdersPage() {
   const [rawOrders, setRawOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const ordersRequest = useRef(new RestaurantRequestGuard());
+  ordersRequest.current.enterRestaurant(rid);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const prevEvent = useRef<WsEvent | null>(null);
 
   // Filters
   const [activeTab, setActiveTab] = useState('active');
-  const [search, setSearch] = useState('');
-  const [searchSubmitted, setSearchSubmitted] = useState('');
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
+  const [searchSubmitted, setSearchSubmitted] = useState(() => searchParams.get('q')?.trim() ?? '');
   const [typeFilter, setTypeFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState(
     paymentAttentionScope ? PAYMENT_ATTENTION_FILTER : '',
@@ -196,12 +201,12 @@ export default function OrdersPage() {
 
   const closeOrderDetail = useCallback(() => {
     const listPath = ordersListPath(rid);
-    router.replace(searchQuery ? `${listPath}?${searchQuery}` : listPath);
+    router.replace(searchQuery ? `${listPath}?${searchQuery}` : listPath, { scroll: false });
   }, [rid, router, searchQuery]);
 
   const openOrder = useCallback((orderId: number) => {
     const detailPath = orderDetailPath(rid, orderId);
-    router.push(searchQuery ? `${detailPath}?${searchQuery}` : detailPath);
+    router.push(searchQuery ? `${detailPath}?${searchQuery}` : detailPath, { scroll: false });
   }, [rid, router, searchQuery]);
 
   useEffect(() => {
@@ -378,7 +383,9 @@ export default function OrdersPage() {
 
   const fetchOrders = useCallback(async (showLoading = true) => {
     if (!filtersReady) return;
+    const request = ordersRequest.current.begin(rid);
     if (showLoading) setLoading(true);
+    setLoadFailed(false);
     const tab = TABS.find((t) => t.key === activeTab)!;
     const params: ListOrdersParams = {
       limit: PAGE_SIZE,
@@ -407,15 +414,25 @@ export default function OrdersPage() {
 
     try {
       const result = await listOrders(rid, params);
+      if (!ordersRequest.current.isCurrent(request)) return;
       setOrders(result.orders);
       setTotal(result.total);
       setLastUpdated(new Date());
+    } catch {
+      if (!ordersRequest.current.isCurrent(request)) return;
+      setOrders([]);
+      setTotal(0);
+      setLoadFailed(true);
     } finally {
-      if (showLoading) setLoading(false);
+      if (ordersRequest.current.isCurrent(request)) setLoading(false);
     }
   }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page, setOrders, filtersReady]);
 
-  useEffect(() => { void fetchOrders(); }, [fetchOrders]);
+  useEffect(() => {
+    const guard = ordersRequest.current;
+    void fetchOrders();
+    return () => guard.invalidate();
+  }, [fetchOrders]);
 
   // ─── WebSocket ────────────────────────────────────────────────────
 
@@ -455,26 +472,10 @@ export default function OrdersPage() {
       });
     }
 
-    // In série mode a newly created order may belong to another fulfillment
-    // day, and an update may have moved an existing row out of this série.
-    // Re-read the filtered page instead of blindly upserting the websocket row.
-    if (dateField === 'serie') {
-      void fetchOrders(false);
-      return;
-    }
-
-    setOrders((prev) => {
-      const idx = prev.findIndex((o) => o.id === wsOrder.id);
-      if (type === 'order.created') {
-        if (idx >= 0) return prev;
-        return [liveOrder, ...prev];
-      }
-      if (idx < 0) return prev;
-      const next = [...prev];
-      next[idx] = { ...next[idx], ...liveOrder };
-      return next;
-    });
-  }, [lastEvent, isProcessing, playSound, notify, t, dateField, fetchOrders, setOrders, detailId, closeOrderDetail]);
+    // The API applies search, dates, statuses and pagination together. A live
+    // order must pass the same filters before it can enter the visible list.
+    void fetchOrders(false);
+  }, [lastEvent, isProcessing, playSound, notify, t, fetchOrders, setOrders, detailId, closeOrderDetail]);
 
   // ─── Actions ──────────────────────────────────────────────────────
 
@@ -749,7 +750,7 @@ export default function OrdersPage() {
     setDateRange(defaultDateRange());
     setDateField(defaultDateField);
     setPage(0);
-    router.replace(ordersListPath(rid));
+    router.replace(ordersListPath(rid), { scroll: false });
   };
 
   const changeDateField = useCallback((nextBasis: DateBasis) => {
@@ -866,6 +867,11 @@ export default function OrdersPage() {
             columns={columns.visible.length + 1}
             label={t('loading')}
           />
+        ) : loadFailed ? (
+          <div role="alert" className="rounded-r-lg border border-[var(--line)] p-6 text-center">
+            <p>{t('loadFailed')}</p>
+            <Button variant="secondary" className="mt-4" onClick={() => void fetchOrders()}>{t('retry')}</Button>
+          </div>
         ) : orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-r-lg border border-dashed border-[var(--line-strong)] bg-[var(--surface)] px-6 py-16 text-center">
             <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--fg-muted)]">
