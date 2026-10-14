@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { MessageSquareText, Smartphone, Unplug } from 'lucide-react';
+import { ChevronDown, MessageSquareText, Unplug } from 'lucide-react';
 import { getWhatsAppSender, connectWhatsApp, disconnectWhatsApp, getRestaurantSettings, updateRestaurantSettings, type WhatsAppSender } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
@@ -12,6 +12,7 @@ import { Badge, Button, ConfirmDialog, Field, Input, PageHead, Section } from '@
 import { normalizeWhatsAppPhone, parseWhatsAppSignupEvent, type WhatsAppSignupIdentity } from '@/lib/whatsapp-embedded';
 import { PersonalWhatsAppForm } from '@/components/settings/PersonalWhatsAppForm';
 import { MetaWhatsAppCoexistence } from '@/components/settings/MetaWhatsAppCoexistence';
+import '@/components/settings/whatsapp-settings.css';
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || '';
 const WA_CONFIG_ID = process.env.NEXT_PUBLIC_WA_CONFIG_ID || '';
@@ -28,6 +29,10 @@ function WhatsAppWorkspace({ rid }: { rid: number }) {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
+  const [metaConfigured, setMetaConfigured] = useState<boolean | null>(null);
+  const [legacyOpen, setLegacyOpen] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
+  useEffect(() => { if (metaConfigured === false) setLegacyOpen(true); }, [metaConfigured]);
   const [sender, setSender] = useState<WhatsAppSender | null>(null);
   const [connectionMode, setConnectionMode] = useState<'foody' | 'personal'>('foody');
   const [editingPersonal, setEditingPersonal] = useState(false);
@@ -192,12 +197,19 @@ function WhatsAppWorkspace({ rid }: { rid: number }) {
   const disabled = !!busy || signupActive || coexistenceLocked;
   const phone = normalizeWhatsAppPhone(phoneNumber);
 
-  return <div className="max-w-4xl space-y-6">
-    <PageHead title="WhatsApp Business" desc={t('waSettingsIntro')} actions={<Button variant="secondary" asChild><Link href={`/${rid}/settings/message-templates`}><MessageSquareText aria-hidden="true" />{t('messageTemplatesFromWhatsApp')}</Link></Button>} />
-    <MetaWhatsAppCoexistence key={rid} rid={rid} canEdit={canEdit} disabled={!!busy || signupActive || editingPersonal || personalLocked} onLockChange={setCoexistenceLocked} />
+  return <div className="whatsapp-settings">
+    <PageHead title="WhatsApp Business" desc={t('waWorkspaceIntro')} actions={<Button variant="ghost" asChild><Link href={`/${rid}/settings/message-templates`}><MessageSquareText aria-hidden="true" />{t('waWorkspaceManual')}</Link></Button>} />
+    <MetaWhatsAppCoexistence key={rid} rid={rid} canEdit={canEdit} disabled={!!busy || signupActive || editingPersonal || personalLocked} onLockChange={setCoexistenceLocked} onAvailabilityChange={setMetaConfigured} />
     {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
     {error && <p role="alert" className="rounded-r-md border border-[var(--line)] p-4 text-sm leading-6 text-[var(--danger-500)]">{error}</p>}
     {notice && <p role="status" className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{notice}</p>}
+    <details className="wa-details" data-testid="wa-other-connections" open={legacyOpen || (!!busy && busy !== 'otp') || signupActive || editingPersonal || personalLocked} onToggle={event => {
+      if (event.target !== event.currentTarget) return;
+      if (!event.currentTarget.open && ((!!busy && busy !== 'otp') || signupActive || editingPersonal || personalLocked)) { event.currentTarget.open = true; return; }
+      setLegacyOpen(event.currentTarget.open);
+    }}>
+      <summary><span>{t(metaConfigured === false ? 'waConnection' : 'waWorkspaceOtherConnections')}<span className="ms-3 text-sm font-normal text-[var(--fg-muted)]">Twilio</span></span><ChevronDown aria-hidden="true" /></summary>
+      <div className="wa-details-body">
     <Section role="region" aria-label={t('waConnection')} title={<span className="flex items-center gap-2"><MessageSquareText aria-hidden="true" className="size-5" />{t('waConnection')}</span>}>
       {senderLoading ? <p role="status" className="py-4 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : <div className="space-y-4">
         {senderError && <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('waSenderLoadFailed')}</p><Button variant="secondary" disabled={disabled} onClick={() => void loadSender()}>{t('retry')}</Button></div>}
@@ -235,7 +247,13 @@ function WhatsAppWorkspace({ rid }: { rid: number }) {
         </>}
       </div>}
     </Section>
-    <Section role="region" aria-label={t('waOtpTitle')} title={<span className="flex items-center gap-2"><Smartphone aria-hidden="true" className="size-5" />{t('waOtpTitle')}</span>} desc={t('waOtpHint')}>
+      </div>
+    </details>
+    <details className="wa-details" data-testid="wa-otp-settings" open={otpOpen || otpError} onToggle={event => { if (event.target === event.currentTarget) setOtpOpen(event.currentTarget.open); }}>
+      <summary><span>{t('waWorkspaceOtp')}</span><span className="flex items-center gap-4"><span className="text-sm font-normal text-[var(--fg-muted)]">{t(otpLoading ? 'loading' : otpError || !otpMode ? 'waWorkspaceUnknown' : otpMode === 'required' ? 'waWorkspaceOn' : 'waWorkspaceOff')}</span><ChevronDown aria-hidden="true" /></span></summary>
+      <div className="wa-details-body">
+        <Section role="region" aria-label={t('waOtpTitle')} desc={t('waOtpHint')}>
+          <p className="wa-muted mb-4">{t('waOtpHint')}</p>
       {otpLoading ? <p role="status" className="py-4 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : otpError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('waOtpLoadFailed')}</p><Button variant="secondary" disabled={disabled} onClick={() => void loadOtp()}>{t('retry')}</Button></div> : <fieldset className="space-y-3" disabled={!canEdit || disabled}>
         <legend className="sr-only">{t('waOtpTitle')}</legend>
         {(['required', 'skip'] as const).map(mode => <label key={mode} className={[`flex cursor-pointer items-start gap-3 rounded-r-md border p-4 ${otpMode === mode ? 'border-[var(--line-strong)] bg-[var(--surface-2)]' : 'border-[var(--line)]'}`, "selection-row"].filter(Boolean).join(" ")}>
@@ -244,6 +262,8 @@ function WhatsAppWorkspace({ rid }: { rid: number }) {
         </label>)}
       </fieldset>}
     </Section>
+      </div>
+    </details>
     <ConfirmDialog open={!!confirm} onOpenChange={open => { if (!open) setConfirm(null); }} title={t(confirm === 'disconnect' ? 'waDisconnect' : confirm === 'retry' ? 'waRetryConnect' : 'waDiscardTitle')} description={t(confirm === 'disconnect' ? 'waDisconnectHint' : confirm === 'retry' ? 'waRetryHint' : 'waDiscardHint')} danger={confirm === 'disconnect'} confirmLabel={t(confirm === 'disconnect' ? 'waDisconnect' : confirm === 'retry' ? 'waRetryConnect' : 'waDiscard')} cancelLabel={t('cancel')} onConfirm={() => { const action = confirm; setConfirm(null); if (action === 'disconnect') disconnect(); else if (action === 'retry') submitConnect(); else discard(); }} />
   </div>;
 }

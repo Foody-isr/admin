@@ -98,7 +98,87 @@ const submit = (page: Page) => connection(page).getByRole('button', { name: 'Con
 const notice = (page: Page) => page.locator('main [role=status]').filter({ hasNotText: /^Chargement/ });
 const guarded = (page: Page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
 
-const coexistence = (page: Page) => page.getByRole('region', { name: 'Conserver l’application WhatsApp Business · pilote', exact: true });
+async function openOtp(page: Page) {
+  const details = page.getByTestId('wa-otp-settings');
+  if (await details.getAttribute('open') === null) await details.locator('summary').click();
+}
+async function chooseMeta(page: Page, label: string, value: string) {
+  await page.getByRole('button', { name: `Configurer · ${label}`, exact: true }).click();
+  const editor = page.getByRole('dialog');
+  await editor.getByLabel(label, { exact: true }).selectOption(value);
+  await editor.getByRole('button', { name: 'Terminé', exact: true }).click();
+}
+
+test('Square WhatsApp overview keeps setup details collapsed and pending approval visible', async ({ page }, info) => {
+  const state = await install(page, { coexistence: true, metaReady: true });
+  state.control.meta.connection!.status = 'syncing';
+  state.control.meta.connection!.history_progress = 0;
+  state.control.catalogue.forEach(row => { row.status = 'PENDING'; });
+  await page.goto('/2/settings/whatsapp');
+  await expect(page.getByRole('heading', { name: 'Messages aux clients', exact: true })).toBeVisible();
+  await expect(page.getByTestId('wa-other-connections')).not.toHaveAttribute('open');
+  await expect(page.getByTestId('wa-otp-settings')).not.toHaveAttribute('open');
+  await expect(page.getByText('4 en attente de validation', { exact: true })).toBeVisible();
+  await expect(page.getByText('Envoi automatique à la confirmation de la commande.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Activer les notifications Meta' })).toBeDisabled();
+  await expect(page.getByText('Compte WhatsApp:', { exact: false })).toBeHidden();
+  await page.screenshot({ path: info.outputPath('whatsapp-square-desktop-fr.png'), fullPage: true });
+  expect(state.writes).toHaveLength(0);
+});
+
+test('Square WhatsApp template editor supports inspection without edit permission', async ({ page }) => {
+  const state = await install(page, { coexistence: true, metaReady: true, permissions: ['settings.view'] });
+  state.control.meta.connection!.order_recap_name = 'order_recap';
+  state.control.meta.connection!.order_recap_language = 'fr';
+  await page.goto('/2/settings/whatsapp');
+  const view = page.getByRole('button', { name: 'Voir · Confirmation détaillée de commande', exact: true });
+  await view.click();
+  const editor = page.getByRole('dialog');
+  await expect(editor.getByLabel('Confirmation détaillée de commande', { exact: true })).toBeDisabled();
+  await expect(editor).toContainText(orderNotificationTemplate('order_recap', 'fr'));
+  await editor.getByRole('button', { name: 'Terminé', exact: true }).click();
+  await expect(view).toBeFocused();
+  expect(state.writes).toHaveLength(0);
+});
+
+test('Square WhatsApp template creation preserves an edited message when closing is cancelled', async ({ page }, info) => {
+  const state = await install(page, { coexistence: true, metaReady: true });
+  await page.setViewportSize({ width: 375, height: 1000 });
+  await page.goto('/1/settings/whatsapp');
+  await page.getByRole('button', { name: 'Créer un modèle', exact: true }).click();
+  const editor = page.getByRole('dialog');
+  const body = `${orderNotificationTemplate('order_recap', 'fr')} À bientôt.`;
+  await editor.getByLabel('Texte du modèle').fill(body);
+  await editor.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
+  await expect(editor.getByLabel('Texte du modèle')).toHaveValue(body);
+  await page.screenshot({ path: info.outputPath('whatsapp-square-editor-mobile-fr.png') });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(state.writes).toHaveLength(0);
+});
+
+for (const locale of ['fr', 'he']) test(`Square WhatsApp mobile overview and model preview ${locale}`, async ({ page }, info) => {
+  const state = await install(page, { coexistence: true, metaReady: true, locale });
+  await page.setViewportSize({ width: 375, height: 1000 });
+  await page.goto('/2/settings/whatsapp');
+  const configure = page.getByRole('button', { name: locale === 'fr' ? /^Configurer ·/ : /^הגדרה ·/ }).first();
+  await expect(configure).toBeVisible();
+  const copy = await page.locator('.wa-channel-copy').boundingBox();
+  const refresh = await page.locator('.wa-channel > button').boundingBox();
+  expect(copy!.width).toBeGreaterThan(200);
+  expect(refresh!.y).toBeGreaterThanOrEqual(copy!.y + copy!.height);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`whatsapp-square-mobile-${locale}.png`), animations: 'disabled' });
+  await configure.click();
+  const editor = page.getByRole('dialog');
+  await editor.getByRole('combobox').selectOption('order_recap|fr');
+  await expect(editor.locator('.wa-preview')).toContainText('votre commande est confirmée');
+  await page.screenshot({ path: info.outputPath(`whatsapp-square-preview-${locale}.png`), animations: 'disabled' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(state.writes).toHaveLength(0);
+});
+
+const coexistence = (page: Page) => page.getByRole('region', { name: 'Votre numéro WhatsApp', exact: true });
 for (const order of ['code-first', 'event-first', 'missing-event']) test(`Meta coexistence completes ${order} without activating Twilio routing`, async ({ page }) => {
   const state = await install(page, { connected: false, coexistence: true });
   await page.goto('/2/settings/whatsapp');
@@ -110,7 +190,7 @@ for (const order of ['code-first', 'event-first', 'missing-event']) test(`Meta c
   if (order === 'event-first') { await identity(); expect(state.writes).toHaveLength(1); await code(); }
   else { await code(); if (order === 'code-first') await identity(); }
   await expect(coexistence(page)).toContainText('Synchronisation en cours');
-  await expect(coexistence(page)).toContainText('Les notifications automatiques ne sont pas encore activées');
+  await expect(page.getByText('Les notifications sur ce numéro ne sont pas activées', { exact: true })).toBeVisible();
   expect(state.writes).toEqual([
     expect.objectContaining({ path: '/api/v1/restaurants/2/whatsapp/meta/signup', restaurant: '2', body: { phone_number: '+12025550123' } }),
     expect.objectContaining({ path: '/api/v1/restaurants/2/whatsapp/meta/connect', restaurant: '2', body: { state: 'a'.repeat(64), code: 'one-use-code', ...(order === 'event-first' ? { waba_id: '123' } : {}) } }),
@@ -142,40 +222,44 @@ test('native Meta templates are reviewed and require explicit activation for the
   const region = page.getByRole('region', { name: 'Modèles de notifications Meta', exact: true });
   const activate = region.getByRole('button', { name: 'Activer les notifications Meta' });
   await expect(activate).toBeDisabled();
-  await region.getByLabel('Confirmation détaillée de commande', { exact: true }).selectOption('order_recap|fr');
-  await region.getByLabel('Rappel de livraison avec livreur', { exact: true }).selectOption('delivery_reminder|fr');
+  await chooseMeta(page, 'Confirmation détaillée de commande', 'order_recap|fr');
+  await chooseMeta(page, 'Rappel de livraison avec livreur', 'delivery_reminder|fr');
   await expect(activate).toBeEnabled();
   await activate.click();
-  await expect(region).toContainText('Fournisseur sélectionné : Meta direct');
+  await expect(region).toContainText('Les notifications WhatsApp sont activées');
   expect(state.writes).toHaveLength(1);
   expect(state.writes[0]).toMatchObject({ path: '/api/v1/restaurants/2/whatsapp/meta/notifications', method: 'PUT', restaurant: '2', body: { enabled: true, templates: { order_recap: { name: 'order_recap', language: 'fr' }, delivery_reminder: { name: 'delivery_reminder', language: 'fr' } } } });
   await page.screenshot({ path: info.outputPath('whatsapp-meta-templates-fr.png') });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await region.getByText('Bibliothèque des modèles', { exact: false }).click();
   await region.getByRole('button', { name: 'Utiliser les réglages Twilio existants' }).click();
-  await expect(region).toContainText('Les notifications Meta sont inactives');
+  await expect(region).toContainText('Les notifications sur ce numéro ne sont pas activées');
   expect(state.writes[1].body).toEqual({ enabled: false });
 });
 
 test('native Meta submission preserves reviewed text and pending templates cannot activate sending', async ({ page }) => {
   const state = await install(page, { coexistence: true, metaReady: true }); await page.goto('/1/settings/whatsapp');
   const region = page.getByRole('region', { name: 'Modèles de notifications Meta', exact: true });
-  await region.getByText('Créer un modèle Meta', { exact: true }).click();
-  await region.getByLabel('Type de notification', { exact: true }).selectOption('delivery_reminder');
-  await expect(region.getByLabel('Texte du modèle')).toHaveValue(orderNotificationTemplate('delivery_reminder', 'fr'));
-  await region.getByRole('button', { name: 'Soumettre à Meta', exact: true }).click();
+  await region.getByRole('button', { name: 'Créer un modèle', exact: true }).click();
+  const creator = page.getByRole('dialog');
+  await creator.getByLabel('Type de notification', { exact: true }).selectOption('delivery_reminder');
+  await expect(creator.getByLabel('Texte du modèle')).toHaveValue(orderNotificationTemplate('delivery_reminder', 'fr'));
+  await creator.getByRole('button', { name: 'Soumettre à Meta', exact: true }).click();
   await expect(region).toContainText('Modèle soumis à Meta');
   expect(state.writes[0]).toMatchObject({ body: { kind: 'delivery_reminder', name: 'foody_delivery_reminder_fr', language: 'fr', body: orderNotificationTemplate('delivery_reminder', 'fr') } });
-  await expect(region.getByLabel('Rappel de livraison avec livreur', { exact: true }).locator('option[value="foody_delivery_reminder_fr|fr"]')).toHaveAttribute('disabled', '');
+  await page.getByRole('button', { name: 'Configurer · Rappel de livraison avec livreur', exact: true }).click();
+  await expect(page.getByRole('dialog').getByLabel('Rappel de livraison avec livreur', { exact: true }).locator('option[value="foody_delivery_reminder_fr|fr"]')).toHaveAttribute('disabled', '');
+  await page.getByRole('dialog').getByRole('button', { name: 'Terminé', exact: true }).click();
   await expect(region.getByRole('button', { name: 'Activer les notifications Meta' })).toBeDisabled();
 });
 
 test('lost Meta activation response is read back without repeating the write', async ({ page }) => {
   const state = await install(page, { coexistence: true, metaReady: true }); state.control.metaLostResponse = true;
   await page.goto('/1/settings/whatsapp'); const region = page.getByRole('region', { name: 'Modèles de notifications Meta', exact: true });
-  await region.getByLabel('Confirmation détaillée de commande', { exact: true }).selectOption('order_recap|fr');
-  await region.getByLabel('Rappel de livraison avec livreur', { exact: true }).selectOption('delivery_reminder|fr');
+  await chooseMeta(page, 'Confirmation détaillée de commande', 'order_recap|fr');
+  await chooseMeta(page, 'Rappel de livraison avec livreur', 'delivery_reminder|fr');
   await region.getByRole('button', { name: 'Activer les notifications Meta' }).click();
-  await expect(region).toContainText('Fournisseur sélectionné : Meta direct');
+  await expect(region).toContainText('Les notifications WhatsApp sont activées');
   expect(state.writes).toHaveLength(1);
 });
 
@@ -292,7 +376,7 @@ test('personal WhatsApp setup remains usable in Hebrew on mobile', async ({ page
 for (const locale of ['fr', 'he']) test(`whatsapp connection and phone policy responsive ${locale}`, async ({ page }, info) => {
   const state = await install(page, { locale });
   await page.setViewportSize({ width: locale === 'fr' ? 375 : 1440, height: 1000 });
-  await page.goto('/1/settings/whatsapp');
+  await page.goto('/1/settings/whatsapp'); await openOtp(page);
   await expect(page.getByText(displayName, { exact: true })).toBeVisible();
   await expect(page.getByRole('radio')).toHaveCount(2);
   await page.screenshot({ path: info.outputPath(`whatsapp-${locale}.png`) });
@@ -302,7 +386,7 @@ for (const locale of ['fr', 'he']) test(`whatsapp connection and phone policy re
 
 test('whatsapp sender load failure does not masquerade as disconnected and retries independently', async ({ page }) => {
   const state = await install(page); state.control.senderFailure = 100;
-  await page.goto('/1/settings/whatsapp');
+  await page.goto('/1/settings/whatsapp'); await openOtp(page);
   await expect(connection(page).getByRole('alert')).toBeVisible();
   await expect(connection(page).getByRole('button', { name: 'Connecter WhatsApp', exact: true })).toHaveCount(0);
   await expect(otp(page).getByRole('radio')).toHaveCount(2);
@@ -314,7 +398,7 @@ test('whatsapp sender load failure does not masquerade as disconnected and retri
 
 test('whatsapp failed phone-policy load never invents a default', async ({ page }) => {
   const state = await install(page, { otp: 'skip' }); state.control.settingsFailure = 100;
-  await page.goto('/1/settings/whatsapp');
+  await page.goto('/1/settings/whatsapp'); await openOtp(page);
   await expect(otp(page).getByRole('alert')).toBeVisible(); await expect(otp(page).getByRole('radio')).toHaveCount(0);
   state.control.settingsFailure = 0;
   await otp(page).getByRole('button', { name: 'Réessayer', exact: true }).click();
@@ -416,7 +500,7 @@ test('whatsapp disconnect explains local scope, supports cancellation and preser
 });
 
 test('whatsapp phone policy preserves confirmed values on failure and writes only otp_mode', async ({ page }) => {
-  const state = await install(page); state.control.otpFailure = 1; await page.goto('/2/settings/whatsapp');
+  const state = await install(page); state.control.otpFailure = 1; await page.goto('/2/settings/whatsapp'); await openOtp(page);
   const skip = otp(page).getByRole('radio', { name: 'Désactiver les codes de validation', exact: true });
   await skip.click(); await expect(page.locator('main [role=alert]')).toBeVisible();
   await expect(otp(page).getByRole('radio', { name: 'Activer les codes de validation', exact: true })).toBeChecked();
@@ -428,7 +512,7 @@ test('whatsapp phone policy preserves confirmed values on failure and writes onl
 
 test('whatsapp saving OTP while the sender loads does not invent a disconnected state', async ({ page }) => {
   const state = await install(page); let release!: () => void; state.control.senderGate = new Promise<void>(resolve => { release = resolve; });
-  await page.goto('/1/settings/whatsapp');
+  await page.goto('/1/settings/whatsapp'); await openOtp(page);
   await otp(page).getByRole('radio', { name: 'Désactiver les codes de validation', exact: true }).click();
   await expect(otp(page).getByRole('radio', { name: 'Désactiver les codes de validation', exact: true })).toBeChecked();
   await expect(connection(page).getByRole('status')).toContainText('Chargement');
@@ -458,7 +542,7 @@ test('whatsapp ignores a late poll after the sender has been disconnected', asyn
 });
 
 test('whatsapp read-only users can inspect status and policy without starting signup or changing either', async ({ page }) => {
-  const state = await install(page, { permissions: ['settings.view'] }); await page.goto('/1/settings/whatsapp');
+  const state = await install(page, { permissions: ['settings.view'] }); await page.goto('/1/settings/whatsapp'); await openOtp(page);
   await expect(page.getByText(displayName, { exact: true })).toBeVisible();
   await expect(otp(page).getByRole('radio').first()).toBeDisabled();
   await expect(connection(page).getByRole('button', { name: 'Déconnecter de Foody', exact: true })).toHaveCount(0);
