@@ -1,9 +1,9 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { InputHTMLAttributes, ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ds';
+import { ChevronDown, X } from 'lucide-react';
+import { Button, Input } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { useDialogReturnFocus } from '@/lib/use-dialog-return-focus';
 
@@ -13,6 +13,17 @@ export function CalendarField({ label, children }: { label: string; children: Re
     <span className="flex min-h-12 items-center bg-[#f2f2f2] dark:bg-[var(--surface-2)] px-4 py-3 font-semibold">{label}</span>
     <span className="min-w-0 focus-within:shadow-[inset_0_-2px_0_var(--fg)] [&_input]:h-12 [&_input]:rounded-none [&_input]:border-0 [&_input]:px-4 [&_input:focus]:shadow-none [&_select]:h-12 [&_select]:rounded-none [&_select]:border-0 [&_select]:px-4 [&_select:focus]:shadow-none [&_textarea]:h-20 [&_textarea]:min-h-20 [&_textarea]:rounded-none [&_textarea]:border-0 [&_textarea]:px-4 [&_textarea]:py-3 [&_textarea:focus]:shadow-none">{children}</span>
   </label>;
+}
+
+/** Shows a localized long date while retaining native date entry and validation. */
+export function CalendarDateInput({ value, ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'value'> & { value: string }) {
+  const { locale } = useI18n();
+  const date = new Date(`${value}T12:00:00Z`);
+  const label = Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' }).format(date) : '';
+  return <span className="relative block h-12">
+    <span aria-hidden className="flex h-12 min-w-0 items-center justify-between gap-2 px-4"><span className="min-w-0 truncate" title={label}>{label}</span><ChevronDown className="size-4 shrink-0" /></span>
+    <Input {...props} type="date" value={value} dir="ltr" className="absolute inset-0 opacity-0" onClick={event => { props.onClick?.(event); if (!event.defaultPrevented) event.currentTarget.showPicker?.(); }} />
+  </span>;
 }
 
 /** Centered event editor with a fixed close control and save footer. */

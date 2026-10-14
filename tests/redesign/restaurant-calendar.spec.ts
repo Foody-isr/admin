@@ -150,6 +150,9 @@ test('week navigation, filters and unsaved-dialog protection retain their behavi
   await page.getByRole('combobox', { name: 'Filtrer les événements' }).selectOption('closure');
   await expect(page.locator('[data-calendar-grid="week"] tbody tr')).toHaveCount(1);
   await page.locator('[data-calendar-date="2026-10-20"]').getByRole('button', { name: 'Travaux de cuisine', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Date de début', { exact: true }).fill('');
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled();
+  await page.getByRole('dialog').getByLabel('Date de début', { exact: true }).fill('2026-10-20');
   await page.getByRole('dialog').getByLabel('Titre de l’événement', { exact: true }).fill('Travaux modifiés');
   await page.getByRole('dialog').getByRole('button', { name: 'Fermer', exact: true }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
