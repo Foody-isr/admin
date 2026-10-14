@@ -1,0 +1,703 @@
+{
+  "source": "Public Crispy Delivery catalogue, captured 2026-10-14. Synthetic restaurant 1; no real draft or publication writes.",
+  "config": {
+    "custom_palette": {
+      "bg": "#181412",
+      "ink": "#F0E6D6",
+      "mode": "dark",
+      "accent": "#D4A373",
+      "surface": "#2A2018",
+      "color_styles": {
+        "styles": [
+          {
+            "id": "style-1",
+            "menu": {
+              "card_border": "#000000",
+              "card_background": "#000000",
+              "pill_background": "#181412",
+              "card_description": "#f0e6d6"
+            },
+            "title": "#f0e6d6",
+            "paragraph": "#f0e6d6",
+            "background": "#181412",
+            "solid_button": "#d4a373",
+            "outline_button": "#f0e6d6"
+          },
+          {
+            "id": "style-2",
+            "title": "#111111",
+            "paragraph": "#111111",
+            "background": "#d4a373",
+            "solid_button": "#111111",
+            "outline_button": "#111111"
+          },
+          {
+            "id": "style-3",
+            "title": "#111111",
+            "paragraph": "#111111",
+            "background": "#ffffff",
+            "solid_button": "#111111",
+            "outline_button": "#111111"
+          },
+          {
+            "id": "style-4",
+            "title": "#f0e6d6",
+            "paragraph": "#f0e6d6",
+            "background": "#2a2018",
+            "solid_button": "#d4a373",
+            "outline_button": "#f0e6d6"
+          },
+          {
+            "id": "style-5",
+            "menu": {
+              "card_background": "#735a43"
+            },
+            "title": "#f0e6d6",
+            "paragraph": "#f0e6d6",
+            "background": "#111111",
+            "solid_button": "#d4a373",
+            "outline_button": "#f0e6d6"
+          },
+          {
+            "id": "style-6",
+            "title": "#111111",
+            "paragraph": "#111111",
+            "background": "#eee9df",
+            "solid_button": "#111111",
+            "outline_button": "#111111"
+          }
+        ],
+        "default": "style-1",
+        "version": 1
+      },
+      "secondary_colors": [
+        "#735a43",
+        "#a5320d",
+        "#181412"
+      ]
+    }
+  },
+  "order_appearance": {
+    "order_header": {
+      "layout": "restaurant",
+      "scroll": "reveal",
+      "version": 1,
+      "logo_size": 140,
+      "background": {
+        "end": "#ffffff",
+        "mode": "image",
+        "angle": 90,
+        "color": "",
+        "image": "",
+        "overlay": 0
+      },
+      "restaurant": {
+        "height": "medium",
+        "show_name": true,
+        "info_layout": "modern",
+        "show_social": true,
+        "show_status": true,
+        "info_enabled": true,
+        "show_minimum": true,
+        "info_color_style": "style-1"
+      },
+      "color_style": "default"
+    }
+  },
+  "menus": [
+    {
+      "id": 1,
+      "name": "Semaine",
+      "sort_order": 0,
+      "is_active": true,
+      "web_enabled": true,
+      "pos_enabled": true,
+      "restaurant_id": 1,
+      "groups": [
+        {
+          "id": 21,
+          "name": "Burgers",
+          "sort_order": 0,
+          "web_enabled": true,
+          "pos_enabled": true,
+          "is_hidden": false,
+          "translations": {
+            "name": {
+              "en": "Burgers",
+              "he": "בורגרים"
+            }
+          },
+          "items": [
+            {
+              "id": 151,
+              "category_id": 35,
+              "name": "Classic Fish Burger",
+              "description": "Cabillaud frais pané, sauce tartare, laitue",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/da8f437d-9a57-4ab7-be98-113bbacb8b50.jpeg",
+              "price": 55,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 0,
+              "translations": {
+                "description": {
+                  "en": "Fresh breaded cod, tartar sauce, lettuce",
+                  "he": "בקלה לחמית טרייה, רוטב טרטר, חסה"
+                },
+                "name": {
+                  "en": " Fish Burger",
+                  "he": " פיש בורגר קריספי קוד"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4091,
+              "category_id": 35,
+              "name": "Hot Dog Burger",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/7cea0eab-91a2-4736-b75a-cc30763624d2.jpeg",
+              "price": 55,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 0,
+              "translations": {},
+              "availability_state": "available"
+            },
+            {
+              "id": 4090,
+              "category_id": 35,
+              "name": "Spicy Classic Fish Burger",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/da8f437d-9a57-4ab7-be98-113bbacb8b50.jpeg",
+              "price": 55,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 0,
+              "translations": {
+                "name": {
+                  "en": "Spicy Fish Burger",
+                  "he": " ספייסי פיש בורגר"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 201,
+              "category_id": 47,
+              "name": "Burger + Frites + Boisson",
+              "description": "\n",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/78a9482d-95f7-4b4a-9658-44d3df0e0aee.jpeg",
+              "price": 70,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "combo",
+              "combo_only": false,
+              "sort_order": 0,
+              "translations": {
+                "name": {
+                  "en": " Burger + Fries + Drink",
+                  "he": " בורגר + צ׳יפס + שתייה"
+                }
+              },
+              "availability_state": "available"
+            }
+          ]
+        },
+        {
+          "id": 22,
+          "name": "Plats",
+          "sort_order": 1,
+          "web_enabled": true,
+          "pos_enabled": true,
+          "is_hidden": false,
+          "translations": {
+            "name": {
+              "en": "Mains",
+              "he": "מנות"
+            }
+          },
+          "items": [
+            {
+              "id": 158,
+              "category_id": 36,
+              "name": "Fish & Chips",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/3d1e0b24-b52a-468d-a48d-330b1cc6916c.jpeg",
+              "price": 45,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": "Fish & Chips",
+                  "he": "פיש אנד צ'יפס"
+                }
+              },
+              "availability_state": "available"
+            }
+          ]
+        },
+        {
+          "id": 24,
+          "name": "Extras",
+          "sort_order": 2,
+          "web_enabled": true,
+          "pos_enabled": true,
+          "is_hidden": false,
+          "translations": {
+            "name": {
+              "en": "Extras",
+              "he": "תוספות"
+            }
+          },
+          "items": [
+            {
+              "id": 173,
+              "category_id": 37,
+              "name": "Frites fines",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/b3724e0b-ed1d-4365-841c-b03cb15d7fb0.jpeg",
+              "price": 12,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 0,
+              "translations": {
+                "name": {
+                  "en": "Fine fries",
+                  "he": "צ'יפס משובח"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4092,
+              "category_id": 37,
+              "name": "Onion Rings",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/960cca9b-3297-4c63-8420-3d2701194688.jpeg",
+              "price": 17,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 0,
+              "translations": {
+                "name": {
+                  "en": " Onion Rings",
+                  "he": " ‏טבעות בצל קריספי"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4093,
+              "category_id": 37,
+              "name": "Crispy Purée",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/36604ffd-a6d7-4427-83cd-fc1f16e8bec5.jpeg",
+              "price": 15,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 0,
+              "translations": {
+                "name": {
+                  "en": "Crispy Potato Bites",
+                  "he": " ‏כדורי פירה"
+                }
+              },
+              "availability_state": "available"
+            }
+          ]
+        },
+        {
+          "id": 301,
+          "name": "Sauces",
+          "sort_order": 3,
+          "web_enabled": true,
+          "pos_enabled": true,
+          "is_hidden": false,
+          "translations": {
+            "name": {
+              "en": "Sauces",
+              "he": "רטבים"
+            }
+          },
+          "items": [
+            {
+              "id": 4094,
+              "category_id": 39,
+              "name": "Coleslaw",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/c55c9f81-564c-4105-b2f5-f03d0382dc62.jpeg",
+              "price": 5,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": " Coleslaw Salad",
+                  "he": " סלט קולסלאו"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4103,
+              "category_id": 39,
+              "name": "Sriracha 🌶️",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/1941c7d9-0577-40fc-9476-ff5f3a815ca3.jpeg",
+              "price": 3,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": " Sriracha 🌶️",
+                  "he": " סריראצ’ה 🌶️"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4095,
+              "category_id": 39,
+              "name": "Moutarde Américaine",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/898864d6-857c-4d50-bd5a-c3b97a8e761c.jpeg",
+              "price": 2,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": "American Mustard",
+                  "he": "‏חרדל אמריקאי"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 169,
+              "category_id": 39,
+              "name": "Sauce Signature",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/c55c9f81-564c-4105-b2f5-f03d0382dc62.jpeg",
+              "price": 2,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": "Signature Sauce",
+                  "he": " ‏רוטב הבית"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4096,
+              "category_id": 39,
+              "name": "Chili Matok",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/609030dd-6d13-44de-8e8c-10ba86496db4.jpeg",
+              "price": 2,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": " Sweet Chili",
+                  "he": " ‏צ׳ילי מתוק"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4097,
+              "category_id": 39,
+              "name": "Oignons frits",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/43582caa-b244-4cd9-a6a8-9c1eb2dc87cd.jpeg",
+              "price": 4,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": " Fried Onions",
+                  "he": " בצל מטוגן"
+                }
+              },
+              "availability_state": "available"
+            }
+          ]
+        },
+        {
+          "id": 23,
+          "name": "Boissons",
+          "sort_order": 4,
+          "web_enabled": true,
+          "pos_enabled": true,
+          "is_hidden": false,
+          "translations": {
+            "name": {
+              "en": "Drinks",
+              "he": "משקאות"
+            }
+          },
+          "items": [
+            {
+              "id": 164,
+              "category_id": 38,
+              "name": "Coca Cola",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/e8f5b544-35f2-48c2-a465-4dedcc519c2f.jpeg",
+              "price": 10,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": "Coca-Cola",
+                  "he": "קוקה קולה"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 165,
+              "category_id": 38,
+              "name": "Coca Zero",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/d97208d8-92d8-4494-aab7-7b0d41974e1e.jpeg",
+              "price": 10,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 4,
+              "translations": {
+                "name": {
+                  "en": "Coca-Zero",
+                  "he": "קוקה-זירו"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4099,
+              "category_id": 38,
+              "name": "Sprite",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/2d1e5a41-7ba2-4a8b-af58-586a973eb0df.jpeg",
+              "price": 10,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": "Sprite",
+                  "he": " ספרייט"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4098,
+              "category_id": 38,
+              "name": "Sprite Zero",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/d1ec91d1-a032-483c-b71f-36f15c422dfe.jpeg",
+              "price": 10,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": "Sprite Zero",
+                  "he": " ספרייט זירו"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4102,
+              "category_id": 38,
+              "name": "Fanta",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/9c24317d-8ec4-4f52-87cc-623178893b10.jpeg",
+              "price": 10,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 4,
+              "translations": {
+                "name": {
+                  "en": "Fanta",
+                  "he": " פאנטה"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 162,
+              "category_id": 38,
+              "name": "Lipton Ice Tea",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/b3661c3d-7a37-4358-8832-d7d8431d3982.jpeg",
+              "price": 12,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 1,
+              "translations": {
+                "name": {
+                  "en": "Lipton Ice Tea",
+                  "he": "תה קרח ליפטון"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 161,
+              "category_id": 38,
+              "name": "Oasis Tropical",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/d82854c2-6e28-4b68-9114-d0334fa8bf97.jpeg",
+              "price": 12,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 0,
+              "translations": {
+                "name": {
+                  "en": "Oasis Tropical",
+                  "he": "אואזיס טרופי"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 163,
+              "category_id": 38,
+              "name": "Eau minérale",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/411bc510-5c4b-47b6-8e92-ed7e28ecbef9.jpeg",
+              "price": 9,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 2,
+              "translations": {
+                "name": {
+                  "en": "Mineral water",
+                  "he": "מים מינרליים"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4101,
+              "category_id": 38,
+              "name": "Soda",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/ec73d4ee-36d4-4a34-bf07-b76b25987876.jpeg",
+              "price": 10,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": "Soda",
+                  "he": " ‏סודה"
+                }
+              },
+              "availability_state": "available"
+            },
+            {
+              "id": 4100,
+              "category_id": 38,
+              "name": "XL",
+              "description": "",
+              "portion": "",
+              "image_url": "https://foody-menu-images.s3.eu-north-1.amazonaws.com/menu-items/12/9b31e9cb-6edf-45b6-870c-bf7dd99564cf.jpeg",
+              "price": 10,
+              "pricing_mode": "standard",
+              "is_active": true,
+              "item_type": "food_and_beverage",
+              "combo_only": false,
+              "sort_order": 3,
+              "translations": {
+                "name": {
+                  "en": "XL",
+                  "he": "XL"
+                }
+              },
+              "availability_state": "available"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

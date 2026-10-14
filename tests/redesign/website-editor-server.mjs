@@ -6,7 +6,8 @@ import { createFixture } from "./fixtures.mjs";
 const base = createFixture();
 const headerChoices = ["1", "batch", "scheduled-pickup"].includes(process.env.FOODY_HEADER_CHOICES);
 const restaurantHeader = process.env.FOODY_RESTAURANT_HEADER === "1" || headerChoices;
-const menuAppearance = (process.env.FOODY_MENU_APPEARANCE === "1" || process.env.FOODY_MENU_STYLES === "1" || restaurantHeader)
+const crispyMenu = process.env.FOODY_CRISPY_MENU === "1";
+const menuAppearance = crispyMenu ? JSON.parse(readFileSync(new URL("./fixtures/crispy-menu-appearance.json", import.meta.url), "utf8")) : (process.env.FOODY_MENU_APPEARANCE === "1" || process.env.FOODY_MENU_STYLES === "1" || restaurantHeader)
   ? JSON.parse(readFileSync(new URL("./fixtures/mamie-menu-appearance.json", import.meta.url), "utf8"))
   : null;
 const date = "2026-10-04T12:00:00Z";
@@ -199,10 +200,10 @@ const restaurant = () => ({
   slug: "atelier-foody",
   description: "Fresh ingredients. Made with care.",
   logo_url: "",
-  cover_url: process.env.FOODY_THEME_REGRESSION === "1" ? "" : image,
+  cover_url: crispyMenu || process.env.FOODY_THEME_REGRESSION === "1" ? "" : image,
   default_locale: "en",
   catering_enabled: false,
-  ...(menuAppearance ? {name: "MAMIE — aperçu local"} : {}),
+  ...(menuAppearance ? {name: crispyMenu ? "Crispy Delivery" : "MAMIE — aperçu local", ...(crispyMenu ? {default_locale: "fr"} : {})} : {}),
   ...(restaurantHeader ? {
     name:"MAMIE", default_locale:"fr", timezone:"Asia/Jerusalem", pickup_enabled:false, delivery_enabled:true,
     scheduling_enabled:false, batch_fulfillment_enabled:true, minimum_order_delivery:450,

@@ -3,7 +3,7 @@ export function selectOrderColorStyle(
   value: Record<string, unknown>,
   id: string,
 ): Record<string, unknown> {
-  return { ...value, color_style: id, background_kind: "style" };
+  return { ...value, color_style: id, color_preset: "site", background_kind: "style" };
 }
 
 /** Restores the compact photo sheet without changing color assignments or order behavior. */
@@ -43,5 +43,34 @@ export function compactOrderPresentation(value: Record<string, unknown>): Record
     item_title_caps: false,
     item_price_style: "paragraph-3",
     item_description_style: "inherit",
+  };
+}
+
+/** Applies the reference menu's geometry and local dark palette without editing shared site styles. */
+export function woltOrderPresentation(value: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...compactOrderPresentation(value),
+    color_preset: "wolt",
+    background_kind: "style",
+    content_width: "wide",
+    show_search: true,
+    show_categories: true,
+    show_category_titles: true,
+    category_style: "paragraph-2",
+    category_weight: "bold",
+    category_alignment: "start",
+    category_caps: false,
+    category_gap: 16,
+    category_title_alignment: "start",
+    category_title_caps: true,
+    item_title_style: "paragraph-3",
+    item_title_alignment: "start",
+    item_price_weight: "regular",
+    item_price_alignment: "start",
+    item_price_caps: false,
+    item_description_style: "paragraph-3",
+    item_description_weight: "regular",
+    item_description_alignment: "start",
+    item_description_caps: false,
   };
 }

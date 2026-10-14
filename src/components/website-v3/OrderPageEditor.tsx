@@ -7,6 +7,7 @@ import {
   selectOrderColorStyle,
   previousItemPresentation,
   compactOrderPresentation,
+  woltOrderPresentation,
 } from "@/lib/website-v3/order-design";
 
 import { NumberInput } from "@/components/ui/NumberInput";
@@ -52,7 +53,9 @@ export function OrderPageEditor({
   const value = record(page.appearance_overrides.website_order);
   const set = (key: string, next: unknown) =>
     onChange(["appearance_overrides", "website_order", key], next);
-  const editMenuColors = (menuGroup: SiteColorEditTarget["menuGroup"]) => (
+  const editMenuColors = (menuGroup: SiteColorEditTarget["menuGroup"]) => value.color_preset === "wolt" ? (
+    <p>{t("editorOrderWoltColorsHint")}</p>
+  ) : (
     <button type="button" className="sqe-button sqe-button--outline"
       onClick={() => openSiteColors({ styleId: String(value.color_style ?? "default"), menuGroup })}>
       {t("editorEditMenuColors")}
@@ -223,6 +226,11 @@ export function OrderPageEditor({
         <h3>{t("editorCustomize")}</h3>
         <details open>
           <summary>{t("editorLayoutColor")}</summary>
+          <button type="button" className="sqe-button sqe-button--outline"
+            onClick={() => onChange(["appearance_overrides", "website_order"], woltOrderPresentation(value))}>
+            {t("editorOrderApplyWolt")}
+          </button>
+          <p>{t("editorOrderWoltHint")}</p>
           <label>{t("editorLayout")}</label>
           <div className="sqe-order-layouts">
             {["list", "grid", "cards", "text", "single", "rows"].map((layout) => (
@@ -255,7 +263,15 @@ export function OrderPageEditor({
             ["standard", "editorOrderWidthStandard"],
             ["wide", "editorOrderWidthWide"],
           ])}
-          <ColorStylePicker
+          {value.color_preset === "wolt" ? (
+            <div className="sqe-order-preset-colors">
+              <strong>{t("editorOrderWoltPalette")}</strong>
+              <div aria-hidden="true">{["#000000", "#222222", "#ffffff", "#aaaaaa", "#009fca"].map(color => <i key={color} style={{ background: color }} />)}</div>
+              <button type="button" className="sqe-button sqe-button--outline" onClick={() => set("color_preset", "site")}>
+                {t("editorOrderUseSiteColors")}
+              </button>
+            </div>
+          ) : <ColorStylePicker
             menuGroup="list"
             value={String(value.color_style ?? "default")}
             onChange={(id) =>
@@ -264,8 +280,8 @@ export function OrderPageEditor({
                 selectOrderColorStyle(value, id),
               )
             }
-          />
-          <p>{t("editorOneMenuColorStyle")}</p>
+          />}
+          <p>{t(value.color_preset === "wolt" ? "editorOrderWoltColorsHint" : "editorOneMenuColorStyle")}</p>
           {select("background_kind", "editorBackground", "style", [
             ["style", "editorOrderColorStyle"],
             ["image", "editorField_image_url"],
