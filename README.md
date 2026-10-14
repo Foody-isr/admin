@@ -261,6 +261,17 @@ The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementa
 
 Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
 
+The **Text and image** appearance panel exposes **Text background** and
+**Image background**, independently of the shared color style. Each accepts a
+hex color or transparency and can reset to the inherited section presentation.
+Existing sections keep their appearance until edited. A media background shows
+behind transparent pixels or around contain framing; it does not recolor opaque
+image pixels. Autosave, iframe preview and publication use `settings.text_bg_color`
+and `settings.image_bg_color`. Deploy the API, then the web renderer advertising
+`text_image_backgrounds: 1`, then this editor.
+Isolated browser regression: `FOODY_WEB_DIR=../foodyweb npx playwright test -c
+playwright.website-editor.config.ts text-image-backgrounds.spec.ts`.
+
 The editor uses contextual panels for shared elements and sections; the former Content / Appearance / Settings tab strip and unused page rail are removed. Footer content, layout and styling remain together in its accordions. Existing draft reconciliation and components shared with QR customization are retained. Publishing or discarding returns the sidebar to the section outline, including when the server replaces temporary IDs. The former generic `PageInspector`, theme and typography panels are removed. Page identity, primary/homepage flags, menu associations, SEO and social settings live in **Page settings**; catering copy and imagery have a dedicated outline entry. **Site design** owns fonts and colors, and contextual order blocks own menu typography and spacing. Historical saved appearance and uploaded fonts are preserved. In **Page settings**, menu rows keep their labels and checkboxes aligned horizontally. Enable a menu’s **Web** channel in **Items and menus → Menus**, then select it for the order page; **POS** controls the till independently. The historical menu-layout restoration action has been removed; current layout, color and typography controls remain available.
 
 **Stories** lives in **Settings → Communications** at `/[restaurantId]/settings/stories`, with read access for `settings.view` and editing for `settings.edit`. Existing `/[restaurantId]/reels` bookmarks redirect there. The website editor links to this single owner of Instagram settings.
