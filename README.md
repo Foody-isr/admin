@@ -815,3 +815,27 @@ slot duration, custom windows and service hours. Saved and unsaved values are
 identified separately; stale responses are discarded, errors remain visible,
 and an unavailable service never borrows another service's hours. Deploy the
 API's `preparation-preview` endpoint before Admin.
+
+## Delivery calendars by zone
+
+Settings → Ordering & delivery → Delivery zones supports multiple cities and,
+for restaurants with country France, multiple department codes. Each zone can
+inherit the restaurant calendar, offer customer-selected weekly windows, assign
+the next window automatically, or reserve the next delivery day for staff to
+confirm its time after ordering. Days and windows are saved with the zone.
+An optional pickup suggestion respects the restaurant's enabled pickup service.
+
+The order detail displays pending delivery confirmation and an explicit window
+editor. It validates allowed route times server-side, retains the delivery address
+and fee, and asks for a reason when changing the promised day. The confirmed
+window is visible in customer tracking; no message is sent by this editor.
+Deploy server migration 243 and matching Web before enabling these settings.
+Browser regression: `FOODY_PREVIEW_PRODUCTION=1 npx playwright test -c
+playwright.redesign.config.ts delivery-zones.spec.ts --grep 'delivery route calendar admin'`.
+Fixtures are synthetic and never call a live geocoder or payment provider.
+
+The broader delivery-zone browser suite currently has one unrelated navigation
+assertion at `tests/redesign/delivery-zones.spec.ts:46`: it expects a Settings link
+after opening the dashboard with order-only permissions. The unchanged sidebar
+uses grouped navigation. All three new calendar scenarios and the other 26
+delivery-zone scenarios pass.

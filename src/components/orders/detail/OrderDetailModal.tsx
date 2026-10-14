@@ -19,6 +19,7 @@ import { OrderOverflowMenu } from './menus/OrderOverflowMenu';
 import { WorkflowStepper } from './spine/WorkflowStepper';
 import styles from './order-detail.module.css';
 import { ActivityTimeline } from './spine/ActivityTimeline';
+import { DeliverySlotAssignment } from '@/components/orders/DeliverySlotAssignment';
 import { ScheduledBanner } from './spine/ScheduledCallout';
 import { CancellationCallout } from './spine/CancellationCallout';
 import { useOrderAudit } from '@/lib/orders/use-order-audit';
@@ -252,6 +253,8 @@ export function OrderDetailModal({
           <>
             {/* Alerts head the ticket, and TicketItems opens with its own
                 settlement banners, so the whole alarm stack stays contiguous. */}
+            {!canManage && order.delivery_slot_pending && <p role="status" className="mb-4 text-fs-sm">{t('deliverySlotPending')}</p>}
+            {canManage && caps.canEditOrder && order.order_type === 'delivery' && order.delivery_schedule && <DeliverySlotAssignment key={`${order.id}/${order.scheduled_pickup_window_start ?? "pending"}`} order={order} onSaved={onClose} />}
             {caps.isScheduled && order.scheduled_for && (
               <div className="mb-[var(--s-3)]">
                 <ScheduledBanner

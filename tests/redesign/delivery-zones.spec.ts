@@ -9,7 +9,7 @@ const seed=():DeliveryZone[]=>[
 ];
 const runtimeErrors=new WeakMap<Page,string[]>();
 test.afterEach(async({page})=>{expect(runtimeErrors.get(page)??[]).toEqual([]);});
-async function install(page:Page,opts:{locale?:string;permissions?:string[]}={}){
+async function install(page:Page,opts:{locale?:string;permissions?:string[];country?:string}={}){
  const errors:string[]=[];runtimeErrors.set(page,errors);page.on('pageerror',error=>errors.push(error.message));
  const fixture=createFixture(),writes:{method:string;path:string;body:any;rid:string|undefined;query:string}[]=[];
  const control={zones:seed(),minimum:50,zoneReads:0,settingsReads:0,geoReads:0,failRead:false,failMinimumRead:false,malformed:false,failWrite:false,applyAndFail:false,failAfterWrite:false,conflict:false,geoUnavailable:false,geoFound:true,tileFailure:false,gate:null as Promise<void>|null};
@@ -31,7 +31,7 @@ async function install(page:Page,opts:{locale?:string;permissions?:string[]}={})
    if(method==='GET'){control.settingsReads++;return route.fulfill({status:control.failMinimumRead?503:200,json:control.failMinimumRead?{error:'Synthetic minimum read failure'}:{settings:{restaurant_id:Number(rid),id:1,minimum_order_delivery:control.minimum}}});}
    writes.push({method,path,body,rid,query:url.search});if(control.gate)await control.gate;if(!control.failWrite||control.applyAndFail)control.minimum=body.minimum_order_delivery;if(control.failAfterWrite)control.failMinimumRead=true;return route.fulfill({status:control.failWrite?503:200,json:control.failWrite?{error:'Synthetic uncertain minimum save'}:{settings:{id:1,restaurant_id:Number(rid),minimum_order_delivery:control.minimum}}});
   }
-  const result=fixture.response(req.url(),method,body,Number(rid)||1);if(/^\/api\/v1\/restaurants\/[12]$/.test(path)&&result.json&&'restaurant'in result.json&&result.json.restaurant)Object.assign(result.json.restaurant,{address:'Adresse de démonstration',currency:'ILS'});return route.fulfill({status:result.status??200,json:result.json??{}});
+  const result=fixture.response(req.url(),method,body,Number(rid)||1);if(/^\/api\/v1\/restaurants\/[12]$/.test(path)&&result.json&&'restaurant'in result.json&&result.json.restaurant)Object.assign(result.json.restaurant,{address:'Adresse de démonstration',currency:'ILS',country_code:opts.country??'IL'});return route.fulfill({status:result.status??200,json:result.json??{}});
  });
  await page.route('**/*',route=>{const url=new URL(route.request().url());if(['localhost','127.0.0.1'].includes(url.hostname)||url.pathname.startsWith('/api/v1/'))return route.fallback();if(url.hostname.endsWith('.tile.openstreetmap.org'))return control.tileFailure?route.abort():route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#edf1f3"/><path d="M0 80H256M90 0V256" stroke="#c4cdd3" stroke-width="8"/><text x="110" y="180" font-size="10" fill="#526575">Carte simulée</text></svg>'});return route.abort();});
  return {control,writes,fixture};
@@ -64,3 +64,20 @@ test('delivery language change preserves loaded data without refetching zones or
 test('delivery no classic zones is distinct from a tour-only inventory',async({page})=>{const state=await install(page);state.control.zones=[seed()[3]];await page.goto('/1/settings/delivery');await expect(page.getByText('Aucune zone de livraison classique configurée',{exact:true})).toBeVisible();await expect(page.getByText(/Sans zone classique active/)).toBeVisible();expect(state.writes).toHaveLength(0);});
 test('delivery differing minimum readback preserves input until explicit adoption',async({page})=>{const state=await install(page);state.control.failWrite=true;await open(page);await minimumInput(page).fill('25');await page.getByRole('button',{name:'Enregistrer',exact:true}).click();await verify(page).click();await expect(minimumInput(page)).toHaveValue('25');await expect(page.getByText(/Le minimum enregistré diffère/)).toBeVisible();await page.getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(minimumInput(page)).toHaveValue('25');await page.getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Utiliser la version enregistrée',exact:true}).click();await expect(minimumInput(page)).toHaveValue('50');expect(state.writes).toHaveLength(1);});
 test('delivery zone save freezes the draft and prevents simultaneous writes',async({page})=>{const state=await install(page);await open(page);await edit(page);await dialog(page).getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill('18');let release!:()=>void;state.control.gate=new Promise<void>(resolve=>{release=resolve;});await save(page).evaluate((el:HTMLButtonElement)=>{el.click();el.click();});await expect(dialog(page).getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();await expect(dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true})).toBeDisabled();release();state.control.gate=null;await expect(dialog(page)).toHaveCount(0);expect(state.writes).toHaveLength(1);});
+
+for (const mode of ['customer','automatic','restaurant'] as const) test(`delivery route calendar admin ${mode}`, async ({page},info) => {
+ const state=await install(page,{country:'FR'});await page.setViewportSize({width:mode==='restaurant'?375:1440,height:1000});await open(page);
+ await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();
+ const form=dialog(page);await form.getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Val-de-Marne et Seine-Saint-Denis');
+ await form.getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('departments');
+ await form.getByRole('textbox',{name:'Codes des départements',exact:true}).fill('94, 93');
+ await form.getByRole('combobox',{name:'Choix du créneau de livraison',exact:true}).selectOption(mode);
+ await form.getByRole('checkbox',{name:'lundi',exact:true}).check();await form.getByRole('checkbox',{name:'vendredi',exact:true}).check();
+ await form.getByRole('checkbox',{name:'Proposer le retrait en alternative lorsqu’il est activé',exact:true}).check();
+ await page.screenshot({path:info.outputPath(`delivery-route-${mode}.png`)});
+ await save(page).click();await expect(dialog(page)).toHaveCount(0);
+ expect(state.writes).toHaveLength(1);expect(state.writes[0].rid).toBe('1');
+ expect(state.writes[0].body).toMatchObject({type:'departments',departments:['94','93'],schedule:{mode,windows:[{days:[1,5],start:'14:00',end:'18:00'}],offer_pickup:true}});
+ await page.getByRole('button',{name:'Val-de-Marne et Seine-Saint-Denis',exact:true}).click();await expect(dialog(page).getByRole('combobox',{name:'Choix du créneau de livraison',exact:true})).toHaveValue(mode);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
