@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type WebSocketRoute } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 
 async function install(page: Page, locale = 'fr', permissions?: string[]) {
@@ -23,6 +23,151 @@ async function install(page: Page, locale = 'fr', permissions?: string[]) {
   });
   return { fixture, queries };
 }
+
+test('malformed order links show the existing 404 without loading the list', async ({ page }) => {
+  const { queries } = await install(page);
+  await page.goto('/1/orders/invalid');
+  await expect(page.getByRole('heading', { name: '404', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Toutes les commandes', exact: true })).toHaveCount(0);
+  expect(queries).toHaveLength(0);
+});
+
+test('typed search filters rows and ignores an older unfiltered response', async ({ page }) => {
+  const { queries } = await install(page);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let initialPending = false;
+  await page.route('**/api/v1/orders?**', async route => {
+    if (!new URL(route.request().url()).searchParams.has('q')) {
+      initialPending = true;
+      await gate;
+    }
+    await route.fallback();
+  });
+  await page.goto('/1/orders/all');
+  await expect.poll(() => initialPending).toBe(true);
+  await page.getByRole('searchbox').fill('Client');
+  await expect.poll(() => queries.at(-1)?.searchParams.get('q')).toBe('Client');
+  await expect(page.locator('tbody tr')).toHaveCount(3);
+  await expect(page.locator('tbody')).not.toContainText('Équipe Foody');
+  const oldResponse = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname === '/api/v1/orders' && !url.searchParams.has('q');
+  });
+  release();
+  await (await oldResponse).finished();
+  // Allow React to process the late response before checking that it was ignored.
+  await page.waitForTimeout(300);
+  await expect(page.locator('tbody tr')).toHaveCount(3);
+  await page.getByRole('searchbox').fill('aucun résultat');
+  await expect(page.locator('tbody tr')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Aucune correspondance trouvée', exact: true })).toBeVisible();
+  await page.getByRole('searchbox').fill('');
+  await expect(page.locator('tbody tr')).toHaveCount(8);
+});
+
+test('live orders keep the search applied and failed searches can be retried', async ({ page }) => {
+  const { fixture, queries } = await install(page);
+  let socket: WebSocketRoute | undefined;
+  await page.routeWebSocket('**/ws?**', connection => { socket = connection; });
+  await page.goto('/1/orders/all?q=Client');
+  await expect(page.getByRole('searchbox')).toHaveValue('Client');
+  await expect(page.locator('tbody tr')).toHaveCount(3);
+  await expect.poll(() => socket != null).toBe(true);
+  const unrelated = { ...fixture.orders[0], id: 3000, customer_name: 'Autre personne' };
+  fixture.orders.push(unrelated);
+  const before = queries.length;
+  socket!.send(JSON.stringify({ type: 'order.created', payload: unrelated }));
+  await expect.poll(() => queries.length).toBeGreaterThan(before);
+  await expect(page.locator('tbody tr')).toHaveCount(3);
+  await expect(page.locator('tbody')).not.toContainText('Autre personne');
+  const matching = { ...unrelated, id: 3001, customer_name: 'Client ajouté' };
+  fixture.orders.push(matching);
+  socket!.send(JSON.stringify({ type: 'order.created', payload: matching }));
+  await expect(page.locator('tbody tr')).toHaveCount(4);
+  await expect(page.locator('tbody')).toContainText('Client ajouté');
+
+  let unavailable = true;
+  await page.route('**/api/v1/orders?**', route => unavailable
+    ? route.fulfill({ status: 503, json: { error: 'Synthetic outage' } })
+    : route.fallback());
+  await page.getByRole('searchbox').fill('Équipe');
+  await expect(page.locator('#orders-results').getByRole('alert')).toContainText('Impossible de charger ces données');
+  await expect(page.locator('tbody tr')).toHaveCount(0);
+  unavailable = false;
+  await page.getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(3);
+  await expect(page.locator('tbody')).toContainText('Équipe Foody');
+  await expect(page.locator('tbody')).not.toContainText('Client ajouté');
+  expect(queries.at(-1)!.searchParams.get('q')).toBe('Équipe');
+  expect(fixture.writes).toEqual([]);
+});
+
+for (const width of [1440, 375]) test(`order details preserve a previous série, filters, pagination and scroll: ${width}`, async ({ page }) => {
+  const { fixture, queries } = await install(page);
+  await page.setViewportSize({ width, height: 812 });
+  const template = fixture.orders[0];
+  fixture.orders.splice(0, fixture.orders.length, ...Array.from({ length: 60 }, (_, index) => ({
+    ...template, id: 2000 + index, order_number: 2000 + index,
+    customer_name: 'Client cible', order_type: 'delivery', payment_status: 'paid',
+    scheduled_for: '2026-10-09', is_scheduled: true,
+  })));
+  await page.route('**/api/v1/orders/series?**', route => route.fulfill({ json: {
+    series: [{ date: '2026-10-16' }, { date: '2026-10-09' }],
+  } }));
+  await page.goto('/1/orders/all');
+  const toolbar = page.locator('[data-list-toolbar]');
+  const date = toolbar.locator('button[aria-haspopup="dialog"]');
+  await date.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Séries', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '9', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.get('from')).toBe('2026-10-09');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await toolbar.getByRole('searchbox').fill('cible');
+  await toolbar.getByRole('button', { name: /^Type / }).click();
+  await page.getByRole('menuitemradio', { name: 'Livraison', exact: true }).click();
+  await toolbar.getByRole('button', { name: /Statut de paiement/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Payé', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.get('q')).toBe('cible');
+  await expect(page.locator('tbody tr')).toHaveCount(25);
+  await page.getByRole('button', { name: 'Suivant', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.get('offset')).toBe('25');
+  await expect(page.locator('tbody tr').last()).toHaveAttribute('aria-label', /2049/);
+  const row = page.locator('tbody tr').last();
+  await row.scrollIntoViewIfNeeded();
+  const scrollPosition = () => page.evaluate(() => ({
+    window: window.scrollY,
+    workspace: document.querySelector('[data-workspace-shell]')!.scrollTop,
+  }));
+  const before = await scrollPosition();
+  expect(before.window + before.workspace).toBeGreaterThan(500);
+  const queryCount = queries.length;
+  await row.click();
+  await expect(page).toHaveURL(/\/1\/orders\/2049/);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(await scrollPosition()).toEqual(before);
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/\/1\/orders\/all/);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(await scrollPosition()).toEqual(before);
+  await expect(toolbar.getByRole('searchbox')).toHaveValue('cible');
+  await expect(date).toContainText('09/10/2026');
+  expect(queries.length).toBe(queryCount);
+  expect(queries.at(-1)!.searchParams.get('date_field')).toBe('serie');
+  expect(queries.at(-1)!.searchParams.get('type')).toBe('delivery');
+  expect(queries.at(-1)!.searchParams.get('payment_status')).toBe('paid');
+
+  await row.press('Enter');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/1\/orders\/all/);
+  expect(await scrollPosition()).toEqual(before);
+  await page.goForward();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(await scrollPosition()).toEqual(before);
+  expect(fixture.writes.every(path => path === '/api/v1/display-preferences')).toBe(true);
+});
 
 test('Square order scopes, quick filters and row details retain restaurant context', async ({ page }, info) => {
   const { fixture, queries } = await install(page);

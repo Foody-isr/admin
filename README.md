@@ -185,6 +185,13 @@ Full order list with:
 - Status update buttons on each order (accept, send to kitchen, mark ready, mark served/delivered)
 - Real-time: page re-fetches automatically to stay current
 
+The list and order detail routes share a persistent workspace. Opening or closing
+an order, including browser Back/Forward, preserves the selected date/série,
+filters, search, page and scroll position. Search runs while typing or on submit;
+older responses and live events cannot replace the current filtered results.
+Failed list requests show a retry action. Regression checks use synthetic data:
+`npx playwright test -c playwright.redesign.config.ts orders-square.spec.ts orders-detail-square.spec.ts`.
+
 ### Deliveries (`/[restaurantId]/orders/deliveries`)
 
 The dispatcher uses the shared monochrome workspace components, an explicit route
