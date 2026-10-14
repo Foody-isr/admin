@@ -69,6 +69,16 @@ the same dispatch without resending. The matching server's `docs/WHATSAPP_COEXIS
 setup and real-phone acceptance. Isolated checks use
 `npx tsx --test src/lib/whatsapp-coexistence.test.ts` and the WhatsApp Playwright suite.
 
+The WhatsApp workspace puts the connected number and one row per customer message
+first. Each row explains its actual trigger; configuration and message previews
+open in a drawer. Template choices remain a local draft until the explicit
+activation/save action. Creation has a separate review drawer and protects edited
+text on dismissal. The template library exposes approval states, while technical
+connection details, alternate Twilio connections and phone verification are
+collapsed. Existing Twilio-only installations still open their connection settings
+directly. This presentation does not change sending rules, provider selection or
+the mandatory confirmation/reminder pair.
+
 ## Selection controls
 
 Admin selections follow the Square reference: white option rows with separators,
