@@ -26,7 +26,7 @@ export function coexistenceCode(response: unknown): string | null {
   return typeof auth.code === 'string' && auth.code.length > 0 && auth.code.length <= 8192 ? auth.code : null;
 }
 
-/** Joins the independently ordered SDK code and session event once for one in-memory attempt. */
+/** Consumes the SDK code once; optional session hints never delay its server-side exchange. */
 export class CoexistenceAttempt {
   private code: string | null = null;
   private identity: CoexistenceIdentity | null = null;
@@ -38,9 +38,9 @@ export class CoexistenceAttempt {
   acceptCode(code: string) { if (!this.stopped) this.code = code; }
   /** Accept a verified session completion identity for this attempt. */
   acceptIdentity(identity: CoexistenceIdentity) { if (!this.stopped) this.identity = identity; }
-  /** Consume the joined data at most once, regardless of callback order. */
-  take(): ({ state: string; code: string } & CoexistenceIdentity) | null {
-    if (this.stopped || !this.code || !this.identity) return null;
+  /** Exchange promptly even when Meta omits or delays the session completion message. */
+  take(): ({ state: string; code: string } & Partial<CoexistenceIdentity>) | null {
+    if (this.stopped || !this.code) return null;
     const input = { state: this.state, code: this.code, ...this.identity };
     this.cancel(); return input;
   }
