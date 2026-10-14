@@ -6,6 +6,7 @@ import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./Co
 import {
   selectOrderColorStyle,
   previousItemPresentation,
+  compactOrderPresentation,
 } from "@/lib/website-v3/order-design";
 
 import { NumberInput } from "@/components/ui/NumberInput";
@@ -224,21 +225,26 @@ export function OrderPageEditor({
           <summary>{t("editorLayoutColor")}</summary>
           <label>{t("editorLayout")}</label>
           <div className="sqe-order-layouts">
-            {["list", "grid", "cards", "text", "single"].map((layout) => (
+            {["list", "grid", "cards", "text", "single", "rows"].map((layout) => (
               <button
+                type="button"
                 key={layout}
                 aria-label={t(`editorOrderLayout_${layout}`)}
                 aria-pressed={(value.layout ?? "list") === layout}
-                onClick={() => set("layout", layout)}
+                onClick={() => layout === "rows" && value.layout !== "rows"
+                  ? onChange(["appearance_overrides", "website_order"], compactOrderPresentation(value))
+                  : set("layout", layout)}
               >
                 <span data-layout={layout}>
                   {Array.from({ length: 6 }, (_, i) => (
                     <i key={i} />
                   ))}
                 </span>
+                <small>{t(`editorOrderLayout_${layout}`)}</small>
               </button>
             ))}
           </div>
+          <p>{t("editorOrderCompactHint")}</p>
           {select("columns", "editorDesktopColumns", "2", [
             ["1", "1"],
             ["2", "2"],
@@ -315,6 +321,13 @@ export function OrderPageEditor({
           {select("card_border", "editorBorder", "none", [
             ["none", "editorNone"],
             ["line", "editorOrderBorderLine"],
+            ["separator", "editorOrderBorderSeparator"],
+          ])}
+          {spacing("item_spacing", "editorOrderItemSpacing", value.card_style === "filled" ? 16 : 32, 80)}
+          {value.layout === "rows" && spacing("row_padding", "editorOrderRowPadding", 16, 48)}
+          {select("price_placement", "editorOrderPricePlacement", value.card_style === "filled" ? "bottom" : "after_description", [
+            ["after_description", "editorOrderPriceAfterDescription"],
+            ["bottom", "editorOrderPriceBottom"],
           ])}
           {select("card_radius", "editorShape", "square", [
             ["square", "editorShapeSquare"],
@@ -325,9 +338,23 @@ export function OrderPageEditor({
         <details>
           <summary>{t("editorItemImages")}</summary>
           {toggle("show_images", "editorItemImages")}
+          {(value.layout ?? "list") !== "grid" && value.layout !== "cards" && <>
+            {select("image_position", "editorOrderImagePosition", "auto", [
+              ["auto", "editorOrderInherited"],
+              ["left", "editorAlign_left"],
+              ["right", "editorAlign_right"],
+            ])}
+            {select("image_size", "editorOrderImageSize", "default", [
+              ["default", "editorOrderInherited"],
+              ["small", "editorSizeSmall"],
+              ["medium", "editorSizeMedium"],
+              ["large", "editorSizeLarge"],
+            ])}
+          </>}
           {select("image_ratio", "editorImageRatio", "square", [
             ["square", "editorShapeSquare"],
             ["landscape", "editorLandscape"],
+            ["wide", "editorOrderImageWide"],
             ["portrait", "editorPortrait"],
           ])}
           {select("image_fit", "editorImageFit", "cover", [
@@ -360,7 +387,15 @@ export function OrderPageEditor({
           {editMenuColors("cards")}
         </details>
         {toggle("show_badges", "editorBadges")}
-        {toggle("show_descriptions", "editorItemDescriptions", false)}
+        <details>
+          <summary>{t("editorItemDescriptions")}</summary>
+          {toggle("show_descriptions", "editorItemDescriptions", false)}
+          {typography("item_description", "itemDescription")}
+          {select("description_lines", "editorOrderDescriptionLines", "default", [
+            ["default", "editorOrderInherited"], ["1", "1"], ["2", "2"], ["3", "3"],
+            ["all", "editorOrderDescriptionAll"],
+          ])}
+        </details>
         {toggle("show_portions", "editorOrderPortions")}
         <details onToggle={(event) => onPreviewItem(event.currentTarget.open)}>
           <summary>{t("editorItemView")}</summary>
