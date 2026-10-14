@@ -174,6 +174,11 @@ To preview the service dashboard with synthetic preorders, run `node tests/redes
 
 ### Orders (`/[restaurantId]/orders`)
 
+Orders awaiting weight confirmation keep the primary action visible but disabled
+as **Weights to confirm** until weighing and capture have completed. The weighing
+and cancellation actions stay available; closing and status overrides cannot
+bypass this hold. The API also blocks advancement and automatic kitchen dispatch.
+
 Full order list with:
 - Status filter tabs (all / pending / active / completed)
 - Per-order: order ID, type (dine-in / pickup / delivery), customer name, amount, status badge

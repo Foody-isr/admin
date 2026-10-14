@@ -177,6 +177,7 @@ export function OrderDetailModal({
   };
 
   const handlePrimary = async (action: PrimaryAction) => {
+    if (caps.awaitingWeights || isLoading) return;
     if (action === 'accept') {
       const result = await onAccept();
       if (result?.follow_up.whatsapp_recap) setRecapOpen(true);

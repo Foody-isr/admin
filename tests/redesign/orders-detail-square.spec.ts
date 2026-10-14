@@ -21,6 +21,50 @@ async function install(page: Page, locale = 'fr', restricted = false) {
 }
 
 for (const variant of [
+  { locale: 'fr', width: 375, height: 812, pending: 'Poids à confirmer', confirm: 'Confirmer les poids', charge: 'Confirmer et débiter', next: 'Envoyer en cuisine' },
+  { locale: 'he', width: 1024, height: 900, pending: 'משקלים לאישור', confirm: 'אישור משקלים', charge: 'אישור וחיוב', next: 'שלח למטבח' },
+]) test(`held weight blocks advancement until confirmed: ${variant.locale}`, async ({ page }, info) => {
+  const fixture = await install(page, variant.locale);
+  const order = fixture.orders[0];
+  Object.assign(order, {
+    status: 'accepted', payment_status: 'authorized', settlement_status: 'held', hold_amount: 24,
+    total_amount: 20, total: 20, subtotal_amount: 20, order_type: 'pickup',
+    items: [{ id: 9901, menu_item_id: 1, name: 'Fromage de démonstration', quantity: 1, price: 20, pricing_mode: 'by_weight', price_per_kg: 100, estimated_weight_grams: 200, actual_weight_grams: null }],
+  });
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let weighCalls = 0;
+  await page.route('**/api/v1/orders/1048/weigh?**', async route => {
+    weighCalls++;
+    expect(route.request().method()).toBe('PUT');
+    expect(route.request().headers()['x-restaurant-id']).toBe('1');
+    expect(new URL(route.request().url()).searchParams.get('restaurant_id')).toBe('1');
+    expect(route.request().postDataJSON()).toEqual({ weights: [{ order_item_id: 9901, actual_weight_grams: 170 }] });
+    await gate;
+    Object.assign(order, { payment_status: 'paid', settlement_status: 'captured', captured_amount: 17, total_amount: 17, total: 17, subtotal_amount: 17 });
+    Object.assign(order.items[0], { actual_weight_grams: 170, price: 17 });
+    await route.fulfill({ json: { order_id: order.id, final_total: 17, captured_amount: 17, hold_amount: 24, settlement_status: 'captured' } });
+  });
+  await page.setViewportSize(variant);
+  await page.goto('/1/orders/1048');
+  const blocked = page.getByRole('button', { name: variant.pending, exact: true, includeHidden: true });
+  await expect(blocked).toBeDisabled();
+  await expect(page.getByRole('button', { name: variant.confirm, exact: true })).toBeEnabled();
+  expect(fixture.writes).toEqual([]);
+  await page.screenshot({ path: info.outputPath('weights-block-advancement.png') });
+  await page.getByRole('button', { name: variant.confirm, exact: true }).click();
+  await page.getByRole('dialog').last().locator('input').fill('170');
+  await page.getByRole('button', { name: variant.charge, exact: true }).click();
+  await expect.poll(() => weighCalls).toBe(1);
+  await expect(blocked).toBeDisabled();
+  release();
+  await expect(page.getByRole('button', { name: variant.next, exact: true })).toBeEnabled();
+  await expect(blocked).toHaveCount(0);
+  expect(fixture.writes).toEqual([]);
+  expect(weighCalls).toBe(1);
+});
+
+for (const variant of [
   { locale: 'fr', width: 1440, height: 1000 },
   { locale: 'fr', width: 375, height: 812 },
   { locale: 'he', width: 1024, height: 900 },
